@@ -3,6 +3,9 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 
+# git is needed by VitePress' `lastUpdated: true` to read file timestamps.
+RUN apk add --no-cache git
+
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
