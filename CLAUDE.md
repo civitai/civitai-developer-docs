@@ -1,82 +1,92 @@
-# Civitai Developer Docs
+# CLAUDE.md
 
-VitePress site served at **developer.civitai.com**. Houses the Civitai Orchestration API docs today; structured to host additional product docs (SDKs, Signals, etc.) over time.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What This Is
+
+VitePress documentation site for **developer.civitai.com**. Currently houses Orchestration API docs; structured to expand to additional product areas (SDKs, Signals, etc.).
 
 ## Commands
 
-### Local dev (standalone)
-
 ```bash
-npm install
-npm run dev                     # Vite dev server with HMR
+npm install              # install deps (uses package-lock.json)
+npm run dev              # VitePress dev server with HMR
+npm run build            # production build → .vitepress/dist/
+npm run preview          # serve the built site locally
+npm run copy:spec        # pull OpenAPI spec from sibling orchestration repo (or prod fallback)
 ```
 
-### Build
+`copy:spec` runs automatically as `predev` and `prebuild` hooks — no manual step needed for normal dev.
 
+### Via Aspire (full stack)
+
+From the dev-stack root:
 ```bash
-npm run build                   # outputs .vitepress/dist/
-npm run preview                 # serve the built site
-```
-
-### Via Aspire (recommended for full stack)
-
-```bash
-# From the dev-stack root — runs orchestration API + docs together,
-# routes developer.civitai.localhost → this site
 dotnet run --project host/Civitai.DevStack.AppHost.csproj
 ```
+The Aspire integration (`Hosting.cs` one level up) injects `VITE_ORCHESTRATION_API_URL` pointing at the local orchestrator, so "Try It" widgets hit the dev API.
 
-The Aspire integration injects `VITE_ORCHESTRATION_API_URL` pointing at the locally running orchestrator, so the "Try It" widgets hit the dev API instead of prod.
+## Architecture
 
-## Structure
+### OpenAPI spec pipeline
 
-```
-├── index.md                        # Developer Hub landing
-├── orchestration/                  # Orchestration API docs section
-│   ├── index.md                    # section landing
-│   ├── guide/                      # consumer onboarding
-│   ├── recipes/                    # task-oriented, runnable examples
-│   ├── reference/                  # auto-generated from OpenAPI spec
-│   └── internals/                  # architecture / diagrams
-├── .vitepress/
-│   ├── config.mts                  # nav, sidebar, base, plugins
-│   └── theme/                      # custom components + composables
-│       ├── components/             # AuthBar, RecipeRun, ResultViewer
-│       └── composables/            # useAuthToken, useWorkflow
-├── scripts/copy-spec.mjs           # pulls v2-consumers.json from sibling orchestration repo (or prod fallback)
-├── public/openapi/                 # spec lands here; gitignored
-├── Dockerfile                      # nginx:alpine serving dist/ for prod
-└── nginx.conf                      # cleanUrls fallback + caching
-```
+`scripts/copy-spec.mjs` resolves the `v2-consumers.json` spec:
+1. Looks for the sibling orchestration repo at `../../civitai-orchestration/repo/src/Civitai.Orchestration.Api/wwwroot/openapi/v2-consumers.json`
+2. Falls back to fetching from `https://orchestration.civitai.com/openapi/v2-consumers.json`
 
-## OpenAPI spec sync
+The spec lands at `public/openapi/v2-consumers.json` (gitignored). Both the VitePress config and the theme import it directly with `with { type: 'json' }`.
 
-`scripts/copy-spec.mjs` runs on `predev` and `prebuild`. It looks for the spec at:
+### Dynamic reference pages
 
-1. `../../civitai-orchestration/repo/src/Civitai.Orchestration.Api/wwwroot/openapi/v2-consumers.json` (sibling repo in the dev stack)
-2. Falls back to `https://orchestration.civitai.com/openapi/v2-consumers.json`
+API reference pages are generated at build time from the OpenAPI spec via VitePress dynamic routes:
+- `orchestration/reference/operations/[operationId].paths.js` — generates one page per operation using `vitepress-openapi`'s `usePaths()`
+- `orchestration/reference/operations/[operationId].md` — template that renders `<OAOperation>` for each operation
+- Dead-link checker is configured to ignore `/orchestration/reference/operations/` paths since they only exist at build time
 
-To refresh the local reference while iterating on the orchestrator:
+### Theme and custom components
 
-```bash
-# From the orchestration repo
-dotnet build src/Civitai.Orchestration.Api
-# Then in this repo — either restart `npm run dev` or run:
-npm run copy:spec
-```
+`.vitepress/theme/index.ts` extends the default VitePress theme and registers three global components:
+
+| Component | Purpose |
+|-----------|---------|
+| `AuthBar` | Navbar pill for entering/managing a Civitai API token (stored in `localStorage` at key `civitai-developer-docs:token`) |
+| `RecipeRun` | Interactive widget on recipe pages: preview cost → submit workflow → poll → display results |
+| `ResultViewer` | Renders workflow output (media, JSON) inside RecipeRun |
+
+Two composables support these:
+- `useAuthToken` — shared singleton ref backed by localStorage, syncs across tabs via `storage` event
+- `useWorkflow` — orchestration API client: `previewCost()` (whatif), `submit()` + polling with backoff, error handling
+
+The auth token is shared between AuthBar and the vitepress-openapi playground (both use the same `civitai-developer-docs` storage prefix).
+
+### Content structure
+
+- `orchestration/guide/` — consumer onboarding (auth, workflows, submitting, results, errors)
+- `orchestration/recipes/` — task-oriented runnable examples using `<RecipeRun>` (some are stubs)
+- `orchestration/reference/` — auto-generated from OpenAPI spec
+- `orchestration/internals/` — architecture diagrams (Mermaid)
+
+### VitePress plugins
+
+- `vitepress-openapi` — OpenAPI reference UI and sidebar generation
+- `vitepress-plugin-mermaid` — Mermaid diagram rendering (config uses `withMermaid` wrapper)
+- `vitepress-plugin-llms` — generates `llms.txt` / `llms-full.txt` for LLM consumption
 
 ## Adding a new product section
 
-1. Create a top-level directory (e.g. `signals/`).
-2. Add sidebar + nav entries in [.vitepress/config.mts](.vitepress/config.mts).
-3. Add a feature card to the root [index.md](index.md).
+1. Create a top-level directory (e.g. `signals/`)
+2. Add sidebar + nav entries in `.vitepress/config.mts`
+3. Add a feature card to the root `index.md`
 
 ## Prod deployment
 
-Built via `docker build . -t civitai-developer-docs`. In CI, mount the freshly built orchestration spec into the build context or rely on the prod fallback in `copy-spec.mjs`. Deployment manifests (K8s / Talos) live in [gpu-fleet-infra](../../gpu-fleet-infra/repo/) — TODO: add a manifest for this service.
+Docker build: `docker build . -t civitai-developer-docs`
+- Multi-stage: Node 20 build → nginx:alpine runtime
+- `copy-spec.mjs` falls back to prod API when no sibling repo is in the build context
+- `nginx.conf` handles VitePress `cleanUrls` rewrites and asset caching
 
-## Interactive "Try It" widgets
+## Key gotchas
 
-- `<RecipeRun method="POST" path="..." :body="{...}" />` — preview cost, submit, poll, render media output.
-- `<OAOperation :operationId="..." />` on reference pages — built-in playground from vitepress-openapi.
-- Token stored at localStorage key `civitai-developer-docs:token` (shared between AuthBar navbar widget and the OpenAPI playground).
+- The OpenAPI spec file (`public/openapi/v2-consumers.json`) is gitignored. If `npm run dev` or `npm run build` fails with a missing import, run `npm run copy:spec` first.
+- `srcExclude` in config.mts excludes `CLAUDE.md` and `README.md` from the built site.
+- `VITE_ORCHESTRATION_API_URL` defaults to `https://orchestration.civitai.com` in the composable when not set (standalone dev without Aspire).
