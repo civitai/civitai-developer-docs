@@ -57,6 +57,11 @@ const sidebar: DefaultTheme.Sidebar = {
       items: [
         { text: 'WAN video generation', link: '/orchestration/recipes/wan' },
         { text: 'LTX2 video generation', link: '/orchestration/recipes/ltx2' },
+        { text: 'Kling video generation', link: '/orchestration/recipes/kling' },
+        { text: 'Vidu video generation', link: '/orchestration/recipes/vidu' },
+        { text: 'Veo 3 video generation', link: '/orchestration/recipes/veo3' },
+        { text: 'Grok video generation', link: '/orchestration/recipes/grok-video' },
+        { text: 'HunyuanVideo generation', link: '/orchestration/recipes/hunyuan' },
         { text: 'Video upscaling', link: '/orchestration/recipes/video-upscaler' },
         { text: 'Video frame interpolation', link: '/orchestration/recipes/video-interpolation' },
       ],
