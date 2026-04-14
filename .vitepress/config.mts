@@ -50,8 +50,20 @@ const sidebar: DefaultTheme.Sidebar = {
       text: 'Recipes',
       items: [
         { text: 'Overview', link: '/orchestration/recipes/' },
+      ],
+    },
+    {
+      text: 'Video',
+      items: [
         { text: 'WAN video generation', link: '/orchestration/recipes/wan' },
         { text: 'LTX2 video generation', link: '/orchestration/recipes/ltx2' },
+        { text: 'Video upscaling', link: '/orchestration/recipes/video-upscaler' },
+        { text: 'Video frame interpolation', link: '/orchestration/recipes/video-interpolation' },
+      ],
+    },
+    {
+      text: 'Image',
+      items: [
         { text: 'Flux 2 image generation', link: '/orchestration/recipes/flux2' },
         { text: 'Flux 1 image generation', link: '/orchestration/recipes/flux1' },
         { text: 'Z-Image generation', link: '/orchestration/recipes/zimage' },
@@ -66,13 +78,26 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Grok image generation', link: '/orchestration/recipes/grok' },
         { text: 'WAN image generation', link: '/orchestration/recipes/wan-image' },
         { text: 'Image upscaling', link: '/orchestration/recipes/image-upscaler' },
-        { text: 'Video upscaling', link: '/orchestration/recipes/video-upscaler' },
-        { text: 'Video frame interpolation', link: '/orchestration/recipes/video-interpolation' },
+      ],
+    },
+    {
+      text: 'Audio',
+      items: [
         { text: 'Transcription', link: '/orchestration/recipes/transcription' },
         { text: 'Text-to-speech', link: '/orchestration/recipes/text-to-speech' },
         { text: 'ACE-Step music generation', link: '/orchestration/recipes/ace-step-audio' },
-        { text: 'Prompt enhancement', link: '/orchestration/recipes/prompt-enhancement' },
+      ],
+    },
+    {
+      text: 'Language models',
+      items: [
         { text: 'Chat completion', link: '/orchestration/recipes/chat-completion' },
+      ],
+    },
+    {
+      text: 'Utilities',
+      items: [
+        { text: 'Prompt enhancement', link: '/orchestration/recipes/prompt-enhancement' },
         { text: 'Image conversion', link: '/orchestration/recipes/convert-image' },
       ],
     },
