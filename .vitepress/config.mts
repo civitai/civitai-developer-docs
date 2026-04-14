@@ -72,6 +72,8 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Text-to-speech', link: '/orchestration/recipes/text-to-speech' },
         { text: 'ACE-Step music generation', link: '/orchestration/recipes/ace-step-audio' },
         { text: 'Prompt enhancement', link: '/orchestration/recipes/prompt-enhancement' },
+        { text: 'Chat completion', link: '/orchestration/recipes/chat-completion' },
+        { text: 'Image conversion', link: '/orchestration/recipes/convert-image' },
       ],
     },
   ],

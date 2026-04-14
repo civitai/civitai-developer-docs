@@ -36,9 +36,14 @@ Task-oriented, end-to-end examples. Each recipe walks through a real workflow: w
 - [Text-to-speech](./text-to-speech) — built-in speakers with optional style prompt, or voice cloning from a reference clip
 - [ACE-Step music generation](./ace-step-audio) — full songs from a style description + structured lyrics, 2B turbo default with optional 4B XL overrides; audio-only MP3 or MP4 with a still cover image
 
-## Other
+## Language models
+
+- [Chat completion](./chat-completion) — any OpenRouter model or Civitai AIR model, vision inputs, tool use, streaming; OpenAI-compatible `/v1/chat/completions` endpoint or workflow step
+
+## Utilities
 
 - [Prompt enhancement](./prompt-enhancement) — LLM rewrites a user prompt for a target ecosystem (Flux / SDXL / SD1 / LTX2), returns issues + recommendations + enhanced prompt
+- [Image conversion](./convert-image) — format conversion (JPEG / PNG / WebP / GIF), resize, and region blur; flat 1 Buzz
 
 ::: tip Copy-paste runnable
 All recipes target `https://orchestration.civitai.com` and use `<your-token>` as a placeholder for your Bearer token. Drop them into curl, HTTPie, VS Code's REST Client, or any tool that speaks HTTP.
