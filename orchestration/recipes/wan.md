@@ -267,9 +267,87 @@ WAN jobs routinely run longer than 100 s (any 1080p clip ≥ 10 s; reference-to-
 | Blob URL `403` after a few minutes | Signed URL expired | Refetch the workflow to get a fresh URL. |
 | Reference prompt ignored | `@VideoN` tokens missing or misnumbered | Tokens are 1-indexed and must match items in `referenceVideoUrls`. |
 
+## Cost
+
+Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+
+WAN video pricing varies by `version`, `provider`, `resolution`, and acceleration flags. All the numbers below are per **single video** (not per second per clip unless noted).
+
+### v2.7 (FAL)
+
+Flat per-second across resolutions:
+
+```
+total = 130 × duration_seconds
+```
+
+- 5 s → **~650 Buzz**
+- 10 s → ~1 300 Buzz
+
+### v2.6 (FAL)
+
+Resolution-scaled per-second:
+
+| Resolution | Buzz per second |
+|-----------|-----------------|
+| `720p` | **130** |
+| `1080p` | **195** |
+
+- 720p × 5 s → **~650 Buzz**
+- 1080p × 5 s → **~975 Buzz**
+
+### v2.5 (FAL)
+
+Flat 600 Buzz per video regardless of length.
+
+### v2.2 (FAL, `text-to-video` / `image-to-video`)
+
+Driven by Turbo / LoRA / standard, plus resolution:
+
+| Mode | `720p` | `580p` | `480p` |
+|------|--------|--------|--------|
+| Turbo | **~130 / video** (flat) | ~97.5 | ~65 |
+| With LoRA | **~94.9 × duration** | ~94.9 × duration | ~94.9 × duration |
+| Standard | **~104 × duration** | ~78 × duration | ~52 × duration |
+
+Typical: 720p Turbo 5 s → ~130; 720p standard 5 s → ~520; 720p LoRA 5 s → ~475.
+
+### v2.2-5b (FAL)
+
+| Mode | Buzz per video |
+|------|----------------|
+| Fast-wan `720p` | **~32.5** |
+| Distill | ~75.9 |
+| Standard | ~142.35 |
+| Image-to-video | ~142.35 (flat) |
+
+### v2.2 (Comfy, Civitai-hosted)
+
+Variable per-pixel-per-step formula with an 8× markup, minimum **100 Buzz**, rounded up to the nearest 25:
+
+```
+areaCost    = max(a × width × height + b, 0)    // per-frame per-step compute factor
+duration    = length × steps × areaCost
+buzz        = max(100, ceil((duration × 420/3600 × 8) / 25) × 25)
+```
+
+Where `(a, b)` is `(1.22e-6, -0.14)` for image-to-video, `(2.53e-7, -0.0259)` for text-to-video. This path is noticeably more expensive per second than the FAL routes — FAL is the default for a reason.
+
+### v2.1 (legacy)
+
+```
+total = 100 × resolutionFactor × duration
+```
+with `resolutionFactor` = 1 (480p) / 2 (720p) / 3 (1080p). 720p × 5 s → ~1 000 Buzz.
+
+### Quick reference
+
+For new integrations on `v2.6` / `v2.7` at 720p × 5 s with no LoRAs, expect **~650–975 Buzz per video**. Always `whatif=true` before long-duration / high-res submissions — costs scale linearly with duration and can escalate fast.
+
 ## Related
 
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
 - [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — production-ready result handling
 - Full parameter catalog: the `Wan<version><Provider><Operation>Input` schemas in the [API reference](/orchestration/reference/) (e.g. `Wan26FalTextToVideoInput`, `Wan27FalEditVideoInput`)
+- [`videoGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/videoGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `videoGen` surface (WAN, LTX2, Flux, etc.); import into Postman / OpenAPI Generator

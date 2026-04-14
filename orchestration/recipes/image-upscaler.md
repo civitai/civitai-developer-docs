@@ -20,7 +20,7 @@ const chainBody = {
     {
       $type: 'imageGen',
       name: 'hero',
-      input: { engine: 'flux', prompt: heroPrompt, width: 1024, height: 1024 },
+      input: { engine: 'flux2', model: 'klein', operation: 'createImage', modelVersion: '4b', prompt: heroPrompt, width: 1024, height: 1024 },
     },
     {
       $type: 'imageUpscaler',
@@ -38,7 +38,7 @@ const exactSizeBody = {
     {
       $type: 'imageGen',
       name: 'hero',
-      input: { engine: 'flux', prompt: heroPrompt, width: 1024, height: 1024 },
+      input: { engine: 'flux2', model: 'klein', operation: 'createImage', modelVersion: '4b', prompt: heroPrompt, width: 1024, height: 1024 },
     },
     {
       $type: 'imageUpscaler',
@@ -151,7 +151,10 @@ One of the most common two-step workflows — produce at native resolution, then
       "$type": "imageGen",
       "name": "hero",
       "input": {
-        "engine": "flux",
+        "engine": "flux2",
+        "model": "klein",
+        "operation": "createImage",
+        "modelVersion": "4b",
         "prompt": "A cat astronaut floating through neon space",
         "width": 1024,
         "height": 1024
@@ -187,7 +190,10 @@ Upscalers only know how to multiply (4× per pass with the default model). If yo
       "$type": "imageGen",
       "name": "hero",
       "input": {
-        "engine": "flux",
+        "engine": "flux2",
+        "model": "klein",
+        "operation": "createImage",
+        "modelVersion": "4b",
         "prompt": "A cat astronaut floating through neon space",
         "width": 1024,
         "height": 1024
@@ -253,6 +259,28 @@ Note: `imageUpscaler` output is `blob` (singular), not `blobs[]` — the step al
 
 Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) to get a fresh URL.
 
+## Cost
+
+Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+
+Cost scales with input pixel area and the total scale factor applied by `numberOfRepeats`:
+
+```
+inputMegapixels = width × height / 1 000 000
+scale           = 2 ^ numberOfRepeats      // default 4x-Remacri, 2 per pass
+total           = max(1, ceil(inputMegapixels)) × scale
+```
+
+| Shape | Buzz |
+|-------|------|
+| 512×512 input, `numberOfRepeats: 1` | **~2** |
+| 1024×1024 input, `numberOfRepeats: 1` | ~2 |
+| 2048×2048 input, `numberOfRepeats: 1` | ~8 |
+| 1024×1024 input, `numberOfRepeats: 2` | ~4 |
+| 1024×1024 input, `numberOfRepeats: 3` | ~8 |
+
+Upscaling is one of the cheapest operations exposed — even aggressive stacked passes on a 2-megapixel source land under a few dozen Buzz. The practical ceiling is usually the [upscaler's content-size cap](#runtime), not cost.
+
 ## Runtime
 
 A single pass (`numberOfRepeats: 1`) with the default 4x-Remacri on a ~1-megapixel input usually completes in 5–15 s and fits inside `wait=60`. Multiple repeats stack both runtime *and* output size — `numberOfRepeats: 3` with a 4× model produces a 64× enlargement, which will exceed the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) and is rarely what you actually want. Use `wait=0` plus webhooks/polling for anything beyond one pass, and keep the total scale in mind before cranking `numberOfRepeats`.
@@ -270,6 +298,7 @@ A single pass (`numberOfRepeats: 1`) with the default 4x-Remacri on a ~1-megapix
 ## Related
 
 - [`InvokeImageUpscalerStepTemplate`](/orchestration/reference/operations/InvokeImageUpscalerStepTemplate) — the per-recipe endpoint
+- [Endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageUpscaler/openapi.yaml) — standalone OpenAPI 3.1 YAML for this endpoint, ready to import into Postman / Insomnia / OpenAPI Generator
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — generic path for chaining
 - [Video upscaling](./video-upscaler) — the `videoUpscaler` equivalent for video
 - [Workflows & Jobs → Dependencies](/orchestration/guide/workflows-and-jobs#dependencies-parallelism) — how the `@step.output.*` references work

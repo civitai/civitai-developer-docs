@@ -2,6 +2,7 @@
 aside: false
 outline: false
 title: "{{ $params.pageTitle }}"
+copyPage: false
 ---
 
 <script setup lang="ts">

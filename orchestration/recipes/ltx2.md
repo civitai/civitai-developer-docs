@@ -349,6 +349,29 @@ LTX2.3 `22b-dev` at 1280×720 / 5 s typically runs 2–5 minutes; `editVideo` an
 | Audio-to-video lip-sync poor | Attention scale too low, or audio clipping | Raise `audioToVideoAttentionScale` (e.g. `2.0` → `3.0`); re-encode source audio at constant bitrate. |
 | Edit-video loses structure | Canny guide too weak | Raise `guideStrength` (`0.7` → `0.85`) or widen the Canny thresholds. |
 
+## Cost
+
+Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+
+All LTX2 / LTX2.3 variants use the same formula — pixel volume × a per-pixel rate × a steps multiplier:
+
+```
+numFrames          = duration × fps
+pixelVolumeInMP    = (width × height × numFrames) / 1 000 000
+stepsMultiplier    = steps / 20
+
+total = ceil(pixelVolumeInMP × 0.0008 × 1000 × 1.5 × stepsMultiplier)
+```
+
+| Shape | Buzz |
+|-------|------|
+| 720p (1280×720), 5 s @ 24 fps, `steps: 20` | **~133** |
+| 720p, 5 s @ 24 fps, `steps: 40` | ~266 |
+| 720p, 10 s @ 24 fps, `steps: 20` | ~266 |
+| 1080p (1920×1080), 5 s @ 24 fps, `steps: 20` | ~299 |
+
+`extendVideo` and `editVideo` scale by their total output frame count the same way. LTX2 is the cheapest video-gen path Civitai exposes — expect roughly linear cost growth with pixels × frames × steps.
+
 ## Related
 
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
@@ -356,3 +379,4 @@ LTX2.3 `22b-dev` at 1280×720 / 5 s typically runs 2–5 minutes; `editVideo` an
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — production-ready result handling
 - [WAN video generation](./wan) — comparable recipe for the WAN model family
 - Full parameter catalog: the `ComfyLtx23<Operation>Input` and `ComfyLtx2<Operation>Input` schemas in the [API reference](/orchestration/reference/)
+- [`videoGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/videoGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `videoGen` surface (WAN, LTX2, Flux, etc.); import into Postman / OpenAPI Generator
