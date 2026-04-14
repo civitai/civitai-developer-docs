@@ -315,4 +315,4 @@ Standard 8 s typically completes in 3–7 minutes. Fast and Lite are faster. Use
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — production result handling
 - [WAN video generation](./wan) — open-source alternative
 - [Kling video generation](./kling) — another commercial video model
-- [Sora video generation](./sora) — OpenAI's commercial video model
+- [Kling video generation](./kling) — another commercial video model
