@@ -144,7 +144,7 @@ One or more source images animate into a clip. Supported on every version.
 
 <RecipeRun :body="i2vBody" />
 
-**v2.7 additions**: `endImage` to constrain the last frame of the clip (useful for loops and transitions).
+**v2.7 image-to-video uses `startImage` + `endImage`** (not `images[]`). Pass `startImage` to seed the first frame and optionally `endImage` to constrain the last frame (useful for loops and transitions). The `images[]` array accepted by v2.6 is not available on v2.7.
 
 ### reference-to-video *(v2.6, v2.7)*
 
@@ -231,7 +231,7 @@ Legacy self-hosted path. Accepts explicit `model` AIRs and `width`/`height` inst
 
 ## Reading the result
 
-On success each `videoGen` step emits an output blob per generated clip:
+On success each `videoGen` step emits a single `video` blob:
 
 ```json
 {
@@ -242,7 +242,7 @@ On success each `videoGen` step emits an output blob per generated clip:
     "$type": "videoGen",
     "status": "succeeded",
     "output": {
-      "blobs": [{ "id": "blob_...", "url": "https://.../signed.mp4" }]
+      "video": { "id": "blob_...", "url": "https://.../signed.mp4" }
     }
   }]
 }
@@ -298,7 +298,17 @@ Resolution-scaled per-second:
 
 ### v2.5 (FAL)
 
-Flat 600 Buzz per video regardless of length.
+Resolution-scaled per-second:
+
+```
+total = 100 × resolutionFactor × duration
+```
+
+with `resolutionFactor` = 1 (480p) / 2 (720p) / 3 (1080p).
+
+- 720p × 5 s → **1 000 Buzz**
+- 720p × 10 s → **2 000 Buzz**
+- 480p × 5 s → **500 Buzz**
 
 ### v2.2 (FAL, `text-to-video` / `image-to-video`)
 

@@ -268,7 +268,7 @@ Both `turbo` and `base` share the same schema — only defaults differ. See the 
 |-------|----------|---------------|--------------|-------|-------|
 | `prompt` | ✅ | — | — | ≤ 10 000 chars | Natural-language descriptions with lighting / composition / camera cues. |
 | `negativePrompt` | | *(none)* | *(none)* | ≤ 10 000 chars | Most useful on `base`; effectively ignored on `turbo` because `cfgScale: 1`. |
-| `width` / `height` | | `1024` | `1024` | `64`–`2048` | Divisible by 8. |
+| `width` / `height` | | `1024` | `1024` | `64`–`2048` | Divisible by 16. |
 | `cfgScale` | | `1` | `4` | `0`–`30` | Turbo: keep at `1`. Base: `3`–`5` is the sweet spot. |
 | `steps` | | `9` | `20` | `1`–`150` | Turbo: `8`–`12`. Base: `20`–`30`. |
 | `sampleMethod` | | `euler` | `euler` | enum | [`SdCppSampleMethod`](/orchestration/reference/). |

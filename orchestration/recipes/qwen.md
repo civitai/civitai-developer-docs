@@ -181,7 +181,7 @@ Common sdcpp-qwen parameters:
 | `version` | `latest` | `latest` / `2509` / `2512` (create + variant) / `2511` (edit) | Model release snapshot. `latest` follows whichever is current. |
 | `prompt` | — ✅ | ≤ 10 000 chars | Natural-language works well on Qwen. |
 | `negativePrompt` | *(none)* | ≤ 10 000 chars | Optional. |
-| `width` / `height` | `1024` | `64`–`2048`, divisible by 8 | Qwen-Image 20B is trained at 1024². Well-behaved aspect ratios stay near that pixel count. On `editImage` / `createVariant` width/height are inferred from the source and treated as read-only. |
+| `width` / `height` | `1024` | `64`–`2048`, divisible by 8 | Qwen-Image 20B is trained at 1024². Well-behaved aspect ratios stay near that pixel count. On `editImage` / `createVariant`, width/height are inferred from the source image if omitted; you may still supply them explicitly. |
 | `cfgScale` | `2.5` | `0`–`30` | Lower than most image models — `2`–`4` is the sweet spot. |
 | `steps` | `20` | `1`–`150` | `20`–`30` typical. |
 | `sampleMethod` | `euler` | enum | [`SdCppSampleMethod`](/orchestration/reference/). |
@@ -302,7 +302,7 @@ Pass up to **10 reference images** via `images[]` — Qwen-Image's edit variant 
 
 <RecipeRun :body="sdcppEditBody" :wait="60" />
 
-Width/height are inferred from the source image(s); sending them produces a 400.
+Width/height are inferred from the source image(s) when omitted.
 
 ## fal — FAL-hosted Qwen2 (with Pro tier)
 
@@ -430,7 +430,7 @@ createImage / createVariant:
   total = 30 × (width × height / 1328²) × (steps / 20) × quantity
 
 editImage:
-  total = 40 × (width × height / 1328²) × (steps / 20) × (1 + (numImages − 1) × 0.1) × quantity
+  total = 40 × (width × height / 1024²) × (steps / 20) × (1 + (numImages − 1) × 0.1) × quantity
 ```
 
 | Shape | Buzz |
@@ -438,8 +438,8 @@ editImage:
 | `createImage`, 1024²/`steps: 20`/`quantity: 1` | **~18** |
 | `createImage`, 1328²/`steps: 20`/`quantity: 1` | ~30 |
 | `createImage`, 1024²/`steps: 20`/`quantity: 4` | ~72 |
-| `editImage`, 1 ref, 1024²/`steps: 20` | ~24 |
-| `editImage`, 3 refs, 1024²/`steps: 20` | ~29 |
+| `editImage`, 1 ref, 1024²/`steps: 20` | **40** |
+| `editImage`, 3 refs, 1024²/`steps: 20` | **48** |
 
 **FAL Qwen2** (`engine: "fal"`) — commercial tier routed through FAL. Base cost is fixed per operation, per image. `createImage` is cheapest; `proCreateImage` / `proEditImage` cost meaningfully more. Use `whatif=true` to confirm pricing for your shape — FAL pricing shifts independently of the sdcpp path.
 
@@ -449,7 +449,7 @@ editImage:
 |---------|--------------|-----|
 | `400` with "ecosystem must be qwen" | Typo | Lowercase `"qwen"` — not `"Qwen"` or `"qwen2"` (that's the fal `model`, not the sdcpp ecosystem). |
 | `400` with "version must be one of" | Picked a version that isn't valid for that operation | Edit supports `latest`/`2509`/`2511`; create + variant support `latest`/`2509`/`2512`. |
-| `400` with "width/height is readOnly" on edit/variant | Sent dimensions on an edit or variant request | Drop `width`/`height`; they're inferred from the source. |
+| `400` with unexpected "width/height" error on edit/variant | Dimensions conflict with source resolution | Omit `width`/`height`; they auto-populate from the source. |
 | `400` with "imageSize must be one of" on fal | Arbitrary dimensions on FAL path | FAL Qwen2 uses the enum — pick `square_hd`, `landscape_16_9`, etc. Use the sdcpp path for arbitrary dimensions. |
 | `400` with "images maxItems" | More than 10 source images on sdcpp `editImage`, or more than 3 on fal `editImage` | Trim the array. |
 | LoRA has no effect on FAL | FAL Qwen2 doesn't support LoRAs | Switch to the sdcpp path. |

@@ -305,7 +305,7 @@ Key differences from sdcpp:
 | Max `width` / `height` | `1216` | `2048` |
 | `negativePrompt` | ✅ | — |
 
-Comfy also supports `createVariant` with the same shape, using `image: { url: "..." }` (object wrapper) and `denoiseStrength` instead of the plain `image` / `strength` pair sdcpp uses. See the [`ComfyFlux1VariantImageGenInput` schema](/orchestration/reference/) for the full field list.
+Comfy also supports `createVariant` with the same shape, using a plain `image` string (URL, data URL, or Base64) and `denoiseStrength` instead of the plain `image` / `strength` pair sdcpp uses. See the [`ComfyFlux1VariantImageGenInput` schema](/orchestration/reference/) for the full field list.
 
 ## flux1-kontext (managed editing tier)
 

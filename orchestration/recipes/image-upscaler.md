@@ -273,11 +273,11 @@ total           = max(1, ceil(inputMegapixels)) × scale
 
 | Shape | Buzz |
 |-------|------|
-| 512×512 input, `numberOfRepeats: 1` | **~2** |
-| 1024×1024 input, `numberOfRepeats: 1` | ~2 |
-| 2048×2048 input, `numberOfRepeats: 1` | ~8 |
-| 1024×1024 input, `numberOfRepeats: 2` | ~4 |
-| 1024×1024 input, `numberOfRepeats: 3` | ~8 |
+| 512×512 input, `numberOfRepeats: 1` | **2** |
+| 1024×1024 input, `numberOfRepeats: 1` | **4** |
+| 2048×2048 input, `numberOfRepeats: 1` | **10** |
+| 1024×1024 input, `numberOfRepeats: 2` | **8** |
+| 1024×1024 input, `numberOfRepeats: 3` | **16** |
 
 Upscaling is one of the cheapest operations exposed — even aggressive stacked passes on a 2-megapixel source land under a few dozen Buzz. The practical ceiling is usually the [upscaler's content-size cap](#runtime), not cost.
 

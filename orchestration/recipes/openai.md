@@ -200,7 +200,7 @@ Same shape as `gpt-image-1.5` but older weights. Reach for it when you need:
 | `prompt` | — ✅ | ≤ 4 000 chars | DALL·E 3 silently rewrites short/vague prompts — write verbose directives for control. |
 | `size` | — ✅ | `1024x1024` / `1792x1024` / `1024x1792` | Required field on DALL·E 3 (unlike GPT-Image, which has a default). |
 | `style` | `vivid` | `natural` / `vivid` | `vivid` pushes hyper-real colours; `natural` stays closer to the prompt. |
-| `quality` | `auto` | `auto` / `standard` / `hd` | `hd` doubles cost and runtime. |
+| `quality` | `auto` | `auto` / `standard` / `hd` | All quality tiers cost the same Buzz (300 flat per image); `hd` increases runtime only. |
 
 DALL·E 3 doesn't support `editImage` or multiple samples — `quantity` isn't on the schema.
 
@@ -232,7 +232,7 @@ Only include for legacy compatibility. Prompt ≤ 1000 chars, square outputs onl
 | `prompt` | ≤ 1000 chars | Much tighter than newer models. |
 | `quantity` | `1`–`10` | |
 
-Supports `editImage` with `images[]`, but honestly — use GPT-Image 1 or 1.5 unless you have a reason not to.
+Supports `editImage` with `image` (a single source string, not an array), but honestly — use GPT-Image 1 or 1.5 unless you have a reason not to.
 
 ## Reading the result
 

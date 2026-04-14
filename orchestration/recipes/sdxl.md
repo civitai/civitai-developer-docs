@@ -152,11 +152,11 @@ Common sdcpp-sdxl parameters:
 | `model` | — ✅ | AIR URN | SDXL checkpoint. See the [catalog](https://civitai.com/models?baseModels=SDXL+1.0). |
 | `prompt` | — ✅ | ≤ 10 000 chars | Tag-style or natural language. Quality tags (`masterpiece, best quality, …`) still help. |
 | `negativePrompt` | *(none)* | ≤ 10 000 chars | Recommended. `worst quality, low quality, blurry` is a solid starting point. |
-| `width` / `height` | `1024` | `64`–`2048`, divisible by 8 | SDXL's native resolution is 1024×1024. Well-behaved aspect ratios: 1024×1024, 1152×896, 896×1152, 1216×832, 832×1216, 1344×768, 768×1344, 1536×640, 640×1536. |
+| `width` / `height` | `1024` | `64`–`2048`, divisible by 16 | SDXL's native resolution is 1024×1024. Well-behaved aspect ratios: 1024×1024, 1152×896, 896×1152, 1216×832, 832×1216, 1344×768, 768×1344, 1536×640, 640×1536. |
 | `cfgScale` | `7` | `0`–`30` | `6`–`8` works for most SDXL checkpoints; LCM/Turbo variants want `1`–`2`. |
 | `steps` | `20` | `1`–`150` | `20`–`30` typical. LCM/Turbo checkpoints need fewer (`4`–`8`). |
 | `sampleMethod` | `euler` | enum | [`SdCppSampleMethod`](/orchestration/reference/). |
-| `schedule` | `simple` | enum | [`SdCppSchedule`](/orchestration/reference/). |
+| `schedule` | `discrete` | enum | [`SdCppSchedule`](/orchestration/reference/). |
 | `vaeModel` | *(checkpoint VAE)* | AIR URN | Override baked-in VAE. Rarely needed. |
 | `loras` | `{}` | `{ airUrn: strength }` | Stack multiple; `0.6`–`1.0` strengths typical. |
 | `embeddings` | `[]` | array of AIR URNs | Textual inversions. Reference them in the prompt / negative prompt by their embedding name. |

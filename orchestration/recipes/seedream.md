@@ -60,12 +60,12 @@ Seedream is ByteDance's image-generation family. Single engine, multiple version
 
 | `version` | Notes |
 |-----------|-------|
-| `v3` | Earliest version. Compatibility only — prefer `v4` or newer. |
-| `v4` | **Default** — balanced quality and speed, standard workhorse. |
-| `v4.5` | Refined v4. Same shape, better detail. |
+| `v3` | Earliest version. Compatibility only — prefer `v4.5` or newer. |
+| `v4` | Balanced quality and speed; lower cost than `v4.5`. |
+| `v4.5` | **Default** — refined v4, better detail. Returned when `version` is omitted. |
 | `v5.0-lite` | Latest fast tier — lighter than v4.5 with similar output characteristics for most workloads. |
 
-**Default choice for new integrations**: `version: "v4"`. Step up to `v4.5` when you want higher fidelity on the same shape; try `v5.0-lite` for faster / cheaper output on the newest release.
+**Default choice for new integrations**: `version: "v4.5"` (also the API default when the field is omitted). Use `v4` when you want lower cost with slightly less detail; try `v5.0-lite` for faster / cheaper output on the newest release.
 
 Unlike most image engines exposed here, Seedream uses plain `width` / `height` (not an enum) and accepts very large outputs — up to 4096 px per side.
 
@@ -103,7 +103,7 @@ Content-Type: application/json
 
 | Field | Default | Range | Notes |
 |-------|---------|-------|-------|
-| `version` | — | `v3` / `v4` / `v4.5` / `v5.0-lite` | Required. |
+| `version` | `v4.5` | `v3` / `v4` / `v4.5` / `v5.0-lite` | Optional; defaults to `v4.5`. |
 | `prompt` | — ✅ | ≥ 1 char | Natural-language works best. |
 | `width` / `height` | `1024` | `256`–`4096` | Plain pixel dimensions. Stay near ~1 MP for native output; push higher only when you need print-size output. |
 | `quantity` | `1` | `1`–`12` | |
@@ -226,15 +226,16 @@ total = base × quantity
 
 | Version | Base (per image) |
 |---------|------------------|
-| `v4.5` | **~60** |
-| `v5.0-lite` | **~52** |
-| `v4` / `v3` | ~60 (similar to v4.5) |
+| `v4.5` | **60** |
+| `v5.0-lite` | **52** |
+| `v4` / `v3` | **40** |
 
 Examples:
-- `v4`, 1024², `quantity: 1` → **~60 Buzz**
-- `v5.0-lite`, 1024², `quantity: 1` → **~52 Buzz**
-- `v4.5` at 2048², `quantity: 1` → ~60 Buzz *(dimensions don't affect the fixed base)*
-- `v4` with 3 reference images, `quantity: 1` → ~60 Buzz *(editing uses the same base)*
+- `v4.5`, 1024², `quantity: 1` → **60 Buzz**
+- `v4`, 1024², `quantity: 1` → **40 Buzz**
+- `v5.0-lite`, 1024², `quantity: 1` → **52 Buzz**
+- `v4.5` at 2048², `quantity: 1` → 60 Buzz *(dimensions don't affect the fixed base)*
+- `v4` with 3 reference images, `quantity: 1` → 40 Buzz *(editing uses the same base)*
 
 Dimensions and `images[]` count don't change Seedream's Buzz price — the provider charges per-image-generated, not per-megapixel. If you need 4K output, you pay the same as 1K.
 
@@ -243,7 +244,7 @@ Dimensions and `images[]` count don't change Seedream's Buzz price — the provi
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `400` with "version must be one of" | Typo or unsupported version slug | Use `v3`, `v4`, `v4.5`, or `v5.0-lite` (note the `v` prefix). |
-| `400` with "width/height out of range" | Below 256 or above 4096 | Clamp to `256`–`4096`, divisible by 8. |
+| `400` with "width/height out of range" | Below 256 or above 4096 | Clamp to `256`–`4096`. |
 | `400` with "images maxItems" | More than 10 source images on edit | Trim to 10. |
 | Output too saturated / painterly | `guidanceScale` too high | Seedream prefers `2`–`3` — values above 5 typically degrade output. |
 | Request timed out (`wait` expired) | High-res output, large quantity, or busy queue | Resubmit with `wait=0` and poll. |

@@ -84,7 +84,7 @@ Content-Type: application/json
 
 <RecipeRun :body="recipeBody" path="/v2/consumer/recipes/transcription" :wait="0" />
 
-Defaults: language is auto-detected, phrase-level timestamps are returned. The response is a full [`Workflow`](/orchestration/reference/operations/GetWorkflow) whose single step carries the transcript in `output.text`.
+Defaults: language is auto-detected, word-level timestamps are returned. The response is a full [`Workflow`](/orchestration/reference/operations/GetWorkflow) whose single step carries the transcript in `output.text`.
 
 ::: tip Choosing a source URL
 The URL must be **publicly fetchable** AND served by a host that supports HTTP range requests and consistent responses across requests — ffprobe streams + seeks rather than downloading the whole file. Sites that inject per-request session cookies (common on `wp-content/uploads` endpoints behind AWS ALBs) often break the seek and fail with `Failed to read frame size: Could not seek to N`. CDN-served files (jsdelivr, GitHub raw, S3 without redirect) are safe defaults; the Civitai CDN works directly.
@@ -125,7 +125,7 @@ See the [`TranscriptionInput` schema](/orchestration/reference/operations/Invoke
 | `mediaUrl` | ✅ | — | URL of the audio (or video with an audio track). Must be publicly fetchable without auth. ffprobe must be able to stream + seek the response (see tip above). |
 | `language` | | auto-detect | ISO 639-1 hint like `"en"`, `"zh"`, `"es"`, `"ja"`. Omit to let the model detect. Setting it anyway usually improves accuracy on short or noisy clips. The *output* language is returned as a full English name (`"English"`, `"Spanish"`, …), not the ISO code. |
 | `context` | | — | Optional free-text prompt describing the subject matter — helps the model spell unusual proper nouns, technical terms, or domain jargon correctly. |
-| `returnTimeStamps` | | `true` | Whether to return phrase-level `startTime` / `endTime` pairs. Leave `true` unless you don't need them; the extra cost is negligible. |
+| `returnTimeStamps` | | `true` | Whether to return word-level `startTime` / `endTime` pairs. Leave `true` unless you don't need them; the extra cost is negligible. |
 
 ## Language hints
 
@@ -171,7 +171,7 @@ Video files work as a `mediaUrl` too — pass an `.mp4` (or any container FFmpeg
 
 <RecipeRun :body="captionsBody" :wait="0" />
 
-The `output.timeStamps` array holds one entry per spoken phrase (typically a clause between pauses or punctuation), each with `{ text, startTime, endTime }` in seconds. Phrase-sized chunks are usually what you want for subtitles — each entry can map directly to one caption line. If you need finer breaks (e.g. strict N-words-per-line), split each phrase's `text` client-side and interpolate times linearly across the phrase's duration.
+The `output.timeStamps` array holds one entry per spoken word, each with `{ text, startTime, endTime }` in seconds. For subtitle generation, group adjacent word entries into phrase-sized chunks client-side; each chunk can then map directly to one caption line.
 
 ## Reading the result
 

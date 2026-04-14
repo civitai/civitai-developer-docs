@@ -100,7 +100,7 @@ Content-Type: application/json
 |-------|---------|-------|-------|
 | `prompt` | — ✅ | ≤ 10 000 chars | Booru-style tags work best. Lead with quality boosters (`masterpiece, best quality, …`). |
 | `negativePrompt` | *(none)* | ≤ 10 000 chars | Recommended. `worst quality, low quality, blurry, bad anatomy, deformed hands` is a solid starting point. |
-| `width` / `height` | `1024` | `64`–`2048`, divisible by 8 | Anima is trained around 1024² and well-behaved aspect ratios near that pixel count. |
+| `width` / `height` | `1024` | `64`–`2048`, divisible by 16 | Anima is trained around 1024² and well-behaved aspect ratios near that pixel count. |
 | `cfgScale` | `4` | `0`–`30` | **Lower than SD1/SDXL's 7.** `3`–`5` is the sweet spot for Anima. |
 | `steps` | `30` | `1`–`150` | **Higher than most sdcpp defaults.** `25`–`35` typical. |
 | `sampleMethod` | `euler` | enum | [`SdCppSampleMethod`](/orchestration/reference/). |

@@ -280,9 +280,11 @@ total = base × numImages
 | `nano-banana-2` (2K) | **156** | |
 | `nano-banana-2` (4K) | **208** | |
 | `nano-banana-pro` (1K, text-only) | **160** | |
-| `nano-banana-pro` (1K, with `images[]`) | ~180 | Image-to-image carries a small premium. |
-| `nano-banana-pro` (2K) | ~250 | |
-| `nano-banana-pro` (4K, with `images[]`) | ~340 | |
+| `nano-banana-pro` (1K, with `images[]`) | **180** | Image-to-image carries a small premium. |
+| `nano-banana-pro` (2K, text-only) | **230** | |
+| `nano-banana-pro` (2K, with `images[]`) | **250** | |
+| `nano-banana-pro` (4K, text-only) | **320** | |
+| `nano-banana-pro` (4K, with `images[]`) | **340** | |
 
 **Web-search grounding** (Nano Banana 2 only) adds **+20 Buzz per image** for each flag enabled — `enableWebSearch: true` and `enableGoogleSearch: true` stack (so +40 if both on).
 
@@ -291,7 +293,7 @@ Examples:
 - `nano-banana-2` 1K, `numImages: 1` → **~104 Buzz**
 - `nano-banana-2` 1K + web search, `numImages: 1` → **~124 Buzz**
 - `nano-banana-2` 4K, `numImages: 4` → ~832 Buzz
-- `nano-banana-pro` 2K, `numImages: 1` → **~250 Buzz**
+- `nano-banana-pro` 2K text-only, `numImages: 1` → **230 Buzz**; with `images[]` → **250 Buzz**
 
 ## Troubleshooting
 

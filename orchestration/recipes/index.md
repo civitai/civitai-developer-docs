@@ -32,7 +32,7 @@ Task-oriented, end-to-end examples. Each recipe walks through a real workflow: w
 
 ## Audio
 
-- [Transcription](./transcription) — Qwen3-ASR, multilingual, phrase-level timestamps for captioning
+- [Transcription](./transcription) — Qwen3-ASR, multilingual, word-level timestamps for captioning
 - [Text-to-speech](./text-to-speech) — built-in speakers with optional style prompt, or voice cloning from a reference clip
 - [ACE-Step music generation](./ace-step-audio) — full songs from a style description + structured lyrics, 2B turbo default with optional 4B XL overrides; audio-only MP3 or MP4 with a still cover image
 

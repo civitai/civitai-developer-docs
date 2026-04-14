@@ -459,8 +459,8 @@ These apply across all Flux 2 models (per the [`Flux2ImageGenInput` schema](/orc
 | Field | Required | Default | Notes |
 |-------|----------|---------|-------|
 | `prompt` | ✅ | — | ≤ 1000 characters. Natural-language descriptions work best — include lighting, composition, camera/lens cues. |
-| `width` | | `1024` | `512`–`2048`. Divisible by 8 (Klein: divisible by 16). |
-| `height` | | `1024` | `512`–`2048`. Divisible by 8 (Klein: divisible by 16). |
+| `width` | | `1024` | `512`–`2048`. Klein requires divisible by 16; other models have no divisibility constraint. |
+| `height` | | `1024` | `512`–`2048`. Klein requires divisible by 16; other models have no divisibility constraint. |
 | `quantity` | | `1` | `1`–`4`. Number of images returned per call. |
 | `outputFormat` | | `jpeg` | `jpeg` or `png`. `png` for lossless, `jpeg` for smaller files. |
 | `seed` | | random | `int64`. Pin for reproducibility. |

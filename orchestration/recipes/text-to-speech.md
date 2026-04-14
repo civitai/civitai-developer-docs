@@ -168,7 +168,7 @@ See the [`TextToSpeechInput` schema](/orchestration/reference/operations/InvokeT
 |-------|----------|---------|-------|
 | `text` | ✅ | — | The text to synthesise. No hard length cap, but generation time scales roughly linearly with length. |
 | `engine` | ✅ | `custom` | Which TTS backend to route to. `custom` covers both built-in speakers and voice cloning on one schema. |
-| `language` | | `Auto` | Full English language name: `"English"`, `"Chinese"`, or `"Auto"`. **Not an ISO code** — `"en"` is rejected. |
+| `language` | | `Auto` | Full English language name: `"English"`, `"Chinese"`, or `"Auto"`. ISO codes like `"en"` may not be recognised by the model — use the full English name. |
 
 ### `custom` engine
 

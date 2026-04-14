@@ -140,11 +140,11 @@ Common sdcpp-sd1 parameters:
 | `model` | — ✅ | AIR URN | SD1 checkpoint. See the [catalog](https://civitai.com/models?baseModels=SD+1.5). |
 | `prompt` | — ✅ | ≤ 10 000 chars | Booru-style tags work best. Lead with quality tags (`masterpiece, best quality, …`). |
 | `negativePrompt` | *(none)* | ≤ 10 000 chars | Strongly recommended on SD1 — `worst quality, low quality, blurry, bad anatomy, bad hands` is a solid starting point. |
-| `width` / `height` | `512` | `64`–`2048`, divisible by 8 | SD1's native resolution is 512×512. Aspect-ratio variants like 512×768 or 768×512 work; going much bigger often produces duplicated subjects. |
+| `width` / `height` | `512` | `64`–`2048`, divisible by 16 | SD1's native resolution is 512×512. Aspect-ratio variants like 512×768 or 768×512 work; going much bigger often produces duplicated subjects. |
 | `cfgScale` | `7` | `0`–`30` | `6`–`8` is the sweet spot for SD1. |
 | `steps` | `20` | `1`–`150` | `20`–`30` typical; `30`+ rarely helps. |
 | `sampleMethod` | `euler` | enum | [`SdCppSampleMethod`](/orchestration/reference/). |
-| `schedule` | `simple` | enum | [`SdCppSchedule`](/orchestration/reference/). |
+| `schedule` | `discrete` | enum | [`SdCppSchedule`](/orchestration/reference/). |
 | `clipSkip` | `-1` | int | `-1` = model default. `2` is a common hand-tuned value on many SD1 checkpoints — try it if output feels stiff. |
 | `vaeModel` | *(checkpoint VAE)* | AIR URN | Override baked-in VAE. Rarely needed. |
 | `loras` | `{}` | `{ airUrn: strength }` | Stack multiple; `0.6`–`1.0` strengths typical. |
