@@ -140,6 +140,9 @@ function accountLabel(a: string): string {
     <div v-if="!hasToken" class="recipe-run__notice">
       Set your Civitai API token via the <strong>Token</strong> button in the navbar to enable Try It.
     </div>
+    <div v-else-if="!previewed && !wf.workflow.value" class="recipe-run__notice recipe-run__notice--hint">
+      Click <strong>Preview cost</strong> to estimate the Buzz cost — then <strong>Submit for real</strong> unlocks.
+    </div>
 
     <details class="recipe-run__body" :open="showBody" @toggle="showBody = ($event.target as HTMLDetailsElement).open">
       <summary>
@@ -267,7 +270,7 @@ function accountLabel(a: string): string {
   cursor: pointer;
 }
 .recipe-run__btn:hover:not(:disabled) { border-color: var(--vp-c-brand-1); }
-.recipe-run__btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.recipe-run__btn:disabled { cursor: not-allowed; opacity: 0.55; }
 .recipe-run__btn--primary {
   background: var(--vp-c-brand-1);
   border-color: var(--vp-c-brand-1);
@@ -275,6 +278,12 @@ function accountLabel(a: string): string {
 }
 .recipe-run__btn--primary:hover:not(:disabled) {
   background: var(--vp-c-brand-2); border-color: var(--vp-c-brand-2);
+}
+.recipe-run__btn--primary:disabled {
+  background: var(--vp-c-bg-alt);
+  border-color: var(--vp-c-divider);
+  color: var(--vp-c-text-3);
+  opacity: 1;
 }
 .recipe-run__btn--ghost { background: transparent; }
 
@@ -288,6 +297,7 @@ function accountLabel(a: string): string {
   color: var(--vp-c-text-2);
 }
 .recipe-run__notice--info { border-style: solid; border-color: var(--vp-c-brand-soft); }
+.recipe-run__notice--hint { border-style: solid; border-color: var(--vp-c-brand-soft); color: var(--vp-c-text-1); }
 
 .recipe-run__body {
   margin-top: 0.6rem;
