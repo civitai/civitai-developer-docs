@@ -64,6 +64,26 @@ export interface RunError {
 const isWorkflow = (v: any): v is Workflow =>
   v && typeof v === 'object' && typeof v.id === 'string' && Array.isArray(v.steps);
 
+/**
+ * Deep-clone the body and replace any `seed` field with a fresh random value.
+ * The orchestrator caches identical requests and returns them at zero cost,
+ * which makes docs-site previews always show 0. Randomizing the seed ensures
+ * each Preview/Submit reflects a real generation.
+ */
+function randomizeSeeds(body: any): any {
+  if (body === null || typeof body !== 'object') return body;
+  if (Array.isArray(body)) return body.map(randomizeSeeds);
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(body)) {
+    if (k === 'seed' && (typeof v === 'number' || typeof v === 'string' || v === null)) {
+      out[k] = Math.floor(Math.random() * 2 ** 31);
+    } else {
+      out[k] = randomizeSeeds(v);
+    }
+  }
+  return out;
+}
+
 interface CallResult {
   body: any;
   response: Response;
@@ -178,7 +198,7 @@ export function useWorkflow() {
         method: opts.method ?? 'POST',
         path,
         query: { whatif: 'true' },
-        body,
+        body: randomizeSeeds(body),
       });
       preview.value = previewFromHeaders(response);
     } catch (e: any) {
@@ -213,7 +233,7 @@ export function useWorkflow() {
         method: opts.method ?? 'POST',
         path,
         query,
-        body,
+        body: randomizeSeeds(body),
       });
 
       if (recipe) {

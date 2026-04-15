@@ -44,7 +44,10 @@ function walk(node: any, onUrl: (url: string) => void) {
     if (typeof node.url === 'string' && looksLikeBlobUrl(node.url)) {
       onUrl(node.url);
     }
-    for (const v of Object.values(node)) walk(v, onUrl);
+    for (const [k, v] of Object.entries(node)) {
+      if (k === 'url' && typeof v === 'string') continue;
+      walk(v, onUrl);
+    }
   }
 }
 
