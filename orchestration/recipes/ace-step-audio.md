@@ -81,11 +81,18 @@ Without a cover image the step emits an MP3 audio blob. Attach `cover.imageUrl` 
 
 There's one step type and one invocation path; the only variant axis is the optional `model` override, which swaps the underlying diffusion checkpoint.
 
-| `model` | Best for | Notes |
-|---|---|---|
-| *(unset)* | **Default** — 2B turbo, 8-step, CFG off | `urn:air:ace:checkpoint:huggingface:Comfy-Org/ace_step_1.5_ComfyUI_files@main/checkpoints/ace_step_1.5_turbo_aio.safetensors`. Single all-in-one file; fastest path. |
-| XL turbo (4B) | More fidelity at turbo speed | `urn:air:ace:checkpoint:huggingface:Comfy-Org/ace_step_1.5_ComfyUI_files@main/split_files/diffusion_models/acestep_v1.5_xl_turbo_bf16.safetensors`. Higher VRAM, slower warm-up when the split file isn't on the worker yet. |
-| XL base / SFT (4B) | Highest fidelity | `…/split_files/diffusion_models/acestep_v1.5_xl_base_bf16.safetensors` or `…_xl_sft_bf16.safetensors`. Non-turbo — designed for more sampling steps internally, typically slower. |
+All values come from Comfy-Org's [`ace_step_1.5_ComfyUI_files`](https://huggingface.co/Comfy-Org/ace_step_1.5_ComfyUI_files) HuggingFace bundle. The default (unset) is the 2B turbo all-in-one checkpoint.
+
+| `model` | Variant | Params | `steps` | `cfg` | Best for |
+|---|---|---|---|---|---|
+| *(unset)* | `urn:air:ace:checkpoint:huggingface:Comfy-Org/ace_step_1.5_ComfyUI_files@main/checkpoints/ace_step_1.5_turbo_aio.safetensors` | 2B turbo (AIO) | `8` | `1.0` | **Default** — single all-in-one file; fastest path. |
+| 2B turbo | `urn:air:ace:checkpoint:huggingface:Comfy-Org/ace_step_1.5_ComfyUI_files@main/split_files/diffusion_models/acestep_v1.5_turbo.safetensors` | 2B | `8` | `1.0` | Split-file equivalent of the default AIO. Prefer the AIO unless you're already pulling split files. |
+| 2B base | `urn:air:ace:checkpoint:huggingface:Comfy-Org/ace_step_1.5_ComfyUI_files@main/split_files/diffusion_models/acestep_v1.5_base.safetensors` | 2B | `50` | `~4` | Non-turbo 2B base — higher fidelity than turbo at the cost of sampling time. |
+| XL turbo | `urn:air:ace:checkpoint:huggingface:Comfy-Org/ace_step_1.5_ComfyUI_files@main/split_files/diffusion_models/acestep_v1.5_xl_turbo_bf16.safetensors` | 4B | `8` | `1.0` | More fidelity at turbo speed. Higher VRAM; slower first-submission while the worker pulls the split files. |
+| XL base | `urn:air:ace:checkpoint:huggingface:Comfy-Org/ace_step_1.5_ComfyUI_files@main/split_files/diffusion_models/acestep_v1.5_xl_base_bf16.safetensors` | 4B | `50` | `~4` | Highest-fidelity base 4B. Non-turbo; typically slowest. |
+| XL SFT | `urn:air:ace:checkpoint:huggingface:Comfy-Org/ace_step_1.5_ComfyUI_files@main/split_files/diffusion_models/acestep_v1.5_xl_sft_bf16.safetensors` | 4B | `50` | `~4` | Supervised-fine-tuned 4B; sibling of XL base with the same runtime characteristics. |
+
+Turbo variants are distilled to converge in 8 steps with CFG effectively off (`1.0`). Non-turbo base / SFT variants expect the full 50-step schedule with classifier-free guidance on (around `4`) — submitting them with the default `steps: 8` / `cfg: 1.0` produces underbaked output.
 
 **Default choice for new integrations**: omit `model` entirely. The 2B turbo AIO file is the default and is what Civitai's workers are consistently warm on. Reach for an XL split-file override only when the default fidelity isn't enough and you can tolerate a slow first-submission while the worker pulls the additional files.
 
