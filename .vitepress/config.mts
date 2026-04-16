@@ -74,6 +74,7 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Z-Image generation', link: '/orchestration/recipes/zimage' },
         { text: 'Qwen image generation', link: '/orchestration/recipes/qwen' },
         { text: 'Anima image generation', link: '/orchestration/recipes/anima' },
+        { text: 'ERNIE image generation', link: '/orchestration/recipes/ernie' },
         { text: 'SDXL image generation', link: '/orchestration/recipes/sdxl' },
         { text: 'SD1 image generation', link: '/orchestration/recipes/sd1' },
         { text: 'OpenAI image generation', link: '/orchestration/recipes/openai' },

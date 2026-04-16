@@ -25,6 +25,7 @@ Task-oriented, end-to-end examples. Each recipe walks through a real workflow: w
 - [Z-Image generation](./zimage) — lightweight text-to-image on sdcpp; `turbo` (default, distilled, extremely fast + cheap) or `base` when you need more fidelity
 - [Qwen image generation](./qwen) — Qwen-Image 20B on sdcpp (default) or FAL-hosted Qwen2 with a Pro tier; supports createImage + createVariant + editImage
 - [Anima image generation](./anima) — anime-tuned sdcpp ecosystem with built-in diffuser, LoRA support, createImage only
+- [ERNIE image generation](./ernie) — Baidu ERNIE Image on Comfy; `ernie` standard + `turbo` distilled variant, built-in diffuser, LoRA support, createImage only
 - [SDXL image generation](./sdxl) — Stable Diffusion XL at 1024² native via sdcpp (default) or Comfy, with createImage + createVariant
 - [SD1 image generation](./sd1) — classic Stable Diffusion 1.5 at 512² via sdcpp (default) or Comfy, with createImage + createVariant
 - [OpenAI image generation](./openai) — GPT-Image 1 / 1.5 and DALL·E 2 / 3 via OpenAI's hosted API
