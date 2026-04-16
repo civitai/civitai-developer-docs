@@ -2,7 +2,7 @@
 
 Source for [developer.civitai.com](https://developer.civitai.com) — built with [VitePress](https://vitepress.dev/).
 
-Currently covers the **Orchestration API** (submit AI workflows for video, image, audio, and text generation through a single contract). Structured to host additional product docs (SDKs, Signals, etc.) over time.
+Covers the **Orchestration API** (submit AI workflows for video, image, audio, and text generation through a single contract) and the **Civitai Site API** (browse models, images, creators, and tags on civitai.com). Structured to host additional product docs (SDKs, Signals, etc.) over time.
 
 ## Quick start
 
@@ -37,6 +37,9 @@ Produces an nginx:alpine image serving the static site.
 │   ├── recipes/                       # Runnable examples with interactive Try It widgets
 │   ├── reference/                     # Auto-generated from OpenAPI spec (dynamic routes)
 │   └── internals/                     # Architecture diagrams
+├── site/
+│   ├── guide/                         # Civitai site API: auth, pagination, errors, AIR
+│   └── reference/                     # Hand-written per-resource endpoint docs
 ├── .vitepress/
 │   ├── config.mts                     # Nav, sidebar, plugins
 │   └── theme/

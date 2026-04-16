@@ -117,6 +117,34 @@ const sidebar: DefaultTheme.Sidebar = {
       ],
     },
   ],
+  '/site/guide/': [
+    {
+      text: 'Guide',
+      items: [
+        { text: 'Introduction', link: '/site/guide/' },
+        { text: 'Getting Started', link: '/site/guide/getting-started' },
+        { text: 'Authentication', link: '/site/guide/authentication' },
+        { text: 'Pagination', link: '/site/guide/pagination' },
+        { text: 'Errors', link: '/site/guide/errors' },
+        { text: 'AIR Identifiers', link: '/site/guide/air' },
+      ],
+    },
+  ],
+  '/site/reference/': [
+    {
+      text: 'Reference',
+      items: [
+        { text: 'Overview', link: '/site/reference/' },
+        { text: 'Models', link: '/site/reference/models' },
+        { text: 'Model Versions', link: '/site/reference/model-versions' },
+        { text: 'Images', link: '/site/reference/images' },
+        { text: 'Creators', link: '/site/reference/creators' },
+        { text: 'Tags', link: '/site/reference/tags' },
+        { text: 'Users', link: '/site/reference/users' },
+        { text: 'Enums', link: '/site/reference/enums' },
+      ],
+    },
+  ],
 };
 
 export default withMermaid({
@@ -133,12 +161,15 @@ export default withMermaid({
   themeConfig: {
     nav: [
       { text: 'Orchestration', link: '/orchestration/', activeMatch: '/orchestration/' },
+      { text: 'Civitai Site', link: '/site/', activeMatch: '/site/' },
       {
         text: 'Guides',
         items: [
           { text: 'Orchestration Guide', link: '/orchestration/guide/' },
           { text: 'Orchestration Recipes', link: '/orchestration/recipes/' },
           { text: 'Orchestration Reference', link: '/orchestration/reference/' },
+          { text: 'Civitai Site Guide', link: '/site/guide/' },
+          { text: 'Civitai Site Reference', link: '/site/reference/' },
         ],
       },
     ],

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-VitePress documentation site for **developer.civitai.com**. Currently houses Orchestration API docs; structured to expand to additional product areas (SDKs, Signals, etc.).
+VitePress documentation site for **developer.civitai.com**. Houses Orchestration API docs (`/orchestration/`) and the Civitai site API docs (`/site/`); structured to expand to additional product areas (SDKs, Signals, etc.).
 
 ## Commands
 
@@ -65,6 +65,8 @@ The auth token is shared between AuthBar and the vitepress-openapi playground (b
 - `orchestration/recipes/` — task-oriented runnable examples using `<RecipeRun>` (some are stubs)
 - `orchestration/reference/` — auto-generated from OpenAPI spec
 - `orchestration/internals/` — architecture diagrams (Mermaid)
+- `site/guide/` — Civitai site API: getting started, auth, pagination, errors, AIR
+- `site/reference/` — hand-written per-resource endpoint docs sourced from the live Next.js handlers in `civitai/src/pages/api/v1/`
 
 ### VitePress plugins
 

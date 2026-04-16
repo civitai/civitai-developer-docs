@@ -10,18 +10,18 @@ hero:
       text: Orchestration API
       link: /orchestration/
     - theme: alt
-      text: Reference
-      link: /orchestration/reference/
+      text: Civitai Site API
+      link: /site/
 
 features:
   - title: Orchestration
     details: Submit AI workflows — video, image, audio, text — through a single contract that races multiple providers behind the scenes.
     link: /orchestration/
     linkText: Read the guide
-  - title: SDKs & clients
-    details: JavaScript/TypeScript client for consumers. More SDKs coming.
-    link: https://github.com/civitai/civitai-client-javascript
-    linkText: View on GitHub
+  - title: Civitai Site API
+    details: Browse and search models, images, creators, and tags on civitai.com. Look up model versions by file hash, fetch AIR identifiers, and more.
+    link: /site/
+    linkText: Read the guide
   - title: Recipes
     details: Ready-to-run examples — copy, paste, tweak. Covers video generation, image generation, upscalers, transcription, TTS, and more.
     link: /orchestration/recipes/
