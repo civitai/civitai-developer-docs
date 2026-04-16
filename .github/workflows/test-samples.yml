@@ -1,0 +1,49 @@
+name: test-samples
+
+on:
+  pull_request:
+    paths:
+      - 'site/**/*.md'
+      - 'orchestration/recipes/**/*.md'
+      - 'scripts/test-doc-samples.mjs'
+      - 'package.json'
+      - '.github/workflows/test-samples.yml'
+  schedule:
+    # 06:17 UTC daily — catches API-side drift even when docs don't change.
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+    inputs:
+      section:
+        description: 'Which section to test'
+        type: choice
+        options: [all, site, orch]
+        default: all
+
+jobs:
+  test-samples:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        section: [site, orch]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Select section
+        id: filter
+        run: |
+          input="${{ github.event.inputs.section }}"
+          if [ -n "$input" ] && [ "$input" != "all" ] && [ "$input" != "${{ matrix.section }}" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run ${{ matrix.section }} samples
+        if: steps.filter.outputs.skip != 'true'
+        env:
+          CIVITAI_TOKEN: ${{ secrets.CIVITAI_TOKEN }}
+        run: node scripts/test-doc-samples.mjs --${{ matrix.section }}

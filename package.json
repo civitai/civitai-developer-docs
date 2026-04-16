@@ -8,7 +8,10 @@
     "prebuild": "npm run copy:spec",
     "dev": "vitepress dev",
     "build": "vitepress build",
-    "preview": "vitepress preview"
+    "preview": "vitepress preview",
+    "test:samples": "node scripts/test-doc-samples.mjs",
+    "test:samples:site": "node scripts/test-doc-samples.mjs --site",
+    "test:samples:orch": "node scripts/test-doc-samples.mjs --orch"
   },
   "devDependencies": {
     "mermaid": "^11.0.0",

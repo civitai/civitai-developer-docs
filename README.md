@@ -76,6 +76,37 @@ npm run copy:spec
 2. Add sidebar and nav entries in `.vitepress/config.mts`
 3. Add a feature card to `index.md`
 
+## Testing interactive samples
+
+`<ApiTry>` widgets (site docs) and `<RecipeRun>` widgets (orchestrator recipes)
+can be exercised against the live APIs via:
+
+```bash
+CIVITAI_TOKEN=your-token npm run test:samples           # all
+CIVITAI_TOKEN=your-token npm run test:samples:site      # /site only
+CIVITAI_TOKEN=your-token npm run test:samples:orch      # /orchestration/recipes only
+```
+
+Orchestrator samples are submitted with `?whatif=true` — no Buzz is spent and
+no jobs actually run. Site samples are plain GETs. CI runs this on every PR
+that touches the samples and on a daily cron (see `.github/workflows/test-samples.yml`)
+so API drift surfaces even when docs don't change.
+
+### Skipping a known-broken sample
+
+When a sample is intentionally broken (orchestrator-side bug, placeholder URL
+awaiting a real asset, etc.), precede the widget with a `<!-- test-skip: -->`
+HTML comment on the line immediately before it:
+
+```md
+<!-- test-skip: editVideo whatif returns empty-body 500 — unskip once fixed -->
+<RecipeRun :body="editBody" />
+```
+
+The widget still renders in the docs, but the test script reports it as
+skipped (with the reason) instead of failing. Skipped samples are listed in
+the test summary as a reminder to revisit.
+
 ## License
 
 Proprietary. Copyright Civitai.

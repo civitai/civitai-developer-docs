@@ -129,4 +129,11 @@ curl "https://civitai.com/api/v1/images?postId=1981754&withMeta=true"
 curl "https://civitai.com/api/v1/images?limit=100" | jq '.metadata.nextCursor'
 ```
 
-<ApiTry path="/api/v1/images" :query="{ modelId: 827184, sort: 'Newest', limit: 10 }" />
+<ApiTry path="/api/v1/images" :query="{ postId: 1981754, withMeta: true, limit: 5 }" />
+
+::: warning
+Filtering by `modelId` on an extremely popular checkpoint (hundreds of
+thousands of images) can exceed Cloudflare's 30s timeout. For large models,
+fetch by `postId` or walk `cursor`-based pagination with `limit=100` instead
+of sorting the whole set.
+:::

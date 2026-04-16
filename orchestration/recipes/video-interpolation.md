@@ -3,7 +3,7 @@ title: Video frame interpolation
 ---
 
 <script setup>
-const sampleVideo = 'https://example.com/input.mp4';
+const sampleVideo = 'https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/head-pose-face-detection-male.mp4';
 
 const recipeBody = { video: sampleVideo };
 
@@ -100,10 +100,6 @@ Content-Type: application/json
 
 <RecipeRun :body="recipeBody" path="/v2/consumer/recipes/videoInterpolation" :wait="0" />
 
-::: warning Replace the placeholder URL
-Swap `https://example.com/input.mp4` for a real, publicly fetchable video before clicking **Submit**. Civitai-hosted clips (`video.civitai.com/...`) work without extra auth.
-:::
-
 Defaults apply `interpolationFactor: 2`. The response is a full [`Workflow`](/orchestration/reference/operations/GetWorkflow) whose single step carries the smoothed video blob.
 
 ::: tip Use `wait=0` for video
@@ -188,7 +184,7 @@ The most common two-step flow — generate a short clip at the model's native FP
 }
 ```
 
-The `{ "$ref": "clip", "path": "output.video.url" }` reference creates a dependency — `clip-smooth` doesn't start until `clip` succeeds, and the interpolator's `video` field is filled in with the generated clip's signed URL at runtime. See [Workflows & Jobs → Dependencies](/orchestration/guide/workflows-and-jobs#dependencies-parallelism) for the full reference syntax.
+The `{ "$ref": "clip", "path": "output.video.url" }` reference creates a dependency — `clip-smooth` doesn't start until `clip` succeeds, and the interpolator's `video` field is filled in with the generated clip's signed URL at runtime. See [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism) for the full reference syntax.
 
 <RecipeRun :body="chainBody" :wait="0" />
 
@@ -325,4 +321,4 @@ VFIMamba's runtime scales roughly linearly with **input-frame-count × resolutio
 - [Video upscaling](./video-upscaler) — the `videoUpscaler` recipe for increasing resolution
 - [WAN video generation](./wan) — generate clips to feed into this recipe
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — handling long-running workflows
-- [Workflows & Jobs → Dependencies](/orchestration/guide/workflows-and-jobs#dependencies-parallelism) — how the `$ref` references work
+- [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism) — how the `$ref` references work

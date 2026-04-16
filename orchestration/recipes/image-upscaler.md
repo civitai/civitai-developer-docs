@@ -175,7 +175,7 @@ One of the most common two-step workflows — produce at native resolution, then
 }
 ```
 
-The `{ "$ref": "hero", "path": "output.images[0].url" }` reference creates a dependency — `hero-4k` doesn't start until `hero` succeeds, and the upscaler's `image` field is filled in with the generated image's signed URL at runtime. See [Workflows & Jobs → Dependencies](/orchestration/guide/workflows-and-jobs#dependencies-parallelism) for the full reference syntax.
+The `{ "$ref": "hero", "path": "output.images[0].url" }` reference creates a dependency — `hero-4k` doesn't start until `hero` succeeds, and the upscaler's `image` field is filled in with the generated image's signed URL at runtime. See [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism) for the full reference syntax.
 
 <RecipeRun :body="chainBody" />
 
@@ -301,4 +301,4 @@ A single pass (`numberOfRepeats: 1`) with the default 4x-Remacri on a ~1-megapix
 - [Endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageUpscaler/openapi.yaml) — standalone OpenAPI 3.1 YAML for this endpoint, ready to import into Postman / Insomnia / OpenAPI Generator
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — generic path for chaining
 - [Video upscaling](./video-upscaler) — the `videoUpscaler` equivalent for video
-- [Workflows & Jobs → Dependencies](/orchestration/guide/workflows-and-jobs#dependencies-parallelism) — how the `@step.output.*` references work
+- [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism) — how the `@step.output.*` references work

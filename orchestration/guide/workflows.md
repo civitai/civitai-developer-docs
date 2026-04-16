@@ -1,8 +1,8 @@
 ---
-title: Workflows & Jobs
+title: Workflows
 ---
 
-# Workflows & Jobs
+# Workflows
 
 The orchestrator has three nested concepts. Most of what you do lives at the top two; the third is mostly useful for diagnostics.
 

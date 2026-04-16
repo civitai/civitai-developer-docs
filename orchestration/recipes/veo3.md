@@ -4,6 +4,7 @@ title: Veo 3 video generation
 
 <script setup>
 const sampleImage = 'https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/dd4b4ad5-040f-4f0e-baa3-6e1ff00add65/original=true,quality=90,optimized=true/26781018.jpeg';
+const sampleEndImage = 'https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/e4a8f395-8166-44a8-82b1-bb0901c10aa3/original=true,quality=90,optimized=true/19325406.jpeg';
 
 const veo3T2VBody = {
   steps: [{
@@ -59,7 +60,7 @@ const veo3FlfBody = {
     input: {
       engine: 'veo3', version: '3.1',
       prompt: 'A smooth, natural transition between the two scenes',
-      images: ['https://example.com/first.jpeg', 'https://example.com/last.jpeg'],
+      images: [sampleImage, sampleEndImage],
       aspectRatio: '16:9', duration: 8, generateAudio: false,
     },
   }],
@@ -179,10 +180,6 @@ Pass exactly two images to interpolate between a start and end frame:
 ```
 
 <RecipeRun :body="veo3FlfBody" />
-
-::: warning Placeholder URLs
-Replace `https://example.com/` placeholders with publicly fetchable image URLs before submitting.
-:::
 
 ## Reference-to-video
 

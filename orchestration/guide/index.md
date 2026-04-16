@@ -21,11 +21,6 @@ You get a single contract. The orchestrator handles provider selection, capacity
 - You want job tracking, webhooks, and resumable workflows out of the box
 - You already have an AIR (Civitai resource identifier) and want to run inference against it
 
-## When *not* to use this API
-
-- You only need to call a single model on a single provider — go to the provider directly
-- You need sub-100ms synchronous inference — orchestration adds routing overhead
-
 ## Next steps
 
 - [Quick start](./getting-started) — your first request in 5 minutes

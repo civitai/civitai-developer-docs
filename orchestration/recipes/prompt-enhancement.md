@@ -224,7 +224,7 @@ The highest-leverage pattern is to drop `promptEnhancement` in front of an `imag
 }
 ```
 
-The `{ "$ref": "enhance", "path": "output.enhancedPrompt" }` reference creates a dependency — `hero` doesn't start until `enhance` succeeds, and its `prompt` field is filled in with the rewritten text at runtime. See [Workflows & Jobs → Dependencies](/orchestration/guide/workflows-and-jobs#dependencies-parallelism).
+The `{ "$ref": "enhance", "path": "output.enhancedPrompt" }` reference creates a dependency — `hero` doesn't start until `enhance` succeeds, and its `prompt` field is filled in with the rewritten text at runtime. See [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism).
 
 <RecipeRun :body="chainBody" />
 
@@ -299,4 +299,4 @@ LLM-backed, usually 2–10 s per call including queue wait. Safe to use `wait=60
 - [Endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/promptEnhancement/openapi.yaml) — standalone OpenAPI 3.1 YAML for this endpoint, ready to import into Postman / Insomnia / OpenAPI Generator
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — generic path for chaining
 - [Flux 2](./flux2) / [Flux 1](./flux1) image generation, [WAN video generation](./wan), [LTX2 video generation](./ltx2) — downstream generation recipes that take the rewritten prompt
-- [Workflows & Jobs → Dependencies](/orchestration/guide/workflows-and-jobs#dependencies-parallelism) — feeding `output.enhancedPrompt` through `$ref`
+- [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism) — feeding `output.enhancedPrompt` through `$ref`

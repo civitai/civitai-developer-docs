@@ -24,7 +24,7 @@ const sidebar: DefaultTheme.Sidebar = {
     {
       text: 'Core Concepts',
       items: [
-        { text: 'Workflows & Jobs', link: '/orchestration/guide/workflows-and-jobs' },
+        { text: 'Workflows', link: '/orchestration/guide/workflows' },
         { text: 'Submitting Work', link: '/orchestration/guide/submitting-work' },
         { text: 'Results & Webhooks', link: '/orchestration/guide/results-and-webhooks' },
         { text: 'Errors & Retries', link: '/orchestration/guide/errors-and-retries' },

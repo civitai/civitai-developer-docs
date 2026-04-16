@@ -45,7 +45,7 @@ const captionsBody = {
   steps: [{
     $type: 'transcription',
     input: {
-      mediaUrl: 'https://example.com/clip.mp4',
+      mediaUrl: 'https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/head-pose-face-detection-male.mp4',
       returnTimeStamps: true,
     },
   }],
@@ -250,4 +250,4 @@ Real-time-factor (processing time ÷ audio length) is well below 1 on Qwen3-ASR 
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — generic path for chaining
 - [Text-to-speech](./text-to-speech) — the inverse: text → audio
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — handling long-running workflows
-- [Workflows & Jobs → Dependencies](/orchestration/guide/workflows-and-jobs#dependencies-parallelism) — how to feed `output.text` into a downstream step
+- [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism) — how to feed `output.text` into a downstream step

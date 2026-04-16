@@ -3,7 +3,7 @@ title: Video upscaling
 ---
 
 <script setup>
-const sampleVideo = 'https://example.com/input.mp4';
+const sampleVideo = 'https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/head-pose-face-detection-male.mp4';
 
 const recipeBody = { video: sampleVideo };
 
@@ -68,10 +68,6 @@ Content-Type: application/json
 ```
 
 <RecipeRun :body="recipeBody" path="/v2/consumer/recipes/videoUpscaler" :wait="0" />
-
-::: warning Replace the placeholder URL
-Swap `https://example.com/input.mp4` for a real, publicly fetchable video before clicking **Submit**. Civitai-hosted clips (`video.civitai.com/...`) work without extra auth.
-:::
 
 Defaults apply `scaleFactor: 2`. The response is a full [`Workflow`](/orchestration/reference/operations/GetWorkflow) whose single step carries the upscaled video blob.
 
@@ -166,7 +162,7 @@ The most common two-step video flow — generate at a manageable resolution, the
 }
 ```
 
-The `{ "$ref": "clip", "path": "output.video.url" }` reference creates a dependency — `clip-hd` doesn't start until `clip` succeeds, and the upscaler's `video` field is filled in with the generated clip's signed URL at runtime. See [Workflows & Jobs → Dependencies](/orchestration/guide/workflows-and-jobs#dependencies-parallelism) for the full reference syntax.
+The `{ "$ref": "clip", "path": "output.video.url" }` reference creates a dependency — `clip-hd` doesn't start until `clip` succeeds, and the upscaler's `video` field is filled in with the generated clip's signed URL at runtime. See [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism) for the full reference syntax.
 
 <RecipeRun :body="chainBody" :wait="0" />
 
@@ -253,4 +249,4 @@ FlashVSR is GPU-heavy and scales with both source resolution *and* duration. A 5
 - [Image upscaling](./image-upscaler) — the `imageUpscaler` equivalent for images
 - [WAN video generation](./wan) — generate clips to feed into this recipe
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — handling long-running workflows
-- [Workflows & Jobs → Dependencies](/orchestration/guide/workflows-and-jobs#dependencies-parallelism) — how the `$ref` references work
+- [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism) — how the `$ref` references work

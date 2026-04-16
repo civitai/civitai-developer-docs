@@ -274,8 +274,9 @@ A common pipeline — transcribe an existing clip, then synthesise the same text
 }
 ```
 
-The `{ "$ref": "quote", "path": "output.text" }` reference feeds the transcribed string into `reread`'s `text` field at runtime. See [Workflows & Jobs → Dependencies](/orchestration/guide/workflows-and-jobs#dependencies-parallelism).
+The `{ "$ref": "quote", "path": "output.text" }` reference feeds the transcribed string into `reread`'s `text` field at runtime. See [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism).
 
+<!-- test-skip: cross-step $ref inside whatif returns 500 — known orchestrator-side issue -->
 <RecipeRun :body="chainBody" :wait="0" />
 
 ## Reading the result
@@ -359,4 +360,4 @@ End-to-end time for one short sentence is typically 60–120 seconds including m
 - [Transcription](./transcription) — the inverse: audio → text
 - [ACE-Step music generation](./ace-step-audio) — lyrics + style → full song audio (different recipe, sibling capability)
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — handling long-running workflows
-- [Workflows & Jobs → Dependencies](/orchestration/guide/workflows-and-jobs#dependencies-parallelism) — feeding `output.text` into a TTS step via `$ref`
+- [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism) — feeding `output.text` into a TTS step via `$ref`

@@ -165,7 +165,7 @@ Content-Type: application/json
 
 <RecipeRun :body="coverBody" :wait="60" />
 
-`cover.imageUrl` accepts either a plain URL string or a workflow `$ref` pointing at an earlier step's output (e.g. chain an `imageGen` step to generate the album art, then feed it into `aceStepAudio` — see [Workflows & Jobs → Dependencies](/orchestration/guide/workflows-and-jobs#dependencies-parallelism)).
+`cover.imageUrl` accepts either a plain URL string or a workflow `$ref` pointing at an earlier step's output (e.g. chain an `imageGen` step to generate the album art, then feed it into `aceStepAudio` — see [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism)).
 
 ## Switching the diffusion model
 
@@ -316,7 +316,7 @@ Cover images, key, BPM, time signature, language, and instrumental / vocal weigh
 - [Transcription](./transcription) — inverse direction (audio → text); chain after `aceStepAudio` to auto-caption a track
 - [Text-to-speech](./text-to-speech) — sibling audio recipe for spoken output
 - [Flux 2 image generation](./flux2) — common upstream for generating cover art to feed into `cover.imageUrl`
-- [Workflows & Jobs → Dependencies](/orchestration/guide/workflows-and-jobs#dependencies-parallelism) — for chaining an `imageGen` cover generator into this step
+- [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism) — for chaining an `imageGen` cover generator into this step
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — handling long-running submissions (cold XL variants, webhooks)
 - Full parameter catalog: the `AceStepAudioInput` schema in the [API reference](/orchestration/reference/)
 - [Endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/aceStepAudio/openapi.yaml) — standalone OpenAPI 3.1 YAML for this endpoint
