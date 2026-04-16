@@ -71,3 +71,5 @@ curl "https://civitai.com/api/v1/creators?limit=20"
 # Find a specific creator
 curl "https://civitai.com/api/v1/creators?query=JustMaier"
 ```
+
+<ApiTry path="/api/v1/creators" :query="{ limit: 20 }" />

@@ -61,3 +61,5 @@ fetch image-level tags through it.
 # Common model tags
 curl "https://civitai.com/api/v1/tags?limit=20"
 ```
+
+<ApiTry path="/api/v1/tags" :query="{ limit: 20 }" />

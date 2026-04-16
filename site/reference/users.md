@@ -56,3 +56,12 @@ distinguish between them.
 curl -H "Authorization: Bearer $CIVITAI_TOKEN" \
   "https://civitai.com/api/v1/me"
 ```
+
+<ApiTry path="/api/v1/me" require-auth />
+
+::: tip
+Browsers block cross-origin requests that carry credentials unless the server
+allowlists the origin. If the Try It above fails with a CORS error from
+`developer.civitai.com`, use `curl` locally instead — the endpoint itself is
+working.
+:::

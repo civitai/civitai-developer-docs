@@ -24,6 +24,10 @@ Most site API endpoints are public — you can call them without a token:
 curl "https://civitai.com/api/v1/models?limit=1"
 ```
 
+Try it right here:
+
+<ApiTry path="/api/v1/models" :query="{ limit: 1 }" />
+
 Response (truncated):
 
 ```json
@@ -65,6 +69,10 @@ curl -H "Authorization: Bearer $CIVITAI_TOKEN" \
   "subscriptions": ["monthly"]
 }
 ```
+
+Set a token via the **Token** button in the navbar, then try it here:
+
+<ApiTry path="/api/v1/me" require-auth />
 
 A few endpoints (`GET /models` with the `favorites` or `hidden` flag, for
 example) also require authentication even though the base endpoint is public.

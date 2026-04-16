@@ -60,3 +60,5 @@ baking them into clients.
 ```bash
 curl "https://civitai.com/api/v1/enums" | jq '.ModelType'
 ```
+
+<ApiTry path="/api/v1/enums" />

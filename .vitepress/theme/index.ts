@@ -7,6 +7,7 @@ import './custom.css';
 import spec from '../../public/openapi/v2-consumers.json' with { type: 'json' };
 
 import Layout from './Layout.vue';
+import ApiTry from './components/ApiTry.vue';
 import AuthBar from './components/AuthBar.vue';
 import RecipeRun from './components/RecipeRun.vue';
 import ResultViewer from './components/ResultViewer.vue';
@@ -29,6 +30,7 @@ export default {
     });
     theme.enhanceApp(ctx as any);
 
+    ctx.app.component('ApiTry', ApiTry);
     ctx.app.component('AuthBar', AuthBar);
     ctx.app.component('RecipeRun', RecipeRun);
     ctx.app.component('ResultViewer', ResultViewer);

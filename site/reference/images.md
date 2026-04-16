@@ -128,3 +128,5 @@ curl "https://civitai.com/api/v1/images?postId=1981754&withMeta=true"
 # Cursor-based traversal
 curl "https://civitai.com/api/v1/images?limit=100" | jq '.metadata.nextCursor'
 ```
+
+<ApiTry path="/api/v1/images" :query="{ modelId: 827184, sort: 'Newest', limit: 10 }" />

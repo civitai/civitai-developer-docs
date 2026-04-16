@@ -101,6 +101,8 @@ bypass the published check).
 curl "https://civitai.com/api/v1/model-versions/2514310" | jq '{id, name, air, downloadUrl}'
 ```
 
+<ApiTry path="/api/v1/model-versions/2514310" />
+
 ## Get a model version by file hash
 
 ```
@@ -137,3 +139,5 @@ sha256sum model.safetensors
 curl "https://civitai.com/api/v1/model-versions/by-hash/A5F58EB1C33616C4F06BCA55AF39876A7B817913CD829CAA8ACB111B770C85CC" \
   | jq '{id, modelId, name, air}'
 ```
+
+<ApiTry path="/api/v1/model-versions/by-hash/A5F58EB1C33616C4F06BCA55AF39876A7B817913CD829CAA8ACB111B770C85CC" />

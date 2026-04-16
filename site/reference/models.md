@@ -132,6 +132,8 @@ When using `page` pagination, `metadata` additionally includes `currentPage` and
 curl "https://civitai.com/api/v1/models?limit=5&types=LORA&baseModels=SDXL%201.0&sort=Most%20Downloaded"
 ```
 
+<ApiTry path="/api/v1/models" :query="{ limit: 5, types: 'LORA', baseModels: 'SDXL 1.0', sort: 'Most Downloaded' }" />
+
 ## Get a model
 
 ```
@@ -163,3 +165,5 @@ Returns `404` if the model doesn't exist:
 ```bash
 curl "https://civitai.com/api/v1/models/827184"
 ```
+
+<ApiTry path="/api/v1/models/827184" />
