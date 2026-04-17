@@ -65,8 +65,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick));
         @keydown.escape="open = false"
       />
       <p class="auth-bar__hint">
-        Stored in your browser's localStorage. Never sent anywhere except to
-        <code>orchestration.civitai.com</code>.
+        Stored in your browser's localStorage. Only sent to Civitai domains
+        (<code>orchestration.civitai.com</code>, <code>civitai.com</code>)
+        from the interactive widgets on this site.
       </p>
       <div class="auth-bar__actions">
         <button type="button" class="auth-bar__btn" @click="open = false">Cancel</button>
@@ -117,6 +118,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick));
   margin-bottom: 0.4rem;
 }
 .auth-bar__popover input {
+  box-sizing: border-box;
   width: 100%;
   padding: 0.45rem 0.6rem;
   font: inherit; font-size: 0.85rem;
@@ -131,8 +133,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick));
 .auth-bar__hint {
   margin: 0.5rem 0 0.75rem;
   font-size: 0.72rem; color: var(--vp-c-text-2);
+  overflow-wrap: anywhere;
 }
-.auth-bar__hint code { font-size: 0.72rem; }
+.auth-bar__hint code { font-size: 0.72rem; overflow-wrap: anywhere; }
 
 .auth-bar__actions {
   display: flex; justify-content: flex-end; gap: 0.4rem;
