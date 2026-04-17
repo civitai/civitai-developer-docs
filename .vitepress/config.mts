@@ -108,15 +108,6 @@ const sidebar: DefaultTheme.Sidebar = {
       ],
     },
   ],
-  '/orchestration/internals/': [
-    {
-      text: 'Internals',
-      items: [
-        { text: 'Architecture', link: '/orchestration/internals/architecture' },
-        { text: 'Diagrams', link: '/orchestration/internals/diagrams' },
-      ],
-    },
-  ],
   '/site/guide/': [
     {
       text: 'Guide',
@@ -153,7 +144,7 @@ export default withMermaid({
   base,
   cleanUrls: true,
   lastUpdated: true,
-  srcExclude: ['**/CLAUDE.md', '**/README.md'],
+  srcExclude: ['**/CLAUDE.md', '**/README.md', 'orchestration/internals/**'],
   // The dynamic operations routes are generated from [operationId].paths.js — the
   // dead-link checker doesn't resolve them ahead of time, so we skip them here.
   ignoreDeadLinks: [/^\/orchestration\/reference\/operations\//],

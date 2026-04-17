@@ -26,4 +26,3 @@ You get a single contract. The orchestrator handles provider selection, capacity
 - [Quick start](./getting-started) — your first request in 5 minutes
 - [Recipes](/orchestration/recipes/) — end-to-end examples (WAN video, Flux images, upscaling…)
 - [API reference](/orchestration/reference/) — every operation, schema, and response
-- [Internals](/orchestration/internals/architecture) — how the orchestrator works under the hood
