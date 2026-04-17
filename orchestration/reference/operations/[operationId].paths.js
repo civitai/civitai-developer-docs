@@ -1,5 +1,5 @@
 import { usePaths } from 'vitepress-openapi';
-import spec from '../../public/openapi/v2-consumers.json' with { type: 'json' };
+import spec from '../../../public/openapi/v2-consumers.json' with { type: 'json' };
 
 export default {
   paths() {
