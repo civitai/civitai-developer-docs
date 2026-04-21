@@ -4,6 +4,41 @@ title: OpenAI image generation
 
 <script setup>
 const sampleImage = 'https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/dd4b4ad5-040f-4f0e-baa3-6e1ff00add65/original=true,quality=90,optimized=true/26781018.jpeg';
+const sampleMask = 'https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/bf537cdb-6a26-4d83-8c85-8b11dd5506ee/original=true,quality=90,optimized=true/95195919.jpeg';
+
+const gpt2Body = {
+  steps: [{
+    $type: 'imageGen',
+    input: {
+      engine: 'openai', model: 'gpt-image-2', operation: 'createImage',
+      prompt: 'A photorealistic portrait of a woman with flowers in her hair, golden hour lighting',
+      width: 1024, height: 1024, quantity: 1, quality: 'high',
+    },
+  }],
+};
+
+const gpt2EditBody = {
+  steps: [{
+    $type: 'imageGen',
+    input: {
+      engine: 'openai', model: 'gpt-image-2', operation: 'editImage',
+      prompt: 'Make it a winter scene with snow falling',
+      images: [sampleImage],
+    },
+  }],
+};
+
+const gpt2MaskEditBody = {
+  steps: [{
+    $type: 'imageGen',
+    input: {
+      engine: 'openai', model: 'gpt-image-2', operation: 'editImage',
+      prompt: 'Replace the background with a tropical beach',
+      images: [sampleImage],
+      maskImage: sampleMask,
+    },
+  }],
+};
 
 const gpt15Body = {
   steps: [{
@@ -67,23 +102,107 @@ const dalle2Body = {
 
 # OpenAI image generation
 
-The orchestrator routes OpenAI image requests to OpenAI's hosted APIs via the `imageGen` step. Four models, each with its own behaviour and quality tier:
+The orchestrator routes OpenAI image requests to OpenAI's hosted APIs via the `imageGen` step. Five models, each with its own behaviour and quality tier:
 
 | `model` | Operations | Notes |
 |---------|------------|-------|
-| `gpt-image-1.5` | `createImage` / `editImage` | **Default** — latest GPT-Image model. `createImage` + `editImage`, 4 images max, quality + background controls. |
-| `gpt-image-1` | `createImage` / `editImage` | Previous-gen GPT-Image. Up to 10 images per call. Supports `background: "transparent"`. |
+| `gpt-image-2` | `createImage` / `editImage` | **Default** — latest GPT-Image model. Arbitrary `width`/`height` (not fixed presets), optional `maskImage` for regional edits. No `background` control. |
+| `gpt-image-1.5` | `createImage` / `editImage` | Previous flagship. Fixed `size` enum, 4 images max, quality + background controls. |
+| `gpt-image-1` | `createImage` / `editImage` | Older GPT-Image. Up to 10 images per call. Supports `background: "transparent"`. |
 | `dall-e-3` | `createImage` only | Stand-alone `natural` vs `vivid` style control, `standard` / `hd` quality, up to 1792 px. |
 | `dall-e-2` | `createImage` / `editImage` | Legacy. Only supports square outputs (256² / 512² / 1024²) and 1000-char prompts. Use only for compatibility reasons. |
 
-**Default choice for new integrations**: `model: "gpt-image-1.5"`. It's OpenAI's current flagship and the drop-in for most workloads. Drop to `gpt-image-1` only if you need transparent backgrounds or `quantity > 4`; use `dall-e-3` for the style-controlled vivid output; avoid `dall-e-2` unless you specifically need it.
+**Default choice for new integrations**: `model: "gpt-image-2"`. It's OpenAI's latest flagship with flexible output dimensions and mask-based editing. Fall back to `gpt-image-1.5` if you need `background` control or prefer the fixed `size` enum; `gpt-image-1` for transparent backgrounds or `quantity > 4`; `dall-e-3` for style-controlled vivid output; avoid `dall-e-2` unless you specifically need it.
 
 ## Prerequisites
 
 - A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
 - For `editImage`: one or more source image URLs, data URLs, or Base64 strings
+- For `gpt-image-2` mask-based edits: a mask image whose fully transparent pixels (alpha = 0) indicate the region to edit
 
-## gpt-image-1.5 (default)
+## gpt-image-2 (default)
+
+```http
+POST https://orchestration.civitai.com/v2/consumer/workflows?wait=60
+Authorization: Bearer <your-token>
+Content-Type: application/json
+
+{
+  "steps": [{
+    "$type": "imageGen",
+    "input": {
+      "engine": "openai",
+      "model": "gpt-image-2",
+      "operation": "createImage",
+      "prompt": "A photorealistic portrait of a woman with flowers in her hair, golden hour lighting",
+      "width": 1024,
+      "height": 1024,
+      "quantity": 1,
+      "quality": "high"
+    }
+  }]
+}
+```
+
+<RecipeRun :body="gpt2Body" :wait="60" />
+
+### Parameters
+
+| Field | Default | Allowed | Notes |
+|-------|---------|---------|-------|
+| `prompt` | — ✅ | ≤ 32 000 chars | Natural-language works best. |
+| `width` | `1024` | 256–3840, multiple of 16 | Explicit width in pixels. |
+| `height` | `1024` | 256–3840, multiple of 16 | Explicit height in pixels. |
+| `quantity` | `1` | `1`–`4` | |
+| `quality` | `high` | `low` / `medium` / `high` | Drives pricing (see [Cost](#cost) below). |
+| `outputFormat` | `jpeg` | `jpeg` / `png` / `webp` | Inherited from the `imageGen` step. |
+
+### Editing (`editImage`)
+
+```json
+{
+  "steps": [{
+    "$type": "imageGen",
+    "input": {
+      "engine": "openai",
+      "model": "gpt-image-2",
+      "operation": "editImage",
+      "prompt": "Make it a winter scene with snow falling",
+      "images": [
+        "https://image.civitai.com/.../source.jpeg"
+      ]
+    }
+  }]
+}
+```
+
+<RecipeRun :body="gpt2EditBody" :wait="60" />
+
+In edit mode `width` / `height` are **optional**. When both are omitted, the output size is inferred from the input images (`image_size: "auto"` is sent to the model). To force explicit output dimensions, set both fields.
+
+To restrict the edit to a specific region, pass `maskImage` — a URL, data URL, or Base64 string where fully transparent pixels (alpha = 0) mark the area to modify:
+
+```json
+{
+  "steps": [{
+    "$type": "imageGen",
+    "input": {
+      "engine": "openai",
+      "model": "gpt-image-2",
+      "operation": "editImage",
+      "prompt": "Replace the background with a tropical beach",
+      "images": ["https://image.civitai.com/.../source.jpeg"],
+      "maskImage": "https://image.civitai.com/.../mask.png"
+    }
+  }]
+}
+```
+
+<RecipeRun :body="gpt2MaskEditBody" :wait="60" />
+
+Only the first image in `images[]` is masked; additional reference images are ignored by the mask.
+
+## gpt-image-1.5
 
 ```http
 POST https://orchestration.civitai.com/v2/consumer/workflows?wait=60
@@ -266,12 +385,30 @@ OpenAI's API queue is the dominant factor — Civitai routes your request straig
 | `dall-e-3` (standard) | 10–20 s | `wait=60` fine |
 | `dall-e-3` (hd) | 15–40 s | `wait=60` usually fine |
 | `gpt-image-1` / `1.5` | 10–30 s per image | `wait=60` fine for `quantity: 1`; fall back to `wait=0` for batches |
+| `gpt-image-2` | 15–45 s per image (larger dims take longer) | `wait=60` fine for `quantity: 1`; `wait=0` + poll for batches or 4K |
 
 ## Cost
 
 Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
 
-OpenAI routing bills at a flat per-image price scaled by `quantity`:
+### gpt-image-2 (size-aware)
+
+Unlike the earlier GPT-Image models, `gpt-image-2` prices scale with output dimensions as well as quality. The orchestrator finds the cheapest canonical tier whose dimensions **cover** your requested `width`/`height` (comparing rotation-aware), then bills at that tier:
+
+| Dimensions  | `low` | `medium` | `high` |
+|-------------|-------|----------|--------|
+| 1024 × 768  | 13    | 52       | 195    |
+| 1024 × 1024 | 13    | 78       | 286    |
+| 1024 × 1536 | 13    | 65       | 221    |
+| 1920 × 1080 | 13    | 52       | 208    |
+| 2560 × 1440 | 13    | 78       | 299    |
+| 3840 × 2160 | 26    | 143      | 533    |
+
+All values are Buzz per image. Final cost is `tier × quantity`, plus any priority / output-format surcharges applied by the `imageGen` step. Requests above 3840 × 2160 clamp to that row; requests smaller than 1024 × 768 floor to the cheapest row.
+
+In edit mode with `width`/`height` omitted (`image_size: "auto"`), we estimate cost from the first input image's dimensions.
+
+### Other models (flat per-quality)
 
 ```
 total = base × quantity
@@ -289,12 +426,13 @@ total = base × quantity
 | `dall-e-3` / `dall-e-2` | *(any)* | 300 |
 
 Examples:
+- `gpt-image-2` `high`, `1024×1024`, `quantity: 1` → **~286 Buzz**
+- `gpt-image-2` `high`, `1920×1080`, `quantity: 2` → **~416 Buzz**
+- `gpt-image-2` `medium`, `3840×2160`, `quantity: 1` → **~143 Buzz**
 - `gpt-image-1.5` `high`, `quantity: 1` → **~375 Buzz**
-- `gpt-image-1.5` `medium`, `quantity: 4` → **~400 Buzz**
 - `dall-e-3` `hd`, `quantity: 1` → **~300 Buzz**
-- `gpt-image-1.5` `low`, `quantity: 1` → **~25 Buzz** (cheapest drafting tier)
 
-The `size`, `background`, and `style` fields don't change the Buzz price — only `quality` (on GPT-Image) and `quantity` do.
+For the older models `size`, `background`, and `style` don't change the Buzz price — only `quality` (GPT-Image) and `quantity` do. For `gpt-image-2`, `width` / `height` **also** affect the price via the tier lookup above.
 
 ## Troubleshooting
 
