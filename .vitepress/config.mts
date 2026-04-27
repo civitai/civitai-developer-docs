@@ -61,6 +61,7 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Vidu video generation', link: '/orchestration/recipes/vidu' },
         { text: 'Veo 3 video generation', link: '/orchestration/recipes/veo3' },
         { text: 'Grok video generation', link: '/orchestration/recipes/grok-video' },
+        { text: 'Happy-Horse video generation', link: '/orchestration/recipes/happy-horse' },
         { text: 'HunyuanVideo generation', link: '/orchestration/recipes/hunyuan' },
         { text: 'Video upscaling', link: '/orchestration/recipes/video-upscaler' },
         { text: 'Video frame interpolation', link: '/orchestration/recipes/video-interpolation' },
