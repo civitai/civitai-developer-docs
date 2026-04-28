@@ -51,6 +51,17 @@ Task-oriented, end-to-end examples. Each recipe walks through a real workflow: w
 - [Prompt enhancement](./prompt-enhancement) — LLM rewrites a user prompt for a target ecosystem (Flux / SDXL / SD1 / LTX2), returns issues + recommendations + enhanced prompt
 - [Image conversion](./convert-image) — format conversion (JPEG / PNG / WebP / GIF), resize, and region blur; flat 1 Buzz
 
+## Training
+
+Train a LoRA on your own dataset using AI Toolkit. All training runs are async — submit with `wait=0` and follow up via polling or a webhook. Cost is per-epoch in Buzz; use `whatif=true` to preview the exact charge.
+
+- [SDXL & SD1 LoRA training](./training-sdxl-sd1) — classic Stable Diffusion ecosystems (50 Buzz/epoch each); cheapest pick for first fine-tunes
+- [Flux 1 LoRA training](./training-flux1) — Flux.1 Dev or Schnell (200 Buzz/epoch); higher quality, fixed BFL base checkpoints
+- [Flux 2 Klein LoRA training](./training-flux2-klein) — Flux 2 Klein 4b / 9b (50 / 100 Buzz/epoch), including image-edit training mode with control reference images
+- [Wan video LoRA training](./training-wan) — preview ecosystem for Wan 2.1 / 2.2 video LoRAs (12 Buzz/epoch)
+- [LTX2 video LoRA training](./training-ltx2) — Lightricks LTX2 and LTX 2.3 video LoRAs (LTX 2.3 flat 200 Buzz/epoch)
+- [Chroma / ERNIE / Qwen / Z-Image LoRA training](./training-other-image) — five smaller image ecosystems consolidated into one page; each section is independently runnable
+
 ::: tip Copy-paste runnable
 All recipes target `https://orchestration.civitai.com` and use `<your-token>` as a placeholder for your Bearer token. Drop them into curl, HTTPie, VS Code's REST Client, or any tool that speaks HTTP.
 :::

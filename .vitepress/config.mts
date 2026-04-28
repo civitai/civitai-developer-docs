@@ -108,6 +108,17 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Image conversion', link: '/orchestration/recipes/convert-image' },
       ],
     },
+    {
+      text: 'Training',
+      items: [
+        { text: 'SDXL & SD1 LoRA training', link: '/orchestration/recipes/training-sdxl-sd1' },
+        { text: 'Flux 1 LoRA training', link: '/orchestration/recipes/training-flux1' },
+        { text: 'Flux 2 Klein LoRA training', link: '/orchestration/recipes/training-flux2-klein' },
+        { text: 'Wan video LoRA training', link: '/orchestration/recipes/training-wan' },
+        { text: 'LTX2 video LoRA training', link: '/orchestration/recipes/training-ltx2' },
+        { text: 'Chroma / ERNIE / Qwen / Z-Image LoRA training', link: '/orchestration/recipes/training-other-image' },
+      ],
+    },
   ],
   '/site/guide/': [
     {
