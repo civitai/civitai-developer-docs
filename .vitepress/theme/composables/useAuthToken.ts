@@ -17,6 +17,27 @@ if (typeof window !== 'undefined') {
   window.addEventListener('storage', (e) => {
     if (e.key === STORAGE_KEY) tokenRef.value = e.newValue;
   });
+  void tryAutoFetchFromCivitaiCookie();
+}
+
+async function tryAutoFetchFromCivitaiCookie(): Promise<void> {
+  if (tokenRef.value) return;
+  try {
+    const res = await fetch('https://civitai.com/api/user/orchestrator-key', {
+      credentials: 'include',
+    });
+    if (!res.ok) return;
+    const data = (await res.json()) as { key?: string };
+    if (!data?.key || tokenRef.value) return;
+    tokenRef.value = data.key;
+    try {
+      window.localStorage.setItem(STORAGE_KEY, data.key);
+    } catch {
+      // localStorage may be unavailable (private mode); reactive ref still works for this session.
+    }
+  } catch {
+    // Silent: not signed in, CORS blocked, offline, etc. — fall back to manual paste.
+  }
 }
 
 export interface UseAuthTokenResult {

@@ -65,7 +65,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick));
         @keydown.escape="open = false"
       />
       <p class="auth-bar__hint">
-        Stored in your browser's localStorage. Only sent to Civitai domains
+        Auto-filled when you're signed into <code>civitai.com</code> in this
+        browser. Stored in localStorage and only sent to Civitai domains
         (<code>orchestration.civitai.com</code>, <code>civitai.com</code>)
         from the interactive widgets on this site.
       </p>
@@ -110,6 +111,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick));
   border: 1px solid var(--vp-c-divider);
   border-radius: 0.5rem;
   box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  /* The VitePress navbar sets white-space: nowrap on its descendants to keep
+     menu items inline; reset it here so the hint paragraph wraps. */
+  white-space: normal;
 }
 .auth-bar__label {
   display: block;
