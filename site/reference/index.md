@@ -10,11 +10,13 @@ All endpoints below live under `https://civitai.com/api/v1/`.
 | Resource | Endpoints |
 |----------|-----------|
 | [Models](./models) | `GET /models`, `GET /models/{id}` |
-| [Model versions](./model-versions) | `GET /model-versions/{id}`, `GET /model-versions/by-hash/{hash}` |
+| [Model versions](./model-versions) | `GET /model-versions/{id}`, `GET /model-versions/by-hash/{hash}`, `POST /model-versions/by-hash`, `POST /model-versions/by-hash/ids`, `GET /model-versions/mini/{id}` |
 | [Images](./images) | `GET /images` |
 | [Creators](./creators) | `GET /creators` |
 | [Tags](./tags) | `GET /tags` |
-| [Users](./users) | `GET /me` |
+| [Users](./users) | `GET /me`, `GET /users` |
+| [Permissions](./permissions) | `GET /permissions/check` |
+| [Vault](./vault) | `GET /vault/get`, `GET /vault/all`, `GET /vault/check-vault`, `POST /vault/toggle-version` |
 | [Enums](./enums) | `GET /enums` |
 
 ## Conventions used on this page

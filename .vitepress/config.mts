@@ -144,6 +144,8 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Creators', link: '/site/reference/creators' },
         { text: 'Tags', link: '/site/reference/tags' },
         { text: 'Users', link: '/site/reference/users' },
+        { text: 'Permissions', link: '/site/reference/permissions' },
+        { text: 'Vault', link: '/site/reference/vault' },
         { text: 'Enums', link: '/site/reference/enums' },
       ],
     },

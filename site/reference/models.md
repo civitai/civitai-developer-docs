@@ -65,6 +65,7 @@ Unknown params are silently ignored after Zod parsing; invalid ones return `400`
       "minor": false,
       "poi": false,
       "sfwOnly": false,
+      "mode": null,
       "stats": {
         "downloadCount": 1272529,
         "thumbsUpCount": 79272,
@@ -124,7 +125,7 @@ When using `page` pagination, `metadata` additionally includes `currentPage` and
 - `page * limit` above 1000 returns `429`; use `cursor` for deep paging. See [Pagination](../guide/pagination).
 - Including `query` without `cursor` is fine; combining `query` with `page` returns `400`.
 - Only `Published` versions are returned to non-moderator callers. Files marked non-public by the uploader are hidden from `files[]`.
-- `images[]` is omitted entirely when the model is taken down; `files[]` and `downloadUrl` are omitted when the model is archived.
+- `mode` is non-null when the parent model has been moderated. Values: `Archived` (drops `files[]` and `downloadUrl`) and `TakenDown` (also drops `images[]`). Omitted entirely on healthy models.
 
 ### Example
 
