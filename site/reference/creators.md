@@ -58,9 +58,9 @@ endpoint.
 
 ### Notes
 
-- `page * limit > 1000` returns `429`. Beyond the first few thousand creators
-  you'll need to scope the query (e.g. with `?query=`) rather than paging
-  linearly.
+- For very deep traversals, scope with `?query=` rather than paging linearly —
+  the listing is sorted alphabetically by username, so `query=A`, `query=B`,
+  ... is a reliable way to walk the full set.
 
 ### Examples
 

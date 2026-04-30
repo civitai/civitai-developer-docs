@@ -21,7 +21,7 @@ browsing level; anonymous callers are capped at the public browsing level.
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `limit` | integer (1–200) | 100 | Number of items per page. |
+| `limit` | integer (0–200) | 50 | Number of items per page. |
 | `page` | integer | — | 1-indexed page number. Incompatible with `cursor`. |
 | `cursor` | string | — | Opaque cursor; use `metadata.nextCursor` from the previous response. |
 | `postId` | integer | — | Restrict to a specific post. |
@@ -31,7 +31,7 @@ browsing level; anonymous callers are capped at the public browsing level.
 | `username` | string | — | Filter by uploader username. Auto-slugified. |
 | `userId` | integer | — | Filter by uploader user ID. |
 | `period` | `AllTime` \| `Year` \| `Month` \| `Week` \| `Day` | `AllTime` | Time window for sort metrics. |
-| `sort` | `Most Reactions` \| `Most Comments` \| `Newest` \| `Oldest` \| ... | `Most Reactions` | |
+| `sort` | `Most Reactions` \| `Most Comments` \| `Most Collected` \| `Newest` \| `Oldest` \| `Random` | `Most Reactions` | |
 | `nsfw` | `None` \| `Soft` \| `Mature` \| `X` \| boolean | — | Legacy NSFW filter; prefer `browsingLevel`. |
 | `browsingLevel` | integer (bitmask) | — | Raw browsing-level bitmask. Takes precedence over `nsfw`. |
 | `tags` | comma-separated integers | — | Tag IDs to require on each image. |
@@ -113,8 +113,8 @@ browsing level; anonymous callers are capped at the public browsing level.
   requires `cursor`. See [Pagination](../guide/pagination).
 - On Civitai's "green" domain or from restricted regions, results are
   filtered to SFW regardless of the `nsfw` / `browsingLevel` parameter.
-- `/images` ships with a large default limit (100). Lower `limit` explicitly
-  if you're only after a handful.
+- `/images` defaults to `limit=50`. Lower it explicitly if you're only after
+  a handful, or raise it up to `200` for fewer round-trips.
 
 ### Examples
 
