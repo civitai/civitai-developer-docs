@@ -16,7 +16,7 @@ includes an `air` field you can pass directly to generation APIs.
 ## Format
 
 ```
-urn:air:{ecosystem}:{type}:{source}:{id}[@{version}][.{format}]
+urn:air:{ecosystem}:{type}:{source}:{id}[@{version}][+{fileId}][.{format}]
 ```
 
 The `urn:` and `air:` prefixes are both optional — parsers accept
@@ -34,6 +34,7 @@ The `urn:` and `air:` prefixes are both optional — parsers accept
 | `source` | Required | Hosting system: `civitai`, `civitai-r2`, `huggingface`, `orchestrator`. |
 | `id` | Required | Resource identifier within the source. For `civitai`, this is the **model ID**. |
 | `version` | Optional | Specific version (for `civitai` this is the model version ID). If omitted, the resource's default/latest version is implied. |
+| `fileId` | Optional | Specific `ModelFile` id, prefixed with `+`. Disambiguates between multiple files attached to the same version (e.g. a pruned vs. full-weight checkpoint, or a base model shipped alongside its text-encoder file). Omit to let the resolver pick the primary file. |
 | `format` | Optional | Model file format, e.g. `safetensor`, `ckpt`, `diffuser`. |
 
 ## Real examples
@@ -43,13 +44,17 @@ templates:
 
 ```
 urn:air:sdxl:checkpoint:civitai:827184@2514310
+urn:air:sdxl:checkpoint:civitai:827184@2514310+2402203
 urn:air:illustrious:checkpoint:civitai:795765@900661
 urn:air:other:upscaler:civitai:147759@164821
 urn:air:other:other:civitai-r2:civitai-worker-assets@sam_vit_b_01ec64.pth
 ```
 
-The last one is a file asset (SAM ViT-B checkpoint) stored on Civitai's R2
-bucket rather than a model version.
+The second example pins the AIR to a specific file on the version (e.g.
+`waiIllustriousSDXL_v160.safetensors`, file id `2402203`) — useful when a
+version ships multiple downloadable artifacts and you need to be explicit
+about which one to load. The last one is a file asset (SAM ViT-B checkpoint)
+stored on Civitai's R2 bucket rather than a model version.
 
 ## Type values
 
@@ -85,12 +90,15 @@ For example, to use `WAI-illustrious-SDXL v16.0` in a text-to-image workflow:
 You can also construct an AIR directly from a Civitai model version:
 
 ```
-urn:air:{baseModel}:{type}:civitai:{modelId}@{versionId}
+urn:air:{baseModel}:{type}:civitai:{modelId}@{versionId}[+{fileId}]
 ```
 
 Where `baseModel` comes from the model version's `baseModel` field
 (`SDXL 1.0` → `sdxl`, `SD 1.5` → `sd15`, etc.) and `type` maps from the
-parent model's `type` field as shown in the table above.
+parent model's `type` field as shown in the table above. Append
+`+{fileId}` (using a `ModelFile.id` from `files[]` on the model version
+response) only when you need to pin a specific file; otherwise the resolver
+picks the primary file.
 
 The site-generated `air` field already handles this mapping — prefer it over
 hand-construction when you have the option.
