@@ -120,6 +120,15 @@ const sidebar: DefaultTheme.Sidebar = {
       ],
     },
   ],
+  '/orchestration/mcp/': [
+    {
+      text: 'MCP Server',
+      items: [
+        { text: 'Overview', link: '/orchestration/mcp/' },
+        { text: 'Tools, prompts, resources', link: '/orchestration/mcp/tools' },
+      ],
+    },
+  ],
   '/site/guide/': [
     {
       text: 'Guide',

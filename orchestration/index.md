@@ -15,6 +15,9 @@ hero:
     - theme: alt
       text: Recipes
       link: /orchestration/recipes/
+    - theme: alt
+      text: MCP server
+      link: /orchestration/mcp/
 
 features:
   - title: Workflows, not endpoints
@@ -25,4 +28,6 @@ features:
     details: One recipe per job type (video-gen, image-gen, upscaling, transcription, TTS…) with validated inputs and predictable outputs.
   - title: Sync or async
     details: Poll, subscribe, or wait inline with the `wait=` parameter. Webhooks supported for production integrations.
+  - title: MCP-native
+    details: Connect Claude Desktop, claude.ai, or any MCP-aware client to the same orchestrator. 20 tools, 3 prompts, and a blob resource — over HTTP at /mcp.
 ---
