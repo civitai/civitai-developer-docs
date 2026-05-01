@@ -10,20 +10,19 @@ If you already use the orchestrator via [REST](/orchestration/guide/getting-star
 
 ## Endpoint
 
-| Environment | URL |
-|---|---|
-| Production | `https://orchestration.civitai.com/mcp` |
-| Local dev (Aspire) | `http://localhost:5190/mcp` |
+```
+https://orchestration.civitai.com/mcp
+```
 
-Transport is **Streamable HTTP** — the modern MCP HTTP transport used by remote MCP servers in Claude Desktop and claude.ai. There is no stdio binary to install; clients connect directly over HTTPS.
+Transport is **Streamable HTTP** — the modern MCP HTTP transport used by remote MCP servers in Claude Desktop and claude.ai. There is no binary to install; clients connect directly over HTTPS.
 
 ## Authentication
 
 The MCP server uses the **same Civitai API key** as the [REST API](/orchestration/guide/authentication). Send it as a Bearer token in the `Authorization` header on every request:
 
-```http
-Authorization: Bearer <your-civitai-api-key>
-```
+<McpConfigBlock kind="header" />
+
+If you've set your Civitai token in the navbar (top-right), the snippets on this page are pre-filled with it — copy and paste into your MCP client config. Otherwise they show a `YOUR_CIVITAI_API_KEY` placeholder.
 
 Most tools (`generate_image`, `generate_video`, `transcribe_audio`, …) accept anonymous calls, but tools that read or list per-user state — most notably `list_workflows` — require a token. Authenticated calls are also tracked against your account for usage and Buzz accounting, so you'll generally want one configured.
 
@@ -31,54 +30,30 @@ Most tools (`generate_image`, `generate_video`, `transcribe_audio`, …) accept 
 
 ### Claude Desktop
 
-Add the server to `~/.claude/config.json` (or use **Settings → Developer → Edit Config**):
+Add the server to `~/.claude/config.json` (or use **Settings → Developer → Edit Config**), then restart Claude Desktop:
 
-```json
-{
-  "mcpServers": {
-    "civitai-orchestration": {
-      "url": "https://orchestration.civitai.com/mcp",
-      "headers": {
-        "Authorization": "Bearer YOUR_CIVITAI_API_KEY"
-      }
-    }
-  }
-}
-```
+<McpConfigBlock kind="json" />
 
-Restart Claude Desktop. The server appears in the MCP picker, and tools become available in any conversation.
+The server appears in the MCP picker, and its tools become available in any conversation.
 
 ### claude.ai
 
 In claude.ai, add a custom remote MCP server under **Settings → Connectors → Add custom connector**:
 
 - **URL:** `https://orchestration.civitai.com/mcp`
-- **Authentication:** Custom header `Authorization` with value `Bearer YOUR_CIVITAI_API_KEY`
+- **Authentication:** Custom header `Authorization` with the Bearer value below
+
+<McpConfigBlock kind="header" />
 
 ### Claude Code / Cursor / VS Code MCP
 
 For Claude Code, run:
 
-```bash
-claude mcp add civitai-orchestration https://orchestration.civitai.com/mcp \
-  --transport http \
-  --header "Authorization: Bearer YOUR_CIVITAI_API_KEY"
-```
+<McpConfigBlock kind="cli" />
 
 For Cursor or VS Code with the MCP extension, add the same shape to your `mcp.json`:
 
-```json
-{
-  "mcpServers": {
-    "civitai-orchestration": {
-      "url": "https://orchestration.civitai.com/mcp",
-      "headers": {
-        "Authorization": "Bearer YOUR_CIVITAI_API_KEY"
-      }
-    }
-  }
-}
-```
+<McpConfigBlock kind="json" />
 
 ### Generic HTTP MCP clients
 
