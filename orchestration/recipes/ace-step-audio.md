@@ -65,7 +65,7 @@ const xlTurboBody = {
       instrumentalWeight: 1.0,
       vocalWeight: 0.0,
       seed: 3,
-      model: 'urn:air:ace:checkpoint:huggingface:Comfy-Org/ace_step_1.5_ComfyUI_files@main/split_files/diffusion_models/acestep_v1.5_xl_turbo_bf16.safetensors',
+      model: 'urn:air:ace:checkpoint:civitai:2549270@2864949',
     },
   }],
 };
@@ -86,11 +86,11 @@ All values come from Comfy-Org's [`ace_step_1.5_ComfyUI_files`](https://huggingf
 | `model` | Variant | Params | `steps` | `cfg` | Best for |
 |---|---|---|---|---|---|
 | *(unset)* | `urn:air:ace:checkpoint:huggingface:Comfy-Org/ace_step_1.5_ComfyUI_files@main/checkpoints/ace_step_1.5_turbo_aio.safetensors` | 2B turbo (AIO) | `8` | `1.0` | **Default** — single all-in-one file; fastest path. |
-| 2B turbo | `urn:air:ace:checkpoint:huggingface:Comfy-Org/ace_step_1.5_ComfyUI_files@main/split_files/diffusion_models/acestep_v1.5_turbo.safetensors` | 2B | `8` | `1.0` | Split-file equivalent of the default AIO. Prefer the AIO unless you're already pulling split files. |
-| 2B base | `urn:air:ace:checkpoint:huggingface:Comfy-Org/ace_step_1.5_ComfyUI_files@main/split_files/diffusion_models/acestep_v1.5_base.safetensors` | 2B | `50` | `~4` | Non-turbo 2B base — higher fidelity than turbo at the cost of sampling time. |
-| XL turbo | `urn:air:ace:checkpoint:huggingface:Comfy-Org/ace_step_1.5_ComfyUI_files@main/split_files/diffusion_models/acestep_v1.5_xl_turbo_bf16.safetensors` | 4B | `8` | `1.0` | More fidelity at turbo speed. Higher VRAM; slower first-submission while the worker pulls the split files. |
-| XL base | `urn:air:ace:checkpoint:huggingface:Comfy-Org/ace_step_1.5_ComfyUI_files@main/split_files/diffusion_models/acestep_v1.5_xl_base_bf16.safetensors` | 4B | `50` | `~4` | Highest-fidelity base 4B. Non-turbo; typically slowest. |
-| XL SFT | `urn:air:ace:checkpoint:huggingface:Comfy-Org/ace_step_1.5_ComfyUI_files@main/split_files/diffusion_models/acestep_v1.5_xl_sft_bf16.safetensors` | 4B | `50` | `~4` | Supervised-fine-tuned 4B; sibling of XL base with the same runtime characteristics. |
+| 2B turbo | `urn:air:ace:checkpoint:civitai:2549270@2864880` | 2B | `8` | `1.0` | Split-file equivalent of the default AIO. Prefer the AIO unless you're already pulling split files. |
+| 2B base | `urn:air:ace:checkpoint:civitai:2549270@2864864` | 2B | `50` | `~4` | Non-turbo 2B base — higher fidelity than turbo at the cost of sampling time. |
+| XL turbo | `urn:air:ace:checkpoint:civitai:2549270@2864949` | 4B | `8` | `1.0` | More fidelity at turbo speed. Higher VRAM; slower first-submission while the worker pulls the split files. |
+| XL base | `urn:air:ace:checkpoint:civitai:2549270@2864892` | 4B | `50` | `~4` | Highest-fidelity base 4B. Non-turbo; typically slowest. |
+| XL SFT | `urn:air:ace:checkpoint:civitai:2549270@2864917` | 4B | `50` | `~4` | Supervised-fine-tuned 4B; sibling of XL base with the same runtime characteristics. |
 
 Turbo variants are distilled to converge in 8 steps with CFG effectively off (`1.0`). Non-turbo base / SFT variants expect the full 50-step schedule with classifier-free guidance on (around `4`) — submitting them with the default `steps: 8` / `cfg: 1.0` produces underbaked output.
 
@@ -188,7 +188,7 @@ Content-Type: application/json
       "instrumentalWeight": 1.0,
       "vocalWeight": 0.0,
       "seed": 3,
-      "model": "urn:air:ace:checkpoint:huggingface:Comfy-Org/ace_step_1.5_ComfyUI_files@main/split_files/diffusion_models/acestep_v1.5_xl_turbo_bf16.safetensors"
+      "model": "urn:air:ace:checkpoint:civitai:2549270@2864949"
     }
   }]
 }
