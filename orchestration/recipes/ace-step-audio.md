@@ -65,7 +65,7 @@ const xlTurboBody = {
       instrumentalWeight: 1.0,
       vocalWeight: 0.0,
       seed: 3,
-      model: 'urn:air:ace:checkpoint:civitai:2549270@2864949',
+      diffusionModel: 'urn:air:ace:checkpoint:civitai:2549270@2864949',
     },
   }],
 };
@@ -79,11 +79,11 @@ Without a cover image the step emits an MP3 audio blob. Attach `cover.imageUrl` 
 
 ## Variants
 
-There's one step type and one invocation path; the only variant axis is the optional `model` override, which swaps the underlying diffusion checkpoint.
+There's one step type and one invocation path; the only variant axis is the optional `diffusionModel` override, which swaps the underlying diffusion checkpoint.
 
 All values come from Comfy-Org's [`ace_step_1.5_ComfyUI_files`](https://huggingface.co/Comfy-Org/ace_step_1.5_ComfyUI_files) HuggingFace bundle. The default (unset) is the 2B turbo all-in-one checkpoint.
 
-| `model` | Variant | Params | `steps` | `cfg` | Best for |
+| `diffusionModel` | Variant | Params | `steps` | `cfg` | Best for |
 |---|---|---|---|---|---|
 | *(unset)* | `urn:air:ace:checkpoint:huggingface:Comfy-Org/ace_step_1.5_ComfyUI_files@main/checkpoints/ace_step_1.5_turbo_aio.safetensors` | 2B turbo (AIO) | `8` | `1.0` | **Default** — single all-in-one file; fastest path. |
 | 2B turbo | `urn:air:ace:checkpoint:civitai:2549270@2864880` | 2B | `8` | `1.0` | Split-file equivalent of the default AIO. Prefer the AIO unless you're already pulling split files. |
@@ -94,7 +94,7 @@ All values come from Comfy-Org's [`ace_step_1.5_ComfyUI_files`](https://huggingf
 
 Turbo variants are distilled to converge in 8 steps with CFG effectively off (`1.0`). Non-turbo base / SFT variants expect the full 50-step schedule with classifier-free guidance on (around `4`) — submitting them with the default `steps: 8` / `cfg: 1.0` produces underbaked output.
 
-**Default choice for new integrations**: omit `model` entirely. The 2B turbo AIO file is the default and is what Civitai's workers are consistently warm on. Reach for an XL split-file override only when the default fidelity isn't enough and you can tolerate a slow first-submission while the worker pulls the additional files.
+**Default choice for new integrations**: omit `diffusionModel` entirely. The 2B turbo AIO file is the default and is what Civitai's workers are consistently warm on. Reach for an XL split-file override only when the default fidelity isn't enough and you can tolerate a slow first-submission while the worker pulls the additional files.
 
 ## Prerequisites
 
@@ -105,7 +105,7 @@ Turbo variants are distilled to converge in 8 steps with CFG effectively off (`1
 
 ## Default (2B turbo, audio-only)
 
-The default path — no `model` override, no cover. Output is an MP3 blob.
+The default path — no `diffusionModel` override, no cover. Output is an MP3 blob.
 
 ```http
 POST https://orchestration.civitai.com/v2/consumer/workflows?wait=60
@@ -169,7 +169,7 @@ Content-Type: application/json
 
 ## Switching the diffusion model
 
-Set `model` to a full AIR URN. The 2B turbo AIO is the default; everything else is a drop-in override.
+Set `diffusionModel` to a full AIR URN. The 2B turbo AIO is the default; everything else is a drop-in override.
 
 ```http
 POST https://orchestration.civitai.com/v2/consumer/workflows?wait=60
@@ -188,7 +188,7 @@ Content-Type: application/json
       "instrumentalWeight": 1.0,
       "vocalWeight": 0.0,
       "seed": 3,
-      "model": "urn:air:ace:checkpoint:civitai:2549270@2864949"
+      "diffusionModel": "urn:air:ace:checkpoint:civitai:2549270@2864949"
     }
   }]
 }
@@ -212,7 +212,7 @@ The split-file XL checkpoints require the worker to download them on first use, 
 | `key` | | `"C major"` | Musical key, e.g. `"E minor"`, `"Bb major"`. |
 | `instrumentalWeight` | | `0.85` | Range `0.0`–`1.0`. Raise toward `1.0` for instrumental-heavy mixes. |
 | `vocalWeight` | | `0.9` | Range `0.0`–`1.0`. Set to `0.0` when `lyrics` is empty or you want a pure instrumental. |
-| `model` | | *(2B turbo AIO)* | Full AIR URN for the diffusion checkpoint. See the [Variants](#variants) table. |
+| `diffusionModel` | | *(2B turbo AIO)* | Full AIR URN for the diffusion checkpoint. See the [Variants](#variants) table. |
 | `cover.imageUrl` | | *(none)* | URL (or workflow `$ref`) to a cover image. When set, output is an MP4 video with the image as the 512×512 background instead of an MP3. |
 
 ## Reading the result
@@ -305,7 +305,7 @@ Cover images, key, BPM, time signature, language, and instrumental / vocal weigh
 | `400` with `"Unable to analyze … file"` on the cover image | `cover.imageUrl` pointed at a host that rejected the orchestrator's fetch (range requests, UA block, ALB cookie gating) | Use a Civitai CDN URL, or generate the cover with an `imageGen` step and `$ref` its output. |
 | Output has scat-like placeholder vocals on an "instrumental" track | `lyrics: ""` but `vocalWeight` left at default `0.9` | Set `vocalWeight: 0.0` (and ideally `instrumentalWeight: 1.0`) whenever `lyrics` is empty. |
 | Step `failed`, `reason = "blocked"` | Content moderation on the description / lyrics / cover image | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
-| Workflow stuck in `scheduled` for >60 s on an XL `model` override | No warm worker has the split-file checkpoint yet; the first submission of a given XL variant triggers a download | Keep polling with `?wait=60`; subsequent submissions in the same hour land on the now-warm worker in ~15 s. |
+| Workflow stuck in `scheduled` for >60 s on an XL `diffusionModel` override | No warm worker has the split-file checkpoint yet; the first submission of a given XL variant triggers a download | Keep polling with `?wait=60`; subsequent submissions in the same hour land on the now-warm worker in ~15 s. |
 | Request timed out (`wait=60` returned non-terminal) | Cold XL variant, capacity pressure, or `duration` near 190 s on a busy shard | Re-issue `GET /v2/consumer/workflows/{id}?wait=60` until the response is terminal. |
 
 ## Related
