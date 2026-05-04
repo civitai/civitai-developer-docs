@@ -44,7 +44,7 @@ Task-oriented, end-to-end examples. Each recipe walks through a real workflow: w
 
 ## Language models
 
-- [Chat completion](./chat-completion) — any OpenRouter model or Civitai AIR model, vision inputs, tool use, streaming; OpenAI-compatible `/v1/chat/completions` endpoint or workflow step
+- [Chat completion](./chat-completion) — any OpenRouter model or Civitai AIR model, vision inputs, tool use, streaming, image generation via `modalities: ["image"]`; OpenAI-compatible `/v1/chat/completions` endpoint or workflow step
 
 ## Utilities
 

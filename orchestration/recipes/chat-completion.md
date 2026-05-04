@@ -136,6 +136,115 @@ Pass images in user message content parts. Any vision-capable model (e.g. `opena
 
 <RecipeRun :body="visionBody" :wait="60" />
 
+## Image generation
+
+Set `"modalities": ["image", "text"]` on the request to generate images through `/v1/chat/completions`. The response carries an `images` array on the assistant message, where each entry is a base64 data URI — the same shape OpenRouter uses, so existing OpenRouter-style SDK code works unmodified.
+
+```http
+POST https://orchestration.civitai.com/v1/chat/completions
+Authorization: Bearer <your-token>
+Content-Type: application/json
+
+{
+  "model": "google/gemini-2.5-flash-image",
+  "messages": [
+    { "role": "user", "content": "A cat in a teacup, soft window light" }
+  ],
+  "modalities": ["image", "text"],
+  "image_config": {
+    "aspect_ratio": "1:1",
+    "image_size": "1K"
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "id": "chatcmpl-...",
+  "model": "google/gemini-2.5-flash-image",
+  "choices": [{
+    "index": 0,
+    "message": {
+      "role": "assistant",
+      "content": "",
+      "images": [{
+        "type": "image_url",
+        "image_url": { "url": "data:image/png;base64,iVBOR..." }
+      }]
+    },
+    "finish_reason": "stop"
+  }]
+}
+```
+
+### Image editing (multi-turn)
+
+Pass a prior generated image (or any image URL / data URI) as a content part on a user message and the request routes through the engine's edit operation:
+
+```json
+{
+  "model": "google/gemini-2.5-flash-image",
+  "messages": [{
+    "role": "user",
+    "content": [
+      { "type": "text", "text": "Make it a dog instead of a cat." },
+      { "type": "image_url", "image_url": { "url": "data:image/png;base64,..." } }
+    ]
+  }],
+  "modalities": ["image", "text"]
+}
+```
+
+### Supported models
+
+| `model` | Engine | Operations |
+|---------|--------|------------|
+| `google/gemini-2.5-flash-image` | Gemini 2.5 Flash Image | create, edit |
+| `openai/gpt-image-1` | OpenAI gpt-image-1 | create, edit |
+| `openai/dall-e-3` | OpenAI DALL·E 3 | create |
+| `openai/dall-e-2` | OpenAI DALL·E 2 | create, edit |
+| `black-forest-labs/flux.2-dev` | Flux 2 Dev | create, edit |
+| `black-forest-labs/flux.2-flex` | Flux 2 Flex | create, edit |
+| `black-forest-labs/flux.2-pro` | Flux 2 Pro | create, edit |
+| `black-forest-labs/flux.2-max` | Flux 2 Max | create, edit |
+| `black-forest-labs/flux.2-klein` | Flux 2 Klein | create, edit |
+
+The provider prefix (`google/`, `openai/`, `black-forest-labs/`) is optional — short names like `gemini-2.5-flash-image`, `gpt-image-1`, `flux-2-dev` are also accepted. Unknown model names with `modalities: ["image"]` return `400` with the supported list.
+
+### Civitai AIR URNs
+
+Pass a Civitai [AIR](/orchestration/guide/air) URN as `model` to use a community checkpoint. The ecosystem segment of the AIR (`sd1`, `sdxl`, `flux1`, `anima`) selects the engine; the AIR is forwarded as the checkpoint:
+
+```json
+{
+  "model": "urn:air:sdxl:checkpoint:civitai:101055@128078",
+  "messages": [{ "role": "user", "content": "A cyberpunk samurai" }],
+  "modalities": ["image", "text"],
+  "image_config": { "aspect_ratio": "1:1", "image_size": "1K" }
+}
+```
+
+| Ecosystem | Engine | Operations | Notes |
+|-----------|--------|------------|-------|
+| `sd1` | SD 1.5 (sd-cpp) | create, variant | Pass an input image to trigger img2img variant. |
+| `sdxl` | SDXL (sd-cpp) | create, variant | Same — img2img variant when an input image is supplied. |
+| `flux1` | Flux 1 (sd-cpp) | create, edit | Edit operation accepts up to 2 input images; width/height clamped to 832–1216. |
+| `anima` | Anima (sd-cpp) | create | Anima checkpoints; no img2img path through chat-completions. |
+
+Other ecosystems (`zimage`, `qwen`, `wan`, `flux2`) hardcode their checkpoints — pass the matching named model instead (e.g. `flux-2-dev`) and use the [`imageGen` workflow step](./flux2) directly when you need to override the checkpoint.
+
+### `image_config`
+
+| Field | Values | Effect |
+|-------|--------|--------|
+| `aspect_ratio` | `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `21:9` | Sets width/height ratio. OpenAI engines snap to their nearest allowed size. Gemini ignores (always 1024×1024). |
+| `image_size` | `0.5K`, `1K`, `2K`, `4K` | Approximate megapixel target. Engines clamp to their supported range. |
+| `n` | 1–10 | Number of images. Falls back to the top-level `n`. Engines clamp to their supported max. |
+
+For full per-engine knobs (samplers, LoRAs, guidance scales, advanced operations), use the [`imageGen` workflow step](./flux2) directly instead — chat-completions is a thin facade tuned for SDK compatibility, not a full passthrough of every engine parameter.
+
 ## Multi-turn conversations
 
 Include prior turns as `assistant` messages to maintain context:
@@ -260,6 +369,8 @@ When the model calls a tool, the assistant message in the response contains a `t
 | `tools` | `null` | Function definitions available to the model. |
 | `tool_choice` | `null` | `"auto"`, `"none"`, `"required"`, or `{ "type": "function", "function": { "name": "..." } }`. |
 | `chatTemplateKwargs` | `null` | Extra kwargs passed to the model's chat template (vLLM-specific). |
+| `modalities` | `null` | Output modalities. Include `"image"` to route the request through the image-generation pipeline. See [Image generation](#image-generation). |
+| `imageConfig` | `null` | Image-generation parameters (`aspect_ratio`, `image_size`, `n`). Only consulted when `modalities` includes `"image"`. |
 
 ## Messages reference
 
