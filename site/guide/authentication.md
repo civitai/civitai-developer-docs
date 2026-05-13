@@ -8,6 +8,12 @@ description: How to authenticate with the Civitai site API using bearer tokens.
 The Civitai site API uses **bearer tokens** generated from your account
 settings. A single token covers every endpoint that accepts authentication.
 
+::: info Building a third-party app?
+Use [OAuth](/site/oauth/) instead of personal API keys — users authorize
+your app explicitly with the scopes it needs and can revoke it any time,
+without rotating anything on your side.
+:::
+
 ## How to pass the token
 
 Two methods are supported. The header form is strongly preferred; the

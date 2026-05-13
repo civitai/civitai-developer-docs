@@ -142,6 +142,19 @@ const sidebar: DefaultTheme.Sidebar = {
       ],
     },
   ],
+  '/site/oauth/': [
+    {
+      text: 'OAuth',
+      items: [
+        { text: 'Overview', link: '/site/oauth/' },
+        { text: 'Quickstart', link: '/site/oauth/quickstart' },
+        { text: 'Registering an app', link: '/site/oauth/register-app' },
+        { text: 'Scopes', link: '/site/oauth/scopes' },
+        { text: 'Endpoints', link: '/site/oauth/endpoints' },
+        { text: 'Buzz limits', link: '/site/oauth/buzz-limits' },
+      ],
+    },
+  ],
   '/site/reference/': [
     {
       text: 'Reference',
@@ -183,6 +196,7 @@ export default withMermaid({
           { text: 'Orchestration Recipes', link: '/orchestration/recipes/' },
           { text: 'Orchestration Reference', link: '/orchestration/reference/' },
           { text: 'Civitai Site Guide', link: '/site/guide/' },
+          { text: 'Civitai Site OAuth', link: '/site/oauth/' },
           { text: 'Civitai Site Reference', link: '/site/reference/' },
         ],
       },

@@ -22,6 +22,10 @@ features:
     details: Browse and search models, images, creators, and tags on civitai.com. Look up model versions by file hash, fetch AIR identifiers, and more.
     link: /site/
     linkText: Read the guide
+  - title: OAuth
+    details: Let users sign into your app with their Civitai account. Authorization code + PKCE, scoped tokens, refresh, and per-app buzz spend caps.
+    link: /site/oauth/
+    linkText: Integrate OAuth
   - title: Recipes
     details: Ready-to-run examples — copy, paste, tweak. Covers video generation, image generation, upscalers, transcription, TTS, and more.
     link: /orchestration/recipes/
