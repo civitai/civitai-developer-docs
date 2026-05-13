@@ -215,7 +215,7 @@ The provider prefix (`google/`, `openai/`, `black-forest-labs/`) is optional —
 
 ### Civitai AIR URNs
 
-Pass a Civitai [AIR](/orchestration/guide/air) URN as `model` to use a community checkpoint. The ecosystem segment of the AIR (`sd1`, `sdxl`, `flux1`, `anima`) selects the engine; the AIR is forwarded as the checkpoint:
+Pass a Civitai [AIR](/site/guide/air) URN as `model` to use a community checkpoint. The ecosystem segment of the AIR (`sd1`, `sdxl`, `flux1`, `anima`) selects the engine; the AIR is forwarded as the checkpoint:
 
 ```json
 {
