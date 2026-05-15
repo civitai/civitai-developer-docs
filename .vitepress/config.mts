@@ -185,6 +185,13 @@ export default withMermaid({
   // dead-link checker doesn't resolve them ahead of time, so we skip them here.
   ignoreDeadLinks: [/^\/orchestration\/reference\/operations\//],
 
+  transformPageData(pageData) {
+    const pageTitle = pageData.params?.pageTitle;
+    if (typeof pageTitle === 'string' && pageTitle.length > 0) {
+      pageData.title = pageTitle;
+    }
+  },
+
   themeConfig: {
     nav: [
       { text: 'Orchestration', link: '/orchestration/', activeMatch: '/orchestration/' },
@@ -233,7 +240,7 @@ export default withMermaid({
           'Orchestration section covers the consumer-facing REST API: authenticating, submitting workflows, polling / receiving webhooks for results, and using each recipe (videoGen/WAN, imageGen/Flux, upscalers, transcription, TTS, prompt enhancement). ' +
           'Reference pages are generated from the v2-consumers OpenAPI specification and stay in sync with the live API on every build.',
         sidebar,
-        ignoreFiles: ['orchestration/reference/operations/[operationId].md'],
+        ignoreFiles: ['orchestration/reference/operations/**/*.md'],
       }),
     ],
   },
