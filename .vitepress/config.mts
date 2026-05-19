@@ -92,6 +92,7 @@ const sidebar: DefaultTheme.Sidebar = {
       items: [
         { text: 'Transcription', link: '/orchestration/recipes/transcription' },
         { text: 'Text-to-speech', link: '/orchestration/recipes/text-to-speech' },
+        { text: 'Multi-speaker dialogue', link: '/orchestration/recipes/multi-speaker-dialogue' },
         { text: 'ACE-Step music generation', link: '/orchestration/recipes/ace-step-audio' },
       ],
     },
