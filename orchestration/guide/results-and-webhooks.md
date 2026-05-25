@@ -108,3 +108,28 @@ Output blobs come back with signed `url` fields inside `details.steps[].output.b
 ## Polling fallback
 
 If you can't expose a webhook endpoint (scripts, CLI tools, notebooks), poll [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow). Suggested cadence: 2 s, 5 s, 10 s, 15 s, then 30 s. Stop when `status` is one of `succeeded`, `failed`, `expired`, `canceled`.
+
+## Ephemeral workflows
+
+By default, a submitted workflow is retained for 30 days after it reaches a terminal state, so you can refetch it via [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) for as long as you might need the results.
+
+Set `"ephemeral": true` on the submission body to opt out of that retention entirely — the workflow is never written to long-term storage. The only way to receive its results is a callback or a synchronous `wait`:
+
+```http
+POST https://orchestration.civitai.com/v2/consumer/workflows?wait=120
+Content-Type: application/json
+
+{
+  "ephemeral": true,
+  "steps": [ /* ... */ ],
+  "callbacks": [
+    { "url": "https://your-service.example.com/civitai-hooks",
+      "type": ["workflow:succeeded", "workflow:failed"],
+      "detailed": true }
+  ]
+}
+```
+
+- **Validation.** The orchestrator rejects ephemeral submissions with neither a `callbacks` entry nor `wait > 0` (HTTP 400) — without one of those, you'd have no way to get the result.
+- **Use `detailed: true` on callbacks** (or `wait` long enough for terminal status) — once the workflow finishes, [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) returns 404 and you can't go back for it.
+- **In-flight polling still works.** While the workflow is running you can poll `GetWorkflow` as usual; only after it reaches a terminal state does the record disappear.
