@@ -45,8 +45,8 @@ Train a [WAN](./wan) video LoRA on a small set of source video clips using AI To
 
 | `modelVariant` | Wan family | Buzz / epoch |
 |----------------|-----------|--------------|
-| `2.1` | Wan 2.1 (14B) | 12 |
-| `2.2` | Wan 2.2 (14B-A14B) | 12 |
+| `2.1` | Wan 2.1 (14B) | 300 |
+| `2.2` | Wan 2.2 (14B-A14B) | 300 |
 
 ::: tip Long-running step
 Video training is the slowest training mode on the platform — single-digit minutes per epoch on a 4-clip dataset. Always use `wait=0` and follow up via webhook or polling.
@@ -156,15 +156,15 @@ Always use `wait=0`.
 ## Cost
 
 ```
-total = 12 × epochs   (Buzz, base cost)
+total = 300 × epochs   (Buzz, base cost)
 ```
 
-Cost-per-epoch is `12` per the orchestrator source. Sample-prompt rendering uses Wan video-generation rates (much higher than image samples) and is billed separately. Run with `whatif=true` to see the exact pre-flight charge.
+Cost-per-epoch is `300` per the orchestrator source. Sample-prompt rendering uses Wan video-generation rates (much higher than image samples) and is billed separately. Run with `whatif=true` to see the exact pre-flight charge.
 
 | Configuration | Buzz (training only) |
 |---------------|---------------------|
-| `epochs: 2` | 24 + samples |
-| `epochs: 5` | 60 + samples |
+| `epochs: 2` | 600 + samples |
+| `epochs: 5` | 1500 + samples |
 
 ## Troubleshooting
 
