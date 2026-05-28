@@ -80,3 +80,26 @@ user, within the granted scopes and budget.
 refresh, and revoke. Clone it, fill in your `client_id` / `client_secret`,
 and run the full flow against your account in a few minutes.
 :::
+
+::: tip Starter templates
+**[civitai/civitai-app-starters](https://github.com/civitai/civitai-app-starters)**
+— full app scaffolds plus the shared `@civitai/app-sdk` package (OAuth + PKCE,
+encrypted-cookie sessions, scope and orchestrator helpers). Every starter ships
+the same demo surface: log in with Civitai → show Buzz balance → preview
+generation cost → submit one image → render the result.
+
+- **[`next-app`](https://github.com/civitai/civitai-app-starters/tree/main/starters/next-app)** — Next.js 15 (App Router) + Tailwind. SSR/SEO-friendly. Best default.
+- **[`sveltekit-app`](https://github.com/civitai/civitai-app-starters/tree/main/starters/sveltekit-app)** — SvelteKit 2 + Tailwind. Same surface as `next-app`.
+- **[`react-pwa`](https://github.com/civitai/civitai-app-starters/tree/main/starters/react-pwa)** — Vite + React 19 with a tiny Hono BFF. SPA/PWA shape for tools and focused gen UIs.
+- **[`svelte-pwa`](https://github.com/civitai/civitai-app-starters/tree/main/starters/svelte-pwa)** — Vite + Svelte 5 (no Kit) with a tiny Hono BFF. SPA/PWA shape.
+
+Pull just the one you need:
+
+```bash
+npx tiged civitai/civitai-app-starters/starters/next-app my-app
+cd my-app && cp .env.example .env && pnpm install && pnpm dev
+```
+
+Adding Sign-in-with-Civitai or swapping your image-gen provider into an
+existing app? See [`PORTING.md`](https://github.com/civitai/civitai-app-starters/blob/main/PORTING.md).
+:::
