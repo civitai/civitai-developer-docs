@@ -180,6 +180,13 @@ export default withMermaid({
   title: 'Civitai Developer',
   description: 'Developer documentation for Civitai APIs — orchestration, SDKs, and more.',
   base,
+  head: [
+    ['link', { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }],
+    ['link', { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/images/favicon-32x32.png' }],
+    ['link', { rel: 'icon', type: 'image/png', sizes: '16x16', href: '/images/favicon-16x16.png' }],
+    ['link', { rel: 'apple-touch-icon', sizes: '180x180', href: '/images/apple-touch-icon.png' }],
+    ['link', { rel: 'manifest', href: '/site.webmanifest' }],
+  ],
   cleanUrls: true,
   lastUpdated: true,
   srcExclude: ['**/CLAUDE.md', '**/README.md', 'orchestration/internals/**'],
