@@ -201,29 +201,43 @@ Identify the user behind an access token.
 Authorization: Bearer civitai_…
 ```
 
-No body. Token must include the `UserRead` scope.
+No body. The token must include the `UserRead` scope — which is
+[granted on every token by default](./scopes#userread-is-always-granted),
+so in practice this endpoint always works.
 
 ### Response
+
+Standard OIDC UserInfo claims ([OIDC Core §5.1](https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims)):
 
 ```json
 {
   "sub": "12345",
   "id": 12345,
   "username": "ada",
-  "image": "https://image.civitai.com/…"
+  "preferred_username": "ada",
+  "name": "ada",
+  "picture": "https://image.civitai.com/…",
+  "image": "https://image.civitai.com/…",
+  "email": "ada@example.com",
+  "email_verified": true
 }
 ```
 
-`sub` is the string form of `id` for compatibility with OIDC consumers.
+- `sub` is the string form of `id` for compatibility with OIDC consumers.
+- `name` and `preferred_username` both return the Civitai **username**.
+  Civitai does not expose a separate real/display name.
+- `email` is present whenever the account has an email on file. Unverified
+  emails are still returned, with `email_verified: false`.
+- A claim is omitted when its underlying value is genuinely absent.
 
 ### Error responses
 
 | Status | `error` | Cause |
 |---:|---|---|
 | 401 | `invalid_token` | Missing, malformed, or expired bearer token. |
-| 403 | `insufficient_scope` | Token doesn't include `UserRead`. |
+| 403 | `insufficient_scope` | Token doesn't include `UserRead`. Only possible for legacy tokens issued before `UserRead` became a mandatory baseline; they pick it up on their next refresh. |
 
 **CORS:** permissive — call from any origin.
 
-For richer user info (email, links, stats, etc.) use the
+For richer user info (links, stats, etc.) use the
 [`GET /api/v1/me`](../reference/users) endpoint with the same bearer token.
