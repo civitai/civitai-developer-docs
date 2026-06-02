@@ -19,7 +19,7 @@ scope = UserRead | AIServicesRead | AIServicesWrite | BuzzRead
 
 | Bit | Value | Scope | What it grants |
 |---:|---:|---|---|
-| 0 | 1 | `UserRead` | Read profile & settings |
+| 0 | 1 | `UserRead` | Read profile, settings & email **(always granted)** |
 | 1 | 2 | `UserWrite` | Update profile & settings |
 | 2 | 4 | `ModelsRead` | Browse & download models |
 | 3 | 8 | `ModelsWrite` | Upload & edit models |
@@ -45,6 +45,17 @@ scope = UserRead | AIServicesRead | AIServicesWrite | BuzzRead
 | 23 | 8 388 608 | `VaultRead` | View vault |
 | 24 | 16 777 216 | `VaultWrite` | Manage vault |
 | — | 33 554 431 | `Full` | All scopes |
+
+## `UserRead` is always granted
+
+`UserRead` is a mandatory baseline: every token Civitai issues includes it,
+no matter what you request on `/authorize`. An app acting on a user's behalf
+always needs to know whose account it's on, so the bit can't be dropped. This
+is why the [`/userinfo`](./endpoints#get-api-auth-oauth-userinfo) endpoint
+(including the user's `email`) always works.
+
+You don't need to add `UserRead` to your `scope` parameter explicitly — but
+including it does no harm, and the consent screen always shows it.
 
 ## Buzz-spend scopes
 
@@ -80,7 +91,7 @@ target them from the `scope` URL parameter directly:
 |---|---:|---|
 | **Read Only** | 10 701 093 | All `*Read` scopes |
 | **Creator** | 11 492 205 | Read Only + Models / Media / Articles / Bounties / Collections Write + SocialWrite |
-| **AI Services** | 114 688 | `AIServicesRead` \| `AIServicesWrite` \| `BuzzRead` |
+| **AI Services** | 114 689 | `UserRead` \| `AIServicesRead` \| `AIServicesWrite` \| `BuzzRead` |
 | **Full Access** | 33 554 431 | Every defined scope |
 
 Use a preset's number on `/authorize` and the consent screen will still show
@@ -108,7 +119,7 @@ scope is missing the bit it requires:
 ```json
 {
   "error": "insufficient_scope",
-  "error_description": "Token does not have UserRead scope"
+  "error_description": "Token does not have ModelsWrite scope"
 }
 ```
 
