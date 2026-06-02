@@ -102,7 +102,17 @@ curl https://civitai.com/api/auth/oauth/userinfo \
 ```
 
 ```json
-{ "sub": "12345", "id": 12345, "username": "ada", "image": "https://…" }
+{
+  "sub": "12345",
+  "id": 12345,
+  "username": "ada",
+  "preferred_username": "ada",
+  "name": "Ada Lovelace",
+  "picture": "https://…",
+  "image": "https://…",
+  "email": "ada@example.com",
+  "email_verified": true
+}
 ```
 
 The same bearer header works for every Civitai endpoint that accepts tokens
