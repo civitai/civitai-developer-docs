@@ -72,6 +72,39 @@ The `type` segment maps to Civitai's `ModelType` enum:
 Resources that don't map to one of those (motion modules, detection models,
 wildcards, etc.) use `other` as the type.
 
+## Container image AIRs (`oci:image`)
+
+Jobs that run in a worker-managed container can declare a custom container
+image as a resource. The image is pulled (if not already cached on the worker)
+and participates in the worker's LRU lifecycle alongside model files.
+
+```
+urn:air:oci:image:{registry}:{repo}@{tag-or-digest}
+```
+
+| Field | Value |
+|-------|-------|
+| `ecosystem` | `oci` (fixed) |
+| `type` | `image` (fixed) |
+| `source` | Registry alias: `dockerhub`, `ghcr`, etc. |
+| `id` | Full repo path (may include `/`), e.g. `civitai/spine-comfy` |
+| `version` | Tag like `v1.0.0`, or a digest like `sha256:abc123...` |
+
+Examples:
+
+```
+urn:air:oci:image:dockerhub:civitai/spine-comfy@v1.0.0
+urn:air:oci:image:dockerhub:library/python@3.12-slim
+urn:air:oci:image:ghcr:civitai/training-toolkit@sha256:abc123...
+```
+
+Workers advertise support for `oci:image` via the `oci` ecosystem and the
+`image` on-demand resource type, so the orchestrator only routes jobs with
+OCI image dependencies to workers that can pull them. Built-in template
+images (the worker's default ComfyUI/SigLIP2/ASR/AI-Toolkit images) are
+reported as available resources but pinned — they participate in worker
+registration without being subject to LRU eviction.
+
 ## Using AIR with the Orchestration API
 
 The Orchestration API accepts AIR strings anywhere a resource is referenced.
