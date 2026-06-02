@@ -107,7 +107,7 @@ curl https://civitai.com/api/auth/oauth/userinfo \
   "id": 12345,
   "username": "ada",
   "preferred_username": "ada",
-  "name": "Ada Lovelace",
+  "name": "ada",
   "picture": "https://…",
   "image": "https://…",
   "email": "ada@example.com",
