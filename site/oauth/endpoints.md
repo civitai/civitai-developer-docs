@@ -215,7 +215,7 @@ Standard OIDC UserInfo claims ([OIDC Core §5.1](https://openid.net/specs/openid
   "id": 12345,
   "username": "ada",
   "preferred_username": "ada",
-  "name": "Ada Lovelace",
+  "name": "ada",
   "picture": "https://image.civitai.com/…",
   "image": "https://image.civitai.com/…",
   "email": "ada@example.com",
@@ -224,6 +224,8 @@ Standard OIDC UserInfo claims ([OIDC Core §5.1](https://openid.net/specs/openid
 ```
 
 - `sub` is the string form of `id` for compatibility with OIDC consumers.
+- `name` and `preferred_username` both return the Civitai **username**.
+  Civitai does not expose a separate real/display name.
 - `email` is present whenever the account has an email on file. Unverified
   emails are still returned, with `email_verified: false`.
 - A claim is omitted when its underlying value is genuinely absent.
