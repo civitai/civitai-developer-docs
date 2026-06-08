@@ -65,6 +65,7 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'HunyuanVideo generation', link: '/orchestration/recipes/hunyuan' },
         { text: 'Video upscaling', link: '/orchestration/recipes/video-upscaler' },
         { text: 'Video frame interpolation', link: '/orchestration/recipes/video-interpolation' },
+        { text: 'Compose media (video)', link: '/orchestration/recipes/compose-media-video' },
       ],
     },
     {

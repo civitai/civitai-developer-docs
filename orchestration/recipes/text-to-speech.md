@@ -357,7 +357,7 @@ End-to-end time for one short sentence is typically 60–120 seconds including m
 - [`InvokeTextToSpeechStepTemplate`](/orchestration/reference/operations/InvokeTextToSpeechStepTemplate) — the per-recipe endpoint
 - [Endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/textToSpeech/openapi.yaml) — standalone OpenAPI 3.1 YAML for this endpoint, ready to import into Postman / Insomnia / OpenAPI Generator
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — generic path for chaining
-- [Multi-speaker dialogue](./multi-speaker-dialogue) — overlay several TTS clips for debate, interview, or audio-drama scenes (uses the `audioMix` step)
+- [Multi-speaker dialogue](./multi-speaker-dialogue) — overlay several TTS clips for debate, interview, or audio-drama scenes (uses the `composeMedia` step)
 - [Transcription](./transcription) — the inverse: audio → text
 - [ACE-Step music generation](./ace-step-audio) — lyrics + style → full song audio (different recipe, sibling capability)
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — handling long-running workflows

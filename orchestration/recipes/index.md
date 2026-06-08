@@ -17,6 +17,7 @@ Task-oriented, end-to-end examples. Each recipe walks through a real workflow: w
 - [HunyuanVideo generation](./hunyuan) — Tencent HunyuanVideo on Comfy workers; text-to-video with LoRA support; compute-intensive, always use `wait=0`
 - [Video upscaling](./video-upscaler) — FlashVSR, 2–4× with a 2560 px output cap
 - [Video frame interpolation](./video-interpolation) — VFIMamba, 2× or 3× frame-count, smooths generated or low-FPS footage
+- [Compose media (video)](./compose-media-video) — overlay/stack videos on a canvas, place audio over a clip, picture-in-picture; the video form of `composeMedia`
 
 ## Image
 
@@ -41,6 +42,7 @@ Task-oriented, end-to-end examples. Each recipe walks through a real workflow: w
 
 - [Transcription](./transcription) — Qwen3-ASR, multilingual, word-level timestamps for captioning
 - [Text-to-speech](./text-to-speech) — built-in speakers with optional style prompt, or voice cloning from a reference clip
+- [Multi-speaker dialogue](./multi-speaker-dialogue) — overlay TTS clips on a shared timeline for debate, interview, or audio-drama scenes; the audio form of `composeMedia`
 - [ACE-Step music generation](./ace-step-audio) — full songs from a style description + structured lyrics, 2B turbo default with optional 4B XL overrides; audio-only MP3 or MP4 with a still cover image
 
 ## Language models
