@@ -12,7 +12,7 @@ const ltx2Body = {
     input: {
       engine: 'ai-toolkit',
       ecosystem: 'ltx2',
-      epochs: 2,
+      steps: 3000,
       resolution: 768,
       lr: 0.0002,
       trainTextEncoder: false,
@@ -42,7 +42,7 @@ const ltx23Body = {
     input: {
       engine: 'ai-toolkit',
       ecosystem: 'ltx23',
-      epochs: 2,
+      steps: 3000,
       lr: 0.0001,
       trainTextEncoder: false,
       lrScheduler: 'cosine',
@@ -67,15 +67,15 @@ const ltx23Body = {
 
 Train a Lightricks LTX video LoRA on a small set of source video clips using AI Toolkit. The output LoRA is usable in [LTX2 video generation](./ltx2).
 
-| `ecosystem` | Base | Buzz / epoch | Notes |
-|-------------|------|--------------|-------|
-| `ltx2` | `Lightricks/LTX-2` (19B) | variable (formula-based) | Original LTX2. Cost is computed per-step from clip count + duration. |
-| `ltx23` | `Lightricks/LTX-2.3` (22B) | 200 (flat) | Newer LTX 2.3. Higher per-epoch cost reflects the heavier model — kept high deliberately to disincentivize very long runs. |
+| `ecosystem` | Base | Default price | Notes |
+|-------------|------|---------------|-------|
+| `ltx2` | `Lightricks/LTX-2` (19B) | 2750 Buzz | Original LTX2. |
+| `ltx23` | `Lightricks/LTX-2.3` (22B) | 2750 Buzz | Newer LTX 2.3. |
 
 The base checkpoint is fixed by `ecosystem`; there's no `model` field on the input.
 
 ::: tip Long-running step
-Video training is the slowest training mode on the platform. LTX 2.3 in particular is expensive — keep `epochs` ≤ 3 unless you have a clear reason. Always use `wait=0` and follow up via webhook or polling.
+Video training is the slowest training mode on the platform — video needs a longer run, so the LTX **default is 3000 steps** (vs 2000 for image ecosystems). Always use `wait=0` and follow up via webhook or polling.
 :::
 
 ## The request shape
@@ -114,7 +114,7 @@ Content-Type: application/json
     "input": {
       "engine": "ai-toolkit",
       "ecosystem": "ltx2",
-      "epochs": 2,
+      "steps": 3000,
       "resolution": 768,
       "lr": 0.0002,
       "trainTextEncoder": false,
@@ -137,7 +137,7 @@ Content-Type: application/json
 
 ## LTX 2.3
 
-Newer 22B model. Same shape as LTX2; `lr` is typically lower and the per-epoch cost is materially higher (200 Buzz / epoch vs. ltx2's variable formula-based cost).
+Newer 22B model. Same shape as LTX2; `lr` is typically lower. Both LTX ecosystems share the same rates and 3000-step default, so the default price matches (2750 Buzz).
 
 ```http
 POST https://orchestration.civitai.com/v2/consumer/workflows?wait=0
@@ -153,7 +153,7 @@ Content-Type: application/json
     "input": {
       "engine": "ai-toolkit",
       "ecosystem": "ltx23",
-      "epochs": 2,
+      "steps": 3000,
       "lr": 0.0001,
       "trainTextEncoder": false,
       "lrScheduler": "cosine",
@@ -181,8 +181,10 @@ Defaults shown are the post-`ApplyDefaults` values for both LTX ecosystems.
 |-------|----------|---------|-------|
 | `engine` | ✅ | — | Always `ai-toolkit`. |
 | `ecosystem` | ✅ | — | `ltx2` or `ltx23`. |
-| `epochs` | | `5` | `1`–`20`. Billed per epoch. Keep low (2–3) for video. |
-| `numberOfRepeats` | | (no auto-default) | `1`–`5000`. |
+| `steps` | | `3000` | `1`–`10000`. Total training steps. Primary driver of training length and pricing. Video needs a longer run, hence the higher default. |
+| `epochs` | | `10` | `1`–`20`. Number of saved checkpoints delivered, each separately downloadable. **Each adds 50 Buzz** — LTX preview samples are videos and costly to compute. |
+| `batchSize` | | `1` | Fixed at 1 for this ecosystem. |
+| `continueFrom` | | *(none)* | A previously-trained `urn:air:ltx2:lora:...` / `urn:air:ltx23:lora:...` AIR to resume from (see [Continue training](#continue-training)). Must be a LoRA of the same ecosystem. |
 | `lr` | | `0.0001` | LTX2 examples often use `0.0002`; LTX 2.3 typically `0.0001`. |
 | `trainTextEncoder` | | `false` | Leave off — LTX text encoder is not retrained by AI Toolkit. |
 | `lrScheduler` | | `cosine` | `constant`, `constant_with_warmup`, `cosine`, `linear`, `step`. |
@@ -194,38 +196,61 @@ Defaults shown are the post-`ApplyDefaults` values for both LTX ecosystems.
 | `shuffleTokens` / `keepTokens` | | `false` / `0` | Caption-tag shuffling. |
 | `triggerWord` | | *(none)* | Activation token. |
 | `trainingData.{type, sourceUrl, count}` | ✅ | — | `type: "zip"`. Zip should contain video clips. |
-| `samples.prompts[]` | | `[]` | Per-epoch preview videos. |
+| `samples.prompts[]` | | `[]` | Preview videos rendered at each saved checkpoint. |
 | `samples.negativePrompt` | | *(none)* | — |
+| `samples.cfgScale` | | *(ecosystem default)* | Overrides the CFG / guidance scale used when rendering the preview samples. |
+| `samples.strength` | | `1.0` | Trained-LoRA weight applied in the preview samples. |
+
+## Continue training / train further {#continue-training}
+
+To resume from an LTX LoRA you already trained instead of starting from the base checkpoint, set `continueFrom` to that LoRA's AIR. The new run starts from those weights and the new epochs build on top:
+
+```json
+{
+  "$type": "training",
+  "input": {
+    "engine": "ai-toolkit",
+    "ecosystem": "ltx2",
+    "continueFrom": "urn:air:ltx2:lora:civitai:<id>@<version>",
+    "steps": 1500
+  }
+}
+```
+
+`continueFrom` must point at a LoRA of the **same ecosystem** as the model being trained (an `ltx2` LoRA for `ecosystem: "ltx2"`, an `ltx23` LoRA for `ecosystem: "ltx23"`) — a mismatched ecosystem is rejected.
 
 ## Reading the result
 
-Same envelope as the other training recipes — see [SDXL/SD1 → Reading the result](./training-sdxl-sd1#reading-the-result). Each epoch yields a video LoRA `.safetensors` blob plus any sample `.mp4` files. Use the trained LoRA in [LTX2 video generation](./ltx2) by referencing it in the workflow's `loras` field.
+Same envelope as the other training recipes — see [SDXL/SD1 → Reading the result](./training-sdxl-sd1#reading-the-result). Each saved checkpoint yields a video LoRA `.safetensors` blob plus any sample `.mp4` files. Use the trained LoRA in [LTX2 video generation](./ltx2) by referencing it in the workflow's `loras` field.
 
 ## Runtime
 
-Per-epoch wall time, default settings on a 4-clip dataset:
+Wall time, default settings on a 4-clip dataset:
 
-| Ecosystem | Per-epoch | Typical full run |
-|-----------|-----------|-------------------|
-| `ltx2` | ~3–8 min | 6–16 min for 2 epochs |
-| `ltx23` | ~5–12 min | 10–25 min for 2 epochs |
+| Ecosystem | Per 100 steps | Typical full run |
+|-----------|---------------|-------------------|
+| `ltx2` | ~1–2 min | 30–60 min for 3000 steps |
+| `ltx23` | ~2–3 min | 60–90 min for 3000 steps |
 
 Always use `wait=0`.
 
 ## Cost
 
-LTX2 uses a formula-based cost (per-step area + clip count); LTX 2.3 is flat at 200 Buzz / epoch.
+Training is billed per **step** plus a flat per-**epoch** storage surcharge, with a price floor. LTX defaults to **3000 steps** (video needs a longer run):
 
 ```
-ltx2:  total = epochs × computed_cost   (formula varies with clip count + duration)
-ltx23: total = 200 × epochs
+price = steps × costPerStep + epochs × 50        (rounded)
+costPerStep = 0.75   (ltx2 and ltx23)
+floor: never less than 80% of the default-configuration price
 ```
+
+`epochs` is the number of saved checkpoints delivered (default `10`, range `1`–`20`); **each adds 50 Buzz** — LTX preview samples are videos and costly to compute. The default run is **3000 steps / 10 epochs** → `3000 × 0.75 + 10 × 50 = 2250 + 500 = 2750 Buzz`. The **floor** is 80% of the default price (2200 Buzz).
 
 | Configuration | Buzz (training only) |
 |---------------|---------------------|
-| LTX2, `epochs: 2`, 4 clips | ~10–40 (depends on clip duration) + samples |
-| LTX 2.3, `epochs: 2` | 400 + samples |
-| LTX 2.3, `epochs: 5` | 1000 + samples |
+| LTX2 / LTX 2.3, default (`steps: 3000`, `epochs: 10`) | 2750 + samples |
+| LTX2 / LTX 2.3, `steps: 3000`, `epochs: 20` | 3250 + samples (+500 for 10 more checkpoints) |
+| LTX2 / LTX 2.3, `steps: 2000`, `epochs: 10` | 2200 + samples (floor) |
 
 Sample-prompt rendering uses LTX2 video-generation rates and is billed separately. Run with `whatif=true` to see the exact pre-flight charge.
 
@@ -235,8 +260,8 @@ Sample-prompt rendering uses LTX2 video-generation rates and is billed separatel
 |---------|--------------|-----|
 | `400` with "trainingData.sourceUrl not reachable" | Signed URL expired, or zip behind auth | Regenerate the URL. R2 signed URLs default to 24h. |
 | Step `failed` with VRAM-related error | Resolution × clip length too high | Lower `resolution` (e.g. to `512`), shorten clips. |
-| LTX 2.3 cost surprises you | Flat 200 Buzz / epoch, by design | Check `whatif=true` before submitting. Cap `epochs` at 2–3 unless you have budget. |
-| Trained LoRA produces no motion | Too few epochs / static reference clips | Raise `epochs`, ensure clips show the motion you want learned. |
+| Training cost surprises you | Video defaults to 3000 steps, so the floor is higher than image ecosystems | Check `whatif=true` before submitting. Lowering `steps`/`epochs` saves at most 20% (the floor). |
+| Trained LoRA produces no motion | Too few steps / static reference clips | Raise `steps`, ensure clips show the motion you want learned. |
 | Step `failed`, `moderationStatus: "Rejected"` | Dataset failed content moderation | Replace flagged clips. |
 
 ## Related

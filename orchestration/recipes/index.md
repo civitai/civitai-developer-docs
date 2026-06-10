@@ -56,13 +56,13 @@ Task-oriented, end-to-end examples. Each recipe walks through a real workflow: w
 
 ## Training
 
-Train a LoRA on your own dataset using AI Toolkit. All training runs are async — submit with `wait=0` and follow up via polling or a webhook. Cost is per-epoch in Buzz; use `whatif=true` to preview the exact charge.
+Train a LoRA on your own dataset using AI Toolkit. You control training length with `steps`, the number of saved checkpoints with `epochs`, and can resume from an existing LoRA with `continueFrom`. All training runs are async — submit with `wait=0` and follow up via polling or a webhook. Cost is `steps × costPerStep + epochs × a per-epoch surcharge` with an 80%-of-default floor (rates vary per ecosystem — see each page); use `whatif=true` to preview the exact charge.
 
-- [SDXL & SD1 LoRA training](./training-sdxl-sd1) — classic Stable Diffusion ecosystems (50 Buzz/epoch each); cheapest pick for first fine-tunes
-- [Flux 1 LoRA training](./training-flux1) — Flux.1 Dev or Schnell (200 Buzz/epoch); higher quality, fixed BFL base checkpoints
-- [Flux 2 Klein LoRA training](./training-flux2-klein) — Flux 2 Klein 4b / 9b (50 / 100 Buzz/epoch), including image-edit training mode with control reference images
-- [Wan video LoRA training](./training-wan) — preview ecosystem for Wan 2.1 / 2.2 video LoRAs (12 Buzz/epoch)
-- [LTX2 video LoRA training](./training-ltx2) — Lightricks LTX2 and LTX 2.3 video LoRAs (LTX 2.3 flat 200 Buzz/epoch)
+- [SDXL & SD1 LoRA training](./training-sdxl-sd1) — classic Stable Diffusion ecosystems (500 Buzz default); cheapest pick for first fine-tunes
+- [Flux 1 LoRA training](./training-flux1) — Flux.1 Dev or Schnell (2000 Buzz default); higher quality, fixed BFL base checkpoints
+- [Flux 2 Klein LoRA training](./training-flux2-klein) — Flux 2 Klein 4b / 9b (500 / 1000 Buzz default), including image-edit training mode with control reference images
+- [Wan video LoRA training](./training-wan) — preview ecosystem for Wan 2.1 / 2.2 video LoRAs (3000 Buzz default)
+- [LTX2 video LoRA training](./training-ltx2) — Lightricks LTX2 and LTX 2.3 video LoRAs (2750 Buzz default, 3000-step runs)
 - [Chroma / ERNIE / Qwen / Z-Image LoRA training](./training-other-image) — five smaller image ecosystems consolidated into one page; each section is independently runnable
 
 ::: tip Copy-paste runnable

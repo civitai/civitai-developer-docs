@@ -12,7 +12,7 @@ const chromaBody = {
     input: {
       engine: 'ai-toolkit',
       ecosystem: 'chroma',
-      epochs: 5,
+      steps: 2000,
       resolution: 1024,
       lr: 0.0001,
       trainTextEncoder: false,
@@ -49,7 +49,7 @@ const ernieBody = {
     input: {
       engine: 'ai-toolkit',
       ecosystem: 'ernie',
-      epochs: 5,
+      steps: 2000,
       lr: 0.0001,
       trainTextEncoder: false,
       lrScheduler: 'cosine',
@@ -83,7 +83,7 @@ const qwenBody = {
       engine: 'ai-toolkit',
       ecosystem: 'qwen',
       version: 'latest',
-      epochs: 1,
+      steps: 2000,
       resolution: 1024,
       lr: 0.00011,
       trainTextEncoder: false,
@@ -117,7 +117,7 @@ const zImageTurboBody = {
     input: {
       engine: 'ai-toolkit',
       ecosystem: 'zimageturbo',
-      epochs: 7,
+      steps: 2000,
       resolution: 512,
       lr: 0.000611,
       trainTextEncoder: false,
@@ -147,7 +147,7 @@ const zImageBaseBody = {
     input: {
       engine: 'ai-toolkit',
       ecosystem: 'zimagebase',
-      epochs: 7,
+      steps: 2000,
       resolution: 512,
       lr: 0.000611,
       trainTextEncoder: false,
@@ -172,18 +172,18 @@ const zImageBaseBody = {
 
 Five smaller image-LoRA ecosystems share this page: each has its own `ecosystem` value and base checkpoint, but the request shape is otherwise the AI Toolkit standard.
 
-| `ecosystem` | Base | Buzz / epoch | Best for |
-|-------------|------|--------------|----------|
-| `chroma` | `lodestones/Chroma1-HD` | 200 | Chroma community model fine-tunes |
-| `ernie` | `baidu/ERNIE-Image` | 100 | ERNIE Image LoRAs |
-| `qwen` | Qwen-Image (versioned) | 200 | Qwen Image / Qwen-Image-Edit LoRAs |
-| `zimageturbo` | `ostris/Z-Image-De-Turbo` (+ Z-Image-Turbo extras) | 100 | Z-Image Turbo LoRAs (cheap, fast inference) |
-| `zimagebase` | `Tongyi-MAI/Z-Image` | 100 | Z-Image base LoRAs |
+| `ecosystem` | Base | Default price | Best for |
+|-------------|------|---------------|----------|
+| `chroma` | `lodestones/Chroma1-HD` | 2000 Buzz | Chroma community model fine-tunes |
+| `ernie` | `baidu/ERNIE-Image` | 1000 Buzz | ERNIE Image LoRAs |
+| `qwen` | Qwen-Image (versioned) | 2000 Buzz | Qwen Image / Qwen-Image-Edit LoRAs |
+| `zimageturbo` | `ostris/Z-Image-De-Turbo` (+ Z-Image-Turbo extras) | 1000 Buzz | Z-Image Turbo LoRAs (cheap, fast inference) |
+| `zimagebase` | `Tongyi-MAI/Z-Image` | 1000 Buzz | Z-Image base LoRAs |
 
 Each ecosystem has its own subsection with a runnable example. The shared schema lives in [Common parameters](#common-parameters); ecosystem-specific quirks are in each subsection.
 
 ::: tip Long-running step
-Always submit with `wait=0`. These ecosystems run anywhere from ~10s/epoch (Z-Image Turbo) to ~2min/epoch (Chroma/Qwen). See [Results & webhooks](/orchestration/guide/results-and-webhooks).
+Always submit with `wait=0`. These ecosystems run anywhere from a fraction of a second per step (Z-Image Turbo) to ~1s/step (Chroma/Qwen). See [Results & webhooks](/orchestration/guide/results-and-webhooks).
 :::
 
 ## The request shape
@@ -222,7 +222,7 @@ Content-Type: application/json
     "input": {
       "engine": "ai-toolkit",
       "ecosystem": "chroma",
-      "epochs": 5,
+      "steps": 2000,
       "resolution": 1024,
       "lr": 0.0001,
       "trainTextEncoder": false,
@@ -249,7 +249,7 @@ Content-Type: application/json
 
 <RecipeRun :body="chromaBody" :wait="0" />
 
-Chroma defaults: `networkDim: 16`, `optimizerType: adamw8bit`, `trainTextEncoder: false`, `lrScheduler: cosine`. 200 Buzz / epoch.
+Chroma defaults: `networkDim: 16`, `optimizerType: adamw8bit`, `trainTextEncoder: false`, `lrScheduler: cosine`. Default price 2000 Buzz.
 
 ## ERNIE
 
@@ -269,7 +269,7 @@ Content-Type: application/json
     "input": {
       "engine": "ai-toolkit",
       "ecosystem": "ernie",
-      "epochs": 5,
+      "steps": 2000,
       "lr": 0.0001,
       "trainTextEncoder": false,
       "lrScheduler": "cosine",
@@ -291,7 +291,7 @@ Content-Type: application/json
 
 <RecipeRun :body="ernieBody" :wait="0" />
 
-ERNIE defaults: `networkDim: 32`, `optimizerType: adamw8bit`, `trainTextEncoder: false`, `lrScheduler: cosine`. 100 Buzz / epoch.
+ERNIE defaults: `networkDim: 32`, `optimizerType: adamw8bit`, `trainTextEncoder: false`, `lrScheduler: cosine`. Default price 1000 Buzz.
 
 ## Qwen
 
@@ -318,7 +318,7 @@ Content-Type: application/json
       "engine": "ai-toolkit",
       "ecosystem": "qwen",
       "version": "latest",
-      "epochs": 1,
+      "steps": 2000,
       "resolution": 1024,
       "lr": 0.00011,
       "trainTextEncoder": false,
@@ -344,7 +344,7 @@ Content-Type: application/json
 
 <RecipeRun :body="qwenBody" :wait="0" />
 
-Qwen defaults: `networkDim: 16`, `optimizerType: adamw8bit`, `trainTextEncoder: false`, `lrScheduler: cosine`. 200 Buzz / epoch.
+Qwen defaults: `networkDim: 16`, `optimizerType: adamw8bit`, `trainTextEncoder: false`, `lrScheduler: cosine`. Default price 2000 Buzz.
 
 ## Z-Image Turbo
 
@@ -364,7 +364,7 @@ Content-Type: application/json
     "input": {
       "engine": "ai-toolkit",
       "ecosystem": "zimageturbo",
-      "epochs": 7,
+      "steps": 2000,
       "resolution": 512,
       "lr": 0.000611,
       "trainTextEncoder": false,
@@ -387,7 +387,7 @@ Content-Type: application/json
 
 <RecipeRun :body="zImageTurboBody" :wait="0" />
 
-Z-Image Turbo defaults: `networkDim: 32`, `optimizerType: adamw8bit`, `trainTextEncoder: false`. 100 Buzz / epoch.
+Z-Image Turbo defaults: `networkDim: 32`, `optimizerType: adamw8bit`, `trainTextEncoder: false`. Default price 1000 Buzz.
 
 ## Z-Image Base
 
@@ -407,7 +407,7 @@ Content-Type: application/json
     "input": {
       "engine": "ai-toolkit",
       "ecosystem": "zimagebase",
-      "epochs": 7,
+      "steps": 2000,
       "resolution": 512,
       "lr": 0.000611,
       "trainTextEncoder": false,
@@ -429,7 +429,7 @@ Content-Type: application/json
 
 <RecipeRun :body="zImageBaseBody" :wait="0" />
 
-Z-Image Base defaults: `networkDim: 32`, `optimizerType: automagic` (overridden), `lr: 0.000001` (overridden), `trainTextEncoder: false`. 100 Buzz / epoch.
+Z-Image Base defaults: `networkDim: 32`, `optimizerType: automagic` (overridden), `lr: 0.000001` (overridden), `trainTextEncoder: false`. Default price 1000 Buzz.
 
 ## Common parameters {#common-parameters}
 
@@ -440,8 +440,10 @@ Defaults shown are the post-`ApplyDefaults` values; per-ecosystem deviations are
 | `engine` | ✅ | — | Always `ai-toolkit`. |
 | `ecosystem` | ✅ | — | One of: `chroma`, `ernie`, `qwen`, `zimageturbo`, `zimagebase`. |
 | `version` | (qwen only) | `latest` | `latest`, `2509`, `2512`. Selects the Qwen-Image base release. |
-| `epochs` | | `5` | `1`–`20`. Billed per epoch. |
-| `numberOfRepeats` | | varies (see ecosystem) | `1`–`5000`. ERNIE / Z-Image auto-derive `ceil(200 / count)`; Chroma / Qwen don't auto-set. |
+| `steps` | | `2000` | `1`–`10000`. Total training steps. Primary driver of training length and pricing. |
+| `epochs` | | `10` | `1`–`20`. Number of saved checkpoints delivered, each separately downloadable. Each adds 10 Buzz of storage. |
+| `batchSize` | | `1` | Defaults to 1. For Z-Image and ERNIE, raise it up to the ecosystem maximum (**2**) to train faster at the cost of more GPU memory; a larger batch needs fewer steps. For Chroma and Qwen it is fixed at 1. Values above the max are clamped. |
+| `continueFrom` | | *(none)* | A previously-trained LoRA AIR (`urn:air:<ecosystem>:lora:...`) to resume from (see [Continue training](#continue-training)). Must be a LoRA of the same ecosystem. |
 | `lr` | | `0.0001` | UNet learning rate. |
 | `trainTextEncoder` | | `false` | All five ecosystems leave the text encoder frozen. |
 | `lrScheduler` | | `cosine` | `constant`, `constant_with_warmup`, `cosine`, `linear`, `step`. |
@@ -453,42 +455,67 @@ Defaults shown are the post-`ApplyDefaults` values; per-ecosystem deviations are
 | `shuffleTokens` / `keepTokens` | | `false` / `0` | Caption-tag shuffling. |
 | `triggerWord` | | *(none)* | Activation token. Recommended for character / style LoRAs on Chroma, Z-Image. |
 | `trainingData.{type, sourceUrl, count}` | ✅ | — | `type: "zip"`. |
-| `samples.prompts[]` | | `[]` | Per-epoch preview prompts rendered with the trained LoRA. |
+| `samples.prompts[]` | | `[]` | Preview prompts rendered at each saved checkpoint with the trained LoRA. |
 | `samples.negativePrompt` | | *(none)* | — |
+| `samples.cfgScale` | | *(ecosystem default)* | Overrides the CFG / guidance scale used when rendering the preview samples. |
+| `samples.strength` | | `1.0` | Trained-LoRA weight applied in the preview samples. |
+
+## Continue training / train further {#continue-training}
+
+To resume from a LoRA you already trained instead of starting from the base checkpoint, set `continueFrom` to that LoRA's AIR. The new run starts from those weights and the new epochs build on top:
+
+```json
+{
+  "$type": "training",
+  "input": {
+    "engine": "ai-toolkit",
+    "ecosystem": "chroma",
+    "continueFrom": "urn:air:chroma:lora:civitai:<id>@<version>",
+    "steps": 1000
+  }
+}
+```
+
+`continueFrom` must point at a LoRA of the **same ecosystem** as the model being trained (a `chroma` LoRA for `ecosystem: "chroma"`, a `qwen` LoRA for `ecosystem: "qwen"`, and so on) — a mismatched ecosystem is rejected.
 
 ## Reading the result
 
-Same envelope as the other training recipes — see [SDXL/SD1 → Reading the result](./training-sdxl-sd1#reading-the-result). Each epoch yields a `.safetensors` LoRA blob plus any sample images.
+Same envelope as the other training recipes — see [SDXL/SD1 → Reading the result](./training-sdxl-sd1#reading-the-result). Each saved checkpoint yields a `.safetensors` LoRA blob plus any sample images.
 
 The trained LoRA is usable in the corresponding generation recipe — Chroma LoRAs in any Chroma workflow, ERNIE LoRAs in [ERNIE image generation](./ernie), Qwen LoRAs in [Qwen image generation](./qwen), Z-Image LoRAs in [Z-Image generation](./zimage).
 
 ## Runtime
 
-Per-epoch wall time, default settings on a 10-image dataset:
+Per-step wall time, default settings on a 10-image dataset:
 
-| Ecosystem | Per-epoch | Typical full run |
-|-----------|-----------|-------------------|
-| `chroma` | ~60–120 s | 5–15 min for 5 epochs |
-| `ernie` | ~30–60 s | 3–8 min for 5 epochs |
-| `qwen` | ~60–120 s | 5–15 min for 5 epochs |
-| `zimageturbo` | ~10–25 s | 1–4 min for 7 epochs |
-| `zimagebase` | ~10–25 s | 1–4 min for 7 epochs |
+| Ecosystem | Per-step | Typical full run |
+|-----------|----------|-------------------|
+| `chroma` | ~0.6–1.2 s | 10–30 min for 2000 steps |
+| `ernie` | ~0.3–0.6 s | 6–16 min for 2000 steps |
+| `qwen` | ~0.6–1.2 s | 10–30 min for 2000 steps |
+| `zimageturbo` | ~0.1–0.25 s | 2–8 min for 2000 steps |
+| `zimagebase` | ~0.1–0.25 s | 2–8 min for 2000 steps |
 
 Always use `wait=0`.
 
 ## Cost
 
+Training is billed per **step** plus a flat per-**epoch** storage surcharge, with a price floor:
+
 ```
-total = costPerEpoch × epochs
+price = steps × costPerStep + epochs × 10        (rounded)
+floor: never less than 80% of the default-configuration price
 ```
 
-| Ecosystem | Buzz / epoch | `epochs: 5` | `epochs: 10` |
-|-----------|--------------|-------------|--------------|
-| `chroma` | 200 | 1000 | 2000 |
-| `ernie` | 100 | 500 | 1000 |
-| `qwen` | 200 | 1000 | 2000 |
-| `zimageturbo` | 100 | 500 | 1000 |
-| `zimagebase` | 100 | 500 | 1000 |
+`epochs` is the number of saved checkpoints delivered (default `10`, range `1`–`20`); each adds 10 Buzz of storage. The default run is **2000 steps / 10 epochs**, which lands each ecosystem on its default price. Lowering `steps` or `epochs` can save at most 20% (the floor).
+
+| Ecosystem | `costPerStep` | Default price (2000 steps, 10 epochs) | Floor (80%) |
+|-----------|---------------|----------------------------------------|-------------|
+| `chroma` | 0.95 | 2000 | 1600 |
+| `ernie` | 0.45 | 1000 | 800 |
+| `qwen` | 0.95 | 2000 | 1600 |
+| `zimageturbo` | 0.45 | 1000 | 800 |
+| `zimagebase` | 0.45 | 1000 | 800 |
 
 Sample-prompt rendering is billed separately at each ecosystem's image-generation rate. Use `whatif=true` (the **Preview cost** button on the widgets above) to confirm exact charges before submitting.
 
@@ -499,8 +526,8 @@ Sample-prompt rendering is billed separately at each ecosystem's image-generatio
 | `400` with "ecosystem unknown" | Typo, or not one of `chroma` / `ernie` / `qwen` / `zimageturbo` / `zimagebase` | Check spelling. |
 | `400` with "version not allowed" (Qwen only) | `version` not one of `latest` / `2509` / `2512` | Use one of the listed values. |
 | Z-Image Base: `optimizerType` you set seems ignored | Intentional — `ApplyDefaults` overrides to `automagic` | Use Z-Image Turbo if you need full optimizer control. |
-| Trained LoRA underbaked | Too few epochs / too low `lr` | Raise `epochs` to 8–15 (these ecosystems often need more epochs than SDXL); keep `lr` ≤ `5e-4`. |
-| Trained LoRA overcooked | Too many epochs or `networkDim` too high | Drop `networkDim` to 16, lower `epochs`. |
+| Trained LoRA underbaked | Too few steps / too low `lr` | Raise `steps` (these ecosystems often need more steps than SDXL); keep `lr` ≤ `5e-4`. |
+| Trained LoRA overcooked | Too many steps or `networkDim` too high | Drop `networkDim` to 16, lower `steps`. |
 | Step `failed`, `moderationStatus: "Rejected"` | Dataset failed content moderation | Replace flagged images. |
 
 ## Related

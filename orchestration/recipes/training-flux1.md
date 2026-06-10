@@ -13,7 +13,7 @@ const flux1DevBody = {
       engine: 'ai-toolkit',
       ecosystem: 'flux1',
       modelVariant: 'dev',
-      epochs: 5,
+      steps: 2000,
       resolution: 1024,
       lr: 0.0001,
       trainTextEncoder: false,
@@ -51,7 +51,7 @@ const flux1SchnellBody = {
       engine: 'ai-toolkit',
       ecosystem: 'flux1',
       modelVariant: 'schnell',
-      epochs: 5,
+      steps: 2000,
       lr: 0.0001,
       trainTextEncoder: false,
       lrScheduler: 'cosine',
@@ -83,7 +83,7 @@ Train a Flux.1 LoRA on your own image dataset using AI Toolkit. The output LoRA 
 The base checkpoint is fixed by `modelVariant` — there's no `model` field to override. To train on a non-BFL Flux.1 finetune, use the [SDXL & SD1](./training-sdxl-sd1) or [other-image](./training-other-image) ecosystems instead.
 
 ::: tip Long-running step
-Flux 1 training is the most expensive AI Toolkit ecosystem (200 Buzz/epoch) and runs for ~30s–2min per epoch on a typical 10-image dataset. Always use `wait=0` and follow up via polling or a webhook — see [Results & webhooks](/orchestration/guide/results-and-webhooks).
+Flux 1 training is the most expensive AI Toolkit image ecosystem (2000 Buzz for the default run) and a typical 2000-step run on a 10-image dataset takes several minutes. Always use `wait=0` and follow up via polling or a webhook — see [Results & webhooks](/orchestration/guide/results-and-webhooks).
 :::
 
 ## The request shape
@@ -124,7 +124,7 @@ Content-Type: application/json
       "engine": "ai-toolkit",
       "ecosystem": "flux1",
       "modelVariant": "dev",
-      "epochs": 5,
+      "steps": 2000,
       "resolution": 1024,
       "lr": 0.0001,
       "trainTextEncoder": false,
@@ -164,7 +164,7 @@ Content-Type: application/json
       "engine": "ai-toolkit",
       "ecosystem": "flux1",
       "modelVariant": "schnell",
-      "epochs": 5,
+      "steps": 2000,
       "lr": 0.0001,
       "trainTextEncoder": false,
       "networkDim": 16,
@@ -191,8 +191,10 @@ Shared by both Flux 1 variants. Defaults shown are after `ApplyDefaults`.
 | `engine` | ✅ | — | Always `ai-toolkit`. |
 | `ecosystem` | ✅ | — | Always `flux1` for this page. |
 | `modelVariant` | ✅ | — | `dev` or `schnell`. Determines the base checkpoint. |
-| `epochs` | | `5` | `1`–`20`. Billed per epoch. |
-| `numberOfRepeats` | | auto: `ceil(200 / count)` | `1`–`5000`. |
+| `steps` | | `2000` | `1`–`10000`. Total training steps. Primary driver of training length and pricing. |
+| `epochs` | | `10` | `1`–`20`. Number of saved checkpoints delivered, each separately downloadable. Each adds 20 Buzz of storage. |
+| `batchSize` | | `1` | Fixed at 1 for this ecosystem. |
+| `continueFrom` | | *(none)* | A previously-trained `urn:air:flux1:lora:...` AIR to resume from (see [Continue training](#continue-training)). Must be a Flux 1 LoRA. |
 | `lr` | | `0.0001` | UNet learning rate. Flux 1 is sensitive to high LRs — keep ≤ `0.0005`. |
 | `trainTextEncoder` | | `false` | Flux 1 does not benefit much from text-encoder training. Leave off. |
 | `lrScheduler` | | `cosine` | `constant`, `constant_with_warmup`, `cosine`, `linear`, `step`. |
@@ -204,8 +206,29 @@ Shared by both Flux 1 variants. Defaults shown are after `ApplyDefaults`.
 | `shuffleTokens` / `keepTokens` | | `false` / `0` | Caption-tag shuffling. |
 | `triggerWord` | | *(none)* | Activation token. Recommended for character / style LoRAs. |
 | `trainingData.{type, sourceUrl, count}` | ✅ | — | Always `type: "zip"`. |
-| `samples.prompts[]` | | `[]` | Preview prompts rendered after each epoch using the trained LoRA at strength 1.0. |
+| `samples.prompts[]` | | `[]` | Preview prompts rendered at each saved checkpoint using the trained LoRA at strength 1.0. |
 | `samples.negativePrompt` | | *(none)* | — |
+| `samples.cfgScale` | | *(ecosystem default)* | Overrides the CFG / guidance scale used when rendering the preview samples. |
+| `samples.strength` | | `1.0` | Trained-LoRA weight applied in the preview samples. |
+
+## Continue training / train further {#continue-training}
+
+To resume from a Flux 1 LoRA you already trained instead of starting from the BFL base, set `continueFrom` to that LoRA's AIR. The new run starts from those weights and the new epochs build on top:
+
+```json
+{
+  "$type": "training",
+  "input": {
+    "engine": "ai-toolkit",
+    "ecosystem": "flux1",
+    "modelVariant": "dev",
+    "continueFrom": "urn:air:flux1:lora:civitai:<id>@<version>",
+    "steps": 1000
+  }
+}
+```
+
+`continueFrom` must point at a LoRA of the **same ecosystem** (`flux1`) as the model being trained — a mismatched ecosystem is rejected.
 
 ## Reading the result
 
@@ -230,26 +253,32 @@ The `model` blob is your trained LoRA — download it (URLs are signed and expir
 
 ## Runtime
 
-Per-epoch wall time on a 10-image dataset, default settings:
+Per-step wall time on a 10-image dataset, default settings:
 
-| Variant | Per-epoch | 5-epoch full run |
-|---------|-----------|-------------------|
-| `dev` | ~60–120 s | 5–15 min |
-| `schnell` | ~60–120 s | 5–15 min |
+| Variant | Per-step | 2000-step full run |
+|---------|----------|--------------------|
+| `dev` | ~0.3–0.7 s | 10–30 min |
+| `schnell` | ~0.3–0.7 s | 10–30 min |
 
 Always use `wait=0`.
 
 ## Cost
 
+Training is billed per **step** plus a flat per-**epoch** storage surcharge, with a price floor:
+
 ```
-total = 200 × epochs   (Buzz)
+price = steps × costPerStep + epochs × 20        (rounded)
+costPerStep = 0.9   (dev and schnell)
+floor: never less than 80% of the default-configuration price
 ```
+
+`epochs` is the number of saved checkpoints delivered (default `10`, range `1`–`20`); each adds 20 Buzz of storage. The default run is **2000 steps / 10 epochs** → `2000 × 0.9 + 10 × 20 = 1800 + 200 = 2000 Buzz`. The **floor** is 80% of the default price (1600 Buzz).
 
 | Configuration | Buzz |
 |---------------|------|
-| `epochs: 5` | 1000 + samples |
-| `epochs: 10` | 2000 + samples |
-| `epochs: 20` (max) | 4000 + samples |
+| default (`steps: 2000`, `epochs: 10`) | 2000 + samples |
+| `steps: 1000`, `epochs: 10` | 1600 + samples (floor) |
+| `steps: 2000`, `epochs: 20` | 2200 + samples (+200 for 10 more checkpoints) |
 
 Sample-prompt rendering is billed separately at the appropriate Flux 1 generation rate. Run with `whatif=true` (the **Preview cost** button on the widgets above) to see the exact pre-flight charge.
 
@@ -258,10 +287,10 @@ Sample-prompt rendering is billed separately at the appropriate Flux 1 generatio
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `400` with "modelVariant required" | Missing `modelVariant` field | Set to `"dev"` or `"schnell"`. |
-| `400` with "epochs out of range" | `epochs` outside `1`–`20` | Cap at 20. |
+| `400` with "steps out of range" | `steps` outside `1`–`10000` | Cap at 10000. |
 | `400` with "trainingData.sourceUrl not reachable" | Signed URL expired | Regenerate. Prefer Civitai R2 AIRs over signed URLs for long-lived references. |
-| Trained LoRA underbaked | Too few epochs for dataset, or `lr` too low | Raise `epochs` to 8–12 for character LoRAs; keep `lr` at `0.0001`–`0.0003`. |
-| Trained LoRA overfits | Too many epochs / too high `networkDim` | Lower `epochs`, drop `networkDim` to 8–12. |
+| Trained LoRA underbaked | Too few steps for dataset, or `lr` too low | Raise `steps` to 1500–2500 for character LoRAs; keep `lr` at `0.0001`–`0.0003`. |
+| Trained LoRA overfits | Too many steps / too high `networkDim` | Lower `steps`, drop `networkDim` to 8–12. |
 | Step `failed`, output `moderationStatus: "Rejected"` | Dataset failed content moderation | Replace flagged images. |
 
 ## Related
