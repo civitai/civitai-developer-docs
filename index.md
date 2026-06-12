@@ -30,4 +30,8 @@ features:
     details: Ready-to-run examples — copy, paste, tweak. Covers video generation, image generation, upscalers, transcription, TTS, and more.
     link: /orchestration/recipes/
     linkText: Browse recipes
+  - title: MCP
+    details: Connect any MCP-aware agent to Civitai. Browse models and images, post, comment, and message via the platform MCP — or generate media via the orchestration MCP.
+    link: /site/mcp/
+    linkText: Connect an agent
 ---

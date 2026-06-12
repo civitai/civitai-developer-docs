@@ -133,6 +133,15 @@ const sidebar: DefaultTheme.Sidebar = {
       ],
     },
   ],
+  '/site/mcp/': [
+    {
+      text: 'MCP Server',
+      items: [
+        { text: 'Overview', link: '/site/mcp/' },
+        { text: 'Tools', link: '/site/mcp/tools' },
+      ],
+    },
+  ],
   '/site/guide/': [
     {
       text: 'Guide',
@@ -213,9 +222,11 @@ export default withMermaid({
           { text: 'Orchestration Guide', link: '/orchestration/guide/' },
           { text: 'Orchestration Recipes', link: '/orchestration/recipes/' },
           { text: 'Orchestration Reference', link: '/orchestration/reference/' },
+          { text: 'Orchestration MCP', link: '/orchestration/mcp/' },
           { text: 'Civitai Site Guide', link: '/site/guide/' },
           { text: 'Civitai Site OAuth', link: '/site/oauth/' },
           { text: 'Civitai Site Reference', link: '/site/reference/' },
+          { text: 'Civitai MCP', link: '/site/mcp/' },
         ],
       },
     ],
@@ -246,7 +257,7 @@ export default withMermaid({
     },
     plugins: [
       llmstxt({
-        description: 'Civitai developer documentation — orchestration API (submit AI workflows: video, image, audio, text via a single contract that races multiple providers), plus SDKs and related developer tooling.',
+        description: 'Civitai developer documentation — orchestration API (submit AI workflows: video, image, audio, text via a single contract that races multiple providers), the Civitai site API, MCP servers for both, plus SDKs and related developer tooling.',
         details:
           'Orchestration section covers the consumer-facing REST API: authenticating, submitting workflows, polling / receiving webhooks for results, and using each recipe (videoGen/WAN, imageGen/Flux, upscalers, transcription, TTS, prompt enhancement). ' +
           'Reference pages are generated from the v2-consumers OpenAPI specification and stay in sync with the live API on every build.',

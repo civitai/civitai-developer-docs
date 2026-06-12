@@ -6,12 +6,15 @@ const props = withDefaults(
   defineProps<{
     kind: 'json' | 'cli' | 'header';
     serverName?: string;
+    url?: string;
   }>(),
-  { serverName: 'civitai-orchestration' }
+  {
+    serverName: 'civitai-orchestration',
+    url: 'https://orchestration.civitai.com/mcp',
+  }
 );
 
 const PLACEHOLDER = 'YOUR_CIVITAI_API_KEY';
-const URL = 'https://orchestration.civitai.com/mcp';
 
 const { token, hasToken } = useAuthToken();
 const tokenValue = computed(() => token.value || PLACEHOLDER);
@@ -22,7 +25,7 @@ const code = computed(() => {
       '{',
       '  "mcpServers": {',
       `    "${props.serverName}": {`,
-      `      "url": "${URL}",`,
+      `      "url": "${props.url}",`,
       '      "headers": {',
       `        "Authorization": "Bearer ${tokenValue.value}"`,
       '      }',
@@ -33,7 +36,7 @@ const code = computed(() => {
   }
   if (props.kind === 'cli') {
     return [
-      `claude mcp add ${props.serverName} ${URL} \\`,
+      `claude mcp add ${props.serverName} ${props.url} \\`,
       '  --transport http \\',
       `  --header "Authorization: Bearer ${tokenValue.value}"`,
     ].join('\n');

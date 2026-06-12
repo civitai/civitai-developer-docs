@@ -8,6 +8,8 @@ The orchestrator is also exposed as a remote [Model Context Protocol](https://mo
 
 If you already use the orchestrator via [REST](/orchestration/guide/getting-started), MCP gives you the same capabilities packaged for LLM agents: tools an agent can call, prompts that guide multi-step pipelines, and a resource scheme for fetching generated media inline.
 
+This is the **generation** MCP. To browse models and images, post, comment, react, or message on civitai.com, use the separate [Civitai (site) MCP](/site/mcp/).
+
 ## Endpoint
 
 ```
