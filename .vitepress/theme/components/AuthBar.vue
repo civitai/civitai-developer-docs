@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref } from 'vue';
 import { useAuthToken } from '../composables/useAuthToken';
+import { useSessionUser } from '../composables/useSessionUser';
 
 const { hasToken, masked, setToken, clearToken, token } = useAuthToken();
+const { isAuthenticated, displayName } = useSessionUser();
 
 const open = ref(false);
 const draft = ref('');
@@ -52,6 +54,14 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick));
     </button>
 
     <div v-if="open" class="auth-bar__popover" @click.stop>
+      <p class="auth-bar__session">
+        <template v-if="isAuthenticated">
+          Signed in as <strong>{{ displayName }}</strong> on <code>civitai.com</code>
+        </template>
+        <template v-else>
+          Not signed in to <code>civitai.com</code> in this browser.
+        </template>
+      </p>
       <label class="auth-bar__label" for="auth-bar-input">Civitai API token</label>
       <input
         id="auth-bar-input"
@@ -115,6 +125,16 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick));
      menu items inline; reset it here so the hint paragraph wraps. */
   white-space: normal;
 }
+.auth-bar__session {
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--vp-c-divider);
+  font-size: 0.78rem; color: var(--vp-c-text-2);
+  overflow-wrap: anywhere;
+}
+.auth-bar__session strong { color: var(--vp-c-text-1); }
+.auth-bar__session code { font-size: 0.72rem; }
+
 .auth-bar__label {
   display: block;
   font-size: 0.78rem; font-weight: 600;
