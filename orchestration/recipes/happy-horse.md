@@ -12,7 +12,7 @@ const t2vBody = {
   steps: [{
     $type: 'videoGen',
     input: {
-      engine: 'happyHorse', version: 'v1.0', operation: 'textToVideo',
+      engine: 'happyHorse', version: 'v1.1', operation: 'textToVideo',
       prompt: 'A little girl walking on a road at sunset, cinematic lighting, smooth camera movement',
       aspectRatio: '16:9', resolution: '1080p', duration: 5,
     },
@@ -23,7 +23,7 @@ const i2vBody = {
   steps: [{
     $type: 'videoGen',
     input: {
-      engine: 'happyHorse', version: 'v1.0', operation: 'imageToVideo',
+      engine: 'happyHorse', version: 'v1.1', operation: 'imageToVideo',
       prompt: 'Camera slowly pushes in',
       image: sampleImage,
       resolution: '1080p', duration: 5,
@@ -49,7 +49,7 @@ const refBody = {
   steps: [{
     $type: 'videoGen',
     input: {
-      engine: 'happyHorse', version: 'v1.0', operation: 'referenceToVideo',
+      engine: 'happyHorse', version: 'v1.1', operation: 'referenceToVideo',
       prompt: 'character1 and character2 walk together through a neon-lit alley',
       images: [sampleImage, sampleSecondImage],
       aspectRatio: '16:9', resolution: '1080p', duration: 5,
@@ -60,16 +60,29 @@ const refBody = {
 
 # Happy-Horse video generation
 
-Alibaba's Happy-Horse video model, served through FAL. Four operations cover the common video workflows: text-to-video, image-to-video, video-to-video editing, and multi-character reference generation. The operation is selected by an explicit `operation` discriminator — fields invalid for that operation are rejected with a `400`.
+Alibaba's Happy-Horse video model, served through FAL. The operations below cover the common video workflows: text-to-video, image-to-video, video-to-video editing, and multi-character reference generation. The operation is selected by an explicit `operation` discriminator — fields invalid for that operation are rejected with a `400`.
 
-| `operation` | Required inputs | What it does |
+| `operation` | Versions | Required inputs | What it does |
+|---|---|---|---|
+| `textToVideo` | v1.0, v1.1 | `prompt` | Generate a clip from a text prompt. |
+| `imageToVideo` | v1.0, v1.1 | `image` | Animate a single source image as the first frame. |
+| `videoEdit` | **v1.0 only** | `sourceVideo`, `prompt` | Re-paint or restyle an existing clip; optional reference images guide the look. |
+| `referenceToVideo` | v1.0, v1.1 | `prompt`, `images` (1–9) | Subject-consistent generation using up to 9 character references. Cite them as `character1`…`character9` in the prompt. |
+
+**Default choice**: `version: "v1.1"`, `resolution: "1080p"`, `duration: 5`. All Happy-Horse jobs exceed the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — always submit with `wait=0`.
+
+## Versions
+
+`version` selects the model release. **`v1.1` is the latest and recommended for new work.**
+
+| | v1.1 | v1.0 |
 |---|---|---|
-| `textToVideo` | `prompt` | Generate a clip from a text prompt. |
-| `imageToVideo` | `image` | Animate a single source image as the first frame. |
-| `videoEdit` | `sourceVideo`, `prompt` | Re-paint or restyle an existing clip; optional reference images guide the look. |
-| `referenceToVideo` | `prompt`, `images` (1–9) | Subject-consistent generation using up to 9 character references. Cite them as `character1`…`character9` in the prompt. |
+| Operations | `textToVideo`, `imageToVideo`, `referenceToVideo` | all four (incl. `videoEdit`) |
+| `aspectRatio` | `16:9`, `9:16`, `1:1`, `4:3`, `3:4`, `21:9`, `9:21`, `5:4`, `4:5` | `16:9`, `9:16`, `1:1`, `4:3`, `3:4` |
+| 1080p cost | 234 Buzz/s (cheaper) | 364 Buzz/s |
+| `videoEdit` | not available — use v1.0 | available |
 
-**Default choice**: `version: "v1.0"`, `resolution: "1080p"`, `duration: 5`. All Happy-Horse jobs exceed the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — always submit with `wait=0`.
+Reach for **v1.0** only when you need `videoEdit`; everything else should use v1.1.
 
 ## The request shape
 
@@ -80,7 +93,7 @@ Every Happy-Horse request is a single `videoGen` step on [`SubmitWorkflow`](/orc
   "$type": "videoGen",
   "input": {
     "engine":    "happyHorse",
-    "version":   "v1.0",
+    "version":   "v1.1",
     "operation": "textToVideo"
   }
 }
@@ -107,7 +120,7 @@ Content-Type: application/json
     "$type": "videoGen",
     "input": {
       "engine": "happyHorse",
-      "version": "v1.0",
+      "version": "v1.1",
       "operation": "textToVideo",
       "prompt": "A little girl walking on a road at sunset, cinematic lighting, smooth camera movement",
       "aspectRatio": "16:9",
@@ -127,7 +140,7 @@ Pass a single image as the first frame; `prompt` becomes optional and only steer
 ```json
 {
   "engine": "happyHorse",
-  "version": "v1.0",
+  "version": "v1.1",
   "operation": "imageToVideo",
   "prompt": "Camera slowly pushes in",
   "image": "https://image.civitai.com/.../first-frame.jpeg",
@@ -136,11 +149,15 @@ Pass a single image as the first frame; `prompt` becomes optional and only steer
 }
 ```
 
-`aspectRatio` is **not** accepted here — output dimensions are derived from the input image. Source images must be at least 300px on the short side, ≤10 MB, and within a 1:2.5–2.5:1 aspect range.
+`aspectRatio` is **not** accepted here — output dimensions are derived from the input image. Source images must be at least 300px on the short side, ≤20 MB, and within a 1:2.5–2.5:1 aspect range.
 
 <RecipeRun :body="i2vBody" />
 
 ## videoEdit
+
+::: tip v1.0 only
+`videoEdit` is not part of v1.1 — this operation requires `version: "v1.0"`. Submitting it on v1.1 is rejected with a `400`.
+:::
 
 Re-paint or restyle an existing clip. The output duration matches the source; `duration` on the request applies to the cost preview only.
 
@@ -172,7 +189,7 @@ Generate with 1–9 character references. Cite each in the prompt with `characte
 ```json
 {
   "engine": "happyHorse",
-  "version": "v1.0",
+  "version": "v1.1",
   "operation": "referenceToVideo",
   "prompt": "character1 and character2 walk together through a neon-lit alley",
   "images": [
@@ -196,19 +213,18 @@ Shared across operations unless noted. The per-operation schema in the [API refe
 | Field | Default | Used by | Notes |
 |---|---|---|---|
 | `engine` | — ✅ | All | `"happyHorse"` |
-| `version` | — ✅ | All | `"v1.0"` |
+| `version` | — ✅ | All | `"v1.1"` (latest) or `"v1.0"`. See [Versions](#versions). |
 | `operation` | — ✅ | All | See the table above. |
 | `prompt` | — ✅ | All (optional on `imageToVideo`) | Up to 2500 characters. |
 | `resolution` | `"1080p"` | All | `"720p"` or `"1080p"`. |
-| `duration` | `5` | All except `videoEdit`'s output | Integer seconds, 3–15. `videoEdit` clamps output to the source video's length. |
-| `aspectRatio` | `"16:9"` | `textToVideo`, `referenceToVideo` | `"16:9"`, `"9:16"`, `"1:1"`, `"4:3"`, `"3:4"`. |
+| `duration` | `5` | All except `videoEdit`'s (v1.0) output | Integer seconds, 3–15. `videoEdit` clamps output to the source video's length. |
+| `aspectRatio` | `"16:9"` | `textToVideo`, `referenceToVideo` | `"16:9"`, `"9:16"`, `"1:1"`, `"4:3"`, `"3:4"` — v1.1 also accepts `"21:9"`, `"9:21"`, `"5:4"`, `"4:5"`. |
 | `image` | — ✅ | `imageToVideo` | Single image used as the first frame. |
-| `sourceVideo` | — ✅ | `videoEdit` | Civitai-hosted URL or AIR URN — not arbitrary external. |
-| `referenceImages[]` | `[]` | `videoEdit` | 0–5 images. |
-| `audioSetting` | `"auto"` | `videoEdit` | `"auto"` regenerates audio, `"origin"` preserves it. |
+| `sourceVideo` | — ✅ | `videoEdit` (v1.0) | Civitai-hosted URL or AIR URN — not arbitrary external. |
+| `referenceImages[]` | `[]` | `videoEdit` (v1.0) | 0–5 images. |
+| `audioSetting` | `"auto"` | `videoEdit` (v1.0) | `"auto"` regenerates audio, `"origin"` preserves it. |
 | `images[]` | — ✅ | `referenceToVideo` | 1–9 character references. |
 | `seed` | random | All | Integer for reproducibility, 0–2147483647. |
-| `enableSafetyChecker` | `true` | All | Disable only when you have your own moderation. |
 
 ## Cost
 
@@ -218,17 +234,23 @@ Billed per output second in Buzz on the workflow's `transactions`. Use `whatif=t
 total = buzzPerSecond × duration
 ```
 
+Rates differ by version — **v1.1 1080p is cheaper** than v1.0.
+
+**v1.1** (`textToVideo`, `imageToVideo`, `referenceToVideo`):
+
+| | 720p | 1080p |
+|---|---|---|
+| Rate | **182** Buzz/s | **234** Buzz/s |
+| Total at `duration: 5` | **910** | **1 170** |
+
+**v1.0**:
+
 | Operation | 720p | 1080p |
 |---|---|---|
 | `textToVideo`, `imageToVideo`, `referenceToVideo` | **182** Buzz/s | **364** Buzz/s |
 | `videoEdit` | **364** Buzz/s | **728** Buzz/s |
 
-Example totals at `duration: 5`:
-
-| Operation | 720p | 1080p |
-|---|---|---|
-| `textToVideo` / `imageToVideo` / `referenceToVideo` | **910** | **1 820** |
-| `videoEdit` | **1 820** | **3 640** |
+Example v1.0 totals at `duration: 5`: **910** / **1 820** (non-edit), **1 820** / **3 640** (`videoEdit`).
 
 `videoEdit` is double the others because FAL bills both the input second and the output second — already encoded in the rate above.
 
@@ -263,12 +285,13 @@ Happy-Horse jobs typically complete in 2–6 minutes (longer for `videoEdit` and
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `400` with unknown field | Field isn't valid for this `operation` | Each operation maps to its own typed schema (`HappyHorseV1<Op>Input`); check it via [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow). |
+| `400` with unknown field | Field isn't valid for this `version`/`operation` | Each operation maps to its own typed schema (`HappyHorseV1<Op>Input` for v1.0, `HappyHorseV1_1<Op>Input` for v1.1); check it via [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow). |
+| `400` invalid `operation` `"videoEdit"` | Used `videoEdit` on v1.1 | `videoEdit` exists on v1.0 only — set `version: "v1.0"`. |
 | `400` "`sourceVideo` must be a Civitai AIR URN…" | Passed an external URL to `sourceVideo` | Re-upload the video to Civitai and use the resulting URL, or pass a `urn:air:…` URN. |
 | `400` "referenceToVideo requires between 1 and 9 reference images" | `images` was empty or had >9 entries | Provide 1–9 images. |
 | `400` "videoEdit accepts at most 5 reference images" | `referenceImages` had >5 entries | Trim to 5. |
 | Step `failed`, `reason = "no_provider_available"` | FAL queue busy | Retry shortly. |
-| Step `failed`, `reason = "blocked"` | Safety checker rejected input/output | Re-prompt; if you've handled moderation upstream, set `enableSafetyChecker: false`. |
+| Step `failed`, `reason = "blocked"` | Civitai moderation rejected the input or output | Re-prompt with different content. (Happy-Horse jobs always run with FAL's safety checker off; Civitai moderates instead, so there is no knob to disable.) |
 
 ## Related
 
@@ -277,5 +300,5 @@ Happy-Horse jobs typically complete in 2–6 minutes (longer for `videoEdit` and
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — production result handling
 - [Veo 3 video generation](./veo3) — comparable commercial multi-mode video model
 - [Kling video generation](./kling) — another commercial multi-mode video model
-- Full parameter catalog: the `HappyHorseV1<Operation>Input` schemas in the [API reference](/orchestration/reference/)
+- Full parameter catalog: the `HappyHorseV1<Operation>Input` (v1.0) and `HappyHorseV1_1<Operation>Input` (v1.1) schemas in the [API reference](/orchestration/reference/)
 - [`videoGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/videoGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `videoGen` surface
