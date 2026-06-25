@@ -19,6 +19,11 @@ export CIVITAI_CLIENT_SECRET="…"   # confidential clients only
 export REDIRECT_URI="https://your-app.example.com/oauth/callback"
 ```
 
+These examples call the provider host **`auth.civitai.com`** directly. The
+legacy `civitai.com/api/auth/oauth/*` URLs also work but `308`-redirect here,
+and a `curl` without `--location-trusted` would drop the bearer on the
+cross-origin hop to `/userinfo` — see [Endpoints](./endpoints) for details.
+
 ## 1. Generate a PKCE verifier and challenge
 
 ```bash
@@ -39,7 +44,7 @@ asks for `UserRead | AIServicesRead | AIServicesWrite | BuzzRead = 1 + 16384
 + 32768 + 65536 = 114689`:
 
 ```bash
-echo "https://civitai.com/api/auth/oauth/authorize?$(cat <<EOF | tr -d '\n'
+echo "https://auth.civitai.com/api/auth/oauth/authorize?$(cat <<EOF | tr -d '\n'
 response_type=code
 &client_id=$CIVITAI_CLIENT_ID
 &redirect_uri=$REDIRECT_URI
@@ -70,7 +75,7 @@ the verifier you stashed for that `$STATE`.
 ## 4. Exchange the code for tokens
 
 ```bash
-curl -X POST https://civitai.com/api/auth/oauth/token \
+curl -X POST https://auth.civitai.com/api/auth/oauth/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "grant_type=authorization_code" \
   -d "code=$CODE" \
@@ -97,7 +102,7 @@ Store both tokens server-side. Never ship them to the browser.
 ## 5. Call the API
 
 ```bash
-curl https://civitai.com/api/auth/oauth/userinfo \
+curl https://auth.civitai.com/api/auth/oauth/userinfo \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
@@ -124,7 +129,7 @@ Access tokens live 1 hour. Swap the refresh token for a fresh pair any time
 before then:
 
 ```bash
-curl -X POST https://civitai.com/api/auth/oauth/token \
+curl -X POST https://auth.civitai.com/api/auth/oauth/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "grant_type=refresh_token" \
   -d "refresh_token=$REFRESH_TOKEN" \
@@ -138,7 +143,7 @@ is invalidated — use the new one going forward.
 ## 7. Revoke when the user signs out
 
 ```bash
-curl -X POST https://civitai.com/api/auth/oauth/revoke \
+curl -X POST https://auth.civitai.com/api/auth/oauth/revoke \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "token=$REFRESH_TOKEN" \
   -d "token_type_hint=refresh_token" \

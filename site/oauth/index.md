@@ -5,10 +5,11 @@ description: Authorize a third-party app to act on a Civitai user's behalf using
 
 # OAuth
 
-Civitai exposes an OAuth 2.0 server at `civitai.com/api/auth/oauth/*` so
-third-party apps can act on a user's behalf — read their profile, manage
-their content, or spend their buzz on AI generation — without ever seeing
-their password or a long-lived API key.
+Civitai exposes an OAuth 2.0 server at `auth.civitai.com/api/auth/oauth/*`
+(the legacy `civitai.com/api/auth/oauth/*` URLs still work, via a `308`
+redirect — see [Endpoints](./endpoints)) so third-party apps can act on a
+user's behalf — read their profile, manage their content, or spend their buzz
+on AI generation — without ever seeing their password or a long-lived API key.
 
 ## OAuth or API keys?
 
@@ -31,7 +32,7 @@ confidential — there's no "skip PKCE because we have a secret" path.
 sequenceDiagram
     participant U as User
     participant A as Your App
-    participant C as civitai.com
+    participant C as auth.civitai.com
     U->>A: Click "Sign in with Civitai"
     A->>U: Redirect to /authorize (code_challenge, state, scope)
     U->>C: Approves consent

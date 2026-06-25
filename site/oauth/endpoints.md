@@ -5,7 +5,25 @@ description: Request/response reference for the Civitai OAuth authorize, token, 
 
 # OAuth Endpoints
 
-Base URL for every endpoint on this page: **`https://civitai.com`**.
+Base URL for every endpoint on this page: **`https://auth.civitai.com`**.
+
+Civitai's OAuth/OIDC provider runs on its own host. The legacy
+`https://civitai.com/api/auth/oauth/*` URLs still work — they answer with a
+`308` permanent redirect to the same path on `auth.civitai.com` — but new
+integrations should call `auth.civitai.com` directly. The OIDC issuer (`iss`)
+is `https://auth.civitai.com`; if you validate `iss`, expect that value.
+
+::: warning Following the legacy redirect on `/userinfo`
+If you keep calling the `civitai.com` base, your HTTP client has to follow the
+`308` to `auth.civitai.com`. `/token` and `/revoke` survive this transparently
+because they carry credentials in the request **body**. But most HTTP clients
+(.NET `HttpClient`, `curl` without `--location-trusted`, many others) **strip the
+`Authorization` header when a redirect crosses origins** — a deliberate
+credential-leak guard. That silently breaks `/userinfo`: the bearer never reaches
+the server and you get `401 invalid_token`, even though the token is valid.
+Either call `auth.civitai.com` directly, or make sure your client re-attaches the
+bearer when following the redirect.
+:::
 
 ## `GET/POST /api/auth/oauth/authorize`
 
@@ -234,7 +252,7 @@ Standard OIDC UserInfo claims ([OIDC Core §5.1](https://openid.net/specs/openid
 
 | Status | `error` | Cause |
 |---:|---|---|
-| 401 | `invalid_token` | Missing, malformed, or expired bearer token. |
+| 401 | `invalid_token` | Missing, malformed, or expired bearer token. Also the symptom of a dropped `Authorization` header when calling through the legacy `civitai.com` redirect — see the [note above](#oauth-endpoints). |
 | 403 | `insufficient_scope` | Token doesn't include `UserRead`. Only possible for legacy tokens issued before `UserRead` became a mandatory baseline; they pick it up on their next refresh. |
 
 **CORS:** permissive — call from any origin.
