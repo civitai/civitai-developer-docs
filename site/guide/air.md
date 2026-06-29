@@ -72,6 +72,29 @@ The `type` segment maps to Civitai's `ModelType` enum:
 Resources that don't map to one of those (motion modules, detection models,
 wildcards, etc.) use `other` as the type.
 
+### Diffusion-model checkpoints
+
+Some checkpoints ship their weights as a standalone **diffusion model** (the
+denoiser / UNET only, with the VAE and text encoders supplied as separate
+files) rather than an all-in-one checkpoint. These models still have
+`ModelType = Checkpoint`, but their primary file is typed `Diffusion Model`
+(or `UNet`). When that's the case, the AIR `type` segment reflects the **file**
+kind instead of the model type:
+
+| Primary `ModelFile.type` | AIR type |
+|--------------------------|----------|
+| `Diffusion Model` | `diffusionmodel` |
+| `UNet` | `unet` |
+
+```
+urn:air:boogu:diffusionmodel:civitai:2714299@3049541
+```
+
+So a Flux / Wan / ZImage / Anima / Boogu checkpoint whose primary file is a
+diffusion model resolves to `...:diffusionmodel:...`, not `...:checkpoint:...`.
+The `air` field returned by the site API already applies this — prefer it over
+hand-construction.
+
 ## Container image AIRs (`oci:image`)
 
 Jobs that run in a worker-managed container can declare a custom container
