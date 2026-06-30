@@ -40,6 +40,17 @@ const nanoBanana2SearchBody = {
   }],
 };
 
+const nanoBanana2LiteBody = {
+  steps: [{
+    $type: 'imageGen',
+    input: {
+      engine: 'google', model: 'nano-banana-2-lite',
+      prompt: 'A photorealistic portrait of a woman with flowers in her hair, golden hour lighting',
+      aspectRatio: '1:1', numImages: 1,
+    },
+  }],
+};
+
 const nanoBananaProBody = {
   steps: [{
     $type: 'imageGen',
@@ -66,15 +77,16 @@ const imagen4Body = {
 
 # Google image generation
 
-Routes to Google's image-generation APIs (Vertex AI / Gemini API). Three models, selected via the `model` field:
+Routes to Google's image-generation APIs (Vertex AI / Gemini API). Four models, selected via the `model` field:
 
 | `model` | Also known as | Notes |
 |---------|---------------|-------|
 | `nano-banana-2` | Gemini 2.5 Flash Image, next-gen | **Default** — text-to-image + image-editing via `images[]`, high-resolution tier (up to 4K), optional web/Google search grounding. |
+| `nano-banana-2-lite` | Gemini 3.1 Flash-Lite Image | Cheapest & fastest — text-to-image + image-editing via `images[]`, **1K only**, no search grounding. |
 | `nano-banana-pro` | Gemini 2.5 Pro Image | Same shape as `nano-banana-2` for most purposes; pro tier for premium output. |
 | `imagen4` | Imagen 4 | Google's dedicated image model (not Gemini-based). Natural-language + negative prompt, fewer aspect ratios, 1K only. |
 
-**Default choice for new integrations**: `model: "nano-banana-2"`. It's fast, capable, supports editing via `images[]`, and has the widest aspect-ratio and resolution range. Step up to `nano-banana-pro` for hero-shot quality; reach for `imagen4` when you specifically want Google's older Imagen family semantics (negative prompts, stricter aspect-ratio set).
+**Default choice for new integrations**: `model: "nano-banana-2"`. It's fast, capable, supports editing via `images[]`, and has the widest aspect-ratio and resolution range. Step up to `nano-banana-pro` for hero-shot quality; drop down to `nano-banana-2-lite` when speed and cost matter more than the 2K/4K tiers; reach for `imagen4` when you specifically want Google's older Imagen family semantics (negative prompts, stricter aspect-ratio set).
 
 ::: tip Gemini vs Google
 The `gemini` engine ([Gemini image generation](./gemini)) exposes the same Gemini 2.5 Flash Image product as `model: "2.5-flash"` via the direct Gemini API, with a slightly different input shape. Pick based on which API semantics you prefer — this page covers the `google` engine.
@@ -172,6 +184,37 @@ Up to 10 reference images per call. Useful for prompt-driven edits and compositi
 
 <RecipeRun :body="nanoBanana2SearchBody" :wait="60" />
 
+## nano-banana-2-lite
+
+Google's fastest, cheapest image model (Gemini 3.1 Flash-Lite Image). Same input shape as `nano-banana-2` — text-to-image plus `images[]` editing — but **1K-only** (no `resolution` field) and no web/Google search grounding:
+
+```json
+{
+  "steps": [{
+    "$type": "imageGen",
+    "input": {
+      "engine": "google",
+      "model": "nano-banana-2-lite",
+      "prompt": "A photorealistic portrait of a woman with flowers in her hair, golden hour lighting",
+      "aspectRatio": "1:1",
+      "numImages": 1
+    }
+  }]
+}
+```
+
+<RecipeRun :body="nanoBanana2LiteBody" :wait="60" />
+
+| Field | Default | Allowed | Notes |
+|-------|---------|---------|-------|
+| `prompt` | — ✅ | ≤ 50 000 chars | |
+| `aspectRatio` | `1:1` | `21:9`, `16:9`, `3:2`, `4:3`, `5:4`, `1:1`, `4:5`, `3:4`, `2:3`, `9:16` | Same set as `nano-banana-2`. |
+| `numImages` | `1` | `1`–`4` | |
+| `images[]` | *(none)* | max 10 | Passing `images[]` switches to edit mode. |
+| `seed` | random | int | Pin for reproducibility. |
+
+No `resolution` field — outputs are always 1K. No search-grounding toggles.
+
 ## nano-banana-pro
 
 Pro-tier version of Nano Banana. Identical input shape minus the search-grounding toggles and `seed`. Reach for it when you want premium output quality on the same API:
@@ -256,6 +299,7 @@ Google's API queue is the dominant factor. Typical wall times:
 
 | Model / resolution | Per-image wall time | `wait` recommendation |
 |--------------------|---------------------|-----------------------|
+| `nano-banana-2-lite` (1K) | ~4–10 s | `wait=60` fine |
 | `imagen4` (1K) | 8–20 s | `wait=60` fine |
 | `nano-banana-2` (1K) | 8–20 s | `wait=60` fine |
 | `nano-banana-2` (2K / 4K) | 20–60 s | `wait=60` sometimes; fall back to `wait=0` |
@@ -275,6 +319,7 @@ total = base × numImages
 
 | Model | Base (per image) | Notes |
 |-------|------------------|-------|
+| `nano-banana-2-lite` | **44** | Cheapest Google model; 1K only. |
 | `imagen4` | **40** | Fixed; aspect ratio doesn't affect price. |
 | `nano-banana-2` (1K) | **104** | Default resolution tier. |
 | `nano-banana-2` (2K) | **156** | |
@@ -289,6 +334,7 @@ total = base × numImages
 **Web-search grounding** (Nano Banana 2 only) adds **+20 Buzz per image** for each flag enabled — `enableWebSearch: true` and `enableGoogleSearch: true` stack (so +40 if both on).
 
 Examples:
+- `nano-banana-2-lite`, `numImages: 1` → **~44 Buzz**
 - `imagen4`, `numImages: 1` → **~40 Buzz**
 - `nano-banana-2` 1K, `numImages: 1` → **~104 Buzz**
 - `nano-banana-2` 1K + web search, `numImages: 1` → **~124 Buzz**
@@ -317,5 +363,5 @@ Examples:
 - [Flux 2](./flux2) / [Flux 1](./flux1) / [Qwen](./qwen) — open-weights alternatives on Civitai-hosted workers
 - [Image upscaling](./image-upscaler) — chain after `imageGen` for higher-res output
 - [Prompt enhancement](./prompt-enhancement) — LLM-rewrite a prompt before feeding it in via `$ref`
-- Full parameter catalog: the `Imagen4ImageGenInput`, `NanoBananaProImageGenInput`, `NanoBanana2ImageGenInput` schemas in the [API reference](/orchestration/reference/)
+- Full parameter catalog: the `Imagen4ImageGenInput`, `NanoBananaProImageGenInput`, `NanoBanana2ImageGenInput`, `NanoBanana2LiteImageGenInput` schemas in the [API reference](/orchestration/reference/)
 - [`imageGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `imageGen` surface

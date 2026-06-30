@@ -31,7 +31,7 @@ Task-oriented, end-to-end examples. Each recipe walks through a real workflow: w
 - [SDXL image generation](./sdxl) — Stable Diffusion XL at 1024² native via sdcpp (default) or Comfy, with createImage + createVariant
 - [SD1 image generation](./sd1) — classic Stable Diffusion 1.5 at 512² via sdcpp (default) or Comfy, with createImage + createVariant
 - [OpenAI image generation](./openai) — GPT-Image 1 / 1.5 and DALL·E 2 / 3 via OpenAI's hosted API
-- [Google image generation](./google) — Imagen 4 and Nano Banana Pro / 2 via Vertex AI, with editing + web-search grounding
+- [Google image generation](./google) — Imagen 4 and Nano Banana Pro / 2 / 2 Lite via Vertex AI, with editing + web-search grounding
 - [Gemini image generation](./gemini) — Gemini 2.5 Flash Image (same product as Nano Banana) via the direct Gemini API
 - [Seedream image generation](./seedream) — ByteDance Seedream v3 / v4 / v4.5 / v5.0-lite with native up-to-4096 output + editing
 - [Grok image generation](./grok) — xAI Grok with wide aspect-ratio menu (21 options) + editing
