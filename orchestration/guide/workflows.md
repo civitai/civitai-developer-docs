@@ -215,10 +215,12 @@ unassigned → preparing → scheduled → processing ──▶ succeeded
 ```
 
 - `unassigned` — submitted, not yet routed to a provider
-- `preparing` — resolving resources, warming caches, validating inputs
-- `scheduled` — claimed by a provider, waiting in its queue
-- `processing` — actively running
+- `preparing` — assigned to a worker that is still downloading the required models/resources; work can't start until they're all local. While preparing, the step's `estimatedProgressRate` reflects download progress (0–1). Expect this state when a workflow uses models that aren't already cached on the fleet.
+- `scheduled` — waiting in the queue of a worker that has all required resources ready
+- `processing` — actively running; `estimatedProgressRate` now reflects generation progress
 - `succeeded` / `failed` / `expired` / `canceled` — **terminal**; status will not change again
+
+A workflow can move back and forth between `preparing` and `scheduled` (e.g. when it's reassigned to a different worker) — treat both as "queued, not started".
 
 Terminal states are documented and webhook delivery enforces the invariant — see [Results & webhooks → Delivery semantics](./results-and-webhooks#delivery-semantics). Workflow status rolls up from step status: all steps succeeded → workflow succeeded; any step failed / expired / canceled → workflow does the same.
 
