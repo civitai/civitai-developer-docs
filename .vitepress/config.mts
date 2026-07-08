@@ -91,6 +91,12 @@ const sidebar: DefaultTheme.Sidebar = {
       ],
     },
     {
+      text: '3D',
+      items: [
+        { text: '3D model generation', link: '/orchestration/recipes/3d' },
+      ],
+    },
+    {
       text: 'Audio',
       items: [
         { text: 'Transcription', link: '/orchestration/recipes/transcription' },

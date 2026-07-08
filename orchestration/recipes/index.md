@@ -38,6 +38,10 @@ Task-oriented, end-to-end examples. Each recipe walks through a real workflow: w
 - [WAN image generation](./wan-image) — WAN v2.2 / v2.2-5b / v2.5 / v2.7 via FAL (image counterpart to the WAN video recipe)
 - [Image upscaling](./image-upscaler) — ESRGAN-family upscalers, chain after `imageGen` or use standalone
 
+## 3D
+
+- [3D model generation](./3d) — text or image → 3D; Hunyuan3D on Civitai's Comfy workers (image-only, most control, cheapest — from 60 Buzz), Meshy v6 via FAL (text + image, rigging + animation, flat 1040 Buzz), and Tripo v2.5 via FAL (image-only, HD/PBR, quad topology, from 260 Buzz)
+
 ## Audio
 
 - [Transcription](./transcription) — Qwen3-ASR, multilingual, word-level timestamps for captioning
