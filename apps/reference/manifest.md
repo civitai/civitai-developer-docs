@@ -78,6 +78,13 @@ that JSON Schema can't:
 - **`outputDir` traversal** — the schema blocks a leading `/`; the validator also
   rejects `..`, backslashes, and other traversal/escape sequences.
 
+In two small spots the published schema is *marginally stricter* than the
+runtime validator: it locks `type` to `["block"]` and requires `outputDir`
+whenever `buildCommand` is set, whereas the validator ignores `type` and
+defaults `outputDir`. The server validator is the true gate — and it enforces
+**more** than the schema elsewhere (the semantic rules above) — so don't
+over-constrain based on the table alone.
+
 ::: warning The validator is the enforcement boundary
 A manifest can pass local JSON-Schema validation and still be rejected at submit
 time. If the schema and the validator ever conflict, **the validator wins.**
