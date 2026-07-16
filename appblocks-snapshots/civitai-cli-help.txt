@@ -1,0 +1,431 @@
+civitai CLI help snapshot (App authoring command group)
+Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
+Binary version: civitai v0.1.61
+Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
+else parses this committed snapshot. To refresh: run scripts/gen-appblocks-cli.mjs with
+a civitai binary on PATH (it rewrites this file), or hand-capture `civitai app <cmd> --help`.
+===CMD app===
+Author and ship Civitai Apps.
+
+An App is a sandboxed static web app served in an iframe. The platform
+owns the build and the runtime; the only mandatory file is block.manifest.json.
+The typical lifecycle is create -> validate -> submit.
+
+"civitai app create" is the friendly, batteries-included scaffolder (defaults to
+the rich page-money SDK template); "civitai app init" is the same scaffolder
+with a no-build static default (back-compat alias).
+
+Usage:
+  civitai app [command]
+
+Examples:
+  civitai app create my-block
+  civitai app validate ./my-block
+  civitai app submit ./my-block
+  civitai app status
+  civitai app withdraw pubreq_01H
+  civitai app dev-token my-block
+
+Available Commands:
+  create      Create a ready-to-build App (batteries-included, SDK money-path)
+  dev-token   Mint a short-lived dev block token for `npm run dev:live`
+  dev-tunnel  Preview your LOCAL dev server inside the real Civitai host via a hardened tunnel
+  init        Scaffold a ready-to-build App project
+  pull        Clone or sync your app's repository from Civitai
+  status      Check the review/deploy status of your App submissions
+  submit      Package and submit an App for review
+  validate    Validate block.manifest.json against the App schema
+  withdraw    Withdraw your own pending App submission
+
+Flags:
+  -h, --help   help for app
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+
+Use "civitai app [command] --help" for more information about a command.
+===CMD app create===
+Create a ready-to-build App, batteries included.
+
+This is the friendly happy path: a thin superset of "civitai app init" that
+defaults to the rich page-money template — a Vite + React + TypeScript full-page
+app wired to the published App SDK (estimate -> consent -> submit -> poll ->
+Buzz spend), with a mock-host dev harness and a unit test. The scaffold is
+immediately runnable (npm install && npm run dev:harness), test-green, and
+validates clean.
+
+Templates (override with --template):
+  static      a no-build page app (index.html + a tiny JS, no build step)
+  page-vite   a vite + React page app (config-as-code build: buildCommand + outputDir)
+  page-money  a vite + React + TS full-page (W10) money-path app wired to the
+              published App SDK (estimate -> consent -> submit -> poll -> Buzz spend)
+              [default for create]
+
+The display name can be free-form ("My Cool Block"); it is slugified for the
+blockId. A slug-shaped name is used verbatim.
+
+By default the project is created in ./<slug>. Override the output directory with
+a positional [dir] or --dir <path>; override the display name independently with
+--name (so name, slug, and directory can all differ).
+
+Note: `civitai login` (OAuth) grants submit but NOT Buzz-spend. To run
+`dev:live` real generations, authenticate with a full-scope personal API key
+(`civitai login --token <key>`, created at https://civitai.com/user/account).
+
+Usage:
+  civitai app create [name] [dir] [flags]
+
+Examples:
+  # A page-money app in ./my-block (the batteries-included default).
+  civitai app create my-block
+
+  # "My Cool Block" -> slug my-cool-block, dir ./my-cool-block.
+  civitai app create "My Cool Block"
+
+  # Same as init: a no-build static app.
+  civitai app create my-block --template static
+
+  # Custom output directory (slug stays my-block; created in ./apps/foo).
+  civitai app create my-block --dir ./apps/foo
+
+Flags:
+      --dir string        output directory (default ./<slug>)
+      --from string       fork from an existing published app slug (not yet wired)
+  -h, --help              help for create
+      --name string       display name (default derived from the name argument)
+  -t, --template string   project template: static | page-vite | page-money (default "page-money")
+  -y, --yes               non-interactive: never prompt (use flags/defaults; fail if a name is missing)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD app init===
+Scaffold a correct, ready-to-build App project.
+
+Templates:
+  static      a no-build page app (index.html + a tiny JS, no build step)
+  page-vite   a vite + React page app (config-as-code build: buildCommand + outputDir)
+  page-money  a vite + React + TS full-page (W10) money-path app wired to the
+              published App SDK (estimate -> consent -> submit -> poll -> Buzz spend)
+
+The display name can be free-form ("My Cool Block"); it is slugified for the
+blockId. A slug-shaped name is used verbatim.
+
+By default the project is created in ./<slug>. Override the output directory with
+a positional [dir] or --dir <path>; override the display name independently with
+--name (so name, slug, and directory can all differ).
+
+Usage:
+  civitai app init [name] [dir] [flags]
+
+Examples:
+  # A no-build static app in ./my-block.
+  civitai app init my-block
+
+  # A page-money app; "My Cool Block" -> slug my-cool-block, dir ./my-cool-block.
+  civitai app init "My Cool Block" --template page-money
+
+  # Custom output directory (slug stays my-block; created in ./apps/foo).
+  civitai app init my-block --dir ./apps/foo
+
+  # Name, slug, and dir all independent.
+  civitai app init my-block ./apps/foo --name "My Block"
+
+Flags:
+      --dir string        output directory (default ./<slug>)
+      --from string       fork from an existing published app slug (not yet wired)
+  -h, --help              help for init
+      --name string       display name (default derived from the name argument)
+  -t, --template string   project template: static | page-vite | page-money (default "static")
+  -y, --yes               non-interactive: never prompt (use flags/defaults; fail if a name is missing)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD app validate===
+Validate an App project.
+
+This is a best-effort LOCAL pre-check that mirrors the platform's approve-time
+validator (BlockManifestValidator). It catches most rejections before you
+submit, but the SERVER remains the source of truth.
+
+Checks block.manifest.json against the vendored JSON Schema (syntactic shape),
+plus the ported semantic rules and structural checks:
+  - the manifest is present at the project root
+  - buildCommand and outputDir are coherent (outputDir set when buildCommand is);
+    outputDir must be a safe relative path (no leading "/", no ".." traversal)
+  - server-owned fields (iframe.src, trustTier) are REJECTED if set
+  - sandbox tokens are limited to the unverified-tier allowlist
+    (allow-scripts, allow-forms); allow-same-origin+allow-scripts is rejected
+  - a "page" manifest must declare an iframe block; renderMode=iframe needs one too
+  - iframe.minHeight and iframe.resizable are required when an iframe is present
+  - renderMode inline/hybrid is rejected (requires a verified tier the platform
+    only assigns post-submit)
+  - targets[].slotId must be a known registered slot
+
+It also emits non-fatal WARNINGS for money-path footguns the schema can't catch
+as hard errors (e.g. a budgeted page with no page.buzzBudgetPerGen). Warnings do
+NOT fail validation (exit 0) unless --strict is passed.
+
+Defaults to the current directory.
+
+Usage:
+  civitai app validate [dir] [flags]
+
+Examples:
+  civitai app validate            # the current directory
+  civitai app validate ./my-block
+  civitai app validate --strict   # treat warnings as failures
+  civitai app validate --json     # raw JSON result (scriptable)
+
+Flags:
+  -h, --help     help for validate
+      --json     emit the validation result as JSON (scriptable)
+      --strict   treat warnings as failures (non-zero exit)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD app submit===
+Package the canonical App source tree and submit it for moderator
+review.
+
+The package is the SOURCE tree (manifest + src + build config) — NOT a
+prebuilt dist. The platform rebuilds from source. These are excluded:
+  .cache, .git, .hg, .mypy_cache, .next, .pnpm-store, .pytest_cache, .ruff_cache, .svn, .turbo, .venv, .vite, build, coverage, dist, node_modules, out, venv, *.zip, .env, .env.local, .env.*.local, .env.development, .env.test
+
+Submission path:
+  By default this uploads the bundle directly using your stored token to the
+  token-authenticated submit route (POST /api/v1/blocks/submit-version). OAuth
+  device-login tokens (`civitai login`) and personal API keys both work;
+  OAuth tokens refresh automatically. Set CIVITAI_SUBMIT_PATH to override the
+  route. With no token configured (and no --package-only), it writes the
+  canonical .zip and prints the manual next steps.
+
+  --package-only always just writes the .zip and stops.
+
+Defaults to the current directory.
+
+Usage:
+  civitai app submit [dir] [flags]
+
+Examples:
+  civitai app submit                 # validate + package + submit (or print next steps)
+  civitai app submit --package-only  # just write the .zip
+  civitai app submit -o my-block.zip ./my-block
+
+Flags:
+  -h, --help            help for submit
+  -o, --out string      output .zip path (default: <blockId>-<version>.zip)
+      --package-only    only write the .zip; do not attempt submission
+      --skip-validate   skip manifest validation before packaging
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD app status===
+Check the review and deploy status of your own App submissions.
+
+Calls the token-authenticated, self-scoped status route
+(GET /api/v1/blocks/submissions) with your stored credential — you only ever see
+your OWN submissions. Both a personal API key and an OAuth login (civitai login)
+work; the OAuth token must carry the Apps submit scope (the same gate the
+submit route uses).
+
+With no argument it lists all your submissions (newest first). Pass a blockId
+(app slug) or --id <pubreq_id> to see a single submission in detail, including the
+rejection reason (if rejected) and the live URL (if approved + deployed).
+
+Note: a submission's <blockId>.civit.ai surface only serves AFTER it is approved
+and deployed (deployState 'live').
+
+Usage:
+  civitai app status [blockId] [flags]
+
+Examples:
+  civitai app status                 # list all your submissions
+  civitai app status my-block        # detail for the my-block app
+  civitai app status --id pubreq_01H # detail by publish-request id
+  civitai app status --json          # raw JSON (scriptable)
+
+Flags:
+  -h, --help        help for status
+      --id string   look up a single submission by publish-request id (pubreq_...)
+      --json        emit raw JSON (scriptable)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD app withdraw===
+Withdraw your own pending App submission so you can resubmit a new bundle
+for the same slug.
+
+Calls the token-authenticated, self-scoped withdraw route
+(POST /api/v1/blocks/withdraw) with your stored credential — you can only ever
+withdraw your OWN submissions. Both a personal API key and an OAuth login
+(civitai login) work; the OAuth token must carry the Apps submit scope
+(the same gate the submit route uses).
+
+Only a submission still in the 'pending' review state can be withdrawn; an
+already-approved/rejected (or already-withdrawn) request cannot. Withdrawing is
+idempotent — withdrawing an already-withdrawn request still succeeds.
+
+Pass the publish-request id as a positional argument or via --id (find it with
+"civitai app status").
+
+Usage:
+  civitai app withdraw [pubreq-id] [flags]
+
+Examples:
+  civitai app withdraw pubreq_01H        # withdraw by publish-request id
+  civitai app withdraw --id pubreq_01H   # same, via the flag
+
+Flags:
+  -h, --help        help for withdraw
+      --id string   the publish-request id to withdraw (pubreq_...)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD app dev-token===
+Mint a short-lived dev block token so a scaffolded page-money app can run
+"npm run dev:live" against the REAL Civitai backend.
+
+Calls the invite-gated mint route (POST /api/v1/blocks/dev-token) with your
+stored credential and prints the token (a ~4-hour RS256 JWT). Paste it into
+VITE_LIVE_BLOCK_TOKEN in .env.development.local, then restart "npm run dev:live".
+
+The minted token's CAPABILITIES depend on the credential you mint with:
+  - REAL generation (spends real Buzz) needs a FULL-SCOPE PERSONAL API KEY
+    (create one at https://civitai.com/user/account — it carries AI Services).
+    Confirm yours can spend with "civitai whoami".
+  - An OAuth login ("civitai login") mints a READ/IDENTITY-ONLY dev token (no
+    spend) — dev:live shows your viewer + catalog/storage, but estimate →
+    submit → generation will NOT spend.
+
+Pre-GA the mint route is invite-only. You do NOT need to submit the app
+first — for a brand-new slug with no app row yet, the token is minted from the
+scopes in your local block.manifest.json (clamped server-side), so
+"create → dev-token → dev:live" works directly. The token is short-lived —
+never commit it; re-mint when it expires.
+
+Usage:
+  civitai app dev-token <slug> [flags]
+
+Examples:
+  civitai app dev-token my-block               # print the token to stdout
+  civitai app dev-token my-block --env         # print VITE_LIVE_BLOCK_TOKEN=<token>
+  civitai app dev-token my-block --env >> .env.development.local
+
+Flags:
+      --env    print VITE_LIVE_BLOCK_TOKEN=<token> (paste-ready into .env.development.local)
+  -h, --help   help for dev-token
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD app dev-tunnel===
+Run your app locally (`npm run dev:tunnel`) and see it rendered INSIDE the
+real production host at civitai.com/apps/dev/<blockId> — the actual page host
+bridge, your real Buzz, real pickers, real session — but with the iframe pointing
+at YOUR local code instead of a deployed bundle. A prod-fidelity inner-dev-loop.
+
+How it works: this mints an EPHEMERAL ssh keypair (in memory — never written to
+~/.ssh), calls blocks.startDevTunnel with the PUBLIC key, opens a reverse tunnel
+(ssh -R) from your local dev-server port to the Civitai tunnel endpoint, and
+prints the /apps/dev/<blockId> URL to open in your browser. On Ctrl-C (or an idle
+timeout) it tears the tunnel down and revokes the session server-side.
+
+Start your dev server first, in another terminal:
+
+  npm run dev:tunnel            # serves your app on 127.0.0.1:5186, embeddable
+
+then run this against the SAME port. Authentication uses your stored credential
+(`civitai login` or a personal API key); you can only tunnel your OWN app.
+
+The blockId is resolved from (in order): the `--block` flag, the positional
+argument, then the `blockId` in `block.manifest.json` in the current
+directory. Run it from your App project dir and you can omit the blockId entirely.
+
+⚠️ GATED: dev tunnels are limited to invited Apps authors / moderators and are
+guarded by a server kill-switch flag. The tunnel endpoint is live; if you are not
+enrolled the mint reports "not available" — ask to be added to the cohort.
+
+Usage:
+  civitai app dev-tunnel [blockId] [flags]
+
+Examples:
+  # In terminal 1: start the embeddable dev server.
+  npm run dev:tunnel
+  # In terminal 2: open the tunnel (Ctrl-C to tear down).
+  civitai app dev-tunnel                 # blockId from block.manifest.json in the CWD
+  civitai app dev-tunnel my-block
+  civitai app dev-tunnel my-block --port 5173
+  # Dev server NOT on the CLI's loopback (a container/pod, VM, or bound interface):
+  civitai app dev-tunnel my-block --local-host 10.42.0.100
+  civitai app dev-tunnel --block my-block --idle-timeout 15m
+
+Flags:
+      --block string             the blockId (app slug) to tunnel (or pass it positionally; defaults to the blockId in block.manifest.json in the CWD)
+  -h, --help                     help for dev-tunnel
+      --idle-timeout duration    tear the tunnel down after this much inactivity (default 30m0s)
+      --local-host localhost     host your local dev server is bound to. Default localhost (loopback) — the scaffold's `dev:tunnel` binds localhost, so most users need nothing. Set this for a dev server NOT on the CLI's loopback: a container/pod (e.g. --local-host 10.42.0.100), a VM, or a specific bound interface (default "localhost")
+      --no-wait                  skip the readiness wait and print the URL immediately (it may 404/NXDOMAIN for ~1–2 min while DNS/route propagate)
+      --port int                 local dev-server port to tunnel (matches the scaffold's dev:tunnel) (default 5186)
+      --ready-timeout duration   cap the wait for the public host to start serving (0 = wait indefinitely until ready or Ctrl-C; a positive value warns + prints the URL anyway on expiry)
+      --tunnel-endpoint string   sish SSH endpoint host:port (default sish.civitai.com:2224, or $CIVITAI_DEV_TUNNEL_ENDPOINT)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD app pull===
+Clone (or, if [dir] is already a checkout, pull) the canonical repository
+backing one of YOUR approved Apps. This is the read side of git authoring:
+it fetches the current block.manifest.json + source so you can edit locally and
+then submit (`civitai app submit`) or push.
+
+Authentication uses your stored credential (`civitai login` or a personal
+API key). The command calls an owner-only endpoint that lazily provisions a
+scoped, read-only Forgejo identity for you and returns a clone URL with a push/
+pull token embedded.
+
+⚠  SECURITY — TOKEN-IN-URL LEAKAGE: the clone URL embeds your access token as
+HTTP-Basic credentials (https://<user>:<token>@...). On a fresh CLONE, git
+stores the remote URL in .git/config, so the token lands on disk in the clone;
+treat the checkout as sensitive: do NOT commit .git/config or share the
+directory, and consider clearing the remote URL (or replacing it with the
+credential-less HTTPS URL `git remote set-url origin <httpUrl>`) after the
+clone if you rely on a git credential helper. On a SYNC (pull into an existing
+checkout) the URL is passed explicitly and is NOT persisted to .git/config, but
+the token still transiently appears in the git child process's arguments, so it
+is briefly visible to other processes via `ps` / /proc/<pid>/cmdline.
+
+The repo only exists once your FIRST version has been submitted as a ZIP and
+approved; before then the command tells you so instead of failing obscurely.
+
+Usage:
+  civitai app pull [dir] [flags]
+
+Examples:
+  civitai app pull --app my-block               # clone into ./my-block
+  civitai app pull ./my-block --app my-block    # clone/sync into ./my-block
+  civitai app pull . --app my-block             # sync the current directory
+
+Flags:
+      --app string   the app slug (repo name) or appBlockId to pull (required)
+  -h, --help         help for pull
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)

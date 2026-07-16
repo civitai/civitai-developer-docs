@@ -17,6 +17,17 @@ interface CliData {
 const data = inject<CliData>('appblocks:cli', { commands: [] });
 const commands = data.commands ?? [];
 const bin = data.program?.name ?? 'civitai';
+
+// A short, human badge for any non-stable command status.
+const STATUS_LABELS: Record<string, string> = {
+  'coming-soon': 'coming soon',
+  gated: 'invite-only',
+  experimental: 'experimental',
+};
+function badgeLabel(status: string): string | null {
+  if (!status || status === 'stable' || status === 'available') return null;
+  return STATUS_LABELS[status] ?? status;
+}
 </script>
 
 <template>
@@ -24,7 +35,7 @@ const bin = data.program?.name ?? 'civitai';
     <section v-for="c in commands" :key="c.command" class="ab-cmd">
       <h3 :id="`cli-${c.command}`">
         <code>{{ bin }} {{ c.command }}<template v-if="c.args"> {{ c.args }}</template></code>
-        <span v-if="c.status === 'coming-soon'" class="ab-badge ab-soon">coming soon</span>
+        <span v-if="badgeLabel(c.status)" class="ab-badge ab-soon">{{ badgeLabel(c.status) }}</span>
       </h3>
       <p class="ab-desc">{{ c.description.replace(/\s*\[coming soon\]\s*$/i, '') }}</p>
       <table v-if="c.options.length">

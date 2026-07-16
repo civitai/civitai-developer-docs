@@ -24,7 +24,6 @@
   },
   "devDependencies": {
     "@civitai/app-sdk": "0.24.0",
-    "@civitai/blocks-cli": "0.1.2",
     "@civitai/blocks-react": "0.29.0",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.0",
@@ -37,10 +36,5 @@
     "vitepress-plugin-llms": "^1.12.0",
     "vitepress-plugin-mermaid": "^2.0.17",
     "vue": "^3.5.0"
-  },
-  "overrides": {
-    "@civitai/blocks-cli": {
-      "@civitai/app-sdk": "0.24.0"
-    }
   }
 }
