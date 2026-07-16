@@ -313,4 +313,5 @@ Flat **1 Buzz** per step — regardless of source image size, number of transfor
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
 - [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
 - [Image upscaling](./image-upscaler) — chain upscaling before `convertImage` for high-res output in a target format
+- [Image background removal](./image-background-removal) — produce a transparent cutout, then chain `convertImage` to resize or re-encode it
 - [Prompt enhancement](./prompt-enhancement) — another 1-Buzz utility step

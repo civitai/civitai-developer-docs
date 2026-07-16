@@ -57,6 +57,7 @@ Task-oriented, end-to-end examples. Each recipe walks through a real workflow: w
 
 - [Prompt enhancement](./prompt-enhancement) — LLM rewrites a user prompt for a target ecosystem (Flux / SDXL / SD1 / LTX2), returns issues + recommendations + enhanced prompt
 - [Image conversion](./convert-image) — format conversion (JPEG / PNG / WebP / GIF), resize, and region blur; flat 1 Buzz
+- [Image background removal](./image-background-removal) — BiRefNet subject cutout with a transparent background; PNG or WebP output, ~6 Buzz
 
 ## Training
 
