@@ -1,0 +1,33 @@
+name: appblocks-snippets
+
+# PR-BLOCKING: a doc snippet that drifts from the pinned SDK (a renamed hook, a
+# wrong return shape, a bad call signature) must block the docs PR that carries
+# it. Runs on any change to the App Blocks pages or the guard itself.
+on:
+  pull_request:
+    paths:
+      - 'apps/**/*.md'
+      - 'scripts/typecheck-appblocks-snippets.mjs'
+      - 'scripts/appblocks-util.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/appblocks-snippets.yml'
+  workflow_dispatch: {}
+
+jobs:
+  typecheck-snippets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install (pinned @civitai/app-sdk + @civitai/blocks-react + tsc)
+        run: npm ci
+
+      - name: Typecheck App Blocks doc snippets against the pinned SDK
+        run: npm run test:snippets:appblocks

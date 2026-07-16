@@ -17,14 +17,21 @@
     "preview": "vitepress preview",
     "test:samples": "node scripts/test-doc-samples.mjs",
     "test:samples:site": "node scripts/test-doc-samples.mjs --site",
-    "test:samples:orch": "node scripts/test-doc-samples.mjs --orch"
+    "test:samples:orch": "node scripts/test-doc-samples.mjs --orch",
+    "test:snippets:appblocks": "node scripts/typecheck-appblocks-snippets.mjs",
+    "check:snapshots": "node scripts/check-appblocks-snapshots.mjs",
+    "check:manifest-parity": "node scripts/check-manifest-parity.mjs"
   },
   "devDependencies": {
     "@civitai/app-sdk": "0.24.0",
     "@civitai/blocks-cli": "0.1.2",
     "@civitai/blocks-react": "0.29.0",
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.0",
     "mermaid": "^11.0.0",
+    "react": "^18.3.1",
     "ts-morph": "28.0.0",
+    "typescript": "^5.6.0",
     "vitepress": "^1.6.4",
     "vitepress-openapi": "^0.1.20",
     "vitepress-plugin-llms": "^1.12.0",
