@@ -8,9 +8,8 @@ description: Generated-from-source reference for Civitai Apps — scopes, manife
 The pages in this section are **regenerated from pinned sources** on every build,
 rather than hand-maintained. Each page states its exact source at the top. How
 "live" a page is depends on its source (see [Keeping this current](#keeping-this-current)):
-the manifest page fetches the platform's live schema every build, while the
-SDK-derived pages track pinned package versions and the scope catalog tracks a
-committed snapshot in CI.
+the manifest and the other SDK-derived pages track pinned package versions,
+while the scope catalog tracks a committed snapshot in CI.
 
 | Page | What it covers | Source of truth |
 |------|----------------|-----------------|
@@ -35,10 +34,10 @@ the relevant pin or snapshot. The refresh actions are:
 
 | Page(s) | Source in CI | Refresh action |
 |---------|--------------|----------------|
-| [Manifest](./manifest) | the live prod URL `https://civitai.com/api/blocks/manifest-schema` | **None** — fetched fresh every build. |
+| [Manifest](./manifest) | the SDK-bundled canonical schema `@civitai/app-sdk/schemas/app-block/v1.json` (pinned devDep); committed `appblocks-snapshots/manifest-schema.json` is the CI-hermetic fallback, kept in lockstep with the pin | **Bump the `@civitai/app-sdk` version pin** (same one-line change as Messages/Hooks) — no live fetch. |
 | [Messages](./messages) payload shapes, [Hooks](./hooks) | the pinned `@civitai/*` npm devDeps in `package.json` | **Bump the version pins** (`@civitai/app-sdk`, `@civitai/blocks-react`) — a one-line, reviewable change. |
 | [CLI](./cli) | the committed `civitai app --help` snapshot (`appblocks-snapshots/civitai-cli-help.txt`) | **Re-capture** with a newer `civitai` binary: `node scripts/gen-appblocks-cli.mjs --write-snapshot`. |
-| [Scopes](./scopes) + the [Messages](./messages) page-only / request-reply flags | committed `appblocks-snapshots/` (CI has no `civitai` checkout) | **Re-copy the 4 snapshot files** from `civitai@origin/main` (`block-scope.constants.ts`, `scope-descriptions.constants.ts`, `hostHandlerParity.ts`, `manifest-schema.json`). |
+| [Scopes](./scopes) + the [Messages](./messages) page-only / request-reply flags | committed `appblocks-snapshots/` (CI has no `civitai` checkout) | **Re-copy the 3 snapshot files** from `civitai@origin/main` (`block-scope.constants.ts`, `scope-descriptions.constants.ts`, `hostHandlerParity.ts`). |
 
 On a machine that has the `civitai` sibling repo checked out, the scopes /
 messages-parity generators read `civitai@origin/main` directly and only fall
