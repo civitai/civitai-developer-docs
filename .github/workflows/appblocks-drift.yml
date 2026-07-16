@@ -1,0 +1,38 @@
+name: appblocks-drift
+
+# SCHEDULED, NOT PR-BLOCKING (by design). Both guards detect UPSTREAM civitai
+# movement — a re-snapshottable source file changing, or the two manifest-schema
+# copies diverging — which is unrelated to any given docs PR. Gating unrelated
+# docs PRs on a stale snapshot / a schema the docs repo doesn't own would be
+# wrong, so this runs on a schedule (mirroring test-samples) + on demand, where a
+# red run is the visible signal to re-snapshot or reconcile. To make either a
+# non-blocking informational PR check later, add a `pull_request` trigger with
+# `continue-on-error: true`.
+on:
+  schedule:
+    # 06:37 UTC daily — just after the test-samples 06:17 run.
+    - cron: '37 6 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install (pinned SDK devDeps for the SDK-bundled manifest schema)
+        run: npm ci
+
+      - name: Snapshot drift — appblocks-snapshots/ vs civitai@origin/main
+        run: npm run check:snapshots
+
+      - name: Manifest schema parity — prod endpoint vs SDK-bundled v1.json
+        # Always run so one scheduled run surfaces BOTH drift signals.
+        if: always()
+        run: npm run check:manifest-parity
