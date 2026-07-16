@@ -18,7 +18,7 @@ committed snapshot in CI.
 | [Manifest](./manifest) | Every `block.manifest.json` field, type, and constraint | the published JSON Schema |
 | [Messages](./messages) | The full `postMessage` bridge protocol (payloads, directions, page-only) | `@civitai/app-sdk` + host parity inventory |
 | [Hooks](./hooks) | Every `@civitai/blocks-react` hook: signature + example | `@civitai/blocks-react` types + README |
-| [CLI](./cli) | The `@civitai/blocks-cli` commands and flags | `@civitai/blocks-cli` |
+| [CLI](./cli) | The `civitai` CLI's App-authoring commands and flags | the Go `civitai` CLI (`civitai/cli`) |
 
 ::: tip These pages regenerate on build
 Reference artifacts are produced by `scripts/gen-appblocks-*.mjs` and land in a
@@ -31,12 +31,13 @@ contract sources.
 
 Regeneration is automatic, but the **sources** the generators read are pinned —
 so a real upstream change reaches these pages only after a maintainer refreshes
-the relevant pin or snapshot. There are three refresh actions:
+the relevant pin or snapshot. The refresh actions are:
 
 | Page(s) | Source in CI | Refresh action |
 |---------|--------------|----------------|
 | [Manifest](./manifest) | the live prod URL `https://civitai.com/api/blocks/manifest-schema` | **None** — fetched fresh every build. |
-| [Messages](./messages) payload shapes, [Hooks](./hooks), [CLI](./cli) | the pinned `@civitai/*` npm devDeps in `package.json` | **Bump the version pins** (`@civitai/app-sdk`, `@civitai/blocks-react`, `@civitai/blocks-cli`) — a one-line, reviewable change. |
+| [Messages](./messages) payload shapes, [Hooks](./hooks) | the pinned `@civitai/*` npm devDeps in `package.json` | **Bump the version pins** (`@civitai/app-sdk`, `@civitai/blocks-react`) — a one-line, reviewable change. |
+| [CLI](./cli) | the committed `civitai app --help` snapshot (`appblocks-snapshots/civitai-cli-help.txt`) | **Re-capture** with a newer `civitai` binary: `node scripts/gen-appblocks-cli.mjs --write-snapshot`. |
 | [Scopes](./scopes) + the [Messages](./messages) page-only / request-reply flags | committed `appblocks-snapshots/` (CI has no `civitai` checkout) | **Re-copy the 4 snapshot files** from `civitai@origin/main` (`block-scope.constants.ts`, `scope-descriptions.constants.ts`, `hostHandlerParity.ts`, `manifest-schema.json`). |
 
 On a machine that has the `civitai` sibling repo checked out, the scopes /
@@ -54,10 +55,14 @@ The SDK-derived pages are generated from these published, pinned packages:
 
 - `@civitai/app-sdk@0.24.0` — the framework-agnostic contract (messages, scopes, manifest schema).
 - `@civitai/blocks-react@0.29.0` — the React hooks.
-- `@civitai/blocks-cli@0.1.2` — the scaffolding + preflight CLI.
 
 When the SDK publishes a new version, bumping the pin in `package.json` is a
 one-line, reviewable change that flows through to every generated page.
+
+The [CLI](./cli) page is generated separately, from a committed `civitai app
+--help` snapshot of the canonical Go `civitai` CLI (`civitai/cli`) — not from an
+npm package. Refresh it with `node scripts/gen-appblocks-cli.mjs
+--write-snapshot` against a newer binary.
 
 ## A note on authority
 

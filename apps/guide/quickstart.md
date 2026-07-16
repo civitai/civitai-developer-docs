@@ -1,8 +1,8 @@
 ---
 title: Quickstart
-description: Scaffold a Civitai App with the blocks CLI, run it in the local harness, and write your first block.
+description: Scaffold a Civitai App with the civitai CLI, run it in the local harness, and write your first block.
 sources:
-  - npm:@civitai/blocks-cli@0.1.2
+  - go:github.com/civitai/cli#app
   - npm:@civitai/blocks-react@0.26.0#README
   - npm:@civitai/app-sdk@0.22.0/blocks#defineBlock
   - civitai-app-starters:docs/build-your-first-app-block.md
@@ -23,32 +23,30 @@ without access.
 
 ## Prerequisites
 
-- Node ≥ 20 and pnpm.
-- A Civitai account (only needed later, to publish).
+- Node ≥ 20.
+- The [`civitai` CLI](../reference/cli) installed (`npm install -g @civitai/cli`,
+  or Homebrew / a prebuilt binary — see the [CLI reference](../reference/cli#install)).
+- A Civitai account (only needed later, to submit).
 
 ## 1. Scaffold
 
-The [`@civitai/blocks-cli`](https://www.npmjs.com/package/@civitai/blocks-cli)
-`init` command clones the official Vite + React starter and patches your
-`block.manifest.json` with the values you pass:
+The `civitai` CLI's `app create` command scaffolds a correct, ready-to-build App
+(a Vite + React + TypeScript project wired to the App SDK), slugifying the name
+you pass into your `blockId`:
 
 ```bash
-npx @civitai/blocks-cli@latest init my-app \
-  --block-id my-app \
-  --slot model.sidebar_top \
-  --content-rating pg
+civitai app create my-app
 ```
 
-`init` validates your inputs through the SDK's `defineBlock` validator before it
-writes anything, so a bad `block-id` or scope fails fast rather than leaving a
-half-scaffolded directory.
+Use `--template static` for a no-build page app, or `--dir ./path` to control the
+output directory. The scaffold is immediately runnable and validates clean.
 
 Then install dependencies:
 
 ```bash
 cd my-app
 cp .env.example .env
-pnpm install
+npm install
 ```
 
 You now have a project shaped roughly like this:
@@ -73,13 +71,13 @@ your block.
 
 ```bash
 # from your scaffolded project:
-npx @civitai/blocks-cli dev        # Vite + the harness on http://localhost:5173
-# equivalently, the script the starter ships:
-pnpm dev:harness
+npm run dev:harness        # Vite + the harness on http://localhost:5173
 ```
 
-`civitai dev` is a thin convenience for `pnpm dev:harness` — it runs Vite with the
-harness mounted. Use either.
+`dev:harness` runs Vite with the mock host mounted. To iterate against the **real**
+Civitai backend instead, mint a dev token (`civitai app dev-token <slug>`) and run
+`npm run dev:live`, or preview your local server inside the real host with
+`civitai app dev-tunnel` — both are invite-gated during the pre-GA beta.
 
 ::: warning Match the harness origin
 The harness pins a parent origin (for example `http://localhost:5180`), and so
@@ -152,24 +150,32 @@ enforces it server-side.
 ## 5. Build
 
 ```bash
-pnpm build     # → dist/  (a static SPA)
+npm run build     # → dist/  (a static SPA; skip it for the `static` template)
 ```
 
 That's a shippable bundle. Everything up to here works today with the public
 packages.
 
-## Publishing (closed beta)
+## Submitting (closed beta)
 
-When you're ready to go live, publishing is a **ZIP upload + moderator review** —
-there is no CLI publish step (`civitai deploy` is a local preflight validator
-only, and `bundle` / `upload` / `publish` are reserved for a future release and
-print "coming soon"). You ZIP your project, upload it on civitai.com, and a
-moderator reviews it; on approval the platform provisions the OAuth client, git
-repo, build, deploy, and `<slug>.civit.ai` DNS for you.
+When you're ready to go live, the lifecycle is **validate → submit → review**.
+The `civitai` CLI packages your **source** tree and submits it — the platform
+rebuilds and deploys it, so there is no client-side `deploy` step:
+
+```bash
+civitai app validate   # local pre-check of block.manifest.json
+civitai app submit     # package the source + submit for review
+civitai app status     # track review / deploy state
+```
+
+`civitai app submit` enters your app into **moderator review** — it is not
+published immediately. On approval the platform provisions the OAuth client, git
+repo, build, deploy, and `<slug>.civit.ai` DNS for you, and serves it at
+`https://<slug>.civit.ai/`.
 
 That flow is gated to approved builders during the closed beta. To request access,
-**reach out to the Civitai team** (see [Introduction](./)). A full publishing
-guide is coming.
+**reach out to the Civitai team** (see [Introduction](./)). See the
+[CLI reference](../reference/cli) for every command and flag.
 
 ## Next
 

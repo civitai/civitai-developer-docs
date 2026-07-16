@@ -71,7 +71,7 @@ platform provisions all of that when your app is approved.
 - **[Concepts](./concepts)** — the mental model: block, install, slot, the iframe
   trust frame, and how the host and your app talk to each other.
 - **[Quickstart](./quickstart)** — go from nothing to a block running in the local
-  harness using the `@civitai/blocks-cli` scaffold.
+  harness using the `civitai` CLI scaffold.
 
 </div>
 
