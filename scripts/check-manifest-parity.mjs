@@ -4,23 +4,32 @@
  * -------------------------
  * The App Blocks MANIFEST SCHEMA parity-guard (proposal §5.3 / risk #6).
  *
- * There are TWO copies of the block-manifest JSON Schema:
- *   A. the prod endpoint  https://civitai.com/api/blocks/manifest-schema
- *      ($id-canonical; what the Phase-2 generator fetches into
- *      public/appblocks/manifest-schema.json → renders reference/manifest.md)
- *   B. the SDK-bundled    @civitai/app-sdk/schemas/app-block/v1.json
- *      (what `defineBlock({ manifest })` validates against at author time)
+ * There are TWO distinct copies of the block-manifest JSON Schema:
+ *   A. the CANONICAL, SDK-bundled  @civitai/app-sdk/schemas/app-block/v1.json
+ *      ($id https://civitai.com/schemas/app-block/v1.json). This faithfully
+ *      transcribes the imperative submit-time validator, is what the SDK and the
+ *      Go CLI vendor + validate authors against, and — since this PR — is what
+ *      the Phase-2 generator reads into public/appblocks/manifest-schema.json →
+ *      renders reference/manifest.md. THIS is the source of record.
+ *   B. the prod ENDPOINT  https://civitai.com/api/blocks/manifest-schema
+ *      (its hand-built MANIFEST_JSON_SCHEMA object). This is the LAGGING copy:
+ *      it understates blockId/version and OMITS the enforced `category` +
+ *      `assetBundleUrl` fields, so it under-documents the real constraints.
  *
- * If these diverge, a builder can pass one and be rejected by the other, and the
- * generated manifest reference silently documents the wrong field set. This
- * guard deep-compares the two and FAILS on any SUBSTANTIVE divergence, naming
- * the delta.
+ * The docs no longer generate from the endpoint (that was the bug this guard
+ * used to paper over). This guard now exists to flag the endpoint's divergence
+ * as an ACTIONABLE signal: while B differs from A, the public CLI-fetchable
+ * endpoint is still behind the canonical, and the sibling civitai PR that makes
+ * the endpoint serve the canonical file verbatim has not shipped. It
+ * deep-compares the two and FAILS on any SUBSTANTIVE divergence, naming the
+ * delta. Once the endpoint serves the canonical, this guard goes GREEN
+ * automatically — no docs change required.
  *
  * The top-level `$id` and `$schema` are EXCLUDED from the equality decision by
- * design: the two copies are MEANT to carry different `$id`s (the prod endpoint
- * URL vs the SDK's canonical `civitai.com/schemas/app-block/v1.json`), so
- * counting `$id` would keep the guard permanently red even after every real
- * field is reconciled — and a forever-red check gets ignored. Everything
+ * design: the endpoint may keep serving under its own `$id` (the `/api/...` URL)
+ * even after it is reconciled to serve the canonical body, so counting `$id`
+ * would keep the guard permanently red even after every real field is
+ * reconciled — and a forever-red check gets ignored. Everything
  * substantive (`properties`, `required`, and per-field constraints —
  * pattern/min/max/enum/type) is still compared. (A manifest FIELD literally
  * named `$schema` inside `properties` is NOT a top-level key and stays diffed.)
@@ -77,22 +86,22 @@ function summarize(prod, sdk) {
   const sk = Object.keys(sdk.properties || {});
   const prodOnly = pk.filter((k) => !sk.includes(k));
   const sdkOnly = sk.filter((k) => !pk.includes(k));
-  if (prodOnly.length) out.push(`  manifest fields only in PROD endpoint: ${prodOnly.join(', ')}`);
-  if (sdkOnly.length) out.push(`  manifest fields only in SDK-bundled : ${sdkOnly.join(', ')}`);
+  if (prodOnly.length) out.push(`  manifest fields only in the ENDPOINT   : ${prodOnly.join(', ')}`);
+  if (sdkOnly.length) out.push(`  manifest fields only in CANONICAL (SDK) : ${sdkOnly.join(', ')}`);
 
   const ptk = Object.keys(prod).sort();
   const stk = Object.keys(sdk).sort();
   const ptkOnly = ptk.filter((k) => !stk.includes(k));
   const stkOnly = stk.filter((k) => !ptk.includes(k));
-  if (ptkOnly.length) out.push(`  top-level keys only in PROD : ${ptkOnly.join(', ')}`);
-  if (stkOnly.length) out.push(`  top-level keys only in SDK  : ${stkOnly.join(', ')}`);
+  if (ptkOnly.length) out.push(`  top-level keys only in ENDPOINT  : ${ptkOnly.join(', ')}`);
+  if (stkOnly.length) out.push(`  top-level keys only in CANONICAL : ${stkOnly.join(', ')}`);
 
   const preq = JSON.stringify(prod.required || []);
   const sreq = JSON.stringify(sdk.required || []);
   if (preq !== sreq) {
     out.push(`  required[] differ:`);
-    out.push(`    prod: ${preq}`);
-    out.push(`    sdk : ${sreq}`);
+    out.push(`    endpoint : ${preq}`);
+    out.push(`    canonical: ${sreq}`);
   }
 
   // Per common-field shape drift (beyond presence).
@@ -128,7 +137,7 @@ function loadSdkSchema() {
 }
 
 async function main() {
-  console.log('App Blocks manifest schema parity — prod endpoint vs SDK-bundled v1.json\n');
+  console.log('App Blocks manifest schema parity — canonical (SDK-bundled v1.json) vs prod endpoint\n');
 
   const sdk = loadSdkSchema();
   if (!sdk.ok) {
@@ -149,7 +158,7 @@ async function main() {
   const sdkCore = stripMeta(sdk.schema);
   const idNote =
     prod.schema.$id !== sdk.schema.$id
-      ? `  · $id differs by design (excluded): prod ${prod.schema.$id}  sdk ${sdk.schema.$id}`
+      ? `  · $id differs (excluded from equality): endpoint ${prod.schema.$id}  canonical ${sdk.schema.$id}`
       : null;
 
   if (canonical(prodCore) === canonical(sdkCore)) {
@@ -160,15 +169,16 @@ async function main() {
     return;
   }
 
-  console.log('  ✗ prod endpoint schema and SDK-bundled v1.json DIVERGE (excluding $id/$schema):');
+  console.log('  ✗ prod endpoint LAGS the canonical (SDK-bundled) schema (excluding $id/$schema):');
   for (const line of summarize(prodCore, sdkCore)) console.log(line);
   if (idNote) console.log(idNote);
 
-  console.error('\n--- MANIFEST SCHEMA DIVERGENCE ---');
-  console.error('The manifest reference is generated from the PROD endpoint, but the SDK validates');
-  console.error('authors against the bundled copy. Reconcile the two (the proposal recommends the');
-  console.error(`$id-stamped prod endpoint as canonical): re-publish the prod schema, or bump/repin`);
-  console.error('@civitai/app-sdk so its schemas/app-block/v1.json matches, then re-run gen:appblocks.');
+  console.error('\n--- MANIFEST ENDPOINT BEHIND CANONICAL ---');
+  console.error('The docs + SDK + Go CLI all use the CANONICAL schema (public/schemas/app-block/v1.json,');
+  console.error('bundled in @civitai/app-sdk). The prod endpoint /api/blocks/manifest-schema still serves an');
+  console.error('older/looser copy, so any consumer that fetches the endpoint gets an under-specified contract.');
+  console.error('ACTION: merge the sibling civitai PR that makes the endpoint serve the canonical file verbatim.');
+  console.error('This guard goes GREEN automatically once the endpoint returns the canonical body — no docs change.');
   process.exit(1);
 }
 
