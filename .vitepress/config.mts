@@ -149,6 +149,16 @@ const sidebar: DefaultTheme.Sidebar = {
       ],
     },
   ],
+  '/apps/guide/': [
+    {
+      text: 'Guide',
+      items: [
+        { text: 'Introduction', link: '/apps/guide/' },
+        { text: 'Concepts', link: '/apps/guide/concepts' },
+        { text: 'Quickstart', link: '/apps/guide/quickstart' },
+      ],
+    },
+  ],
   '/site/guide/': [
     {
       text: 'Guide',
@@ -223,6 +233,7 @@ export default withMermaid({
     nav: [
       { text: 'Orchestration', link: '/orchestration/', activeMatch: '/orchestration/' },
       { text: 'Civitai Site', link: '/site/', activeMatch: '/site/' },
+      { text: 'Apps', link: '/apps/', activeMatch: '/apps/' },
       {
         text: 'Guides',
         items: [
@@ -234,6 +245,7 @@ export default withMermaid({
           { text: 'Civitai Site OAuth', link: '/site/oauth/' },
           { text: 'Civitai Site Reference', link: '/site/reference/' },
           { text: 'Civitai MCP', link: '/site/mcp/' },
+          { text: 'Apps Guide', link: '/apps/guide/' },
         ],
       },
     ],
