@@ -71,7 +71,7 @@ your block.
 
 ```bash
 # from your scaffolded project:
-npm run dev:harness        # Vite + the harness on http://localhost:5173
+npm run dev:harness        # Vite + the harness on http://localhost:5186
 ```
 
 `dev:harness` runs Vite with the mock host mounted. To iterate against the **real**

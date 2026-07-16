@@ -209,9 +209,18 @@ function parseFlags(help) {
     .map((e) => {
       let description = e.description;
       let def = null;
-      const dm = description.match(/\s*\(default\s+(.+)\)\s*$/);
+      // Extract ONLY a genuine cobra default annotation — cobra machine-emits
+      // `(default …)` for a non-empty Go default and ALWAYS quotes string
+      // defaults, leaving numbers/durations/bools bare. So the token is either a
+      // "double-quoted string" or a whitespace-free numeric/duration/bool
+      // literal. A trailing `(default …)` that is authored PROSE inside the
+      // usage string (e.g. `--dir` → `(default ./<slug>)`, `--tunnel-endpoint` →
+      // `(default sish.civitai.com:2224, or $CIVITAI_DEV_TUNNEL_ENDPOINT)`) is
+      // NOT one of those shapes, so it is left in the description rather than
+      // greedily swallowed into `default`.
+      const dm = description.match(/\s*\(default\s+("[^"]*"|-?\d[\d.a-z]*|true|false)\)\s*$/);
       if (dm) {
-        def = dm[1].replace(/^["']|["']$/g, '');
+        def = dm[1].replace(/^"|"$/g, '');
         description = description.slice(0, dm.index).trim();
       }
       return { flags: e.flags, description, default: def };
