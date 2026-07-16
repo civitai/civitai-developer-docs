@@ -22,8 +22,13 @@
  * RESULTS
  *   - 200 fetch that DIFFERS from the snapshot  -> FAIL (exit 1), naming the
  *     drifted file + the exact re-copy command.
- *   - network unreachable / 5xx / 404           -> SKIP with a clear note
- *     (exit 0 — never false-fail on a transient outage or a moved path).
+ *   - 404 / 410 on a tracked path               -> FAIL (exit 1). A tracked
+ *     source file returning 404 means it was RENAMED/REMOVED upstream — the
+ *     committed snapshot then keeps generating stale docs forever, so this is
+ *     REAL drift, not a transient outage. The message points at the generator's
+ *     source path.
+ *   - network unreachable / DNS / timeout / 5xx / 403 -> SKIP with a clear note
+ *     (exit 0 — a genuine connectivity failure must never false-fail).
  *   - 200 fetch byte-identical                  -> PASS.
  *
  * The manifest schema is guarded separately by check-manifest-parity.mjs.
@@ -91,10 +96,17 @@ async function fetchUpstream(path) {
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
     if (!res.ok) {
-      return { ok: false, url, reason: `HTTP ${res.status}`, movedMaybe: res.status === 404 };
+      // 404/410 on a KNOWN tracked path is not "transient" — it means the file
+      // was renamed or removed upstream, which is REAL drift. Any other non-2xx
+      // (5xx server error, 403 rate-limit, etc.) is a transient connectivity
+      // issue → skip.
+      const gone = res.status === 404 || res.status === 410;
+      return { ok: false, url, status: res.status, reason: `HTTP ${res.status}`, gone };
     }
     return { ok: true, url, text: await res.text() };
   } catch (err) {
+    // A thrown fetch error is a genuine connectivity failure (DNS / host down /
+    // timeout / TLS) — never drift.
     return { ok: false, url, reason: err.message, network: true };
   }
 }
@@ -117,11 +129,17 @@ async function main() {
     const remote = await fetchUpstream(path);
 
     if (!remote.ok) {
-      const note = remote.movedMaybe
-        ? `${remote.reason} — upstream path may have moved (rename); verify ${path}`
-        : `${remote.reason} — could not reach source`;
-      console.log(`  ⊘ ${snapshot} — ${note}`);
-      skipped.push({ snapshot, path, note });
+      if (remote.gone) {
+        // Tracked path moved/removed upstream → REAL drift (RED), not a skip.
+        console.log(`  ✗ ${snapshot} — source path returned ${remote.reason}: moved/removed upstream`);
+        console.log(`      civitai no longer serves ${path}, but the generator still reads`);
+        console.log(`      appblocks-snapshots/${snapshot} — the generated docs are stale.`);
+        console.log(`      update the source path in the gen-appblocks-*.mjs generator + re-snapshot from the new path.`);
+        drifted.push({ snapshot, path, gone: true, status: remote.status });
+        continue;
+      }
+      console.log(`  ⊘ ${snapshot} — ${remote.reason} — could not reach source`);
+      skipped.push({ snapshot, path, note: remote.reason });
       continue;
     }
 
@@ -158,6 +176,11 @@ async function main() {
     for (const d of drifted) {
       if (d.missing) {
         console.error(`  - ${d.snapshot}: MISSING — restore it from ${RAW_BASE}/${d.path}`);
+      } else if (d.gone) {
+        console.error(
+          `  - ${d.snapshot}: source path ${d.path} returned HTTP ${d.status} — it moved/was removed upstream;` +
+            ` update the generator's source path + re-snapshot from the new location.`,
+        );
       } else {
         console.error(`  - ${d.snapshot}:  curl -sSL ${d.url} > appblocks-snapshots/${d.snapshot}`);
       }

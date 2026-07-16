@@ -119,14 +119,26 @@ function walkMarkdown(dir) {
 /* ───────────────────────────────  export map  ────────────────────────────── */
 
 /**
- * identifier -> import-module for every VALUE export across the entrypoints,
- * via the TypeScript compiler API (resolves nested `export * from` re-exports a
- * regex can't). First-wins on collisions (entry order above), so a bare
+ * identifier -> import-module for the SDK exports across the entrypoints, via the
+ * TypeScript compiler API (resolves nested `export * from` re-exports a regex
+ * can't). Returns TWO maps: `valueMap` for value exports (injected as
+ * `import { X }`) and `typeMap` for type-only exports (injected as
+ * `import type { X }`). First-wins on collisions (entry order above), so a bare
  * `@civitai/app-sdk` import is preferred over a subpath.
+ *
+ * WHY the type map matters — a latent masking vector: a documented TYPE-only
+ * export referenced in an annotation without an explicit `import type` surfaces
+ * as TS2304, and if we only ever `any`-shimmed it, a drift in that type's SHAPE
+ * would be masked. Indexing type exports lets us inject the REAL `import type`
+ * instead, so an annotation IS checked against the true type. RESIDUAL (flag for
+ * when the docs grow): a type that was RENAMED/REMOVED upstream isn't in the map
+ * → still falls back to the `any` shim, so a hard-removed type in an annotation
+ * position can still slip through. Zero snippets hit this today.
  */
 function buildExportMap(ts) {
-  const map = new Map();
-  if (!ts) return map;
+  const valueMap = new Map();
+  const typeMap = new Map();
+  if (!ts) return { valueMap, typeMap };
   const opts = {
     moduleResolution: ts.ModuleResolutionKind.Bundler,
     module: ts.ModuleKind.ESNext,
@@ -151,12 +163,18 @@ function buildExportMap(ts) {
           resolved = exp;
         }
       }
-      if ((resolved.flags & ts.SymbolFlags.Value) === 0) continue;
       const name = exp.getName();
-      if (!map.has(name)) map.set(name, module);
+      const isValue = (resolved.flags & ts.SymbolFlags.Value) !== 0;
+      if (isValue) {
+        if (!valueMap.has(name)) valueMap.set(name, module);
+      } else if ((resolved.flags & ts.SymbolFlags.Type) !== 0) {
+        // Type-only export (interface / type alias / enum-as-type) — inject a
+        // real `import type` rather than an `any` shim so annotations are checked.
+        if (!typeMap.has(name)) typeMap.set(name, module);
+      }
     }
   }
-  return map;
+  return { valueMap, typeMap };
 }
 
 /* ─────────────────────────────  fence extraction  ────────────────────────── */
@@ -322,19 +340,24 @@ function hardErrorLines(out) {
   return out.split('\n').filter((line) => /error TS\d+:/.test(line) && !isToleratedDiagnostic(line));
 }
 
-function renderAutoImports(autoByModule) {
+function renderAutoImports(valueByModule, typeByModule) {
   const lines = [];
-  for (const [module, names] of autoByModule) {
+  for (const [module, names] of valueByModule) {
     lines.push(`import { ${[...names].join(', ')} } from '${module}';`);
+  }
+  for (const [module, names] of typeByModule) {
+    lines.push(`import type { ${[...names].join(', ')} } from '${module}';`);
   }
   return lines.join('\n');
 }
 
 function checkBlock(block, exportMap) {
+  const { valueMap, typeMap } = exportMap;
   const isTsx = block.lang === 'tsx';
   const { imports, body } = splitImports(block.code);
   const declared = new Set();
   const autoByModule = new Map();
+  const typeByModule = new Map();
   const alreadyImported = new Set([...imports.matchAll(/\b([A-Za-z_$][\w$]*)\b/g)].map((m) => m[1]));
   mkdirSync(TMP_PARENT, { recursive: true });
   const dir = mkdtempSync(join(TMP_PARENT, 'snip-'));
@@ -344,7 +367,7 @@ function checkBlock(block, exportMap) {
     let lastOut = '';
     for (let pass = 0; pass < 12; pass++) {
       const declares = [...declared].map((n) => `declare const ${n}: any;\ntype ${n} = any;`).join('\n');
-      const autoImports = renderAutoImports(autoByModule);
+      const autoImports = renderAutoImports(autoByModule, typeByModule);
       const src = buildSource({ imports, body }, { autoImports, declares });
       writeFileSync(join(dir, fileName), src);
       const { ok, out } = runTsc(dir);
@@ -354,10 +377,21 @@ function checkBlock(block, exportMap) {
       let added = false;
       for (const n of missing) {
         if (declared.has(n) || alreadyImported.has(n)) continue;
-        const mod = exportMap.get(n);
-        if (mod) {
-          if (!autoByModule.has(mod)) autoByModule.set(mod, new Set());
-          const set = autoByModule.get(mod);
+        // Prefer a REAL import so the fragment is checked against the true type:
+        // value export -> `import { n }`, type-only export -> `import type { n }`,
+        // otherwise an `any` shim (a free variable the doc simply doesn't define).
+        const vmod = valueMap.get(n);
+        const tmod = vmod ? null : typeMap.get(n);
+        if (vmod) {
+          if (!autoByModule.has(vmod)) autoByModule.set(vmod, new Set());
+          const set = autoByModule.get(vmod);
+          if (!set.has(n)) {
+            set.add(n);
+            added = true;
+          }
+        } else if (tmod) {
+          if (!typeByModule.has(tmod)) typeByModule.set(tmod, new Set());
+          const set = typeByModule.get(tmod);
           if (!set.has(n)) {
             set.add(n);
             added = true;
@@ -401,7 +435,9 @@ function main() {
   }
 
   const exportMap = buildExportMap(ts);
-  console.log(`Resolved ${exportMap.size} SDK value exports for auto-import.`);
+  console.log(
+    `Resolved ${exportMap.valueMap.size} value + ${exportMap.typeMap.size} type SDK exports for auto-import.`,
+  );
   console.log(`  @civitai/app-sdk      -> ${relative(repoRoot, SDK_DIST)}`);
   console.log(`  @civitai/blocks-react -> ${relative(repoRoot, BLOCKS_DIST)}\n`);
 

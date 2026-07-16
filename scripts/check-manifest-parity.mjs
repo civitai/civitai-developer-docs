@@ -13,7 +13,17 @@
  *
  * If these diverge, a builder can pass one and be rejected by the other, and the
  * generated manifest reference silently documents the wrong field set. This
- * guard deep-compares the two and FAILS on any divergence, naming the delta.
+ * guard deep-compares the two and FAILS on any SUBSTANTIVE divergence, naming
+ * the delta.
+ *
+ * The top-level `$id` and `$schema` are EXCLUDED from the equality decision by
+ * design: the two copies are MEANT to carry different `$id`s (the prod endpoint
+ * URL vs the SDK's canonical `civitai.com/schemas/app-block/v1.json`), so
+ * counting `$id` would keep the guard permanently red even after every real
+ * field is reconciled — and a forever-red check gets ignored. Everything
+ * substantive (`properties`, `required`, and per-field constraints —
+ * pattern/min/max/enum/type) is still compared. (A manifest FIELD literally
+ * named `$schema` inside `properties` is NOT a top-level key and stays diffed.)
  *
  * DESIGN — scheduled, not PR-blocking (same rationale as the snapshot guard):
  * a mismatch is UPSTREAM movement between two civitai-owned artifacts, unrelated
@@ -38,6 +48,17 @@ const require = createRequire(import.meta.url);
 const MANIFEST_URL =
   process.env.APPBLOCKS_MANIFEST_URL || 'https://civitai.com/api/blocks/manifest-schema';
 const SDK_SCHEMA_MODULE = '@civitai/app-sdk/schemas/app-block/v1.json';
+
+/**
+ * Drop the TOP-LEVEL `$id` and `$schema` (meta identity keys designed to differ)
+ * so the equality decision rests only on substantive schema content. Only the
+ * top-level keys are removed — a manifest field named `$schema` inside
+ * `properties` is preserved and still compared.
+ */
+function stripMeta(schema) {
+  const { $id, $schema, ...rest } = schema;
+  return rest;
+}
 
 /** Canonical JSON with recursively sorted object keys — order-independent equality. */
 function canonical(value) {
@@ -81,7 +102,8 @@ function summarize(prod, sdk) {
   }
   if (shapeDrift.length) out.push(`  common fields whose shape/constraints differ: ${shapeDrift.join(', ')}`);
 
-  if (prod.$id !== sdk.$id) out.push(`  $id differs — prod: ${prod.$id}  sdk: ${sdk.$id}`);
+  // $id / $schema are intentionally NOT reported here — they are excluded from
+  // the equality decision by design (see stripMeta + the file header).
   return out;
 }
 
@@ -122,14 +144,25 @@ async function main() {
   }
   console.log(`  prod URL   : ${MANIFEST_URL}\n`);
 
-  if (canonical(prod.schema) === canonical(sdk.schema)) {
-    console.log('  ✓ prod endpoint schema and SDK-bundled v1.json are byte-equivalent (deep-equal).');
+  // Compare substantive content only ($id/$schema excluded by design).
+  const prodCore = stripMeta(prod.schema);
+  const sdkCore = stripMeta(sdk.schema);
+  const idNote =
+    prod.schema.$id !== sdk.schema.$id
+      ? `  · $id differs by design (excluded): prod ${prod.schema.$id}  sdk ${sdk.schema.$id}`
+      : null;
+
+  if (canonical(prodCore) === canonical(sdkCore)) {
+    console.log('  ✓ substantive schema is equal — properties / required / per-field constraints match.');
+    console.log('    ($id and $schema are excluded from the comparison by design.)');
+    if (idNote) console.log(idNote);
     console.log('\nManifest parity: OK');
     return;
   }
 
-  console.log('  ✗ prod endpoint schema and SDK-bundled v1.json DIVERGE:');
-  for (const line of summarize(prod.schema, sdk.schema)) console.log(line);
+  console.log('  ✗ prod endpoint schema and SDK-bundled v1.json DIVERGE (excluding $id/$schema):');
+  for (const line of summarize(prodCore, sdkCore)) console.log(line);
+  if (idNote) console.log(idNote);
 
   console.error('\n--- MANIFEST SCHEMA DIVERGENCE ---');
   console.error('The manifest reference is generated from the PROD endpoint, but the SDK validates');
