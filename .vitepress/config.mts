@@ -158,6 +158,19 @@ const sidebar: DefaultTheme.Sidebar = {
       ],
     },
   ],
+  '/apps/reference/': [
+    {
+      text: 'Reference',
+      items: [
+        { text: 'Overview', link: '/apps/reference/' },
+        { text: 'Scopes', link: '/apps/reference/scopes' },
+        { text: 'Manifest', link: '/apps/reference/manifest' },
+        { text: 'Messages', link: '/apps/reference/messages' },
+        { text: 'Hooks', link: '/apps/reference/hooks' },
+        { text: 'CLI', link: '/apps/reference/cli' },
+      ],
+    },
+  ],
   '/site/guide/': [
     {
       text: 'Guide',
@@ -245,6 +258,7 @@ export default withMermaid({
           { text: 'Civitai Site Reference', link: '/site/reference/' },
           { text: 'Civitai MCP', link: '/site/mcp/' },
           { text: 'Apps Guide', link: '/apps/guide/' },
+          { text: 'Apps Reference', link: '/apps/reference/' },
         ],
       },
     ],
