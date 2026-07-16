@@ -22,6 +22,10 @@ features:
     details: Browse and search models, images, creators, and tags on civitai.com. Look up model versions by file hash, fetch AIR identifiers, and more.
     link: /site/
     linkText: Read the guide
+  - title: Apps
+    details: Build a web app that renders inside civitai.com — hosted for you, authenticated, and Buzz-aware. Ship a ZIP; the platform builds, deploys, and serves it. Currently in closed beta.
+    link: /apps/
+    linkText: Build an app
   - title: OAuth
     details: Let users sign into your app with their Civitai account. Authorization code + PKCE, scoped tokens, refresh, and per-app buzz spend caps.
     link: /site/oauth/
