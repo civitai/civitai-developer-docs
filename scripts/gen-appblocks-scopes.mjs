@@ -105,6 +105,10 @@ const missingDesc = scopes.filter((s) => !s.description).map((s) => s.scope);
 if (missingDesc.length) {
   log(`WARNING: no description for: ${missingDesc.join(', ')}`);
 }
+const missingBinding = scopes.filter((s) => !s.binding).map((s) => s.scope);
+if (missingBinding.length) {
+  log(`WARNING: no BINDING_NOTES entry for: ${missingBinding.join(', ')} (add one to gen-appblocks-scopes.mjs)`);
+}
 
 const artifact = {
   generatedAt: new Date().toISOString(),

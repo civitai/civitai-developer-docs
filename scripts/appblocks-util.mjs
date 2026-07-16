@@ -64,11 +64,17 @@ const CIVITAI_SIBLINGS = [
  * blob (so a teammate's in-progress working-tree branch never leaks into the
  * docs), then the working-tree file, then a committed snapshot by basename.
  *
+ * Set APPBLOCKS_SNAPSHOT_ONLY=1 to force the committed-snapshot path and skip
+ * the sibling lookup entirely — this mirrors the CI environment (which has no
+ * `civitai` checkout) and lets you validate the hermetic codepath locally.
+ *
  * @param {string} relPath  repo-relative path, e.g. 'src/shared/constants/x.ts'
  * @param {string} snapshotName  basename under appblocks-snapshots/
  * @returns {{ text: string, source: string }}
  */
 export function readCivitaiSource(relPath, snapshotName) {
+  const snapshotOnly = process.env.APPBLOCKS_SNAPSHOT_ONLY === '1';
+  if (!snapshotOnly)
   for (const root of CIVITAI_SIBLINGS) {
     if (!existsSync(root)) continue;
     // Prefer origin/main via git when this is a git repo.

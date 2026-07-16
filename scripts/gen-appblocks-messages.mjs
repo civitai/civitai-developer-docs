@@ -71,18 +71,58 @@ function parseUnion(sourceFile, aliasName, direction) {
 }
 
 // ── parse INVENTORY (host parity) for block->host flags ──────────────────────
+//
+// The parser is deliberately INDENTATION-AGNOSTIC. An earlier version hard-coded
+// 2-space indentation for the entry key + closing brace; reindenting
+// hostHandlerParity.ts (e.g. 2-space -> 4-space) would then silently parse ZERO
+// entries. Because the SDK message union still yields message names, the
+// `messages.length === 0` guard would NOT trip, and we would emit a
+// plausible-but-WRONG messages.json (all request/reply/page-only flags lost,
+// replies mis-promoted to host->block pushes). The coverage + flag assertions
+// below (see the `assert*` block after the call site) turn that failure mode
+// into a hard build error instead.
+
+/**
+ * Return the substring between the `{` at `openIdx` and its matching `}`
+ * (exclusive of the braces), skipping braces that appear inside quoted strings.
+ * Robust to reformatting and to N/A reason strings.
+ */
+function extractBraced(text, openIdx) {
+  let depth = 0;
+  let quote = null;
+  for (let i = openIdx; i < text.length; i++) {
+    const ch = text[i];
+    if (quote) {
+      if (ch === '\\') { i++; continue; }
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === "'" || ch === '"' || ch === '`') { quote = ch; continue; }
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) return text.slice(openIdx + 1, i);
+    }
+  }
+  return null;
+}
+
 function parseInventory(ts) {
   const start = ts.indexOf('export const INVENTORY');
   if (start < 0) return {};
   const region = ts.slice(start);
   const out = {};
-  // Match each entry:  NAME: { request: bool, reply: 'X', IframeHost: <...>, ... }
-  const entryRe = /^\s{2}([A-Z][A-Z0-9_]+):\s*\{([\s\S]*?)\n\s{2}\},/gm;
+  // Indentation-agnostic: an uppercase entry key at a line start (any leading
+  // whitespace) followed by `: {`. We then brace-match the body rather than
+  // relying on a fixed-indent closing-brace pattern.
+  const keyRe = /^[ \t]*([A-Z][A-Z0-9_]+)\s*:\s*\{/gm;
   let m;
-  while ((m = entryRe.exec(region)) !== null) {
+  while ((m = keyRe.exec(region)) !== null) {
     const name = m[1];
-    const body = m[2];
     if (name === 'INLINE_STUB') continue;
+    const openIdx = region.indexOf('{', m.index);
+    const body = extractBraced(region, openIdx);
+    if (body == null) continue;
     const request = /request:\s*true/.test(body);
     const replyM = body.match(/reply:\s*(['"`])(.*?)\1/);
     const reply = replyM ? replyM[2] : '';
@@ -108,6 +148,42 @@ const invSrc = readCivitaiSource(
   'hostHandlerParity.ts'
 );
 const inventory = parseInventory(invSrc.text);
+
+// ── DRIFT GUARD (do not remove) ───────────────────────────────────────────────
+// The page-only / request-reply pairing flags come ENTIRELY from the parsed
+// INVENTORY. If the parser silently yields nothing (e.g. hostHandlerParity.ts was
+// reformatted and an over-specific regex stopped matching), the SDK union still
+// produces message names, so the emitted messages.json would be plausible but
+// WRONG. These assertions make any such regression a hard build failure.
+//
+// (1) COVERAGE: every published SDK block->host message MUST resolve to a parsed
+// INVENTORY entry (the host file's own compile-time gate is one-directional the
+// same way — SDK ⊆ INVENTORY). A dropped-entries parse trips this immediately.
+const uncovered = blockToParent.filter((m) => !inventory[m.name]).map((m) => m.name);
+if (uncovered.length) {
+  throw new Error(
+    `gen-appblocks-messages: ${uncovered.length} published SDK block->host message(s) missing from the parsed ` +
+      `host parity INVENTORY — the parser likely failed to match hostHandlerParity.ts (a reformat/drift). ` +
+      `Fix parseInventory or re-copy the snapshot. Missing: ${uncovered.join(', ')}`
+  );
+}
+// (2) FLAG SANITY: known-stable entries must resolve with the RIGHT flags, to
+// catch a parser that resolves keys but mangles the body extraction.
+const assertFlags = (name, want) => {
+  const inv = inventory[name];
+  if (!inv) throw new Error(`gen-appblocks-messages: expected stable INVENTORY entry ${name} not found`);
+  for (const [k, v] of Object.entries(want)) {
+    const got = k === 'hasReply' ? Boolean(inv.reply) : inv[k];
+    if (got !== v) {
+      throw new Error(
+        `gen-appblocks-messages: INVENTORY flag drift on ${name}.${k} — expected ${v}, parsed ${got}. ` +
+          `parseInventory mis-read hostHandlerParity.ts.`
+      );
+    }
+  }
+};
+assertFlags('GET_VIEWER', { pageOnly: true, request: true, hasReply: true });
+assertFlags('GET_BUZZ_BALANCE', { pageOnly: false, request: true, hasReply: true });
 
 // Build a lookup of host->block replies so we can pair request/reply.
 const replyByName = new Map(parentToBlock.map((m) => [m.name, m]));

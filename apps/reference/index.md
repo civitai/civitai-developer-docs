@@ -5,9 +5,12 @@ description: Generated-from-source reference for Civitai Apps — scopes, manife
 
 # Reference
 
-The pages in this section are **generated from source** on every build, so they
-track the real platform contract instead of drifting from a hand-maintained
-copy. Each page states its exact source at the top.
+The pages in this section are **regenerated from pinned sources** on every build,
+rather than hand-maintained. Each page states its exact source at the top. How
+"live" a page is depends on its source (see [Keeping this current](#keeping-this-current)):
+the manifest page fetches the platform's live schema every build, while the
+SDK-derived pages track pinned package versions and the scope catalog tracks a
+committed snapshot in CI.
 
 | Page | What it covers | Source of truth |
 |------|----------------|-----------------|
@@ -23,6 +26,27 @@ gitignored `public/appblocks/`. `npm run gen:appblocks` (wired into `predev` /
 `prebuild`) rebuilds them from the pinned SDK packages and the `civitai`
 contract sources.
 :::
+
+## Keeping this current
+
+Regeneration is automatic, but the **sources** the generators read are pinned —
+so a real upstream change reaches these pages only after a maintainer refreshes
+the relevant pin or snapshot. There are three refresh actions:
+
+| Page(s) | Source in CI | Refresh action |
+|---------|--------------|----------------|
+| [Manifest](./manifest) | the live prod URL `https://civitai.com/api/blocks/manifest-schema` | **None** — fetched fresh every build. |
+| [Messages](./messages) payload shapes, [Hooks](./hooks), [CLI](./cli) | the pinned `@civitai/*` npm devDeps in `package.json` | **Bump the version pins** (`@civitai/app-sdk`, `@civitai/blocks-react`, `@civitai/blocks-cli`) — a one-line, reviewable change. |
+| [Scopes](./scopes) + the [Messages](./messages) page-only / request-reply flags | committed `appblocks-snapshots/` (CI has no `civitai` checkout) | **Re-copy the 4 snapshot files** from `civitai@origin/main` (`block-scope.constants.ts`, `scope-descriptions.constants.ts`, `hostHandlerParity.ts`, `manifest-schema.json`). |
+
+On a machine that has the `civitai` sibling repo checked out, the scopes /
+messages-parity generators read `civitai@origin/main` directly and only fall
+back to the snapshot when it's absent — so those snapshots are the CI-hermetic
+copy, not the live source.
+
+> An automated CI drift-guard that fails the build when a snapshot or pin lags
+> the upstream contract is planned (Phase 3). Until then, refreshing is a manual
+> maintainer step, prompted by the `sources:` front-matter on each page.
 
 ## Pinned versions
 
