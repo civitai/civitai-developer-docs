@@ -15,6 +15,9 @@ hero:
     - theme: alt
       text: Concepts
       link: /apps/guide/concepts
+    - theme: alt
+      text: Reference
+      link: /apps/reference/
 
 features:
   - title: Ship a ZIP, not infrastructure
