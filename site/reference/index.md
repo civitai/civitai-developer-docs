@@ -12,6 +12,8 @@ All endpoints below live under `https://civitai.com/api/v1/`.
 | [Models](./models) | `GET /models`, `GET /models/{id}` |
 | [Model versions](./model-versions) | `GET /model-versions/{id}`, `GET /model-versions/by-hash/{hash}`, `POST /model-versions/by-hash`, `POST /model-versions/by-hash/ids`, `GET /model-versions/mini/{id}` |
 | [Images](./images) | `GET /images` |
+| [Articles](./articles) | `GET /articles`, `GET /articles/{id}` |
+| [Collections](./collections) | `GET /collections`, `GET /collections/{id}` |
 | [Creators](./creators) | `GET /creators` |
 | [Tags](./tags) | `GET /tags` |
 | [Users](./users) | `GET /me`, `GET /users` |
@@ -31,4 +33,5 @@ All endpoints below live under `https://civitai.com/api/v1/`.
 - **Region gating:** Responses may be filtered to SFW-only content regardless of the `nsfw` param when the request comes from a restricted region or Civitai's "green" domain. This is silent — you just see fewer results.
 
 See the [Guide](../guide/) for cross-cutting topics (authentication,
-pagination, errors, AIR identifiers).
+pagination, errors, AIR identifiers) and the [CLI](../guide/cli) for calling
+these endpoints from the terminal.
