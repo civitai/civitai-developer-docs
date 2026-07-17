@@ -14,9 +14,8 @@
 import { Project } from 'ts-morph';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { dedent, log, readCivitaiSource, resolvePackageRoot, writeArtifact } from './appblocks-util.mjs';
-
-const sdkRoot = resolvePackageRoot('@civitai/app-sdk');
 
 // ── families ────────────────────────────────────────────────────────────────
 const FAMILY_RULES = [
@@ -37,13 +36,41 @@ function familyOf(name) {
 }
 
 // ── parse the SDK message unions ──────────────────────────────────────────────
-function resolveMessagesDts() {
-  // The package `exports` map doesn't expose raw .d.ts subpaths, so resolve via
-  // the package root on disk.
-  return join(sdkRoot, 'dist', 'blocks', 'messages.d.ts');
+// Resolve the installed @civitai/app-sdk root lazily so that merely IMPORTING
+// this module (e.g. from the test harness to exercise parseInventory) has no
+// side effects and no hard dependency on the SDK being installed.
+let _sdkRoot;
+export function getSdkRoot() {
+  return (_sdkRoot ??= resolvePackageRoot('@civitai/app-sdk'));
 }
 
-function parseUnion(sourceFile, aliasName, direction) {
+export function resolveMessagesDts() {
+  // The package `exports` map doesn't expose raw .d.ts subpaths, so resolve via
+  // the package root on disk.
+  return join(getSdkRoot(), 'dist', 'blocks', 'messages.d.ts');
+}
+
+/** Parse the SDK's block->host (`BlockToParentMessage`) union into names. */
+export function loadSdkBlockToParent() {
+  const dtsPath = resolveMessagesDts();
+  const project = new Project({ skipAddingFilesFromTsConfig: true, skipFileDependencyResolution: true });
+  const sf = project.addSourceFileAtPath(dtsPath);
+  return parseUnion(sf, 'BlockToParentMessage', 'block-to-host');
+}
+
+/**
+ * COVERAGE relation the drift guard enforces: every published SDK block->host
+ * message name MUST resolve to a parsed INVENTORY entry. Returns the names that
+ * do NOT (empty array == healthy). Exported so the regression test asserts the
+ * exact same relation the generator's hard-fail guard uses.
+ */
+export function findUncoveredMessages(blockToParent, inventory) {
+  return blockToParent
+    .map((m) => (typeof m === 'string' ? m : m.name))
+    .filter((name) => !inventory[name]);
+}
+
+export function parseUnion(sourceFile, aliasName, direction) {
   const alias = sourceFile.getTypeAlias(aliasName);
   if (!alias) throw new Error(`type alias ${aliasName} not found in messages.d.ts`);
   const node = alias.getTypeNode();
@@ -87,7 +114,7 @@ function parseUnion(sourceFile, aliasName, direction) {
  * (exclusive of the braces), skipping braces that appear inside quoted strings.
  * Robust to reformatting and to N/A reason strings.
  */
-function extractBraced(text, openIdx) {
+export function extractBraced(text, openIdx) {
   let depth = 0;
   let quote = null;
   for (let i = openIdx; i < text.length; i++) {
@@ -107,7 +134,7 @@ function extractBraced(text, openIdx) {
   return null;
 }
 
-function parseInventory(ts) {
+export function parseInventory(ts) {
   const start = ts.indexOf('export const INVENTORY');
   if (start < 0) return {};
   const region = ts.slice(start);
@@ -136,121 +163,131 @@ function parseInventory(ts) {
   return out;
 }
 
-const dtsPath = resolveMessagesDts();
-const project = new Project({ skipAddingFilesFromTsConfig: true, skipFileDependencyResolution: true });
-const sf = project.addSourceFileAtPath(dtsPath);
-
-const parentToBlock = parseUnion(sf, 'ParentToBlockMessage', 'host-to-block');
-const blockToParent = parseUnion(sf, 'BlockToParentMessage', 'block-to-host');
-
-const invSrc = readCivitaiSource(
-  'src/components/AppBlocks/hostHandlerParity.ts',
-  'hostHandlerParity.ts'
-);
-const inventory = parseInventory(invSrc.text);
-
-// ── DRIFT GUARD (do not remove) ───────────────────────────────────────────────
-// The page-only / request-reply pairing flags come ENTIRELY from the parsed
-// INVENTORY. If the parser silently yields nothing (e.g. hostHandlerParity.ts was
-// reformatted and an over-specific regex stopped matching), the SDK union still
-// produces message names, so the emitted messages.json would be plausible but
-// WRONG. These assertions make any such regression a hard build failure.
-//
-// (1) COVERAGE: every published SDK block->host message MUST resolve to a parsed
-// INVENTORY entry (the host file's own compile-time gate is one-directional the
-// same way — SDK ⊆ INVENTORY). A dropped-entries parse trips this immediately.
-const uncovered = blockToParent.filter((m) => !inventory[m.name]).map((m) => m.name);
-if (uncovered.length) {
-  throw new Error(
-    `gen-appblocks-messages: ${uncovered.length} published SDK block->host message(s) missing from the parsed ` +
-      `host parity INVENTORY — the parser likely failed to match hostHandlerParity.ts (a reformat/drift). ` +
-      `Fix parseInventory or re-copy the snapshot. Missing: ${uncovered.join(', ')}`
-  );
-}
-// (2) FLAG SANITY: known-stable entries must resolve with the RIGHT flags, to
-// catch a parser that resolves keys but mangles the body extraction.
-const assertFlags = (name, want) => {
-  const inv = inventory[name];
-  if (!inv) throw new Error(`gen-appblocks-messages: expected stable INVENTORY entry ${name} not found`);
-  for (const [k, v] of Object.entries(want)) {
-    const got = k === 'hasReply' ? Boolean(inv.reply) : inv[k];
-    if (got !== v) {
-      throw new Error(
-        `gen-appblocks-messages: INVENTORY flag drift on ${name}.${k} — expected ${v}, parsed ${got}. ` +
-          `parseInventory mis-read hostHandlerParity.ts.`
-      );
-    }
-  }
-};
-assertFlags('GET_VIEWER', { pageOnly: true, request: true, hasReply: true });
-assertFlags('GET_BUZZ_BALANCE', { pageOnly: false, request: true, hasReply: true });
-
-// Build a lookup of host->block replies so we can pair request/reply.
-const replyByName = new Map(parentToBlock.map((m) => [m.name, m]));
-
-const messages = [];
-for (const m of blockToParent) {
-  const inv = inventory[m.name] ?? {};
-  const reply = inv.reply || null;
-  messages.push({
-    name: m.name,
-    family: familyOf(m.name),
-    direction: 'block-to-host',
-    request: inv.request ?? Boolean(reply),
-    reply,
-    replyPayload: reply && replyByName.has(reply) ? replyByName.get(reply).payload : null,
-    pageOnly: inv.pageOnly ?? false,
-    slotNote: inv.slotNote ?? inv.iframeNote ?? null,
-    payload: m.payload,
-    payloadOptional: m.payloadOptional,
-  });
-}
-// Host->block messages that are NOT a reply to a block->host request (pushes:
-// BLOCK_INIT, TOKEN_REFRESH, SUSPEND, RESUME, IMAGE_SCAN_RESOLVED).
-const pairedReplies = new Set(messages.map((m) => m.reply).filter(Boolean));
-for (const m of parentToBlock) {
-  if (pairedReplies.has(m.name)) continue;
-  messages.push({
-    name: m.name,
-    family: familyOf(m.name),
-    direction: 'host-to-block',
-    request: false,
-    reply: null,
-    replyPayload: null,
-    pageOnly: false,
-    slotNote: null,
-    payload: m.payload,
-    payloadOptional: m.payloadOptional,
-  });
-}
-
-if (messages.length === 0) {
-  throw new Error('gen-appblocks-messages: parsed 0 messages — refusing to write an empty artifact');
-}
-
 // Family display order.
 const FAMILY_ORDER = [
   'lifecycle', 'auth', 'workflow', 'subqueue', 'buzz', 'viewer',
   'pickers', 'storage', 'shared', 'wildcard', 'other',
 ];
-messages.sort((a, b) => {
-  const fa = FAMILY_ORDER.indexOf(a.family);
-  const fb = FAMILY_ORDER.indexOf(b.family);
-  if (fa !== fb) return fa - fb;
-  return a.name.localeCompare(b.name);
-});
 
-const sdkVersion = JSON.parse(readFileSync(join(sdkRoot, 'package.json'), 'utf8')).version;
+function main() {
+  const sdkRoot = getSdkRoot();
+  const dtsPath = resolveMessagesDts();
+  const project = new Project({ skipAddingFilesFromTsConfig: true, skipFileDependencyResolution: true });
+  const sf = project.addSourceFileAtPath(dtsPath);
 
-const artifact = {
-  generatedAt: new Date().toISOString(),
-  sdkPackage: `@civitai/app-sdk@${sdkVersion}`,
-  sources: [dtsPath, invSrc.source],
-  messages,
-};
-const dest = writeArtifact('messages.json', artifact);
-const b2h = messages.filter((m) => m.direction === 'block-to-host').length;
-const h2b = messages.length - b2h;
-log(`messages: wrote ${messages.length} (${b2h} block->host, ${h2b} host->block) -> ${dest}`);
-log(`  payloads from ${dtsPath}`);
-log(`  parity from   ${invSrc.source}`);
+  const parentToBlock = parseUnion(sf, 'ParentToBlockMessage', 'host-to-block');
+  const blockToParent = parseUnion(sf, 'BlockToParentMessage', 'block-to-host');
+
+  const invSrc = readCivitaiSource(
+    'src/components/AppBlocks/hostHandlerParity.ts',
+    'hostHandlerParity.ts'
+  );
+  const inventory = parseInventory(invSrc.text);
+
+  // ── DRIFT GUARD (do not remove) ─────────────────────────────────────────────
+  // The page-only / request-reply pairing flags come ENTIRELY from the parsed
+  // INVENTORY. If the parser silently yields nothing (e.g. hostHandlerParity.ts
+  // was reformatted and an over-specific regex stopped matching), the SDK union
+  // still produces message names, so the emitted messages.json would be plausible
+  // but WRONG. These assertions make any such regression a hard build failure.
+  //
+  // (1) COVERAGE: every published SDK block->host message MUST resolve to a parsed
+  // INVENTORY entry (the host file's own compile-time gate is one-directional the
+  // same way — SDK ⊆ INVENTORY). A dropped-entries parse trips this immediately.
+  const uncovered = findUncoveredMessages(blockToParent, inventory);
+  if (uncovered.length) {
+    throw new Error(
+      `gen-appblocks-messages: ${uncovered.length} published SDK block->host message(s) missing from the parsed ` +
+        `host parity INVENTORY — the parser likely failed to match hostHandlerParity.ts (a reformat/drift). ` +
+        `Fix parseInventory or re-copy the snapshot. Missing: ${uncovered.join(', ')}`
+    );
+  }
+  // (2) FLAG SANITY: known-stable entries must resolve with the RIGHT flags, to
+  // catch a parser that resolves keys but mangles the body extraction.
+  const assertFlags = (name, want) => {
+    const inv = inventory[name];
+    if (!inv) throw new Error(`gen-appblocks-messages: expected stable INVENTORY entry ${name} not found`);
+    for (const [k, v] of Object.entries(want)) {
+      const got = k === 'hasReply' ? Boolean(inv.reply) : inv[k];
+      if (got !== v) {
+        throw new Error(
+          `gen-appblocks-messages: INVENTORY flag drift on ${name}.${k} — expected ${v}, parsed ${got}. ` +
+            `parseInventory mis-read hostHandlerParity.ts.`
+        );
+      }
+    }
+  };
+  assertFlags('GET_VIEWER', { pageOnly: true, request: true, hasReply: true });
+  assertFlags('GET_BUZZ_BALANCE', { pageOnly: false, request: true, hasReply: true });
+
+  // Build a lookup of host->block replies so we can pair request/reply.
+  const replyByName = new Map(parentToBlock.map((m) => [m.name, m]));
+
+  const messages = [];
+  for (const m of blockToParent) {
+    const inv = inventory[m.name] ?? {};
+    const reply = inv.reply || null;
+    messages.push({
+      name: m.name,
+      family: familyOf(m.name),
+      direction: 'block-to-host',
+      request: inv.request ?? Boolean(reply),
+      reply,
+      replyPayload: reply && replyByName.has(reply) ? replyByName.get(reply).payload : null,
+      pageOnly: inv.pageOnly ?? false,
+      slotNote: inv.slotNote ?? inv.iframeNote ?? null,
+      payload: m.payload,
+      payloadOptional: m.payloadOptional,
+    });
+  }
+  // Host->block messages that are NOT a reply to a block->host request (pushes:
+  // BLOCK_INIT, TOKEN_REFRESH, SUSPEND, RESUME, IMAGE_SCAN_RESOLVED).
+  const pairedReplies = new Set(messages.map((m) => m.reply).filter(Boolean));
+  for (const m of parentToBlock) {
+    if (pairedReplies.has(m.name)) continue;
+    messages.push({
+      name: m.name,
+      family: familyOf(m.name),
+      direction: 'host-to-block',
+      request: false,
+      reply: null,
+      replyPayload: null,
+      pageOnly: false,
+      slotNote: null,
+      payload: m.payload,
+      payloadOptional: m.payloadOptional,
+    });
+  }
+
+  if (messages.length === 0) {
+    throw new Error('gen-appblocks-messages: parsed 0 messages — refusing to write an empty artifact');
+  }
+
+  messages.sort((a, b) => {
+    const fa = FAMILY_ORDER.indexOf(a.family);
+    const fb = FAMILY_ORDER.indexOf(b.family);
+    if (fa !== fb) return fa - fb;
+    return a.name.localeCompare(b.name);
+  });
+
+  const sdkVersion = JSON.parse(readFileSync(join(sdkRoot, 'package.json'), 'utf8')).version;
+
+  const artifact = {
+    generatedAt: new Date().toISOString(),
+    sdkPackage: `@civitai/app-sdk@${sdkVersion}`,
+    sources: [dtsPath, invSrc.source],
+    messages,
+  };
+  const dest = writeArtifact('messages.json', artifact);
+  const b2h = messages.filter((m) => m.direction === 'block-to-host').length;
+  const h2b = messages.length - b2h;
+  log(`messages: wrote ${messages.length} (${b2h} block->host, ${h2b} host->block) -> ${dest}`);
+  log(`  payloads from ${dtsPath}`);
+  log(`  parity from   ${invSrc.source}`);
+}
+
+// Run the generator only when invoked directly (`node scripts/gen-appblocks-messages.mjs`),
+// NOT when imported for its exported helpers (the test harness).
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  main();
+}
