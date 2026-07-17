@@ -2,8 +2,8 @@
 title: Hooks reference
 description: Every @civitai/blocks-react hook — signature and example, generated from the published package.
 sources:
-  - npm:@civitai/blocks-react@0.29.0/dist/index.d.ts
-  - npm:@civitai/blocks-react@0.29.0#README
+  - npm:@civitai/blocks-react@0.32.0/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.32.0#README
 ---
 
 # React hooks

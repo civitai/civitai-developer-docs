@@ -72,6 +72,9 @@ platform provisions all of that when your app is approved.
   trust frame, and how the host and your app talk to each other.
 - **[Quickstart](./quickstart)** — go from nothing to a block running in the local
   harness using the `civitai` CLI scaffold.
+- **[Running embedded & direct traffic](./embedding)** — why your app runs
+  embedded in the Civitai host, why you share the `/apps/run/<slug>` route, and
+  how `<BlockGate>` degrades a direct visit gracefully.
 
 </div>
 
