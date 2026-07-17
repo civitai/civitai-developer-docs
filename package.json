@@ -19,6 +19,7 @@
     "test:samples:site": "node scripts/test-doc-samples.mjs --site",
     "test:samples:orch": "node scripts/test-doc-samples.mjs --orch",
     "test:snippets:appblocks": "node scripts/typecheck-appblocks-snippets.mjs",
+    "test:appblocks:messages": "node scripts/test-appblocks-messages.mjs",
     "check:snapshots": "node scripts/check-appblocks-snapshots.mjs",
     "check:manifest-parity": "node scripts/check-manifest-parity.mjs"
   },

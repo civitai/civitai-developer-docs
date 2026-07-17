@@ -1,0 +1,39 @@
+name: appblocks-messages
+
+# PR-BLOCKING: the messages generator runs at BUILD time (prebuild -> gen:appblocks)
+# and HARD-FAILS when the vendored appblocks-snapshots/hostHandlerParity.ts is
+# stale relative to the pinned @civitai/app-sdk (an SDK block->host message with no
+# INVENTORY entry) or when parseInventory stops matching a reformatted snapshot.
+# That failure would otherwise surface only in the Docker/CI build. This fast unit
+# test reproduces the exact SDK->INVENTORY coverage relation, so a PR that bumps the
+# SDK pin without re-vendoring the snapshot (or reformats the generator) is blocked
+# here first. Triggered on the inputs that can introduce that drift.
+on:
+  pull_request:
+    paths:
+      - 'appblocks-snapshots/hostHandlerParity.ts'
+      - 'scripts/gen-appblocks-messages.mjs'
+      - 'scripts/test-appblocks-messages.mjs'
+      - 'scripts/appblocks-util.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/appblocks-messages.yml'
+  workflow_dispatch: {}
+
+jobs:
+  test-messages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install (pinned @civitai/app-sdk for the block->host message union)
+        run: npm ci
+
+      - name: Messages parser + SDK->INVENTORY coverage guard
+        run: npm run test:appblocks:messages
