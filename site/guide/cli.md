@@ -289,3 +289,79 @@ active account (no separate logout).
 
 For the read endpoints the result is identical to `--anon` whether or not you're
 logged in.
+
+## Scripting with `--json`
+
+`--json` prints the **raw `/api/v1/...` REST response** — a stable passthrough,
+not a shape the CLI invents. The fields are exactly the public Site API's, so
+reach for the [REST reference](../reference/) (e.g. [Models](../reference/models),
+[Model versions](../reference/model-versions)) for the schema instead of probing
+with `jq keys`.
+
+The output is pipe-safe by contract:
+
+- **stdout is pure JSON** — `civitai … --json | jq -e .` always parses.
+- **errors go to stderr with a non-zero exit** and **nothing on stdout**, so
+  `jq` never sees error prose. `civitai model-versions get 999999999 --json`
+  exits `1`, prints `Error: not found (404): Model not found` to stderr, and
+  emits an empty stdout.
+
+### Cursor-pagination loop
+
+Use `--cursor`, **not** `--page`, for deep paging (the API caps `page*limit` at
+1000 and returns `429` beyond it — see [Pagination](./pagination)). Read
+`.metadata.nextCursor` from each response, feed it back via `--cursor`, and stop
+when it's absent:
+
+```bash
+export CIVITAI_NO_UPDATE_CHECK=1
+cursor=""
+while :; do
+  page=$(civitai models search --type LORA --base-model Illustrious \
+           --sort "Most Downloaded" --limit 5 ${cursor:+--cursor "$cursor"} --json) || break
+  echo "$page" | jq -r '.items[].id'                 # your work here
+  cursor=$(echo "$page" | jq -r '.metadata.nextCursor // empty')
+  [ -z "$cursor" ] && break                          # no more pages
+done
+```
+
+### Clean output for pipelines
+
+The CLI runs a background check for a newer release and prints a nag to
+**stderr**. Suppress it in scripts with `CIVITAI_NO_UPDATE_CHECK=1` (env) or
+`--no-update-check` (flag). The nag never touches stdout, so `--json` stays pure
+regardless — silencing it just keeps your stderr/logs clean.
+
+### Gotchas
+
+- **SHA256 is UPPER-case** in the API/`--json` (e.g. `42BA94DF…`), whereas
+  `sha256sum` emits lowercase — case-fold before comparing if you verify
+  downloads yourself. (`civitai download`'s built-in verify is already
+  case-insensitive.)
+- **`models search` already embeds `.modelVersions[]`** — each item carries its
+  versions with `files[].hashes.SHA256` and `trainedWords`, so a per-version
+  `model-versions get` is usually redundant when you started from a search.
+- **Creator and model-level download counts are only in the search response.**
+  `model-versions get <id>` returns a version whose `.model` is just
+  `{name, type, nsfw, poi}` — no `creator`, no model `stats`. If you started from
+  a version id, fetch those from `models search`/`models get` and join on the
+  model id (`.modelId` on the version).
+
+### Worked example — top LoRAs for a base model, then plan a download
+
+Search → pick each version with `jq` → hand the id to `download` with app folder
+routing. `--dry-run` prints the plan (files, sizes, hashes, targets) without
+transferring, so this is safe to copy-paste:
+
+```bash
+export CIVITAI_NO_UPDATE_CHECK=1
+civitai models search --type LORA --base-model Illustrious \
+    --sort "Most Downloaded" --limit 3 --json |
+  jq -r '.items[].modelVersions[0].id' |
+  while read -r vid; do
+    civitai download "$vid" --layout comfyui --root ~/ComfyUI --dry-run
+  done
+```
+
+Drop `--dry-run` (and run [`civitai login`](#authentication) first) to actually
+fetch the files; `--layout comfyui` routes each into its ComfyUI type folder.
