@@ -1,20 +1,22 @@
 ---
 title: CLI
-description: Browse and search the Civitai public API from the terminal with the civitai CLI read commands.
+description: Browse, search, and download from Civitai in the terminal with the civitai CLI — read commands plus the authenticated download command.
 ---
 
 # CLI
 
 The **`civitai` CLI** (Go, repo [`civitai/cli`](https://github.com/civitai/cli))
-ships read subcommands that wrap the [public site API](../reference/) endpoints
-documented in this section. They let you search and fetch models, images,
-articles, collections, and more straight from the terminal or a script.
+wraps the [public site API](../reference/) so you can search and fetch models,
+images, articles, collections, and more straight from the terminal or a script —
+and **download** a model version's file(s) with type-aware folder routing and
+automatic SHA256 verification.
 
-::: tip Works anonymously
-Every read command hits a **public** endpoint, so it works with no login. If you
-*are* logged in the CLI sends your stored token transparently, but for these
-public read routes it doesn't change the result — pass `--anon` to force a
-token-free request.
+::: tip Read = anonymous, download = authenticated
+The **read/search** commands (`models`, `model-versions`, `images`, `articles`,
+`collections`, `tags`, `creators`, `users`) hit **public** endpoints and work
+with no login; pass `--anon` to force a token-free request. The **`download`**
+command is different: Civitai requires a token for **any** model-file download —
+even a small public file — so `civitai download` needs [`civitai login`](#authentication).
 :::
 
 ## Install
@@ -30,16 +32,36 @@ brew install civitai/tap/civitai
 
 # Go install (from source, Go 1.25+)
 go install github.com/civitai/cli/cmd/civitai@latest
+
+# Nix flake — run without installing:
+nix run github:civitai/cli -- --help
+# …or install into your profile:
+nix profile install github:civitai/cli
+```
+
+To pin the CLI as a flake input (reproducible builds/CI), reference it in your
+`flake.nix`:
+
+```nix
+{
+  inputs.civitai-cli.url = "github:civitai/cli";
+  # optionally pin a release tag:
+  # inputs.civitai-cli.url = "github:civitai/cli/v0.1.67";
+
+  outputs = { self, nixpkgs, civitai-cli, ... }: {
+    # add `civitai-cli.packages.${system}.default` to your devShell / packages
+  };
+}
 ```
 
 Prebuilt binaries for linux/macOS/windows × amd64/arm64 are on the
 [GitHub Releases](https://github.com/civitai/cli/releases) page. Verify with
 `civitai version`.
 
-Logging in is **optional** for the read commands below (see
-[`civitai login`](#authentication-optional)); it's only required for the App
-Blocks authoring commands (`civitai app …`, documented in the
-[Apps CLI reference](/apps/reference/cli)).
+Logging in is **optional** for the read commands below and **required** for
+[`download`](#download) (see [Authentication](#authentication)). Logging in is
+also required for the App Blocks authoring commands (`civitai app …`, documented
+in the [Apps CLI reference](/apps/reference/cli)).
 
 ## Shared flags
 
@@ -61,14 +83,21 @@ See [Pagination](./pagination).
 ```bash
 civitai models search --query "pony" --limit 5
 civitai models search --type LORA --sort "Most Downloaded" --period Month
+civitai models search --base-model Pony --base-model "Illustrious"
 civitai models get 827184
 ```
 
 `models search` flags: `--query`, `--tag`, `--username`, `--type`
-(e.g. `Checkpoint`, `LORA`, `TextualInversion`), `--sort`
-(e.g. `"Highest Rated"`, `"Most Downloaded"`, `Newest`), `--period`
+(e.g. `Checkpoint`, `LORA`, `TextualInversion`), `--base-model` (**repeatable**),
+`--sort` (e.g. `"Highest Rated"`, `"Most Downloaded"`, `Newest`), `--period`
 (`AllTime`, `Year`, `Month`, `Week`, `Day`), `--nsfw`, `--limit` (1–100),
 `--page`, `--cursor`. See [Models](../reference/models).
+
+::: tip Filtering by architecture / video models
+`--base-model` filters by base-model family and is the way to disambiguate
+models that share a `--type`. Video checkpoints all report `--type Checkpoint`,
+so filter them with e.g. `--base-model "Wan Video 2.2 T2V-A14B"`.
+:::
 
 ### Model versions
 
@@ -78,7 +107,8 @@ civitai model-versions by-hash 5D8D26E2A6
 ```
 
 Aliases: `model-version`, `mv`. `by-hash` looks a version up by any of its file
-hashes. See [Model versions](../reference/model-versions).
+hashes (AutoV1, AutoV2, SHA256, CRC32, BLAKE3), matched case-insensitively.
+See [Model versions](../reference/model-versions).
 
 ### Images
 
@@ -99,7 +129,7 @@ See [Images](../reference/images).
 civitai tags search --query anime --limit 10
 ```
 
-`tags search` flags: `--query`, `--limit` (≤ 200), `--page`.
+`tags search` flags: `--query`, `--limit`, `--page`.
 See [Tags](../reference/tags).
 
 ### Creators
@@ -108,7 +138,7 @@ See [Tags](../reference/tags).
 civitai creators search --query artist --limit 10
 ```
 
-`creators search` flags: `--query`, `--limit` (≤ 200), `--page`.
+`creators search` flags: `--query`, `--limit`, `--page`.
 See [Creators](../reference/creators).
 
 ### Users
@@ -127,13 +157,19 @@ the closest match. See [Users](../reference/users).
 civitai articles search --query "comfyui" --limit 5
 civitai articles search --sort "Most Reactions" --nsfw
 civitai articles get 15342
+civitai articles get 15342 --content
 ```
 
 `articles search` flags: `--query` (matches the title), `--tags` (comma-separated
 tag **IDs**, e.g. `5,12`), `--username`, `--sort` (`Newest`,
 `"Recently Updated"`, `"Most Reactions"`, `"Most Comments"`, `"Most Bookmarks"`,
 `"Most Collected"`), `--nsfw`, `--limit` (1–100), `--cursor`.
-See [Articles](../reference/articles).
+
+`articles get <id>` prints the article's metadata by default. Pass `--content`
+to also render the article **body** — the actual guide — as readable
+text/markdown (headings, paragraphs, lists, links, code blocks; HTML stripped
+and entities decoded). `--json` returns the raw API body and takes precedence
+over `--content`. See [Articles](../reference/articles).
 
 ### Collections
 
@@ -147,15 +183,109 @@ civitai collections get 1201
 (`Newest`, `"Most Followers"`), `--nsfw`, `--limit` (1–100), `--cursor`
 (`Newest` sort only). See [Collections](../reference/collections).
 
-## Authentication (optional)
+## Download
 
-The read commands don't need it, but you can log in to associate requests with
-your account:
+Download the file(s) of a model **version** from Civitai.
 
 ```bash
-civitai login                    # browser device login
-civitai login --token <key>      # or a personal API key from civitai.com/user/account
-civitai whoami                   # show the current identity
+# by version id
+civitai download 128713
+
+# resolve a MODEL's default (first published) version instead
+civitai download --model 4384 --out ./dreamshaper.safetensors
+
+# preview the plan (files, sizes, SHA256, target paths, auth) without transferring
+civitai download 128713 --dry-run
 ```
 
-Even when logged in, the public read endpoints return the same data as `--anon`.
+::: warning Downloads require authentication
+Civitai requires a token to download **any** model file — even a small public
+one (a 336 KB public embedding returns `401` just like a gated checkpoint). Run
+[`civitai login`](#authentication) first; your stored token or `CIVITAI_API_KEY`
+is sent automatically. `--anon` is meaningful for the read commands but **not**
+for downloads (they still `401` without a token).
+:::
+
+By default the version's **primary** file is written into the current directory
+under its server-provided name. Downloads stream to `<target>.part` and are
+renamed into place only on success, so an interrupted run never leaves a
+truncated final file.
+
+**Any file type downloads** — model weights, but also non-weights deliverables
+like a `Workflows` model's Archive, training data, or other artifacts.
+
+### Selecting files
+
+```bash
+civitai download 128713 --file vae --out-dir ./models
+civitai download 128713 --all --out-dir ./models
+```
+
+Use `--file` to pick a specific file (exact match, else a unique
+case-insensitive substring) or `--all` to download every file in the version.
+
+### Folder routing for apps
+
+```bash
+civitai download 128713 --all --layout comfyui --root ~/ComfyUI
+civitai download 128713 --layout a1111 --root ~/stable-diffusion-webui
+```
+
+`--layout <a1111|comfyui>` routes each file into the correct subfolder for that
+app, **by file/model type** — so `--all` fans a bundled VAE into the VAE folder
+instead of polluting the checkpoint folder, and LoRAs/embeddings land in their
+own directories. `--root <dir>` (default `.`) is the base directory for routing.
+`--layout` is mutually exclusive with `--out`/`--out-dir`.
+
+### Base-model compatibility check
+
+```bash
+civitai download 128713 --layout a1111 --for-base "SDXL 1.0"
+```
+
+`--for-base "<baseModel>"` warns on stderr when the version's base model is in a
+confidently different family than your target (e.g. an SD 1.5 embedding for an
+SDXL model). The version's base model is always shown regardless.
+
+### Integrity
+
+The streamed bytes are **verified against the file's SHA256 by default**. A hash
+mismatch deletes the partial file and fails the run. Pass `--no-verify` to skip
+(a file with no published SHA256 is downloaded with a warning either way).
+
+### Download flags
+
+| Flag | Description |
+|------|-------------|
+| `--model <model-id>` | Resolve + download a model's default (first published) version instead of a version id. |
+| `--file <name>` | Select a specific file by name (exact match, else a unique case-insensitive substring). |
+| `--all` | Download every file in the version. |
+| `--out <path>` | Target file path (single-file only; mutually exclusive with `--all`/`--out-dir`). |
+| `--out-dir <dir>` | Directory to write server-named file(s) into (created if needed). |
+| `--layout <a1111\|comfyui>` | Route each file into its type's subfolder for an app; mutually exclusive with `--out`/`--out-dir`. |
+| `--root <dir>` | Base directory for `--layout` routing (default `.`; only applies with `--layout`). |
+| `--for-base <baseModel>` | Warn if the version's base model is a confidently different family than this target. |
+| `--dry-run` | Print the resolved plan (files, sizes, hashes, targets) and exit without downloading. |
+| `--force` | Re-download even if the target file already exists. |
+| `--no-verify` | Skip SHA256 verification of the downloaded bytes. |
+| `--anon` | Force an anonymous request — but downloads still `401` without a token. |
+
+## Authentication
+
+The read commands don't need it. **`download` and the App Blocks authoring
+commands do.** Authenticate once:
+
+```bash
+civitai login                    # browser device login (recommended)
+civitai login --token <key>      # or a personal API key from civitai.com/user/account
+civitai whoami                   # show the current identity and capabilities
+```
+
+`civitai login` runs a browser-based device login and stores short-lived OAuth
+tokens that refresh automatically; the credential is saved owner-readable to
+`~/.config/civitai/config.yaml`. The `CIVITAI_TOKEN` environment variable
+overrides the stored credential. Running `civitai login` again switches the
+active account (no separate logout).
+
+For the read endpoints the result is identical to `--anon` whether or not you're
+logged in.
