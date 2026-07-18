@@ -123,7 +123,7 @@ are indistinguishable):
 ### Example
 
 ```bash
-curl "https://civitai.com/api/v1/collections/1201"
+curl "https://civitai.com/api/v1/collections/104"
 ```
 
-<ApiTry path="/api/v1/collections/1201" />
+<ApiTry path="/api/v1/collections/104" />

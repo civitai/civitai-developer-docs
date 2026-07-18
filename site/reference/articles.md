@@ -133,7 +133,7 @@ private article (the two cases are indistinguishable):
 ### Example
 
 ```bash
-curl "https://civitai.com/api/v1/articles/15342"
+curl "https://civitai.com/api/v1/articles/4797"
 ```
 
-<ApiTry path="/api/v1/articles/15342" />
+<ApiTry path="/api/v1/articles/4797" />

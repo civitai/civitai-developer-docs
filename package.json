@@ -24,8 +24,8 @@
     "check:manifest-parity": "node scripts/check-manifest-parity.mjs"
   },
   "devDependencies": {
-    "@civitai/app-sdk": "0.25.1",
-    "@civitai/blocks-react": "0.32.0",
+    "@civitai/app-sdk": "0.26.0",
+    "@civitai/blocks-react": "0.33.0",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.0",
     "mermaid": "^11.0.0",
