@@ -6,6 +6,10 @@ title: Recipes
 
 Task-oriented, end-to-end examples. Each recipe walks through a real workflow: what to send, what you get back, common parameter tweaks, and troubleshooting.
 
+::: tip Not the same as App Blocks recipes
+These are **Orchestration REST API** recipes — you hold a Bearer token and POST workflows to `orchestration.civitai.com` yourself. Not to be confused with **App Blocks [`customComfy` recipes](/apps/guide/comfy-cloud)**, which are server-registered ComfyUI workflows a sandboxed _block_ invokes by id through the host bridge (the block never calls the orchestrator directly).
+:::
+
 ## Video
 
 - [WAN video generation](./wan) — all WAN versions (2.1–2.7) across FAL, Comfy, and Civitai, with text-to-video, image-to-video, reference-to-video, and edit-video operations
