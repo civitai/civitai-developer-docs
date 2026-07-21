@@ -156,6 +156,7 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Introduction', link: '/apps/guide/' },
         { text: 'Concepts', link: '/apps/guide/concepts' },
         { text: 'Quickstart', link: '/apps/guide/quickstart' },
+        { text: 'Comfy Cloud (customComfy)', link: '/apps/guide/comfy-cloud' },
         { text: 'Running embedded & direct traffic', link: '/apps/guide/embedding' },
       ],
     },
