@@ -159,6 +159,7 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Comfy Cloud (customComfy)', link: '/apps/guide/comfy-cloud' },
         { text: 'Running embedded & direct traffic', link: '/apps/guide/embedding' },
         { text: 'Theming & design system', link: '/apps/guide/theming' },
+        { text: 'Theming an existing app (retrofit)', link: '/apps/guide/theming#theming-an-existing-app-retrofit-incremental-adoption' },
       ],
     },
   ],
