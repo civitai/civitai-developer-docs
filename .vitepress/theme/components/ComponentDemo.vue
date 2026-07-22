@@ -22,18 +22,25 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { useData } from 'vitepress';
 
-const props = defineProps<{
-  /** Human component name shown in the header, e.g. "Button". */
-  title: string;
-  /** The `data-civitai-ui` name shown as a code chip, e.g. "button". */
-  ui?: string;
-  /** Whether a #react panel is provided (defaults true). */
-  react?: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    /** Human component name shown in the header, e.g. "Button". */
+    title: string;
+    /** The `data-civitai-ui` name shown as a code chip, e.g. "button". */
+    ui?: string;
+    /** Whether a #react panel is provided (defaults true). */
+    react?: boolean;
+  }>(),
+  // NB: Vue 3.3+ infers `type: Boolean` from the `react?: boolean` annotation,
+  // and an ABSENT Boolean prop is cast to `false` (not `undefined`) — so a bare
+  // `<ComponentDemo>` with no `react` attribute would hide the React panel. The
+  // explicit default restores the intended "React panel on unless :react=false".
+  { react: true },
+);
 
 const { isDark } = useData();
 const theme = computed(() => (isDark.value ? 'dark' : 'light'));
-const showReact = props.react !== false;
+const showReact = props.react;
 
 const tab = ref<'html' | 'react'>('html');
 const htmlSlot = ref<HTMLElement | null>(null);

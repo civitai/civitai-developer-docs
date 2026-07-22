@@ -11,6 +11,21 @@ const openapiSidebar = useSidebar({
   linkPrefix: '/orchestration/reference/operations/',
 });
 
+// Design-system showcase surfaces (live component gallery + token gallery).
+// Registered under both `/apps/showcase` and `/apps/tokens` so either page
+// shows the same sidebar group.
+const designSystemSidebar: DefaultTheme.SidebarItem[] = [
+  {
+    text: 'Design system',
+    items: [
+      { text: 'Component showcase', link: '/apps/showcase' },
+      { text: 'Design tokens', link: '/apps/tokens' },
+      { text: 'Theming guide', link: '/apps/guide/theming' },
+      { text: 'Components reference', link: '/apps/reference/components' },
+    ],
+  },
+];
+
 const sidebar: DefaultTheme.Sidebar = {
   '/orchestration/guide/': [
     {
@@ -177,6 +192,8 @@ const sidebar: DefaultTheme.Sidebar = {
       ],
     },
   ],
+  '/apps/showcase': designSystemSidebar,
+  '/apps/tokens': designSystemSidebar,
   '/site/guide/': [
     {
       text: 'Guide',
@@ -268,6 +285,8 @@ export default withMermaid({
           { text: 'Civitai MCP', link: '/site/mcp/' },
           { text: 'Apps Guide', link: '/apps/guide/' },
           { text: 'Apps Reference', link: '/apps/reference/' },
+          { text: 'Apps Component Showcase', link: '/apps/showcase' },
+          { text: 'Apps Design Tokens', link: '/apps/tokens' },
         ],
       },
     ],
