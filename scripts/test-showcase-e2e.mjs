@@ -230,11 +230,12 @@ async function run() {
       for (const demoEl of document.querySelectorAll('.cds-demo')) {
         const codeEl = demoEl.querySelector('[data-testid="cds-code-html"] pre code');
         const preview = demoEl.querySelector('[data-testid="cds-preview"]');
-        // Parse the shown snippet with DOMParser (inert; does not execute) rather
-        // than assigning textContent to .innerHTML — same parsed tree for the
-        // [data-civitai-ui] comparison below, without the DOM-text-as-HTML sink.
-        const parsed = new DOMParser().parseFromString(codeEl ? codeEl.textContent : '', 'text/html');
-        const shown = norm(parsed.body);
+        // Extract the data-civitai-ui values from the shown snippet TEXT via regex —
+        // compares the same thing as the rendered preview (the list of component
+        // markers, in order) WITHOUT reinterpreting DOM text as HTML, which avoids
+        // the CodeQL js/xss-through-dom sink (both innerHTML and DOMParser trip it).
+        const shownText = codeEl ? codeEl.textContent : '';
+        const shown = [...shownText.matchAll(/data-civitai-ui="([^"]+)"/g)].map((m) => m[1]);
         const rendered = norm(preview);
         out.push({ ui: demoEl.getAttribute('data-ui'), match: JSON.stringify(shown) === JSON.stringify(rendered), shown, rendered });
       }
