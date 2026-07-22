@@ -72,8 +72,15 @@ const require = createRequire(import.meta.url);
 
 const SDK_ROOT = resolvePackageRoot('@civitai/app-sdk');
 const BLOCKS_ROOT = resolvePackageRoot('@civitai/blocks-react');
+// Design system (dual-consumption): tokens, framework-agnostic CSS, React bindings.
+const COMPONENTS_REACT_ROOT = resolvePackageRoot('@civitai/components-react');
+const COMPONENTS_ROOT = resolvePackageRoot('@civitai/components');
+const THEME_ROOT = resolvePackageRoot('@civitai/theme');
 const SDK_DIST = join(SDK_ROOT, 'dist');
 const BLOCKS_DIST = join(BLOCKS_ROOT, 'dist');
+const COMPONENTS_REACT_DIST = join(COMPONENTS_REACT_ROOT, 'dist');
+const COMPONENTS_DIST = join(COMPONENTS_ROOT, 'dist');
+const THEME_DIST = join(THEME_ROOT, 'dist');
 
 // Published subpaths a doc author imports from, mapped to the installed
 // declaration entry. Used to (a) resolve free identifiers to a REAL import so
@@ -88,6 +95,9 @@ const ENTRYPOINTS = [
   { module: '@civitai/app-sdk/blocks', dts: join(SDK_DIST, 'blocks/index.d.ts') },
   { module: '@civitai/blocks-react', dts: join(BLOCKS_DIST, 'index.d.ts') },
   { module: '@civitai/blocks-react/ui', dts: join(BLOCKS_DIST, 'ui/index.d.ts') },
+  { module: '@civitai/components-react', dts: join(COMPONENTS_REACT_DIST, 'index.d.ts') },
+  { module: '@civitai/components', dts: join(COMPONENTS_DIST, 'index.d.ts') },
+  { module: '@civitai/theme', dts: join(THEME_DIST, 'index.d.ts') },
 ];
 
 // tsconfig `paths` so tsc resolves the SDK modules regardless of exports-map
@@ -97,6 +107,12 @@ const TSCONFIG_PATHS = {
   '@civitai/app-sdk/*': [join(SDK_DIST, '*')],
   '@civitai/blocks-react': [join(BLOCKS_DIST, 'index.d.ts')],
   '@civitai/blocks-react/*': [join(BLOCKS_DIST, '*')],
+  '@civitai/components-react': [join(COMPONENTS_REACT_DIST, 'index.d.ts')],
+  '@civitai/components-react/*': [join(COMPONENTS_REACT_DIST, '*')],
+  '@civitai/components': [join(COMPONENTS_DIST, 'index.d.ts')],
+  '@civitai/components/*': [join(COMPONENTS_DIST, '*')],
+  '@civitai/theme': [join(THEME_DIST, 'index.d.ts')],
+  '@civitai/theme/*': [join(THEME_DIST, '*')],
 };
 
 const TMP_PARENT = join(repoRoot, '.appblocks-snippet-tmp');

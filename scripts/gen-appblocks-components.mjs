@@ -142,7 +142,7 @@ function markupBody(md) {
   return md.slice(firstH2).trimEnd();
 }
 
-function buildPage(md, components, source) {
+function buildPage(md, components) {
   const frontmatter = [
     '---',
     'title: Components reference',
@@ -153,11 +153,13 @@ function buildPage(md, components, source) {
     '---',
   ].join('\n');
 
+  // Banner is deterministic (no run-specific provenance) so the committed page
+  // is byte-stable whether generated from the installed package or the snapshot.
   const banner = [
     '<!--',
     '  GENERATED FILE — do not edit by hand.',
     '  Produced by scripts/gen-appblocks-components.mjs from the canonical',
-    `  ${CANONICAL_PKG_PATH} markup contract (source this run: ${source}).`,
+    `  ${CANONICAL_PKG_PATH} markup contract.`,
     '  To update: re-snapshot appblocks-snapshots/MARKUP.md from',
     `  civitai-app-starters:${CANONICAL_REPO_PATH}, then re-run the generator.`,
     '-->',
@@ -195,7 +197,7 @@ function buildPage(md, components, source) {
 const { text, source } = readMarkup();
 const md = normalize(text);
 const components = parseComponents(md);
-const page = buildPage(md, components, source);
+const page = buildPage(md, components);
 writeFileSync(OUT, page);
 log(`components: wrote ${components.length} components -> ${resolve(OUT)}`);
 log(`  markup from ${source}`);

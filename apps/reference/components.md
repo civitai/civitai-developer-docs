@@ -8,7 +8,7 @@ sources:
 <!--
   GENERATED FILE — do not edit by hand.
   Produced by scripts/gen-appblocks-components.mjs from the canonical
-  @civitai/components/MARKUP.md markup contract (source this run: snapshot: appblocks-snapshots/MARKUP.md).
+  @civitai/components/MARKUP.md markup contract.
   To update: re-snapshot appblocks-snapshots/MARKUP.md from
   civitai-app-starters:packages/civitai-components/MARKUP.md, then re-run the generator.
 -->
