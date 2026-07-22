@@ -4,6 +4,17 @@ import { theme, useOpenapi } from 'vitepress-openapi/client';
 import 'vitepress-openapi/dist/style.css';
 import './custom.css';
 
+// Civitai design system (dual-consumption) — loaded globally so the <ComponentDemo>
+// and <TokenGallery> live previews render fully themed. Safe against the VitePress
+// chrome by construction (asserted by the chrome-non-regression test):
+//   - @civitai/theme ships ONLY `--civitai-*` custom properties (no `--vp-*`
+//     overlap, and it styles no elements), so it cannot restyle nav/sidebar/content.
+//   - @civitai/components rules are scoped to `[data-civitai-ui]` AND wrapped in
+//     `@layer civitai.components`; layered CSS loses to VitePress's unlayered chrome.
+import '@civitai/theme/styles.css';
+import '@civitai/components/styles.css';
+import './design-system.css';
+
 import spec from '../../public/openapi/v2-consumers.json' with { type: 'json' };
 
 // App Blocks generated reference artifacts (produced by scripts/gen-appblocks*.mjs
@@ -26,6 +37,8 @@ import JsonSchemaTable from './components/JsonSchemaTable.vue';
 import CliReference from './components/CliReference.vue';
 import MessageTable from './components/MessageTable.vue';
 import HooksReference from './components/HooksReference.vue';
+import ComponentDemo from './components/ComponentDemo.vue';
+import TokenGallery from './components/TokenGallery.vue';
 
 export default {
   extends: DefaultTheme,
@@ -63,5 +76,9 @@ export default {
     ctx.app.component('CliReference', CliReference);
     ctx.app.component('MessageTable', MessageTable);
     ctx.app.component('HooksReference', HooksReference);
+
+    // Design-system showcase surfaces.
+    ctx.app.component('ComponentDemo', ComponentDemo);
+    ctx.app.component('TokenGallery', TokenGallery);
   },
 } satisfies Theme;
