@@ -230,9 +230,11 @@ async function run() {
       for (const demoEl of document.querySelectorAll('.cds-demo')) {
         const codeEl = demoEl.querySelector('[data-testid="cds-code-html"] pre code');
         const preview = demoEl.querySelector('[data-testid="cds-preview"]');
-        const parsed = document.createElement('div');
-        parsed.innerHTML = codeEl ? codeEl.textContent : '';
-        const shown = norm(parsed);
+        // Parse the shown snippet with DOMParser (inert; does not execute) rather
+        // than assigning textContent to .innerHTML — same parsed tree for the
+        // [data-civitai-ui] comparison below, without the DOM-text-as-HTML sink.
+        const parsed = new DOMParser().parseFromString(codeEl ? codeEl.textContent : '', 'text/html');
+        const shown = norm(parsed.body);
         const rendered = norm(preview);
         out.push({ ui: demoEl.getAttribute('data-ui'), match: JSON.stringify(shown) === JSON.stringify(rendered), shown, rendered });
       }
