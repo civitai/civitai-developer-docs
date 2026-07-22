@@ -1,0 +1,213 @@
+/**
+ * Styling for the design-system SHOWCASE surfaces — <ComponentDemo> and
+ * <TokenGallery>. These rules are deliberately scoped to `.cds-*` classes so they
+ * never touch the VitePress chrome (nav / sidebar / content), and they style only
+ * the demo shells — NOT the previews inside them, which are painted entirely by
+ * @civitai/theme + @civitai/components so the preview is a faithful render of the
+ * design system.
+ *
+ * The `.cds-preview` container carries `data-theme` (light|dark, driven by
+ * VitePress's `useData().isDark`); every `--civitai-*` token re-resolves from that
+ * scope, so the preview matches the surrounding site theme.
+ */
+
+/* ---------- ComponentDemo ---------- */
+.cds-demo {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 1.5rem 0;
+  background: var(--vp-c-bg);
+}
+
+.cds-demo__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg-soft);
+}
+
+.cds-demo__title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--vp-c-text-1);
+}
+
+.cds-demo__title code {
+  font-size: 0.78rem;
+  color: var(--vp-c-brand-1);
+  background: var(--vp-c-default-soft);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.cds-demo__theme {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--vp-c-text-3);
+}
+
+/* The live preview — painted by the design system, isolated from the chrome. */
+.cds-preview {
+  padding: 1.75rem;
+  background: var(--civitai-color-body);
+  color: var(--civitai-color-text);
+  font-family: var(--civitai-font);
+}
+
+.cds-demo__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.4rem 0.6rem;
+  border-top: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg-soft);
+}
+
+.cds-tab {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--vp-c-text-2);
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: var(--vp-font-family-base);
+  padding: 0.3rem 0.7rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.cds-tab:hover {
+  color: var(--vp-c-text-1);
+  background: var(--vp-c-default-soft);
+}
+.cds-tab[aria-selected='true'] {
+  color: var(--vp-c-brand-1);
+  background: var(--vp-c-brand-soft);
+}
+
+.cds-demo__code {
+  /* The slotted code blocks are VitePress-highlighted (shiki) and keep their own
+     copy button; strip the block's outer margin so it fills the panel flush. */
+}
+.cds-demo__code :deep(div[class*='language-']) {
+  margin: 0;
+  border-radius: 0;
+}
+.cds-demo__code div[class*='language-'] {
+  margin: 0;
+  border-radius: 0;
+}
+
+/* ---------- TokenGallery ---------- */
+.cds-tokens {
+  margin: 1.5rem 0;
+}
+
+.cds-tokens__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.9rem;
+  margin: 1rem 0 2rem;
+}
+
+.cds-swatch {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--vp-c-bg-soft);
+}
+
+.cds-swatch__chip {
+  height: 68px;
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.cds-swatch__meta {
+  padding: 0.55rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.cds-swatch__name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--vp-c-text-1);
+}
+
+.cds-swatch__var {
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.72rem;
+  color: var(--vp-c-text-3);
+  word-break: break-all;
+}
+
+.cds-swatch__value {
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.72rem;
+  color: var(--vp-c-text-2);
+}
+
+.cds-scale {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 1rem 0 2rem;
+}
+
+.cds-scale__row {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.cds-scale__label {
+  flex: 0 0 8rem;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.72rem;
+  color: var(--vp-c-text-3);
+}
+
+.cds-specimen {
+  color: var(--vp-c-text-1);
+}
+
+.cds-token-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin: 1rem 0 2rem;
+}
+.cds-token-table th,
+.cds-token-table td {
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+.cds-token-table th {
+  color: var(--vp-c-text-3);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.cds-token-table code {
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.78rem;
+}
+.cds-token-table .cds-token-table__swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid var(--vp-c-divider);
+  vertical-align: middle;
+  margin-right: 0.4rem;
+}

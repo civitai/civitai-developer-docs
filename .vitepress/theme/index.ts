@@ -4,6 +4,17 @@ import { theme, useOpenapi } from 'vitepress-openapi/client';
 import 'vitepress-openapi/dist/style.css';
 import './custom.css';
 
+// Civitai design system (dual-consumption) — loaded globally so the <ComponentDemo>
+// and <TokenGallery> live previews render fully themed. Safe against the VitePress
+// chrome by construction (asserted by the chrome-non-regression test):
+//   - @civitai/theme ships ONLY `--civitai-*` custom properties (no `--vp-*`
+//     overlap, and it styles no elements), so it cannot restyle nav/sidebar/content.
+//   - @civitai/components rules are scoped to `[data-civitai-ui]` AND wrapped in
+//     `@layer civitai.components`; layered CSS loses to VitePress's unlayered chrome.
+import '@civitai/theme/styles.css';
+import '@civitai/components/styles.css';
+import './design-system.css';
+
 import spec from '../../public/openapi/v2-consumers.json' with { type: 'json' };
 
 // App Blocks generated reference artifacts (produced by scripts/gen-appblocks*.mjs
