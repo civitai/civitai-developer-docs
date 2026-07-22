@@ -131,15 +131,43 @@ function renderSummaryTable(components) {
 }
 
 /**
+ * Correct the two known-broken CDN URLs the upstream MARKUP.md Setup section
+ * still ships. jsDelivr does NOT honor the package `exports` alias, so
+ * `cdn.jsdelivr.net/npm/@civitai/<pkg>/styles.css` returns 404 (a silently
+ * unstyled page). unpkg resolves the alias, so we rewrite to PINNED unpkg URLs
+ * (verified 200 text/css for @civitai/theme@0.1.0 and @civitai/components@0.1.0).
+ *
+ * This is a targeted swap on the exact broken specifiers, so it NO-OPS the
+ * moment upstream MARKUP.md is corrected. The committed snapshot stays
+ * byte-identical to civitai-app-starters@main, so the snapshot drift-guard is
+ * unaffected — only the rendered page is corrected. Remove this shim once the
+ * @civitai/components package (0.1.1) ships the fixed URLs upstream.
+ */
+const CDN_URL_FIXES = [
+  [
+    'https://cdn.jsdelivr.net/npm/@civitai/theme/styles.css',
+    'https://unpkg.com/@civitai/theme@0.1.0/styles.css',
+  ],
+  [
+    'https://cdn.jsdelivr.net/npm/@civitai/components/styles.css',
+    'https://unpkg.com/@civitai/components@0.1.0/styles.css',
+  ],
+];
+function fixCdnUrls(body) {
+  return CDN_URL_FIXES.reduce((acc, [broken, fixed]) => acc.replaceAll(broken, fixed), body);
+}
+
+/**
  * The MARKUP.md body reproduced on the page: from the first `## ` section
  * (Setup) onward (Setup / Theming / Cascade / Components / React parity),
- * verbatim so the contract never diverges. The H1 and MARKUP.md's own intro
- * paragraph are dropped — this page supplies its own H1 + intro above.
+ * verbatim so the contract never diverges — except the two broken CDN URLs in
+ * the Setup section, corrected by fixCdnUrls (see above). The H1 and MARKUP.md's
+ * own intro paragraph are dropped — this page supplies its own H1 + intro above.
  */
 function markupBody(md) {
   const firstH2 = md.search(/^## /m);
   if (firstH2 < 0) throw new Error('gen-appblocks-components: no "## " section found in MARKUP.md');
-  return md.slice(firstH2).trimEnd();
+  return fixCdnUrls(md.slice(firstH2).trimEnd());
 }
 
 function buildPage(md, components) {

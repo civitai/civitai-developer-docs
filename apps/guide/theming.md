@@ -39,11 +39,17 @@ and `@civitai/components-react` renders `@civitai/components`' markup. Adopt jus
 layer 1 for tokens, layers 1–2 for framework-agnostic components, or all three
 for the React ergonomics.
 
-::: warning Packages publishing in progress
-`@civitai/theme`, `@civitai/components`, and `@civitai/components-react` are at
-`0.1.0` and publishing to npm is in progress. Until they land, the `npm i` /
-CDN steps below won't resolve. The [Components reference](../reference/components)
-already documents the full attribute contract.
+::: tip Published at `0.1.0` — use the pinned CDN URLs
+`@civitai/theme`, `@civitai/components`, and `@civitai/components-react` are
+published to npm at `0.1.0`, so the `npm i` and CDN steps below resolve today.
+Load the CSS from the **pinned** URLs shown here (`@0.1.0`) via
+[unpkg](https://unpkg.com): jsDelivr does **not** honor the package `exports`
+alias, so the bare `cdn.jsdelivr.net/npm/@civitai/theme/styles.css` path **404s**
+there (a silently unstyled page). unpkg resolves the alias; if you must use
+jsDelivr, point at the explicit `dist/` path
+(`cdn.jsdelivr.net/npm/@civitai/theme@0.1.0/dist/tokens.css`). The
+[Plain HTML quickstart](#plain-html-quickstart) below is a complete, copy-paste
+page.
 :::
 
 ## Themed components in generic HTML
@@ -53,9 +59,10 @@ stylesheets — the tokens and the component CSS — then write HTML with the
 `data-civitai-ui` attributes. That's the whole integration.
 
 ```html
-<!-- 1. Load the design tokens + the component CSS (order-independent). -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@civitai/theme/styles.css" />
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@civitai/components/styles.css" />
+<!-- 1. Load the design tokens + the component CSS (order-independent).
+     Pin the version and load from unpkg — jsDelivr doesn't resolve the exports alias. -->
+<link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.1.0/styles.css" />
+<link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.1.0/styles.css" />
 
 <!-- 2. Write markup with the data-attributes — styled identically to React. -->
 <button data-civitai-ui="button" data-variant="filled" data-size="md">Generate</button>
@@ -84,6 +91,92 @@ generated from the canonical
 that ships inside `@civitai/components`. **`MARKUP.md` is the source of truth**:
 any HTML that follows it renders identically to the React bindings (asserted by a
 `getComputedStyle()` parity browser test in both themes).
+
+## Plain HTML quickstart
+
+Copy this into an `index.html`, open it in a browser, and you get a themed page
+with a working light/dark toggle — no build step, no framework, no install. It
+loads the two stylesheets from the pinned CDN URLs and uses a handful of
+components straight from the [attribute contract](../reference/components).
+
+::: warning Paint the page background yourself
+The tokens don't style `<body>` — they only expose the `--civitai-*` custom
+properties. Without the `body { background/color }` rule below, the components
+are themed but the page around them is not (e.g. a white page in dark mode).
+Paint the page from the surface/text tokens as shown.
+:::
+
+```html
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Civitai design system — plain HTML</title>
+
+    <!-- Pinned CDN URLs. unpkg resolves the package `exports` alias; jsDelivr's
+         bare `@civitai/theme/styles.css` 404s (use its explicit dist/ path). -->
+    <link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.1.0/styles.css" />
+    <link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.1.0/styles.css" />
+
+    <style>
+      /* The tokens don't paint the page — do it from the surface/text tokens. */
+      body {
+        background: var(--civitai-color-surface);
+        color: var(--civitai-color-text);
+        font-family: system-ui, sans-serif;
+        margin: 0;
+        padding: 2rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div data-civitai-ui="stack" data-gap="md">
+      <div data-civitai-ui="group" data-gap="sm">
+        <button data-civitai-ui="button" data-variant="filled">Generate</button>
+        <button data-civitai-ui="button" data-variant="outline">Cancel</button>
+        <span data-civitai-ui="badge" data-variant="light">beta</span>
+        <!-- Toggle button — flips data-theme on <html> (see the script below). -->
+        <button id="theme-toggle" data-civitai-ui="button" data-variant="subtle">
+          Toggle theme
+        </button>
+      </div>
+
+      <!-- data-with-border makes the card visible in LIGHT mode (see note below). -->
+      <div data-civitai-ui="card" data-with-border="true" data-padding="md">
+        <div data-civitai-ui="stack" data-gap="sm">
+          <div data-civitai-ui="text-input">
+            <label data-civitai-ui-label for="prompt">Prompt</label>
+            <input data-civitai-ui-control id="prompt" placeholder="a cat astronaut" />
+          </div>
+          <div data-civitai-ui="alert" data-color="info" role="alert">
+            <div data-civitai-ui-alert-body>
+              <div data-civitai-ui-alert-title>Heads up</div>
+              Edit the prompt, then hit Generate.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // 3-line theme toggle: read the current theme off <html>, flip it, write it back.
+      const root = document.documentElement;
+      document.getElementById('theme-toggle').addEventListener('click', () => {
+        root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+      });
+    </script>
+  </body>
+</html>
+```
+
+::: warning Light-mode cards need a border
+In the light theme `--civitai-color-surface` and `--civitai-color-surface-2` are
+the **same** color (`#fefefe`), so a borderless `card` sits invisibly on the page
+background. Add `data-with-border="true"` (as above) — or your own border — to
+give a light-mode card a visible edge. In dark mode the two surfaces differ
+(`#1A1B1E` vs `#25262B`), so a card reads even without a border.
+:::
 
 ## Themed components in React
 

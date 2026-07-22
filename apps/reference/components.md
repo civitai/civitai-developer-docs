@@ -52,8 +52,8 @@ component are reproduced verbatim from the canonical contract below.
 Load the tokens **and** the component CSS (order-independent, but load both):
 
 ```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@civitai/theme/styles.css" />
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@civitai/components/styles.css" />
+<link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.1.0/styles.css" />
+<link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.1.0/styles.css" />
 ```
 
 Or, from JS: `import { injectStyles } from '@civitai/components'; injectStyles();`
