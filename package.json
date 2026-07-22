@@ -10,6 +10,7 @@
     "gen:appblocks:cli": "node scripts/gen-appblocks-cli.mjs",
     "gen:appblocks:messages": "node scripts/gen-appblocks-messages.mjs",
     "gen:appblocks:hooks": "node scripts/gen-appblocks-hooks.mjs",
+    "gen:appblocks:components": "node scripts/gen-appblocks-components.mjs",
     "predev": "npm run copy:spec && npm run gen:appblocks",
     "prebuild": "npm run copy:spec && npm run gen:appblocks",
     "dev": "vitepress dev",

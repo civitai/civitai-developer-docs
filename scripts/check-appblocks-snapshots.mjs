@@ -47,11 +47,16 @@ const snapshotsDir = join(repoRoot, 'appblocks-snapshots');
 
 // Override for testing the unreachable-source path (point at a dead host).
 const RAW_BASE = process.env.APPBLOCKS_RAW_BASE || 'https://raw.githubusercontent.com/civitai/civitai/main';
+// The design-system markup contract lives in a SEPARATE repo (civitai-app-starters).
+const APP_STARTERS_BASE =
+  process.env.APPBLOCKS_STARTERS_RAW_BASE ||
+  'https://raw.githubusercontent.com/civitai/civitai-app-starters/main';
 
-// Each committed snapshot ↔ its canonical civitai source path. The manifest
-// schema is intentionally NOT here (see check-manifest-parity.mjs); the CLI
-// snapshot tracks an npm package pinned by version, so version-pinning already
-// guards it.
+// Each committed snapshot ↔ its canonical upstream source path. Entries default
+// to civitai@main (RAW_BASE); an explicit `base` overrides it for sources that
+// live in another repo. The manifest schema is intentionally NOT here (see
+// check-manifest-parity.mjs); the CLI snapshot tracks an npm package pinned by
+// version, so version-pinning already guards it.
 const SOURCES = [
   {
     path: 'src/shared/constants/block-scope.constants.ts',
@@ -64,6 +69,13 @@ const SOURCES = [
   {
     path: 'src/components/AppBlocks/hostHandlerParity.ts',
     snapshot: 'hostHandlerParity.ts',
+  },
+  {
+    // @civitai/components markup contract → apps/reference/components.md
+    // (regenerate with `npm run gen:appblocks:components` after re-snapshotting).
+    path: 'packages/civitai-components/MARKUP.md',
+    snapshot: 'MARKUP.md',
+    base: APP_STARTERS_BASE,
   },
 ];
 
@@ -91,8 +103,8 @@ function firstDivergence(a, b) {
   return null;
 }
 
-async function fetchUpstream(path) {
-  const url = `${RAW_BASE}/${path}`;
+async function fetchUpstream(path, base = RAW_BASE) {
+  const url = `${base}/${path}`;
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
     if (!res.ok) {
@@ -118,7 +130,7 @@ async function main() {
   const skipped = [];
   let ok = 0;
 
-  for (const { path, snapshot } of SOURCES) {
+  for (const { path, snapshot, base } of SOURCES) {
     const snapPath = join(snapshotsDir, snapshot);
     if (!existsSync(snapPath)) {
       console.log(`  ✗ ${snapshot} — committed snapshot MISSING at appblocks-snapshots/${snapshot}`);
@@ -126,7 +138,7 @@ async function main() {
       continue;
     }
     const local = normalize(readFileSync(snapPath, 'utf8'));
-    const remote = await fetchUpstream(path);
+    const remote = await fetchUpstream(path, base);
 
     if (!remote.ok) {
       if (remote.gone) {
