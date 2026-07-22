@@ -286,8 +286,10 @@ structural change to one component. Both compose cleanly with the layer.
 Adding the design system to a **greenfield** block is easy — there's no CSS to
 fight. Adding it to an **existing app** that already ships its own global CSS is
 the case that bites, and it bites *silently*. This section is the retrofit
-playbook: the one collision that breaks it, the recipe that fixes it, and the
-gentler adoption path that sidesteps the collision entirely.
+playbook: the one collision that breaks it, the recipe that fixes it, the sharper
+form that shows up when your app ships a **CSS reset / framework** (Tailwind), the
+gentler adoption path that sidesteps the collision entirely, and how to
+**self-host** the CSS for an offline app.
 
 ### The `@layer` collision (why your buttons look unthemed)
 
@@ -367,6 +369,99 @@ Use whatever name you like for your layer (`legacy`, `base`, your app's name) �
 only rules are that it appears **before** `civitai` in a leading `@layer …;` list
 and that your CSS is wrapped in it.
 
+### Coexisting with an existing CSS reset / framework (Tailwind, etc.)
+
+The collision above is bad enough when your app ships *element rules* (a stray
+`button {}` recolors the component). It gets **sharper** when your app ships a
+**CSS reset or framework normalize** — because a reset doesn't merely re-color the
+component, it **strips it to nothing**. The worst offender is a utility framework's
+base layer. **Tailwind's Preflight** ships this, **unlayered**:
+
+```css
+/* Tailwind Preflight (excerpt) — UNLAYERED. Zeroes out every button. */
+button {
+  background-color: transparent;
+  background-image: none;
+  padding: 0;
+  border: 0;
+}
+```
+
+Because unlayered CSS beats *any* layered rule, this Preflight reset wins over
+`@layer civitai.components`. The result: a perfectly-authored
+`data-civitai-ui="button" data-variant="filled"` renders as **bare, unstyled
+text** — no fill, no padding, no border. The markup contract is satisfied and
+nothing errors; the component is simply **invisible**. This is the exact point
+where "unlayered CSS always wins" flips from a **feature** (effortless overrides,
+above) into a **footgun** — the framework's reset is unlayered too, and it's
+fighting the component instead of you.
+
+The remedy is the same [layer recipe](#the-fix-—-put-your-legacy-css-in-a-lower-layer-mind-the-parse-order)
+as above, applied to the framework: declare `@layer app, civitai.components;`
+(so `app` sorts **below** civitai's components) and wrap your app's **entire
+stylesheet — the framework reset included — in `@layer app { … }`.** Once the
+Preflight reset lives in the lower `app` layer, civitai's component rules win and
+the button paints.
+
+For **Tailwind specifically**, wrap the compiled build in a layer rather than
+hand-editing Preflight. In **Tailwind v4** each `@import` accepts a `layer(…)`,
+so import Tailwind into the `app` layer:
+
+```css
+/* app.css — Tailwind v4. Preflight + utilities all land in @layer app. */
+@layer app, civitai.components;   /* app sorts BELOW civitai.components */
+
+@import "tailwindcss" layer(app); /* Preflight, utilities, everything → @layer app */
+```
+
+If you can't add `layer(app)` to the import (older Tailwind, a pre-compiled
+`tailwind.css` you don't control, or any vendored framework build), wrap the
+compiled output itself — same effect:
+
+```html
+<head>
+  <!-- 1. Layer order FIRST — app below civitai.components.
+          MUST precede the civitai <link>s (first-encounter ordering). -->
+  <style>@layer app, civitai.components;</style>
+
+  <!-- 2. Then the civitai CSS — its @layer civitai.components slots ABOVE app. -->
+  <link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.1.1/styles.css" />
+  <link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.1.1/styles.css" />
+
+  <!-- 3. Your compiled Tailwind (Preflight + utilities), wrapped in @layer app. -->
+  <style>
+    @layer app {
+      /* …paste or @import your compiled tailwind.css here… */
+      button { background-color: transparent; background-image: none; padding: 0; border: 0; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Now the component paints (civitai blue) instead of rendering as bare text. -->
+  <button data-civitai-ui="button" data-variant="filled">Generate</button>
+</body>
+```
+
+::: tip Verified — bare text → civitai blue
+Reproduced headless with the real `@civitai/theme` + `@civitai/components@0.1.1`
+CSS. With the Preflight-style `button { background: transparent; border: 0;
+padding: 0 }` reset **unlayered**, the civitai button's computed
+`background-color` is **`rgba(0, 0, 0, 0)`** (transparent — the reset wins, the
+button is invisible). After declaring `@layer app, civitai.components;` and moving
+that reset into `@layer app { … }`, the *same* button computes to
+**`rgb(34, 139, 230)`** (`#228BE6`, `--civitai-color-primary` — the component
+wins). Nothing else changed.
+:::
+
+::: warning `layer(app)` must not re-order the layer
+Whether you use `@import "tailwindcss" layer(app)` or wrap the compiled output,
+the leading `@layer app, civitai.components;` statement still has to be **the
+first place either layer name is seen** (before the civitai `<link>`s / before
+Tailwind's `@import`). If Tailwind's Preflight registers a bare `app` layer first,
+the order flips and you're back to bare text — same first-encounter trap as the
+[generic recipe](#the-fix-—-put-your-legacy-css-in-a-lower-layer-mind-the-parse-order).
+:::
+
 ### The gentle option — consume tokens, keep your own markup
 
 If you're adopting incrementally, the lowest-friction path is to **not adopt the
@@ -417,6 +512,45 @@ card or panel blends into a token-painted body in light mode. Give it
 `data-with-border="true"`, your own border, or a shadow; dark mode differentiates
 the surfaces for you.
 :::
+
+### Self-hosting / offline — vendoring the CSS
+
+For an offline, air-gapped, or fully self-contained app you'll want to **vendor**
+the CSS into your own repo rather than depend on a CDN `<link>` at runtime (this
+is also the [FOUC](#themed-components-in-generic-html) fix — served from your own
+origin, the stylesheets are on the critical path). Copy **exactly two files**, one
+from each package:
+
+| Copy this file (in the published `0.1.1` package) | From package | It is |
+|---|---|---|
+| **`styles.css`** (the **package root**) | `@civitai/theme` | the `--civitai-*` design tokens |
+| **`styles.css`** (the **package root**) | `@civitai/components` | the `@layer civitai.components` component CSS |
+
+::: warning Which `styles.css`? Watch out for the decoys
+Each package's tarball contains **more than one** CSS file, and the names overlap
+confusingly — `@civitai/theme` ships `styles.css` (root) **and**
+`dist/tokens.css`; `@civitai/components` ships `styles.css` (root) **and**
+`dist/components.css`. **Vendor the package-root `styles.css` from each** — that is
+exactly what the CDN URL `@civitai/<pkg>@0.1.1/styles.css` and the package's
+`exports["./styles.css"]` map both resolve to (the root file and its `dist/`
+target are byte-identical at `0.1.1`, so either works, but the root `styles.css`
+is the unambiguous one to copy). Do **not** grab `dist/components.css` from
+`@civitai/theme` or vice-versa — the filenames make it easy to cross the wires.
+:::
+
+```html
+<!-- Vendored, no CDN. Same two stylesheets, served from your own origin.
+     Load theme BEFORE components (they read the tokens as custom properties,
+     so they're technically order-independent — theme-first is the safe convention). -->
+<link rel="stylesheet" href="/assets/civitai/theme.styles.css" />       <!-- @civitai/theme  → styles.css -->
+<link rel="stylesheet" href="/assets/civitai/components.styles.css" />  <!-- @civitai/components → styles.css -->
+```
+
+Pin the packages at the version you vendored (`@civitai/theme@0.1.1`,
+`@civitai/components@0.1.1`) so a re-vendor is deliberate, and re-copy the two
+`styles.css` files whenever you bump. If you use a bundler instead of static
+files, `import '@civitai/theme/styles.css'` and `import '@civitai/components/styles.css'`
+resolve through the same `exports` map — no manual copy needed.
 
 ## Where to go next
 
