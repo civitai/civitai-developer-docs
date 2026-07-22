@@ -37,6 +37,7 @@ import JsonSchemaTable from './components/JsonSchemaTable.vue';
 import CliReference from './components/CliReference.vue';
 import MessageTable from './components/MessageTable.vue';
 import HooksReference from './components/HooksReference.vue';
+import ComponentDemo from './components/ComponentDemo.vue';
 
 export default {
   extends: DefaultTheme,
@@ -74,5 +75,8 @@ export default {
     ctx.app.component('CliReference', CliReference);
     ctx.app.component('MessageTable', MessageTable);
     ctx.app.component('HooksReference', HooksReference);
+
+    // Design-system showcase surfaces.
+    ctx.app.component('ComponentDemo', ComponentDemo);
   },
 } satisfies Theme;
