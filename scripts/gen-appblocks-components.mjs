@@ -131,26 +131,27 @@ function renderSummaryTable(components) {
 }
 
 /**
- * Correct the two known-broken CDN URLs the upstream MARKUP.md Setup section
- * still ships. jsDelivr does NOT honor the package `exports` alias, so
- * `cdn.jsdelivr.net/npm/@civitai/<pkg>/styles.css` returns 404 (a silently
- * unstyled page). unpkg resolves the alias, so we rewrite to PINNED unpkg URLs
- * (verified 200 text/css for @civitai/theme@0.1.0 and @civitai/components@0.1.0).
+ * Version-pin the CDN URLs the upstream MARKUP.md Setup section ships bare
+ * (unversioned). As of 0.1.1 each package ships a real package-root
+ * `styles.css`, so BOTH jsDelivr and unpkg resolve `@civitai/<pkg>@0.1.1/styles.css`
+ * (all verified 200 text/css) — the old 0.1.0 jsDelivr-404 (exports-alias) problem
+ * is gone. The only correction now is to pin the version so the rendered page
+ * doesn't recommend an unpinned `latest` URL.
  *
- * This is a targeted swap on the exact broken specifiers, so it NO-OPS the
- * moment upstream MARKUP.md is corrected. The committed snapshot stays
+ * This is a targeted swap on the exact bare specifiers, so it NO-OPS the moment
+ * upstream MARKUP.md ships pinned URLs. The committed snapshot stays
  * byte-identical to civitai-app-starters@main, so the snapshot drift-guard is
  * unaffected — only the rendered page is corrected. Remove this shim once the
- * @civitai/components package (0.1.1) ships the fixed URLs upstream.
+ * @civitai/components package ships version-pinned URLs upstream.
  */
 const CDN_URL_FIXES = [
   [
     'https://cdn.jsdelivr.net/npm/@civitai/theme/styles.css',
-    'https://unpkg.com/@civitai/theme@0.1.0/styles.css',
+    'https://unpkg.com/@civitai/theme@0.1.1/styles.css',
   ],
   [
     'https://cdn.jsdelivr.net/npm/@civitai/components/styles.css',
-    'https://unpkg.com/@civitai/components@0.1.0/styles.css',
+    'https://unpkg.com/@civitai/components@0.1.1/styles.css',
   ],
 ];
 function fixCdnUrls(body) {

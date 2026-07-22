@@ -3,9 +3,9 @@ title: Theming & the design system
 description: Civitai's dual-consumption design system — the same themed components as generic attribute-driven HTML for any framework, or as thin React bindings. Covers the 3-layer model (@civitai/theme tokens, @civitai/components CSS, @civitai/components-react), plain-HTML and React setup, light/dark theming, and the @layer override model.
 sources:
   - civitai-app-starters:packages/civitai-components/MARKUP.md
-  - npm:@civitai/theme@0.1.0
-  - npm:@civitai/components@0.1.0
-  - npm:@civitai/components-react@0.1.0
+  - npm:@civitai/theme@0.1.1
+  - npm:@civitai/components@0.1.1
+  - npm:@civitai/components-react@0.1.1
 ---
 
 # Theming & the design system
@@ -39,15 +39,15 @@ and `@civitai/components-react` renders `@civitai/components`' markup. Adopt jus
 layer 1 for tokens, layers 1–2 for framework-agnostic components, or all three
 for the React ergonomics.
 
-::: tip Published at `0.1.0` — use the pinned CDN URLs
+::: tip Published at `0.1.1` — pin the version in the CDN URL
 `@civitai/theme`, `@civitai/components`, and `@civitai/components-react` are
-published to npm at `0.1.0`, so the `npm i` and CDN steps below resolve today.
-Load the CSS from the **pinned** URLs shown here (`@0.1.0`) via
-[unpkg](https://unpkg.com): jsDelivr does **not** honor the package `exports`
-alias, so the bare `cdn.jsdelivr.net/npm/@civitai/theme/styles.css` path **404s**
-there (a silently unstyled page). unpkg resolves the alias; if you must use
-jsDelivr, point at the explicit `dist/` path
-(`cdn.jsdelivr.net/npm/@civitai/theme@0.1.0/dist/tokens.css`). The
+published to npm at `0.1.1`, so the `npm i` and CDN steps below resolve today.
+As of `0.1.1` each package ships a real package-root `styles.css`, so **both
+[jsDelivr](https://cdn.jsdelivr.net) and [unpkg](https://unpkg.com) resolve it** —
+`cdn.jsdelivr.net/npm/@civitai/theme@0.1.1/styles.css` and
+`unpkg.com/@civitai/theme@0.1.1/styles.css` both return the stylesheet (all four
+URLs verified `200`). Just **pin the version** (`@0.1.1`) so a future major can't
+change the CSS out from under you. The
 [Plain HTML quickstart](#plain-html-quickstart) below is a complete, copy-paste
 page.
 :::
@@ -60,9 +60,10 @@ stylesheets — the tokens and the component CSS — then write HTML with the
 
 ```html
 <!-- 1. Load the design tokens + the component CSS (order-independent).
-     Pin the version and load from unpkg — jsDelivr doesn't resolve the exports alias. -->
-<link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.1.0/styles.css" />
-<link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.1.0/styles.css" />
+     Pin the version. Both CDNs work at 0.1.1 — swap unpkg.com for
+     cdn.jsdelivr.net/npm if you prefer jsDelivr. -->
+<link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.1.1/styles.css" />
+<link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.1.1/styles.css" />
 
 <!-- 2. Write markup with the data-attributes — styled identically to React. -->
 <button data-civitai-ui="button" data-variant="filled" data-size="md">Generate</button>
@@ -83,6 +84,17 @@ component CSS once, idempotently:
   injectStyles();
 </script>
 ```
+
+::: warning FOUC — CDN CSS loads *after* first paint
+A `<link>` to the CDN (or an async `injectStyles()`) resolves after the browser's
+first paint, so a preloaded or server-rendered page can flash **unthemed content**
+before the stylesheet arrives. If you SSR or preload, don't rely on the CDN
+`<link>` alone: **self-host** the two stylesheets (serve them from your own origin
+so they're on the critical path), **inline the critical CSS** into `<head>`, or
+call `injectStyles()` synchronously before your block renders. For a
+client-rendered block mounted after load, the flash is invisible and the CDN
+`<link>` is fine.
+:::
 
 Every component's exact markup — required elements, `data-*` attributes, and the
 ARIA/role wiring — is in the [Components reference](../reference/components),
@@ -114,10 +126,10 @@ Paint the page from the surface/text tokens as shown.
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Civitai design system — plain HTML</title>
 
-    <!-- Pinned CDN URLs. unpkg resolves the package `exports` alias; jsDelivr's
-         bare `@civitai/theme/styles.css` 404s (use its explicit dist/ path). -->
-    <link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.1.0/styles.css" />
-    <link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.1.0/styles.css" />
+    <!-- Pinned CDN URLs (version-pinned to 0.1.1). Both jsDelivr and unpkg
+         resolve `@civitai/<pkg>@0.1.1/styles.css` — either host works. -->
+    <link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.1.1/styles.css" />
+    <link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.1.1/styles.css" />
 
     <style>
       /* The tokens don't paint the page — do it from the surface/text tokens. */
@@ -171,11 +183,15 @@ Paint the page from the surface/text tokens as shown.
 ```
 
 ::: warning Light-mode cards need a border
-In the light theme `--civitai-color-surface` and `--civitai-color-surface-2` are
-the **same** color (`#fefefe`), so a borderless `card` sits invisibly on the page
-background. Add `data-with-border="true"` (as above) — or your own border — to
-give a light-mode card a visible edge. In dark mode the two surfaces differ
-(`#1A1B1E` vs `#25262B`), so a card reads even without a border.
+In the light theme `--civitai-color-body`, `--civitai-color-surface`, **and**
+`--civitai-color-surface-2` are all the **same** color (`#fefefe`), so a
+borderless `card` sits invisibly on a token-painted page background — nothing
+separates the surface from the body. Add `data-with-border="true"` (as above) — or
+your own border or box-shadow — to give a light-mode card a visible edge. In dark
+mode the surfaces differ (body/surface `#1A1B1E` vs surface-2 `#25262B`), so a
+card reads even without a border. (These token values are governed by the design
+system's drift-guard — reach for a border or shadow, don't try to re-tint the
+surface.)
 :::
 
 ## Themed components in React
@@ -239,6 +255,17 @@ war**:
 }
 ```
 
+::: warning This rule is double-edged
+"Unlayered CSS always wins" is exactly what makes **intentional** overrides
+effortless (above) — and exactly what makes a **retrofit** silently break. If you
+drop the component CSS into an app that already has unlayered global rules
+(`button {}`, `input {}`, a reset, utility classes), those rules win over the
+layered component styles and your components render **unthemed with no error**. If
+you're adding the design system to an existing app, read
+[Theming an existing app](#theming-an-existing-app-retrofit-incremental-adoption)
+below **before** you wire up the components.
+:::
+
 To retheme rather than restyle, redeclare a token locally — the components read
 `--civitai-*` custom properties, so overriding one cascades to every component in
 that scope:
@@ -253,6 +280,143 @@ that scope:
 Prefer a **token override** (a `--civitai-*` custom property) when you want to
 recolor/respace consistently, and an **unlayered rule** when you need a
 structural change to one component. Both compose cleanly with the layer.
+
+## Theming an existing app (retrofit / incremental adoption)
+
+Adding the design system to a **greenfield** block is easy — there's no CSS to
+fight. Adding it to an **existing app** that already ships its own global CSS is
+the case that bites, and it bites *silently*. This section is the retrofit
+playbook: the one collision that breaks it, the recipe that fixes it, and the
+gentler adoption path that sidesteps the collision entirely.
+
+### The `@layer` collision (why your buttons look unthemed)
+
+`@civitai/components` ships every rule inside `@layer civitai.components`. Per the
+CSS cascade, **any unlayered rule beats *any* layered rule, regardless of
+specificity**. So the global rules a real app already has —
+
+```css
+/* Typical existing-app CSS: a reset, element rules, utility classes — all UNLAYERED. */
+button { background: #635bff; color: #fff; border-radius: 6px; }
+input  { border: 1px solid #ccc; padding: 8px; }
+```
+
+— **win over** civitai's `[data-civitai-ui='button']` / `[data-civitai-ui='text-input']`
+styles, even though the civitai selectors are more specific. Nothing errors.
+
+The tell is a **partial theme**: components that *don't* collide with a bare
+element selector pick up the civitai look (badges, cards, alerts, loaders — there's
+no global `[data-civitai-ui='badge']` in your app), while **buttons and inputs
+stay in your old styles** because your unlayered `button {}` / `input {}` rules
+outrank the layer. If your buttons and text fields look untouched but your badges
+and cards are themed, this is why.
+
+### The fix — put your legacy CSS in a lower layer (mind the parse order)
+
+The fix is to move your existing CSS into a named cascade layer that sorts
+**below** `civitai`, so civitai's layered rules win. Two parts, and the **order
+matters**:
+
+1. Declare the layer order **`@layer app, civitai;`** — this fixes `app` as
+   lower-priority than `civitai` (later layers in the list win).
+2. Wrap your existing/legacy CSS in `@layer app { … }`.
+
+The catch: **layer order is set at the *first encounter* of each layer name.** If
+the browser sees civitai's `@layer civitai.components { … }` (from the `<link>`)
+*before* your `@layer app, civitai;` declaration, `civitai` registers first, your
+later mention appends `app` *after* it, and `app` wins again — you're back to
+orange buttons. So the `@layer app, civitai;` statement **must appear before the
+civitai `<link>` tags.**
+
+```html
+<head>
+  <!-- 1. Declare layer ORDER first — app sorts BELOW civitai.
+          MUST come before the civitai <link>s (first-encounter ordering). -->
+  <style>@layer app, civitai;</style>
+
+  <!-- 2. Now load the civitai CSS. Its @layer civitai.components slots ABOVE app. -->
+  <link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.1.1/styles.css" />
+  <link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.1.1/styles.css" />
+
+  <!-- 3. Wrap your existing/global CSS in the lower `app` layer. -->
+  <style>
+    @layer app {
+      button { background: #635bff; color: #fff; border-radius: 6px; }
+      input  { border: 1px solid #ccc; padding: 8px; }
+      /* …your reset, element rules, utility classes… */
+    }
+  </style>
+</head>
+<body>
+  <!-- Now this renders in the civitai blue, not your #635bff. -->
+  <button data-civitai-ui="button" data-variant="filled">Generate</button>
+</body>
+```
+
+::: tip Verified
+This exact recipe was reproduced in a headless browser: with an unlayered
+`button { background: orange }` rule the civitai button computes to
+`rgb(255, 165, 0)` (orange — your CSS wins); after wrapping that rule in
+`@layer app { … }` behind a leading `@layer app, civitai;`, the same button
+computes to `rgb(34, 139, 230)` (`#228BE6`, civitai's `--civitai-color-primary`) —
+the component wins. Move the `@layer app, civitai;` line *after* the `<link>`s and
+it flips back to orange.
+:::
+
+Use whatever name you like for your layer (`legacy`, `base`, your app's name) — the
+only rules are that it appears **before** `civitai` in a leading `@layer …;` list
+and that your CSS is wrapped in it.
+
+### The gentle option — consume tokens, keep your own markup
+
+If you're adopting incrementally, the lowest-friction path is to **not adopt the
+`data-civitai-ui` components at all.** Keep your existing elements, classes, and
+markup, and just consume the **`--civitai-*` design tokens** in your own CSS —
+colors, radius, spacing, fonts. You get Civitai's look on *your* components, and
+because you're not introducing any layered component rules, **there's no `@layer`
+fight to have** — you only need the tokens stylesheet (`@civitai/theme`), not the
+component CSS.
+
+```html
+<!-- Just the tokens — no component CSS, no @layer collision. -->
+<link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.1.1/styles.css" />
+```
+
+Then restyle your own component by swapping hard-coded values for tokens:
+
+```css
+/* BEFORE — your custom button, hard-coded brand values. */
+.my-btn {
+  background: #635bff;
+  color: #ffffff;
+  border-radius: 6px;
+  padding: 8px 16px;
+}
+
+/* AFTER — same element/class, now painted from civitai tokens.
+   Re-themes with light/dark automatically; no data-civitai-ui, no layer. */
+.my-btn {
+  background: var(--civitai-color-primary);
+  color: var(--civitai-color-primary-fg);
+  border-radius: var(--civitai-radius);
+  padding: 8px 16px;
+}
+```
+
+Your `.my-btn` is unlayered, so it simply reads the token values — no cascade
+conflict, and it re-resolves in dark mode from the same `data-theme` scope. Adopt
+the `data-civitai-ui` components (and the `@layer` recipe above) later, per
+component, when you want the full styling for free. See
+[Overriding styles](#overriding-styles-—-the-layer-model) for the token-override
+mechanics.
+
+::: tip Light-mode elevation still applies
+Whichever path you take, remember the
+[light-mode surfaces are all `#fefefe`](#plain-html-quickstart) — a borderless
+card or panel blends into a token-painted body in light mode. Give it
+`data-with-border="true"`, your own border, or a shadow; dark mode differentiates
+the surfaces for you.
+:::
 
 ## Where to go next
 
