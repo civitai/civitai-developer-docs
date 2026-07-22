@@ -38,6 +38,7 @@ import CliReference from './components/CliReference.vue';
 import MessageTable from './components/MessageTable.vue';
 import HooksReference from './components/HooksReference.vue';
 import ComponentDemo from './components/ComponentDemo.vue';
+import TokenGallery from './components/TokenGallery.vue';
 
 export default {
   extends: DefaultTheme,
@@ -78,5 +79,6 @@ export default {
 
     // Design-system showcase surfaces.
     ctx.app.component('ComponentDemo', ComponentDemo);
+    ctx.app.component('TokenGallery', TokenGallery);
   },
 } satisfies Theme;

@@ -211,3 +211,48 @@
   vertical-align: middle;
   margin-right: 0.4rem;
 }
+
+.cds-tokens__note {
+  font-size: 0.86rem;
+  color: var(--vp-c-text-2);
+  margin: 0.75rem 0 1rem;
+}
+
+.cds-radius-specimen {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 5rem;
+  height: 3rem;
+  padding: 0 0.75rem;
+  background: var(--vp-c-brand-soft);
+  border: 1px solid var(--vp-c-brand-1);
+  color: var(--vp-c-text-1);
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.78rem;
+}
+
+.cds-dtcg {
+  margin: 0.5rem 0 2rem;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.cds-dtcg > summary {
+  cursor: pointer;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: var(--vp-c-bg-soft);
+  user-select: none;
+}
+.cds-dtcg__json {
+  margin: 0;
+  max-height: 24rem;
+  overflow: auto;
+  padding: 0.9rem 1rem;
+  background: var(--vp-c-bg-alt);
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
