@@ -59,6 +59,19 @@
   font-family: var(--civitai-font);
 }
 
+/* VitePress ships UNLAYERED resets for native form controls (button/input/
+   textarea → transparent background, its own font, etc.). Because every
+   @civitai/components rule lives in `@layer civitai.components`, those UNLAYERED
+   chrome resets would WIN over the design-system's LAYERED styling — so a
+   preview `<button>`/`<input>` would render unthemed (transparent). `revert-layer`
+   (in this unlayered, preview-scoped rule) rolls the cascade back PAST the
+   chrome reset to the design-system layer, so the preview renders faithfully.
+   Scoped to `.cds-preview` — the VitePress chrome is never touched. */
+.cds-preview [data-civitai-ui='button'],
+.cds-preview [data-civitai-ui-control] {
+  all: revert-layer;
+}
+
 .cds-demo__toolbar {
   display: flex;
   align-items: center;
