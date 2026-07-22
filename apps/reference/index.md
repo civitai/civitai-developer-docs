@@ -15,6 +15,7 @@ while the scope catalog tracks a committed snapshot in CI.
 |------|----------------|-----------------|
 | [Scopes](./scopes) | The scope catalog: what each scope authorizes, its OAuth bit, and its binding | `civitai` block-scope constants |
 | [Manifest](./manifest) | Every `block.manifest.json` field, type, and constraint | the published JSON Schema |
+| [Components](./components) | The `@civitai/components` design-system pack: each component's `data-civitai-ui` name, attributes, and ARIA markup | the `@civitai/components` `MARKUP.md` contract |
 | [Messages](./messages) | The full `postMessage` bridge protocol (payloads, directions, page-only) | `@civitai/app-sdk` + host parity inventory |
 | [Hooks](./hooks) | Every `@civitai/blocks-react` hook: signature + example | `@civitai/blocks-react` types + README |
 | [CLI](./cli) | The `civitai` CLI's App-authoring commands and flags | the Go `civitai` CLI (`civitai/cli`) |
@@ -37,6 +38,7 @@ the relevant pin or snapshot. The refresh actions are:
 | [Manifest](./manifest) | the SDK-bundled canonical schema `@civitai/app-sdk/schemas/app-block/v1.json` (pinned devDep); committed `appblocks-snapshots/manifest-schema.json` is the CI-hermetic fallback, kept in lockstep with the pin | **Bump the `@civitai/app-sdk` version pin** (same one-line change as Messages/Hooks) — no live fetch. |
 | [Messages](./messages) payload shapes, [Hooks](./hooks) | the pinned `@civitai/*` npm devDeps in `package.json` | **Bump the version pins** (`@civitai/app-sdk`, `@civitai/blocks-react`) — a one-line, reviewable change. |
 | [CLI](./cli) | the committed `civitai app --help` snapshot (`appblocks-snapshots/civitai-cli-help.txt`) | **Re-capture** with a newer `civitai` binary: `node scripts/gen-appblocks-cli.mjs --write-snapshot`. |
+| [Components](./components) | the committed `appblocks-snapshots/MARKUP.md` (the `@civitai/components` markup contract; CI has no `civitai-app-starters` checkout) | **Re-snapshot** `MARKUP.md` from `civitai-app-starters@main`, then re-run `node scripts/gen-appblocks-components.mjs` to regenerate the committed page. |
 | [Scopes](./scopes) + the [Messages](./messages) page-only / request-reply flags | committed `appblocks-snapshots/` (CI has no `civitai` checkout) | **Re-copy the 3 snapshot files** from `civitai@origin/main` (`block-scope.constants.ts`, `scope-descriptions.constants.ts`, `hostHandlerParity.ts`). |
 
 On a machine that has the `civitai` sibling repo checked out, the scopes /
