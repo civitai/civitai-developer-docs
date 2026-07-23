@@ -182,6 +182,61 @@ async function run() {
     check('light: labeled input control renders', light.hasInput === true);
     eq('light: preview container data-theme', light.previewTheme, 'light');
 
+    /* ---------- Render integrity (light) — the properties the Tailwind-Preflight
+       border reset used to strip inside a preview, and the badge padding the
+       size-less demo used to drop. These four assertions would have CAUGHT the
+       maintainer-reported bugs (badge no-padding + no outline, invisible card
+       border, empty loader, featureless Stack/Group) that the pre-existing suite
+       (background/radius/font only) sailed past 21/21. ---------- */
+    const lightRender = await page.evaluate(() => {
+      const cs = (el) => (el ? getComputedStyle(el) : null);
+      const inDemo = (ui, sel) => document.querySelector(`.cds-demo[data-ui="${ui}"] [data-testid="cds-preview"] ${sel}`);
+      const badgeFilled = inDemo('badge', '[data-civitai-ui="badge"][data-variant="filled"]');
+      const badgeOutline = inDemo('badge', '[data-civitai-ui="badge"][data-variant="outline"]');
+      const card = inDemo('card', '[data-civitai-ui="card"][data-with-border="true"]');
+      const loader = inDemo('loader', '[data-civitai-ui="loader"]');
+      const loaderR = loader ? loader.getBoundingClientRect() : null;
+      const chips = document.querySelectorAll('.cds-demo[data-ui="stack"] [data-testid="cds-preview"] [data-demo-chip]');
+      const firstChip = chips[0] || null;
+      return {
+        badgePadLeft: parseFloat(cs(badgeFilled)?.paddingLeft || '0'),
+        outlineBorderW: parseFloat(cs(badgeOutline)?.borderTopWidth || '0'),
+        outlineBorderColor: cs(badgeOutline)?.borderTopColor,
+        cardBorderW: parseFloat(cs(card)?.borderTopWidth || '0'),
+        cardBorderColor: cs(card)?.borderTopColor,
+        loaderW: loaderR ? Math.round(loaderR.width) : 0,
+        loaderH: loaderR ? Math.round(loaderR.height) : 0,
+        loaderRingW: parseFloat(cs(loader)?.borderTopWidth || '0'),
+        chipCount: chips.length,
+        chipBg: cs(firstChip)?.backgroundColor,
+      };
+    });
+    // Bug 1 — Badge padding + real outline.
+    check('light: Badge has non-zero horizontal padding', lightRender.badgePadLeft > 0, `paddingLeft=${lightRender.badgePadLeft}px`);
+    check(
+      'light: Badge outline variant has a visible border (>=1px, primary color, not the reset #e4e4e7)',
+      lightRender.outlineBorderW >= 1 && lightRender.outlineBorderColor === 'rgb(34, 139, 230)',
+      `w=${lightRender.outlineBorderW}px color=${lightRender.outlineBorderColor}`,
+    );
+    // Bug 2 — Card data-with-border shows a real border.
+    check(
+      'light: Card data-with-border has a non-zero, non-reset border',
+      lightRender.cardBorderW >= 1 && lightRender.cardBorderColor === 'rgb(206, 212, 218)',
+      `w=${lightRender.cardBorderW}px color=${lightRender.cardBorderColor}`,
+    );
+    // Bug 4 — Loader renders a visible ring (non-empty box + non-zero border).
+    check(
+      'light: Loader renders a non-empty ring (w/h>0 and ring border>0)',
+      lightRender.loaderW > 0 && lightRender.loaderH > 0 && lightRender.loaderRingW > 0,
+      `w=${lightRender.loaderW} h=${lightRender.loaderH} ring=${lightRender.loaderRingW}px`,
+    );
+    // Bug 3 — Stack/Group demo has visible filled child chips.
+    check(
+      'light: Stack/Group demo has >=6 filled child chips (visible, non-transparent)',
+      lightRender.chipCount >= 6 && !!lightRender.chipBg && lightRender.chipBg !== 'rgba(0, 0, 0, 0)',
+      `chips=${lightRender.chipCount} bg=${lightRender.chipBg}`,
+    );
+
     await page.screenshot({ path: join(SHOT_DIR, 'showcase-light.png'), fullPage: true });
 
     /* ---------- ComponentDemo behaviour (light) ---------- */
@@ -298,18 +353,37 @@ async function run() {
     const dark = await page.evaluate(() => {
       const q = (sel) => document.querySelector(sel);
       const cs = (el) => (el ? getComputedStyle(el) : null);
+      const inDemo = (ui, sel) => document.querySelector(`.cds-demo[data-ui="${ui}"] [data-testid="cds-preview"] ${sel}`);
       const btn = q('[data-testid="cds-preview"] [data-civitai-ui="button"][data-variant="filled"]');
       const card = q('[data-testid="cds-preview"] [data-civitai-ui="card"]');
+      const cardBordered = inDemo('card', '[data-civitai-ui="card"][data-with-border="true"]');
+      const badgeOutline = inDemo('badge', '[data-civitai-ui="badge"][data-variant="outline"]');
+      const loader = inDemo('loader', '[data-civitai-ui="loader"]');
+      const loaderR = loader ? loader.getBoundingClientRect() : null;
       return {
         btnBg: cs(btn)?.backgroundColor,
         cardBg: cs(card)?.backgroundColor,
         previewTheme: q('[data-testid="cds-preview"]')?.getAttribute('data-theme'),
+        cardBorderW: parseFloat(cs(cardBordered)?.borderTopWidth || '0'),
+        cardBorderColor: cs(cardBordered)?.borderTopColor,
+        outlineBorderW: parseFloat(cs(badgeOutline)?.borderTopWidth || '0'),
+        loaderRingW: parseFloat(cs(loader)?.borderTopWidth || '0'),
+        loaderBox: loaderR ? Math.round(loaderR.width) > 0 && Math.round(loaderR.height) > 0 : false,
       };
     });
     eq('dark: preview container data-theme re-resolved', dark.previewTheme, 'dark');
     eq('dark: filled Button background === rgb(25, 113, 194)', dark.btnBg, 'rgb(25, 113, 194)');
     eq('dark: Card surface === rgb(26, 27, 30)', dark.cardBg, 'rgb(26, 27, 30)');
     check('dark: button re-resolved to a DIFFERENT value than light', dark.btnBg !== light.btnBg, `light=${light.btnBg} dark=${dark.btnBg}`);
+    // Render integrity (dark) — the border reset was theme-agnostic, so re-assert
+    // the restored borders re-resolve to the dark tokens.
+    check(
+      'dark: Card data-with-border has a non-zero, dark-token border',
+      dark.cardBorderW >= 1 && dark.cardBorderColor === 'rgb(55, 58, 64)',
+      `w=${dark.cardBorderW}px color=${dark.cardBorderColor}`,
+    );
+    check('dark: Badge outline variant keeps a visible border (>=1px)', dark.outlineBorderW >= 1, `w=${dark.outlineBorderW}px`);
+    check('dark: Loader keeps a non-empty ring (box>0 and ring border>0)', dark.loaderBox && dark.loaderRingW > 0, `box=${dark.loaderBox} ring=${dark.loaderRingW}px`);
 
     await page.screenshot({ path: join(SHOT_DIR, 'showcase-dark.png'), fullPage: true });
 

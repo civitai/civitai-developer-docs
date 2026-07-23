@@ -29,9 +29,9 @@
   "devDependencies": {
     "@civitai/app-sdk": "0.26.0",
     "@civitai/blocks-react": "0.33.0",
-    "@civitai/components": "0.1.2",
-    "@civitai/components-react": "0.1.2",
-    "@civitai/theme": "0.1.2",
+    "@civitai/components": "0.2.0",
+    "@civitai/components-react": "0.2.0",
+    "@civitai/theme": "0.2.0",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.0",
     "mermaid": "^11.0.0",
