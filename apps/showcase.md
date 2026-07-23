@@ -15,7 +15,7 @@ source panel you can toggle between the **framework-agnostic HTML** and the
 
 The previews re-theme with the site: toggle the header's light/dark switch and
 every `--civitai-*` token re-resolves in place. The React snippets below are
-type-checked against the pinned `@civitai/components-react@0.1.2` declarations on
+type-checked against the pinned `@civitai/components-react@0.2.0` declarations on
 every build, so they can't drift from the shipped API.
 
 ::: tip Setup
@@ -107,20 +107,20 @@ Presentational `<span>`. `data-variant`: `filled` · `light` · `outline`.
 ```html
 <div data-civitai-ui="stack" data-gap="md">
   <div data-civitai-ui="group" data-gap="sm">
-    <span data-civitai-ui="badge" data-variant="filled">Filled</span>
-    <span data-civitai-ui="badge" data-variant="light">Light</span>
-    <span data-civitai-ui="badge" data-variant="outline">Outline</span>
+    <span data-civitai-ui="badge" data-variant="filled" data-size="md">Filled</span>
+    <span data-civitai-ui="badge" data-variant="light" data-size="md">Light</span>
+    <span data-civitai-ui="badge" data-variant="outline" data-size="md">Outline</span>
   </div>
   <div data-civitai-ui="group" data-gap="sm">
-    <span data-civitai-ui="badge" data-color="info">Info</span>
-    <span data-civitai-ui="badge" data-color="success">Success</span>
-    <span data-civitai-ui="badge" data-color="warning">Warning</span>
-    <span data-civitai-ui="badge" data-color="error">Error</span>
+    <span data-civitai-ui="badge" data-variant="filled" data-color="info" data-size="md">Info</span>
+    <span data-civitai-ui="badge" data-variant="filled" data-color="success" data-size="md">Success</span>
+    <span data-civitai-ui="badge" data-variant="filled" data-color="warning" data-size="md">Warning</span>
+    <span data-civitai-ui="badge" data-variant="filled" data-color="error" data-size="md">Error</span>
   </div>
   <div data-civitai-ui="group" data-gap="sm">
-    <span data-civitai-ui="badge" data-size="sm">Small</span>
-    <span data-civitai-ui="badge" data-size="md">Medium</span>
-    <span data-civitai-ui="badge" data-size="lg">Large</span>
+    <span data-civitai-ui="badge" data-variant="light" data-size="sm">Small</span>
+    <span data-civitai-ui="badge" data-variant="light" data-size="md">Medium</span>
+    <span data-civitai-ui="badge" data-variant="light" data-size="lg">Large</span>
   </div>
 </div>
 ```
@@ -134,20 +134,20 @@ import { Badge, Group, Stack } from '@civitai/components-react';
 
 <Stack gap="md">
   <Group gap="sm">
-    <Badge variant="filled">Filled</Badge>
-    <Badge variant="light">Light</Badge>
-    <Badge variant="outline">Outline</Badge>
+    <Badge variant="filled" size="md">Filled</Badge>
+    <Badge variant="light" size="md">Light</Badge>
+    <Badge variant="outline" size="md">Outline</Badge>
   </Group>
   <Group gap="sm">
-    <Badge color="info">Info</Badge>
-    <Badge color="success">Success</Badge>
-    <Badge color="warning">Warning</Badge>
-    <Badge color="error">Error</Badge>
+    <Badge variant="filled" color="info" size="md">Info</Badge>
+    <Badge variant="filled" color="success" size="md">Success</Badge>
+    <Badge variant="filled" color="warning" size="md">Warning</Badge>
+    <Badge variant="filled" color="error" size="md">Error</Badge>
   </Group>
   <Group gap="sm">
-    <Badge size="sm">Small</Badge>
-    <Badge size="md">Medium</Badge>
-    <Badge size="lg">Large</Badge>
+    <Badge variant="light" size="sm">Small</Badge>
+    <Badge variant="light" size="md">Medium</Badge>
+    <Badge variant="light" size="lg">Large</Badge>
   </Group>
 </Stack>;
 ```
@@ -343,9 +343,160 @@ import { NumberInput } from '@civitai/components-react';
 
 </ComponentDemo>
 
+## Select
+
+Labeled native `<select>` — the same field chrome as TextInput, with the
+control being a `<select data-civitai-ui-control>` (the native disclosure caret
+is retained). This is the framework-agnostic **native** select, not the
+interactive JS Select from `@civitai/blocks-react`.
+
+<ComponentDemo title="Select" ui="select">
+
+<template #html>
+
+```html
+<div data-civitai-ui="select">
+  <label data-civitai-ui-label for="base-model">Base model</label>
+  <span id="base-model-desc" data-civitai-ui-description>Determines available samplers.</span>
+  <select data-civitai-ui-control id="base-model" aria-describedby="base-model-desc">
+    <option value="sdxl">SDXL 1.0</option>
+    <option value="flux" selected>Flux.1 dev</option>
+    <option value="pony">Pony Diffusion</option>
+  </select>
+</div>
+```
+
+</template>
+
+<template #react>
+
+```tsx
+import { Select } from '@civitai/components-react';
+
+<Select
+  label="Base model"
+  description="Determines available samplers."
+  defaultValue="flux"
+>
+  <option value="sdxl">SDXL 1.0</option>
+  <option value="flux">Flux.1 dev</option>
+  <option value="pony">Pony Diffusion</option>
+</Select>;
+```
+
+</template>
+
+</ComponentDemo>
+
+## Checkbox
+
+A themed native checkbox: the box and its label sit inline in a `-choice` row,
+with optional description/error below. `accent-color` carries the theme tint, so
+keyboard, focus and indeterminate states are all native.
+
+<ComponentDemo title="Checkbox" ui="checkbox">
+
+<template #html>
+
+```html
+<div data-civitai-ui="stack" data-gap="md">
+  <div data-civitai-ui="checkbox">
+    <div data-civitai-ui-choice>
+      <input type="checkbox" id="mature" checked aria-describedby="mature-desc" />
+      <label data-civitai-ui-label for="mature">Show mature content</label>
+    </div>
+    <span id="mature-desc" data-civitai-ui-description>You can change this later in settings.</span>
+  </div>
+  <div data-civitai-ui="checkbox">
+    <div data-civitai-ui-choice>
+      <input type="checkbox" id="newsletter" />
+      <label data-civitai-ui-label for="newsletter">Email me product updates</label>
+    </div>
+  </div>
+</div>
+```
+
+</template>
+
+<template #react>
+
+```tsx
+import { Checkbox, Stack } from '@civitai/components-react';
+
+<Stack gap="md">
+  <Checkbox
+    label="Show mature content"
+    description="You can change this later in settings."
+    defaultChecked
+  />
+  <Checkbox label="Email me product updates" />
+</Stack>;
+```
+
+</template>
+
+</ComponentDemo>
+
+## Radio & RadioGroup
+
+Themed native radios. A **RadioGroup** wraps a set of **Radio**s in a
+`role="radiogroup"` with a group label; give the children a shared `name` to
+make them one native radio set. `data-orientation="horizontal"` lays the options
+in a row (default is a vertical stack).
+
+<ComponentDemo title="Radio & RadioGroup" ui="radio-group">
+
+<template #html>
+
+```html
+<div data-civitai-ui="radio-group" role="radiogroup" aria-labelledby="sampler-lbl">
+  <span data-civitai-ui-label id="sampler-lbl">Sampler</span>
+  <div data-civitai-ui-radio-options>
+    <div data-civitai-ui="radio">
+      <div data-civitai-ui-choice>
+        <input type="radio" name="sampler" id="s-euler" checked />
+        <label data-civitai-ui-label for="s-euler">Euler a</label>
+      </div>
+    </div>
+    <div data-civitai-ui="radio">
+      <div data-civitai-ui-choice>
+        <input type="radio" name="sampler" id="s-ddim" />
+        <label data-civitai-ui-label for="s-ddim">DDIM</label>
+      </div>
+    </div>
+    <div data-civitai-ui="radio">
+      <div data-civitai-ui-choice>
+        <input type="radio" name="sampler" id="s-dpm" />
+        <label data-civitai-ui-label for="s-dpm">DPM++ 2M Karras</label>
+      </div>
+    </div>
+  </div>
+</div>
+```
+
+</template>
+
+<template #react>
+
+```tsx
+import { RadioGroup, Radio } from '@civitai/components-react';
+
+<RadioGroup label="Sampler">
+  <Radio name="sampler" value="euler" label="Euler a" defaultChecked />
+  <Radio name="sampler" value="ddim" label="DDIM" />
+  <Radio name="sampler" value="dpm" label="DPM++ 2M Karras" />
+</RadioGroup>;
+```
+
+</template>
+
+</ComponentDemo>
+
 ## Card
 
-Presentational surface container. `data-with-border="true"` adds a border;
+Presentational surface container. In light mode a card gets a **subtle default
+hairline** (surface == body there, so an unbordered card would be invisible);
+`data-with-border="true"` upgrades that to the **stronger, fully-opaque** border.
 `data-padding`: `sm` · `md` · `lg`.
 
 <ComponentDemo title="Card" ui="card">
@@ -357,13 +508,13 @@ Presentational surface container. `data-with-border="true"` adds a border;
   <div data-civitai-ui="card" data-with-border="true" data-padding="md">
     <div data-civitai-ui="stack" data-gap="sm">
       <strong>With border</strong>
-      <span>A bordered surface at medium padding.</span>
+      <span>An explicit, fully-opaque border at medium padding.</span>
     </div>
   </div>
   <div data-civitai-ui="card" data-padding="lg">
     <div data-civitai-ui="stack" data-gap="sm">
-      <strong>Borderless</strong>
-      <span>A flat surface at large padding.</span>
+      <strong>Default</strong>
+      <span>The subtle default hairline at large padding.</span>
     </div>
   </div>
 </div>
@@ -380,13 +531,13 @@ import { Card, Stack, Group } from '@civitai/components-react';
   <Card withBorder padding="md">
     <Stack gap="sm">
       <strong>With border</strong>
-      <span>A bordered surface at medium padding.</span>
+      <span>An explicit, fully-opaque border at medium padding.</span>
     </Stack>
   </Card>
-  <Card withBorder={false} padding="lg">
+  <Card padding="lg">
     <Stack gap="sm">
-      <strong>Borderless</strong>
-      <span>A flat surface at large padding.</span>
+      <strong>Default</strong>
+      <span>The subtle default hairline at large padding.</span>
     </Stack>
   </Card>
 </Group>;
@@ -398,8 +549,10 @@ import { Card, Stack, Group } from '@civitai/components-react';
 
 ## Stack & Group
 
-Layout primitives. **Stack** is a vertical flex; **Group** is a horizontal flex
-with items center-aligned. Both take `data-gap`: `sm` · `md` · `lg`.
+Layout primitives. **Stack** lays its children out **vertically** (top-to-bottom);
+**Group** lays them out **horizontally** (left-to-right, center-aligned). Both
+take `data-gap`: `sm` · `md` · `lg` — the numbered chips below make the direction
+and the gap obvious (the chips are plain filler content, not components).
 
 <ComponentDemo title="Stack & Group" ui="stack">
 
@@ -407,15 +560,21 @@ with items center-aligned. Both take `data-gap`: `sm` · `md` · `lg`.
 
 ```html
 <div data-civitai-ui="stack" data-gap="lg">
-  <div data-civitai-ui="group" data-gap="sm">
-    <span data-civitai-ui="badge" data-color="info">Group</span>
-    <span data-civitai-ui="badge" data-color="success">gap</span>
-    <span data-civitai-ui="badge" data-color="warning">sm</span>
+  <div data-civitai-ui="stack" data-gap="sm">
+    <strong>Stack — vertical, data-gap="md"</strong>
+    <div data-civitai-ui="stack" data-gap="md">
+      <div data-demo-chip style="display:inline-flex;align-items:center;justify-content:center;width:2.25rem;height:2.25rem;border-radius:8px;background:var(--civitai-color-primary);color:var(--civitai-color-primary-fg);font-weight:700">1</div>
+      <div data-demo-chip style="display:inline-flex;align-items:center;justify-content:center;width:2.25rem;height:2.25rem;border-radius:8px;background:var(--civitai-color-primary);color:var(--civitai-color-primary-fg);font-weight:700">2</div>
+      <div data-demo-chip style="display:inline-flex;align-items:center;justify-content:center;width:2.25rem;height:2.25rem;border-radius:8px;background:var(--civitai-color-primary);color:var(--civitai-color-primary-fg);font-weight:700">3</div>
+    </div>
   </div>
-  <div data-civitai-ui="group" data-gap="lg">
-    <button data-civitai-ui="button" data-variant="filled">Group</button>
-    <button data-civitai-ui="button" data-variant="light">gap</button>
-    <button data-civitai-ui="button" data-variant="outline">lg</button>
+  <div data-civitai-ui="stack" data-gap="sm">
+    <strong>Group — horizontal, data-gap="md"</strong>
+    <div data-civitai-ui="group" data-gap="md">
+      <div data-demo-chip style="display:inline-flex;align-items:center;justify-content:center;width:2.25rem;height:2.25rem;border-radius:8px;background:var(--civitai-color-primary);color:var(--civitai-color-primary-fg);font-weight:700">1</div>
+      <div data-demo-chip style="display:inline-flex;align-items:center;justify-content:center;width:2.25rem;height:2.25rem;border-radius:8px;background:var(--civitai-color-primary);color:var(--civitai-color-primary-fg);font-weight:700">2</div>
+      <div data-demo-chip style="display:inline-flex;align-items:center;justify-content:center;width:2.25rem;height:2.25rem;border-radius:8px;background:var(--civitai-color-primary);color:var(--civitai-color-primary-fg);font-weight:700">3</div>
+    </div>
   </div>
 </div>
 ```
@@ -425,19 +584,37 @@ with items center-aligned. Both take `data-gap`: `sm` · `md` · `lg`.
 <template #react>
 
 ```tsx
-import { Stack, Group, Badge, Button } from '@civitai/components-react';
+import { Stack, Group } from '@civitai/components-react';
+
+const chip = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '2.25rem',
+  height: '2.25rem',
+  borderRadius: 8,
+  background: 'var(--civitai-color-primary)',
+  color: 'var(--civitai-color-primary-fg)',
+  fontWeight: 700,
+} as const;
 
 <Stack gap="lg">
-  <Group gap="sm">
-    <Badge color="info">Group</Badge>
-    <Badge color="success">gap</Badge>
-    <Badge color="warning">sm</Badge>
-  </Group>
-  <Group gap="lg">
-    <Button variant="filled">Group</Button>
-    <Button variant="light">gap</Button>
-    <Button variant="outline">lg</Button>
-  </Group>
+  <Stack gap="sm">
+    <strong>Stack — vertical, gap="md"</strong>
+    <Stack gap="md">
+      <div style={chip}>1</div>
+      <div style={chip}>2</div>
+      <div style={chip}>3</div>
+    </Stack>
+  </Stack>
+  <Stack gap="sm">
+    <strong>Group — horizontal, gap="md"</strong>
+    <Group gap="md">
+      <div style={chip}>1</div>
+      <div style={chip}>2</div>
+      <div style={chip}>3</div>
+    </Group>
+  </Stack>
 </Stack>;
 ```
 

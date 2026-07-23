@@ -59,15 +59,23 @@
   font-family: var(--civitai-font);
 }
 
-/* VitePress ships UNLAYERED resets for native form controls (button/input/
-   textarea → transparent background, its own font, etc.). Because every
-   @civitai/components rule lives in `@layer civitai.components`, those UNLAYERED
-   chrome resets would WIN over the design-system's LAYERED styling — so a
-   preview `<button>`/`<input>` would render unthemed (transparent). `revert-layer`
-   (in this unlayered, preview-scoped rule) rolls the cascade back PAST the
-   chrome reset to the design-system layer, so the preview renders faithfully.
-   Scoped to `.cds-preview` — the VitePress chrome is never touched. */
-.cds-preview [data-civitai-ui='button'],
+/* Two UNLAYERED resets on this site clobber the design system's LAYERED styling:
+     1. VitePress's native-form-control reset (button/input/textarea → transparent
+        background, its own font) — breaks preview `<button>`/`<input>`.
+     2. Tailwind Preflight, pulled in by `vitepress-openapi`, ships
+        `*,::before,::after { border-width:0; border-style:solid; border-color:#e4e4e7 }`
+        — this ZEROES every component border inside a preview: the Card
+        `data-with-border` line, the Loader ring (its spinner IS a border, so it
+        renders as an empty 0-width circle), the Badge `outline` border, the
+        Alert tint border.
+   Because every @civitai/components rule lives in `@layer civitai.components`,
+   these UNLAYERED resets WIN the cascade. `revert-layer` (in this unlayered,
+   preview-scoped rule) rolls each property back PAST both resets to the
+   design-system layer, so previews render faithfully. Scoped to EVERY
+   `[data-civitai-ui]` element (was: only `button` + `-control`, which left
+   badge/card/loader/alert borders stripped) — the VitePress chrome, which has no
+   `[data-civitai-ui]`, is never touched. */
+.cds-preview [data-civitai-ui],
 .cds-preview [data-civitai-ui-control] {
   all: revert-layer;
 }
