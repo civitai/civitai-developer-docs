@@ -197,7 +197,7 @@ function buildPage(md, components) {
   const intro = [
     '# Components',
     '',
-    '`@civitai/components` is a **framework-agnostic** pack of 10 presentational',
+    `\`@civitai/components\` is a **framework-agnostic** pack of ${components.length} presentational`,
     'components. The styling is driven entirely by `data-*` attributes, so any',
     'HTML that follows the contract renders identically to the React bindings in',
     '`@civitai/components-react`. This page is generated from that contract —',
