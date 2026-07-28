@@ -60,7 +60,7 @@ const refBody = {
 
 # Happy-Horse video generation
 
-Alibaba's Happy-Horse video model, served through FAL. The operations below cover the common video workflows: text-to-video, image-to-video, video-to-video editing, and multi-character reference generation. The operation is selected by an explicit `operation` discriminator — fields invalid for that operation are rejected with a `400`.
+The Happy-Horse video model. The operations below cover the common video workflows: text-to-video, image-to-video, video-to-video editing, and multi-character reference generation. The operation is selected by an explicit `operation` discriminator — fields invalid for that operation are rejected with a `400`.
 
 | `operation` | Versions | Required inputs | What it does |
 |---|---|---|---|
@@ -178,7 +178,7 @@ Re-paint or restyle an existing clip. The output duration matches the source; `d
 
 - `referenceImages` is optional — pass 0–5 images. Cite them in the prompt as `@Image1`–`@Image5`.
 - `audioSetting`: `"auto"` regenerates a soundtrack to match the edit; `"origin"` keeps the source audio intact.
-- FAL bills both the input *and* the output second on this operation, so the per-second rate is double the other modes — see [Cost](#cost).
+- This operation bills both the input *and* the output second, so the per-second rate is double the other modes — see [Cost](#cost).
 
 <RecipeRun :body="editBody" />
 
@@ -252,7 +252,7 @@ Rates differ by version — **v1.1 1080p is cheaper** than v1.0.
 
 Example v1.0 totals at `duration: 5`: **910** / **1 820** (non-edit), **1 820** / **3 640** (`videoEdit`).
 
-`videoEdit` is double the others because FAL bills both the input second and the output second — already encoded in the rate above.
+`videoEdit` is double the others because the provider bills both the input second and the output second — already encoded in the rate above.
 
 ## Reading the result
 
@@ -290,8 +290,8 @@ Happy-Horse jobs typically complete in 2–6 minutes (longer for `videoEdit` and
 | `400` "`sourceVideo` must be a Civitai AIR URN…" | Passed an external URL to `sourceVideo` | Re-upload the video to Civitai and use the resulting URL, or pass a `urn:air:…` URN. |
 | `400` "referenceToVideo requires between 1 and 9 reference images" | `images` was empty or had >9 entries | Provide 1–9 images. |
 | `400` "videoEdit accepts at most 5 reference images" | `referenceImages` had >5 entries | Trim to 5. |
-| Step `failed`, `reason = "no_provider_available"` | FAL queue busy | Retry shortly. |
-| Step `failed`, `reason = "blocked"` | Civitai moderation rejected the input or output | Re-prompt with different content. (Happy-Horse jobs always run with FAL's safety checker off; Civitai moderates instead, so there is no knob to disable.) |
+| Step `failed`, `reason = "no_provider_available"` | Provider queue busy | Retry shortly. |
+| Step `failed`, `reason = "blocked"` | Civitai moderation rejected the input or output | Re-prompt with different content. (Happy-Horse jobs always run with the provider's safety checker off; Civitai moderates instead, so there is no knob to disable.) |
 
 ## Related
 

@@ -58,14 +58,14 @@ const editBody = {
 
 # WAN video generation
 
-WAN is Alibaba's open video-generation model family. The orchestrator exposes every shipped version, across multiple providers, under a single `videoGen` step. This recipe walks through the full surface: which version to pick, which provider to route to, and how to invoke each operation.
+WAN is an open video-generation model family. The orchestrator exposes every shipped version, across multiple providers, under a single `videoGen` step. This recipe walks through the full surface: which version to pick, which provider to route to, and how to invoke each operation.
 
 ## Versions at a glance
 
 | `version` | Providers | Operations | Notes |
 |-----------|-----------|------------|-------|
-| `v2.7` | `fal` | `text-to-video`, `image-to-video`, `reference-to-video`, `edit-video` | Current flagship on FAL. Adds `edit-video`. |
-| `v2.6` | `fal` | `text-to-video`, `image-to-video`, `reference-to-video` | FAL production default for new integrations. |
+| `v2.7` | `fal` | `text-to-video`, `image-to-video`, `reference-to-video`, `edit-video` | Current flagship. Adds `edit-video`. |
+| `v2.6` | `fal` | `text-to-video`, `image-to-video`, `reference-to-video` | Production default for new integrations. |
 | `v2.5` | `fal` | `text-to-video`, `image-to-video` | Still supported; fewer operations than 2.6/2.7. |
 | `v2.2` | `fal`, `comfy` | `text-to-video`, `image-to-video` | Only version with a native ComfyUI path. Supports LoRAs + Turbo mode. |
 | `v2.1` | `fal`, `civitai` | `text-to-video`, `image-to-video` | Legacy — prefer 2.6+ unless you specifically need Civitai-hosted inference. |
@@ -210,13 +210,13 @@ These appear on most (version, operation) combinations; the schema for your chos
 
 ## Provider-specific features
 
-### FAL (all versions)
+### `fal` (all versions)
 
-Hosted inference with low queue time. FAL is the production default. `enablePromptExpansion` and audio attachment only exist on FAL variants.
+Hosted inference with low queue time. `provider: "fal"` is the production default; `enablePromptExpansion` and audio attachment only exist on these variants.
 
 ### Comfy (v2.2 only)
 
-Runs on Civitai's ComfyUI workers. Two features aren't available on FAL:
+Runs on Civitai's ComfyUI workers. Two features aren't available on `fal`:
 
 - **LoRAs** via the `loras` array with AIR identifiers
   ```json
@@ -227,7 +227,7 @@ Runs on Civitai's ComfyUI workers. Two features aren't available on FAL:
 
 ### Civitai (v2.1 only)
 
-Legacy self-hosted path. Accepts explicit `model` AIRs and `width`/`height` instead of `resolution`/`aspectRatio`. Migrate to FAL 2.6+ unless you have a specific reason.
+Legacy self-hosted path. Accepts explicit `model` AIRs and `width`/`height` instead of `resolution`/`aspectRatio`. Migrate to `fal` 2.6+ unless you have a specific reason.
 
 ## Reading the result
 
@@ -273,7 +273,7 @@ Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact 
 
 WAN video pricing varies by `version`, `provider`, `resolution`, and acceleration flags. All the numbers below are per **single video** (not per second per clip unless noted).
 
-### v2.7 (FAL)
+### v2.7 (`fal`)
 
 Flat per-second across resolutions:
 
@@ -284,7 +284,7 @@ total = 130 × duration_seconds
 - 5 s → **~650 Buzz**
 - 10 s → ~1 300 Buzz
 
-### v2.6 (FAL)
+### v2.6 (`fal`)
 
 Resolution-scaled per-second:
 
@@ -296,7 +296,7 @@ Resolution-scaled per-second:
 - 720p × 5 s → **~650 Buzz**
 - 1080p × 5 s → **~975 Buzz**
 
-### v2.5 (FAL)
+### v2.5 (`fal`)
 
 Resolution-scaled per-second:
 
@@ -310,7 +310,7 @@ with `resolutionFactor` = 1 (480p) / 2 (720p) / 3 (1080p).
 - 720p × 10 s → **2 000 Buzz**
 - 480p × 5 s → **500 Buzz**
 
-### v2.2 (FAL, `text-to-video` / `image-to-video`)
+### v2.2 (`fal`, `text-to-video` / `image-to-video`)
 
 Driven by Turbo / LoRA / standard, plus resolution:
 
@@ -322,7 +322,7 @@ Driven by Turbo / LoRA / standard, plus resolution:
 
 Typical: 720p Turbo 5 s → ~130; 720p standard 5 s → ~520; 720p LoRA 5 s → ~475.
 
-### v2.2-5b (FAL)
+### v2.2-5b (`fal`)
 
 | Mode | Buzz per video |
 |------|----------------|
@@ -341,7 +341,7 @@ duration    = length × steps × areaCost
 buzz        = max(100, ceil((duration × 420/3600 × 8) / 25) × 25)
 ```
 
-Where `(a, b)` is `(1.22e-6, -0.14)` for image-to-video, `(2.53e-7, -0.0259)` for text-to-video. This path is noticeably more expensive per second than the FAL routes — FAL is the default for a reason.
+Where `(a, b)` is `(1.22e-6, -0.14)` for image-to-video, `(2.53e-7, -0.0259)` for text-to-video. This path is noticeably more expensive per second than the `fal` routes — `fal` is the default for a reason.
 
 ### v2.1 (legacy)
 
