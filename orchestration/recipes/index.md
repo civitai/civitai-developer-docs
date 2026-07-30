@@ -17,6 +17,7 @@ These are **Orchestration REST API** recipes — you hold a Bearer token and POS
 - [Kling video generation](./kling) — Kuaishou Kling (v1/v1.5/v1.6/v2/v2.5-turbo with camera control) and Kling V3 (5 operations, multi-prompt, audio, video-to-video)
 - [Vidu video generation](./vidu) — Vidu 2.0 (flat 600 Buzz, anime style, first-last-frame) and Vidu Q3 (per-second pricing, 4 resolution tiers, turbo mode, native audio)
 - [Veo 3 video generation](./veo3) — Google Veo 3.0/3.1 in standard / fast / lite tiers; operation inferred from image count; optional synchronized audio track
+- [MiniMax H3 video generation](./minimax-h3) — MiniMax's native H3 model at 2K; text-to-video, first/last-frame, and reference-to-video with up to 3 reference images, videos, and audio clips
 - [Grok video generation](./grok-video) — xAI Grok-Imagine-Video via FAL; text-to-video, image-to-video, and edit-video with 480p/720p output
 - [HunyuanVideo generation](./hunyuan) — Tencent HunyuanVideo on Comfy workers; text-to-video with LoRA support; compute-intensive, always use `wait=0`
 - [Video upscaling](./video-upscaler) — FlashVSR, 2–4× with a 2560 px output cap

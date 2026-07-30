@@ -360,4 +360,5 @@ For new integrations on `v2.6` / `v2.7` at 720p × 5 s with no LoRAs, expect **~
 - [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — production-ready result handling
 - Full parameter catalog: the `Wan<version><Provider><Operation>Input` schemas in the [API reference](/orchestration/reference/) (e.g. `Wan26FalTextToVideoInput`, `Wan27FalEditVideoInput`)
+- [MiniMax H3](./minimax-h3) — 2K native video with first/last-frame and reference video + audio
 - [`videoGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/videoGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `videoGen` surface (WAN, LTX2, Flux, etc.); import into Postman / OpenAPI Generator
