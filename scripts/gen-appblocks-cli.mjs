@@ -24,9 +24,11 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { log, snapshotsDir, writeArtifact } from './appblocks-util.mjs';
 
-// Canonical App-authoring command set, in lifecycle order (matches the cobra
-// AddCommand order in civitai/cli internal/cmd/app.go). Asserting this exact set
-// is present is the drift-guard: a renamed/removed command trips the build.
+// Canonical top-level `civitai app` command set, in a curated lifecycle/display
+// order (authoring → store-listing media → discovery → dev-loop → repo sync).
+// Asserting this exact set is present is the drift-guard: a renamed/removed
+// command trips the build. Order is curated (NOT the alphabetical cobra help
+// order) so the reference reads lifecycle-first.
 const APP_COMMANDS = [
   'create',
   'init',
@@ -34,14 +36,32 @@ const APP_COMMANDS = [
   'submit',
   'status',
   'withdraw',
+  'listing', // command GROUP — its subcommands are enumerated in APP_SUBGROUPS
+  'list',
+  'view',
   'dev-token',
   'dev-tunnel',
   'pull',
 ];
 
+// Command GROUPS: an `app <group>` that owns its OWN subcommands (a nested cobra
+// command tree). The generator RECURSES into each — capturing + parsing
+// `civitai app <group> <sub> --help` — so nested subcommands are documented too,
+// not just the top-level `app` commands. Each subcommand set is asserted present
+// as a drift-guard (a new/removed subcommand trips the build). This is the fix
+// for the `app listing` media group being silently dropped from the reference.
+const APP_SUBGROUPS = {
+  listing: ['set-icon', 'set-cover', 'add-screenshot', 'rm-screenshot', 'reorder', 'status'],
+};
+
 // Commands gated behind the invite-only pre-GA cohort (server kill-switch /
 // invite-gated mint routes). Badged in the rendered reference.
 const GATED = new Set(['dev-token', 'dev-tunnel']);
+
+// Total command entries the artifact must contain: every top-level command plus
+// every enumerated subcommand of each group.
+const EXPECTED_COMMAND_COUNT =
+  APP_COMMANDS.length + Object.values(APP_SUBGROUPS).reduce((n, subs) => n + subs.length, 0);
 
 const SNAPSHOT = join(snapshotsDir, 'civitai-cli-help.txt');
 const DELIM = (label) => `===CMD ${label}===`;
@@ -96,6 +116,10 @@ function captureBundle(bin) {
   ];
   for (const cmd of APP_COMMANDS) {
     parts.push(DELIM(`app ${cmd}`), capture(bin, ['app', cmd, '--help']).trimEnd());
+    // Recurse into a command group's subcommands so the nested tree is captured.
+    for (const sub of APP_SUBGROUPS[cmd] ?? []) {
+      parts.push(DELIM(`app ${cmd} ${sub}`), capture(bin, ['app', cmd, sub, '--help']).trimEnd());
+    }
   }
   return parts.join('\n') + '\n';
 }
@@ -244,22 +268,45 @@ const program = {
 
 const shortDescriptions = parseShortDescriptions(appHelp);
 
-const commands = [];
-for (const cmd of APP_COMMANDS) {
-  const help = blocks[`app ${cmd}`];
-  if (!help) throw new Error(`gen-appblocks-cli: missing help block for "app ${cmd}" — command set drifted`);
-  const command = `app ${cmd}`;
-  commands.push({
+// Emit one entry per command. For a GROUP command we emit the group itself (its
+// help + description act as a section header) followed by each of its
+// subcommands, so the rendered flat reference shows e.g. `civitai app listing`
+// then `civitai app listing set-icon <file>` etc.
+function buildCommand(cmd, label) {
+  const help = blocks[label];
+  if (!help) throw new Error(`gen-appblocks-cli: missing help block for "${label}" — command set drifted`);
+  const command = label;
+  // Prefer the short one-liner from the parent's "Available Commands" block;
+  // fall back to the command's own Long description first line.
+  const short = cmd.parentShort?.[cmd.leaf];
+  return {
     command,
     args: parseArgs(help, command),
-    description: shortDescriptions[cmd] || parseLongDescription(help).split('\n')[0] || '',
+    description: short || parseLongDescription(help).split('\n')[0] || '',
     options: parseFlags(help),
-    status: GATED.has(cmd) ? 'gated' : 'stable',
-  });
+    status: GATED.has(cmd.leaf) ? 'gated' : 'stable',
+  };
 }
 
-if (commands.length !== APP_COMMANDS.length) {
-  throw new Error('gen-appblocks-cli: parsed command count mismatch — refusing to write a partial artifact');
+const commands = [];
+for (const cmd of APP_COMMANDS) {
+  commands.push(buildCommand({ leaf: cmd, parentShort: shortDescriptions }, `app ${cmd}`));
+  const subs = APP_SUBGROUPS[cmd];
+  if (subs) {
+    const groupHelp = blocks[`app ${cmd}`];
+    // Short one-liners for the group's subcommands come from ITS own
+    // "Available Commands:" block.
+    const subShort = parseShortDescriptions(groupHelp);
+    for (const sub of subs) {
+      commands.push(buildCommand({ leaf: sub, parentShort: subShort }, `app ${cmd} ${sub}`));
+    }
+  }
+}
+
+if (commands.length !== EXPECTED_COMMAND_COUNT) {
+  throw new Error(
+    `gen-appblocks-cli: parsed ${commands.length} commands, expected ${EXPECTED_COMMAND_COUNT} — refusing to write a partial artifact`,
+  );
 }
 
 const artifact = {
