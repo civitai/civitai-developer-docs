@@ -171,8 +171,8 @@ civitai app status     # track review / deploy state
 `civitai app submit` enters your app into **moderator review** — it is not
 published immediately. On approval the platform provisions the OAuth client, git
 repo, build, deploy, and `<slug>.civit.ai` DNS for you, and serves it at
-`https://<slug>.civit.ai/`. Approval also creates your **store listing** — which
-you then fill with an icon and cover before it can go live (see
+`https://<slug>.civit.ai/`. Submitting also creates your **store listing** as a
+draft, so you can fill in its icon and cover **while you wait for review** (see
 [Store-listing media](#store-listing-media) below).
 
 ::: tip The platform builds from your committed lockfile
@@ -190,10 +190,12 @@ That flow is gated to approved builders during the closed beta. To request acces
 
 ## Store-listing media
 
-Approval doesn't just deploy your app — it also creates your **store listing**,
-the card shoppers see in the [`/apps` store](https://civitai.com/apps). The
-listing is created **when a moderator approves your app, not when you submit it**,
-so these commands report nothing until then.
+Your **store listing** is the card shoppers see in the
+[`/apps` store](https://civitai.com/apps). It is created as a **draft the moment
+you run `civitai app submit`** — not at approval — so you can set its media
+**while your app is still in review**. Whatever you attach carries forward when a
+moderator approves the app, so the listing can go live the same day it's approved
+instead of waiting on a second round-trip.
 
 A listing has a hard **publish floor**: it needs an **icon** and a **cover**
 before it can go live. Screenshots (up to 8) are optional. You attach all of them
