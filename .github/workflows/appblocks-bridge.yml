@@ -1,0 +1,44 @@
+name: appblocks-bridge
+
+# PR-BLOCKING: the generation-BRIDGE reference generator runs at BUILD time
+# (prebuild -> gen:appblocks) and HARD-FAILS its coverage guard when the pinned
+# @civitai/app-sdk / blocks-react type JSDoc loses a generation-path field
+# (sourceImage / additionalResources / imageUrls / cancel) or the parser
+# regresses — a plausible-but-wrong artifact that would otherwise surface only in
+# the Docker/CI build. This fast unit test reproduces the EXACT coverage relation
+# the generator hard-fails on, plus the version-pin classifier, so a PR that bumps
+# the SDK pin (or touches the generator) is caught here first. It also verifies
+# the pins against npm `latest` when package.json changes, so a bump lands current.
+on:
+  pull_request:
+    paths:
+      - 'scripts/gen-appblocks-bridge.mjs'
+      - 'scripts/test-appblocks-bridge.mjs'
+      - 'scripts/check-appblocks-pins.mjs'
+      - 'scripts/appblocks-util.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/appblocks-bridge.yml'
+  workflow_dispatch: {}
+
+jobs:
+  test-bridge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install (pinned @civitai/app-sdk + @civitai/blocks-react)
+        run: npm ci
+
+      - name: Bridge coverage guard + version-pin classifier
+        run: npm run test:appblocks:bridge
+
+      - name: Generation-bridge pin freshness vs npm latest
+        # A PR that bumps package.json should land the pin CURRENT with npm.
+        run: npm run check:pins
