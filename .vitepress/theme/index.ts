@@ -25,6 +25,7 @@ import appblocksManifest from '../../public/appblocks/manifest-schema.json' with
 import appblocksCli from '../../public/appblocks/cli.json' with { type: 'json' };
 import appblocksMessages from '../../public/appblocks/messages.json' with { type: 'json' };
 import appblocksHooks from '../../public/appblocks/hooks.json' with { type: 'json' };
+import appblocksBridge from '../../public/appblocks/bridge.json' with { type: 'json' };
 
 import Layout from './Layout.vue';
 import ApiTry from './components/ApiTry.vue';
@@ -37,6 +38,7 @@ import JsonSchemaTable from './components/JsonSchemaTable.vue';
 import CliReference from './components/CliReference.vue';
 import MessageTable from './components/MessageTable.vue';
 import HooksReference from './components/HooksReference.vue';
+import BridgeReference from './components/BridgeReference.vue';
 import ComponentDemo from './components/ComponentDemo.vue';
 import TokenGallery from './components/TokenGallery.vue';
 
@@ -71,11 +73,13 @@ export default {
     ctx.app.provide('appblocks:cli', appblocksCli);
     ctx.app.provide('appblocks:messages', appblocksMessages);
     ctx.app.provide('appblocks:hooks', appblocksHooks);
+    ctx.app.provide('appblocks:bridge', appblocksBridge);
     ctx.app.component('ScopesTable', ScopesTable);
     ctx.app.component('JsonSchemaTable', JsonSchemaTable);
     ctx.app.component('CliReference', CliReference);
     ctx.app.component('MessageTable', MessageTable);
     ctx.app.component('HooksReference', HooksReference);
+    ctx.app.component('BridgeReference', BridgeReference);
 
     // Design-system showcase surfaces.
     ctx.app.component('ComponentDemo', ComponentDemo);

@@ -36,3 +36,10 @@ jobs:
         # Always run so one scheduled run surfaces BOTH drift signals.
         if: always()
         run: npm run check:manifest-parity
+
+      - name: Generation-bridge pin drift — pinned SDK devDeps vs npm latest
+        # Always run so a lagging @civitai/app-sdk / blocks-react pin (which
+        # silently stales the generated hooks/messages/bridge reference) surfaces
+        # on the same scheduled sweep.
+        if: always()
+        run: npm run check:pins
