@@ -95,8 +95,10 @@ Work down this path:
    is no id for your body to carry.
 3. **Do you need something `textToImage` can't express?** — multi-image
    editing, a specific edit-model version, a multi-stage pipeline, or a task
-   that isn't image generation at all. Then you need a **registered
-   `customComfy` recipe**.
+   that isn't image generation at all. `customComfy` is the only other path, so
+   this becomes a **registered recipe** question. Say what you need explicitly
+   when you ask: both recipes today are prompt-only txt2img, so anything taking
+   an **image input** is new ground, not a variation on an existing recipe.
 4. **Recipes are not self-serve.** The registry is server-side and
    code-reviewed; there is no runtime, manifest, or dashboard way to add one.
    Adding a recipe is a **platform request** — ask through the same channel as
@@ -139,17 +141,17 @@ limits are structural, not tuning knobs:
 
 Stated plainly, so you can rule an idea in or out quickly:
 
-| Not available through the bridge | What it would take |
+| Not available through the bridge | Where it stands |
 |---|---|
-| Multi-image editing (two or more inputs) | a `customComfy` recipe — `sourceImage` is singular |
-| Pinning an edit-model version (e.g. Qwen `2511`) | a `customComfy` recipe that pins it |
+| Multi-image editing (two or more inputs) | `sourceImage` is singular, and **no registered recipe takes an image input** — a platform request |
+| Pinning an edit-model version (e.g. Qwen `2511`) | not expressible in `textToImage`; a recipe would have to pin it — a platform request |
 | Background removal (e.g. BiRefNet) | **no bridge path at all today** — it is not an image-generation step |
-| Non-checkpoint models via `textToImage` | a `customComfy` recipe — there is no model version id to name |
+| Non-checkpoint models via `textToImage` | not expressible — there is no model version id to name |
 | `sourceImage` on a model-bound (`model.*`) block | build a **page app** instead |
-| Shipping your own ComfyUI graph | a `customComfy` recipe — graphs stay server-side |
+| Shipping your own ComfyUI graph | never — graphs stay server-side, by design |
 
-Every row above resolves to the same two answers: **use a checkpoint through
-`textToImage`**, or **get a recipe registered**.
+Apart from the last row, everything here funnels to the same place: **use a
+checkpoint through `textToImage`**, or **ask for a recipe**.
 
 ### The registered recipes
 
