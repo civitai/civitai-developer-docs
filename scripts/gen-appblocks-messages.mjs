@@ -111,19 +111,39 @@ export function parseUnion(sourceFile, aliasName, direction) {
 
 /**
  * Return the substring between the `{` at `openIdx` and its matching `}`
- * (exclusive of the braces), skipping braces that appear inside quoted strings.
- * Robust to reformatting and to N/A reason strings.
+ * (exclusive of the braces), skipping braces that appear inside quoted strings
+ * AND inside `//` line / `/* *​/` block comments. Robust to reformatting, to N/A
+ * reason strings, and — the reason comment-awareness is load-bearing — to an
+ * APOSTROPHE inside a comment (e.g. `// the doc's note`, `entityType:'none'`):
+ * without skipping comments, a lone `'` in a comment opens a phantom string that
+ * swallows the entry's closing `}`, silently DROPPING the INVENTORY entry. That
+ * bit SET_USER_CHECKPOINT (a comment with `doc's` + `entityType:'none'`) the
+ * moment it became a published block→host message, which then read as a false
+ * "stale snapshot". Comment-awareness makes the brace-match correct regardless.
  */
 export function extractBraced(text, openIdx) {
   let depth = 0;
-  let quote = null;
+  let quote = null; // active string delimiter, or null
+  let line = false; // inside a // comment
+  let block = false; // inside a /* */ comment
   for (let i = openIdx; i < text.length; i++) {
     const ch = text[i];
+    const nx = text[i + 1];
+    if (line) {
+      if (ch === '\n') line = false;
+      continue;
+    }
+    if (block) {
+      if (ch === '*' && nx === '/') { block = false; i++; }
+      continue;
+    }
     if (quote) {
       if (ch === '\\') { i++; continue; }
       if (ch === quote) quote = null;
       continue;
     }
+    if (ch === '/' && nx === '/') { line = true; i++; continue; }
+    if (ch === '/' && nx === '*') { block = true; i++; continue; }
     if (ch === "'" || ch === '"' || ch === '`') { quote = ch; continue; }
     if (ch === '{') depth++;
     else if (ch === '}') {

@@ -134,6 +134,39 @@ check('dropping PUBLISH_GENERATION_OUTPUTS makes it uncovered (build would fail)
   );
 });
 
+console.log('DRIFT MODE (c) — extractBraced is COMMENT-AWARE (an apostrophe in a comment does not drop the entry)');
+
+check('an INVENTORY entry with an apostrophe inside a // comment still parses', () => {
+  // Regression for SET_USER_CHECKPOINT: a lone `'` inside a comment (`doc's`,
+  // `entityType:'none'`) must NOT open a phantom string that swallows the `}`.
+  const fixture = `export const INVENTORY = {
+  WITH_APOSTROPHE_COMMENT: {
+    request: true,
+    reply: 'SOME_RESULT',
+    // PAGE: the page host's NACK — entityType:'none' lacks modelId; don't hang.
+    IframeHost: 'required',
+    PageBlockHost: 'required',
+  },
+  NEXT_ENTRY: {
+    request: true,
+    reply: 'NEXT_RESULT',
+    IframeHost: 'required',
+    PageBlockHost: 'required',
+  },
+} as const;`;
+  const inv = parseInventory(fixture);
+  assert(inv.WITH_APOSTROPHE_COMMENT, 'entry with an apostrophe-in-comment was DROPPED (extractBraced not comment-aware)');
+  assertEqual(inv.WITH_APOSTROPHE_COMMENT.reply, 'SOME_RESULT', 'apostrophe-comment entry.reply mis-parsed');
+  assert(inv.NEXT_ENTRY, 'the entry AFTER the apostrophe-comment one was lost (brace-match ran away)');
+});
+
+check('the real SET_USER_CHECKPOINT entry parses from the committed snapshot', () => {
+  // The concrete case the comment-awareness fix restored — it became a published
+  // block->host message at @civitai/app-sdk@0.28.0.
+  assert(inventory.SET_USER_CHECKPOINT, 'SET_USER_CHECKPOINT missing — extractBraced comment-awareness regressed');
+  assertEqual(inventory.SET_USER_CHECKPOINT.reply, 'USER_CHECKPOINT_SET', 'SET_USER_CHECKPOINT.reply');
+});
+
 console.log('DRIFT MODE (b) — parseInventory is indentation-agnostic (survives a reformat)');
 
 check('re-indenting the snapshot 2->4 space yields the same INVENTORY keys', () => {

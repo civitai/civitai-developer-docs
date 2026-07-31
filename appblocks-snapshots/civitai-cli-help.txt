@@ -1,24 +1,30 @@
 civitai CLI help snapshot (App authoring command group)
 Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
-Binary version: civitai v0.1.61
+Binary version: civitai 0.1.89
 Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
-else parses this committed snapshot. To refresh: run scripts/gen-appblocks-cli.mjs with
-a civitai binary on PATH (it rewrites this file), or hand-capture `civitai app <cmd> --help`.
+else parses this committed snapshot. To refresh: run
+node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).
 ===CMD app===
-Author and ship Civitai Apps.
+Browse, author, and ship Civitai Apps.
+
+Browse the published App store with "civitai app list" (filter-based discovery)
+and inspect one App with "civitai app view <slug>".
 
 An App is a sandboxed static web app served in an iframe. The platform
 owns the build and the runtime; the only mandatory file is block.manifest.json.
-The typical lifecycle is create -> validate -> submit.
+The typical authoring lifecycle is create -> validate -> submit.
 
 "civitai app create" is the friendly, batteries-included scaffolder (defaults to
 the rich page-money SDK template); "civitai app init" is the same scaffolder
 with a no-build static default (back-compat alias).
 
 Usage:
+  civitai app [flags]
   civitai app [command]
 
 Examples:
+  civitai app list
+  civitai app view my-block
   civitai app create my-block
   civitai app validate ./my-block
   civitai app submit ./my-block
@@ -31,10 +37,13 @@ Available Commands:
   dev-token   Mint a short-lived dev block token for `npm run dev:live`
   dev-tunnel  Preview your LOCAL dev server inside the real Civitai host via a hardened tunnel
   init        Scaffold a ready-to-build App project
+  list        Discover published Apps in the store (GET /api/v1/apps)
+  listing     Manage your App store-listing media (icon, cover, screenshots)
   pull        Clone or sync your app's repository from Civitai
   status      Check the review/deploy status of your App submissions
   submit      Package and submit an App for review
   validate    Validate block.manifest.json against the App schema
+  view        Show one App's detail (GET /api/v1/apps/{slug})
   withdraw    Withdraw your own pending App submission
 
 Flags:
@@ -56,11 +65,18 @@ Buzz spend), with a mock-host dev harness and a unit test. The scaffold is
 immediately runnable (npm install && npm run dev:harness), test-green, and
 validates clean.
 
+The default scaffold ships TWO samples in the one app: a runnable txt2img money
+path AND a Comfy Cloud (customComfy) sample that runs a server-registered recipe
+(invite-only beta) — both share the estimate -> consent -> submit -> poll driver,
+switched by an on-screen mode toggle. Both work end-to-end in "npm run
+dev:harness" (mock host); see the generated README's "Comfy Cloud sample" section.
+
 Templates (override with --template):
   static      a no-build page app (index.html + a tiny JS, no build step)
   page-vite   a vite + React page app (config-as-code build: buildCommand + outputDir)
   page-money  a vite + React + TS full-page (W10) money-path app wired to the
-              published App SDK (estimate -> consent -> submit -> poll -> Buzz spend)
+              published App SDK (estimate -> consent -> submit -> poll -> Buzz
+              spend); includes a txt2img + a Comfy Cloud (customComfy) sample
               [default for create]
 
 The display name can be free-form ("My Cool Block"); it is slugified for the
@@ -166,6 +182,12 @@ plus the ported semantic rules and structural checks:
   - renderMode inline/hybrid is rejected (requires a verified tier the platform
     only assigns post-submit)
   - targets[].slotId must be a known registered slot
+  - the committed LOCKFILE matches the package manager the platform build
+    derives from buildCommand (its first word): pnpm -> pnpm-lock.yaml,
+    yarn -> yarn.lock, and npm/vite/npx/unset -> package-lock.json. The
+    platform installs strictly from the lockfile, so a mismatch or a missing
+    lockfile is a guaranteed build failure. Only applies when package.json
+    exists — a static app never installs.
 
 It also emits non-fatal WARNINGS for money-path footguns the schema can't catch
 as hard errors (e.g. a budgeted page with no page.buzzBudgetPerGen). Warnings do
@@ -209,14 +231,22 @@ Submission path:
 
   --package-only always just writes the .zip and stops.
 
+Submitting creates a real "pending moderator review" request (undone only with
+`civitai app withdraw`), so it is NOT fired blindly: before uploading you are
+shown the app@version and asked to confirm. Pass --yes/-y to skip the prompt
+(for scripts/CI). In a non-interactive shell (no TTY) submit REFUSES unless
+--yes is given, rather than hang or submit silently. --package-only is the safe
+preview — it never submits.
+
 Defaults to the current directory.
 
 Usage:
   civitai app submit [dir] [flags]
 
 Examples:
-  civitai app submit                 # validate + package + submit (or print next steps)
-  civitai app submit --package-only  # just write the .zip
+  civitai app submit                 # validate + package + confirm + submit
+  civitai app submit --yes           # skip the confirmation prompt (scripts/CI)
+  civitai app submit --package-only  # just write the .zip (safe preview, never submits)
   civitai app submit -o my-block.zip ./my-block
 
 Flags:
@@ -224,6 +254,7 @@ Flags:
   -o, --out string      output .zip path (default: <blockId>-<version>.zip)
       --package-only    only write the .zip; do not attempt submission
       --skip-validate   skip manifest validation before packaging
+  -y, --yes             skip the confirmation prompt and submit (for scripts/CI)
 
 Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
@@ -280,6 +311,9 @@ idempotent — withdrawing an already-withdrawn request still succeeds.
 Pass the publish-request id as a positional argument or via --id (find it with
 "civitai app status").
 
+Withdraw is non-interactive (it never prompts); --yes/-y is accepted as a no-op
+for symmetry with "civitai app submit" so the same scripted flag works on both.
+
 Usage:
   civitai app withdraw [pubreq-id] [flags]
 
@@ -290,6 +324,229 @@ Examples:
 Flags:
   -h, --help        help for withdraw
       --id string   the publish-request id to withdraw (pubreq_...)
+  -y, --yes         accepted for symmetry with 'app submit' (withdraw is non-interactive; no-op)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD app listing===
+Manage your App store listing's MEDIA — the icon, cover, and screenshots
+a listing needs before it can publish.
+
+A store listing must have an ICON and a COVER before it can go live; screenshots
+are optional. These commands ingest a local image, wait for the content scan, and
+attach it to your listing — the same pipeline the web submit form uses.
+
+For a listing that is already LIVE (approved), attaching media opens a REVISION
+that goes back to moderator review (the live listing is untouched until the
+revision is approved); pass --changelog to describe the change.
+
+The app is resolved from block.manifest.json in the current directory (or pass
+--slug). Your store listing is created as a DRAFT when you run `civitai app submit`,
+so you can set its media WHILE your app is pending review — the media you attach
+carries forward when a moderator approves it. Set it early to clear the publish
+floor before you go live.
+
+Usage:
+  civitai app listing [flags]
+  civitai app listing [command]
+
+Examples:
+  civitai app listing status
+  civitai app listing set-icon ./assets/icon.png
+  civitai app listing set-cover ./assets/cover.png
+  civitai app listing add-screenshot ./shot.png --caption "Grid view"
+  civitai app listing rm-screenshot alsc_01H...
+  civitai app listing reorder alsc_02 alsc_01 alsc_03
+
+Available Commands:
+  add-screenshot Add a screenshot (up to 8) with an optional caption
+  reorder        Reorder screenshots (pass ALL current screenshot ids in the new order)
+  rm-screenshot  Remove a screenshot by its id (see `app listing status`)
+  set-cover      Set the listing cover (a landscape hero image)
+  set-icon       Set the listing icon (a square-ish image)
+  status         Show attached media and what's missing vs the publish floor
+
+Flags:
+  -h, --help   help for listing
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+
+Use "civitai app listing [command] --help" for more information about a command.
+===CMD app listing set-icon===
+Set the listing icon (a square-ish image)
+
+Usage:
+  civitai app listing set-icon <file> [flags]
+
+Flags:
+      --changelog string   changelog for the moderator review (used only when the listing is already live)
+      --dir string         app directory holding block.manifest.json (when --slug is not given) (default ".")
+  -h, --help               help for set-icon
+      --slug string        app slug (defaults to block.manifest.json's blockId)
+  -y, --yes                skip the live-listing revision confirmation
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD app listing set-cover===
+Set the listing cover (a landscape hero image)
+
+Usage:
+  civitai app listing set-cover <file> [flags]
+
+Flags:
+      --changelog string   changelog for the moderator review (used only when the listing is already live)
+      --dir string         app directory holding block.manifest.json (when --slug is not given) (default ".")
+  -h, --help               help for set-cover
+      --slug string        app slug (defaults to block.manifest.json's blockId)
+  -y, --yes                skip the live-listing revision confirmation
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD app listing add-screenshot===
+Add a screenshot (up to 8) with an optional caption
+
+Usage:
+  civitai app listing add-screenshot <file> [flags]
+
+Flags:
+      --caption string     optional one-line caption for the screenshot
+      --changelog string   changelog for the moderator review (used only when the listing is already live)
+      --dir string         app directory holding block.manifest.json (when --slug is not given) (default ".")
+  -h, --help               help for add-screenshot
+      --slug string        app slug (defaults to block.manifest.json's blockId)
+  -y, --yes                skip the live-listing revision confirmation
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD app listing rm-screenshot===
+Remove a screenshot from your listing by its screenshot id (the id shown by
+`civitai app listing status`, e.g. alsc_...). Note: for a LIVE listing,
+direct screenshot edits are only possible while a revision is open.
+
+Usage:
+  civitai app listing rm-screenshot <screenshotId> [flags]
+
+Flags:
+      --dir string    app directory holding block.manifest.json (when --slug is not given) (default ".")
+  -h, --help          help for rm-screenshot
+      --slug string   app slug (defaults to block.manifest.json's blockId)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD app listing reorder===
+Reorder your listing's screenshots. Pass EXACTLY the current set of screenshot
+ids (from `civitai app listing status`) in the desired order — a partial or
+unknown set is rejected.
+
+Usage:
+  civitai app listing reorder <screenshotId...> [flags]
+
+Flags:
+      --dir string    app directory holding block.manifest.json (when --slug is not given) (default ".")
+  -h, --help          help for reorder
+      --slug string   app slug (defaults to block.manifest.json's blockId)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD app listing status===
+Show your store listing's attached media (icon, cover, screenshots) and what
+is still required before it can publish (an icon and a cover are mandatory).
+
+Your store listing exists as a DRAFT from the moment you run `civitai app submit`,
+so this works while your app is still pending review.
+
+Note: on a LIVE (approved) listing this opens an in-progress revision draft and
+reports ITS media (idempotent — it reuses any existing draft, and nothing is
+submitted for moderator review until you run a set-/add- command and confirm).
+
+Usage:
+  civitai app listing status [flags]
+
+Flags:
+      --dir string    app directory holding block.manifest.json (when --slug is not given) (default ".")
+  -h, --help          help for status
+      --slug string   app slug (defaults to block.manifest.json's blockId)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD app list===
+List published Apps from the Civitai store via GET /api/v1/apps.
+
+This is filter-based discovery — filter by --kind / --category, order by --sort,
+and page with --cursor. There is no free-text search yet (the store service
+doesn't support it), so there is no `app search` command.
+
+Login is required (`civitai login`): the endpoint keys the visible catalog
+off your identity, so an anonymous call would see nothing. Pagination is keyset
+cursor-based (no --page); the next cursor is printed after the results — pass it
+back via --cursor.
+
+The store is rate-limited per caller; a tight scripted loop may see 429s (the CLI
+backs off and retries automatically).
+
+NOTE: the store is gated by a launch flag — until it opens publicly you will only
+see apps if your account is a moderator or app-dev-tester; a normal login may get
+an empty list. This command is useless until the backing API is deployed.
+
+Usage:
+  civitai app list [flags]
+
+Examples:
+  civitai app list
+  civitai app list --kind onsite --sort popular --limit 10
+  civitai app list --category generation --json
+  civitai app list --cursor '<next-cursor-from-a-previous-page>'
+
+Flags:
+      --category string   filter by marketplace category (generation, games, utility, discovery, moderation, analytics, other)
+      --cursor string     pagination cursor from a previous response
+  -h, --help              help for list
+      --json              print the raw API JSON response (for scripting)
+      --kind string       filter by kind (all, onsite, offsite)
+      --limit int         results per page (1-50)
+      --sort string       sort order (top-rated, popular, newest, name)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD app view===
+Show the public detail for one published App by slug via
+GET /api/v1/apps/{slug} — its description, category, rating, gallery, and the
+kind-specific action target (an on-site app's live URL, or an off-site app's
+external / connect target).
+
+Login is required (`civitai login`). A missing or out-of-scope slug returns a
+clean "not found" message. This command is useless until the backing API is
+deployed.
+
+Usage:
+  civitai app view <slug> [flags]
+
+Examples:
+  civitai app view my-cool-app
+  civitai app view my-cool-app --json
+
+Flags:
+  -h, --help   help for view
+      --json   print the raw API JSON response (for scripting)
 
 Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)

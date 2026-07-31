@@ -2,20 +2,20 @@
 title: Comfy Cloud (customComfy)
 description: Drive a server-owned ComfyUI workflow from an App Block with a { kind, recipe, params } body — the recipe-gated security model, the budget rules, and how to try it in the local harness.
 sources:
-  - npm:@civitai/app-sdk@0.26.0/blocks#WorkflowBodyCustomComfy
-  - npm:@civitai/blocks-react@0.33.0#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.28.0/blocks#WorkflowBodyCustomComfy
+  - npm:@civitai/blocks-react@0.37.0#useBuzzWorkflow
   - go:github.com/civitai/cli#app-create (page-money scaffold: src/comfy.ts)
   - civitai:public/schemas/app-block/v1.json#page.buzzBudgetPerGen
 ---
 
 # Comfy Cloud (customComfy)
 
-Most generation from an App Block goes through a bounded **text-to-image** body:
-you send a prompt, model, and a few params, and the host builds the generation
-graph for you. **Comfy Cloud** (`customComfy`) is the other path — it lets your
-block drive a **server-owned ComfyUI workflow** by name, for effects a simple
-txt2img body can't express (a panorama stitch, a multi-stage pipeline, a
-custom-node graph).
+Most generation from an App Block goes through a bounded
+[**text-to-image**](./text-to-image) body: you send a prompt, model, and a few
+params, and the host builds the generation graph for you. **Comfy Cloud**
+(`customComfy`) is the other path — it lets your block drive a **server-owned
+ComfyUI workflow** by name, for effects a simple txt2img body can't express (a
+panorama stitch, a multi-stage pipeline, a custom-node graph).
 
 The defining constraint: **your block never ships a ComfyUI graph.** It sends a
 tiny body that _names_ a workflow the platform already owns:
