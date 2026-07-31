@@ -65,10 +65,10 @@ this:
 }
 ```
 
-— that is correct **for the orchestrator** and **unusable from a block**. There
-is no `$type` field, no `imageGen` kind, and no `engine` / `ecosystem` /
-`model` / `operation` string anywhere in the bridge contract. Such a body fails
-the `kind` union before the host does anything else.
+— that is correct **for the orchestrator** and **unusable from a block**. The
+bridge body has no `$type` field and no `imageGen` kind, and none of
+`ecosystem` / `model` / `operation` / `engine` is how a block names a model.
+Such a body fails the `kind` union before the host does anything else.
 
 The symptom is distinctive: **every generation fails identically, on every
 model**, with no per-model variation — because nothing model-specific ever ran.
