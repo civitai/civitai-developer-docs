@@ -69,7 +69,7 @@ const refBody = {
 
 # MiniMax H3 video generation
 
-MiniMax's H3 model, called directly against MiniMax rather than through a broker. It generates 5–15 second clips at 2K (2560×1440) **with a native audio track**, and covers five input modes: text-to-video, first-frame, last-frame, first-and-last-frame, and reference-to-video with up to three reference images, videos, and audio clips.
+MiniMax's H3 model, called directly against MiniMax rather than through a broker. It generates 5–15 second clips at 2K (2560×1440) at 24 fps **with a native stereo audio track**, and covers five input modes: text-to-video, first-frame, last-frame, first-and-last-frame, and reference-to-video with up to nine reference images plus three video and three audio clips.
 
 Unlike most engines here there is no `operation` discriminator — **the mode is inferred from which media fields you populate**:
 
@@ -79,7 +79,7 @@ Unlike most engines here there is no `operation` discriminator — **the mode is
 | Image-to-video | `firstFrameImage` | ignored — derived from the image |
 | Last-frame | `lastFrameImage` | ignored |
 | First and last frame | both `firstFrameImage` and `lastFrameImage` | ignored |
-| Reference-to-video | any of `referenceImages`, `referenceVideos`, `referenceAudios` | ignored |
+| Reference-to-video | any of `referenceImages` (≤9), `referenceVideos` (≤3), `referenceAudios` (≤3) | ignored |
 
 **Default choice**: `resolution: "2K"`, `duration: 5`, `aspectRatio: "16:9"`. Every H3 job exceeds the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — always submit with `wait=0`.
 
@@ -175,7 +175,7 @@ Supply both and H3 interpolates between them.
 
 ## Reference-to-video
 
-Guide generation with up to three reference images, three reference video clips, and three reference audio clips. Reference media cannot be combined with `firstFrameImage`/`lastFrameImage` — MiniMax treats those as different task types, and mixing them is rejected with a `400`.
+Guide generation with up to nine reference images, three reference video clips, and three reference audio clips. Reference media cannot be combined with `firstFrameImage`/`lastFrameImage` — MiniMax treats those as different task types, and mixing them is rejected with a `400`.
 
 ```json
 {
@@ -206,31 +206,50 @@ The schema in the [API reference](/orchestration/reference/) is authoritative.
 |---|---|---|
 | `engine` | — ✅ | `"minimax-h3"` |
 | `prompt` | — ✅ | Up to 7000 characters. |
-| `resolution` | `"2K"` | `"2K"` is the only value H3 accepts today. |
+| `resolution` | `"2K"` | `"2K"` is the only value H3 accepts today; MiniMax has a cheaper 768P tier in flight. H3's 2K is natively generated rather than upscaled. |
 | `duration` | `5` | Integer seconds, 5–15. |
 | `aspectRatio` | `"adaptive"` | `"adaptive"`, `"21:9"`, `"16:9"`, `"4:3"`, `"1:1"`, `"3:4"`, `"9:16"`. Only read for text-to-video, where `adaptive` is not allowed. |
 | `firstFrameImage` | — | Single image used as the opening frame. |
 | `lastFrameImage` | — | Single image used as the closing frame. |
-| `referenceImages[]` | `[]` | Up to 3. Cannot be combined with first/last frame. |
+| `referenceImages[]` | `[]` | Up to 9. First 5 free, then billed. Cannot be combined with first/last frame. |
 | `referenceVideos[]` | `[]` | Up to 3, 2–15 s each and ≤15 s in total, ≤50 MB, MP4/MOV. |
-| `referenceAudios[]` | `[]` | Up to 3, 2–15 s each, ≤15 MB, WAV/MP3. |
+| `referenceAudios[]` | `[]` | Up to 3, 2–15 s each, ≤15 MB, WAV/MP3. Must accompany a reference image or video. |
 | `watermark` | `false` | Adds MiniMax's AIGC watermark to the output. |
 
 Image limits: 256–5760 px per side, aspect ratio between 0.4 and 2.5, ≤30 MB, JPG/PNG/WEBP/HEIC/HEIF.
 
 ## Cost
 
-Billed per second of output video in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Billed per second in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
 
 ```
-total = 170 × duration
+total = 170 × (duration + referenceVideoSeconds) + 52 × max(0, referenceImages − 5)
 ```
 
 | `duration` | 5 s | 10 s | 15 s |
 |---|---|---|---|
-| 2K | **850** | **1 700** | **2 550** |
+| 2K, no reference media | **850** | **1 700** | **2 550** |
 
-Reference images and reference audio are free input — only the generated seconds are billed. Failed generations and clips rejected by MiniMax's content review are not charged.
+Three rules govern reference input:
+
+| Reference input | Billing |
+|---|---|
+| Audio | Free |
+| Image | First 5 free, then **52 Buzz** each |
+| Video | Billed at the output rate — **170 Buzz per second of uploaded clip** |
+
+Reference video is charged on the length of the clip you upload, not the output. A 10-second
+generation over a 5-second reference clip bills 15 seconds, so `whatif=true` measures your clips
+before quoting. Some worked examples:
+
+| Scenario | Total |
+|---|---|
+| 10 s, no reference | 1 700 |
+| 10 s + 3 reference images | 1 700 |
+| 10 s + 8 reference images | 1 700 + 3 × 52 = **1 856** |
+| 10 s + a 5 s reference video | 15 × 170 = **2 550** |
+
+Failed generations and clips rejected by MiniMax's content review are not charged.
 
 ## Reading the result
 
