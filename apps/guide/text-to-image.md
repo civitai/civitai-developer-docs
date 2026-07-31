@@ -148,8 +148,12 @@ server-enforced**:
   token** — a model-slot block cannot do img2img. This is documented nowhere
   else; if you copy a page-app img2img example into a `model.*` slot block you
   will get a `FORBIDDEN` with no hint why. img2img lives on **page apps**.
-- **SD-family checkpoints only.** A non-SD-family checkpoint is rejected
-  fail-closed (its ecosystem supports neither `img2img` nor edit).
+- **The checkpoint's ecosystem picks the graph.** SD-family checkpoints get
+  plain `img2img` ("Image Variations"); edit-capable ecosystems get
+  `img2img:edit`. A checkpoint whose ecosystem supports neither is rejected
+  fail-closed. The full ecosystem list — and the limits `sourceImage` cannot be
+  argued out of (one image only, Civitai-hosted URLs only) — is in
+  [what the bridge can and cannot do](../reference/generation#what-sourceimage-can-and-cannot-do).
 - **Civitai-hosted URL only.** `url` must resolve to a Civitai-controlled host —
   an arbitrary remote URL is rejected (SSRF guard). The way to get a qualifying
   URL is the host's image-upload bridge with `purpose: 'generationSource'`,
@@ -314,6 +318,7 @@ Real Buzz generation needs closed-beta access; see the
 ## Next
 
 - [Generation bridge reference](../reference/generation) — the generated field-level contract.
+- [What the bridge can and cannot do](../reference/generation#what-the-bridge-can-and-cannot-do) — the boundary vs the orchestrator, and what to do when a model isn't reachable.
 - [Comfy Cloud (customComfy)](./comfy-cloud) — the recipe-gated ComfyUI path.
 - [Hooks reference](../reference/hooks) · [Messages reference](../reference/messages).
 - [Scopes](../reference/scopes) — `ai:write:budgeted`. · [Manifest](../reference/manifest) — `page.buzzBudgetPerGen`.
