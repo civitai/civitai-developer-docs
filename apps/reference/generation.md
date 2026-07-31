@@ -22,8 +22,9 @@ path see [Comfy Cloud](../guide/comfy-cloud).
 
 Before you design against the field tables, read
 [what the bridge can and cannot do](#what-the-bridge-can-and-cannot-do) — the
-bridge is a **narrower surface than the orchestrator**, and the models it can
-reach are bounded by that.
+bridge is a **narrower surface than the orchestrator**, so orchestrator step
+JSON can't be sent from a block, and reaching a model is a matter of naming the
+right `modelVersionId` rather than describing an engine.
 
 ::: tip Trust model
 `useBuzzWorkflow()` is **host-mediated**: the host resolves the viewer from the
@@ -82,40 +83,97 @@ Blocks never hold one — see
 
 ### "The model I want isn't reachable" — what to do
 
-Work down this path:
+Most of the time it **is** reachable, and the fix is naming the right
+`modelVersionId`. Work down this path:
 
-1. **Is it a Civitai checkpoint?** — does it have a Civitai model version you
-   can point at by id? If yes, use
+1. **Is it a Civitai checkpoint?** — if it has a Civitai model version, use
    [`textToImage`](../guide/text-to-image) with its `modelId` +
-   `modelVersionId`. That path addresses a checkpoint and nothing else.
-2. **Is it not a checkpoint?** — models that have no Civitai model version to
-   name **cannot be expressed by `textToImage` at all**. **Z-Image Turbo** and
-   **Qwen Image Edit** are both in this category: the orchestrator selects them
-   by ecosystem / model / version, not by a Civitai model version id, so there
-   is no id for your body to carry.
-3. **Do you need something `textToImage` can't express?** — multi-image
-   editing, a specific edit-model version, a multi-stage pipeline, or a task
-   that isn't image generation at all. `customComfy` is the only other path, so
-   this becomes a **registered recipe** question. Say what you need explicitly
-   when you ask: both recipes today are prompt-only txt2img, so anything taking
-   an **image input** is new ground, not a variation on an existing recipe.
+   `modelVersionId`. Models that feel "orchestrator-only" usually aren't:
+   Z-Image and Qwen are ordinary checkpoints with ordinary ids.
+2. **Do you need an edit?** — pass a `sourceImage` **and** name the edit
+   version (see the [worked example](#worked-example-qwen-single-image-edit)).
+   The variant is chosen by `sourceImage`, not by the version id — this is the
+   single most common mistake on the bridge.
+3. **Is it genuinely outside the union?** — today that means **multi-image
+   editing** (`sourceImage` is singular) and **background removal** (no union
+   member reaches it). `customComfy` is the only other path, so this becomes a
+   **registered recipe** question. Say so explicitly when you ask: both recipes
+   today are prompt-only txt2img, so anything taking an **image input** is new
+   ground, not a variation on an existing recipe.
 4. **Recipes are not self-serve.** The registry is server-side and
    code-reviewed; there is no runtime, manifest, or dashboard way to add one.
    Adding a recipe is a **platform request** — ask through the same channel as
    beta access, described in
    [requesting a new recipe](../guide/comfy-cloud#requesting-a-new-recipe).
 
-::: danger A checkpoint AIR does not select an edit model — it silently returns the wrong one
-You **cannot pin an edit-model version** (for example Qwen `2511`) through
-`textToImage`. Passing a checkpoint AIR in the hope of selecting one **does not
-error**: it quietly falls back to txt2img `2512` and returns plausible-looking
-images from a model you did not ask for.
+#### The ids you probably want
 
-This is the worst failure mode on the bridge because it looks like success —
-the workflow succeeds, the images render, and nothing in the snapshot says the
-model was substituted. If you need a specific edit-model version, it has to be
-pinned by a `customComfy` recipe.
+These are the checkpoints developers most often assume are out of reach. They
+are not — they are normal `textToImage` targets:
+
+| model | `modelId` | `modelVersionId` | use it for |
+|---|---|---|---|
+| Z Image Turbo | `2168935` | `2442439` | txt2img |
+| Qwen — "Image Edit 2511" | `2268063` | `2558804` | **edit** (send a `sourceImage`) |
+| Qwen — "fp8_e4m3fn" | `2268063` | `2552908` | txt2img |
+
+::: warning The Qwen model name and its edit version disagree
+Both Qwen versions live under **one** `modelId` (`2268063`), and the model is
+named **"Qwen-Image-2512"** while its edit version is named **"Image Edit
+2511"**. Reading `2512` off the model and treating it as the version you want
+lands you on the txt2img version. The **edit** version is `2558804`.
 :::
+
+::: danger Omitting `sourceImage` silently gives you txt2img — no error
+The workflow variant is derived from **whether `sourceImage` is present**, not
+from the version id you name. Name the edit version but leave `sourceImage`
+off, and the bridge builds a **`txt2img`** graph and runs it. It does not warn
+you, and it does not fail.
+
+That is the worst failure mode available here, because it looks like success:
+the workflow succeeds, images render, and nothing in the
+`BlockWorkflowSnapshot` says you got a different workflow than you intended.
+The only tell is that the output ignores your source image and doesn't behave
+like an edit.
+
+**The fix is in your body, not in a support request**: send `sourceImage`
+whenever you mean to edit, and name the edit version (`2558804`) explicitly.
+:::
+
+#### Worked example: Qwen single-image edit
+
+The case people get wrong. Note both halves: the **edit version id** *and* the
+`sourceImage`. This is a **page app** — `sourceImage` is rejected on a
+model-bound token.
+
+```tsx
+import { useBuzzWorkflow, useImageUpload } from '@civitai/blocks-react';
+import type { WorkflowBodyTextToImage } from '@civitai/app-sdk/blocks';
+
+// PAGE APP ONLY — `sourceImage` is rejected fail-closed on a model-bound token.
+export function QwenEdit() {
+  const { submit } = useBuzzWorkflow();
+  const { open } = useImageUpload({ purpose: 'generationSource' });
+
+  const run = async () => {
+    const source = await open(); // Civitai-hosted { url, width, height }
+    if (!source) return;
+
+    const body: WorkflowBodyTextToImage = {
+      kind: 'textToImage',
+      modelId: 2268063,
+      modelVersionId: 2558804, // "Image Edit 2511" — NOT the model's default
+      sourceImage: { url: source.url, width: source.width, height: source.height },
+      params: { prompt: 'make the sky stormy' },
+    };
+    await submit(body);
+  };
+
+  return <button onClick={run}>Edit image</button>;
+}
+```
+
+Drop the `sourceImage` line and this silently becomes a txt2img generation.
 
 ### What `sourceImage` can and cannot do
 
@@ -139,19 +197,25 @@ limits are structural, not tuning knobs:
 
 ### Not supported today
 
-Stated plainly, so you can rule an idea in or out quickly:
+Two things are genuinely out of reach, and they are the only two worth opening
+a platform request for:
 
 | Not available through the bridge | Where it stands |
 |---|---|
-| Multi-image editing (two or more inputs) | `sourceImage` is singular, and **no registered recipe takes an image input** — a platform request |
-| Pinning an edit-model version (e.g. Qwen `2511`) | not expressible in `textToImage`; a recipe would have to pin it — a platform request |
-| Background removal (e.g. BiRefNet) | **no bridge path at all today** — it is not an image-generation step |
-| Non-checkpoint models via `textToImage` | not expressible — there is no model version id to name |
-| `sourceImage` on a model-bound (`model.*`) block | build a **page app** instead |
-| Shipping your own ComfyUI graph | never — graphs stay server-side, by design |
+| **Multi-image editing** (two or more inputs) | `sourceImage` is singular, and **no registered recipe takes an image input** — a platform request |
+| **Background removal** (e.g. BiRefNet) | a **first-class orchestrator step**, not a Comfy graph and not an `imageGen` operation — **no union member reaches it** |
 
-Apart from the last row, everything here funnels to the same place: **use a
-checkpoint through `textToImage`**, or **ask for a recipe**.
+These are bounded by the union's shape, not by configuration:
+
+| Constraint | What to do instead |
+|---|---|
+| `sourceImage` on a model-bound (`model.*`) block | build a **page app** |
+| Shipping your own ComfyUI graph | never available — graphs stay server-side, by design |
+| Choosing edit vs img2img yourself | it follows from the checkpoint's ecosystem; pick the checkpoint accordingly |
+
+Note what is **not** on these lists: single-image editing and Z-Image both work
+through `textToImage` today — see [the ids you probably
+want](#the-ids-you-probably-want).
 
 ### The registered recipes
 
@@ -169,14 +233,17 @@ ignored. Note what is **not** exposed — neither recipe takes `width` / `height
 steps, or CFG. Those are fixed server-side (the starter recipe runs at the
 Z-Image turbo defaults).
 
-So `starter-comfy-txt2img` is a genuine **Z-Image** path from a block — but a
-fixed-resolution, prompt-and-seed one, not a general-purpose Z-Image API. If
-your app needs a different resolution or a different model, that is a new
-recipe, which is a platform request.
+::: tip Don't reach for `starter-comfy-txt2img` to get Z-Image
+It is a fixed-resolution, prompt-and-seed **demo starter**, not the Z-Image
+path. For Z-Image generation use `textToImage` with `2168935` / `2442439`,
+which gives you the full [param surface](#bridge-BlockTextToImageParams)
+(dimensions, steps, sampler, quantity). Reach for the recipe only when you
+want exactly what it does.
+:::
 
 ## See also
 
-- [What the bridge can and cannot do](#what-the-bridge-can-and-cannot-do) — the boundary vs the orchestrator, and how to ask for what isn't reachable.
+- [What the bridge can and cannot do](#what-the-bridge-can-and-cannot-do) — the boundary vs the orchestrator, the ids for Z-Image and Qwen edit, and the two gaps that need a platform request.
 - [Generation guide](../guide/text-to-image) — the narrative walkthrough (img2img, LoRAs, page-vs-model).
 - [Comfy Cloud (customComfy)](../guide/comfy-cloud) — the recipe-gated ComfyUI path.
 - [Hooks reference](./hooks) — every `@civitai/blocks-react` hook.
