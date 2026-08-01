@@ -124,17 +124,21 @@ named **"Qwen-Image-2512"** while its edit version is named **"Image Edit
 lands you on the txt2img version. The **edit** version is `2558804`.
 :::
 
-::: danger Omitting `sourceImage` silently gives you txt2img — no error
+::: danger Omitting `sourceImage` silently switches you to a different MODEL
 The workflow variant is derived from **whether `sourceImage` is present**, not
 from the version id you name. Name the edit version but leave `sourceImage`
-off, and the bridge builds a **`txt2img`** graph and runs it. It does not warn
-you, and it does not fail.
+off, and the bridge builds a **`txt2img`** graph — and then, because the edit
+version isn't valid for `txt2img`, it **re-maps your model to that version's
+txt2img sibling** and generates with *that*. For Qwen, asking for `2558804`
+without a source image gets you `2552908`. It does not warn you, and it does
+not fail.
 
 That is the worst failure mode available here, because it looks like success:
 the workflow succeeds, images render, and nothing in the
-`BlockWorkflowSnapshot` says you got a different workflow than you intended.
-The only tell is that the output ignores your source image and doesn't behave
-like an edit.
+`BlockWorkflowSnapshot` reports either substitution. You did not get a weaker
+version of what you asked for — you got a **different model**, and the only
+tell is that the output ignores your source image and doesn't behave like an
+edit.
 
 **The fix is in your body, not in a support request**: send `sourceImage`
 whenever you mean to edit, and name the edit version (`2558804`) explicitly.
