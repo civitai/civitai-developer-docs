@@ -1,5 +1,5 @@
 ---
-title: Comfy Cloud (customComfy)
+title: Comfy on Civitai (customComfy)
 description: Drive a server-owned ComfyUI workflow from an App Block with a { kind, recipe, params } body — the recipe-gated security model, the budget rules, and how to try it in the local harness.
 sources:
   - npm:@civitai/app-sdk@0.28.0/blocks#WorkflowBodyCustomComfy
@@ -8,11 +8,21 @@ sources:
   - civitai:public/schemas/app-block/v1.json#page.buzzBudgetPerGen
 ---
 
-# Comfy Cloud (customComfy)
+<!--
+  FILE NAME IS DELIBERATE. The product was renamed "Comfy Cloud" -> "Comfy on
+  Civitai", but this file keeps its path so the PUBLISHED URL
+  /apps/guide/comfy-cloud keeps resolving. This site has no redirect layer
+  (nginx.conf serves static VitePress output with try_files and no 301 rules),
+  so renaming the file would 404 every existing inbound link. If the slug must
+  change later, add the redirect FIRST — an nginx `location = /apps/guide/comfy-cloud
+  { return 301 /apps/guide/comfy-on-civitai; }` — then rename.
+-->
+
+# Comfy on Civitai (customComfy)
 
 Most generation from an App Block goes through a bounded
 [**text-to-image**](./text-to-image) body: you send a prompt, model, and a few
-params, and the host builds the generation graph for you. **Comfy Cloud**
+params, and the host builds the generation graph for you. **Comfy on Civitai**
 (`customComfy`) is the other path — it lets your block drive a **server-owned
 ComfyUI workflow** by name, for effects a simple txt2img body can't express (a
 panorama stitch, a multi-stage pipeline, a custom-node graph).
@@ -39,9 +49,9 @@ const body: WorkflowBodyCustomComfy = {
 validates. That's the entire wire surface.
 
 ::: warning Closed beta — access is limited
-Comfy Cloud is part of the [closed-beta](./) Apps platform and is **mod-gated**.
-You can scaffold and run the sample against the local mock host today (see
-[Try it locally](#try-it-locally)); **real** generation needs closed-beta
+Comfy on Civitai is part of the [closed-beta](./) Apps platform and is
+**mod-gated**. You can scaffold and run the sample against the local mock host
+today (see [Try it locally](#try-it-locally)); **real** generation needs closed-beta
 builder access, and each recipe is added by the Civitai team.
 :::
 
@@ -90,7 +100,7 @@ register a graph yourself.
 
 You submit a `customComfy` body through the **same** `useBuzzWorkflow()` hook you
 use for text-to-image generation — the hook takes a full `WorkflowBody`
-discriminated union, so switching to Comfy Cloud is just a different `body`:
+discriminated union, so switching to Comfy on Civitai is just a different `body`:
 
 ```tsx
 import { useBuzzWorkflow } from '@civitai/blocks-react';
@@ -122,8 +132,8 @@ state (see [How generation is billed](#how-generation-is-billed)).
 
 ## Requirements
 
-To use Comfy Cloud, your app must be a **page app** (Comfy Cloud is not offered
-to slot apps) and its manifest must:
+To use Comfy on Civitai, your app must be a **page app** (Comfy on Civitai is
+not offered to slot apps) and its manifest must:
 
 1. **Request the `ai:write:budgeted` scope.** This is the budgeted-generation
    capability — the same scope text-to-image generation uses.
@@ -163,7 +173,7 @@ to slot apps) and its manifest must:
 }
 ```
 
-The scaffold's Comfy Cloud sample pairs `buzzBudgetPerGen: 300` with the
+The scaffold's Comfy on Civitai sample pairs `buzzBudgetPerGen: 300` with the
 `starter-comfy-txt2img` recipe (per-generation ceiling **30** Buzz) — roughly 10×
 the ceiling. That headroom is never spent: it bounds what the app is allowed to
 *ask for*, while the charge is the real runtime cost. Read the 300 as a
@@ -171,7 +181,7 @@ blast-radius limit, not as 30 rounded up.
 
 ## How generation is billed
 
-Comfy Cloud is **post-paid with a hard ceiling** — you don't pay a fixed price up
+Comfy on Civitai is **post-paid with a hard ceiling** — you don't pay a fixed price up
 front:
 
 1. **Reserve the ceiling.** On submit, the host reserves the recipe's declared
@@ -192,8 +202,8 @@ Surface the `estimate()` value as an estimate in your UI, and read the final
 ## Try it locally
 
 The `civitai` CLI's generation scaffold (`civitai app create`, the page-app
-template that wires up Buzz + generation) ships a **Comfy Cloud sample** as a
-secondary path — a ready-made `src/comfy.ts` that builds a `starter-comfy-txt2img`
+template that wires up Buzz + generation) ships a **Comfy on Civitai sample** as
+a secondary path — a ready-made `src/comfy.ts` that builds a `starter-comfy-txt2img`
 body exactly like the snippets above, plus a unit test.
 
 The **mock host** in `npm run dev:harness` implements the `customComfy` message
@@ -204,7 +214,7 @@ before you ever have beta access:
 ```bash
 civitai app create my-app     # generation template ships src/comfy.ts
 cd my-app && npm install
-npm run dev:harness           # mock host — Comfy Cloud sample runs, no backend
+npm run dev:harness           # mock host — Comfy on Civitai sample runs, no backend
 ```
 
 Real generation (against a registered recipe) needs closed-beta access and

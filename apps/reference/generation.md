@@ -18,7 +18,7 @@ and `@civitai/blocks-react` type definitions — the same JSDoc your editor show
 — so they can't drift from the packages you install. For the narrative version
 (with worked img2img / LoRA examples and the page-vs-model rules) start with the
 [text-to-image generation guide](../guide/text-to-image); for the ComfyUI recipe
-path see [Comfy Cloud](../guide/comfy-cloud).
+path see [Comfy on Civitai](../guide/comfy-cloud).
 
 Before you design against the field tables, read
 [what the bridge can and cannot do](#what-the-bridge-can-and-cannot-do) — the
@@ -249,6 +249,6 @@ want exactly what it does.
 
 - [What the bridge can and cannot do](#what-the-bridge-can-and-cannot-do) — the boundary vs the orchestrator, the ids for Z-Image and Qwen edit, and the two gaps that need a platform request.
 - [Generation guide](../guide/text-to-image) — the narrative walkthrough (img2img, LoRAs, page-vs-model).
-- [Comfy Cloud (customComfy)](../guide/comfy-cloud) — the recipe-gated ComfyUI path.
+- [Comfy on Civitai (customComfy)](../guide/comfy-cloud) — the recipe-gated ComfyUI path.
 - [Hooks reference](./hooks) — every `@civitai/blocks-react` hook.
 - [Messages reference](./messages) — the `postMessage` protocol these hooks sit on.

@@ -72,7 +72,7 @@ platform provisions all of that when your app is approved.
   trust frame, and how the host and your app talk to each other.
 - **[Quickstart](./quickstart)** — go from nothing to a block running in the local
   harness using the `civitai` CLI scaffold.
-- **[Comfy Cloud (customComfy)](./comfy-cloud)** — drive a server-owned ComfyUI
+- **[Comfy on Civitai (customComfy)](./comfy-cloud)** — drive a server-owned ComfyUI
   workflow by name (`{ kind, recipe, params }`), the recipe-gated model, and the
   budget rules.
 - **[Running embedded & direct traffic](./embedding)** — why your app runs
