@@ -281,10 +281,15 @@ whatIf-prices the graph exactly, so:
 2. **`submit()` gates `cost ≤ token.buzzBudget`** per call, then debits the
    viewer.
 
-A page app sizes its per-generation budget with `page.buzzBudgetPerGen` in the
-manifest (see the [manifest reference](../reference/manifest)); it must clear
-the priciest generation your block can request. The `ai:write:budgeted`
-[scope](../reference/scopes) is required either way.
+A page app sets its per-generation budget with `page.buzzBudgetPerGen` in the
+manifest. That budget is a **safety ceiling, not an estimate** — it exists so a
+buggy or compromised app can't drain the viewer's Buzz, and you are charged the
+real price regardless. Size it at *several times* your worst-case run, not at
+what you expect a run to cost: a submit priced above the budget is rejected
+before it runs (nothing charged, nothing delivered), and it stays that way for
+every user until you ship a new manifest version. See
+[Sizing the budget](../reference/manifest) in the manifest reference. The
+`ai:write:budgeted` [scope](../reference/scopes) is required either way.
 
 ## Page-vs-model constraints
 

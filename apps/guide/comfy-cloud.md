@@ -131,8 +131,17 @@ to slot apps) and its manifest must:
    The host mints each generation token with `buzzBudgetPerGen` as its budget and
    **gates every submit on `recipe.maxBuzz ≤ token.buzzBudget`**. If your
    per-gen budget is below the recipe's ceiling, **every submit is rejected**
-   before it runs. Set it at or above the recipe's ceiling (with a little
-   headroom).
+   before it runs. But that makes the recipe's ceiling a **floor**, and a floor
+   is not a sizing method — these are two different quantities. The recipe's
+   `maxBuzz` is what the *server* enforces on one job: the step runs under a
+   timeout that physically bounds GPU-seconds, and you settle down to the real
+   runtime cost regardless. `buzzBudgetPerGen` is what *you* choose — the largest
+   single generation your app may request at all, i.e. the blast radius if the
+   app is exploited. Size it from how much damage you are willing to absorb, then
+   check it clears the floor; sizing it as *the recipe's price plus a margin* is
+   the classic mistake, and it re-breaks the app the day you call a pricier
+   recipe. See [Sizing the budget](../reference/manifest) in the manifest
+   reference.
 
 ```json
 {
@@ -145,7 +154,7 @@ to slot apps) and its manifest must:
   "page": {
     "path": "/",
     "title": "My Comfy App",
-    "buzzBudgetPerGen": 40
+    "buzzBudgetPerGen": 300
   },
   "contentRating": "g",
   "minApiVersion": "1.0",
@@ -154,9 +163,11 @@ to slot apps) and its manifest must:
 }
 ```
 
-The scaffold's Comfy Cloud sample pairs `buzzBudgetPerGen: 40` with the
-`starter-comfy-txt2img` recipe (per-generation ceiling **30** Buzz) — comfortably
-above the ceiling, so submits are never budget-gated out.
+The scaffold's Comfy Cloud sample pairs `buzzBudgetPerGen: 300` with the
+`starter-comfy-txt2img` recipe (per-generation ceiling **30** Buzz) — roughly 10×
+the ceiling. That headroom is never spent: it bounds what the app is allowed to
+*ask for*, while the charge is the real runtime cost. Read the 300 as a
+blast-radius limit, not as 30 rounded up.
 
 ## How generation is billed
 
@@ -173,7 +184,8 @@ front:
    **settles down to the real runtime** — a fast job costs less than the ceiling;
    the reservation only bounds the maximum.
 
-So a recipe's ceiling is a **worst case you provision for**, not a flat price.
+So a recipe's ceiling is a **worst case the host reserves against**, not a flat
+price — and not a target to size `buzzBudgetPerGen` from.
 Surface the `estimate()` value as an estimate in your UI, and read the final
 `result.cost.total` on completion.
 
