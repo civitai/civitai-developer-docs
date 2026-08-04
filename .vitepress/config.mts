@@ -173,7 +173,7 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Concepts', link: '/apps/guide/concepts' },
         { text: 'Quickstart', link: '/apps/guide/quickstart' },
         { text: 'Generating images (text-to-image)', link: '/apps/guide/text-to-image' },
-        { text: 'Comfy Cloud (customComfy)', link: '/apps/guide/comfy-cloud' },
+        { text: 'Comfy on Civitai (customComfy)', link: '/apps/guide/comfy-cloud' },
         { text: 'Running embedded & direct traffic', link: '/apps/guide/embedding' },
         { text: 'Theming & design system', link: '/apps/guide/theming' },
         { text: 'Theming an existing app (retrofit)', link: '/apps/guide/theming#theming-an-existing-app-retrofit-incremental-adoption' },

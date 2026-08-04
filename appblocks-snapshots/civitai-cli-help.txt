@@ -1,6 +1,6 @@
 civitai CLI help snapshot (App authoring command group)
 Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
-Binary version: civitai 0.1.89
+Binary version: civitai v0.1.89-10-g897ea8e
 Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
 else parses this committed snapshot. To refresh: run
 node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).
@@ -29,6 +29,7 @@ Examples:
   civitai app validate ./my-block
   civitai app submit ./my-block
   civitai app status
+  civitai app metrics my-block
   civitai app withdraw pubreq_01H
   civitai app dev-token my-block
 
@@ -39,6 +40,7 @@ Available Commands:
   init        Scaffold a ready-to-build App project
   list        Discover published Apps in the store (GET /api/v1/apps)
   listing     Manage your App store-listing media (icon, cover, screenshots)
+  metrics     Show your App's install / run / Buzz / engagement analytics
   pull        Clone or sync your app's repository from Civitai
   status      Check the review/deploy status of your App submissions
   submit      Package and submit an App for review
@@ -66,17 +68,17 @@ immediately runnable (npm install && npm run dev:harness), test-green, and
 validates clean.
 
 The default scaffold ships TWO samples in the one app: a runnable txt2img money
-path AND a Comfy Cloud (customComfy) sample that runs a server-registered recipe
+path AND a Comfy on Civitai (customComfy) sample that runs a server-registered recipe
 (invite-only beta) — both share the estimate -> consent -> submit -> poll driver,
 switched by an on-screen mode toggle. Both work end-to-end in "npm run
-dev:harness" (mock host); see the generated README's "Comfy Cloud sample" section.
+dev:harness" (mock host); see the generated README's "Comfy on Civitai sample" section.
 
 Templates (override with --template):
   static      a no-build page app (index.html + a tiny JS, no build step)
   page-vite   a vite + React page app (config-as-code build: buildCommand + outputDir)
   page-money  a vite + React + TS full-page (W10) money-path app wired to the
               published App SDK (estimate -> consent -> submit -> poll -> Buzz
-              spend); includes a txt2img + a Comfy Cloud (customComfy) sample
+              spend); includes a txt2img + a Comfy on Civitai (customComfy) sample
               [default for create]
 
 The display name can be free-form ("My Cool Block"); it is slugified for the
