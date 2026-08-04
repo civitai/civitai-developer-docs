@@ -58,9 +58,17 @@ in your app — or a compromised bundle — cannot drain the viewer's Buzz. It i
 not a forecast of your bill.
 
 **Set it well above your worst-case run.** A good rule of thumb is *several
-times* what you expect a generation to cost — `1000` when a run costs ~100, not
-`100`. Headroom is free: the server re-prices every submit and charges the
-**real** price, so a generous ceiling never costs you or the viewer more.
+times* your worst case — `1000` when a run costs ~100, not `100`. Headroom is
+free: the server re-prices every submit and charges the **real** price, so a
+generous ceiling never costs you or the viewer more.
+
+The multiplier is generous rather than tight because the trade is **asymmetric**:
+too low breaks the app for *every* user until a new manifest ships and is
+re-approved, while too high costs nobody anything. So pick the number the way you
+would pick a blast radius — *how large a single generation am I willing to let a
+compromised build request?* — rather than by taking a price and adding a margin.
+A budget derived from one workflow's current price re-breaks the moment you add a
+step or call a pricier model or recipe.
 
 **Setting it to an estimate is the common mistake, and it breaks the app.** The
 server compares the real price against your budget *before anything runs*, so a
