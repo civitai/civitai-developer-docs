@@ -131,8 +131,12 @@ to slot apps) and its manifest must:
    The host mints each generation token with `buzzBudgetPerGen` as its budget and
    **gates every submit on `recipe.maxBuzz ≤ token.buzzBudget`**. If your
    per-gen budget is below the recipe's ceiling, **every submit is rejected**
-   before it runs. Set it at or above the recipe's ceiling (with a little
-   headroom).
+   before it runs. The recipe's ceiling is the **floor**, not the target:
+   `buzzBudgetPerGen` is a safety ceiling against a buggy or compromised app
+   draining the viewer's Buzz, not an estimate of your bill. Headroom is free —
+   you settle to the real runtime cost either way — so size it at *several
+   times* the recipe's ceiling, and a costlier recipe later won't break your app.
+   See [Sizing the budget](../reference/manifest) in the manifest reference.
 
 ```json
 {
