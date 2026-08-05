@@ -50,6 +50,48 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
   enforced** by the validator. Safe to include as documentation; don't treat
   them as load-bearing.
 
+### Sizing `page.buzzBudgetPerGen`
+
+`page.buzzBudgetPerGen` is a **safety ceiling, not a cost estimate.** It caps
+what a **single** generation your app requests is allowed to cost, so that a bug
+in your app — or a compromised bundle — cannot drain the viewer's Buzz. It is
+not a forecast of your bill.
+
+**Set it well above your worst-case run.** A good rule of thumb is *several
+times* your worst case — `1000` when a run costs ~100, not `100`. Headroom is
+free: the server re-prices every submit and charges the **real** price, so a
+generous ceiling never costs you or the viewer more.
+
+The multiplier is generous rather than tight because the trade is **asymmetric**:
+too low breaks the app for *every* user until a new manifest ships and is
+re-approved, while too high costs nobody anything. So pick the number the way you
+would pick a blast radius — *how large a single generation am I willing to let a
+compromised build request?* — rather than by taking a price and adding a margin.
+A budget derived from one workflow's current price re-breaks the moment you add a
+step or call a pricier model or recipe.
+
+**Setting it to an estimate is the common mistake, and it breaks the app.** The
+server compares the real price against your budget *before anything runs*, so a
+generation that comes in over budget is **rejected outright** with `insufficient
+buzz budget` — no workflow is created and no Buzz is spent, but the user gets
+nothing back, and it stays broken for **every** user until you ship a new
+manifest version and it is re-approved. Anything that pushes real cost up — more
+steps, a bigger resolution, a pricier model, a costlier recipe — turns a budget
+sized to today's estimate into a hard outage.
+
+Practical notes:
+
+- **Omitting it** on a page that declares `ai:write:budgeted` mints tokens with a
+  **10 Buzz** fallback budget, which is below almost any real generation — so
+  every submit fails. `civitai app validate` warns about this.
+- The server **clamps** the budget to the platform per-gen cap (**1000** today),
+  so you cannot set an unsafe value by being generous.
+- It bounds **one generation only.** Cumulative spend is separately capped **per
+  viewer per day** and **per app**, so a high per-gen ceiling does not widen
+  total exposure.
+- For Comfy recipes it is also a hard **floor**: a submit is rejected when the
+  recipe's own `maxBuzz` ceiling exceeds the token budget.
+
 ## Server-owned fields
 
 Some fields appear in the schema for completeness but are **owned by the
