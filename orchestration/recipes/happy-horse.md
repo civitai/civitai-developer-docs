@@ -300,5 +300,6 @@ Happy-Horse jobs typically complete in 2–6 minutes (longer for `videoEdit` and
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — production result handling
 - [Veo 3 video generation](./veo3) — comparable commercial multi-mode video model
 - [Kling video generation](./kling) — another commercial multi-mode video model
+- [FLUX-3 video generation](./flux3-video) — BFL's multi-operation video model with keyframe control and a draft/enhance loop
 - Full parameter catalog: the `HappyHorseV1<Operation>Input` (v1.0) and `HappyHorseV1_1<Operation>Input` (v1.1) schemas in the [API reference](/orchestration/reference/)
 - [`videoGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/videoGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `videoGen` surface
