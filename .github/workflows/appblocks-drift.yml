@@ -43,3 +43,10 @@ jobs:
         # on the same scheduled sweep.
         if: always()
         run: npm run check:pins
+
+      - name: Design-system pin drift — docs CDN literals vs the declared pin
+        # Distinct from check:pins, which never reads prose. These literals are
+        # copy-paste CDN URLs, so a stale one hands readers a 404 that renders as
+        # an unstyled page with no error.
+        if: always()
+        run: npm run check:ds-pins

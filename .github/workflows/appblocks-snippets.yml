@@ -9,6 +9,8 @@ on:
       - 'apps/**/*.md'
       - 'scripts/typecheck-appblocks-snippets.mjs'
       - 'scripts/appblocks-util.mjs'
+      - 'scripts/check-design-system-pins.mjs'
+      - 'scripts/check-appblocks-pins.mjs'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/appblocks-snippets.yml'
@@ -31,3 +33,17 @@ jobs:
 
       - name: Typecheck App Blocks doc snippets against the pinned SDK
         run: npm run test:snippets:appblocks
+
+      # --offline runs ONLY the single-source half: every design-system version
+      # literal in the docs must equal its declared devDep pin. That is a
+      # repo-local invariant with no upstream input, so it cannot false-fail on
+      # someone else's publish — which is what makes it safe to BLOCK a PR on,
+      # unlike the freshness half (pin vs npm latest), which detects upstream
+      # movement and stays on the scheduled appblocks-drift run.
+      #
+      # Worth blocking on because the failure is silent for readers: these
+      # literals are copy-paste CDN URLs, and a stale one 404s into an unstyled
+      # page with no error.
+      - name: Design-system pin drift — docs literals vs the declared pin
+        if: always()
+        run: npm run check:ds-pins -- --offline

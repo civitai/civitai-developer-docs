@@ -26,14 +26,15 @@
     "check:snapshots": "node scripts/check-appblocks-snapshots.mjs",
     "check:manifest-parity": "node scripts/check-manifest-parity.mjs",
     "check:pins": "node scripts/check-appblocks-pins.mjs",
+    "check:ds-pins": "node scripts/check-design-system-pins.mjs",
     "test:tokens:drift": "node scripts/test-tokens-drift.mjs",
     "test:showcase:e2e": "node scripts/test-showcase-e2e.mjs"
   },
   "devDependencies": {
     "@civitai/app-sdk": "0.28.0",
     "@civitai/blocks-react": "0.37.0",
-    "@civitai/components": "0.2.0",
-    "@civitai/components-react": "0.2.0",
+    "@civitai/components": "0.3.0",
+    "@civitai/components-react": "0.3.0",
     "@civitai/theme": "0.2.0",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.0",

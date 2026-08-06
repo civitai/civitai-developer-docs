@@ -3,9 +3,9 @@ title: Theming & the design system
 description: Civitai's dual-consumption design system — the same themed components as generic attribute-driven HTML for any framework, or as thin React bindings. Covers the 3-layer model (@civitai/theme tokens, @civitai/components CSS, @civitai/components-react), plain-HTML and React setup, light/dark theming, and the @layer override model.
 sources:
   - civitai-app-starters:packages/civitai-components/MARKUP.md
-  - npm:@civitai/theme@0.1.1
-  - npm:@civitai/components@0.1.1
-  - npm:@civitai/components-react@0.1.1
+  - npm:@civitai/theme@0.2.0
+  - npm:@civitai/components@0.3.0
+  - npm:@civitai/components-react@0.3.0
 ---
 
 # Theming & the design system
@@ -31,39 +31,47 @@ The system is three packages, each a layer you can adopt independently:
 | Layer | Package | What it is | You use it when… |
 |-------|---------|-----------|------------------|
 | **1. Tokens** | `@civitai/theme` | `--civitai-*` design tokens generated from Civitai's Mantine v7 theme — as a CSS-variables stylesheet, JS token objects, and a [DTCG](https://tr.designtokens.org/) JSON file. | you want Civitai's colors/spacing/typography as raw values. |
-| **2. Components (CSS)** | `@civitai/components` | Attribute-driven, framework-agnostic CSS for 10 presentational components, styled via `data-civitai-ui="<name>"` + `data-variant`/`data-size`. Wrapped in `@layer civitai.components`. | you want themed components in **any** framework (or none). |
-| **3. React bindings** | `@civitai/components-react` | 10 thin `forwardRef` React components that render the layer-2 markup with typed props. | your block is React and you want typed props + refs. |
+| **2. Components (CSS)** | `@civitai/components` | Attribute-driven, framework-agnostic CSS for the presentational components, styled via `data-civitai-ui="<name>"` + `data-variant`/`data-size`. Wrapped in `@layer civitai.components`. | you want themed components in **any** framework (or none). |
+| **3. React bindings** | `@civitai/components-react` | Thin `forwardRef` React components that render the layer-2 markup with typed props. | your block is React and you want typed props + refs. |
 
 Layers stack downward: `@civitai/components` builds on `@civitai/theme`'s tokens,
 and `@civitai/components-react` renders `@civitai/components`' markup. Adopt just
 layer 1 for tokens, layers 1–2 for framework-agnostic components, or all three
 for the React ergonomics.
 
-::: tip Published at `0.1.1` — pin the version in the CDN URL
-`@civitai/theme`, `@civitai/components`, and `@civitai/components-react` are
-published to npm at `0.1.1`, so the `npm i` and CDN steps below resolve today.
-As of `0.1.1` each package ships a real package-root `styles.css`, so **both
-[jsDelivr](https://cdn.jsdelivr.net) and [unpkg](https://unpkg.com) resolve it** —
-`cdn.jsdelivr.net/npm/@civitai/theme@0.1.1/styles.css` and
-`unpkg.com/@civitai/theme@0.1.1/styles.css` both return the stylesheet (all four
-URLs verified `200`). Just **pin the version** (`@0.1.1`) so a future major can't
-change the CSS out from under you. The
+::: tip Pin the version in the CDN URL — and pin each package separately
+The three packages version **independently**: `@civitai/theme` is at `0.2.0`
+while `@civitai/components` and `@civitai/components-react` are at `0.3.0`. There
+is no single shared version number, so copy each URL as written rather than
+sed-ing one version across all three — a URL naming a version a package never
+published 404s, and a missing stylesheet fails **silently** as an unstyled page.
+
+Each package ships a package-root `styles.css`, so both
+[jsDelivr](https://cdn.jsdelivr.net) and [unpkg](https://unpkg.com) serve it at
+`<host>/@civitai/<pkg>@<version>/styles.css`. The
 [Plain HTML quickstart](#plain-html-quickstart) below is a complete, copy-paste
 page.
 :::
 
 ## Themed components in generic HTML
 
-The headline: **you don't need React to use Civitai's components.** Load two
-stylesheets — the tokens and the component CSS — then write HTML with the
-`data-civitai-ui` attributes. That's the whole integration.
+**You don't need React to use Civitai's components.** Load two stylesheets — the
+tokens and the component CSS — then write HTML with the `data-civitai-ui`
+attributes. That's the whole integration.
+
+Be clear about what layer 2 gives you, though: it is a **stylesheet plus a markup
+contract**, not a component library. There is no behavior and no encapsulation —
+you get the *look*, and the interactive wiring is yours to write. A `button`'s
+loading state (`aria-busy` + `disabled` + the loader span) and a `text-input`'s
+label/description/error ARIA relationships are markup **you** author to the
+contract; only the React bindings in layer 3 automate them.
 
 ```html
 <!-- 1. Load the design tokens + the component CSS (order-independent).
-     Pin the version. Both CDNs work at 0.1.1 — swap unpkg.com for
-     cdn.jsdelivr.net/npm if you prefer jsDelivr. -->
-<link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.1.1/styles.css" />
-<link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.1.1/styles.css" />
+     Pin each package at its own version — they do not share one.
+     Swap unpkg.com for cdn.jsdelivr.net/npm if you prefer jsDelivr. -->
+<link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.2.0/styles.css" />
+<link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.3.0/styles.css" />
 
 <!-- 2. Write markup with the data-attributes — styled identically to React. -->
 <button data-civitai-ui="button" data-variant="filled" data-size="md">Generate</button>
@@ -126,10 +134,23 @@ Paint the page from the surface/text tokens as shown.
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Civitai design system — plain HTML</title>
 
-    <!-- Pinned CDN URLs (version-pinned to 0.1.1). Both jsDelivr and unpkg
-         resolve `@civitai/<pkg>@0.1.1/styles.css` — either host works. -->
-    <link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.1.1/styles.css" />
-    <link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.1.1/styles.css" />
+    <!-- Pinned CDN URLs — each package at ITS OWN version. Both jsDelivr and
+         unpkg serve `@civitai/<pkg>@<version>/styles.css`; either host works.
+         `integrity` pins the bytes: a version-pinned npm URL is immutable, so
+         the hash can never drift. It requires `crossorigin` — without it the
+         browser makes a non-CORS request and SRI blocks the stylesheet. -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/@civitai/theme@0.2.0/styles.css"
+      integrity="sha384-zfUASaBKsRV4E/IRbABFG1g+7KnLsCA7sFJ2AcUAVdrkvCuEuurJMge+7SNmfUbT"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/@civitai/components@0.3.0/styles.css"
+      integrity="sha384-qSDIaPUrd4O2bGSp5VlX5Bn4xUCyEGvjhjqN4LaeOgq1bEyL4rBER/7YrnEj0VPn"
+      crossorigin="anonymous"
+    />
 
     <style>
       /* The tokens don't paint the page — do it from the surface/text tokens. */
@@ -182,16 +203,23 @@ Paint the page from the surface/text tokens as shown.
 </html>
 ```
 
-::: warning Light-mode cards need a border
+::: warning Light-mode cards need a border {#light-mode-cards-need-a-border}
 In the light theme `--civitai-color-body`, `--civitai-color-surface`, **and**
 `--civitai-color-surface-2` are all the **same** color (`#fefefe`), so a
 borderless `card` sits invisibly on a token-painted page background — nothing
 separates the surface from the body. Add `data-with-border="true"` (as above) — or
 your own border or box-shadow — to give a light-mode card a visible edge. In dark
 mode the surfaces differ (body/surface `#1A1B1E` vs surface-2 `#25262B`), so a
-card reads even without a border. (These token values are governed by the design
-system's drift-guard — reach for a border or shadow, don't try to re-tint the
-surface.)
+card reads even without a border.
+
+**Why they collapse:** these tokens are *generated* from Civitai's Mantine v7
+theme, not hand-picked. `--civitai-color-surface` derives from
+`--mantine-color-body` and `--civitai-color-surface-2` from
+`--mantine-color-default`, and Mantine's **light** palette resolves both to the
+same white; its dark palette does not. So the collapse is inherited from the
+upstream theme the design system mirrors — re-tinting `surface-2` here would put
+the tokens out of sync with the Civitai UI your block renders inside, which is
+what the generator's drift-guard exists to prevent. Reach for a border or shadow.
 :::
 
 ## Themed components in React
@@ -241,7 +269,7 @@ In an embedded block, the host hands you the viewer's active theme over the
 matches the surrounding Civitai UI (see
 [Concepts → the bridge](./concepts#the-host-block-bridge)).
 
-## Overriding styles — the `@layer` model
+## Overriding styles — the `@layer` model {#overriding-styles}
 
 Every rule `@civitai/components` ships lives in `@layer civitai.components`. Because
 **unlayered CSS always beats layered CSS** regardless of specificity, your own
@@ -262,7 +290,7 @@ drop the component CSS into an app that already has unlayered global rules
 (`button {}`, `input {}`, a reset, utility classes), those rules win over the
 layered component styles and your components render **unthemed with no error**. If
 you're adding the design system to an existing app, read
-[Theming an existing app](#theming-an-existing-app-retrofit-incremental-adoption)
+[Theming an existing app](#retrofit)
 below **before** you wire up the components.
 :::
 
@@ -281,7 +309,7 @@ Prefer a **token override** (a `--civitai-*` custom property) when you want to
 recolor/respace consistently, and an **unlayered rule** when you need a
 structural change to one component. Both compose cleanly with the layer.
 
-## Theming an existing app (retrofit / incremental adoption)
+## Theming an existing app (retrofit / incremental adoption) {#retrofit}
 
 Adding the design system to a **greenfield** block is easy — there's no CSS to
 fight. Adding it to an **existing app** that already ships its own global CSS is
@@ -313,7 +341,7 @@ stay in your old styles** because your unlayered `button {}` / `input {}` rules
 outrank the layer. If your buttons and text fields look untouched but your badges
 and cards are themed, this is why.
 
-### The fix — put your legacy CSS in a lower layer (mind the parse order)
+### The fix — put your legacy CSS in a lower layer (mind the parse order) {#the-layer-fix}
 
 The fix is to move your existing CSS into a named cascade layer that sorts
 **below** `civitai`, so civitai's layered rules win. Two parts, and the **order
@@ -337,8 +365,8 @@ civitai `<link>` tags.**
   <style>@layer app, civitai;</style>
 
   <!-- 2. Now load the civitai CSS. Its @layer civitai.components slots ABOVE app. -->
-  <link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.1.1/styles.css" />
-  <link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.1.1/styles.css" />
+  <link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.2.0/styles.css" />
+  <link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.3.0/styles.css" />
 
   <!-- 3. Wrap your existing/global CSS in the lower `app` layer. -->
   <style>
@@ -355,19 +383,11 @@ civitai `<link>` tags.**
 </body>
 ```
 
-::: tip Verified
-This exact recipe was reproduced in a headless browser: with an unlayered
-`button { background: orange }` rule the civitai button computes to
-`rgb(255, 165, 0)` (orange — your CSS wins); after wrapping that rule in
-`@layer app { … }` behind a leading `@layer app, civitai;`, the same button
-computes to `rgb(34, 139, 230)` (`#228BE6`, civitai's `--civitai-color-primary`) —
-the component wins. Move the `@layer app, civitai;` line *after* the `<link>`s and
-it flips back to orange.
-:::
-
 Use whatever name you like for your layer (`legacy`, `base`, your app's name) — the
 only rules are that it appears **before** `civitai` in a leading `@layer …;` list
-and that your CSS is wrapped in it.
+and that your CSS is wrapped in it. The ordering is the fragile half: move the
+`@layer app, civitai;` line *after* the `<link>`s and the components go back to
+rendering in your old styles, with no error.
 
 ### Coexisting with an existing CSS reset / framework (Tailwind, etc.)
 
@@ -396,16 +416,11 @@ where "unlayered CSS always wins" flips from a **feature** (effortless overrides
 above) into a **footgun** — the framework's reset is unlayered too, and it's
 fighting the component instead of you.
 
-The remedy is the same [layer recipe](#the-fix-—-put-your-legacy-css-in-a-lower-layer-mind-the-parse-order)
-as above, applied to the framework: declare `@layer app, civitai.components;`
-(so `app` sorts **below** civitai's components) and wrap your app's **entire
-stylesheet — the framework reset included — in `@layer app { … }`.** Once the
-Preflight reset lives in the lower `app` layer, civitai's component rules win and
-the button paints.
+The remedy is **exactly the [layer recipe](#the-layer-fix) above**, applied to the
+framework instead of your own rules: declare the layer order first, then wrap your
+app's *entire* stylesheet — the framework reset included — in `@layer app { … }`.
 
-For **Tailwind specifically**, wrap the compiled build in a layer rather than
-hand-editing Preflight. In **Tailwind v4** each `@import` accepts a `layer(…)`,
-so import Tailwind into the `app` layer:
+**Tailwind v4** makes that a one-liner, because each `@import` accepts a `layer(…)`:
 
 ```css
 /* app.css — Tailwind v4. Preflight + utilities all land in @layer app. */
@@ -414,52 +429,15 @@ so import Tailwind into the `app` layer:
 @import "tailwindcss" layer(app); /* Preflight, utilities, everything → @layer app */
 ```
 
-If you can't add `layer(app)` to the import (older Tailwind, a pre-compiled
-`tailwind.css` you don't control, or any vendored framework build), wrap the
-compiled output itself — same effect:
+If you can't add `layer(app)` to the import (older Tailwind, or a pre-compiled
+`tailwind.css` you don't control), wrap the compiled output in `@layer app { … }`
+by hand instead — same effect, same ordering rule.
 
-```html
-<head>
-  <!-- 1. Layer order FIRST — app below civitai.components.
-          MUST precede the civitai <link>s (first-encounter ordering). -->
-  <style>@layer app, civitai.components;</style>
-
-  <!-- 2. Then the civitai CSS — its @layer civitai.components slots ABOVE app. -->
-  <link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.1.1/styles.css" />
-  <link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.1.1/styles.css" />
-
-  <!-- 3. Your compiled Tailwind (Preflight + utilities), wrapped in @layer app. -->
-  <style>
-    @layer app {
-      /* …paste or @import your compiled tailwind.css here… */
-      button { background-color: transparent; background-image: none; padding: 0; border: 0; }
-    }
-  </style>
-</head>
-<body>
-  <!-- Now the component paints (civitai blue) instead of rendering as bare text. -->
-  <button data-civitai-ui="button" data-variant="filled">Generate</button>
-</body>
-```
-
-::: tip Verified — bare text → civitai blue
-Reproduced headless with the real `@civitai/theme` + `@civitai/components@0.1.1`
-CSS. With the Preflight-style `button { background: transparent; border: 0;
-padding: 0 }` reset **unlayered**, the civitai button's computed
-`background-color` is **`rgba(0, 0, 0, 0)`** (transparent — the reset wins, the
-button is invisible). After declaring `@layer app, civitai.components;` and moving
-that reset into `@layer app { … }`, the *same* button computes to
-**`rgb(34, 139, 230)`** (`#228BE6`, `--civitai-color-primary` — the component
-wins). Nothing else changed.
-:::
-
-::: warning `layer(app)` must not re-order the layer
-Whether you use `@import "tailwindcss" layer(app)` or wrap the compiled output,
-the leading `@layer app, civitai.components;` statement still has to be **the
-first place either layer name is seen** (before the civitai `<link>`s / before
-Tailwind's `@import`). If Tailwind's Preflight registers a bare `app` layer first,
-the order flips and you're back to bare text — same first-encounter trap as the
-[generic recipe](#the-fix-—-put-your-legacy-css-in-a-lower-layer-mind-the-parse-order).
+::: warning The first-encounter trap applies here too
+The leading `@layer app, civitai.components;` statement must be **the first place
+either layer name is seen** — before the civitai `<link>`s *and* before Tailwind's
+`@import`. If Preflight registers a bare `app` layer first, the order flips and
+you are back to bare text.
 :::
 
 ### The gentle option — consume tokens, keep your own markup
@@ -474,7 +452,7 @@ component CSS.
 
 ```html
 <!-- Just the tokens — no component CSS, no @layer collision. -->
-<link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.1.1/styles.css" />
+<link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.2.0/styles.css" />
 ```
 
 Then restyle your own component by swapping hard-coded values for tokens:
@@ -502,12 +480,12 @@ Your `.my-btn` is unlayered, so it simply reads the token values — no cascade
 conflict, and it re-resolves in dark mode from the same `data-theme` scope. Adopt
 the `data-civitai-ui` components (and the `@layer` recipe above) later, per
 component, when you want the full styling for free. See
-[Overriding styles](#overriding-styles-—-the-layer-model) for the token-override
+[Overriding styles](#overriding-styles) for the token-override
 mechanics.
 
 ::: tip Light-mode elevation still applies
 Whichever path you take, remember the
-[light-mode surfaces are all `#fefefe`](#plain-html-quickstart) — a borderless
+[light-mode surfaces are all `#fefefe`](#light-mode-cards-need-a-border) — a borderless
 card or panel blends into a token-painted body in light mode. Give it
 `data-with-border="true"`, your own border, or a shadow; dark mode differentiates
 the surfaces for you.
@@ -521,7 +499,7 @@ is also the [FOUC](#themed-components-in-generic-html) fix — served from your 
 origin, the stylesheets are on the critical path). Copy **exactly two files**, one
 from each package:
 
-| Copy this file (in the published `0.1.1` package) | From package | It is |
+| Copy this file (from the published package) | From package | It is |
 |---|---|---|
 | **`styles.css`** (the **package root**) | `@civitai/theme` | the `--civitai-*` design tokens |
 | **`styles.css`** (the **package root**) | `@civitai/components` | the `@layer civitai.components` component CSS |
@@ -530,12 +508,18 @@ from each package:
 Each package's tarball contains **more than one** CSS file, and the names overlap
 confusingly — `@civitai/theme` ships `styles.css` (root) **and**
 `dist/tokens.css`; `@civitai/components` ships `styles.css` (root) **and**
-`dist/components.css`. **Vendor the package-root `styles.css` from each** — that is
-exactly what the CDN URL `@civitai/<pkg>@0.1.1/styles.css` and the package's
-`exports["./styles.css"]` map both resolve to (the root file and its `dist/`
-target are byte-identical at `0.1.1`, so either works, but the root `styles.css`
-is the unambiguous one to copy). Do **not** grab `dist/components.css` from
-`@civitai/theme` or vice-versa — the filenames make it easy to cross the wires.
+`dist/components.css`.
+
+The two ways in resolve to **different files that happen to be byte-identical**:
+a CDN URL like `@civitai/<pkg>@<version>/styles.css` serves the **package-root**
+file (CDNs serve raw tarball paths and ignore `exports`), while the package's
+`exports["./styles.css"]` map points at the **`dist/`** build —
+`./dist/tokens.css` for `@civitai/theme`, `./dist/components.css` for
+`@civitai/components`. Either is correct; they carry the same bytes.
+
+**Vendor the package-root `styles.css` from each** — it is the unambiguous one to
+copy. Do **not** grab `dist/components.css` from `@civitai/theme` or vice-versa —
+the filenames make it easy to cross the wires.
 :::
 
 ```html
@@ -546,17 +530,17 @@ is the unambiguous one to copy). Do **not** grab `dist/components.css` from
 <link rel="stylesheet" href="/assets/civitai/components.styles.css" />  <!-- @civitai/components → styles.css -->
 ```
 
-Pin the packages at the version you vendored (`@civitai/theme@0.1.1`,
-`@civitai/components@0.1.1`) so a re-vendor is deliberate, and re-copy the two
+Pin the packages at the version you vendored (`@civitai/theme@0.2.0`,
+`@civitai/components@0.3.0`) so a re-vendor is deliberate, and re-copy the two
 `styles.css` files whenever you bump. If you use a bundler instead of static
 files, `import '@civitai/theme/styles.css'` and `import '@civitai/components/styles.css'`
 resolve through the same `exports` map — no manual copy needed.
 
 ## Where to go next
 
-- [Components reference](../reference/components) — the 10 components, their
-  `data-civitai-ui` names, enumerable attributes, and ARIA/role markup
-  (generated from `MARKUP.md`).
+- [Components reference](../reference/components) — every component, its
+  `data-civitai-ui` name, enumerable attributes, and ARIA/role markup
+  (generated from `MARKUP.md`, which owns the list).
 - [Quickstart](./quickstart) — scaffold and run a block.
 - [Concepts](./concepts) — the block / host / slot / bridge model, including how
   the host passes the active theme to your block.
