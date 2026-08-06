@@ -46,9 +46,32 @@ is no single shared version number, so copy each URL as written rather than
 sed-ing one version across all three — a URL naming a version a package never
 published 404s, and a missing stylesheet fails **silently** as an unstyled page.
 
-Each package ships a package-root `styles.css`, so both
-[jsDelivr](https://cdn.jsdelivr.net) and [unpkg](https://unpkg.com) serve it at
-`<host>/@civitai/<pkg>@<version>/styles.css`. The
+Copying an **older** pin from somewhere else fails just as quietly, in a way a
+quick check won't catch: a published version stays served indefinitely, so a
+stale URL returns a healthy `200` — it just hands you the stylesheet from back
+then. The symptom differs per package, and neither shape looks like a broken
+link:
+
+- **Stale `@civitai/components`** — components that did not exist yet have no
+  rules. Some are fully bare (`tooltip`, `toast`, `image`, `slider`); the field
+  family (`select`, `checkbox`, `radio`, `segmented-control`) comes out
+  *partially* styled, because the shared label/control/description/error rules
+  are older than the components that use them. Subtly wrong layout, not an
+  obviously missing style.
+- **Stale `@civitai/theme`** — the components are styled, but tokens added since
+  resolve to nothing, so backgrounds and accents silently drop out.
+
+If your markup follows the current
+[Components reference](../reference/components) and some of it looks off, check
+your pinned versions before you debug anything else.
+
+The two **CSS** packages — `@civitai/theme` and `@civitai/components` — each ship
+a package-root `styles.css`, so both [jsDelivr](https://cdn.jsdelivr.net) and
+[unpkg](https://unpkg.com) serve it at
+`<host>/@civitai/<pkg>@<version>/styles.css`. `@civitai/components-react` ships
+**no stylesheet at all** — there is no `styles.css` at any version, and that URL
+404s. It is the React bindings only, and it injects the CSS for you on first
+render, so you never link it. The
 [Plain HTML quickstart](#plain-html-quickstart) below is a complete, copy-paste
 page.
 :::

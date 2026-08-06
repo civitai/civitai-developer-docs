@@ -19,8 +19,9 @@ This guide is the narrative companion to the generated
 [generation bridge reference](../reference/generation): it walks the body shape,
 LoRA stacking, img2img, the estimate → submit → watch → cancel lifecycle, and
 **what you get back** — and states the **page-vs-model** rules that are enforced
-server-side but easy to trip over. For the ComfyUI-recipe path (a server-owned
-graph you invoke by name) see [Comfy on Civitai](./comfy-cloud) instead.
+server-side but easy to trip over. For the ComfyUI path — a server-owned graph
+you invoke by name, **or your own graph shipped inline** — see
+[Comfy on Civitai](./comfy-cloud) instead.
 
 ::: warning Closed beta — mod-gated
 Like the rest of the [Apps platform](./), generation is **mod-gated** during the

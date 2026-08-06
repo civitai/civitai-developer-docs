@@ -33,6 +33,16 @@ boundary, re-checking scope + budget every time. Your block never holds an
 orchestrator credential.
 :::
 
+::: warning The generated `customComfy` entry below is recipe-arm only
+The field tables in this section are generated from the **published** SDK's type
+JSDoc, and the published SDK has not caught up to `customComfy`'s **inline** arm.
+Its `WorkflowBodyCustomComfy` entry therefore describes the recipe shape alone,
+and still states that a block never sends a ComfyUI graph. That is true of the
+recipe arm; it is **not** true of the bridge as a whole — see
+[the inline arm](../guide/comfy-cloud#the-inline-arm-ship-your-own-graph), which
+carries the graph in the body and is gated on an app-developer account.
+:::
+
 <BridgeReference />
 
 ## What the bridge can and cannot do
@@ -65,7 +75,7 @@ The three members are the whole surface:
 | `kind` | what it addresses | how you name the model |
 |---|---|---|
 | `textToImage` | a Civitai **checkpoint** | numeric `modelId` + `modelVersionId` |
-| `customComfy` | a **server-registered** ComfyUI recipe | a registered `recipe` id |
+| `customComfy` | a **server-registered** ComfyUI recipe, **or your own graph** | a registered `recipe` id — or, with `mode: 'inline'`, the graph itself plus a declared `resources` manifest |
 | `step` | a **server-registered** orchestrator step (`convert-image`, `chat-completion`) | a registered `step` id |
 
 The `step` member (added in `@civitai/app-sdk@0.30.0`) carries a registered
@@ -134,24 +144,33 @@ Most of the time it **is** reachable, and the fix is naming the right
    chosen by the *presence of a source image*, not by the version id — this is
    the single most common mistake on the bridge.
 3. **Is it genuinely outside the union?** — before you conclude that, check all
-   three arms. Two of them reach image work that this page used to rule out:
+   three arms. Each of them reaches work this page used to rule out:
    - `textToImage` covers **multi-image** editing too, via `sourceImages`, on
      any checkpoint whose ecosystem allows more than one image — see
      [what the source-image fields can and cannot do](#what-sourceimage-can-and-cannot-do).
    - `step` is **not** limited to non-image work: today's registry holds
      `convert-image` (fixed-price image format conversion + resize) alongside
      `chat-completion`, and the registry grows additively on the host.
-   - `customComfy` reaches the registered ComfyUI recipes.
+   - `customComfy` reaches the registered ComfyUI recipes — and, on its
+     [inline arm](../guide/comfy-cloud#the-inline-arm-ship-your-own-graph)
+     (`mode: 'inline'`), a ComfyUI graph your block ships itself.
 
    What is left over today is **background removal** — no union member reaches
-   it — which makes it a **registered recipe** question. Say so explicitly when
-   you ask: both recipes today are prompt-only txt2img, so anything taking an
-   **image input** is new ground, not a variation on an existing recipe.
-4. **Recipes are not self-serve.** The registry is server-side and
-   code-reviewed; there is no runtime, manifest, or dashboard way to add one.
-   Adding a recipe is a **platform request** — ask through the same channel as
-   beta access, described in
+   it, inline graphs included: it is a first-class orchestrator step rather than
+   a Comfy graph, so it has to be registered on the platform side before any arm
+   can name it. That makes it a **platform request**. Say so explicitly when you
+   ask, and note that both `customComfy` recipes today are prompt-only txt2img,
+   so anything taking an **image input** is new ground rather than a variation
+   on an existing one.
+4. **Recipes are not self-serve, but an inline graph is.** The recipe registry is
+   server-side and code-reviewed; there is no runtime, manifest, or dashboard way
+   to add one, so adding a recipe is a **platform request** — see
    [requesting a new recipe](../guide/comfy-cloud#requesting-a-new-recipe).
+   You do **not** have to wait for one to run a graph, though: the
+   [inline arm](../guide/comfy-cloud#the-inline-arm-ship-your-own-graph)
+   (`mode: 'inline'`) lets an app-developer account ship the ComfyUI graph in the
+   body today. Ask for a recipe when you need the graph available to **every**
+   viewer of your block.
 
 #### The ids you probably want
 
@@ -347,8 +366,14 @@ These are bounded by the union's shape, not by configuration:
 |---|---|
 | Source images on a model-bound (`model.*`) block | build a **page app** |
 | More images than the checkpoint's ecosystem allows | pick a checkpoint whose ecosystem has a higher cap |
-| Shipping your own ComfyUI graph | never available — graphs stay server-side, by design |
 | Choosing edit vs img2img yourself | it follows from the checkpoint's ecosystem; pick the checkpoint accordingly |
+
+Shipping your own ComfyUI graph **used to be on that list too, and no longer
+is**: `customComfy`'s
+[inline arm](../guide/comfy-cloud#the-inline-arm-ship-your-own-graph)
+(`mode: 'inline'`) carries the graph in the body. It is gated rather than
+unrestricted — **app-developer accounts only, page tokens only** — so a
+registered recipe is still how a graph reaches **every** viewer of your block.
 
 Note what is **not** on these lists: single-image editing, multi-image editing
 on a capable ecosystem, and Z-Image all work through `textToImage` today — see
@@ -356,9 +381,11 @@ on a capable ecosystem, and Z-Image all work through `textToImage` today — see
 
 ### The registered recipes
 
-`customComfy` accepts only a **registered** recipe id — an unregistered id is
-rejected at the union, before the recipe is resolved. Today there are exactly
-**two**:
+On its **recipe** arm `customComfy` accepts only a **registered** id — an
+unregistered one is rejected at the union, before the recipe is resolved. Today
+there are exactly **two**. (The
+[inline arm](../guide/comfy-cloud#the-inline-arm-ship-your-own-graph) is how you
+run a graph that is not in this table.)
 
 | `recipe` | what it does | `params` (`.strict()`) | per-generation Buzz ceiling |
 |---|---|---|---|
