@@ -31,8 +31,8 @@
     "test:showcase:e2e": "node scripts/test-showcase-e2e.mjs"
   },
   "devDependencies": {
-    "@civitai/app-sdk": "0.28.0",
-    "@civitai/blocks-react": "0.37.0",
+    "@civitai/app-sdk": "0.31.0",
+    "@civitai/blocks-react": "0.39.0",
     "@civitai/components": "0.3.0",
     "@civitai/components-react": "0.3.0",
     "@civitai/theme": "0.2.0",

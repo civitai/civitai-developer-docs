@@ -5,11 +5,13 @@
 // postMessage protocol — but neither renders the FIELD-LEVEL contract of the
 // generation bridge. The rich contract a builder actually needs to submit a
 // non-trivial generation — the `WorkflowBody` discriminated union
-// (`textToImage`/`customComfy`), `sourceImage`/img2img and its PAGE-ONLY
-// constraint, `additionalResources` (LoRA) bounds, the `BlockWorkflowSnapshot`
-// result shape (`imageUrls` flattened from `output.images`), the per-app
-// `AppWorkflow` subqueue projection, and the `useBuzzWorkflow().cancel` member
-// the hooks reference drops — lives ONLY in the `@civitai/app-sdk/blocks` +
+// (`textToImage`/`customComfy`/`step`), `sourceImage`/`sourceImages` img2img and
+// their PAGE-ONLY constraint, `additionalResources` (LoRA) bounds, the
+// `BlockWorkflowSnapshot` result shape (`imageUrls` flattened from
+// `output.images`), the per-app `AppWorkflow` subqueue projection, the
+// `useBuzzWorkflow().cancel` member the hooks reference drops, and the
+// `submit`/`watch` option bags (incl. the `idempotencyKey` that keeps a retried
+// submit from being billed twice) — lives ONLY in the `@civitai/app-sdk/blocks` +
 // `@civitai/blocks-react` type JSDoc. This generator parses that JSDoc and emits
 // a structured reference the <BridgeReference /> component renders.
 //
@@ -38,10 +40,22 @@ const SDK_TYPES = [
   'BlockTextToImageParams',
   'BlockSourceImage',
   'WorkflowBodyCustomComfy',
+  'WorkflowBodyStep',
   'BlockWorkflowSnapshot',
   'AppWorkflow',
   'AppWorkflowImage',
 ];
+
+// ── the blocks-react option bags the lifecycle signature NAMES ────────────────
+// Each entry names a declaration in
+// @civitai/blocks-react/dist/hooks/useBuzzWorkflow.d.ts. These are the `options?`
+// arguments of `submit`/`watch`: the lifecycle table renders their TYPE NAME, so
+// without a table of their own the page names a type it never defines — the same
+// "announced with no field table" gap that left WorkflowBodyStep undocumented.
+// `SubmitWorkflowOptions.idempotencyKey` is the money-relevant one: reusing a
+// stable key on a retried submit is what collapses a lost-response retry to ONE
+// Buzz charge.
+const REACT_TYPES = ['SubmitWorkflowOptions', 'WatchWorkflowOptions'];
 
 /** Last JSDoc block's description text for any declaration node, or ''. */
 function jsdocOf(node) {
@@ -75,7 +89,7 @@ function describeType(sf, name) {
     };
   }
   const alias = sf.getTypeAlias(name);
-  if (!alias) throw new Error(`gen-appblocks-bridge: type ${name} not found in the pinned SDK types.d.ts`);
+  if (!alias) throw new Error(`gen-appblocks-bridge: type ${name} not found in ${sf.getFilePath()}`);
   const node = alias.getTypeNodeOrThrow();
   const kindName = node.getKindName();
   if (kindName === 'UnionType') {
@@ -151,6 +165,9 @@ export function buildBridge() {
     members: collectProps(retIface.getProperties()),
   };
 
+  // The `options?` bags those lifecycle members name in their signatures.
+  types.push(...REACT_TYPES.map((name) => describeType(hookSf, name)));
+
   return {
     generatedAt: new Date().toISOString(),
     sdkPackage: `@civitai/app-sdk@${sdkVersion}`,
@@ -186,6 +203,18 @@ export function bridgeCoverageViolations(artifact) {
   const union = byName.WorkflowBody;
   if (!union || union.kind !== 'union' || !(union.members ?? []).some((m) => /textToImage/i.test(m) || /WorkflowBodyTextToImage/.test(m))) {
     problems.push('WorkflowBody discriminated union (textToImage member) not surfaced');
+  } else {
+    // EVERY union member must get a field table of its own. Without this the page
+    // can truthfully say "the N members are the whole surface" while publishing
+    // tables for N-1 of them — exactly how WorkflowBodyStep shipped announced but
+    // undocumented when the SDK grew a third member.
+    for (const mem of union.members ?? []) {
+      const memberName = mem.trim();
+      if (!/^WorkflowBody[A-Za-z0-9]+$/.test(memberName)) continue; // inline literal member — nothing to link to
+      if (!byName[memberName]) {
+        problems.push(`WorkflowBody union member "${memberName}" has no field table (add it to SDK_TYPES)`);
+      }
+    }
   }
 
   const t2i = byName.WorkflowBodyTextToImage;
@@ -200,9 +229,27 @@ export function bridgeCoverageViolations(artifact) {
       // The PAGE-ONLY constraint is the load-bearing, undocumented-elsewhere fact.
       problems.push('WorkflowBodyTextToImage.sourceImage lost its PAGE-ONLY constraint JSDoc');
     }
+    // The CURRENT multi-image field. It must stay surfaced: the hand-written prose
+    // on the same page states what img2img can and cannot express, and a reference
+    // that silently drops `sourceImages` is how that prose went stale in the first
+    // place (it claimed multi-image editing was "not expressible" for a whole
+    // release after the SDK shipped it).
+    if (!fieldOf(t2i, 'sourceImages')) {
+      problems.push('WorkflowBodyTextToImage.sourceImages (multi-image conditioning) field not surfaced');
+    }
     if (!fieldOf(t2i, 'additionalResources')) {
       problems.push('WorkflowBodyTextToImage.additionalResources (LoRA) field not surfaced');
     }
+  }
+
+  // submit()'s options bag. `idempotencyKey` is the only documented defence
+  // against a retried submit being billed TWICE, so losing it is a money bug, not
+  // a cosmetic one.
+  const submitOpts = byName.SubmitWorkflowOptions;
+  if (!submitOpts) {
+    problems.push('SubmitWorkflowOptions (submit() options bag) not surfaced');
+  } else if (!fieldOf(submitOpts, 'idempotencyKey')) {
+    problems.push('SubmitWorkflowOptions.idempotencyKey (double-charge defence) field not surfaced');
   }
 
   const snap = byName.BlockWorkflowSnapshot;

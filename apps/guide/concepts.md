@@ -61,7 +61,10 @@ it's why the relationship between your block and the host is deliberately narrow
 - Your block **holds no long-lived secret** and calls **no** privileged Civitai
   API directly.
 
-## The host ↔ block bridge
+<!-- The auto-slug for this heading is `the-host-↔-block-bridge` (the `↔`
+     survives slugification), which nothing links to and nobody types. Three
+     pages already link to `#the-host-block-bridge`; pin that as the real id. -->
+## The host ↔ block bridge {#the-host-block-bridge}
 
 The host and your block communicate over `window.postMessage`, discriminated by a
 message `type`. When your iframe loads and a token is minted, the host posts a

@@ -2,8 +2,8 @@
 title: Comfy on Civitai (customComfy)
 description: Drive ComfyUI from an App Block — either by naming a server-registered recipe, or by shipping your own graph inline. The two arms, the gates on each, the budget rules, and how to try it in the local harness.
 sources:
-  - npm:@civitai/app-sdk@0.28.0/blocks#WorkflowBodyCustomComfy
-  - npm:@civitai/blocks-react@0.37.0#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.31.0/blocks#WorkflowBodyCustomComfy
+  - npm:@civitai/blocks-react@0.39.0#useBuzzWorkflow
   - go:github.com/civitai/cli#app-create (page-money scaffold: src/comfy.ts)
   - civitai:public/schemas/app-block/v1.json#page.buzzBudgetPerGen
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
@@ -170,11 +170,17 @@ const body: InlineComfyBody = {
 };
 ```
 
-::: tip The SDK types this for you
-`@civitai/app-sdk` exports `WorkflowBodyCustomComfyInline` and `InlineComfyNode`,
-and `WorkflowBodyCustomComfy` is a union of the two arms. Narrow on
-`body.mode === 'inline'` — on the **value**, never on whether the `mode` key is
-present, because a recipe body may legitimately carry `mode: 'recipe'` or even
+::: warning The published SDK does not type the inline arm yet
+That is why the shape above is written out by hand rather than imported. In the
+pinned `@civitai/app-sdk@0.31.0` — also the newest published version —
+`WorkflowBodyCustomComfy` is the **recipe** shape only
+(`{ kind, recipe, params }`): there is no `mode` field on it, and no
+`WorkflowBodyCustomComfyInline` or `InlineComfyNode` export to import. The
+server accepts an inline body; the published types have not caught up.
+
+So declare the shape locally, as above. When you narrow, narrow on the **value**
+of `body.mode === 'inline'` — never on whether the `mode` key is present,
+because a recipe body may legitimately carry `mode: 'recipe'` or even
 `mode: undefined`.
 :::
 
@@ -278,7 +284,7 @@ import { useBuzzWorkflow } from '@civitai/blocks-react';
 import type { WorkflowBodyCustomComfy } from '@civitai/app-sdk/blocks';
 
 export function RunButton({ prompt }: { prompt: string }) {
-  const { estimate, submit, poll, status, result } = useBuzzWorkflow();
+  const { estimate, submit, watch, status, result } = useBuzzWorkflow();
 
   const run = async () => {
     const body: WorkflowBodyCustomComfy = {
@@ -288,7 +294,7 @@ export function RunButton({ prompt }: { prompt: string }) {
     };
     await estimate(body);        // display estimate → result.cost.total
     const snap = await submit(body);
-    await poll(snap.workflowId); // drive to a terminal snapshot
+    await watch(snap.workflowId); // owns the loop; resolves on the terminal snapshot
   };
 
   return <button onClick={run} disabled={status !== 'confirming'}>Generate</button>;
