@@ -17,7 +17,7 @@ side of the iframe boundary.
 
 This guide is the narrative companion to the generated
 [generation bridge reference](../reference/generation): it walks the body shape,
-LoRA stacking, img2img, the estimate → submit → poll → cancel lifecycle, and
+LoRA stacking, img2img, the estimate → submit → watch → cancel lifecycle, and
 **what you get back** — and states the **page-vs-model** rules that are enforced
 server-side but easy to trip over. For the ComfyUI-recipe path (a server-owned
 graph you invoke by name) see [Comfy on Civitai](./comfy-cloud) instead.
@@ -137,27 +137,36 @@ that sends `additionalResources` gets a `FORBIDDEN` it can't diagnose from the
 response. See [page-vs-model constraints](#page-vs-model-constraints).
 :::
 
-## Image-to-image (`sourceImage`) — page apps only
+## Image-to-image (`sourceImage` / `sourceImages`) — page apps only
 
-Add a `sourceImage` to turn the request into **img2img**: the block bridge emits
-an `img2img` graph instead of `txt2img`, seeded from your image. This is the
-one part of the contract with the sharpest constraints, and they are **all
-server-enforced**:
+Add a source image to turn the request into **img2img**: the block bridge emits
+an `img2img` graph instead of `txt2img`, seeded from your image. There are two
+fields for this and the SDK ships both — `sourceImage` (a single
+`{ url, width, height }`) and `sourceImages` (an array of them, for multi-image
+conditioning). Which one to send is a real decision, not a style preference:
+see [choosing between them](#one-image-or-several) below.
 
-- 🔴 **Page apps only.** `sourceImage` is **rejected fail-closed on a model-bound
-  token** — a model-slot block cannot do img2img. This is documented nowhere
-  else; if you copy a page-app img2img example into a `model.*` slot block you
-  will get a `FORBIDDEN` with no hint why. img2img lives on **page apps**.
+This is the one part of the contract with the sharpest constraints, and they are
+**all server-enforced**, for both fields:
+
+- 🔴 **Page apps only.** A source image is **rejected fail-closed on a
+  model-bound token** — a model-slot block cannot do img2img. This is documented
+  nowhere else; if you copy a page-app img2img example into a `model.*` slot
+  block you will get a `FORBIDDEN` with no hint why. img2img lives on **page
+  apps**.
 - **The checkpoint's ecosystem picks the graph.** SD-family checkpoints get
   plain `img2img` ("Image Variations"); edit-capable ecosystems get
   `img2img:edit`. A checkpoint whose ecosystem supports neither is rejected
-  fail-closed. The full ecosystem list — and the limits `sourceImage` cannot be
-  argued out of (one image only, Civitai-hosted URLs only) — is in
-  [what the bridge can and cannot do](../reference/generation#what-sourceimage-can-and-cannot-do).
+  fail-closed. The full ecosystem list — and the limits these fields cannot be
+  argued out of (Civitai-hosted URLs only, 64–2048 per side, a **per-ecosystem**
+  cap on how many images, never both fields at once) — is in
+  [what the source-image fields can and cannot do](../reference/generation#what-sourceimage-can-and-cannot-do).
 - **Civitai-hosted URL only.** `url` must resolve to a Civitai-controlled host —
   an arbitrary remote URL is rejected (SSRF guard). The way to get a qualifying
   URL is the host's image-upload bridge with `purpose: 'generationSource'`,
-  which returns an unscanned private `{ url, width, height }`.
+  which returns an unscanned private `{ url, width, height }`. In the array form
+  **every element** is validated this way — one bad element rejects the whole
+  body.
 
 ```tsx
 import { useBuzzWorkflow, useImageUpload } from '@civitai/blocks-react';
@@ -176,6 +185,9 @@ export function Img2Img({ modelId, modelVersionId }: { modelId: number; modelVer
       kind: 'textToImage',
       modelId,
       modelVersionId,
+      // Singular, on purpose: `sourceImage` is `@deprecated` but works on EVERY
+      // host, and for one image it is byte-identical to a 1-element
+      // `sourceImages`. See "One image, or several?" below.
       sourceImage: { url: source.url, width: source.width, height: source.height },
       params: { prompt: 'the same lake, now at dawn' },
     };
@@ -191,6 +203,62 @@ orchestrator scans it at generation time, so the moderation stamp is the
 gen-time scan, not a pre-crossing one. That is the correct posture for an edit
 source (it is not a public display image).
 
+### One image, or several? {#one-image-or-several}
+
+The SDK marks `sourceImage` **`@deprecated`** in favour of `sourceImages`. Read
+that as a signpost, **not** a removal notice, and do not blanket-migrate:
+
+| you want | send | why |
+|---|---|---|
+| exactly one image | **`sourceImage`** | understood by every host. The server normalizes it into a 1-element array, so a 1-element `sourceImages` would produce a **byte-identical** generation — there is nothing to gain by switching, and something to lose (below). The SDK states the alias keeps working **indefinitely**. |
+| two or more images | **`sourceImages`** | the only field that can express it — but see the host caveat below |
+
+::: danger An old host silently strips `sourceImages` — and still bills you
+`sourceImages` needs a host running
+[civitai/civitai#3518](https://github.com/civitai/civitai/pull/3518) or later.
+The text-to-image body schema is **not** `.strict()`, so a host that predates
+#3518 does not reject the field — it **drops it** and runs, and **charges for**,
+a plain text-to-image generation with **no image conditioning at all**. You get a
+successful workflow, real images and a real Buzz charge for a request that
+ignored your input, and there is **no client-side way to detect it**.
+
+Until #3518 is deployed everywhere you target, `sourceImage` (singular) is the
+field that works on both.
+:::
+
+Sending **both** fields is rejected as ambiguous, so this is genuinely an
+either/or.
+
+```tsx
+import { useBuzzWorkflow, useImageUpload } from '@civitai/blocks-react';
+import type { WorkflowBodyTextToImage } from '@civitai/app-sdk/blocks';
+
+// PAGE APP: multi-image edit. Needs a host on civitai/civitai#3518 or later,
+// and a checkpoint whose ecosystem allows more than one image (Qwen: 3).
+export function MultiImageEdit({ modelId, modelVersionId }: { modelId: number; modelVersionId: number }) {
+  const { submit } = useBuzzWorkflow();
+  const { open } = useImageUpload({ purpose: 'generationSource' });
+
+  const run = async () => {
+    const a = await open();
+    const b = await open();
+    if (!a || !b) return;
+
+    const body: WorkflowBodyTextToImage = {
+      kind: 'textToImage',
+      modelId,
+      modelVersionId,
+      // Order is preserved into the graph's `images` input.
+      sourceImages: [a, b],
+      params: { prompt: 'put the subject from the second image into the first' },
+    };
+    await submit(body);
+  };
+
+  return <button onClick={run}>Combine two images</button>;
+}
+```
+
 ## The lifecycle — estimate, submit, watch, cancel
 
 `useBuzzWorkflow()` orchestrates a deliberate estimate → confirm → submit →
@@ -202,9 +270,12 @@ you drive:
 - **`estimate(body)`** — a host-side whatIf price. `status` goes
   `'estimating' → 'confirming'`; the cost lands on `result.cost.total`.
   `'confirming'` is **idle** — keep your Generate button enabled.
-- **`submit(body)`** — the host runs a whatIf preflight, gates
+- **`submit(body, options?)`** — the host runs a whatIf preflight, gates
   `cost ≤ token.buzzBudget`, spends, and returns a snapshot with a
-  `workflowId`. `status` goes `'submitting' → 'polling'`.
+  `workflowId`. `status` goes `'submitting' → 'polling'`. The `options` bag
+  carries **`idempotencyKey`** — 🔴 **read
+  [retrying a submit](#retrying-a-submit-safely) before you write any retry
+  path**, because a retried submit is how a viewer gets charged twice.
 - **`watch(workflowId, options?)`** — **the one you want.** It owns the polling
   loop, resolves with the **terminal** snapshot, and calls `onUpdate` with every
   intermediate one. The loop is sequential and non-overlapping by construction —
@@ -242,6 +313,49 @@ export function useAutoWatch() {
 `submit()` rejects when the estimate exceeds the token budget. Call
 `useBuzzPurchase().openPurchaseModal()` to let the viewer top up, then retry.
 :::
+
+### Retrying a submit safely — `idempotencyKey` {#retrying-a-submit-safely}
+
+A retry is the one place a block can spend the viewer's Buzz **twice for one
+generation**, and it is invisible from the client: if the submit succeeded
+server-side and only the *response* was lost (a timeout, a dropped connection),
+a naive retry starts a second paid workflow.
+
+`submit()`'s second argument exists for exactly that:
+
+```tsx
+import { useBuzzWorkflow } from '@civitai/blocks-react';
+import type { WorkflowBody } from '@civitai/app-sdk/blocks';
+
+export function useSubmitWithRetry() {
+  const { submit } = useBuzzWorkflow();
+
+  // `cellId` identifies ONE logical generation. Every retry of it reuses the
+  // same key, so the host + orchestrator collapse them to ONE Buzz charge.
+  return async (body: WorkflowBody, cellId: string) => {
+    let lastErr: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await submit(body, { idempotencyKey: `gen:${cellId}` });
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    throw lastErr;
+  };
+}
+```
+
+- **Omit it** and the hook generates a fresh key per `submit()` call — the right
+  default, since each call is a new logical submit.
+- **Pass a stable id** — a grid-cell id, a request id you already hold — only
+  for the *retry* of a submit you already made.
+- **Don't key it to something coarse** (a component instance, the block id):
+  two genuinely different generations that share a key become eligible to be
+  collapsed as if one were a retry of the other.
+
+The reference entry is
+[`SubmitWorkflowOptions`](../reference/generation#bridge-SubmitWorkflowOptions).
 
 ## What you get back — the result shape
 
@@ -314,7 +428,8 @@ fail-closed on a model-bound token:
 |---|---|---|
 | `modelId` / `modelVersionId` / `params` | ✅ | ✅ |
 | `additionalResources` (LoRAs) | ❌ `FORBIDDEN` | ✅ |
-| `sourceImage` (img2img) | ❌ `FORBIDDEN` | ✅ |
+| `sourceImage` (img2img, single) | ❌ `FORBIDDEN` | ✅ |
+| `sourceImages` (img2img, multi) | ❌ `FORBIDDEN` | ✅ |
 
 If you are building a `model.*` slot block, keep to checkpoint-only txt2img. If
 you need LoRA stacking or img2img, build a **page app**.

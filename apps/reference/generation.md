@@ -66,13 +66,22 @@ The three members are the whole surface:
 |---|---|---|
 | `textToImage` | a Civitai **checkpoint** | numeric `modelId` + `modelVersionId` |
 | `customComfy` | a **server-registered** ComfyUI recipe | a registered `recipe` id |
-| `step` | a **server-registered** orchestrator step (e.g. `chat-completion`) | a registered `step` id |
+| `step` | a **server-registered** orchestrator step (`convert-image`, `chat-completion`) | a registered `step` id |
 
 The `step` member (added in `@civitai/app-sdk@0.30.0`) carries a registered
 **step id** plus bounded `params` validated per-step by the host's own `.strict()`
 schema — it is *not* a way to send orchestrator step JSON (see the next note).
 Like recipes, the step registry is server-side and code-reviewed: an unregistered
 id is rejected fail-closed at the wire schema.
+
+Registered ids as of the pinned SDK: **`convert-image`** (fixed-price image
+format conversion + resize) and **`chat-completion`** (fixed-price LLM chat
+completion over a server-pinned model allowlist). So `step` is **not** the
+"non-image" arm — one of the two entries today is an image operation. The set
+grows additively on the host, which is why `step` is typed `string` rather than a
+literal union: a union pinned in the SDK would go stale against any host deploy
+that adds one, so treat the host's registry, not this list, as authoritative.
+The full field table is at [`WorkflowBodyStep`](#bridge-WorkflowBodyStep).
 
 ::: danger Orchestrator step JSON cannot be sent from a block
 If you have been handed an orchestrator **step** — a `$type` object shaped like
@@ -119,17 +128,25 @@ Most of the time it **is** reachable, and the fix is naming the right
    [`textToImage`](../guide/text-to-image) with its `modelId` +
    `modelVersionId`. Models that feel "orchestrator-only" usually aren't:
    Z-Image and Qwen are ordinary checkpoints with ordinary ids.
-2. **Do you need an edit?** — pass a `sourceImage` **and** name the edit
-   version (see the [worked example](#worked-example-qwen-single-image-edit)).
-   The variant is chosen by `sourceImage`, not by the version id — this is the
-   single most common mistake on the bridge.
-3. **Is it genuinely outside the union?** — today that means **multi-image
-   editing** (`sourceImage` is singular) and **background removal** (no union
-   member reaches it). `customComfy` is the only other *image* path — `step`
-   addresses non-image registered steps such as `chat-completion` — so this
-   becomes a **registered recipe** question. Say so explicitly when you ask: both recipes
-   today are prompt-only txt2img, so anything taking an **image input** is new
-   ground, not a variation on an existing recipe.
+2. **Do you need an edit?** — pass a **source image** (`sourceImage`, or
+   `sourceImages` for more than one) **and** name the edit version (see the
+   [worked example](#worked-example-qwen-single-image-edit)). The variant is
+   chosen by the *presence of a source image*, not by the version id — this is
+   the single most common mistake on the bridge.
+3. **Is it genuinely outside the union?** — before you conclude that, check all
+   three arms. Two of them reach image work that this page used to rule out:
+   - `textToImage` covers **multi-image** editing too, via `sourceImages`, on
+     any checkpoint whose ecosystem allows more than one image — see
+     [what the source-image fields can and cannot do](#what-sourceimage-can-and-cannot-do).
+   - `step` is **not** limited to non-image work: today's registry holds
+     `convert-image` (fixed-price image format conversion + resize) alongside
+     `chat-completion`, and the registry grows additively on the host.
+   - `customComfy` reaches the registered ComfyUI recipes.
+
+   What is left over today is **background removal** — no union member reaches
+   it — which makes it a **registered recipe** question. Say so explicitly when
+   you ask: both recipes today are prompt-only txt2img, so anything taking an
+   **image input** is new ground, not a variation on an existing recipe.
 4. **Recipes are not self-serve.** The registry is server-side and
    code-reviewed; there is no runtime, manifest, or dashboard way to add one.
    Adding a recipe is a **platform request** — ask through the same channel as
@@ -154,9 +171,10 @@ named **"Qwen-Image-2512"** while its edit version is named **"Image Edit
 lands you on the txt2img version. The **edit** version is `2558804`.
 :::
 
-::: danger Omitting `sourceImage` silently switches you to a different MODEL
-The workflow variant is derived from **whether `sourceImage` is present**, not
-from the version id you name. Name the edit version but leave `sourceImage`
+::: danger Omitting the source image silently switches you to a different MODEL
+The workflow variant is derived from **whether a source image is present**
+(`sourceImage`, or `sourceImages`), not
+from the version id you name. Name the edit version but leave the source image
 off, and the bridge builds a **`txt2img`** graph — and then, because the edit
 version isn't valid for `txt2img`, it **re-maps your model to that version's
 txt2img sibling** and generates with *that*. For Qwen, asking for `2558804`
@@ -170,15 +188,19 @@ version of what you asked for — you got a **different model**, and the only
 tell is that the output ignores your source image and doesn't behave like an
 edit.
 
-**The fix is in your body, not in a support request**: send `sourceImage`
+**The fix is in your body, not in a support request**: send a source image
 whenever you mean to edit, and name the edit version (`2558804`) explicitly.
 :::
 
 #### Worked example: Qwen single-image edit
 
 The case people get wrong. Note both halves: the **edit version id** *and* the
-`sourceImage`. This is a **page app** — `sourceImage` is rejected on a
+source image. This is a **page app** — source images are rejected on a
 model-bound token.
+
+This example sends the **singular** `sourceImage`, which is the right choice for
+one image today even though the SDK marks it `@deprecated` — see
+[which field to send today](#which-field-to-send-today).
 
 ```tsx
 import { useBuzzWorkflow, useImageUpload } from '@civitai/blocks-react';
@@ -209,47 +231,128 @@ export function QwenEdit() {
 
 Drop the `sourceImage` line and this silently becomes a txt2img generation.
 
-### What `sourceImage` can and cannot do
+### What the source-image fields can and cannot do {#what-sourceimage-can-and-cannot-do}
 
-`sourceImage` is the optional img2img / edit input on a `textToImage` body. Its
-limits are structural, not tuning knobs:
+A `textToImage` body carries its img2img / edit input in **one of two fields**,
+and the SDK ships both:
 
-- **One image, never several.** `sourceImage` is a **single**
-  `{ url, width, height }` object, not an array. Multi-image editing — a
-  reference plus a target, or compositing two inputs — is **not expressible**.
+| field | shape | status |
+|---|---|---|
+| `sourceImage` | a single `{ url, width, height }` | **`@deprecated`** — but supported *indefinitely*, and the right thing to send today for one image |
+| `sourceImages` | `{ url, width, height }[]` (min 1) | the **current** field; the only way to express **more than one** image |
+
+Read [which field to send today](#which-field-to-send-today) before you pick —
+the answer is not simply "the newer one".
+
+These limits are structural, not tuning knobs, and apply to **both** fields:
+
 - **Civitai-hosted `https` URLs only.** `civitai.com`, `civitai.red`,
   `civitai.green` and their subdomains. An arbitrary remote URL is rejected.
-- **Page apps only.** `sourceImage` is rejected fail-closed on a **model-bound**
-  token, the same restriction `additionalResources` carries. See
+  In the array form **every element is validated individually** — there is no
+  "first element only" path, and one bad element rejects the whole body.
+- **`width`/`height` are bounded to 64–2048** per image, and are required.
+- **Page apps only.** Source images are rejected fail-closed on a
+  **model-bound** token, the same restriction `additionalResources` carries —
+  for the array form as well as the singular one. See
   [page-vs-model constraints](../guide/text-to-image#page-vs-model-constraints).
+- **Never send both fields.** `sourceImage` *and* `sourceImages` together is
+  rejected as **ambiguous** rather than resolved to a winner. TypeScript cannot
+  express that mutual exclusion (both are independently optional), so it
+  surfaces as a server-side validation error — send exactly one.
+- **An empty `sourceImages: []` is rejected**, not read as "no source image".
+  Omit the field entirely for plain text-to-image.
 - **You do not choose edit vs img2img — the checkpoint's ecosystem does.**
-  Edit-capable ecosystems (Qwen, Qwen2, Seedream, NanoBanana, OpenAI, Flux2 and
-  the Flux2-Klein variants) get an **`img2img:edit`** graph. SD-family
+  Edit-capable ecosystems (Qwen, Qwen2, Seedream, NanoBanana, OpenAI, Flux.1
+  Kontext, Flux2 and the Flux2-Klein variants) get an **`img2img:edit`** graph.
+  SD-family
   ecosystems get plain **`img2img`** ("Image Variations") instead. A checkpoint
   whose ecosystem supports neither is rejected fail-closed. There is no body
   field that overrides this.
 
+#### How many images you may send
+
+**The cap is per-ecosystem, not a constant.** It is derived from the
+checkpoint's own generation-graph `images` node, so it tracks what the ecosystem
+actually supports:
+
+| max images | ecosystems |
+|---|---|
+| **1** | SD-family, Flux.1 Kontext, Boogu, MAI |
+| **3** | Qwen, Qwen2, MageFlow |
+| **4** | Reve, HiDream-O1 |
+| **5** | WanImage |
+| **7** | Flux.2, Flux.2 Klein, OpenAI, NanoBanana, Seedream, Grok |
+
+Exceeding the checkpoint's cap is **rejected, never silently truncated**, and
+the error names both the count you sent and the ecosystem's limit. A flat wire
+bound of **10** additionally rejects an oversized array before the body is even
+parsed — that number is a wire guard, **not** the product cap, so never design
+against it.
+
+Element **order is preserved** into the graph's `images` input.
+
+Note the consequence: on an ecosystem capped at 1 (SD-family, Flux.1 Kontext,
+Boogu, MAI) multi-image editing is still not reachable — not because the field
+can't express it, but because that checkpoint's graph has one image slot. Pick
+the checkpoint accordingly. Being **edit-capable** and accepting **several**
+images are separate properties: Flux.1 Kontext is an edit ecosystem with a cap
+of 1.
+
+#### Which field to send today
+
+`sourceImages` is the current field, but "always use the current field" is the
+wrong rule here, because of one asymmetry:
+
+::: danger An old host STRIPS `sourceImages` and still bills you
+`sourceImages` requires a host running
+[civitai/civitai#3518](https://github.com/civitai/civitai/pull/3518) or later.
+The text-to-image body schema is **not** `.strict()`, so a host that predates
+#3518 does **not** error on the field — it **silently strips it** and runs, and
+**bills**, a plain text-to-image generation with **no image conditioning at
+all**. There is no client-side way to detect that: you get a successful workflow,
+real images, and a real Buzz charge for a generation that ignored your input.
+
+`sourceImage` (singular) is understood by **both** old and new hosts.
+:::
+
+So:
+
+- **One image → send `sourceImage`.** It is marked `@deprecated`, but the SDK
+  states the alias keeps working **indefinitely** (every deployed block and
+  these docs ship it), and the server normalizes it into a 1-element array, so a
+  1-element `sourceImages` array produces a **byte-identical** generation. The
+  deprecation is a signpost toward the array, not a removal notice.
+- **Two or more images → send `sourceImages`**, and only against a host you know
+  runs #3518 or later. Until #3518 is deployed everywhere you target, that is
+  the trade you are making: `sourceImages` is the only way to express the
+  request, and an older host answers it by silently doing something else.
+- **Never both**, in either direction — that is rejected as ambiguous.
+
 ### Not supported today
 
-Two things are genuinely out of reach, and they are the only two worth opening
-a platform request for:
+One thing is genuinely out of reach, and it is the one worth opening a platform
+request for:
 
 | Not available through the bridge | Where it stands |
 |---|---|
-| **Multi-image editing** (two or more inputs) | `sourceImage` is singular, and **no registered recipe takes an image input** — a platform request |
 | **Background removal** (e.g. BiRefNet) | a **first-class orchestrator step**, not a Comfy graph and not an `imageGen` operation — **no union member reaches it** |
+
+Multi-image editing **used to be on this list and no longer is**: `sourceImages`
+expresses it, subject to the [per-ecosystem cap](#how-many-images-you-may-send)
+and the [host-version caveat](#which-field-to-send-today).
 
 These are bounded by the union's shape, not by configuration:
 
 | Constraint | What to do instead |
 |---|---|
-| `sourceImage` on a model-bound (`model.*`) block | build a **page app** |
+| Source images on a model-bound (`model.*`) block | build a **page app** |
+| More images than the checkpoint's ecosystem allows | pick a checkpoint whose ecosystem has a higher cap |
 | Shipping your own ComfyUI graph | never available — graphs stay server-side, by design |
 | Choosing edit vs img2img yourself | it follows from the checkpoint's ecosystem; pick the checkpoint accordingly |
 
-Note what is **not** on these lists: single-image editing and Z-Image both work
-through `textToImage` today — see [the ids you probably
-want](#the-ids-you-probably-want).
+Note what is **not** on these lists: single-image editing, multi-image editing
+on a capable ecosystem, and Z-Image all work through `textToImage` today — see
+[the ids you probably want](#the-ids-you-probably-want).
 
 ### The registered recipes
 
@@ -275,9 +378,58 @@ which gives you the full [param surface](#bridge-BlockTextToImageParams)
 want exactly what it does.
 :::
 
+## Retrying a `submit()` without double-charging
+
+`submit(body, options?)` takes a second argument —
+[`SubmitWorkflowOptions`](#bridge-SubmitWorkflowOptions) — whose one field is
+about **money**:
+
+```tsx
+import { useBuzzWorkflow } from '@civitai/blocks-react';
+import type { WorkflowBody } from '@civitai/app-sdk/blocks';
+
+export function useRetryableSubmit() {
+  const { submit } = useBuzzWorkflow();
+
+  // ONE logical submit → ONE stable key, reused by every retry of it.
+  return async (body: WorkflowBody, cellId: string) => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await submit(body, { idempotencyKey: `gen:${cellId}` });
+      } catch (err) {
+        if (attempt === 2) throw err;
+      }
+    }
+  };
+}
+```
+
+- **Omit `idempotencyKey`** and the hook generates a **fresh key per
+  `submit()` call** — correct, because each call is a new logical submit.
+- **Reuse the SAME key** when you are **retrying a submit whose response was
+  lost** (a timeout, a network drop). The host and the orchestrator then
+  collapse the attempts into **one Buzz charge** instead of charging twice.
+
+The failure this prevents is invisible from the client: the first submit
+*succeeded server-side* and only the response was lost, so a naive retry spends
+the viewer's Buzz a second time on a generation they already paid for. If your
+block has any retry path at all — a wrapper, a react-query `retry`, a user-facing
+"try again" button — give that logical submit a stable id (a grid-cell id, a
+request id you already hold) and pass it every time.
+
+::: warning A stable key must be stable per *submit*, not per *component*
+The key identifies **one logical submit**. Deriving it from something coarser —
+a component instance, the block id, a user id — means two genuinely different
+generations share a key and are eligible to be collapsed as if one were a retry
+of the other. Key it to the unit of work the user asked for. When in doubt, omit
+the option: the hook's per-call key is the safe default, and only a retry needs
+to opt out of it.
+:::
+
 ## See also
 
-- [What the bridge can and cannot do](#what-the-bridge-can-and-cannot-do) — the boundary vs the orchestrator, the ids for Z-Image and Qwen edit, and the two gaps that need a platform request.
+- [What the bridge can and cannot do](#what-the-bridge-can-and-cannot-do) — the boundary vs the orchestrator, the ids for Z-Image and Qwen edit, and the one gap that needs a platform request.
+- [Retrying a `submit()` without double-charging](#retrying-a-submit-without-double-charging) — `idempotencyKey`.
 - [Generation guide](../guide/text-to-image) — the narrative walkthrough (img2img, LoRAs, page-vs-model).
 - [Comfy on Civitai (customComfy)](../guide/comfy-cloud) — the recipe-gated ComfyUI path.
 - [Hooks reference](./hooks) — every `@civitai/blocks-react` hook.
