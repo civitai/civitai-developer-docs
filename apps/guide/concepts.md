@@ -86,6 +86,20 @@ hooks surface this to you — `useBlockContext()` returns the init payload behin
 `ready` gate, and higher-level hooks (generation, Buzz, storage) each map to a
 request/response message pair the host answers.
 
+::: tip Render your shell instantly, hydrate on init
+`ready` gates the **data**, not your whole app. Your layout, headings, controls,
+and empty states need nothing from the host — render them on first paint and swap
+in the init-dependent parts when `ready` flips. Blocking the entire tree on the
+handshake turns a fast iframe into a blank panel for the length of a round trip,
+which is the single most common reason a block *feels* slow.
+
+The host also puts the paint-time fields — `theme`, `renderMode` and
+`blockInstanceId` — in the iframe URL fragment, so a block that wants the right
+theme on its very first frame can read them before any message arrives. The
+bridge remains authoritative: treat the fragment as a hint and let `BLOCK_INIT`
+confirm it.
+:::
+
 ### Bridge-first: the host brokers, you don't fetch
 
 The platform's transport model is **bridge-first**. The default — and for most
@@ -104,6 +118,14 @@ Because the host performs each call, it re-verifies your token and re-checks
 scopes and content-rating on every request — policy stays on Civitai's side of
 the iframe, not in code you control.
 
+This is also why the bridge exposes a narrower surface than Civitai's public APIs
+rather than proxying them: the full contract is available to anyone willing to be
+their **own principal** (own token, own backend, own Buzz), while the bridge is
+what you get when you want the **viewer** to be the principal. Spending someone
+else's Buzz requires the host to understand each request well enough to confirm
+it honestly and enforce policy on it — see
+[what the bridge can and cannot do](../reference/generation#what-the-bridge-can-and-cannot-do).
+
 Direct REST calls with the block token (via `useHostOrigin()` + `useBlockToken()`)
 are reserved for narrow cases — high-volume public catalog reads and headless
 tooling — not the default path. When in doubt, use a hook and let the host broker
@@ -111,9 +133,20 @@ the call.
 
 ## Tokens, briefly
 
-The token in `BLOCK_INIT` is short-lived and refreshes automatically — the React
-transport rotates it well before expiry, and `useBlockToken()` exposes the current
-value plus a `refresh()` for the 401-retry path. You never mint, store, or
+The token arrives in `BLOCK_INIT` and is short-lived. Three things are worth
+knowing, because the refresh is lazier than it looks:
+
+- **It is kept fresh only while it is consumed.** `useBlockToken()` schedules a
+  refresh shortly before expiry, but only while a component using the hook is
+  mounted. A block that never touches the raw token never rotates it.
+- **That staleness is harmless**, because brokered calls don't carry your copy of
+  the token. When the host performs a request on your behalf it authenticates
+  server-side; your token's freshness is irrelevant to it.
+- **`refresh()` covers the 401 race** — the case where a request you made directly
+  outlived the token it was issued against. Retry once through `refresh()`.
+
+The host also *pushes* a new token when it re-mints one mid-session (chiefly after
+a consent grant); apply pushed tokens unconditionally. You never mint, store, or
 long-hold a credential yourself. The full authentication model (claims,
 self-binding, scope enforcement) is a later reference page; for building, `ready`
 + the hooks are all you need.

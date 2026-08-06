@@ -43,6 +43,23 @@ orchestrator**, not a thin proxy in front of it. The body your block sends is a
 two shapes is rejected at the wire schema — in the host, **before** any
 orchestrator call is made.
 
+::: tip Why the bridge isn't just the orchestrator API
+The full orchestrator contract is not hidden — it is documented as the
+[Orchestration REST API](/orchestration/) and open to anyone willing to be their
+**own principal**: your own API token, your own backend, your own Buzz.
+The bridge is what you get when you want the **viewer** to be the principal
+instead. A block spends *someone else's* Buzz, inside Civitai's brand, from code
+Civitai did not write, so the host has to be able to (a) render an honest
+confirmation of what is about to be spent, and (b) enforce policy on the values —
+sources, destinations, priority — rather than trust the caller. Both require the
+host to *understand* the body semantically, which is exactly what a narrow,
+enumerable union buys and an arbitrary passthrough does not.
+
+If your app genuinely needs the whole orchestrator surface, the supported answer
+is to ship your own backend as an ordinary API consumer and use the block purely
+as its UI.
+:::
+
 The two members are the whole surface:
 
 | `kind` | what it addresses | how you name the model |
