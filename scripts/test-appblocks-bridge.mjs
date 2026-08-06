@@ -78,9 +78,30 @@ check('the generation contract is actually present (grep-level)', () => {
   const sourceImage = t2i.fields.find((f) => f.name === 'sourceImage');
   assert(sourceImage, 'sourceImage (img2img) field not surfaced');
   assert(/PAGE apps only|page-bound|model-bound/i.test(sourceImage.description), 'sourceImage lost its PAGE-ONLY constraint');
+  assert(t2i.fields.some((f) => f.name === 'sourceImages'), 'sourceImages (multi-image conditioning) not surfaced');
   assert(t2i.fields.some((f) => f.name === 'additionalResources'), 'additionalResources (LoRA) not surfaced');
   const snap = artifact.types.find((t) => t.name === 'BlockWorkflowSnapshot');
   assert(snap.fields.some((f) => f.name === 'imageUrls'), 'BlockWorkflowSnapshot.imageUrls (result) not surfaced');
+});
+
+check('every WorkflowBody union member has a field table of its own', () => {
+  const union = artifact.types.find((t) => t.name === 'WorkflowBody');
+  assert(union && union.kind === 'union', 'WorkflowBody is not surfaced as a union');
+  const names = new Set(artifact.types.map((t) => t.name));
+  for (const mem of union.members) {
+    assert(names.has(mem.trim()), `union member ${mem} is announced but has no field table`);
+  }
+  // The member that shipped announced-but-undocumented; pin it explicitly so a
+  // regression names the real case rather than an abstract one.
+  assert(names.has('WorkflowBodyStep'), 'WorkflowBodyStep (kind:"step") has no field table');
+});
+
+check("submit()'s options bag (the double-charge defence) is surfaced", () => {
+  const opts = artifact.types.find((t) => t.name === 'SubmitWorkflowOptions');
+  assert(opts, 'SubmitWorkflowOptions not surfaced — submit(body, options?) names a type the page never defines');
+  const key = opts.fields.find((f) => f.name === 'idempotencyKey');
+  assert(key, 'SubmitWorkflowOptions.idempotencyKey not surfaced');
+  assert(key.description.trim().length > 0, 'idempotencyKey has no JSDoc — the retry semantics are the whole point');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -123,6 +144,49 @@ check('dropping imageUrls from the result snapshot is flagged', () => {
   snap.fields = snap.fields.filter((f) => f.name !== 'imageUrls');
   const problems = bridgeCoverageViolations(mutated);
   assert(problems.some((p) => /imageUrls/.test(p)), 'guard did not flag a dropped result field');
+});
+
+check('dropping sourceImages is flagged as lost multi-image coverage', () => {
+  const mutated = clone(artifact);
+  const t2i = mutated.types.find((t) => t.name === 'WorkflowBodyTextToImage');
+  t2i.fields = t2i.fields.filter((f) => f.name !== 'sourceImages');
+  const problems = bridgeCoverageViolations(mutated);
+  assert(
+    problems.some((p) => /sourceImages \(multi-image conditioning\)/.test(p)),
+    `guard did not flag a dropped sourceImages with ITS OWN message; got: ${problems.join('; ')}`
+  );
+});
+
+check('a union member with no field table is flagged (the WorkflowBodyStep gap)', () => {
+  const mutated = clone(artifact);
+  mutated.types = mutated.types.filter((t) => t.name !== 'WorkflowBodyStep');
+  const problems = bridgeCoverageViolations(mutated);
+  assert(
+    problems.some((p) => /WorkflowBodyStep" has no field table/.test(p)),
+    `guard did not flag an announced-but-undocumented union member; got: ${problems.join('; ')}`
+  );
+  assertThrows(() => assertBridgeCoverage(mutated), 'assertBridgeCoverage must THROW when a union member has no table');
+});
+
+check('dropping SubmitWorkflowOptions.idempotencyKey is flagged (money)', () => {
+  const mutated = clone(artifact);
+  const opts = mutated.types.find((t) => t.name === 'SubmitWorkflowOptions');
+  opts.fields = opts.fields.filter((f) => f.name !== 'idempotencyKey');
+  const problems = bridgeCoverageViolations(mutated);
+  assert(
+    problems.some((p) => /idempotencyKey \(double-charge defence\)/.test(p)),
+    `guard did not flag a dropped idempotencyKey; got: ${problems.join('; ')}`
+  );
+});
+
+check('dropping SubmitWorkflowOptions entirely is flagged', () => {
+  const mutated = clone(artifact);
+  mutated.types = mutated.types.filter((t) => t.name !== 'SubmitWorkflowOptions');
+  const problems = bridgeCoverageViolations(mutated);
+  assert(
+    problems.some((p) => /SubmitWorkflowOptions \(submit\(\) options bag\) not surfaced/.test(p)),
+    `guard did not flag a dropped SubmitWorkflowOptions; got: ${problems.join('; ')}`
+  );
 });
 
 check('an EMPTY artifact (total parser failure) is flagged, not silently green', () => {
