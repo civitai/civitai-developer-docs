@@ -105,7 +105,9 @@ export function readPinnedVersion(pkg, pkgJsonPath = join(repoRoot, 'package.jso
 
 /** Fetch a package's npm `latest` dist-tag. 404 = real drift; else transient. */
 async function fetchLatest(pkg) {
-  const url = `${REGISTRY}/${pkg.replace('/', '%2F')}`;
+  // replaceAll, not replace — see the note in check-design-system-pins.mjs.
+  // Equivalence-preserving for single-'/' scoped names; removes the footgun.
+  const url = `${REGISTRY}/${pkg.replaceAll('/', '%2F')}`;
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(20000), headers: { accept: 'application/json' } });
     if (!res.ok) {

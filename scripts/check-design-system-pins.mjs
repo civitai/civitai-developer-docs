@@ -148,7 +148,13 @@ export function findMismatches(files, pins) {
 
 /** Fetch a package's npm `latest` dist-tag. 404 = real drift; else transient. */
 async function fetchLatest(pkg) {
-  const url = `${REGISTRY}/${pkg.replace('/', '%2F')}`;
+  // replaceAll, not replace: `replace` with a string pattern rewrites only the
+  // FIRST '/', which silently under-encodes any name with more than one. Scoped
+  // npm names have exactly one today, so this is equivalence-preserving here —
+  // it removes the footgun rather than fixing a live bug. (Not
+  // encodeURIComponent: that would also escape the leading '@' to %40, which is
+  // not how the registry addresses a scoped package.)
+  const url = `${REGISTRY}/${pkg.replaceAll('/', '%2F')}`;
   try {
     const res = await fetch(url, {
       signal: AbortSignal.timeout(20000),
