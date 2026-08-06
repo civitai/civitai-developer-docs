@@ -46,16 +46,18 @@ messages-parity generators read `civitai@origin/main` directly and only fall
 back to the snapshot when it's absent — so those snapshots are the CI-hermetic
 copy, not the live source.
 
-> An automated CI drift-guard that fails the build when a snapshot or pin lags
-> the upstream contract is planned (Phase 3). Until then, refreshing is a manual
-> maintainer step, prompted by the `sources:` front-matter on each page.
+> Automated CI drift-guards now cover this: `npm run check:pins` fails when a
+> pinned SDK devDep lags npm `latest`, and `npm run check:snapshots` fails when a
+> committed snapshot lags the upstream contract. Refreshing is still a maintainer
+> step, but a lagging pin or snapshot is now a visible, actionable signal rather
+> than silent rot.
 
 ## Pinned versions
 
 The SDK-derived pages are generated from these published, pinned packages:
 
-- `@civitai/app-sdk@0.24.0` — the framework-agnostic contract (messages, scopes, manifest schema).
-- `@civitai/blocks-react@0.29.0` — the React hooks.
+- `@civitai/app-sdk@0.31.0` — the framework-agnostic contract (messages, scopes, manifest schema).
+- `@civitai/blocks-react@0.39.0` — the React hooks.
 
 When the SDK publishes a new version, bumping the pin in `package.json` is a
 one-line, reviewable change that flows through to every generated page.

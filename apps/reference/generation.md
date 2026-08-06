@@ -2,15 +2,15 @@
 title: Generation bridge reference
 description: The field-level generation contract — the WorkflowBody union, the useBuzzWorkflow lifecycle (incl. cancel), and the BlockWorkflowSnapshot result — generated from the published SDK type JSDoc.
 sources:
-  - npm:@civitai/app-sdk@0.28.0/blocks#WorkflowBody
-  - npm:@civitai/blocks-react@0.37.0#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.31.0/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.39.0#useBuzzWorkflow
 ---
 
 # Generation bridge reference
 
 This is the **field-level contract** for spending a viewer's Buzz on a
 generation from a block: the `WorkflowBody` your block sends, the
-`useBuzzWorkflow()` lifecycle that carries it (estimate → submit → poll →
+`useBuzzWorkflow()` lifecycle that carries it (estimate → submit → **watch** →
 **cancel**), and the `BlockWorkflowSnapshot` you get back.
 
 The field tables below are generated from the **published** `@civitai/app-sdk`
@@ -39,8 +39,8 @@ orchestrator credential.
 
 The generation bridge is a **deliberately narrower surface than the
 orchestrator**, not a thin proxy in front of it. The body your block sends is a
-**two-member discriminated union** keyed by `kind`, and anything outside those
-two shapes is rejected at the wire schema — in the host, **before** any
+**three-member discriminated union** keyed by `kind`, and anything outside those
+three shapes is rejected at the wire schema — in the host, **before** any
 orchestrator call is made.
 
 ::: tip Why the bridge isn't just the orchestrator API
@@ -60,12 +60,19 @@ is to ship your own backend as an ordinary API consumer and use the block purely
 as its UI.
 :::
 
-The two members are the whole surface:
+The three members are the whole surface:
 
 | `kind` | what it addresses | how you name the model |
 |---|---|---|
 | `textToImage` | a Civitai **checkpoint** | numeric `modelId` + `modelVersionId` |
 | `customComfy` | a **server-registered** ComfyUI recipe | a registered `recipe` id |
+| `step` | a **server-registered** orchestrator step (e.g. `chat-completion`) | a registered `step` id |
+
+The `step` member (added in `@civitai/app-sdk@0.30.0`) carries a registered
+**step id** plus bounded `params` validated per-step by the host's own `.strict()`
+schema — it is *not* a way to send orchestrator step JSON (see the next note).
+Like recipes, the step registry is server-side and code-reviewed: an unregistered
+id is rejected fail-closed at the wire schema.
 
 ::: danger Orchestrator step JSON cannot be sent from a block
 If you have been handed an orchestrator **step** — a `$type` object shaped like
@@ -87,6 +94,11 @@ this:
 bridge body has no `$type` field and no `imageGen` kind, and none of
 `ecosystem` / `model` / `operation` / `engine` is how a block names a model.
 Such a body fails the `kind` union before the host does anything else.
+
+The `step` member is **not** the loophole: it takes a *registered step id* (a
+string the host resolves against its code-reviewed registry) plus per-step
+validated `params` — never a caller-supplied `$type` step object. Passing
+orchestrator step JSON as `params` fails that step's `.strict()` schema.
 
 The symptom is distinctive: **every generation fails identically, on every
 model**, with no per-model variation — because nothing model-specific ever ran.
@@ -113,8 +125,9 @@ Most of the time it **is** reachable, and the fix is naming the right
    single most common mistake on the bridge.
 3. **Is it genuinely outside the union?** — today that means **multi-image
    editing** (`sourceImage` is singular) and **background removal** (no union
-   member reaches it). `customComfy` is the only other path, so this becomes a
-   **registered recipe** question. Say so explicitly when you ask: both recipes
+   member reaches it). `customComfy` is the only other *image* path — `step`
+   addresses non-image registered steps such as `chat-completion` — so this
+   becomes a **registered recipe** question. Say so explicitly when you ask: both recipes
    today are prompt-only txt2img, so anything taking an **image input** is new
    ground, not a variation on an existing recipe.
 4. **Recipes are not self-serve.** The registry is server-side and

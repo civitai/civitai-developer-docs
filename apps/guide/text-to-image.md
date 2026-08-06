@@ -2,8 +2,8 @@
 title: Generating images (text-to-image)
 description: The primary App Blocks generation path — submit a text-to-image WorkflowBody, add LoRAs, do img2img (page-only), and read the result — with the server-enforced field contract and the page-vs-model rules stated in full.
 sources:
-  - npm:@civitai/app-sdk@0.28.0/blocks#WorkflowBodyTextToImage
-  - npm:@civitai/blocks-react@0.37.0#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.31.0/blocks#WorkflowBodyTextToImage
+  - npm:@civitai/blocks-react@0.39.0#useBuzzWorkflow
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockTextToImageBodySchema
 ---
 
@@ -39,7 +39,7 @@ import { useBuzzWorkflow, useBlockContext } from '@civitai/blocks-react';
 import type { WorkflowBodyTextToImage, ModelSlotContext } from '@civitai/app-sdk/blocks';
 
 export function Generate() {
-  const { estimate, submit, poll, status, result } = useBuzzWorkflow();
+  const { estimate, submit, watch, status, result } = useBuzzWorkflow();
   const { context } = useBlockContext();
   const ctx = context as ModelSlotContext; // model slot: has modelId + modelVersionId
 
@@ -52,7 +52,7 @@ export function Generate() {
     };
     await estimate(body);         // review cost via result.cost.total
     const snap = await submit(body);
-    await poll(snap.workflowId);  // drive to a terminal snapshot (see the lifecycle)
+    await watch(snap.workflowId); // owns the loop; resolves on the terminal snapshot
   };
 
   return (
@@ -67,7 +67,7 @@ Both `modelId` and `modelVersionId` are required even though they look
 redundant: the host validates that `modelId` matches the token's bound model
 **and** that the version belongs to it. On a model slot you already have both
 from `useBlockContext().context`; on a page app you obtain them from a
-[resource picker](#choosing-a-checkpoint).
+[resource picker](../reference/hooks#hook-useResourcePicker).
 
 ## Generation parameters
 
@@ -191,12 +191,13 @@ orchestrator scans it at generation time, so the moderation stamp is the
 gen-time scan, not a pre-crossing one. That is the correct posture for an edit
 source (it is not a public display image).
 
-## The lifecycle — estimate, submit, poll, cancel
+## The lifecycle — estimate, submit, watch, cancel
 
 `useBuzzWorkflow()` orchestrates a deliberate estimate → confirm → submit →
-poll dance; it does **not** auto-poll. The full return is in the
-[reference](../reference/generation#bridge-useBuzzWorkflow); the members you
-drive:
+watch dance. Nothing starts on its own — you drive each step — but once a
+workflow is running, `watch()` owns the polling loop for you. The full return is
+in the [reference](../reference/generation#bridge-useBuzzWorkflow); the members
+you drive:
 
 - **`estimate(body)`** — a host-side whatIf price. `status` goes
   `'estimating' → 'confirming'`; the cost lands on `result.cost.total`.
@@ -204,8 +205,14 @@ drive:
 - **`submit(body)`** — the host runs a whatIf preflight, gates
   `cost ≤ token.buzzBudget`, spends, and returns a snapshot with a
   `workflowId`. `status` goes `'submitting' → 'polling'`.
-- **`poll(workflowId)`** — you call this on a backoff until the snapshot is
-  terminal (`succeeded | failed | canceled | expired`).
+- **`watch(workflowId, options?)`** — **the one you want.** It owns the polling
+  loop, resolves with the **terminal** snapshot, and calls `onUpdate` with every
+  intermediate one. The loop is sequential and non-overlapping by construction —
+  exactly one request per watched workflow is ever in flight.
+- **`poll(workflowId)`** — a single host round-trip. The low-level primitive,
+  for callers that genuinely want to drive their own cadence; you call it on a
+  backoff until the snapshot is terminal
+  (`succeeded | failed | canceled | expired`).
 - **`cancel(workflowId)`** — a **real server-side orchestrator cancel** (not
   just client-side untracking), so a running workflow stops spending Buzz. The
   host re-derives ownership from the viewer's token, so you can only cancel
@@ -215,13 +222,19 @@ drive:
 import { useEffect } from 'react';
 import { useBuzzWorkflow } from '@civitai/blocks-react';
 
-export function useAutoPoll() {
-  const { poll, result, status } = useBuzzWorkflow();
+export function useAutoWatch() {
+  const { watch, result, status } = useBuzzWorkflow();
   useEffect(() => {
     if (status !== 'polling' || !result?.workflowId) return;
-    const id = setTimeout(() => void poll(result.workflowId), 2000);
-    return () => clearTimeout(id);
-  }, [status, result?.workflowId, poll]);
+    const ac = new AbortController();
+    void watch(result.workflowId, {
+      signal: ac.signal,
+      onUpdate: (snap) => console.log(snap.status, snap.imageUrls?.length ?? 0),
+    });
+    // Stops WATCHING on unmount. It does not cancel the workflow — Buzz is
+    // already spent and the orchestrator keeps running; use cancel() for that.
+    return () => ac.abort();
+  }, [status, result?.workflowId, watch]);
 }
 ```
 

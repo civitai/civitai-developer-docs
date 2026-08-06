@@ -2,8 +2,8 @@
 title: Comfy on Civitai (customComfy)
 description: Drive a server-owned ComfyUI workflow from an App Block with a { kind, recipe, params } body — the recipe-gated security model, the budget rules, and how to try it in the local harness.
 sources:
-  - npm:@civitai/app-sdk@0.28.0/blocks#WorkflowBodyCustomComfy
-  - npm:@civitai/blocks-react@0.37.0#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.31.0/blocks#WorkflowBodyCustomComfy
+  - npm:@civitai/blocks-react@0.39.0#useBuzzWorkflow
   - go:github.com/civitai/cli#app-create (page-money scaffold: src/comfy.ts)
   - civitai:public/schemas/app-block/v1.json#page.buzzBudgetPerGen
 ---
@@ -107,7 +107,7 @@ import { useBuzzWorkflow } from '@civitai/blocks-react';
 import type { WorkflowBodyCustomComfy } from '@civitai/app-sdk/blocks';
 
 export function RunButton({ prompt }: { prompt: string }) {
-  const { estimate, submit, poll, status, result } = useBuzzWorkflow();
+  const { estimate, submit, watch, status, result } = useBuzzWorkflow();
 
   const run = async () => {
     const body: WorkflowBodyCustomComfy = {
@@ -117,7 +117,7 @@ export function RunButton({ prompt }: { prompt: string }) {
     };
     await estimate(body);        // display estimate → result.cost.total
     const snap = await submit(body);
-    await poll(snap.workflowId); // drive to a terminal snapshot
+    await watch(snap.workflowId); // owns the loop; resolves on the terminal snapshot
   };
 
   return <button onClick={run} disabled={status !== 'confirming'}>Generate</button>;
