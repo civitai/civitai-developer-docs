@@ -65,7 +65,7 @@ The two members are the whole surface:
 | `kind` | what it addresses | how you name the model |
 |---|---|---|
 | `textToImage` | a Civitai **checkpoint** | numeric `modelId` + `modelVersionId` |
-| `customComfy` | a **server-registered** ComfyUI recipe | a registered `recipe` id |
+| `customComfy` | a **server-registered** ComfyUI recipe, **or your own graph** | a registered `recipe` id — or, with `mode: 'inline'`, the graph itself plus a declared `resources` manifest |
 
 ::: danger Orchestrator step JSON cannot be sent from a block
 If you have been handed an orchestrator **step** — a `$type` object shaped like
@@ -113,15 +113,18 @@ Most of the time it **is** reachable, and the fix is naming the right
    single most common mistake on the bridge.
 3. **Is it genuinely outside the union?** — today that means **multi-image
    editing** (`sourceImage` is singular) and **background removal** (no union
-   member reaches it). `customComfy` is the only other path, so this becomes a
-   **registered recipe** question. Say so explicitly when you ask: both recipes
-   today are prompt-only txt2img, so anything taking an **image input** is new
-   ground, not a variation on an existing recipe.
-4. **Recipes are not self-serve.** The registry is server-side and
-   code-reviewed; there is no runtime, manifest, or dashboard way to add one.
-   Adding a recipe is a **platform request** — ask through the same channel as
-   beta access, described in
+   member reaches it). `customComfy` is the only other path. Both registered
+   recipes today are prompt-only txt2img, so anything taking an **image input**
+   is new ground rather than a variation on an existing one.
+4. **Recipes are not self-serve, but an inline graph is.** The recipe registry is
+   server-side and code-reviewed; there is no runtime, manifest, or dashboard way
+   to add one, so adding a recipe is a **platform request** — see
    [requesting a new recipe](../guide/comfy-cloud#requesting-a-new-recipe).
+   You do **not** have to wait for one to run a graph, though: the
+   [inline arm](../guide/comfy-cloud#the-inline-arm-ship-your-own-graph)
+   (`mode: 'inline'`) lets an app-developer account ship the ComfyUI graph in the
+   body today. Ask for a recipe when you need the graph available to **every**
+   viewer of your block.
 
 #### The ids you probably want
 
@@ -240,9 +243,11 @@ want](#the-ids-you-probably-want).
 
 ### The registered recipes
 
-`customComfy` accepts only a **registered** recipe id — an unregistered id is
-rejected at the union, before the recipe is resolved. Today there are exactly
-**two**:
+On its **recipe** arm `customComfy` accepts only a **registered** id — an
+unregistered one is rejected at the union, before the recipe is resolved. Today
+there are exactly **two**. (The
+[inline arm](../guide/comfy-cloud#the-inline-arm-ship-your-own-graph) is how you
+run a graph that is not in this table.)
 
 | `recipe` | what it does | `params` (`.strict()`) | per-generation Buzz ceiling |
 |---|---|---|---|
