@@ -10,11 +10,28 @@
  * ---------------------------------------------------------------------
  * These version literals are not provenance stamps — they are **instructions**.
  * A reader copies `https://unpkg.com/@civitai/components@X/styles.css` straight
- * out of the page, so a stale or wrong X is a broken integration, and it breaks
- * in the worst possible way: a stylesheet that 404s produces an **unstyled page,
- * not an error**. That is precisely the failure the theming guide spends pages
- * warning about, and the docs shipped it themselves — theming.md pinned `0.1.1`
- * in 27 places while npm was on `components@0.3.0` / `theme@0.2.0`.
+ * out of the page, so a wrong X is a broken integration that produces an
+ * **unstyled page, not an error** — precisely the failure the theming guide
+ * spends pages warning about, and one the docs shipped themselves (theming.md
+ * pinned `0.1.1` in 27 places while npm was on `components@0.3.0`/`theme@0.2.0`).
+ *
+ * TWO DISTINCT FAILURE MODES, and it is worth keeping them straight because the
+ * first one is the counter-intuitive one:
+ *
+ *   1. STALE BUT PUBLISHED (what the docs actually shipped). The URL returns
+ *      **200**. jsDelivr and unpkg serve every published version forever, so
+ *      `components@0.1.1/styles.css` resolves fine — it just carries the OLD
+ *      stylesheet: 10 components' rules where 0.3.0 has 20. A reader following
+ *      the current markup contract gets working CSS for the components that
+ *      existed in 0.1.1 and BARE UNSTYLED ELEMENTS for the ten that did not
+ *      (checkbox, select, radio, slider, toast, tooltip, …). Nothing 404s and
+ *      nothing errors; the page is just half-themed.
+ *   2. NEVER PUBLISHED (the trap when "fixing" mode 1). `theme@0.3.0` does not
+ *      exist — theme is on 0.2.0 — so that URL genuinely **404s** and the
+ *      stylesheet is absent entirely. This is what a blanket "bump everything to
+ *      0.3.0" produces, which is why the guard checks each package separately.
+ *
+ * Both render wrong with no error, which is why neither is caught by review.
  *
  * `check-appblocks-pins.mjs` deliberately does NOT cover these packages (see its
  * header): it tracks the two SDK packages that FEED the generated generation
@@ -261,8 +278,10 @@ async function main() {
     console.error('\n--- DESIGN-SYSTEM PIN DRIFT ---');
     if (mismatches.length) {
       console.error(`\n${mismatches.length} docs literal(s) disagree with the declared pin.`);
-      console.error('These are copy-paste CDN URLs: a wrong version 404s and renders an UNSTYLED page');
-      console.error('with no error, which is the exact failure the theming guide warns about.');
+      console.error('These are copy-paste CDN URLs, and BOTH ways of being wrong are silent:');
+      console.error('  - stale but published -> 200 with OLD css (newer components render unstyled)');
+      console.error('  - never published     -> 404, no stylesheet at all');
+      console.error('Neither errors, so neither is caught by review.');
       console.error('Update the prose to the pin (or bump the pin and the prose together).');
     }
     if (lagging.length) {
@@ -273,7 +292,9 @@ async function main() {
       }
       console.error('\nBump the devDep, re-run `npm i`, update the prose literals to match, and if');
       console.error('@civitai/components moved, re-vendor MARKUP.md + `npm run gen:appblocks:components`.');
-      console.error('VERIFY EACH CDN URL RESOLVES before committing — a 404 here is silent for readers.');
+      console.error('VERIFY EACH CDN URL before committing — and note that a 200 is NOT sufficient:');
+      console.error('every published version resolves forever, so a stale pin looks healthy while');
+      console.error('serving old CSS. Check the version you wrote is the one you meant.');
     }
     process.exit(1);
   }

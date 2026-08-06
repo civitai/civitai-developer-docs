@@ -46,6 +46,14 @@ is no single shared version number, so copy each URL as written rather than
 sed-ing one version across all three — a URL naming a version a package never
 published 404s, and a missing stylesheet fails **silently** as an unstyled page.
 
+Copying an **older** pin from somewhere else fails just as quietly, in a way a
+quick check won't catch: every published version stays served forever, so a stale
+URL returns a healthy `200` — it just hands you the stylesheet from back then.
+Components added since simply have no rules and render as bare elements. If your
+markup follows the current [Components reference](../reference/components) but
+some pieces come out unstyled while others look right, check your pinned version
+before you debug anything else.
+
 Each package ships a package-root `styles.css`, so both
 [jsDelivr](https://cdn.jsdelivr.net) and [unpkg](https://unpkg.com) serve it at
 `<host>/@civitai/<pkg>@<version>/styles.css`. The
