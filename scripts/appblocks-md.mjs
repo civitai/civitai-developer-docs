@@ -95,9 +95,18 @@ const oneLine = (s) => String(s ?? '').replace(/\s+/g, ' ').trim();
  * .md channel still carries the readable text.
  *
  * `&` is escaped only when it would otherwise start an HTML entity.
+ *
+ * 🔴 THE BACKSLASH IS ESCAPED FIRST, and the order is the whole correctness
+ * argument (CodeQL `js/incomplete-sanitization`, flagged on the first version of
+ * this function). Escape `<` while leaving `\` alone and the escape is
+ * self-defeating: source text `a\<b` becomes `a\\<b`, which CommonMark reads as
+ * a literal backslash followed by an UNESCAPED `<` — the exact raw tag this is
+ * here to prevent, reintroduced by the sanitizer. Escaping the escape character
+ * first is what makes the transform total rather than best-effort.
  */
 const escapeInline = (s) =>
   oneLine(s)
+    .replace(/\\/g, '\\\\')
     .replace(/&(?=(?:[a-zA-Z][a-zA-Z0-9]*|#\d+|#[xX][0-9a-fA-F]+);)/g, '\\&')
     .replace(/</g, '\\<');
 
@@ -119,11 +128,29 @@ export function code(s) {
 
 /**
  * Inline code inside a TABLE cell. GFM requires `|` to be backslash-escaped even
- * within a code span (the escape is consumed, the pipe survives) — outside a
- * table the same escape would render literally, which is why this is a separate
- * helper rather than a blanket rule in `code`.
+ * within a code span — the row is split on unescaped pipes BEFORE inline parsing,
+ * and the escape is consumed there — whereas outside a table that same escape
+ * would render literally. Hence a separate helper rather than a blanket rule in
+ * `code`.
+ *
+ * 🔴 A code span cannot carry a backslash escape for anything else, so a `|`
+ * that is ALREADY preceded by a backslash has no safe encoding here: `\|` would
+ * become `\\|`, and whether a GFM implementation then reads that as an escaped
+ * backslash plus a LIVE pipe (splitting the row) is not something to leave to
+ * chance. Zero occurrences in today's artifacts; this refuses loudly at refresh
+ * time rather than silently emitting a broken table for every LLM reader.
  */
-export const codeCell = (s) => code(s).replace(/\|/g, '\\|');
+export function codeCell(s) {
+  const t = oneLine(s);
+  if (/\\\|/.test(t)) {
+    throw new Error(
+      `appblocks-md: cannot safely put ${JSON.stringify(t.slice(0, 80))} in a table cell — ` +
+        `it contains a backslash immediately before a pipe, which has no unambiguous encoding ` +
+        `inside a GFM code span. Render this column outside the table (a fenced block) instead.`,
+    );
+  }
+  return code(t).replace(/\|/g, '\\|');
+}
 
 /** Inline code in a table cell, or an em dash when empty. */
 const codeOrDash = (s) => (oneLine(s) ? codeCell(s) : '—');
