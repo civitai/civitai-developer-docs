@@ -97,6 +97,15 @@
  * exemptions for text that no longer exists — the shape in which an allowlist
  * quietly becomes a hole.
  *
+ * 🔴 AND EVERY ROW CARRIES AN EXACT `count`, BECAUSE (file, pkg, version) ALONE
+ * SILENCES A WHOLE FILE. Without it, regressing `generation.md`'s own `sources:`
+ * stamp from `0.31.0` back to `0.30.0` — the precise defect the SDK arm exists
+ * to catch, in the same file that holds the exemption — matched the historical
+ * row and exited 0, reported as "exempt (historical)" under a `why` that is
+ * false about that line. The count is the fix: the row asserts "0.30.0 appears
+ * in this file EXACTLY ONCE, as the changelog reference", so a second occurrence
+ * is a mismatch again. A count wrong in EITHER direction fails.
+ *
  * Note that (1) and (2) compose: bumping the pin without updating the prose
  * fails (1); updating the prose without bumping the pin fails (1) too; bumping
  * both but trailing npm fails (2). There is no green state that leaves a reader
@@ -195,6 +204,9 @@ export const HISTORICAL_LITERALS = [
     file: 'apps/reference/generation.md',
     pkg: '@civitai/app-sdk',
     version: '0.30.0',
+    // EXACT — see the header. One occurrence, the `step` changelog reference.
+    // A second 0.30.0 in this file is a regressed `sources:` stamp, not history.
+    count: 1,
     why: 'the `step` WorkflowBody member was ADDED in 0.30.0 — a changelog fact. Bumping it to the current pin would state a false arrival version.',
   },
 ];
@@ -310,12 +322,24 @@ export function findMismatches(files, pins) {
 }
 
 /**
- * Registry rows that matched no literal in the corpus. A stale row is a hole
- * that LOOKS like coverage, so it fails rather than being ignored.
+ * Registry rows whose observed occurrence count != the declared `count`.
+ *
+ * Covers BOTH directions with one comparison: 0 observed is a stale row (a hole
+ * that looks like coverage), and more than declared is the file-wide silencing
+ * described in the header — a regressed stamp hiding behind a changelog row.
+ *
+ * @returns {Array<{entry: object, seen: number}>}
  */
-export function findStaleHistoricalEntries(exempted) {
-  const hit = new Set(exempted.map((e) => `${e.file}|${e.pkg}|${e.version}`));
-  return HISTORICAL_LITERALS.filter((h) => !hit.has(`${h.file}|${h.pkg}|${h.version}`));
+export function findHistoricalCountMismatches(exempted) {
+  const seen = new Map();
+  for (const e of exempted) {
+    const k = `${e.file}|${e.pkg}|${e.version}`;
+    seen.set(k, (seen.get(k) ?? 0) + 1);
+  }
+  return HISTORICAL_LITERALS.map((h) => ({
+    entry: h,
+    seen: seen.get(`${h.file}|${h.pkg}|${h.version}`) ?? 0,
+  })).filter(({ entry, seen: n }) => n !== entry.count);
 }
 
 /** Fetch a package's npm `latest` dist-tag. 404 = real drift; else transient. */
@@ -413,9 +437,11 @@ async function main() {
   for (const e of exempted) {
     console.log(`  · ${e.file}:${e.line} — ${e.pkg}@${e.version} exempt (historical): ${e.why}`);
   }
-  const staleHistorical = findStaleHistoricalEntries(exempted);
-  for (const h of staleHistorical) {
-    console.error(`  ✗ HISTORICAL_LITERALS row matches nothing: ${h.file} ${h.pkg}@${h.version}`);
+  const staleHistorical = findHistoricalCountMismatches(exempted);
+  for (const { entry, seen } of staleHistorical) {
+    console.error(
+      `  ✗ HISTORICAL_LITERALS row expected ${entry.count} occurrence(s), saw ${seen}: ${entry.file} ${entry.pkg}@${entry.version}`
+    );
   }
 
   // --- The generated page: report upstream staleness, never fail on it. ---
@@ -479,12 +505,15 @@ async function main() {
       console.error('HISTORICAL_LITERALS in this file rather than bumping it to a false version.');
     }
     if (staleHistorical.length) {
-      console.error(`\n${staleHistorical.length} HISTORICAL_LITERALS row(s) matched no literal in the docs.`);
-      console.error('An exemption for text that no longer exists is a hole that looks like coverage:');
-      for (const h of staleHistorical) {
-        console.error(`  - ${h.file}: ${h.pkg}@${h.version}`);
+      console.error(`\n${staleHistorical.length} HISTORICAL_LITERALS row(s) saw an unexpected occurrence count.`);
+      for (const { entry, seen } of staleHistorical) {
+        console.error(`  - ${entry.file}: ${entry.pkg}@${entry.version} — expected ${entry.count}, saw ${seen}`);
       }
-      console.error('Delete the row, or correct it to the literal that is actually on the page.');
+      console.error('\nFEWER than declared (usually 0): the exemption covers text that no longer');
+      console.error('exists — a hole that looks like coverage. Delete or correct the row.');
+      console.error('MORE than declared: a SECOND literal in that file is riding the exemption.');
+      console.error('That is how a regressed `sources:` stamp hides behind a changelog reference —');
+      console.error('check whether the new occurrence is really historical before raising `count`.');
     }
     if (lagging.length) {
       console.error('\nA declared pin trails npm latest — the docs teach an old version:');

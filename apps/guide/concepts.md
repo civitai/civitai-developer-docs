@@ -81,8 +81,24 @@ interface BlockInitPayload {
   viewer: ViewerInfo | null;     // null = anonymous viewer
   theme: 'light' | 'dark';       // matches the host color scheme
   renderMode: 'iframe' | 'inline';
+
+  // Both are optional because a host predating civitai/civitai#2670 omits them.
+  domain?: ColorDomain | null;   // 'green' | 'blue' | 'red', or null if unresolved.
+                                 // INFORMATIONAL ONLY — never derive "is this SFW?"
+                                 // from this string; the policy is server-side.
+  maxBrowsingLevel?: number;     // authoritative browsing-level BITMASK — the max
+                                 // NSFW levels the domain allows. This is the
+                                 // canonical maturity test: isSfwCeiling(maxBrowsingLevel).
 }
 ```
+
+::: warning `maxBrowsingLevel` absent means SFW, not "no limit"
+Both maturity fields are optional, and the SDK **fail-closes to SFW** when
+`maxBrowsingLevel` is missing. So treat `undefined` as the most restrictive
+ceiling — a block that reads it as "unrestricted" surfaces mature affordances on
+a host that never granted them. Gate on `isSfwCeiling(maxBrowsingLevel)`, never
+on `domain`.
+:::
 
 From there, the [`@civitai/blocks-react`](https://www.npmjs.com/package/@civitai/blocks-react)
 hooks surface this to you — `useBlockContext()` returns the init payload behind a

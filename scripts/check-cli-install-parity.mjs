@@ -20,16 +20,29 @@
  * context — one is a reference, the other a guide. What must NOT differ is which
  * installation routes exist. So the guard extracts a normalised METHOD SET from
  * each page's `## Install` section and requires the two sets to be equal,
- * reporting the symmetric difference in both directions. Adding a method to one
- * page and forgetting the other fails, whichever page you edited.
+ * reporting the symmetric difference in both directions.
  *
- * WHY THE MARKERS ARE COMMANDS
- * ----------------------------
+ * 🔴 THE REGISTRY IS A CLOSED SET, AND THAT IS THE LIMIT OF THE CLAIM.
+ * This guard can only compare methods `INSTALL_METHODS` knows about. An earlier
+ * header said "adding a method to one page and forgetting the other fails,
+ * whichever page you edited" — that is FALSE for anything outside the registry,
+ * and it was false when written: both pages already documented the prebuilt
+ * binary / Releases route, which matched none of the then-seven regexes, so
+ * deleting it from one page alone still printed "both pages offer the same 7
+ * install method(s)" and exited 0. The row now exists, but the general claim
+ * does not hold — **a genuinely new install method must be added here or it is
+ * invisible to this check.** Stating that plainly is the honest version; a guard
+ * that overstates its coverage is how the next gap gets missed.
+ *
+ * WHY THE MARKERS ARE COMMANDS (mostly)
+ * -------------------------------------
  * A method is identified by the command a reader actually types
  * (`nix profile install github:civitai/cli`), not by a prose keyword. Matching a
  * word like "nix" would be satisfied by a sentence merely MENTIONING Nix — the
  * spelled-not-structural failure, where a page passes while offering the reader
- * no runnable command. Each marker below is the invocation itself.
+ * no runnable command. The one deliberate exception is `prebuilt-release`, which
+ * has no command: it is a prose pointer at the Releases page, so it is keyed on
+ * the URL a reader clicks, which is the closest thing to an invocation it has.
  *
  * POSITIVE CONTROL
  * ----------------
@@ -71,6 +84,14 @@ export const INSTALL_METHODS = [
   { id: 'nix-run', label: 'nix run github:civitai/cli', re: /nix\s+run\s+github:civitai\/cli/ },
   { id: 'nix-profile', label: 'nix profile install github:civitai/cli', re: /nix\s+profile\s+install\s+github:civitai\/cli/ },
   { id: 'nix-flake-input', label: 'flake input (inputs.civitai-cli.url)', re: /inputs\.civitai-cli\.url\s*=/ },
+  // Not a command — a prose pointer at the Releases page. Still an install ROUTE
+  // a reader follows, and it sat OUTSIDE the registry at first: deleting it from
+  // one page left both reporting "the same 7 install method(s)", rc=0.
+  {
+    id: 'prebuilt-release',
+    label: 'prebuilt binary from GitHub Releases',
+    re: /github\.com\/civitai\/cli\/releases/,
+  },
 ];
 
 /**

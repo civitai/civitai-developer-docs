@@ -41,15 +41,24 @@ jobs:
       - name: Typecheck App Blocks doc snippets against the pinned SDK
         run: npm run test:snippets:appblocks
 
+      # 🔴 NOTHING IN THIS REPO GATES — these jobs REPORT.
+      # Measured 2026-08-06: `gh api repos/civitai/civitai-developer-docs/
+      # branches/main/protection` -> 404 "Branch not protected"; `rulesets` -> [].
+      # So a red run here can be merged straight through. An earlier revision of
+      # this comment called the step below "safe to BLOCK a PR on", which reads
+      # as a claim that it DOES block; it does not, and did not when written.
+      # "Safe to require" is a property of the CHECK (offline, repo-local, no
+      # upstream input, so it cannot false-fail on someone else's publish);
+      # "blocks" is a property of REPO SETTINGS. Re-measure before calling any
+      # job here a gate — never infer it from the job existing.
+      #
       # --offline runs ONLY the single-source half: every first-party version
       # literal in the docs (design-system CDN URLs AND the SDK `sources:`
-      # stamps) must equal its declared devDep pin. That is a
-      # repo-local invariant with no upstream input, so it cannot false-fail on
-      # someone else's publish — which is what makes it safe to BLOCK a PR on,
-      # unlike the freshness half (pin vs npm latest), which detects upstream
-      # movement and stays on the scheduled appblocks-drift run.
+      # stamps) must equal its declared devDep pin. The freshness half (pin vs
+      # npm latest) detects upstream movement and stays on the scheduled
+      # appblocks-drift run.
       #
-      # Worth blocking on because the failure is silent for readers: the
+      # Worth requiring because the failure is silent for readers: the
       # design-system literals are copy-paste CDN URLs, and a stale one 404s
       # into an unstyled page with no error; the SDK literals are provenance
       # stamps, and a stale one advertises an API the page does not document.
@@ -57,16 +66,17 @@ jobs:
         if: always()
         run: npm run check:ds-pins -- --offline
 
-      # Both pages document the SAME `civitai` binary. Offline + repo-local, so
-      # it is safe to block on: it compares the two pages to each other, not to
-      # anything upstream.
+      # Both pages document the SAME `civitai` binary. Offline + repo-local: it
+      # compares the two pages to each other, not to anything upstream. (Reports
+      # only — see the gating note above.)
       - name: CLI install-method parity — the two hosted CLI pages agree
         if: always()
         run: npm run check:cli-install-parity
 
-      # The quickstart scaffolds a `page` app. A page/model-slot context mix-up
-      # TYPECHECKS (the snippet suite passed 31/31 with the wrong type) and
-      # fails only at runtime as `undefined`, so it needs its own assertion.
-      - name: Page-surface context — the quickstart narrows to the page shape
+      # A page/model-slot context mix-up TYPECHECKS (the snippet suite passed
+      # 31/31 with the wrong type) and fails only at runtime — as `undefined`
+      # fields, or as a FORBIDDEN the block cannot diagnose. Needs its own
+      # assertion. (Reports only — see the gating note above.)
+      - name: Page-surface context — page apps vs model slots
         if: always()
         run: npm run check:page-context
