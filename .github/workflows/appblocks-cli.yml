@@ -2,8 +2,8 @@ name: appblocks-cli
 
 # PR-BLOCKING: the CLI reference generator runs at BUILD time (prebuild ->
 # gen:appblocks) and HARD-FAILS when the committed civitai-cli-help.txt snapshot
-# advertises an `app` subcommand that APP_COMMANDS / APP_SUBGROUPS does not list.
-# That is a REPO-LOCAL invariant — the snapshot and the curated list are both
+# advertises a command the generated reference does NOT document. That is a
+# REPO-LOCAL invariant — the snapshot and the generated artifact both come from
 # files in this repo, with no upstream input — so it cannot false-fail on
 # someone else's publish, which is what makes it safe to BLOCK a PR on (the same
 # reasoning as the --offline half of appblocks-snippets). The FRESHNESS half (is
@@ -14,6 +14,17 @@ name: appblocks-cli
 # re-snapshotting a binary that had GAINED a command wrote a green artifact with
 # that command simply absent from the published reference. `civitai app metrics`
 # shipped that way.
+#
+# NOTE the guard's shape changed when the reference widened from `civitai app …`
+# to the whole command tree: it used to compare the snapshot against the curated
+# APP_COMMANDS / APP_SUBGROUPS lists in scripts/gen-appblocks-cli.mjs. Those
+# constants are GONE — the command set is now walked from cobra's own
+# `__complete` output, so a newly-gained command needs no list edit and the
+# omission-by-curation failure cannot recur. The guard still runs, in both
+# directions and at EVERY group in the tree rather than two: `Available
+# Commands:` must advertise nothing the walk failed to document, and the two
+# independent enumerations (`Available Commands:` vs `__complete`) must agree.
+# What trips it now is a walk that LOST a node, not a list nobody updated.
 #
 # RUNS ON EVERY PR, DELIBERATELY UNFILTERED — do not re-add a `paths:` filter.
 # `test-cli` is a REQUIRED status check on `main` (measured 2026-08-06:
