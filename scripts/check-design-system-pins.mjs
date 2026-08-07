@@ -211,9 +211,18 @@ export const HISTORICAL_LITERALS = [
     file: 'apps/reference/generation.md',
     pkg: '@civitai/app-sdk',
     version: '0.30.0',
-    // EXACT — see the header. One occurrence, the `step` changelog reference.
-    // A second 0.30.0 in this file is a regressed `sources:` stamp, not history.
-    count: 1,
+    // EXACT — see the header. TWO occurrences of the SAME changelog fact:
+    //   1. the hand-written `The \`step\` member (added in …)` prose, and
+    //   2. the generated markdown-fallback region (the .md / LLM channel — see
+    //      scripts/appblocks-md.mjs), which mirrors <BridgeReference>'s
+    //      `useBuzzWorkflow` docstring, and that docstring itself says "THREE
+    //      members as of @civitai/app-sdk@0.30.0".
+    // Both are arrival-version statements, neither is a `sources:` stamp — and a
+    // regressed stamp would make it THREE, so the count still catches it.
+    // If the upstream docstring stops naming 0.30.0 this drops to 1 and fails,
+    // which is the bidirectional strictness working: refresh the region and
+    // correct this row in the same change.
+    count: 2,
     why: 'the `step` WorkflowBody member was ADDED in 0.30.0 — a changelog fact. Bumping it to the current pin would state a false arrival version.',
   },
 ];

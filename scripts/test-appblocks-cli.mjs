@@ -1168,7 +1168,11 @@ check('the page names exactly the top-level commands the artifact carries', () =
   // so a command the CLI gains or loses fails here instead of rotting silently.
   const page = readFileSync(`${repoRoot}/apps/reference/cli.md`, 'utf8');
   const start = page.indexOf('## Command reference');
-  const end = page.indexOf('<CliReference />', start);
+  // Match the TAG, not one spelling of it: the island became `<CliReference>` +
+  // `</CliReference>` when the page gained its markdown-fallback slot (the .md /
+  // LLM channel — scripts/appblocks-md.mjs), and pinning `<CliReference />` made
+  // this assertion fail on a page that had not restructured at all.
+  const end = page.indexOf('<CliReference', start);
   assert(start !== -1 && end > start, 'could not locate the `## Command reference` intro — did the page restructure?');
   const intro = page.slice(start, end);
 

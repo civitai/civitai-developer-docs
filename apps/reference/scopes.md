@@ -17,7 +17,26 @@ approved-and-granted subset. The block never holds a long-lived credential.
 The table below is generated from the `civitai` scope constants — the same
 source the manifest validator and the token minter read.
 
-<ScopesTable />
+<ScopesTable>
+<!-- BEGIN GENERATED: scopes — markdown fallback for the .md/LLM channel. Do not edit by hand; run `npm run gen:appblocks:md`. -->
+
+| Scope | What it authorizes | OAuth bit | Binding |
+|---|---|---|---|
+| `models:read:self` | Read the model on the page where the block is mounted | `ModelsRead` | Bound to the model on the page where the block is mounted (a model-slot install supplies the modelId context). |
+| `user:read:self` | Read the viewer's username and account status | `UserRead` | Self-bound to the token subject; rejected for an anonymous subject. |
+| `ai:write:budgeted` | Submit generations with a per-call Buzz cap | `AIServicesWrite` | Host-enforced per-call Buzz cap; the token carries a buzzBudget claim the host clamps against. |
+| `buzz:read:self` | Read the viewer's Buzz balance | `BuzzRead` | Self-bound to the token subject (the signed-in viewer). |
+| `social:tip:self` | Post tips on behalf of the viewer | `SocialTip` | Self-bound: tips are posted as the token subject. |
+| `apps:storage:read` | Read this app's private per-install data store | — | Scoped to this app's private per-install store; asserted per read op. |
+| `apps:storage:write` | Write to this app's private per-install data store | — | Scoped to this app's private per-install store; asserted per write op. |
+| `apps:storage:shared:read` | Read this app's shared, community-wide data (e.g. everyone's posts + vote counts) | — | Scoped to this app's shared (cross-user) store; min-trust gate + fail-closed flag. Never minted for dev-tunnel / dev-token sessions. |
+| `apps:storage:shared:write` | Post + vote in this app's shared, community-wide data — visible to all users of the app | — | Scoped to this app's shared (cross-user) store; min-trust gate + fail-closed flag. Never minted for dev-tunnel / dev-token sessions. |
+| `collections:read:self` | Browse and read public Civitai collections, and your own public collections | — | Self-bound; public collections + the viewer's own public collections. Consent-exempt (server visibility/ownership is the gate). |
+| `collections:write:self` | Bookmark (follow) collections on your behalf | — | Self-bound: follow/bookmark on the viewer’s own behalf. Consent-exempt. |
+| `collections:read:private` | Read your private collections | — | Self-bound; CONSENT-GATED — the viewer must grant it via the host consent gate before a token carries it. |
+
+<!-- END GENERATED: scopes -->
+</ScopesTable>
 
 ## How to read this table
 
