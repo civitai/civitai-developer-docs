@@ -21,6 +21,11 @@ on:
       - 'scripts/gen-appblocks-cli.mjs'
       - 'scripts/test-appblocks-cli.mjs'
       - 'scripts/appblocks-util.mjs'
+      # The RENDERER is in scope too: test-appblocks-cli.mjs now also pins the
+      # CliReference anchor-slug + heading-depth helpers, and a gate that never
+      # runs on the file it guards is not a gate.
+      - '.vitepress/theme/components/CliReference.vue'
+      - '.vitepress/theme/components/cliReference.shared.mjs'
       - '.github/workflows/appblocks-cli.yml'
   workflow_dispatch: {}
 
