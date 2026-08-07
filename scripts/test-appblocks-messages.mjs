@@ -343,9 +343,13 @@ check('a commented-out `PageBlockHost:` does not flip pageOnly', () => {
 });
 
 check('stripCodeComments preserves comment-looking text INSIDE string literals', () => {
-  // The strip must not eat a real value. `//` inside a quoted string is data.
-  const kept = stripCodeComments(`const a = 'https://example.com/x'; // gone`);
-  assert(kept.includes('https://example.com/x'), `URL inside a string was eaten: ${kept}`);
+  // The strip must not eat a real value: `//` and `/* */` inside a quoted string are
+  // DATA, not comments. (Deliberately not a URL literal — CodeQL reads a
+  // `.includes('https://…')` assertion as incomplete URL sanitization, and the
+  // property under test has nothing to do with URLs.)
+  const kept = stripCodeComments(`const a = 'x // y'; const b = 'p /* q */ r'; // gone`);
+  assert(kept.includes('x // y'), `a // inside a string was eaten: ${kept}`);
+  assert(kept.includes('p /* q */ r'), `block-comment text inside a string was eaten: ${kept}`);
   assert(!kept.includes('gone'), `trailing comment survived: ${kept}`);
 });
 
