@@ -245,8 +245,40 @@ export function parseShortDescriptions(appHelp) {
   return map;
 }
 
+// The cobra `Examples:` block, VERBATIM, as an array of lines.
+//
+// This section existed in the source all along and was thrown away: `section()`
+// only ever treated `Examples:` as a TERMINATOR for the preceding section, and
+// nothing read it as a section of its own. Measured on the committed snapshot,
+// that discarded 13 of the 19 documented commands' examples.
+//
+// 🔴 CARRIED VERBATIM, NOT NORMALISED. These are shell TRANSCRIPTS, not prose:
+//   - internal blank lines are the transcript's own grouping (`app create` uses
+//     them to separate four annotated scenarios) and MUST survive;
+//   - `#` comment lines annotate the command below or beside them;
+//   - trailing inline comments are column-aligned by hand in the Go source
+//     (`civitai app dev-tunnel                 # blockId from …`), so
+//     collapsing runs of spaces destroys the alignment the author wrote.
+// Measured on appblocks-snapshots/civitai-cli-help.txt @ civitai
+// v0.1.90-13-g569f5dc: all 72 non-blank example lines across all 14 blocks that
+// carry an `Examples:` section are indented by exactly 2 spaces (cobra's own
+// indent — leading-whitespace histogram `{2: 72}`), so a common-indent dedent would
+// leave ZERO lines carrying leading whitespace. Rather than pick a
+// normalisation that is invisible until the CLI ships a nested example, the
+// artifact keeps the bytes cobra emitted and the renderer prints them
+// preformatted. The ONLY thing trimmed is leading/trailing BLANK lines, which
+// are section-boundary artifacts rather than content.
+export function parseExamples(help) {
+  const lines = section(help, 'Examples');
+  let a = 0;
+  let b = lines.length;
+  while (a < b && !lines[a].trim()) a++;
+  while (b > a && !lines[b - 1].trim()) b--;
+  return lines.slice(a, b);
+}
+
 // The `Long` description = everything before the `Usage:` heading, collapsed.
-function parseLongDescription(help) {
+export function parseLongDescription(help) {
   const lines = help.split('\n');
   const end = lines.findIndex((l) => l.trimStart().startsWith('Usage:'));
   const body = (end === -1 ? lines : lines.slice(0, end)).join('\n').trim();
@@ -430,12 +462,18 @@ function buildCommand(blocks, cmd, label) {
     args: parseArgs(help, command),
     description: short || parseLongDescription(help).split('\n')[0] || '',
     options: parseFlags(help),
+    // Always present (possibly empty) so a consumer never has to distinguish
+    // "no examples" from "an artifact generated before this field existed".
+    examples: parseExamples(help),
     status: GATED.has(cmd.leaf) ? 'gated' : 'stable',
   };
 }
 
-function main() {
-  const { text: bundle, source } = resolveBundle();
+// Build the whole artifact from a help bundle. Exported (and pure — no I/O, no
+// clock) so scripts/test-appblocks-cli.mjs can assert on the REAL artifact the
+// build writes, driven from the committed snapshot, without depending on a
+// previously-generated public/appblocks/cli.json being on disk.
+export function buildArtifact(bundle, source = 'test') {
   const blocks = splitBlocks(bundle);
 
   const appHelp = blocks['app'];
@@ -482,15 +520,23 @@ function main() {
     );
   }
 
-  const artifact = {
-    generatedAt: new Date().toISOString(),
-    source,
-    program,
-    commands,
-  };
+  return { generatedAt: new Date().toISOString(), source, program, commands };
+}
+
+function main() {
+  const { text: bundle, source } = resolveBundle();
+  const artifact = buildArtifact(bundle, source);
+  const { commands } = artifact;
   const dest = writeArtifact('cli.json', artifact);
   const gated = commands.filter((c) => c.status === 'gated').map((c) => c.command);
+  // Report the example yield in the build log: a generator that silently stops
+  // extracting examples otherwise looks identical to one whose commands simply
+  // have none. The FLOOR that turns this into a gate lives in
+  // scripts/test-appblocks-cli.mjs (PR-blocking via .github/workflows/appblocks-cli.yml).
+  const withExamples = commands.filter((c) => c.examples.length);
+  const exampleLines = withExamples.reduce((n, c) => n + c.examples.length, 0);
   log(`cli: wrote ${commands.length} commands (${gated.length} gated: ${gated.join(', ')}) -> ${dest}`);
+  log(`  examples: ${withExamples.length}/${commands.length} commands, ${exampleLines} lines`);
   log(`  from ${source}`);
 }
 
