@@ -13,20 +13,23 @@ name: appblocks-cli
 # Worth blocking on because the failure is SILENT: before this guard existed,
 # re-snapshotting a binary that had GAINED a command wrote a green artifact with
 # that command simply absent from the published reference. `civitai app metrics`
-# shipped that way. Triggered on the inputs that can introduce that drift.
+# shipped that way.
+#
+# RUNS ON EVERY PR, DELIBERATELY UNFILTERED — do not re-add a `paths:` filter.
+# `test-cli` is a REQUIRED status check on `main` (measured 2026-08-06:
+# `gh api repos/civitai/civitai-developer-docs/branches/main/protection` ->
+# contexts `test-cli`, `test-messages`, `test-bridge`, `typecheck-snippets`),
+# and GitHub does NOT synthesise a passing status for a workflow that never
+# triggers. A path-filtered required check therefore leaves any PR touching
+# none of the watched files at mergeStateStatus=BLOCKED forever, waiting on a
+# report that will never come — measured live on #42. The suite is offline,
+# repo-local and seconds long, so running it unconditionally is cheap, and the
+# unfiltered trigger is a strict SUPERSET of the old filter: the snapshot, the
+# generator, the tests, appblocks-util and the CliReference renderer helpers
+# (test-appblocks-cli.mjs pins the anchor-slug + heading-depth helpers) are all
+# still covered.
 on:
-  pull_request:
-    paths:
-      - 'appblocks-snapshots/civitai-cli-help.txt'
-      - 'scripts/gen-appblocks-cli.mjs'
-      - 'scripts/test-appblocks-cli.mjs'
-      - 'scripts/appblocks-util.mjs'
-      # The RENDERER is in scope too: test-appblocks-cli.mjs now also pins the
-      # CliReference anchor-slug + heading-depth helpers, and a gate that never
-      # runs on the file it guards is not a gate.
-      - '.vitepress/theme/components/CliReference.vue'
-      - '.vitepress/theme/components/cliReference.shared.mjs'
-      - '.github/workflows/appblocks-cli.yml'
+  pull_request: {}
   workflow_dispatch: {}
 
 # LEAST PRIVILEGE. The repo default is `write` (measured 2026-08-06:
