@@ -47,7 +47,11 @@ export function resolvePackageRoot(name) {
   }
   throw new Error(`resolvePackageRoot: could not locate package root for ${name}`);
 }
-export const snapshotsDir = join(repoRoot, 'appblocks-snapshots');
+// APPBLOCKS_SNAPSHOTS_DIR redirects the committed-snapshot fallback. It exists so a test
+// can execFile a generator against a DOCTORED snapshot without mutating the working
+// tree — the generators' hard-fail guards live in their `main()`, which no unit test can
+// reach by import, and which no PR workflow runs. Unset everywhere else.
+export const snapshotsDir = process.env.APPBLOCKS_SNAPSHOTS_DIR || join(repoRoot, 'appblocks-snapshots');
 export const outDir = join(repoRoot, 'public', 'appblocks');
 
 // Candidate sibling `civitai` repo roots. The first matches the dev-stack layout

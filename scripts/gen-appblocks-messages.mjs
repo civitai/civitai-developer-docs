@@ -176,6 +176,84 @@ export function extractBraced(text, openIdx) {
 }
 
 /**
+ * Strip `//` line and block comments from a TS fragment, preserving string literals
+ * (and everything inside them). Same state machine as extractBraced, applied to the
+ * OTHER half of the problem.
+ *
+ * WHY: extractBraced is comment-aware only for BRACE MATCHING. The field regexes then
+ * ran against the RAW entry body, so any comment inside an entry was live input to
+ * them — the converse hole. A single line upstream is enough:
+ *
+ *   REQUEST_TOKEN: {
+ *     // was reply: 'TOKEN_REFRESH' before v2 correlation
+ *     request: true,
+ *     reply: 'TOKEN_REFRESH_RESPONSE (…)',
+ *
+ * The non-greedy `reply:\s*(['"`])(.*?)\1` matches the COMMENTED one first, yielding
+ * `reply = "TOKEN_REFRESH"` — a real published message, so the resolution guard
+ * resolves it happily, `replyPayload` is the WRONG shape and TOKEN_REFRESH_RESPONSE is
+ * re-emitted as an orphan push. rc=0 throughout: exactly the defect this module exists
+ * to prevent, reachable through a comment. And upstream has just demonstrated the habit
+ * of writing prose about `reply` next to these entries (see splitReply).
+ *
+ * A comment is replaced by whitespace rather than deleted, so it can never JOIN two
+ * tokens into a third thing that matches.
+ */
+export function stripCodeComments(src) {
+  let out = '';
+  let quote = null;
+  let line = false;
+  let block = false;
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    const nx = src[i + 1];
+    if (line) {
+      if (ch === '\n') { line = false; out += ch; }
+      continue;
+    }
+    if (block) {
+      if (ch === '*' && nx === '/') { block = false; i++; out += ' '; }
+      else if (ch === '\n') out += ch; // keep line structure
+      continue;
+    }
+    if (quote) {
+      out += ch;
+      if (ch === '\\') { if (i + 1 < src.length) out += src[++i]; continue; }
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '/' && nx === '/') { line = true; i++; out += ' '; continue; }
+    if (ch === '/' && nx === '*') { block = true; i++; out += ' '; continue; }
+    if (ch === "'" || ch === '"' || ch === '`') { quote = ch; out += ch; continue; }
+    out += ch;
+  }
+  return out;
+}
+
+/**
+ * Strip ONE pair of enclosing parens, and only when they genuinely enclose the whole
+ * note.
+ *
+ * A first-and-last CHARACTER test is not that: `'(correlated) or a push (uncorrelated)'`
+ * starts `(` and ends `)` while the two are different pairs, so slicing produced the
+ * mangled `correlated) or a push (uncorrelated`. Depth-scan instead and leave the note
+ * alone unless the paren opened at index 0 is the one closed at the last character.
+ */
+export function stripEnclosingParens(note) {
+  if (!note.startsWith('(')) return note;
+  let depth = 0;
+  for (let i = 0; i < note.length; i++) {
+    if (note[i] === '(') depth++;
+    else if (note[i] === ')') {
+      depth--;
+      // The opening paren's partner. Only a match at the very end encloses everything.
+      if (depth === 0) return i === note.length - 1 ? note.slice(1, -1).trim() : note;
+    }
+  }
+  return note; // unbalanced — leave verbatim rather than invent a shape
+}
+
+/**
  * Split a raw INVENTORY `reply:` value into the MESSAGE TYPE and a free-prose
  * CAVEAT.
  *
@@ -201,16 +279,22 @@ export function extractBraced(text, openIdx) {
  * with no note, so the reply-resolution guard in main() reports it rather than this
  * helper guessing.
  *
+ * 🔴 THE QUANTIFIER IS `+`, NOT `*`, AND THAT IS THE WHOLE "no guessing" CLAIM. With
+ * `*` a single leading capital IS a type token, so ordinary capitalised prose —
+ * `'See the browser tests'` — split to `reply: "S"` + `replyNote: "ee the browser
+ * tests"`. Still fail-loud (the resolution guard rejects `S`), but it fails naming a
+ * message that never existed, and the docblock above would have been false. `+`
+ * requires two chars of SCREAMING_SNAKE, which rejects `See` / `None` while accepting
+ * every real type (all are >= 2 chars).
+ *
  * @param {string} raw
  * @returns {{ reply: string, replyNote: string | null }}
  */
 export function splitReply(raw) {
   if (!raw) return { reply: '', replyNote: null };
-  const m = raw.match(/^\s*([A-Z][A-Z0-9_]*)\s*([\s\S]*)$/);
+  const m = raw.match(/^\s*([A-Z][A-Z0-9_]+)\s*([\s\S]*)$/);
   if (!m) return { reply: raw.trim(), replyNote: null };
-  let note = m[2].trim();
-  // Strip one wrapping paren pair: `(or a TOKEN_REFRESH push when …)`.
-  if (note.startsWith('(') && note.endsWith(')')) note = note.slice(1, -1).trim();
+  const note = stripEnclosingParens(m[2].trim());
   return { reply: m[1], replyNote: note || null };
 }
 
@@ -228,8 +312,13 @@ export function parseInventory(ts) {
     const name = m[1];
     if (name === 'INLINE_STUB') continue;
     const openIdx = region.indexOf('{', m.index);
-    const body = extractBraced(region, openIdx);
-    if (body == null) continue;
+    const raw = extractBraced(region, openIdx);
+    if (raw == null) continue;
+    // 🔴 Field extraction reads CODE ONLY. extractBraced is comment-aware for brace
+    // matching; without this the regexes below still saw comments, and a commented-out
+    // `reply:` (or `PageBlockHost:`) inside an entry silently won — see
+    // stripCodeComments for the measured case.
+    const body = stripCodeComments(raw);
     const request = /request:\s*true/.test(body);
     const replyM = body.match(/reply:\s*(['"`])(.*?)\1/);
     // `reply` is upstream-declared free prose; take the leading type, keep the
@@ -363,9 +452,6 @@ function main() {
   };
   assertFlags('GET_VIEWER', { pageOnly: true, request: true, hasReply: true });
   assertFlags('GET_BUZZ_BALANCE', { pageOnly: false, request: true, hasReply: true });
-
-  // Build a lookup of host->block replies so we can pair request/reply.
-  const replyByName = new Map(parentToBlock.map((m) => [m.name, m]));
 
   // (3) REPLY RESOLUTION: every `reply` an INVENTORY entry names MUST resolve to a
   // published SDK host->block message. This is the guard the drift that motivated
