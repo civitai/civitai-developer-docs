@@ -173,9 +173,15 @@ async function main() {
   console.error('  node scripts/gen-appblocks-cli.mjs --write-snapshot');
   console.error('  npm run gen:appblocks && git diff appblocks-snapshots/civitai-cli-help.txt');
   console.error('');
-  console.error('Review the diff by hand — a new `app` subcommand also has to be added to');
-  console.error('APP_COMMANDS in scripts/gen-appblocks-cli.mjs (the PR-blocking appblocks-cli job');
-  console.error('will fail until it is).');
+  // The remedy used to end "…a new `app` subcommand also has to be added to
+  // APP_COMMANDS". That list no longer exists: the command set is WALKED from
+  // cobra's `__complete`, so a new command needs no edit here — re-capturing is
+  // the whole fix. Leaving the old instruction would send a maintainer looking
+  // for a constant that is gone.
+  console.error('Review the diff by hand. The command set is walked from the binary, so a new');
+  console.error('command needs no list edit — but DO check the node count in the generator log');
+  console.error('and re-measure the floors in scripts/test-appblocks-cli.mjs if commands were');
+  console.error('added or removed (the PR-blocking appblocks-cli job fails on a shrinking tree).');
   process.exit(1);
 }
 

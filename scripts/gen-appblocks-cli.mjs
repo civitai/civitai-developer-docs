@@ -1,5 +1,5 @@
 // Generate public/appblocks/cli.json — the canonical `civitai` CLI reference for
-// the App-authoring command group (`civitai app …`).
+// the WHOLE command tree (`civitai <group> <cmd> …`), not just `civitai app …`.
 //
 // SOURCE: the Go `civitai` CLI (repo civitai/cli, commands cobra-defined). This
 // is the CANONICAL dev CLI — it replaced the deprecated npm `@civitai/blocks-cli`
@@ -9,13 +9,26 @@
 // Resolution mirrors the sibling generators' "prefer live, snapshot is the
 // hermetic CI fallback" philosophy:
 //   1. If a `civitai` binary is resolvable (CIVITAI_CLI_BIN or on PATH) and
-//      APPBLOCKS_SNAPSHOT_ONLY!=1, capture `civitai app --help` + each
-//      `civitai app <cmd> --help` live and parse the cobra help text.
+//      APPBLOCKS_SNAPSHOT_ONLY!=1, walk the command tree live — capturing
+//      `civitai <path> --help` plus `civitai __complete <path> ""` at every
+//      node — and parse the cobra help text.
 //   2. Otherwise parse the committed snapshot appblocks-snapshots/civitai-cli-help.txt
 //      (CI has no binary — this keeps the build hermetic + deterministic).
 //
 // Refresh the committed snapshot from a newer binary with:
 //   node scripts/gen-appblocks-cli.mjs --write-snapshot
+//
+// 🔴 THE COMMAND SET IS ENUMERATED, NOT CURATED. It used to be two hardcoded
+// lists (APP_COMMANDS / APP_SUBGROUPS) covering 19 nodes under `app`; the tree
+// is now discovered by recursing on cobra's own `__complete` output from the
+// ROOT, which is why the reference covers every command the binary ships (52
+// entries at civitai v0.1.90-13-g569f5dc) instead of one group's worth. A
+// hardcoded list is a drift-guard only for the group it names, and it is a
+// SILENT censor for everything it does not: `civitai app metrics` shipped
+// unlisted for exactly that reason, and every command outside `app` was in that
+// state permanently. The guards that replaced the lists are the two assertions
+// at the bottom of this section header — see assertNoUnlistedSubcommands and
+// assertEnumerationsAgree — and they now cover every node, not two groups.
 //
 // dev-token / dev-tunnel are invite-gated pre-GA; they are marked status:'gated'
 // so the page badges them instead of implying open access.
@@ -25,59 +38,79 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { log, snapshotsDir, writeArtifact } from './appblocks-util.mjs';
 
-// Canonical top-level `civitai app` command set, in a curated lifecycle/display
-// order (authoring → store-listing media → discovery → owner analytics →
-// dev-loop → repo sync). Asserting this exact set is present is the drift-guard:
-// a renamed/removed command trips the build. Order is curated (NOT the
-// alphabetical cobra help order) so the reference reads lifecycle-first.
-//
-// The REVERSE direction is guarded too — see assertNoUnlistedSubcommands. A
-// command the CLI GAINS is invisible to the forward assertion (which only
-// checks that each LISTED command has a help block) and to
-// EXPECTED_COMMAND_COUNT (which is derived from this same list, so it can never
-// disagree with it). `metrics` shipped unlisted for exactly that reason.
-export const APP_COMMANDS = [
-  'create',
-  'init',
-  'validate',
-  'submit',
-  'status',
-  'withdraw',
-  'listing', // command GROUP — its subcommands are enumerated in APP_SUBGROUPS
-  'list',
-  'view',
-  'metrics',
-  'dev-token',
-  'dev-tunnel',
-  'pull',
-];
-
-// Command GROUPS: an `app <group>` that owns its OWN subcommands (a nested cobra
-// command tree). The generator RECURSES into each — capturing + parsing
-// `civitai app <group> <sub> --help` — so nested subcommands are documented too,
-// not just the top-level `app` commands. Each subcommand set is asserted present
-// as a drift-guard (a new/removed subcommand trips the build). This is the fix
-// for the `app listing` media group being silently dropped from the reference.
-export const APP_SUBGROUPS = {
-  listing: ['set-icon', 'set-cover', 'add-screenshot', 'rm-screenshot', 'reorder', 'status'],
-};
-
 // Cobra scaffolding that every command group advertises but which is not part of
-// the App lifecycle and is never rendered in the reference. Anything else the
-// help advertises MUST be listed above — see assertNoUnlistedSubcommands.
+// the CLI's own surface and is never rendered in the reference. `completion`
+// carries its own four-shell subtree, so dropping it here drops that subtree
+// too — deliberate: a shell-completion installer is documented by
+// `civitai completion --help`, not by a docs page.
 export const IGNORED_SUBCOMMANDS = new Set(['help', 'completion']);
 
 // Commands gated behind the invite-only pre-GA cohort (server kill-switch /
 // invite-gated mint routes). Badged in the rendered reference.
-const GATED = new Set(['dev-token', 'dev-tunnel']);
+//
+// Keyed on the FULL command path, not the leaf name. With the whole tree in
+// scope leaf names are no longer unique — `status` is both `app status` and
+// `app listing status`, `get` is five different commands — so a leaf-keyed set
+// would badge (or fail to badge) the wrong node.
+const GATED = new Set(['app dev-token', 'app dev-tunnel']);
 
-// Total command entries the artifact must contain: every top-level command plus
-// every enumerated subcommand of each group.
-const EXPECTED_COMMAND_COUNT =
-  APP_COMMANDS.length + Object.values(APP_SUBGROUPS).reduce((n, subs) => n + subs.length, 0);
+// DISPLAY order only — never membership. Names listed here are emitted first, in
+// this order; anything the walk finds that is NOT listed follows, alphabetically.
+// So an upstream addition can never be dropped by omission here (that is what
+// killed the old curated lists); it only lands at the end of its group.
+//
+// `app`'s order is the curated authoring lifecycle (authoring → store-listing
+// media → discovery → owner analytics → dev-loop → repo sync) rather than
+// cobra's alphabetical order, so the reference reads lifecycle-first. The root's
+// only entry is `app`, because this page lives in the Apps section.
+export const DISPLAY_ORDER = {
+  '': ['app'],
+  app: [
+    'create',
+    'init',
+    'validate',
+    'submit',
+    'status',
+    'withdraw',
+    'listing',
+    'list',
+    'view',
+    'metrics',
+    'dev-token',
+    'dev-tunnel',
+    'pull',
+  ],
+  // The store-listing media flow, in the order an author performs it. Carried
+  // over verbatim from the old APP_SUBGROUPS.listing so widening the reference
+  // does not silently re-order a section that is already published.
+  'app listing': ['set-icon', 'set-cover', 'add-screenshot', 'rm-screenshot', 'reorder', 'status'],
+};
+
+// Anti-TRUNCATION floor, not a drift guard. A partially-walked tree (a capture
+// that died halfway, a snapshot truncated by an editor, a `__complete` that
+// stopped enumerating) must refuse to write rather than publish a reference
+// that silently lost half the CLI. Deliberately well below the measured count
+// (52 at civitai v0.1.90-13-g569f5dc) so a legitimate upstream REMOVAL does not
+// false-fail the build; the tight, re-measured floor lives in
+// scripts/test-appblocks-cli.mjs.
+const MIN_COMMAND_COUNT = 40;
+
+// Snapshot label for the root command (`civitai --help`). Parenthesised so it
+// can never collide with a real command name.
+export const ROOT_LABEL = '(root)';
 
 export const SNAPSHOT = join(snapshotsDir, 'civitai-cli-help.txt');
 const DELIM = (label) => `===CMD ${label}===`;
+
+/** The snapshot block label for a command path. `[]` -> `(root)`. */
+export function blockLabel(path) {
+  return path.length ? path.join(' ') : ROOT_LABEL;
+}
+
+/** The snapshot block label for a command path's `__complete` capture. */
+export function completionLabel(path) {
+  return `complete ${blockLabel(path)}`;
+}
 
 const args = process.argv.slice(2);
 const WRITE_SNAPSHOT = args.includes('--write-snapshot');
@@ -106,11 +139,49 @@ function cleanEnv() {
 }
 
 function capture(bin, argv) {
-  return execFileSync(bin, argv, {
-    encoding: 'utf8',
-    env: cleanEnv(),
-    maxBuffer: 8 * 1024 * 1024,
-  });
+  return repairPflagSentinel(
+    execFileSync(bin, argv, {
+      encoding: 'utf8',
+      env: cleanEnv(),
+      maxBuffer: 8 * 1024 * 1024,
+      // stdin is IGNORED, not inherited. The walk shells out ~2× per node and CI
+      // runners have no TTY; pinning the shape here means the capture behaves the
+      // same on a developer's terminal and on a runner. (Measured both ways — see
+      // the non-TTY case in scripts/test-appblocks-cli.mjs.)
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }),
+  );
+}
+
+// 🔴 A RAW NUL BYTE REACHES `--help` STDOUT, AND IT ARRIVES WITH THE ROW ALREADY
+// MIS-ALIGNED. pflag builds each `Flags:` row as `<spec>\x00<usage>` and swaps
+// that NUL for alignment spacing at print time, splitting on the FIRST `\x00` in
+// the line. `civitai login --token` declares
+// `NoOptDefVal = "\x00civitai-token-no-value"` (civitai/cli
+// internal/cmd/login.go:42), so the row carries TWO sentinels: pflag aligns on
+// the one inside the DEFAULT VALUE and its own separator survives into stdout.
+//
+// Measured on civitai v0.1.90-13-g569f5dc, `civitai login --help`:
+//   `      --token string[="<28 spaces>civitai-token-no-value"]<NUL>store a personal API key …`
+//
+// Two consequences, both unacceptable to publish. A NUL makes git, grep and
+// `file(1)` classify the committed snapshot as BINARY — `git diff` refuses to
+// show it, which would have silently ended hand-review of every future
+// re-capture. And parseFlags splits on the first 2+ space run, which is now the
+// one pflag injected INSIDE the brackets, yielding
+// flags=`--token string[="` / description=`civitai-token-no-value"]store a …`.
+//
+// So undo pflag's mis-split rather than papering over the byte: collapse the
+// spacing it injected inside `[="…"]`, and restore the two-space separator its
+// real sentinel stood for. The rendered default then reads
+// `civitai-token-no-value`, which is what the flag's help means and what pflag
+// would have printed had the two sentinels not collided. Any OTHER NUL is
+// pflag's separator with no collision, so it becomes the separator too — a NUL
+// is never content. This is the CAPTURE seam, so the committed snapshot is
+// clean at rest; `TestSnapshotCarriesNoNulBytes` in scripts/test-appblocks-cli.mjs
+// is the standing proof.
+export function repairPflagSentinel(text) {
+  return text.replace(/\[="[ ]+([^"\n]*)"\]\x00/g, '[="$1"]  ').replace(/\x00/g, '  ');
 }
 
 // Cobra's machine-readable enumeration of a command group:
@@ -126,6 +197,9 @@ function capture(bin, argv) {
 // coupling is non-local — the column width is a function of the OTHER commands
 // in the group — so ADDING a long-named command silently un-documents a
 // DIFFERENT one.
+//
+// It is ALSO the tree walker's enumeration: recursing on it is what widened this
+// generator from one hardcoded group to the whole binary.
 function captureCompletion(bin, path) {
   // `__complete` puts the `:<directive>` trailer on stdout and its human note on
   // stderr; we capture stdout only and drop the trailer when parsing.
@@ -135,6 +209,26 @@ function captureCompletion(bin, path) {
 // Names from a captured `__complete` block. Returns null for an absent block so
 // a pre-existing snapshot without these sections degrades to the regex alone
 // rather than reporting an empty enumeration.
+//
+// 🔴 A `-`-PREFIXED ROW IS A FLAG, NOT A SUBCOMMAND, AND DROPPING IT IS LOAD-
+// BEARING. At a LEAF that has a REQUIRED flag, cobra completes the flag instead
+// of a subcommand and emits it in a row byte-shaped exactly like a subcommand
+// row — `name<TAB>description`:
+//
+//     $ civitai __complete app pull ""
+//     --app	the app slug (repo name) or appBlockId to pull (required)
+//     :0
+//
+// The `:<directive>` trailer does NOT discriminate: `app` answers `:4`
+// (NoFileComp) and `app pull` answers `:0`, and both are meaningful values a
+// group can legitimately return. So the ONLY reliable signal is the leading `-`,
+// which no cobra command name can carry (cobra command names are bare words).
+// Without this filter the walk descends into `civitai app pull --app --help`,
+// which is not a command — and the enumeration cross-check reports a permanent
+// false disagreement at every such leaf, because `Available Commands:` never
+// lists flags. Measured at civitai v0.1.90-13-g569f5dc: `app pull` is the only
+// node in the tree that trips it, which is exactly why it needs its own
+// regression test rather than a passing glance.
 export function parseCompletionNames(block) {
   if (block == null) return null;
   return block
@@ -143,34 +237,49 @@ export function parseCompletionNames(block) {
     .filter((l) => l && !l.startsWith(':') && l.includes('\t'))
     .map((l) => l.slice(0, l.indexOf('\t')).trim())
     .filter(Boolean)
+    .filter((name) => !name.startsWith('-'))
     .sort();
 }
 
+/**
+ * Children of a group, in DISPLAY order: the curated names first (in their
+ * curated order), then everything else alphabetically. Pure + exported so the
+ * regression test can prove an unlisted addition survives rather than vanishing.
+ */
+export function orderChildren(path, names) {
+  const curated = DISPLAY_ORDER[path.join(' ')] ?? [];
+  const rest = names.filter((n) => !curated.includes(n)).sort();
+  return [...curated.filter((n) => names.includes(n)), ...rest];
+}
+
+/** The child command names of a node, per its captured `__complete` block. */
+function childNames(path, completionBlock) {
+  const names = (parseCompletionNames(completionBlock) ?? []).filter((n) => !IGNORED_SUBCOMMANDS.has(n));
+  return orderChildren(path, names);
+}
+
 // Build the delimited help bundle (same layout as the committed snapshot) from
-// a live binary, so the parser is source-agnostic.
+// a live binary, so the parser is source-agnostic. Depth-first in DISPLAY order,
+// so the snapshot reads in the same order as the rendered page.
 function captureBundle(bin) {
   const version = capture(bin, ['--version']).trim();
   const parts = [
-    'civitai CLI help snapshot (App authoring command group)',
+    'civitai CLI help snapshot (the WHOLE command tree)',
     'Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.',
     `Binary version: ${version.split('\n')[0]}`,
     'Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,',
     'else parses this committed snapshot. To refresh: run',
     'node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).',
-    DELIM('app'),
-    capture(bin, ['app', '--help']).trimEnd(),
-    DELIM('complete app'),
-    captureCompletion(bin, ['app']),
+    'Every node carries TWO blocks: its `--help` body, and the `__complete` enumeration',
+    'the walk used to discover its children.',
   ];
-  for (const cmd of APP_COMMANDS) {
-    parts.push(DELIM(`app ${cmd}`), capture(bin, ['app', cmd, '--help']).trimEnd());
-    // Recurse into a command group's subcommands so the nested tree is captured.
-    const subs = APP_SUBGROUPS[cmd];
-    if (subs) parts.push(DELIM(`complete app ${cmd}`), captureCompletion(bin, ['app', cmd]));
-    for (const sub of subs ?? []) {
-      parts.push(DELIM(`app ${cmd} ${sub}`), capture(bin, ['app', cmd, sub, '--help']).trimEnd());
-    }
-  }
+  const visit = (path) => {
+    parts.push(DELIM(blockLabel(path)), capture(bin, [...path, '--help']).trimEnd());
+    const completion = captureCompletion(bin, path);
+    parts.push(DELIM(completionLabel(path)), completion);
+    for (const child of childNames(path, completion)) visit([...path, child]);
+  };
+  visit([]);
   return parts.join('\n') + '\n';
 }
 
@@ -195,7 +304,7 @@ function resolveBundle() {
 
 // ---- cobra help parsing ----------------------------------------------------
 
-// Split the bundle into { 'app': text, 'app create': text, … } blocks.
+// Split the bundle into { '(root)': text, 'app': text, 'app create': text, … } blocks.
 export function splitBlocks(bundle) {
   const blocks = {};
   const re = /^===CMD (.+?)===$/gm;
@@ -260,14 +369,18 @@ export function parseShortDescriptions(appHelp) {
 //     (`civitai app dev-tunnel                 # blockId from …`), so
 //     collapsing runs of spaces destroys the alignment the author wrote.
 // Measured on appblocks-snapshots/civitai-cli-help.txt @ civitai
-// v0.1.90-13-g569f5dc: all 72 non-blank example lines across all 14 blocks that
-// carry an `Examples:` section are indented by exactly 2 spaces (cobra's own
-// indent — leading-whitespace histogram `{2: 72}`), so a common-indent dedent would
-// leave ZERO lines carrying leading whitespace. Rather than pick a
-// normalisation that is invisible until the CLI ships a nested example, the
-// artifact keeps the bytes cobra emitted and the renderer prints them
-// preformatted. The ONLY thing trimmed is leading/trailing BLANK lines, which
-// are section-boundary artifacts rather than content.
+// v0.1.90-13-g569f5dc, across the WHOLE tree: the leading-whitespace histogram
+// of the 193 non-blank example lines is `{2: 192, 4: 1}`. The outlier is real
+// content, not noise — `civitai generate`'s Examples block hand-wraps one
+// invocation with a trailing `\` and indents the continuation by 4:
+//   `  civitai generate "combine these" --ecosystem Seedream \`
+//   `    --image https://example.com/a.jpg --image ./b.png --yes`
+// (When this generator covered only `app …` the histogram was a flat `{2: 72}`,
+// which is what made "just dedent" look free.) So a normalisation is no longer
+// hypothetically lossy, it is measurably lossy: the artifact keeps the bytes
+// cobra emitted and the renderer prints them preformatted. The ONLY thing
+// trimmed is leading/trailing BLANK lines, which are section-boundary artifacts
+// rather than content.
 export function parseExamples(help) {
   const lines = section(help, 'Examples');
   let a = 0;
@@ -343,16 +456,51 @@ function parseFlags(help) {
     });
 }
 
-// ---- the REVERSE drift-guard -----------------------------------------------
+// ---- the tree walk ---------------------------------------------------------
 
-// Subcommands the SOURCE advertises that the curated list does NOT carry.
+/**
+ * Every command path the bundle documents, depth-first in DISPLAY order,
+ * discovered by recursing on the stored `__complete` blocks. The ROOT is walked
+ * (its help block is the top-level enumeration source and carries the global
+ * flags) but is NOT returned: `civitai` itself is not a command entry, and
+ * emitting it would render a second h3 that owns every other h3 on the page.
+ *
+ * Pure + exported so the regression test can drive it off the committed
+ * snapshot without a binary.
+ */
+export function walkCommandPaths(blocks) {
+  const out = [];
+  const visit = (path) => {
+    const label = blockLabel(path);
+    if (!blocks[label]) {
+      throw new Error(
+        `gen-appblocks-cli: missing help block for "${label}" — the snapshot is truncated or the walk drifted. ` +
+          `Re-run \`node scripts/gen-appblocks-cli.mjs --write-snapshot\` with a civitai binary on PATH.`,
+      );
+    }
+    if (path.length) out.push(path);
+    for (const child of childNames(path, blocks[completionLabel(path)])) visit([...path, child]);
+  };
+  visit([]);
+  return out;
+}
+
+// ---- the drift-guards ------------------------------------------------------
+
+// Subcommands the SOURCE advertises that the DOCUMENTED set does not carry.
 //
-// The pre-existing guards are all FORWARD-only: buildCommand throws when a
-// LISTED command has no help block, and EXPECTED_COMMAND_COUNT is derived from
-// APP_COMMANDS/APP_SUBGROUPS, so it compares the list against itself and can
-// never disagree. Both are blind by construction to a command the CLI GAINS —
-// which is how `civitai app metrics` shipped in the binary and stayed absent
-// from the published reference with every check green.
+// The pre-existing guards were all FORWARD-only: buildCommand threw when a
+// CURATED command had no help block, and EXPECTED_COMMAND_COUNT was derived from
+// the curated lists, so it compared them against themselves and could never
+// disagree. Both were blind by construction to a command the CLI GAINS — which
+// is how `civitai app metrics` shipped in the binary and stayed absent from the
+// published reference with every check green.
+//
+// The curated lists are gone, but the reverse question is not: the walk can
+// still lose a node (an over-eager `__complete` filter, a missing completion
+// block silently demoting a group to a leaf, a truncated capture). So the guard
+// now compares the help text's OWN `Available Commands:` advertisement against
+// the set of commands actually built — at EVERY group in the tree, not two.
 //
 // Pure + exported so the regression test can prove it FIRES without a binary.
 export function unlistedSubcommands(groupHelp, listed, ignored = IGNORED_SUBCOMMANDS) {
@@ -361,28 +509,36 @@ export function unlistedSubcommands(groupHelp, listed, ignored = IGNORED_SUBCOMM
     .sort();
 }
 
-// The guarded groups: the `app` group itself plus every nested command group.
-// One place, so the unlisted check and the enumeration cross-check below can
-// never disagree about which groups they cover.
-function guardedGroups(blocks) {
-  return [
-    {
-      label: 'app',
-      help: blocks['app'],
-      completion: blocks['complete app'],
-      listed: APP_COMMANDS,
-      listName: 'APP_COMMANDS',
-    },
-    ...Object.keys(APP_SUBGROUPS)
-      .filter((g) => blocks[`app ${g}`])
-      .map((g) => ({
-        label: `app ${g}`,
-        help: blocks[`app ${g}`],
-        completion: blocks[`complete app ${g}`],
-        listed: APP_SUBGROUPS[g],
-        listName: `APP_SUBGROUPS.${g}`,
-      })),
-  ];
+/**
+ * Every block that advertises an `Available Commands:` block — i.e. every group
+ * in the tree, root included. One place, so the unlisted check and the
+ * enumeration cross-check below can never disagree about which groups they
+ * cover.
+ */
+export function advertisingGroups(blocks) {
+  return Object.entries(blocks)
+    .filter(([label]) => !label.startsWith('complete '))
+    .map(([label, help]) => ({
+      label,
+      path: label === ROOT_LABEL ? [] : label.split(' '),
+      help,
+      advertised: Object.keys(parseShortDescriptions(help)),
+    }))
+    .filter((g) => g.advertised.length > 0);
+}
+
+/**
+ * Every block that carries BOTH a help body and a `__complete` counterpart —
+ * i.e. every node the walk captured. Leaves are included on purpose: a leaf's
+ * `__complete` output is the `app pull` shape (a required FLAG in a
+ * subcommand-shaped row), and a filter regression there must fail here rather
+ * than only where it happens to be noticed.
+ */
+export function cocheckedNodes(blocks) {
+  return Object.entries(blocks)
+    .filter(([label]) => !label.startsWith('complete '))
+    .filter(([label]) => blocks[`complete ${label}`] != null)
+    .map(([label, help]) => ({ label, help, completion: blocks[`complete ${label}`] }));
 }
 
 // CROSS-CHECK the two independent enumerations of each group: the human
@@ -408,12 +564,13 @@ export function enumerationDisagreements(groupHelp, completionBlock) {
 }
 
 export function assertEnumerationsAgree(blocks) {
-  for (const { label, help, completion } of guardedGroups(blocks)) {
+  for (const { label, help, completion } of cocheckedNodes(blocks)) {
     const d = enumerationDisagreements(help, completion);
     if (!d) continue;
     if (d.missingFromHelp.length || d.missingFromCompletion.length) {
+      const invocation = `civitai${label === ROOT_LABEL ? '' : ` ${label}`}`;
       throw new Error(
-        `gen-appblocks-cli: the two enumerations of "civitai ${label}" disagree — ` +
+        `gen-appblocks-cli: the two enumerations of "${invocation}" disagree — ` +
           (d.missingFromHelp.length
             ? `__complete lists ${d.missingFromHelp.join(', ')} but the "Available Commands:" parse does NOT (the help parser lost a row — cobra pads the LONGEST name in a group to a single trailing space); `
             : '') +
@@ -426,18 +583,25 @@ export function assertEnumerationsAgree(blocks) {
   }
 }
 
-// REPO-LOCAL invariant (the committed snapshot / the local binary vs a list in
-// this file) — no upstream input, so it cannot false-fail on someone else's
-// publish. Per the guard doctrine that is what makes it safe to BLOCK a PR on:
-// see .github/workflows/appblocks-cli.yml.
-export function assertNoUnlistedSubcommands(blocks) {
-  for (const { label, help, listed, listName } of guardedGroups(blocks)) {
+// REPO-LOCAL invariant (the committed snapshot / the local binary vs what the
+// walk actually built) — no upstream input, so it cannot false-fail on someone
+// else's publish. Per the guard doctrine that is what makes it safe to BLOCK a
+// PR on: see .github/workflows/appblocks-cli.yml.
+export function assertNoUnlistedSubcommands(blocks, documented = null) {
+  const built = documented ?? walkCommandPaths(blocks).map((p) => p.join(' '));
+  for (const { label, path, help } of advertisingGroups(blocks)) {
+    const prefix = path.length ? `${path.join(' ')} ` : '';
+    const listed = built
+      .filter((c) => c.startsWith(prefix) && !c.slice(prefix.length).includes(' '))
+      .map((c) => c.slice(prefix.length));
     const missing = unlistedSubcommands(help, listed);
     if (missing.length) {
       throw new Error(
-        `gen-appblocks-cli: "civitai ${label} --help" advertises ${missing.length} subcommand(s) that ${listName} does not list: ` +
-          `${missing.join(', ')} — the CLI GAINED a command and the reference would silently omit it. ` +
-          `Add it to ${listName} in scripts/gen-appblocks-cli.mjs (in curated lifecycle order), then re-run ` +
+        `gen-appblocks-cli: "civitai ${prefix}--help" advertises ${missing.length} subcommand(s) the generated ` +
+          `reference does NOT document: ${missing.join(', ')} — the CLI GAINED a command and the reference ` +
+          `would silently omit it. The command set is walked from cobra's \`__complete\`, so this means the ` +
+          `walk lost a node: check parseCompletionNames' flag filter and that the snapshot carries a ` +
+          `"${completionLabel(path)}" section, then re-run ` +
           `\`node scripts/gen-appblocks-cli.mjs --write-snapshot\` with a civitai binary on PATH.`,
       );
     }
@@ -450,13 +614,15 @@ export function assertNoUnlistedSubcommands(blocks) {
 // help + description act as a section header) followed by each of its
 // subcommands, so the rendered flat reference shows e.g. `civitai app listing`
 // then `civitai app listing set-icon <file>` etc.
-function buildCommand(blocks, cmd, label) {
+function buildCommand(blocks, path, parentShort) {
+  const label = blockLabel(path);
   const help = blocks[label];
   if (!help) throw new Error(`gen-appblocks-cli: missing help block for "${label}" — command set drifted`);
-  const command = label;
+  const command = path.join(' ');
+  const leaf = path[path.length - 1];
   // Prefer the short one-liner from the parent's "Available Commands" block;
   // fall back to the command's own Long description first line.
-  const short = cmd.parentShort?.[cmd.leaf];
+  const short = parentShort?.[leaf];
   return {
     command,
     args: parseArgs(help, command),
@@ -465,7 +631,7 @@ function buildCommand(blocks, cmd, label) {
     // Always present (possibly empty) so a consumer never has to distinguish
     // "no examples" from "an artifact generated before this field existed".
     examples: parseExamples(help),
-    status: GATED.has(cmd.leaf) ? 'gated' : 'stable',
+    status: GATED.has(command) ? 'gated' : 'stable',
   };
 }
 
@@ -476,19 +642,24 @@ function buildCommand(blocks, cmd, label) {
 export function buildArtifact(bundle, source = 'test') {
   const blocks = splitBlocks(bundle);
 
-  const appHelp = blocks['app'];
-  if (!appHelp) throw new Error('gen-appblocks-cli: missing the `app` group help block in the source');
+  if (!blocks[ROOT_LABEL]) {
+    throw new Error(
+      `gen-appblocks-cli: missing the "${ROOT_LABEL}" help block in the source — the snapshot predates the ` +
+        `whole-tree walk. Re-capture it with \`node scripts/gen-appblocks-cli.mjs --write-snapshot\`.`,
+    );
+  }
 
-  // Both run BEFORE the build loop on purpose. buildCommand's missing-block
-  // throw and the EXPECTED_COMMAND_COUNT check both fire on a list edit too, and
-  // either running first would mask these with a less actionable message.
-  //
-  // Order matters between these two as well: a help parser that lost a row makes
-  // the unlisted check blind to exactly that row, so the parser is validated
-  // FIRST — otherwise a green unlisted check would be a claim about a parse that
-  // is already known to be short.
+  const paths = walkCommandPaths(blocks);
+
+  // Both run BEFORE the build loop on purpose, and in this order: a help parser
+  // that lost a row makes the unlisted check blind to exactly that row, so the
+  // parser is validated FIRST — otherwise a green unlisted check would be a
+  // claim about a parse that is already known to be short.
   assertEnumerationsAgree(blocks);
-  assertNoUnlistedSubcommands(blocks);
+  assertNoUnlistedSubcommands(
+    blocks,
+    paths.map((p) => p.join(' ')),
+  );
 
   const versionMatch = bundle.match(/Binary version:\s*civitai\s+(v[\w.]+)/i);
   const program = {
@@ -497,26 +668,21 @@ export function buildArtifact(bundle, source = 'test') {
     version: versionMatch ? versionMatch[1] : '',
   };
 
-  const shortDescriptions = parseShortDescriptions(appHelp);
+  // Short one-liners for a node come from its PARENT's "Available Commands:"
+  // block, so memoise one parse per group rather than one per command.
+  const shortCache = new Map();
+  const shortsFor = (parentPath) => {
+    const key = blockLabel(parentPath);
+    if (!shortCache.has(key)) shortCache.set(key, parseShortDescriptions(blocks[key] ?? ''));
+    return shortCache.get(key);
+  };
 
-  const commands = [];
-  for (const cmd of APP_COMMANDS) {
-    commands.push(buildCommand(blocks, { leaf: cmd, parentShort: shortDescriptions }, `app ${cmd}`));
-    const subs = APP_SUBGROUPS[cmd];
-    if (subs) {
-      const groupHelp = blocks[`app ${cmd}`];
-      // Short one-liners for the group's subcommands come from ITS own
-      // "Available Commands:" block.
-      const subShort = parseShortDescriptions(groupHelp);
-      for (const sub of subs) {
-        commands.push(buildCommand(blocks, { leaf: sub, parentShort: subShort }, `app ${cmd} ${sub}`));
-      }
-    }
-  }
+  const commands = paths.map((p) => buildCommand(blocks, p, shortsFor(p.slice(0, -1))));
 
-  if (commands.length !== EXPECTED_COMMAND_COUNT) {
+  if (commands.length < MIN_COMMAND_COUNT) {
     throw new Error(
-      `gen-appblocks-cli: parsed ${commands.length} commands, expected ${EXPECTED_COMMAND_COUNT} — refusing to write a partial artifact`,
+      `gen-appblocks-cli: walked only ${commands.length} commands (floor ${MIN_COMMAND_COUNT}) — refusing to ` +
+        `write a truncated artifact. Either the capture died part-way or the committed snapshot is incomplete.`,
     );
   }
 
@@ -535,7 +701,8 @@ function main() {
   // scripts/test-appblocks-cli.mjs (PR-blocking via .github/workflows/appblocks-cli.yml).
   const withExamples = commands.filter((c) => c.examples.length);
   const exampleLines = withExamples.reduce((n, c) => n + c.examples.length, 0);
-  log(`cli: wrote ${commands.length} commands (${gated.length} gated: ${gated.join(', ')}) -> ${dest}`);
+  const groups = commands.filter((c) => c.command.includes(' ')).length;
+  log(`cli: wrote ${commands.length} commands (${groups} nested, ${gated.length} gated: ${gated.join(', ')}) -> ${dest}`);
   log(`  examples: ${withExamples.length}/${commands.length} commands, ${exampleLines} lines`);
   log(`  from ${source}`);
 }

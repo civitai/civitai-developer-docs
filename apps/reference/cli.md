@@ -1,8 +1,8 @@
 ---
 title: CLI reference
-description: The civitai CLI's App-authoring commands and flags, generated from the canonical Go CLI (civitai/cli).
+description: Every civitai CLI command and flag, generated from the canonical Go CLI (civitai/cli).
 sources:
-  - go:github.com/civitai/cli#app
+  - go:github.com/civitai/cli
 ---
 
 # CLI
@@ -91,8 +91,19 @@ civitai app status               # track review / deploy state
 published immediately. On approval the platform builds + deploys it and serves it
 at `https://<blockId>.civit.ai/`.
 
-The commands and flags below are generated from the `civitai app --help` command
-tree.
+## Command reference
+
+Every command below is generated from the binary's own help output — the whole
+`civitai` command tree, not just `app`. Alongside App authoring it covers
+catalog browsing and downloads (`models`, `images`, `articles`, `collections`,
+`creators`, `tags`, `users`, `model-versions`, `download`), image generation
+(`generate`, `workflows` — these **spend Buzz**), and account commands
+(`login`, `whoami`, `buzz`, `upgrade`, `version`).
+
+`civitai app` and its subcommands come first; the rest follow alphabetically.
+Two `app` commands are badged **invite-only** — they are gated during the pre-GA
+beta. The `completion` command (shell-completion scripts) is deliberately not
+documented here; run `civitai completion --help` for it.
 
 <CliReference />
 
