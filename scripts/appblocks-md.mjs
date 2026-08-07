@@ -104,14 +104,19 @@ const oneLine = (s) => String(s ?? '').replace(/\s+/g, ' ').trim();
  * here to prevent, reintroduced by the sanitizer. Escaping the escape character
  * first is what makes the transform total rather than best-effort.
  */
-const escapeInline = (s) =>
-  oneLine(s)
-    .replace(/\\/g, '\\\\')
-    .replace(/&(?=(?:[a-zA-Z][a-zA-Z0-9]*|#\d+|#[xX][0-9a-fA-F]+);)/g, '\\&')
-    .replace(/</g, '\\<');
+// ONE pass, and the backslash is IN the character class rather than handled by
+// an earlier `.replace` — a chain of single-character replaces is what let the
+// bypass above exist in the first place, and it is not locally checkable: you
+// have to read every link to know the first one covered the escape character.
+// A single class that contains `\` is total by construction.
+const ESCAPE_TEXT = /[\\<]|&(?=(?:[a-zA-Z][a-zA-Z0-9]*|#\d+|#[xX][0-9a-fA-F]+);)/g;
+const ESCAPE_CELL = /[\\<|]|&(?=(?:[a-zA-Z][a-zA-Z0-9]*|#\d+|#[xX][0-9a-fA-F]+);)/g;
+const escapeWith = (re) => (s) => oneLine(s).replace(re, (m) => `\\${m}`);
+
+const escapeInline = escapeWith(ESCAPE_TEXT);
 
 /** A table cell: one line, with `|` escaped so it cannot split the row. */
-export const cell = (s) => escapeInline(s).replace(/\|/g, '\\|');
+export const cell = escapeWith(ESCAPE_CELL);
 
 /**
  * Inline code, with a backtick fence long enough to survive backticks in the
@@ -149,7 +154,14 @@ export function codeCell(s) {
         `inside a GFM code span. Render this column outside the table (a fenced block) instead.`,
     );
   }
-  return code(t).replace(/\|/g, '\\|');
+  // Single pass with `\` in the class, like the text escapers — but here the
+  // backslash branch is a deliberate PASS-THROUGH, not a doubling. A code span
+  // does not process escapes, so `\\` inside one would render as two literal
+  // backslashes and corrupt a `pattern: ^\d+\.\d+$` constraint. The only way a
+  // backslash can break a cell is by swallowing a pipe's escape, and the guard
+  // above has already refused that input, so passing it through is safe here
+  // and doubling it would not be.
+  return code(t).replace(/[\\|]/g, (m) => (m === '|' ? '\\|' : m));
 }
 
 /** Inline code in a table cell, or an em dash when empty. */
