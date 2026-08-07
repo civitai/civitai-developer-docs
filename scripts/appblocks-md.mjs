@@ -80,8 +80,56 @@ export function loadArtifact(name) {
 
 // ── markdown primitives ──────────────────────────────────────────────────────
 
+/**
+ * 🔴 `{{ … }}` IS A VUE INTERPOLATION, AND IT IS A BUILD-BREAKER — refuse it.
+ *
+ * VitePress renders markdown with `html: true` and hands the result to the VUE
+ * compiler, which parses everything between `{{` and `}}` as a JavaScript
+ * expression. Before these regions existed, artifact TEXT never reached that
+ * compiler; now it does, so an upstream description containing `{{` wedges the
+ * production build. Measured end-to-end on this tree: a scopes description set
+ * to `{{ this is not ~~ valid js }}` was written by `gen:appblocks:md`, passed
+ * `check:md-regions` with rc=0, and then failed `vitepress build` with
+ * `[vite:vue] apps/reference/scopes.md (26:8): Error parsing JavaScript
+ * expression`. No CI workflow runs `npm run build`, so that lands GREEN on main
+ * and wedges the deploy.
+ *
+ * WHY REFUSE RATHER THAN ESCAPE. This mirrors `codeCell`'s `\|` guard exactly:
+ * an inline context has no encoding for `{{` that is both build-safe and
+ * faithful. `<span v-pre>` or a `&lcub;` entity survives the Vue compiler but
+ * mangles the text for the .md/LLM channel, which is the one reader these
+ * regions exist for. Refusing at refresh time puts the problem in front of a
+ * maintainer, who can reword the upstream source; escaping would silently ship
+ * corrupted docs text. Zero occurrences across all six artifacts today, so this
+ * is a latent exposure being closed, not a live break.
+ *
+ * WHY ONLY THE INLINE PATH. `fence()` is deliberately NOT guarded: VitePress
+ * marks code fences `v-pre`, so `{{ … }}` inside one is inert. Verified by
+ * probe on this tree — the same string built CLEAN (rc 0) inside a ```text
+ * fence and FAILED (rc 1) inside an inline `code` span, which is why the check
+ * lives in `oneLine`, the single funnel every inline primitive (`cell`, `code`,
+ * `codeCell`, `para`) passes through and `fence` does not.
+ */
+const VUE_INTERPOLATION = '{{';
+
+function assertNoVueInterpolation(t) {
+  if (!t.includes(VUE_INTERPOLATION)) return;
+  throw new Error(
+    `appblocks-md: refusing to render ${JSON.stringify(t.slice(0, 120))} into an inline ` +
+      `context — it contains "{{", which VitePress hands to the Vue compiler as a JavaScript ` +
+      `interpolation. Outside a code fence there is no encoding for it that is both ` +
+      `build-safe and readable in the .md/LLM channel, so this would pass check:md-regions ` +
+      `and then break \`vitepress build\` (which no CI workflow runs). Reword the upstream ` +
+      `source text, or render this value inside a fenced block.`,
+  );
+}
+
 /** Collapse to one line: table cells cannot contain a newline. */
-const oneLine = (s) => String(s ?? '').replace(/\s+/g, ' ').trim();
+const oneLine = (s) => {
+  const t = String(s ?? '').replace(/\s+/g, ' ').trim();
+  assertNoVueInterpolation(t);
+  return t;
+};
 
 /**
  * Escape source prose for markdown INLINE context.
@@ -546,7 +594,16 @@ export const pagePath = (region) => join(repoRoot, region.page);
 export async function renderAll() {
   const out = [];
   for (const region of REGIONS) {
-    out.push({ region, body: await region.render() });
+    let body;
+    try {
+      body = await region.render();
+    } catch (err) {
+      // The primitives don't know which region they're rendering; name it here
+      // so the maintainer gets the page to fix, not just the offending value.
+      err.message = `region '${region.key}' (${region.page}): ${err.message}`;
+      throw err;
+    }
+    out.push({ region, body });
   }
   return out;
 }
