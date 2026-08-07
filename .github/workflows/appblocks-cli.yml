@@ -29,6 +29,18 @@ on:
       - '.github/workflows/appblocks-cli.yml'
   workflow_dispatch: {}
 
+# LEAST PRIVILEGE. The repo default is `write` (measured 2026-08-06:
+# `gh api repos/civitai/civitai-developer-docs/actions/permissions/workflow`
+# -> "default_workflow_permissions":"write"), which every workflow here
+# inherited. This job only checks out and runs offline node tests: no artifact
+# or SARIF upload (code scanning is GitHub DEFAULT SETUP, a managed workflow
+# outside this file), no PR comment, no issue, no git push, no `gh`/octokit
+# call. `contents: read` is exactly what actions/checkout needs and nothing
+# more. actions/setup-node's npm cache uses ACTIONS_RUNTIME_TOKEN, not
+# GITHUB_TOKEN scopes, so caching is unaffected.
+permissions:
+  contents: read
+
 jobs:
   test-cli:
     runs-on: ubuntu-latest

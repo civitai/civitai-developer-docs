@@ -20,6 +20,12 @@ on:
       - '.github/workflows/appblocks-messages.yml'
   workflow_dispatch: {}
 
+# LEAST PRIVILEGE — see appblocks-cli.yml for the full reasoning. Checkout +
+# npm ci + offline node tests only; no upload, comment, issue, push or API
+# mutation. `contents: read` is all actions/checkout requires.
+permissions:
+  contents: read
+
 jobs:
   test-messages:
     runs-on: ubuntu-latest
