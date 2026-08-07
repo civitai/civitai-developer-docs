@@ -118,6 +118,17 @@ const TSCONFIG_PATHS = {
 const TMP_PARENT = join(repoRoot, '.appblocks-snippet-tmp');
 const SKIP_MARKER = '@ts-skip-snippet';
 
+// POSITIVE CONTROL. A reassuring `N passed · 0 failed` is indistinguishable from
+// a run wired to nothing, and this guard extracts its own workload — so anything
+// that narrows extraction (an unbalanced generated region, a fence-parsing
+// regression, `apps/` moving) reports GREEN with the snippets simply gone. This
+// floor is the assertion that the check still SEES its corpus.
+//
+// Raise it deliberately when snippets are added; LOWER it deliberately (same
+// commit as the deletion, with the reason in the message) when docs legitimately
+// shed snippets. Never edit it to make a red run go green.
+const MIN_EXPECTED_SNIPPETS = 31;
+
 /* ─────────────────────────────  doc discovery  ───────────────────────────── */
 
 function walkMarkdown(dir) {
@@ -195,15 +206,74 @@ function buildExportMap(ts) {
 
 /* ─────────────────────────────  fence extraction  ────────────────────────── */
 
+// Fences inside a `<!-- BEGIN GENERATED: … -->` region are NOT authored
+// snippets: they are the machine-written markdown mirror of a Vue island's
+// payload (scripts/appblocks-md.mjs), and they carry TYPE FRAGMENTS rather than
+// programs — a bare `{ message: string; fatal: boolean }` message payload or a
+// `useBlockContext(): Pick<BlockSnapshot, …>` signature is not a valid TS
+// statement and never will be. Typechecking them says nothing about the docs and
+// would make this guard permanently red the moment the regions refresh.
+//
+// This is a scope exclusion, not a coverage loss: everything the guard covered
+// before is still covered, because a generated region cannot contain a
+// hand-written snippet — a maintainer's edit inside one is overwritten by the
+// next refresh and blocked by `npm run check:md-regions` in the meantime.
+//
+// 🔴 THE EXCLUSION MUST BE BALANCED, OR IT SILENTLY BLINDS THIS GUARD.
+// `inGenerated` is a sticky flag driven by a bare PREFIX match, so a single
+// stray/typo'd `<!-- BEGIN GENERATED: … -->` — or a DELETED `END GENERATED:` —
+// swallows every remaining line of that file. Measured on this tree: one bogus
+// BEGIN at apps/showcase.md:5 took the run from `31 found` to `19 found · 19
+// passed · 0 failed`, EXIT 0 — twelve authored snippets vanished from a
+// required check under a green summary. The balance assertion below plus the
+// MIN_EXPECTED_SNIPPETS floor in main() are what make a wholesale collapse
+// impossible to report as a pass.
+const GEN_BEGIN = /^<!-- BEGIN GENERATED: /;
+const GEN_END = /^<!-- END GENERATED: /;
+// The region key, for an error that names the offending marker rather than just
+// the file.
+const GEN_KEY = /^<!-- (?:BEGIN|END) GENERATED:\s*([^\s-]+)/;
+const markerKey = (line) => GEN_KEY.exec(line)?.[1] ?? '(unnamed)';
+
 function extractBlocks(md, file) {
   const lines = md.split('\n');
   const blocks = [];
   let inBlock = false;
+  let inGenerated = false;
+  let genLine = 0;
+  let genKey = '';
   let lang = '';
   let buf = [];
   let startLine = 0;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    if (!inBlock && GEN_BEGIN.test(line)) {
+      if (inGenerated) {
+        throw new Error(
+          `${file}:${i + 1} — nested "BEGIN GENERATED: ${markerKey(line)}" while region ` +
+            `'${genKey}' (opened at line ${genLine}) is still open. Generated regions must ` +
+            `be balanced: everything between BEGIN and END is EXCLUDED from this check, so ` +
+            `an unbalanced marker silently hides authored snippets.`,
+        );
+      }
+      inGenerated = true;
+      genLine = i + 1;
+      genKey = markerKey(line);
+      continue;
+    }
+    if (!inBlock && GEN_END.test(line)) {
+      if (!inGenerated) {
+        throw new Error(
+          `${file}:${i + 1} — "END GENERATED: ${markerKey(line)}" with no matching BEGIN. ` +
+            `Generated regions must be balanced: a lone END means the BEGIN was deleted, ` +
+            `which feeds machine-written type fragments into this check as if they were ` +
+            `authored snippets.`,
+        );
+      }
+      inGenerated = false;
+      continue;
+    }
+    if (inGenerated) continue;
     const fence = line.match(/^```(\w+)?/);
     if (!inBlock && fence) {
       inBlock = true;
@@ -220,6 +290,15 @@ function extractBlocks(md, file) {
       continue;
     }
     if (inBlock) buf.push(line);
+  }
+  if (inGenerated) {
+    throw new Error(
+      `${file} — unbalanced generated region: "BEGIN GENERATED: ${genKey}" at line ${genLine} ` +
+        `is never closed by a matching "<!-- END GENERATED: … -->". Everything after it was ` +
+        `EXCLUDED from the snippet check, so authored snippets would be skipped SILENTLY ` +
+        `while the run still reports a green summary. Restore the END marker, or delete the ` +
+        `stray BEGIN.`,
+    );
   }
   return blocks;
 }
@@ -465,7 +544,15 @@ function main() {
 
   for (const file of files) {
     const rel = relative(repoRoot, file);
-    const blocks = extractBlocks(readFileSync(file, 'utf8'), rel);
+    let blocks;
+    try {
+      blocks = extractBlocks(readFileSync(file, 'utf8'), rel);
+    } catch (err) {
+      rmSync(TMP_PARENT, { recursive: true, force: true });
+      console.error(`\n--- extraction refused (a generated-region marker is unbalanced) ---\n`);
+      console.error(err.message);
+      process.exit(1);
+    }
     for (const block of blocks) {
       total++;
       const first = firstNonEmptyLine(block.code);
@@ -498,6 +585,22 @@ function main() {
       console.error(`\n${f.rel}:${f.line} [${f.lang}]`);
       console.error(f.out.trim());
     }
+    process.exit(1);
+  }
+
+  // Runs AFTER the failure report so a real drift is still the headline, but it
+  // exits non-zero on its own: `0 failed` over a collapsed corpus is the mode
+  // this guard is blind to by construction.
+  if (total < MIN_EXPECTED_SNIPPETS) {
+    console.error(
+      `\n--- corpus collapsed (positive control) ---\n\n` +
+        `Only ${total} snippet(s) were extracted from apps/**/*.md, but at least ` +
+        `${MIN_EXPECTED_SNIPPETS} are expected. A PASS over a shrunken corpus is not a pass — ` +
+        `the usual cause is an unbalanced "<!-- BEGIN/END GENERATED: … -->" marker or a change ` +
+        `to fence extraction, either of which hides authored snippets silently.\n\n` +
+        `If snippets were legitimately removed, lower MIN_EXPECTED_SNIPPETS in ` +
+        `scripts/typecheck-appblocks-snippets.mjs in the SAME commit, with the reason.`,
+    );
     process.exit(1);
   }
 }

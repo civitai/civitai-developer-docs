@@ -49,8 +49,40 @@
  * both contain ```bash blocks full of `--flag` text, and a fence-blind scanner
  * that also matched non-table lines would fire on every one of them.
  *
- * TWO POSITIVE CONTROLS, BECAUSE A CLEAN VERDICT IS A ZERO
- * -------------------------------------------------------
+ * GENERATED REGIONS ARE EXEMPT — THEY ARE THE THING THIS GUARD IS ASKING FOR
+ * -------------------------------------------------------------------------
+ * A `<!-- BEGIN GENERATED: <key> -->` … `<!-- END GENERATED: <key> -->` region
+ * is not a hand-typed copy. It is written by `scripts/gen-appblocks-md.mjs` from
+ * `public/appblocks/cli.json` — the SAME artifact `<CliReference />` renders, the
+ * same artifact built from the binary's own `--help` — so that the `.md`/LLM
+ * channel carries the island payload a browser gets from the Vue component. It
+ * is pinned by `npm run check:md-regions`, which fails the moment a committed
+ * region diverges from its generator.
+ *
+ * So the objection stated above — "nothing failed, because nothing related the
+ * table to the binary" — is precisely what does NOT apply inside a region: the
+ * region IS related to the binary, by generation, and the relationship is gated.
+ * Scanning it would fire this guard on the generated reference itself and demand
+ * the deletion of content it simultaneously tells the reader to go and read. The
+ * hazard is a hand-maintained ENUMERATION nothing regenerates; a generated,
+ * drift-guarded region is the remedy wearing the hazard's shape.
+ *
+ * Everything OUTSIDE the markers is scanned exactly as before. This narrows
+ * WHERE the guard looks, never WHAT it objects to.
+ *
+ * 🔴 THE EXEMPTION MUST BE BALANCED, OR IT SILENTLY BLINDS THIS GUARD.
+ * `inGenerated` is a sticky flag driven by a bare PREFIX match, so one stray or
+ * typo'd BEGIN — or a DELETED END — swallows every remaining line of the file
+ * and this guard reports `✓ no flag table` over content it never read. That is
+ * not hypothetical: the identical exclusion in
+ * `scripts/typecheck-appblocks-snippets.mjs` shipped without a balance
+ * assertion, and one bogus BEGIN took that run from 31 snippets to 19 with a
+ * green summary and EXIT 0 (fixed in ed46326; this file mirrors that fix).
+ * `scanMarkdown()` therefore REFUSES on a nested BEGIN, an orphan END, or a
+ * BEGIN still open at EOF, naming file, line and region key.
+ *
+ * THREE POSITIVE CONTROLS, BECAUSE A CLEAN VERDICT IS A ZERO
+ * ---------------------------------------------------------
  * "Found 0 flag tables" is exactly what a scanner wired to nothing prints, so
  * neither zero is trusted on its own:
  *
@@ -63,6 +95,19 @@
  *   2. CORPUS CONTROL (did it read anything?) — each guarded page must exist,
  *      be non-empty, and contain at least one markdown heading. A renamed or
  *      moved page fails rather than scanning air and passing.
+ *   3. REACH CONTROL (is the corpus still THERE?) — `MIN_SCANNED_PAGES` and
+ *      `MIN_SCANNABLE_LINES` floors, checked after the scan. The balance
+ *      assertion covers the marker CAUSE; these floors cover the CLASS — an
+ *      emptied `CLI_PAGES`, a fence left open to EOF, a region legitimately
+ *      widened until it swallows the page, any future narrowing of what gets
+ *      read. Each would otherwise print a confident `✓ no flag table` over a
+ *      corpus that is no longer there.
+ *
+ * 🔴 Note which invariant is NOT used: "tables examined". Measured on this tree
+ * the CLI pages contain ZERO GFM tables outside their generated regions, so a
+ * table-count floor would be pinned at 0 — satisfied by a scanner wired to
+ * nothing, i.e. exactly the reassuring zero these controls exist to refuse.
+ * Scannable LINES is the metric that moves when the reader stops reading.
  *
  * SCOPE
  * -----
@@ -89,6 +134,45 @@ export { CLI_PAGES };
 
 /** Where a reader is sent instead. Printed in the failure remedy. */
 export const GENERATED_REFERENCE = '/apps/reference/cli';
+
+/**
+ * REACH CONTROL — the floors that make a wholesale collapse impossible to
+ * report as a pass. See "THREE POSITIVE CONTROLS" above for why a table-count
+ * floor was rejected (it would be 0).
+ *
+ * A "scannable line" is one this scan actually CONSIDERS: outside every fence
+ * and outside every generated region. Fenced content is deliberately excluded
+ * from the count, and that choice is load-bearing rather than cosmetic — a
+ * fenced block left unclosed to EOF is one of the collapses this floor exists
+ * to catch, and it only moves the number if fenced lines do NOT count.
+ *
+ * DERIVATION — read off this script's own per-page output on the merged tree
+ * (`origin/main` + the generated-markdown branch), 2026-08-07:
+ *   site/guide/cli.md        283 scannable, 0 generated regions
+ *   apps/reference/cli.md    105 scannable, 1 generated region (853 lines exempt)
+ *   ------------------------------------------------------------------------
+ *   TOTAL                    388 scannable lines across 2 pages
+ *
+ * The floor is 320, ~18% under today's real 388, and the headroom is bounded on
+ * BOTH sides on purpose. Above it: 320 > 283, so losing the whole of
+ * `apps/reference/cli.md` — the page whose 853-line region makes it the one a
+ * widening region can swallow — still trips. Below it: a floor pinned at 388
+ * would go red on the next paragraph anyone deletes, and a permanently-red gate
+ * is one everybody learns to click through.
+ *
+ * Stated limit of the claim: a TOTAL floor cannot see a PARTIAL collapse of the
+ * smaller page (105 → 40 still totals 323). The balance assertion in
+ * `scanMarkdown` covers the marker cause directly; this floor covers the class.
+ * A per-page floor would close that gap and is deliberately not used — it would
+ * mean a second hand-maintained copy of `CLI_PAGES`, which is the duplication
+ * bug this whole guard is about.
+ *
+ * Raise these deliberately as the pages grow; LOWER them deliberately, in the
+ * same commit as the deletion and with the reason in the message. Never edit
+ * either one to make a red run go green.
+ */
+export const MIN_SCANNED_PAGES = 2;
+export const MIN_SCANNABLE_LINES = 320;
 
 /**
  * A long flag anywhere in a cell. Not anchored to the cell start: the real
@@ -144,26 +228,95 @@ export function isDelimiterRow(line) {
 }
 
 /**
- * Every first-column flag table in a markdown document.
+ * The generated-region markers, matched as a bare PREFIX exactly as
+ * `scripts/appblocks-md.mjs` writes them and as
+ * `scripts/typecheck-appblocks-snippets.mjs` reads them. A third spelling of
+ * this pair would be the same duplication bug this guard is about, so the
+ * regexes are kept character-identical to that file's.
+ */
+const GEN_BEGIN = /^<!-- BEGIN GENERATED: /;
+const GEN_END = /^<!-- END GENERATED: /;
+/** The region key, so an imbalance error names the marker, not just the file. */
+const GEN_KEY = /^<!-- (?:BEGIN|END) GENERATED:\s*([^\s-]+)/;
+const markerKey = (line) => GEN_KEY.exec(line)?.[1] ?? '(unnamed)';
+
+/**
+ * Scan a markdown document for first-column flag tables, skipping the contents
+ * of balanced `BEGIN/END GENERATED` regions.
+ *
+ * Line ordering mirrors `extractBlocks` in
+ * `scripts/typecheck-appblocks-snippets.mjs`: markers are recognised only
+ * OUTSIDE a fence (so a fenced sample that merely SHOWS a marker cannot open a
+ * region), then a region skips the line wholesale, then fences toggle, then
+ * tables are detected. Line numbers stay 1-based over the ORIGINAL document —
+ * nothing is stripped or re-indexed, so a reported line still points at the
+ * offending row in the file.
  *
  * @param {string} markdown
- * @returns {{line:number, header:string, flagRows:string[]}[]} 1-based line
- *   numbers of each offending table's HEADER row.
+ * @param {string} [file] Path used in imbalance errors.
+ * @returns {{tables:{line:number, header:string, flagRows:string[]}[],
+ *            scannableLines:number, generatedRegions:number,
+ *            generatedLines:number}}
+ * @throws {Error} on a nested BEGIN, an orphan END, or a BEGIN open at EOF.
  */
-export function flagTablesIn(markdown) {
+export function scanMarkdown(markdown, file = '(inline)') {
   const lines = markdown.split('\n');
   const found = [];
   let fenced = false;
+  let inGenerated = false;
+  let genLine = 0;
+  let genKey = '';
+  let scannableLines = 0;
+  let generatedRegions = 0;
+  let generatedLines = 0;
 
   for (let i = 0; i < lines.length; i++) {
-    if (isFence(lines[i])) {
+    const line = lines[i];
+
+    if (!fenced && GEN_BEGIN.test(line)) {
+      if (inGenerated) {
+        throw new Error(
+          `${file}:${i + 1} — nested "BEGIN GENERATED: ${markerKey(line)}" while region ` +
+            `'${genKey}' (opened at line ${genLine}) is still open. Generated regions must ` +
+            `be balanced: everything between BEGIN and END is EXEMPT from this check, so an ` +
+            `unbalanced marker silently hides hand-maintained flag tables.`,
+        );
+      }
+      inGenerated = true;
+      generatedRegions++;
+      generatedLines++;
+      genLine = i + 1;
+      genKey = markerKey(line);
+      continue;
+    }
+    if (!fenced && GEN_END.test(line)) {
+      if (!inGenerated) {
+        throw new Error(
+          `${file}:${i + 1} — "END GENERATED: ${markerKey(line)}" with no matching BEGIN. ` +
+            `Generated regions must be balanced: a lone END means the BEGIN was deleted, ` +
+            `which feeds a machine-written flag table into this check as if a human had ` +
+            `typed it — the guard then demands the deletion of content it cannot fix.`,
+        );
+      }
+      inGenerated = false;
+      generatedLines++;
+      continue;
+    }
+    if (inGenerated) {
+      generatedLines++;
+      continue;
+    }
+
+    if (isFence(line)) {
       fenced = !fenced;
+      scannableLines++;
       continue;
     }
     if (fenced) continue;
+    scannableLines++;
 
     // A table is a header row immediately followed by a delimiter row.
-    if (!isDelimiterRow(lines[i])) continue;
+    if (!isDelimiterRow(line)) continue;
     const headerIdx = i - 1;
     if (headerIdx < 0 || !isTableRow(lines[headerIdx])) continue;
 
@@ -174,6 +327,7 @@ export function flagTablesIn(markdown) {
       if (!isTableRow(lines[j])) break;
       const cells = splitCells(lines[j]);
       if (cells.length && LONG_FLAG.test(cells[0])) flagRows.push(lines[j].trim());
+      scannableLines++;
     }
 
     if (flagRows.length) {
@@ -182,7 +336,31 @@ export function flagTablesIn(markdown) {
     i = j - 1;
   }
 
-  return found;
+  if (inGenerated) {
+    throw new Error(
+      `${file} — unbalanced generated region: "BEGIN GENERATED: ${genKey}" at line ${genLine} ` +
+        `is never closed by a matching "<!-- END GENERATED: … -->". Everything after it was ` +
+        `EXEMPT from this check, so a hand-maintained flag table below that line would be ` +
+        `skipped SILENTLY while the run still reports the page clean. Restore the END marker, ` +
+        `or delete the stray BEGIN.`,
+    );
+  }
+
+  return { tables: found, scannableLines, generatedRegions, generatedLines };
+}
+
+/**
+ * Every first-column flag table in a markdown document, outside any balanced
+ * generated region. Thin wrapper over `scanMarkdown` — the shape the control
+ * corpus asserts against.
+ *
+ * @param {string} markdown
+ * @param {string} [file]
+ * @returns {{line:number, header:string, flagRows:string[]}[]} 1-based line
+ *   numbers of each offending table's HEADER row.
+ */
+export function flagTablesIn(markdown, file) {
+  return scanMarkdown(markdown, file).tables;
 }
 
 /**
@@ -293,7 +471,139 @@ export const CONTROL_CORPUS = [
       '',
     ].join('\n'),
   },
+  // ---- generated-region exemption (both directions) ----
+  {
+    name: 'a flag table INSIDE a balanced generated region is exempt',
+    expect: 0,
+    md: [
+      '<!-- BEGIN GENERATED: cli — do not edit by hand. -->',
+      '',
+      '| Flag | Description |',
+      '|---|---|',
+      '| `--json` | print the raw API JSON response |',
+      '',
+      '<!-- END GENERATED: cli -->',
+      '',
+    ].join('\n'),
+  },
+  {
+    name: 'a hand table OUTSIDE the region on a page that HAS one still fires',
+    expect: 1,
+    md: [
+      '<!-- BEGIN GENERATED: cli -->',
+      '| Flag | Description |',
+      '|---|---|',
+      '| `--json` | generated |',
+      '<!-- END GENERATED: cli -->',
+      '',
+      '### Download flags',
+      '',
+      '| Flag | Description |',
+      '|---|---|',
+      '| `--anon` | hand-typed, and still caught |',
+      '',
+    ].join('\n'),
+  },
+  {
+    name: 'hand tables on BOTH sides of a region are both caught',
+    expect: 2,
+    md: [
+      '| Flag | Description |',
+      '|---|---|',
+      '| `--before` | above the region |',
+      '',
+      '<!-- BEGIN GENERATED: cli -->',
+      '| Flag | Description |',
+      '|---|---|',
+      '| `--json` | generated, exempt |',
+      '<!-- END GENERATED: cli -->',
+      '',
+      '| Flag | Description |',
+      '|---|---|',
+      '| `--after` | below the region |',
+      '',
+    ].join('\n'),
+  },
+  {
+    name: 'a BEGIN marker shown INSIDE a fence does not open a region',
+    expect: 1,
+    md: [
+      '```markdown',
+      '<!-- BEGIN GENERATED: cli -->',
+      '```',
+      '',
+      '| Flag | Description |',
+      '|---|---|',
+      '| `--anon` | hand-typed, after a merely-quoted marker |',
+      '',
+    ].join('\n'),
+  },
+  {
+    name: 'an END marker shown INSIDE a fenced sample does not close a real region',
+    expect: 0,
+    md: [
+      '<!-- BEGIN GENERATED: cli -->',
+      '```markdown',
+      '<!-- END GENERATED: cli -->',
+      '```',
+      '| Flag | Description |',
+      '|---|---|',
+      '| `--json` | still inside the region |',
+      '<!-- END GENERATED: cli -->',
+      '',
+    ].join('\n'),
+  },
 ];
+
+/**
+ * BALANCE CONTROL. The exemption above is a sticky flag, so the three ways it
+ * can be left open are the three ways this guard goes silently blind. Each
+ * fixture must THROW, and the message must name the specific imbalance — a
+ * refusal for the wrong reason is a mutation that dies to the wrong guard.
+ */
+export const BALANCE_CORPUS = [
+  {
+    name: 'a stray BEGIN that is never closed',
+    match: /never closed by a matching/,
+    md: ['# Page', '', '<!-- BEGIN GENERATED: bogus -->', '', 'text to EOF', ''].join('\n'),
+  },
+  {
+    name: 'an orphan END whose BEGIN was deleted',
+    match: /with no matching BEGIN/,
+    md: ['# Page', '', '| Flag | D |', '|---|---|', '| `--x` | y |', '', '<!-- END GENERATED: cli -->', ''].join('\n'),
+  },
+  {
+    name: 'a nested BEGIN inside an already-open region',
+    match: /nested "BEGIN GENERATED/,
+    md: [
+      '<!-- BEGIN GENERATED: cli -->',
+      'body',
+      '<!-- BEGIN GENERATED: other -->',
+      'body',
+      '<!-- END GENERATED: other -->',
+      '',
+    ].join('\n'),
+  },
+];
+
+/** Run the balance control. Returns a list of failure strings. */
+export function runBalanceControl() {
+  const failures = [];
+  for (const c of BALANCE_CORPUS) {
+    let thrown = null;
+    try {
+      scanMarkdown(c.md, '(fixture)');
+    } catch (err) {
+      thrown = err;
+    }
+    if (!thrown) {
+      failures.push(`${c.name} — scanMarkdown ACCEPTED an unbalanced region instead of refusing`);
+    } else if (!c.match.test(thrown.message)) {
+      failures.push(`${c.name} — refused, but for the wrong reason: ${thrown.message.split('\n')[0]}`);
+    }
+  }
+  return failures;
+}
 
 /** Run the detector control. Returns a list of failure strings. */
 export function runDetectorControl() {
@@ -326,7 +636,23 @@ function main() {
     );
   }
 
-  // --- Positive control 2 + the actual scan. ---
+  // --- Balance control: the generated-region exemption must refuse when open. ---
+  const balanceFailures = runBalanceControl();
+  if (balanceFailures.length) {
+    console.error(`  ✗ BALANCE CONTROL failed on ${balanceFailures.length}/${BALANCE_CORPUS.length} fixture(s):`);
+    for (const f of balanceFailures) console.error(`      - ${f}`);
+    console.error('    An unbalanced generated region that is ACCEPTED hides every flag table');
+    console.error('    after it, under a green verdict. No verdict is reported on the pages below.');
+    problems.push('balance-control');
+  } else {
+    console.log(
+      `  ✓ balance control: ${BALANCE_CORPUS.length} unbalanced region(s) refused, each for its own reason`
+    );
+  }
+
+  // --- Positive controls 2 + 3 and the actual scan. ---
+  let pagesScanned = 0;
+  let scannableTotal = 0;
   for (const rel of CLI_PAGES) {
     let text;
     try {
@@ -345,10 +671,30 @@ function main() {
       continue;
     }
 
-    const tables = flagTablesIn(text);
-    const lineCount = text.split('\n').length;
+    let scan;
+    try {
+      scan = scanMarkdown(text, rel);
+    } catch (err) {
+      console.error(`  ✗ ${rel} — scan refused (a generated-region marker is unbalanced):`);
+      console.error(`      ${err.message}`);
+      problems.push(`unbalanced-region:${rel}`);
+      continue;
+    }
+
+    pagesScanned++;
+    scannableTotal += scan.scannableLines;
+
+    const { tables } = scan;
+    // Report what was READ and what was EXEMPT, so a region quietly widening to
+    // swallow the page is visible in the green output rather than only in the
+    // floor that eventually trips.
+    const reach =
+      `${scan.scannableLines} line(s) scanned` +
+      (scan.generatedRegions
+        ? `, ${scan.generatedLines} exempt in ${scan.generatedRegions} generated region(s)`
+        : '');
     if (!tables.length) {
-      console.log(`  ✓ ${rel} — no flag table (${lineCount} lines scanned)`);
+      console.log(`  ✓ ${rel} — no flag table (${reach})`);
       continue;
     }
 
@@ -372,11 +718,50 @@ function main() {
     console.error('If a flag genuinely needs narrative treatment, write it as prose in the');
     console.error('surrounding section — the objection is to an ENUMERATION that must be');
     console.error('maintained by hand, not to naming a flag.');
+    console.error('');
+    console.error('If the table is GENERATED — written by scripts/gen-appblocks-md.mjs from');
+    console.error('public/appblocks/cli.json and pinned by `npm run check:md-regions` — then it');
+    console.error('is not a hand-maintained copy and this guard should not see it: it belongs');
+    console.error('between <!-- BEGIN GENERATED: <key> --> and <!-- END GENERATED: <key> -->,');
+    console.error('which are exempt. Add the markers, do not delete the content.');
     console.error(`\nFailed: ${problems.join(', ')}`);
     process.exit(1);
   }
 
-  console.log('\nNo hand-maintained flag tables.');
+  // --- Positive control 3: did the scan still REACH the corpus? ---
+  // Runs after the failure report so a real hand-typed table stays the headline,
+  // but exits non-zero on its own: `no flag table` over a corpus that is no
+  // longer there is the mode this guard is blind to by construction.
+  const reachFailures = [];
+  if (pagesScanned < MIN_SCANNED_PAGES) {
+    reachFailures.push(
+      `only ${pagesScanned} page(s) were scanned, expected at least ${MIN_SCANNED_PAGES} ` +
+        `(CLI_PAGES, imported from check-cli-install-parity.mjs, currently lists ${CLI_PAGES.length})`
+    );
+  }
+  if (scannableTotal < MIN_SCANNABLE_LINES) {
+    reachFailures.push(
+      `only ${scannableTotal} scannable line(s) were read across those pages, expected at ` +
+        `least ${MIN_SCANNABLE_LINES}`
+    );
+  }
+  if (reachFailures.length) {
+    console.error('\n--- corpus out of reach (positive control) ---\n');
+    for (const f of reachFailures) console.error(`  ✗ ${f}`);
+    console.error('\nA clean verdict over a corpus this guard can no longer see is not a clean');
+    console.error('verdict. The usual causes are a generated region widened until it swallows the');
+    console.error('page, a fenced block left open to EOF, or CLI_PAGES losing an entry.');
+    console.error('\nIf the pages legitimately shrank, lower MIN_SCANNED_PAGES /');
+    console.error('MIN_SCANNABLE_LINES in scripts/check-no-hand-flag-tables.mjs in the SAME');
+    console.error('commit, with the reason.');
+    process.exit(1);
+  }
+
+  console.log(
+    `\nNo hand-maintained flag tables. ` +
+      `(${pagesScanned} page(s), ${scannableTotal} scannable line(s) — floors ` +
+      `${MIN_SCANNED_PAGES}/${MIN_SCANNABLE_LINES})`
+  );
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
