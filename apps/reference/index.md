@@ -46,9 +46,17 @@ messages-parity generators read `civitai@origin/main` directly and only fall
 back to the snapshot when it's absent — so those snapshots are the CI-hermetic
 copy, not the live source.
 
-> Automated CI drift-guards now cover this: `npm run check:pins` fails when a
-> pinned SDK devDep lags npm `latest`, and `npm run check:snapshots` fails when a
-> committed snapshot lags the upstream contract. Refreshing is still a maintainer
+> Automated CI drift-guards now cover this. On the daily
+> [`appblocks-drift`](https://github.com/civitai/civitai-developer-docs/blob/main/.github/workflows/appblocks-drift.yml)
+> workflow: `npm run check:pins` fails when a pinned SDK devDep lags npm
+> `latest`, `npm run check:snapshots` fails when a committed snapshot lags the
+> upstream contract, and `npm run check:cli-snapshot` fails when the committed
+> `civitai app --help` capture lags the latest published `civitai/cli` release.
+> That last one needs its own probe because the CLI snapshot is `--help` *output*
+> from a compiled Go binary, so there is no upstream file to diff. Separately,
+> `npm run test:appblocks:cli` **blocks a PR** when the CLI gains an `app`
+> subcommand the generator does not list — that one is a repo-local invariant, so
+> it cannot false-fail on someone else's release. Refreshing is still a maintainer
 > step, but a lagging pin or snapshot is now a visible, actionable signal rather
 > than silent rot.
 

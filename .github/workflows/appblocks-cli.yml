@@ -1,0 +1,51 @@
+name: appblocks-cli
+
+# PR-BLOCKING: the CLI reference generator runs at BUILD time (prebuild ->
+# gen:appblocks) and HARD-FAILS when the committed civitai-cli-help.txt snapshot
+# advertises an `app` subcommand that APP_COMMANDS / APP_SUBGROUPS does not list.
+# That is a REPO-LOCAL invariant — the snapshot and the curated list are both
+# files in this repo, with no upstream input — so it cannot false-fail on
+# someone else's publish, which is what makes it safe to BLOCK a PR on (the same
+# reasoning as the --offline half of appblocks-snippets). The FRESHNESS half (is
+# the snapshot behind the latest civitai/cli release?) detects upstream movement
+# and stays on the scheduled appblocks-drift run.
+#
+# Worth blocking on because the failure is SILENT: before this guard existed,
+# re-snapshotting a binary that had GAINED a command wrote a green artifact with
+# that command simply absent from the published reference. `civitai app metrics`
+# shipped that way. Triggered on the inputs that can introduce that drift.
+on:
+  pull_request:
+    paths:
+      - 'appblocks-snapshots/civitai-cli-help.txt'
+      - 'scripts/gen-appblocks-cli.mjs'
+      - 'scripts/test-appblocks-cli.mjs'
+      - 'scripts/appblocks-util.mjs'
+      - '.github/workflows/appblocks-cli.yml'
+  workflow_dispatch: {}
+
+jobs:
+  test-cli:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: CLI help parser + unlisted-subcommand guard
+        run: npm run test:appblocks:cli
+
+      # The guard as the BUILD actually reaches it. The unit test above drives
+      # the exported predicate; this drives the whole generator over the real
+      # committed snapshot on the hermetic (no-binary) codepath CI uses, so a
+      # guard that is correct but never called still fails here.
+      - name: Generate the CLI reference from the committed snapshot (hermetic)
+        if: always()
+        run: APPBLOCKS_SNAPSHOT_ONLY=1 npm run gen:appblocks:cli
