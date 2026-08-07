@@ -172,8 +172,15 @@ export const GUARDED_PACKAGES = [...DESIGN_SYSTEM_PACKAGES, ...SDK_PACKAGES];
 /**
  * Hand-authored documentation roots to scan, repo-relative. The guard used to
  * read `apps/` only; a stale literal anywhere else in the docs was unpinned.
- * Keep `.github/workflows/appblocks-snippets.yml`'s `paths:` in sync with this
- * list, or a stale literal in a root the PR gate does not watch merges green.
+ *
+ * NO HAND-SYNC IS REQUIRED ANY MORE. This list used to have to be kept in step
+ * with `.github/workflows/appblocks-snippets.yml`'s `paths:` filter, because a
+ * root the guard READ but the trigger did not WATCH merged its stale literals
+ * green. That filter no longer exists — `typecheck-snippets` (which runs this
+ * guard's `--offline` half) is a REQUIRED check and now triggers on every pull
+ * request unconditionally, so the trigger can no longer be narrower than this
+ * list and the whole class of gap is unreachable rather than merely documented.
+ * Adding a root here needs no workflow edit.
  */
 export const DOC_ROOTS = ['apps', 'site', 'orchestration'];
 
