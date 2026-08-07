@@ -1,6 +1,6 @@
 civitai CLI help snapshot (the WHOLE command tree)
 Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
-Binary version: civitai v0.1.90-13-g569f5dc
+Binary version: civitai v0.1.90-25-g9cfe468
 Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
 else parses this committed snapshot. To refresh: run
 node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).
@@ -40,7 +40,17 @@ Exit codes:
   KIND of failure without parsing stderr (the error message itself is unchanged):
 
     0  Success.
-    1  Generic / unclassified error.
+    1  Generic / unclassified error. A filesystem failure lands here — a file
+       that exists but cannot be read, an unwritable config directory, an I/O
+       error. It is neither a mistake about the invocation (2) nor a transport
+       failure (5), and there is no filesystem-specific code. A resource that
+       exists but is not ready lands here too, and deliberately not on 4:
+       civitai app metrics <slug> for an app whose submitted version is still
+       in review exits 1, because the slug is right and the app does exist —
+       only its analytics do not exist yet, and the error names civitai app
+       status <slug> as the next command. 4 stays reserved for a slug with no
+       submissions at all, so the two remain separately actionable: fix the
+       slug, versus wait for approval.
     2  Usage error — a bad flag, a missing required flag or argument (e.g.
        civitai app withdraw with no publish-request id), a bad flag value
        (--limit out of range, a non-integer id, --template nope), or a request
@@ -52,7 +62,10 @@ Exit codes:
        missing, empty, a directory, over the size cap, or not a PNG/JPEG/WebP —
        but a file that exists and cannot be read (permissions, an I/O error) is
        a filesystem failure rather than a mistake about the invocation, and
-       does not exit 2.
+       exits 1, not 2. That split is the rule for every local path a flag
+       names, not just images: civitai generate --input <file> likewise exits 2
+       for a path that is not there or is a directory, and 1 when the file is
+       there and the read fails.
     3  Authentication/authorization — login required, token invalid/expired, or
        the credential lacks the needed scope (HTTP 401/403, or no token
        configured).
@@ -61,7 +74,10 @@ Exit codes:
        (civitai app status <slug> for an unregistered slug, civitai users get
        for an unknown username), and those exit 4 too.
     5  Network/transport failure or service unavailable — dial/timeout, or HTTP
-       502/503/504 after retries.
+       502/503/504 after retries. This is the code to retry on, so a filesystem
+       failure never lands here however retryable its errno looks: a
+       permissions or I/O problem does not fix itself, and a loop that sleeps
+       and re-runs would never terminate. Those exit 1.
     6  Rate limited — throttled by the API (HTTP 429).
 
 Usage:
@@ -1636,10 +1652,10 @@ Examples:
   civitai login                    # run again to SWITCH the active account (overwrites the stored credential)
 
 Flags:
-  -h, --help                                       help for login
-      --no-browser                                 do not attempt to open a browser for device login
-      --scopes strings                             extra scope sets to request on a browser device login, additive on top of the default (valid: generate). --scopes generate grants generation AND Buzz-SPEND authority; omit it and this login cannot spend your Buzz. Not valid with --token
-      --token string[="civitai-token-no-value"]  store a personal API key instead of the browser device login (pass with no value to print where to create one)
+  -h, --help                          help for login
+      --no-browser                    do not attempt to open a browser for device login
+      --scopes strings                extra scope sets to request on a browser device login, additive on top of the default (valid: generate). --scopes generate grants generation AND Buzz-SPEND authority; omit it and this login cannot spend your Buzz. Not valid with --token
+      --token string[="(no value)"]   store a personal API key instead of the browser device login (pass with no value to print where to create one)
 
 Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)

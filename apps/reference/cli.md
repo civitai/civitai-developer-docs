@@ -744,7 +744,7 @@ Authenticate with Civitai
 |---|---|---|
 | `--no-browser` | do not attempt to open a browser for device login | — |
 | `--scopes strings` | extra scope sets to request on a browser device login, additive on top of the default (valid: generate). --scopes generate grants generation AND Buzz-SPEND authority; omit it and this login cannot spend your Buzz. Not valid with --token | — |
-| `--token string[="civitai-token-no-value"]` | store a personal API key instead of the browser device login (pass with no value to print where to create one) | — |
+| `--token string[="(no value)"]` | store a personal API key instead of the browser device login (pass with no value to print where to create one) | — |
 
 **`civitai model-versions`**
 
