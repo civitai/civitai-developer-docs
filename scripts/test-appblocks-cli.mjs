@@ -594,11 +594,26 @@ check('BOTH guards are WIRED INTO buildArtifact, not merely correct in isolation
 // ---------------------------------------------------------------------------
 // 🔴 THE pflag NUL SENTINEL
 //
-// `civitai login --token` declares NoOptDefVal = "\x00civitai-token-no-value",
+// `civitai login --token` USED TO declare NoOptDefVal = "\x00civitai-token-no-value",
 // which collides with pflag's own alignment sentinel: pflag splits the row on
 // the FIRST NUL, so its real separator survives into stdout as a raw NUL and the
 // `[="…"]` default is printed with the alignment spacing inside it. Invisible
 // until the reference widened past the `app` group.
+//
+// 🔴 FIXED UPSTREAM, AND THE REPAIR STILL HAS TO WORK. civitai/cli#264 (issue
+// #253) changed the sentinel to the NUL-free "(no value)", so a capture from
+// civitai >= v0.1.90-25-g9cfe468 emits no NUL at all and repairPflagSentinel is
+// a no-op on it. That does NOT retire the repair: this generator captures from
+// whatever binary it is pointed at, and every v0.1.90-era build still emits the
+// mangled row. So the two halves below are now testing DIFFERENT things and
+// both are load-bearing —
+//   - the POSITIVE CONTROL drives repairPflagSentinel over a HISTORICAL fixture
+//     (the measured pre-#264 row, transcribed by hand) and must keep passing
+//     for as long as the repair exists;
+//   - the ARTIFACT check reads the CURRENT committed snapshot, so it tracks the
+//     sentinel the CLI ships today.
+// Do not "simplify" by deleting either one: dropping the control makes the
+// zero-NUL verdict vacuous, and dropping the artifact check un-pins the row.
 // ---------------------------------------------------------------------------
 
 console.log('pflag NUL SENTINEL — the committed snapshot must stay a TEXT file');
@@ -609,8 +624,11 @@ check('the committed snapshot contains ZERO NUL bytes', () => {
 });
 
 check('POSITIVE CONTROL — the repair actually has something to repair', () => {
-  // A zero-NUL verdict above is meaningless unless the raw source really emits
-  // one. This is the measured `civitai login --help` row, transcribed by hand.
+  // A zero-NUL verdict above is meaningless unless SOME source really emits
+  // one. This is the measured PRE-#264 `civitai login --help` row (civitai
+  // v0.1.90-13-g569f5dc), transcribed by hand and kept as a historical fixture:
+  // current binaries no longer emit it, but the generator still supports
+  // capturing from one that does.
   const raw = '      --token string[="                            civitai-token-no-value"]\x00store a personal API key instead\n';
   assert(raw.includes('\x00'), 'the fixture lost its NUL — it no longer reproduces the defect');
   const fixed = repairPflagSentinel(raw);
@@ -627,12 +645,16 @@ check('a lone NUL with no `[="` prefix still becomes a separator', () => {
   assertEqual(repairPflagSentinel('nothing to do'), 'nothing to do', 'the repair mutated clean text');
 });
 
-check('the artifact carries the REPAIRED `login --token` row, not the mangled one', () => {
+check('the artifact carries the CLEAN `login --token` row, not the mangled one', () => {
   const login = artifact.commands.find((c) => c.command === 'login');
   assert(login, 'no `login` command in the artifact');
   const token = login.options.find((o) => o.flags.startsWith('--token'));
   assert(token, `\`login\` has no --token flag: ${JSON.stringify(login.options.map((o) => o.flags))}`);
-  assertEqual(token.flags, '--token string[="civitai-token-no-value"]', 'the --token flag spec is still mangled');
+  // The post-#264 sentinel. If this fails with the OLD
+  // `civitai-token-no-value` value, the snapshot was re-captured from a binary
+  // predating civitai/cli#264 — re-capture from a current one rather than
+  // relaxing the assertion.
+  assertEqual(token.flags, '--token string[="(no value)"]', 'the --token flag spec is not the post-#264 sentinel');
   assert(
     token.description.startsWith('store a personal API key'),
     `the description absorbed the default value: ${JSON.stringify(token.description)}`,
