@@ -8,17 +8,17 @@ name: appblocks-bridge
 # the Docker/CI build. This fast unit test reproduces the EXACT coverage relation
 # the generator hard-fails on, plus the version-pin classifier, so a PR that bumps
 # the SDK pin (or touches the generator) is caught here first. It also verifies
-# the pins against npm `latest` when package.json changes, so a bump lands current.
+# the pins against npm `latest`, so a bump lands current.
+#
+# RUNS ON EVERY PR, DELIBERATELY UNFILTERED — do not re-add a `paths:` filter.
+# `test-bridge` is a REQUIRED status check on `main`, and GitHub does not
+# synthesise a passing status for a workflow that never triggers, so a
+# path-filtered required check strands every PR that touches none of the watched
+# files at mergeStateStatus=BLOCKED forever. Measured live on #42, which this
+# workflow's old filter never saw. See appblocks-cli.yml for the full note; the
+# unfiltered trigger is a superset of the paths this file used to watch.
 on:
-  pull_request:
-    paths:
-      - 'scripts/gen-appblocks-bridge.mjs'
-      - 'scripts/test-appblocks-bridge.mjs'
-      - 'scripts/check-appblocks-pins.mjs'
-      - 'scripts/appblocks-util.mjs'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/appblocks-bridge.yml'
+  pull_request: {}
   workflow_dispatch: {}
 
 # LEAST PRIVILEGE — see appblocks-cli.yml for the full reasoning. Checkout +
@@ -47,4 +47,26 @@ jobs:
 
       - name: Generation-bridge pin freshness vs npm latest
         # A PR that bumps package.json should land the pin CURRENT with npm.
+        #
+        # 🔴 KNOWN RESIDUAL, LEFT DELIBERATELY IN THIS CHANGE, READ BEFORE
+        # RELYING ON `test-bridge` BEING STABLE. This is the ONE step in the four
+        # required suites that is NOT hermetic: check-appblocks-pins.mjs fetches
+        # each pinned devDep's npm `latest` and `process.exit(1)`s when the pin
+        # LAGS it (exit 2 on a transient registry failure). Under the old
+        # `paths:` filter that reached only PRs touching package.json or the
+        # bridge scripts; now that the filter is gone — which the required-check
+        # deadlock forced — it runs on EVERY PR. So an upstream
+        # @civitai/app-sdk / @civitai/blocks-react publish, or an npm outage,
+        # turns a REQUIRED context red on every open PR at once: a
+        # permanently-red gate nobody can merge through, caused by someone
+        # else's publish. That is exactly the property appblocks-cli.yml's
+        # header calls out as what makes a check safe to require, and this step
+        # does not have it.
+        # The freshness signal is NOT lost if this step goes: appblocks-drift.yml
+        # already runs `npm run check:pins` on its scheduled sweep. The intended
+        # fix is therefore to DELETE this step (freshness is a scheduled-drift
+        # concern, per the same split appblocks-cli.yml and appblocks-snippets.yml
+        # already make), or to re-scope it to package.json changes with an
+        # explicit changed-files step. It is kept here only to hold this PR to
+        # the trigger change; do not read its presence as endorsement.
         run: npm run check:pins

@@ -2,25 +2,23 @@ name: appblocks-snippets
 
 # PR-BLOCKING: a doc snippet that drifts from the pinned SDK (a renamed hook, a
 # wrong return shape, a bad call signature) must block the docs PR that carries
-# it. Runs on any change to the App Blocks pages or the guard itself.
+# it. Runs on EVERY pull request.
+#
+# RUNS ON EVERY PR, DELIBERATELY UNFILTERED — do not re-add a `paths:` filter.
+# `typecheck-snippets` is a REQUIRED status check on `main`, and GitHub does not
+# synthesise a passing status for a workflow that never triggers, so a
+# path-filtered required check strands every PR touching none of the watched
+# files at mergeStateStatus=BLOCKED forever, waiting on a report that will never
+# come — measured live on #42. See appblocks-cli.yml for the full note.
+#
+# It also retires a maintenance hazard this file used to carry: the old filter
+# had to be kept in sync by hand with the doc roots the pin-guard actually scans
+# (DOC_ROOTS / DOC_FILES in check-design-system-pins.mjs), because a root the
+# guard reads but the trigger did not watch merged its stale literals green.
+# Running unconditionally makes that class of gap unreachable rather than
+# merely documented.
 on:
-  pull_request:
-    paths:
-      # The pin-guard scans every hand-authored doc root (DOC_ROOTS /
-      # DOC_FILES in check-design-system-pins.mjs). Keep these in sync: a root
-      # the guard reads but this trigger does not watch merges its stale
-      # literals green.
-      - 'apps/**/*.md'
-      - 'site/**/*.md'
-      - 'orchestration/**/*.md'
-      - 'index.md'
-      - 'scripts/typecheck-appblocks-snippets.mjs'
-      - 'scripts/appblocks-util.mjs'
-      - 'scripts/check-design-system-pins.mjs'
-      - 'scripts/check-appblocks-pins.mjs'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/appblocks-snippets.yml'
+  pull_request: {}
   workflow_dispatch: {}
 
 # LEAST PRIVILEGE — see appblocks-cli.yml for the full reasoning. Checkout +
@@ -67,6 +65,15 @@ jobs:
       # wrong in BOTH directions by assuming one from the other. Re-measure
       # before calling any job here a gate — never infer it from the job
       # existing, and never infer it from this comment either.
+      #
+      # THERE IS A THIRD, INDEPENDENT PROPERTY, and leaving it implicit cost a
+      # day: a required check must also be able to REPORT on every PR. That is a
+      # property of the TRIGGER. GitHub synthesises nothing for a workflow that
+      # does not run, so while this file carried a `paths:` filter, "safe to
+      # require" + "required in repo settings" still produced a permanent
+      # BLOCKED on any PR that touched none of the watched paths — no red run to
+      # look at, no way through. Hence the unfiltered `on: pull_request` above.
+      # All three properties move independently; hold all three.
       #
       # --offline runs ONLY the single-source half: every first-party version
       # literal in the docs (design-system CDN URLs AND the SDK `sources:`
