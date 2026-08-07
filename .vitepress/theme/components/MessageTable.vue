@@ -7,6 +7,7 @@ interface Message {
   direction: 'block-to-host' | 'host-to-block';
   request: boolean;
   reply: string | null;
+  replyNote: string | null;
   replyPayload: string | null;
   pageOnly: boolean;
   slotNote: string | null;
@@ -66,6 +67,7 @@ const groups = computed(() => {
           <div v-if="m.reply" class="ab-col">
             <div class="ab-label">reply <code>{{ m.reply }}</code></div>
             <pre v-if="m.replyPayload"><code>{{ m.replyPayload }}</code></pre>
+            <p v-if="m.replyNote" class="ab-reply-note">{{ m.replyNote }}</p>
           </div>
         </div>
         <div v-if="m.pageOnly && m.slotNote" class="ab-note">Model slot: {{ m.slotNote }}</div>
@@ -106,6 +108,7 @@ const groups = computed(() => {
 }
 .ab-col pre code { font-family: var(--vp-font-family-mono); font-size: 0.8rem; white-space: pre; }
 .ab-note { margin-top: 0.5rem; font-size: 0.8rem; color: var(--vp-c-text-2); }
+.ab-reply-note { margin: 0.4rem 0 0; font-size: 0.8rem; color: var(--vp-c-text-2); }
 .ab-muted { color: var(--vp-c-text-3); }
 .ab-empty { color: var(--vp-c-text-3); font-style: italic; }
 </style>
