@@ -47,16 +47,26 @@ jobs:
       - name: Typecheck App Blocks doc snippets against the pinned SDK
         run: npm run test:snippets:appblocks
 
-      # 🔴 NOTHING IN THIS REPO GATES — these jobs REPORT.
-      # Measured 2026-08-06: `gh api repos/civitai/civitai-developer-docs/
-      # branches/main/protection` -> 404 "Branch not protected"; `rulesets` -> [].
-      # So a red run here can be merged straight through. An earlier revision of
-      # this comment called the step below "safe to BLOCK a PR on", which reads
-      # as a claim that it DOES block; it does not, and did not when written.
-      # "Safe to require" is a property of the CHECK (offline, repo-local, no
-      # upstream input, so it cannot false-fail on someone else's publish);
-      # "blocks" is a property of REPO SETTINGS. Re-measure before calling any
-      # job here a gate — never infer it from the job existing.
+      # 🔴 THIS JOB GATES. Measured 2026-08-07: `gh api repos/civitai/
+      # civitai-developer-docs/branches/main/protection` -> required contexts
+      # `test-cli`, `test-messages`, `test-bridge`, `typecheck-snippets`
+      # (strict=false, enforce_admins=false, reviews=none); `rulesets` -> [].
+      # This job IS `typecheck-snippets`, so a red run blocks the merge —
+      # including the steps below, which are `if: always()` and therefore fail
+      # the job rather than being skipped past.
+      #
+      # This REVERSES the previous note here, which measured a 404 "Branch not
+      # protected" on 2026-08-06 and concluded a red run "can be merged straight
+      # through". That was true when written and is false now. Nothing about
+      # these checks changed — the REPO SETTINGS did, on 2026-08-07.
+      #
+      # Which is exactly the durable point, so keep it: "safe to require" is a
+      # property of the CHECK (offline, repo-local, no upstream input, so it
+      # cannot false-fail on someone else's publish); "blocks" is a property of
+      # REPO SETTINGS. The two move independently, and this file has now been
+      # wrong in BOTH directions by assuming one from the other. Re-measure
+      # before calling any job here a gate — never infer it from the job
+      # existing, and never infer it from this comment either.
       #
       # --offline runs ONLY the single-source half: every first-party version
       # literal in the docs (design-system CDN URLs AND the SDK `sources:`
@@ -73,8 +83,8 @@ jobs:
         run: npm run check:ds-pins -- --offline
 
       # Both pages document the SAME `civitai` binary. Offline + repo-local: it
-      # compares the two pages to each other, not to anything upstream. (Reports
-      # only — see the gating note above.)
+      # compares the two pages to each other, not to anything upstream. (Gates
+      # — see the note above.)
       - name: CLI install-method parity — the two hosted CLI pages agree
         if: always()
         run: npm run check:cli-install-parity
@@ -82,7 +92,7 @@ jobs:
       # A page/model-slot context mix-up TYPECHECKS (the snippet suite passed
       # 31/31 with the wrong type) and fails only at runtime — as `undefined`
       # fields, or as a FORBIDDEN the block cannot diagnose. Needs its own
-      # assertion. (Reports only — see the gating note above.)
+      # assertion. (Gates — see the note above.)
       - name: Page-surface context — page apps vs model slots
         if: always()
         run: npm run check:page-context
