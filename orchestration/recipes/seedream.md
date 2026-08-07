@@ -259,5 +259,6 @@ Dimensions and `images[]` count don't change Seedream's Buzz price — the provi
 - [Flux 2](./flux2) / [Qwen](./qwen) / [SDXL](./sdxl) — open-weights / sdcpp alternatives on Civitai-hosted workers
 - [Image upscaling](./image-upscaler) — chain after `imageGen` (Seedream's native 4096 may already cover your upscale needs)
 - [Prompt enhancement](./prompt-enhancement) — LLM-rewrite a prompt before feeding it in via `$ref`
+- [Seedance video generation](./seedance) — the video counterpart from the same provider, also called directly against BytePlus
 - Full parameter catalog: the `SeedreamImageGenInput` schema in the [API reference](/orchestration/reference/)
 - [`imageGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `imageGen` surface
