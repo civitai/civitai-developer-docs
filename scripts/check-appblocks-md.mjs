@@ -18,7 +18,13 @@
 // It renders IN MEMORY and never writes, so it is safe on a read-only checkout.
 //
 // USAGE
-//   npm run gen:appblocks && npm run check:md-regions
+//   APPBLOCKS_SNAPSHOT_ONLY=1 npm run gen:appblocks && npm run check:md-regions
+//
+// The env var is not optional garnish: it is exactly how .github/workflows/
+// appblocks-md-regions.yml generates the artifacts, and appblocks-util.mjs
+// otherwise prefers a sibling `civitai` checkout at ../civitai that the real dev
+// layout HAS and CI does not. Omit it locally and you grade different bytes than
+// CI will.
 import { readFileSync } from 'node:fs';
 import { log } from './appblocks-util.mjs';
 import {
@@ -100,7 +106,12 @@ if (failures.length) {
     `\nThese regions are the ONLY copy of the <${failures[0].region.component}>-style island payload that reaches\n` +
       `the .md / llms-full.txt channel — a stale one ships an LLM-visible page that\n` +
       `contradicts the HTML. Fix with:\n\n` +
-      `    npm run gen:appblocks && ${REFRESH_CMD}\n\n` +
+      // APPBLOCKS_SNAPSHOT_ONLY=1 is what CI grades with, and it is load-bearing
+      // in the remedy: appblocks-util.mjs prefers a sibling `civitai` checkout at
+      // ../civitai, which EXISTS in the real dev layout. Without the flag a
+      // maintainer regenerates from live upstream source and commits bytes CI
+      // then rejects — the guard sending them round the loop a second time.
+      `    APPBLOCKS_SNAPSHOT_ONLY=1 npm run gen:appblocks && ${REFRESH_CMD}\n\n` +
       `then commit the page diff.\n`,
   );
   process.exit(1);
