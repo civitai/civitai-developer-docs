@@ -96,6 +96,19 @@ jobs:
         if: always()
         run: npm run check:cli-install-parity
 
+      # Same two pages, opposite direction: the install SET must match, and the
+      # flag list must NOT be duplicated by hand at all — it is generated from
+      # the binary's own `--help` into public/appblocks/cli.json. Offline and
+      # repo-local (it reads two committed markdown files and nothing else), so
+      # it is safe to require by the doctrine above. Worth requiring because the
+      # failure is silent for readers in the worst way: a hand table does not go
+      # missing, it goes STALE — the last one dropped `--version` and `--yes` on
+      # `download`, the two flags that explain the ambiguous-id safety stop, and
+      # kept rendering as authoritative. (Gates — see the note above.)
+      - name: No hand-maintained flag tables — the flag list is generated
+        if: always()
+        run: npm run check:no-flag-tables
+
       # A page/model-slot context mix-up TYPECHECKS (the snippet suite passed
       # 31/31 with the wrong type) and fails only at runtime — as `undefined`
       # fields, or as a FORBIDDEN the block cannot diagnose. Needs its own
