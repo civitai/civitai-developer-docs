@@ -1,13 +1,17 @@
 name: appblocks-drift
 
-# SCHEDULED, NOT PR-BLOCKING (by design). Both guards detect UPSTREAM civitai
-# movement — a re-snapshottable source file changing, or the two manifest-schema
-# copies diverging — which is unrelated to any given docs PR. Gating unrelated
-# docs PRs on a stale snapshot / a schema the docs repo doesn't own would be
-# wrong, so this runs on a schedule (mirroring test-samples) + on demand, where a
-# red run is the visible signal to re-snapshot or reconcile. To make either a
-# non-blocking informational PR check later, add a `pull_request` trigger with
-# `continue-on-error: true`.
+# SCHEDULED, NOT PR-BLOCKING (by design). EVERY guard here detects UPSTREAM
+# movement — a re-snapshottable source file changing, the two manifest-schema
+# copies diverging, an SDK or civitai/cli release publishing — which is unrelated
+# to any given docs PR. Gating unrelated docs PRs on a stale snapshot / a schema
+# the docs repo doesn't own would be wrong, so this runs on a schedule (mirroring
+# test-samples) + on demand, where a red run is the visible signal to re-snapshot
+# or reconcile. To make any of them a non-blocking informational PR check later,
+# add a `pull_request` trigger with `continue-on-error: true`.
+#
+# The counterpart doctrine: a REPO-LOCAL invariant (no upstream input, so it
+# cannot false-fail on someone else's publish) DOES block a PR — see
+# appblocks-snippets.yml's --offline half and appblocks-cli.yml.
 on:
   schedule:
     # 06:37 UTC daily — just after the test-samples 06:17 run.
@@ -31,6 +35,20 @@ jobs:
 
       - name: Snapshot drift — appblocks-snapshots/ vs civitai@origin/main
         run: npm run check:snapshots
+
+      - name: CLI snapshot freshness — civitai-cli-help.txt vs the latest civitai/cli release
+        # NOT covered by check:snapshots, and not for lack of trying: that guard
+        # diffs a raw upstream FILE, while this snapshot is `--help` OUTPUT
+        # captured by running a compiled Go binary — there is nothing to fetch
+        # and byte-compare. It probes the snapshot header's recorded binary
+        # version against the latest published civitai/cli release instead. (The
+        # repo-local half — every advertised `app` subcommand being listed in the
+        # generator — blocks a PR from appblocks-cli.yml.)
+        if: always()
+        env:
+          # Lifts the shared-runner rate limit. Absent, a 403 SKIPs, never fails.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run check:cli-snapshot
 
       - name: Manifest schema parity — prod endpoint vs SDK-bundled v1.json
         # Always run so one scheduled run surfaces BOTH drift signals.

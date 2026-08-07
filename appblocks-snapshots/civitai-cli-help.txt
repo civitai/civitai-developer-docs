@@ -1,6 +1,6 @@
 civitai CLI help snapshot (App authoring command group)
 Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
-Binary version: civitai v0.1.89-10-g897ea8e
+Binary version: civitai v0.1.90-13-g569f5dc
 Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
 else parses this committed snapshot. To refresh: run
 node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).
@@ -57,6 +57,21 @@ Global Flags:
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
 
 Use "civitai app [command] --help" for more information about a command.
+===CMD complete app===
+create	Create a ready-to-build App (batteries-included, SDK money-path)
+dev-token	Mint a short-lived dev block token for `npm run dev:live`
+dev-tunnel	Preview your LOCAL dev server inside the real Civitai host via a hardened tunnel
+init	Scaffold a ready-to-build App project
+list	Discover published Apps in the store (GET /api/v1/apps)
+listing	Manage your App store-listing media (icon, cover, screenshots)
+metrics	Show your App's install / run / Buzz / engagement analytics
+pull	Clone or sync your app's repository from Civitai
+status	Check the review/deploy status of your App submissions
+submit	Package and submit an App for review
+validate	Validate block.manifest.json against the App schema
+view	Show one App's detail (GET /api/v1/apps/{slug})
+withdraw	Withdraw your own pending App submission
+:4
 ===CMD app create===
 Create a ready-to-build App, batteries included.
 
@@ -67,19 +82,24 @@ Buzz spend), with a mock-host dev harness and a unit test. The scaffold is
 immediately runnable (npm install && npm run dev:harness), test-green, and
 validates clean.
 
-The default scaffold ships TWO samples in the one app: a runnable txt2img money
-path AND a Comfy on Civitai (customComfy) sample that runs a server-registered recipe
-(invite-only beta) — both share the estimate -> consent -> submit -> poll driver,
-switched by an on-screen mode toggle. Both work end-to-end in "npm run
-dev:harness" (mock host); see the generated README's "Comfy on Civitai sample" section.
+The default scaffold ships a runnable txt2img money path AND a Comfy on Civitai
+(customComfy) sample that runs a server-registered recipe (invite-only beta) —
+both share the estimate -> consent -> submit -> poll driver, switched by an
+on-screen mode toggle, and both work end-to-end in "npm run dev:harness".
+
+customComfy has TWO arms. Besides the recipe arm above, an app may also ship
+its own ComfyUI graph inline (mode: 'inline', app developers only). src/comfy.ts
+includes a complete, unit-tested buildInlineComfyBody for it: the graph, the
+declared AIR resource manifest, and the maxBuzz ceiling (which is ALSO the step
+timeout in seconds). See the generated README's "Comfy on Civitai samples" section.
 
 Templates (override with --template):
   static      a no-build page app (index.html + a tiny JS, no build step)
   page-vite   a vite + React page app (config-as-code build: buildCommand + outputDir)
   page-money  a vite + React + TS full-page (W10) money-path app wired to the
               published App SDK (estimate -> consent -> submit -> poll -> Buzz
-              spend); includes a txt2img + a Comfy on Civitai (customComfy) sample
-              [default for create]
+              spend); includes a txt2img + a Comfy on Civitai (customComfy) sample,
+              recipe and inline-graph body builders [default for create]
 
 The display name can be free-form ("My Cool Block"); it is slugified for the
 blockId. A slug-shaped name is used verbatim.
@@ -88,9 +108,9 @@ By default the project is created in ./<slug>. Override the output directory wit
 a positional [dir] or --dir <path>; override the display name independently with
 --name (so name, slug, and directory can all differ).
 
-Note: `civitai login` (OAuth) grants submit but NOT Buzz-spend. To run
-`dev:live` real generations, authenticate with a full-scope personal API key
-(`civitai login --token <key>`, created at https://civitai.com/user/account).
+Note: a DEFAULT `civitai login` (OAuth) grants submit but NOT Buzz-spend. To
+run `dev:live` real generations, authenticate with a credential that carries
+the AI Services scopes: `civitai login --scopes generate` (a browser login that opts into generation), or a full-scope personal API key (`civitai login --token <key>`, created at https://civitai.com/user/account).
 
 Usage:
   civitai app create [name] [dir] [flags]
@@ -191,9 +211,16 @@ plus the ported semantic rules and structural checks:
     lockfile is a guaranteed build failure. Only applies when package.json
     exists — a static app never installs.
 
-It also emits non-fatal WARNINGS for money-path footguns the schema can't catch
-as hard errors (e.g. a budgeted page with no page.buzzBudgetPerGen). Warnings do
-NOT fail validation (exit 0) unless --strict is passed.
+It also emits non-fatal WARNINGS the schema can't catch as hard errors:
+  - money-path footguns (e.g. a budgeted page with no page.buzzBudgetPerGen)
+  - a "page" app whose source never posts BLOCK_READY. The host will not reveal
+    a page app until it acks BLOCK_INIT, so such an app renders fine locally and
+    is replaced by a failure card in the real host — the shape of anything
+    scaffolded before that was fixed. Advisory ONLY: it infers runtime behaviour
+    from static text. A project depending on @civitai/* is never flagged (the
+    SDK transport acks internally), and it reads source only — never outputDir,
+    node_modules, markdown, or comments.
+Warnings do NOT fail validation (exit 0) unless --strict is passed.
 
 Defaults to the current directory.
 
@@ -379,6 +406,14 @@ Global Flags:
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
 
 Use "civitai app listing [command] --help" for more information about a command.
+===CMD complete app listing===
+add-screenshot	Add a screenshot (up to 8) with an optional caption
+reorder	Reorder screenshots (pass ALL current screenshot ids in the new order)
+rm-screenshot	Remove a screenshot by its id (see `app listing status`)
+set-cover	Set the listing cover (a landscape hero image)
+set-icon	Set the listing icon (a square-ish image)
+status	Show attached media and what's missing vs the publish floor
+:4
 ===CMD app listing set-icon===
 Set the listing icon (a square-ish image)
 
@@ -505,7 +540,7 @@ backs off and retries automatically).
 
 NOTE: the store is gated by a launch flag — until it opens publicly you will only
 see apps if your account is a moderator or app-dev-tester; a normal login may get
-an empty list. This command is useless until the backing API is deployed.
+an empty list.
 
 Usage:
   civitai app list [flags]
@@ -536,8 +571,12 @@ kind-specific action target (an on-site app's live URL, or an off-site app's
 external / connect target).
 
 Login is required (`civitai login`). A missing or out-of-scope slug returns a
-clean "not found" message. This command is useless until the backing API is
-deployed.
+clean "not found" message.
+
+This reads the PUBLIC STORE CATALOG, which is NOT the same thing as your
+deployment: an app can be approved, deployed and serving at <slug>.civit.ai and
+still not be in the store. When a 404 lands on a slug you own, the error says so
+and points at `civitai app listing status` / `civitai app status`.
 
 Usage:
   civitai app view <slug> [flags]
@@ -554,6 +593,47 @@ Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
       --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD app metrics===
+Show the owner-only analytics for one of YOUR App Blocks: installs, runs and
+the Buzz they spent, Buzz purchased through the app, and API engagement.
+
+The slug is resolved to its appBlockId through your own submissions
+(`civitai app status` reads the same route), so analytics are only available
+once a version of the app has been APPROVED — an app that was never approved has
+no App Block to report on yet.
+
+WINDOW: the server defaults to the last 30 days and clamps any request to 366
+days, so a zero is only meaningful together with the period it covers. This
+command therefore always prints the window the SERVER served (echoed from the
+response), not the one you asked for. Pass --from / --to as a plain YYYY-MM-DD
+date (midnight UTC) or a full RFC3339 timestamp to widen it.
+
+CREDENTIAL: the analytics query is full-scope, so it needs a personal API key
+(`civitai login --token <key>`); an OAuth browser login is refused with 403.
+
+DATA CAVEAT: engagement counts only AUTHENTICATED, scope-gated API calls. An app
+that ships no scoped API surface will show real installs and revenue with a flat
+engagement section — that is expected, not a bug.
+
+Usage:
+  civitai app metrics <slug> [flags]
+
+Examples:
+  civitai app metrics my-block
+  civitai app metrics my-block --from 2026-05-01 --to 2026-08-03
+  civitai app metrics my-block --from 2026-05-01T00:00:00Z
+  civitai app metrics my-block --json
+
+Flags:
+      --from string   window start: YYYY-MM-DD (midnight UTC) or RFC3339 (default: 30 days ago, server-side)
+  -h, --help          help for metrics
+      --json          emit the raw analytics payload (scriptable). Unlike the human view, --json does NOT refuse a not-entitled read: a notOwned:true payload is passed through with every counter zeroed and still exits 0, so a script MUST branch on the notOwned field rather than trusting the counts
+      --to string     window end: YYYY-MM-DD (midnight UTC) or RFC3339 (default: now, server-side)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
 ===CMD app dev-token===
 Mint a short-lived dev block token so a scaffolded page-money app can run
 "npm run dev:live" against the REAL Civitai backend.
@@ -563,12 +643,29 @@ stored credential and prints the token (a ~4-hour RS256 JWT). Paste it into
 VITE_LIVE_BLOCK_TOKEN in .env.development.local, then restart "npm run dev:live".
 
 The minted token's CAPABILITIES depend on the credential you mint with:
-  - REAL generation (spends real Buzz) needs a FULL-SCOPE PERSONAL API KEY
-    (create one at https://civitai.com/user/account — it carries AI Services).
+  - REAL generation (spends real Buzz) needs a credential carrying AI Services:
+    a FULL-SCOPE PERSONAL API KEY (create one at https://civitai.com/user/account)
+    or an OAuth login that opted in with "civitai login --scopes generate".
     Confirm yours can spend with "civitai whoami".
-  - An OAuth login ("civitai login") mints a READ/IDENTITY-ONLY dev token (no
-    spend) — dev:live shows your viewer + catalog/storage, but estimate →
-    submit → generation will NOT spend.
+  - A DEFAULT OAuth login ("civitai login", no --scopes) mints a
+    READ/IDENTITY-ONLY dev token (no spend) — dev:live shows your viewer +
+    catalog/storage, but estimate → submit → generation will NOT spend.
+
+--spend is the explicit affirmation that this token may spend real Buzz. It does
+two things to the request: it adds ai:write:budgeted to the scopes REQUESTED from
+the mint route, and it sets the request's spend-intent field (requestBudgetedSpend)
+to true. The server still clamps against your credential, so --spend cannot grant
+what your credential lacks.
+
+WITHOUT --spend the CLI never requests budgeted spend implicitly: if your
+block.manifest.json declares ai:write:budgeted it is FILTERED OUT of the request
+(the command tells you when that happens). The scaffolded money app declares it,
+so a live run that used to generate now needs --spend — otherwise dev:live
+refuses with "block lacks ai:write:budgeted scope". Every other manifest scope is
+requested unchanged. With no local manifest the CLI sends no scopes at all —
+independently of that, EVERY mint now states its spend intent explicitly, since
+requestBudgetedSpend is always present on the request and is true only with
+--spend.
 
 Pre-GA the mint route is invite-only. You do NOT need to submit the app
 first — for a brand-new slug with no app row yet, the token is minted from the
@@ -576,17 +673,39 @@ scopes in your local block.manifest.json (clamped server-side), so
 "create → dev-token → dev:live" works directly. The token is short-lived —
 never commit it; re-mint when it expires.
 
+BUDGET (--budget, 1-250 Buzz). The token carries a per-generation Buzz budget.
+Omit --budget and the server picks one — 50 for a slug with no submitted app.
+Your LOCAL block.manifest.json page.buzzBudgetPerGen does NOT raise it: until
+the app is submitted there is no server-side manifest to read, so the 50 is a
+flat default, not a clamp of your file. --budget is the only way to move it.
+
+A generation is REFUSED outright when the recipe's Buzz ceiling exceeds that
+budget, so a shipped recipe with a ceiling of 90 dead-ends on the default:
+
+  insufficient buzz budget: recipe ceiling 90 exceeds budget 50
+
+Raise it (--budget 250) rather than editing the recipe.
+
+The trap: for an inline customComfy graph your maxBuzz is BOTH the Buzz ceiling
+and the step timeout in SECONDS. An over-thrifty budget therefore does not fail
+as a billing error — the step runs out of wall clock and comes back "expired",
+which reads like a broken graph. Budget for the seconds the graph needs.
+
 Usage:
   civitai app dev-token <slug> [flags]
 
 Examples:
   civitai app dev-token my-block               # print the token to stdout
+  civitai app dev-token my-block --spend       # also REQUEST ai:write:budgeted (real Buzz)
+  civitai app dev-token my-block --budget 250  # max budget (and 250s of customComfy wall clock)
   civitai app dev-token my-block --env         # print VITE_LIVE_BLOCK_TOKEN=<token>
   civitai app dev-token my-block --env >> .env.development.local
 
 Flags:
-      --env    print VITE_LIVE_BLOCK_TOKEN=<token> (paste-ready into .env.development.local)
-  -h, --help   help for dev-token
+      --budget int   per-generation Buzz budget the token may spend (1-250; omit to let the server decide — 50 for an unsubmitted app). Must clear your recipe's ceiling; for inline customComfy it is ALSO the step timeout in seconds
+      --env          print VITE_LIVE_BLOCK_TOKEN=<token> (paste-ready into .env.development.local)
+  -h, --help         help for dev-token
+      --spend        explicitly REQUEST the ai:write:budgeted scope so npm run dev:live can spend REAL Buzz. Omit it and that scope is FILTERED OUT of the request and the request's spend-intent field states false — the CLI never asks for budgeted spend implicitly, even when your block.manifest.json declares it
 
 Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
@@ -637,8 +756,8 @@ Flags:
       --block string             the blockId (app slug) to tunnel (or pass it positionally; defaults to the blockId in block.manifest.json in the CWD)
   -h, --help                     help for dev-tunnel
       --idle-timeout duration    tear the tunnel down after this much inactivity (default 30m0s)
-      --local-host localhost     host your local dev server is bound to. Default localhost (loopback) — the scaffold's `dev:tunnel` binds localhost, so most users need nothing. Set this for a dev server NOT on the CLI's loopback: a container/pod (e.g. --local-host 10.42.0.100), a VM, or a specific bound interface (default "localhost")
-      --no-wait                  skip the readiness wait and print the URL immediately (it may 404/NXDOMAIN for ~1–2 min while DNS/route propagate)
+      --local-host string        host your local dev server is bound to. Default localhost (loopback) — the scaffold's dev:tunnel binds localhost, so most users need nothing. Set this for a dev server NOT on the CLI's loopback: a container/pod (e.g. --local-host 10.42.0.100), a VM, or a specific bound interface (default "localhost")
+      --no-wait                  skip the readiness wait and print the URL immediately (it may 404/NXDOMAIN for a few minutes while DNS/route propagate)
       --port int                 local dev-server port to tunnel (matches the scaffold's dev:tunnel) (default 5186)
       --ready-timeout duration   cap the wait for the public host to start serving (0 = wait indefinitely until ready or Ctrl-C; a positive value warns + prints the URL anyway on expiry)
       --tunnel-endpoint string   sish SSH endpoint host:port (default sish.civitai.com:2224, or $CIVITAI_DEV_TUNNEL_ENDPOINT)

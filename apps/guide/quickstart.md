@@ -90,31 +90,43 @@ loading state, check that the two agree.
 
 Read everything the host delivered with `useBlockContext()`, and gate your UI on
 `ready` — the context fields are sentinel-empty until `BLOCK_INIT` lands.
-`useBlockResize` posts your rendered height back to the host so the iframe fits
-your content. Replace `src/App.tsx` with:
+Replace `src/App.tsx` with:
 
 ```tsx
-import { useRef } from 'react';
-import { useBlockContext, useBlockResize } from '@civitai/blocks-react';
+import { useBlockContext } from '@civitai/blocks-react';
 import type { ModelSlotContext } from '@civitai/app-sdk/blocks';
 
 export function App() {
   const { ready, context, viewer, theme } = useBlockContext();
-  const rootRef = useRef<HTMLDivElement>(null);
-  useBlockResize(rootRef);              // host fits the iframe to content
 
-  if (!ready) return <div ref={rootRef} data-theme={theme}>Loading…</div>;
+  if (!ready) return <div data-theme={theme}>Loading…</div>;
   const model = context as ModelSlotContext;
 
   return (
     // Set data-theme on YOUR OWN root — the host can't reach into the iframe to
     // set it, so any [data-theme="dark"] CSS is otherwise dormant.
-    <div ref={rootRef} data-theme={theme}>
+    <div data-theme={theme}>
       <p>Hello {viewer?.username ?? 'anon'} — running on {model.modelName}.</p>
     </div>
   );
 }
 ```
+
+::: tip `useBlockResize` does nothing on a page app
+`civitai app create` scaffolds a **page** app (`block.manifest.json` declares a
+`page` key), and a page app is rendered by the host's `PageBlockHost`, which
+mounts the iframe **full-viewport** (`flex: 1`, `width: 100%`) and subscribes to
+no `RESIZE_IFRAME` handler at all. `useBlockResize` still runs its
+`ResizeObserver` and still posts the message — the host simply ignores it, so
+your app is sized by the surface, not by its content. It is fire-and-forget, so
+nothing hangs; it is just inert.
+
+Reach for it on the **model-slot** surface, where `IframeHost` does handle
+`RESIZE_IFRAME` and clamps the height to your manifest's
+`iframe.minHeight` / `iframe.maxHeight`. (`iframe.resizable` in the manifest
+schema still describes itself in size-to-content terms; on a page app that
+wording does not apply.)
+:::
 
 A few things this snippet establishes as habits:
 

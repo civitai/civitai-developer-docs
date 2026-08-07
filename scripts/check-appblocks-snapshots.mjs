@@ -55,8 +55,19 @@ const APP_STARTERS_BASE =
 // Each committed snapshot ↔ its canonical upstream source path. Entries default
 // to civitai@main (RAW_BASE); an explicit `base` overrides it for sources that
 // live in another repo. The manifest schema is intentionally NOT here (see
-// check-manifest-parity.mjs); the CLI snapshot tracks an npm package pinned by
-// version, so version-pinning already guards it.
+// check-manifest-parity.mjs).
+//
+// civitai-cli-help.txt is NOT here either, and NOT because anything else already
+// guards it. It is `civitai app … --help` OUTPUT captured by RUNNING the compiled
+// Go binary (gen-appblocks-cli.mjs resolves it from CIVITAI_CLI_BIN or PATH), so
+// there is no upstream file to fetch and byte-compare — this guard's whole
+// mechanism is inapplicable to it. An earlier version of this comment claimed it
+// "tracks an npm package pinned by version, so version-pinning already guards
+// it"; that was false in both halves (Go binary, not npm; and
+// check-appblocks-pins.mjs pins only @civitai/app-sdk + @civitai/blocks-react),
+// and it is why the CLI snapshot went ~30 commits stale unnoticed. It now has its
+// own probe — snapshot header version vs the latest civitai/cli release — in
+// check-appblocks-cli-snapshot.mjs, on the same scheduled drift sweep.
 const SOURCES = [
   {
     path: 'src/shared/constants/block-scope.constants.ts',
