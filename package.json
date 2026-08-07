@@ -12,6 +12,7 @@
     "gen:appblocks:hooks": "node scripts/gen-appblocks-hooks.mjs",
     "gen:appblocks:bridge": "node scripts/gen-appblocks-bridge.mjs",
     "gen:appblocks:components": "node scripts/gen-appblocks-components.mjs",
+    "gen:appblocks:md": "node scripts/gen-appblocks-md.mjs",
     "predev": "npm run copy:spec && npm run gen:appblocks",
     "prebuild": "npm run copy:spec && npm run gen:appblocks",
     "dev": "vitepress dev",
@@ -31,6 +32,7 @@
     "check:ds-pins": "node scripts/check-design-system-pins.mjs",
     "check:cli-install-parity": "node scripts/check-cli-install-parity.mjs",
     "check:page-context": "node scripts/check-page-context.mjs",
+    "check:md-regions": "node scripts/check-appblocks-md.mjs",
     "test:tokens:drift": "node scripts/test-tokens-drift.mjs",
     "test:showcase:e2e": "node scripts/test-showcase-e2e.mjs"
   },

@@ -195,15 +195,40 @@ function buildExportMap(ts) {
 
 /* ─────────────────────────────  fence extraction  ────────────────────────── */
 
+// Fences inside a `<!-- BEGIN GENERATED: … -->` region are NOT authored
+// snippets: they are the machine-written markdown mirror of a Vue island's
+// payload (scripts/appblocks-md.mjs), and they carry TYPE FRAGMENTS rather than
+// programs — a bare `{ message: string; fatal: boolean }` message payload or a
+// `useBlockContext(): Pick<BlockSnapshot, …>` signature is not a valid TS
+// statement and never will be. Typechecking them says nothing about the docs and
+// would make this guard permanently red the moment the regions refresh.
+//
+// This is a scope exclusion, not a coverage loss: everything the guard covered
+// before is still covered, because a generated region cannot contain a
+// hand-written snippet — a maintainer's edit inside one is overwritten by the
+// next refresh and blocked by `npm run check:md-regions` in the meantime.
+const GEN_BEGIN = /^<!-- BEGIN GENERATED: /;
+const GEN_END = /^<!-- END GENERATED: /;
+
 function extractBlocks(md, file) {
   const lines = md.split('\n');
   const blocks = [];
   let inBlock = false;
+  let inGenerated = false;
   let lang = '';
   let buf = [];
   let startLine = 0;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    if (!inBlock && GEN_BEGIN.test(line)) {
+      inGenerated = true;
+      continue;
+    }
+    if (!inBlock && GEN_END.test(line)) {
+      inGenerated = false;
+      continue;
+    }
+    if (inGenerated) continue;
     const fence = line.match(/^```(\w+)?/);
     if (!inBlock && fence) {
       inBlock = true;
