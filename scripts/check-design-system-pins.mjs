@@ -2,9 +2,30 @@
 /**
  * check-design-system-pins.mjs
  * ----------------------------
- * The DESIGN-SYSTEM version-pin drift-guard: one source of truth for the
- * `@civitai/theme` / `components` / `components-react` version numbers the apps
- * docs hand a reader, plus a freshness check against npm.
+ * The FIRST-PARTY PACKAGE version-pin drift-guard: one source of truth for every
+ * `@civitai/*` version number the docs hand a reader, plus a freshness check
+ * against npm.
+ *
+ * It covers two families, for two different reasons:
+ *
+ *   - DESIGN SYSTEM (`theme`, `components`, `components-react`) — the literals
+ *     are **instructions** a reader copies (CDN URLs). See below.
+ *   - SDK (`app-sdk`, `blocks-react`) — the literals are **provenance stamps**
+ *     in page frontmatter (`sources:`), declaring which published version the
+ *     page was written against. A stale stamp is a page describing an old API
+ *     while claiming to describe the pinned one.
+ *
+ * WHY THE SDK HALF WAS ADDED
+ * --------------------------
+ * It was missing, and the numbers rotted at least twice. Before this guard grew
+ * an SDK arm, `check-appblocks-pins.mjs` compared the *devDep pin* to npm and
+ * this script scanned *prose* for design-system packages only — so an SDK
+ * version written into prose was pinned by NOTHING, and both guards stayed
+ * green while pages advertised versions six and thirteen minors behind:
+ * quickstart.md and concepts.md carried `app-sdk@0.22.0` / `blocks-react@0.26.0`
+ * and embedding.md carried `blocks-react@0.32.0` against pins of `0.31.0` /
+ * `0.39.0`. Fixing the numbers without closing the gap just schedules a third
+ * occurrence, which is why the guard — not the edit — is the deliverable.
  *
  * WHY THIS EXISTS (and why it is separate from check-appblocks-pins.mjs)
  * ---------------------------------------------------------------------
@@ -48,12 +69,33 @@
  * a prose pin could rot indefinitely with every existing guard green.
  *
  * WHAT IS CHECKED
- *   1. SINGLE SOURCE — every `@civitai/<ds-pkg>@<version>` literal in a
- *      hand-authored `apps/**\/*.md` must equal that package's EXACT devDep pin
- *      in package.json. The devDep is the one place a version is declared; the
- *      docs quote it. A disagreement is a FAIL.
+ *   1. SINGLE SOURCE — every `@civitai/<guarded-pkg>@<version>` literal in a
+ *      hand-authored `.md` under any DOC_ROOT must equal that package's EXACT
+ *      devDep pin in package.json. The devDep is the one place a version is
+ *      declared; the docs quote it. A disagreement is a FAIL — unless the
+ *      literal is a declared HISTORICAL reference (see below).
  *   2. FRESHNESS — each devDep pin is compared to npm's `latest`. A lagging pin
  *      is a FAIL (the docs are teaching an old version).
+ *
+ * HISTORICAL LITERALS — the one exemption, and why it is a REGISTRY not a regex
+ * ----------------------------------------------------------------------------
+ * A few literals are deliberately NOT the pin, because they are claims about the
+ * PAST: `generation.md` says the `step` member was "added in
+ * `@civitai/app-sdk@0.30.0`". Bumping that to the current pin would not fix
+ * staleness, it would make the sentence FALSE — the feature did not arrive in
+ * 0.31.0.
+ *
+ * The exemption is an explicit `HISTORICAL_LITERALS` registry keyed on
+ * (file, pkg, version), NOT a prose heuristic like /added in|since/. A heuristic
+ * fails in the expensive direction: a literal that happens to sit near the word
+ * "since" would be silently exempted, which is precisely the silence this guard
+ * exists to end. A registry entry is a deliberate, reviewable decision.
+ *
+ * The registry is checked BIDIRECTIONALLY: every literal not in it must equal
+ * the pin, AND every entry in it must match at least one real literal. A stale
+ * row that matches nothing is a FAIL, so the registry cannot rot into a list of
+ * exemptions for text that no longer exists — the shape in which an allowlist
+ * quietly becomes a hole.
  *
  * Note that (1) and (2) compose: bumping the pin without updating the prose
  * fails (1); updating the prose without bumping the pin fails (1) too; bumping
@@ -108,23 +150,94 @@ export const DESIGN_SYSTEM_PACKAGES = [
 ];
 
 /**
+ * The SDK packages whose version literals the docs stamp into `sources:`
+ * frontmatter (and occasionally quote in prose, e.g. "in the pinned
+ * `@civitai/app-sdk@X` …"). Same single-source rule, different failure mode:
+ * a stale stamp means the page documents an older API than it claims to.
+ */
+export const SDK_PACKAGES = ['@civitai/app-sdk', '@civitai/blocks-react'];
+
+/** Every first-party package whose prose literals are pinned by this guard. */
+export const GUARDED_PACKAGES = [...DESIGN_SYSTEM_PACKAGES, ...SDK_PACKAGES];
+
+/**
+ * Hand-authored documentation roots to scan, repo-relative. The guard used to
+ * read `apps/` only; a stale literal anywhere else in the docs was unpinned.
+ * Keep `.github/workflows/appblocks-snippets.yml`'s `paths:` in sync with this
+ * list, or a stale literal in a root the PR gate does not watch merges green.
+ */
+export const DOC_ROOTS = ['apps', 'site', 'orchestration'];
+
+/** Hand-authored top-level pages (not under a DOC_ROOT). */
+export const DOC_FILES = ['index.md'];
+
+/**
  * Generated pages whose version literals come from UPSTREAM (the vendored
  * MARKUP.md), not from this repo. Stale pins here warn instead of failing —
  * see the header. Paths are repo-relative and compared exactly.
  */
 export const UPSTREAM_OWNED_PAGES = new Set(['apps/reference/components.md']);
 
+/**
+ * Literals that are deliberately NOT the current pin because they are claims
+ * about the PAST. Exempt from the single-source rule, and REQUIRED to match
+ * something (see the header: the registry is checked bidirectionally).
+ *
+ * Keyed on (file, pkg, version) rather than a line number so ordinary edits to
+ * the page do not invalidate the row, while a change to the VERSION being
+ * claimed still forces a fresh decision.
+ *
+ * `why` is the reviewable part: it must say why the current pin would be WRONG
+ * here, not merely that the literal differs.
+ */
+export const HISTORICAL_LITERALS = [
+  {
+    file: 'apps/reference/generation.md',
+    pkg: '@civitai/app-sdk',
+    version: '0.30.0',
+    why: 'the `step` WorkflowBody member was ADDED in 0.30.0 — a changelog fact. Bumping it to the current pin would state a false arrival version.',
+  },
+];
+
 const REGISTRY = process.env.APPBLOCKS_NPM_REGISTRY || 'https://registry.npmjs.org';
 
+/** Escape a string for literal use inside a RegExp. */
+function escapeRe(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
- * Match `@civitai/<pkg>@<semver>` for the design-system packages only.
+ * Match `@civitai/<pkg>@<semver>` for every guarded package.
  *
- * `components-react` MUST precede `components` in the alternation: with the
- * shorter name first the regex matches `@civitai/components` inside
+ * The alternation is built LONGEST-NAME-FIRST so that a name which is a PREFIX
+ * of another (`components` vs `components-react`) is always tried second, and
+ * the pattern therefore does not depend on the order the package lists happen
+ * to be written in.
+ *
+ * 🔴 A correction to what this comment used to claim. It said that with the
+ * shorter name first the regex "matches `@civitai/components` inside
  * `@civitai/components-react@0.3.0` and then reads the version as… nothing,
- * silently skipping the literal it was written to catch.
+ * silently skipping the literal". That is NOT true of this pattern, and it was
+ * measured: with the alternation deliberately reordered shortest-first,
+ * `@civitai/components-react@0.3.0` still captures `components-react`/`0.3.0`,
+ * both bare and inside a CDN URL. The trailing `@(\d+\.…)` cannot match after
+ * `components`, so the engine BACKTRACKS into the longer alternative. Ordering
+ * is not load-bearing here.
+ *
+ * The sort is kept anyway, as defence rather than a fix: it makes correctness
+ * independent of backtracking, so a later edit that DOES make the suffix
+ * optional (or that drops the `@`) cannot quietly turn a prefix name into a
+ * silent truncation. Do not restate the old claim — it is false.
  */
-const LITERAL_RE = /@civitai\/(theme|components-react|components)@(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)/g;
+export const GUARDED_NAME_ALTERNATION = GUARDED_PACKAGES.map((p) => p.replace('@civitai/', ''))
+  .sort((a, b) => b.length - a.length || a.localeCompare(b))
+  .map(escapeRe)
+  .join('|');
+
+const LITERAL_RE = new RegExp(
+  `@civitai\\/(${GUARDED_NAME_ALTERNATION})@(\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?)`,
+  'g'
+);
 
 /** Recursively collect `.md` files under a directory. */
 function collectMarkdown(dir, out = []) {
@@ -135,6 +248,15 @@ function collectMarkdown(dir, out = []) {
     else if (entry.endsWith('.md')) out.push(full);
   }
   return out;
+}
+
+/** True when a literal is a declared historical reference. */
+export function historicalEntryFor(file, pkg, version) {
+  return (
+    HISTORICAL_LITERALS.find(
+      (h) => h.file === file && h.pkg === pkg && h.version === version
+    ) ?? null
+  );
 }
 
 /**
@@ -159,18 +281,41 @@ export function findLiterals(text) {
 
 /**
  * Compare every literal against the declared pins.
- * @returns {Array<{file: string, line: number, pkg: string, found: string, expected: string}>}
+ *
+ * Returns the mismatches AND the historical entries actually hit, so the caller
+ * can enforce the registry's other direction (an entry matching nothing is a
+ * stale exemption and must fail).
+ *
+ * @returns {{
+ *   mismatches: Array<{file: string, line: number, pkg: string, found: string, expected: string}>,
+ *   exempted: Array<{file: string, line: number, pkg: string, version: string, why: string}>,
+ * }}
  */
 export function findMismatches(files, pins) {
-  const bad = [];
+  const mismatches = [];
+  const exempted = [];
   for (const { file, text } of files) {
     for (const lit of findLiterals(text)) {
       const expected = pins[lit.pkg];
       if (!expected || lit.version === expected) continue;
-      bad.push({ file, line: lit.line, pkg: lit.pkg, found: lit.version, expected });
+      const hist = historicalEntryFor(file, lit.pkg, lit.version);
+      if (hist) {
+        exempted.push({ file, line: lit.line, pkg: lit.pkg, version: lit.version, why: hist.why });
+        continue;
+      }
+      mismatches.push({ file, line: lit.line, pkg: lit.pkg, found: lit.version, expected });
     }
   }
-  return bad;
+  return { mismatches, exempted };
+}
+
+/**
+ * Registry rows that matched no literal in the corpus. A stale row is a hole
+ * that LOOKS like coverage, so it fails rather than being ignored.
+ */
+export function findStaleHistoricalEntries(exempted) {
+  const hit = new Set(exempted.map((e) => `${e.file}|${e.pkg}|${e.version}`));
+  return HISTORICAL_LITERALS.filter((h) => !hit.has(`${h.file}|${h.pkg}|${h.version}`));
 }
 
 /** Fetch a package's npm `latest` dist-tag. 404 = real drift; else transient. */
@@ -201,15 +346,15 @@ async function fetchLatest(pkg) {
 
 async function main() {
   const offline = process.argv.includes('--offline');
-  console.log('Design-system pin-guard — docs version literals vs the declared pin\n');
+  console.log('First-party pin-guard — docs version literals vs the declared pin\n');
 
   // --- Resolve the single source: the exact devDep pin per package. ---
   const pins = {};
-  for (const pkg of DESIGN_SYSTEM_PACKAGES) {
+  for (const pkg of GUARDED_PACKAGES) {
     const pin = readPinnedVersion(pkg);
     if (!pin.ok) {
       console.error(`  ✗ ${pkg} — ${pin.reason}`);
-      console.error('\nEvery design-system package must be an EXACT devDependency pin — that pin is');
+      console.error('\nEvery guarded package must be an EXACT devDependency pin — that pin is');
       console.error('the single source the docs quote. Add it to package.json devDependencies.');
       process.exit(1);
     }
@@ -217,30 +362,61 @@ async function main() {
     console.log(`  · ${pkg} pinned at ${pin.version}`);
   }
 
-  // --- 1. SINGLE SOURCE: every literal in hand-authored apps/ must match. ---
-  const appsDir = join(repoRoot, 'apps');
-  const all = collectMarkdown(appsDir).map((f) => ({
+  // --- 1. SINGLE SOURCE: every literal in the hand-authored docs must match. ---
+  const all = [
+    ...DOC_ROOTS.flatMap((d) => collectMarkdown(join(repoRoot, d))),
+    ...DOC_FILES.map((f) => join(repoRoot, f)),
+  ].map((f) => ({
     file: relative(repoRoot, f),
     text: readFileSync(f, 'utf8'),
   }));
   const authored = all.filter((f) => !UPSTREAM_OWNED_PAGES.has(f.file));
   const upstream = all.filter((f) => UPSTREAM_OWNED_PAGES.has(f.file));
 
-  const scanned = authored.reduce((n, f) => n + findLiterals(f.text).length, 0);
-  console.log(`\n  scanned ${scanned} design-system version literal(s) across ${authored.length} authored page(s)`);
-  if (scanned === 0) {
+  // Per-FAMILY positive control. A single global count hides a half-broken
+  // matcher: if the SDK arm matched nothing, a total of 13 design-system hits
+  // still reads as a healthy scan. Each family must find at least one literal.
+  const perFamily = (pkgs) =>
+    authored.reduce(
+      (n, f) => n + findLiterals(f.text).filter((l) => pkgs.includes(l.pkg)).length,
+      0
+    );
+  const dsCount = perFamily(DESIGN_SYSTEM_PACKAGES);
+  const sdkCount = perFamily(SDK_PACKAGES);
+  console.log(
+    `\n  scanned ${dsCount} design-system + ${sdkCount} SDK version literal(s) across ${authored.length} authored page(s)`
+  );
+  console.log(`  roots: ${DOC_ROOTS.map((d) => `${d}/`).join(' ')} ${DOC_FILES.join(' ')}`);
+
+  const emptyFamilies = [
+    ['design-system', dsCount],
+    ['SDK', sdkCount],
+  ].filter(([, n]) => n === 0);
+  if (emptyFamilies.length) {
     // A zero here is indistinguishable from a broken matcher. Say so loudly
     // rather than printing a reassuring PASS over a scan that found nothing.
-    console.error('\n  ✗ found ZERO literals to check — the docs quote these versions in CDN URLs,');
-    console.error('    so zero means the matcher (or the layout) changed, not that the docs are clean.');
+    for (const [name] of emptyFamilies) {
+      console.error(`\n  ✗ found ZERO ${name} literals to check — the docs quote these versions in CDN`);
+      console.error('    URLs and in `sources:` frontmatter, so zero means the matcher (or the page');
+      console.error('    layout) changed, not that the docs are clean.');
+    }
     process.exit(1);
   }
 
-  const mismatches = findMismatches(authored, pins);
+  const { mismatches, exempted } = findMismatches(authored, pins);
   for (const m of mismatches) {
     console.error(`  ✗ ${m.file}:${m.line} — ${m.pkg}@${m.found} (declared pin is ${m.expected})`);
   }
-  if (!mismatches.length) console.log('  ✓ every literal matches its declared pin');
+  if (!mismatches.length) console.log('  ✓ every literal matches its declared pin (or is a declared historical reference)');
+
+  // --- The historical registry, both directions. ---
+  for (const e of exempted) {
+    console.log(`  · ${e.file}:${e.line} — ${e.pkg}@${e.version} exempt (historical): ${e.why}`);
+  }
+  const staleHistorical = findStaleHistoricalEntries(exempted);
+  for (const h of staleHistorical) {
+    console.error(`  ✗ HISTORICAL_LITERALS row matches nothing: ${h.file} ${h.pkg}@${h.version}`);
+  }
 
   // --- The generated page: report upstream staleness, never fail on it. ---
   for (const f of upstream) {
@@ -262,7 +438,7 @@ async function main() {
     console.log('\n  ⊘ --offline: skipping the npm freshness check');
   } else {
     console.log('');
-    for (const pkg of DESIGN_SYSTEM_PACKAGES) {
+    for (const pkg of GUARDED_PACKAGES) {
       const remote = await fetchLatest(pkg);
       if (!remote.ok) {
         if (remote.gone) {
@@ -284,15 +460,31 @@ async function main() {
     }
   }
 
-  if (mismatches.length || lagging.length) {
-    console.error('\n--- DESIGN-SYSTEM PIN DRIFT ---');
+  if (mismatches.length || lagging.length || staleHistorical.length) {
+    console.error('\n--- FIRST-PARTY PIN DRIFT ---');
     if (mismatches.length) {
-      console.error(`\n${mismatches.length} docs literal(s) disagree with the declared pin.`);
-      console.error('These are copy-paste CDN URLs, and BOTH ways of being wrong are silent:');
+      console.error(`\n${mismatches.length} docs literal(s) disagree with the declared pin:`);
+      for (const m of mismatches) {
+        console.error(`  - ${m.file}:${m.line}  ${m.pkg}@${m.found}  ->  expected ${m.expected}`);
+      }
+      console.error('\nA design-system literal is a copy-paste CDN URL, and BOTH ways of being wrong');
+      console.error('are silent:');
       console.error('  - stale but published -> 200 with OLD css (newer components render unstyled)');
       console.error('  - never published     -> 404, no stylesheet at all');
+      console.error('An SDK literal is a `sources:` provenance stamp: a stale one means the page');
+      console.error('documents an older API than it claims to, which no build step can detect.');
       console.error('Neither errors, so neither is caught by review.');
       console.error('Update the prose to the pin (or bump the pin and the prose together).');
+      console.error('If a literal is deliberately historical ("added in X"), add a reviewed row to');
+      console.error('HISTORICAL_LITERALS in this file rather than bumping it to a false version.');
+    }
+    if (staleHistorical.length) {
+      console.error(`\n${staleHistorical.length} HISTORICAL_LITERALS row(s) matched no literal in the docs.`);
+      console.error('An exemption for text that no longer exists is a hole that looks like coverage:');
+      for (const h of staleHistorical) {
+        console.error(`  - ${h.file}: ${h.pkg}@${h.version}`);
+      }
+      console.error('Delete the row, or correct it to the literal that is actually on the page.');
     }
     if (lagging.length) {
       console.error('\nA declared pin trails npm latest — the docs teach an old version:');
@@ -309,7 +501,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log('\nDesign-system pins: single-sourced and current.');
+  console.log('\nFirst-party pins: single-sourced and current.');
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {

@@ -34,6 +34,28 @@ brew install civitai/tap/civitai
 
 # Go install (from source, Go 1.25+)
 go install github.com/civitai/cli/cmd/civitai@latest
+
+# Nix flake — run without installing:
+nix run github:civitai/cli -- --help
+# …or install into your profile:
+nix profile install github:civitai/cli
+```
+
+The repo is a [Nix flake](https://nixos.org/manual/nix/stable/command-ref/new-cli/nix3-flake.html),
+so `nix run` / `nix profile install` need no Go toolchain (`x86_64`/`aarch64`
+Linux and macOS). To pin the CLI as a flake input — the reproducible option for
+a team devShell or CI — reference it in your `flake.nix`:
+
+```nix
+{
+  inputs.civitai-cli.url = "github:civitai/cli";
+  # …or pin a release tag from the Releases page:
+  # inputs.civitai-cli.url = "github:civitai/cli/<tag>";
+
+  outputs = { self, nixpkgs, civitai-cli, ... }: {
+    # add `civitai-cli.packages.${system}.default` to your devShell / packages
+  };
+}
 ```
 
 Prebuilt binaries for linux/macOS/windows × amd64/arm64 are on the

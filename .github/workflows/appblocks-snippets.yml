@@ -6,7 +6,14 @@ name: appblocks-snippets
 on:
   pull_request:
     paths:
+      # The pin-guard scans every hand-authored doc root (DOC_ROOTS /
+      # DOC_FILES in check-design-system-pins.mjs). Keep these in sync: a root
+      # the guard reads but this trigger does not watch merges its stale
+      # literals green.
       - 'apps/**/*.md'
+      - 'site/**/*.md'
+      - 'orchestration/**/*.md'
+      - 'index.md'
       - 'scripts/typecheck-appblocks-snippets.mjs'
       - 'scripts/appblocks-util.mjs'
       - 'scripts/check-design-system-pins.mjs'
@@ -34,16 +41,32 @@ jobs:
       - name: Typecheck App Blocks doc snippets against the pinned SDK
         run: npm run test:snippets:appblocks
 
-      # --offline runs ONLY the single-source half: every design-system version
-      # literal in the docs must equal its declared devDep pin. That is a
+      # --offline runs ONLY the single-source half: every first-party version
+      # literal in the docs (design-system CDN URLs AND the SDK `sources:`
+      # stamps) must equal its declared devDep pin. That is a
       # repo-local invariant with no upstream input, so it cannot false-fail on
       # someone else's publish — which is what makes it safe to BLOCK a PR on,
       # unlike the freshness half (pin vs npm latest), which detects upstream
       # movement and stays on the scheduled appblocks-drift run.
       #
-      # Worth blocking on because the failure is silent for readers: these
-      # literals are copy-paste CDN URLs, and a stale one 404s into an unstyled
-      # page with no error.
-      - name: Design-system pin drift — docs literals vs the declared pin
+      # Worth blocking on because the failure is silent for readers: the
+      # design-system literals are copy-paste CDN URLs, and a stale one 404s
+      # into an unstyled page with no error; the SDK literals are provenance
+      # stamps, and a stale one advertises an API the page does not document.
+      - name: First-party pin drift — docs literals vs the declared pin
         if: always()
         run: npm run check:ds-pins -- --offline
+
+      # Both pages document the SAME `civitai` binary. Offline + repo-local, so
+      # it is safe to block on: it compares the two pages to each other, not to
+      # anything upstream.
+      - name: CLI install-method parity — the two hosted CLI pages agree
+        if: always()
+        run: npm run check:cli-install-parity
+
+      # The quickstart scaffolds a `page` app. A page/model-slot context mix-up
+      # TYPECHECKS (the snippet suite passed 31/31 with the wrong type) and
+      # fails only at runtime as `undefined`, so it needs its own assertion.
+      - name: Page-surface context — the quickstart narrows to the page shape
+        if: always()
+        run: npm run check:page-context

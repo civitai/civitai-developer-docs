@@ -3,8 +3,8 @@ title: Quickstart
 description: Scaffold a Civitai App with the civitai CLI, run it in the local harness, and write your first block.
 sources:
   - go:github.com/civitai/cli#app
-  - npm:@civitai/blocks-react@0.26.0#README
-  - npm:@civitai/app-sdk@0.22.0/blocks#defineBlock
+  - npm:@civitai/blocks-react@0.39.0#README
+  - npm:@civitai/app-sdk@0.31.0/blocks#defineBlock
   - civitai-app-starters:docs/build-your-first-app-block.md
 ---
 
@@ -94,23 +94,44 @@ Replace `src/App.tsx` with:
 
 ```tsx
 import { useBlockContext } from '@civitai/blocks-react';
-import type { ModelSlotContext } from '@civitai/app-sdk/blocks';
+import type { BlockContext } from '@civitai/app-sdk/blocks';
+
+// A PAGE app's context. The host's PageBlockHost sends
+// { slotId: 'app.page', entityType: 'none', slug, subPath, viewerUserId,
+//   viewerUsername, theme }. The published SDK exports the base BlockContext
+// and the model-slot narrowing, but no page type yet — so narrow locally.
+type PageContext = BlockContext & {
+  slotId: 'app.page';
+  slug: string;
+  subPath: string;
+};
 
 export function App() {
   const { ready, context, viewer, theme } = useBlockContext();
 
   if (!ready) return <div data-theme={theme}>Loading…</div>;
-  const model = context as ModelSlotContext;
+  const page = context as PageContext;
 
   return (
     // Set data-theme on YOUR OWN root — the host can't reach into the iframe to
     // set it, so any [data-theme="dark"] CSS is otherwise dormant.
     <div data-theme={theme}>
-      <p>Hello {viewer?.username ?? 'anon'} — running on {model.modelName}.</p>
+      <p>Hello {viewer?.username ?? 'anon'} — running {page.slug}.</p>
     </div>
   );
 }
 ```
+
+::: warning Don't reach for `ModelSlotContext` here
+`ModelSlotContext` is the **model-slot** narrowing: its `slotId` is typed
+`'model.sidebar_top' | 'model.below_images' | 'model.actions_extra'`, and it
+carries `modelId` / `modelVersionId` / `modelName`. A page app is a different
+surface — the host sends `slotId: 'app.page'` and **none** of those model
+fields — so casting a page context to `ModelSlotContext` compiles happily and
+then reads `undefined` at runtime. It is the same page-vs-model-slot confusion
+as `useBlockResize` below. Reach for `ModelSlotContext` only on the model
+slots, where it is [genuinely correct](./text-to-image#the-happy-path).
+:::
 
 ::: tip `useBlockResize` does nothing on a page app
 `civitai app create` scaffolds a **page** app (`block.manifest.json` declares a
