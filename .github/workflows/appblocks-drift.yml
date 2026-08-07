@@ -18,6 +18,20 @@ on:
     - cron: '37 6 * * *'
   workflow_dispatch: {}
 
+# LEAST PRIVILEGE — see appblocks-cli.yml for the full reasoning. This is the
+# one workflow here that hands GITHUB_TOKEN to a step, so it is the one that
+# looks like it might need more than read. It does not: the token is passed to
+# check:cli-snapshot purely as a rate-limit lift on an UNAUTHENTICATED-capable
+# GET of a PUBLIC cross-repo endpoint
+# (api.github.com/repos/civitai/cli/releases/latest — see
+# scripts/check-appblocks-cli-snapshot.mjs). A `permissions:` block scopes the
+# token against THIS repo only and never gates reads of another public repo,
+# and the script already degrades to SKIP (never fail) on a 403. Every other
+# step reads over unauthenticated HTTPS (raw.githubusercontent.com, the npm
+# registry, the prod manifest endpoint) or runs a local `git show`.
+permissions:
+  contents: read
+
 jobs:
   drift:
     runs-on: ubuntu-latest

@@ -7,18 +7,24 @@ name: appblocks-messages
 # That failure would otherwise surface only in the Docker/CI build. This fast unit
 # test reproduces the exact SDK->INVENTORY coverage relation, so a PR that bumps the
 # SDK pin without re-vendoring the snapshot (or reformats the generator) is blocked
-# here first. Triggered on the inputs that can introduce that drift.
+# here first.
+#
+# RUNS ON EVERY PR, DELIBERATELY UNFILTERED — do not re-add a `paths:` filter.
+# `test-messages` is a REQUIRED status check on `main`, and GitHub does not
+# synthesise a passing status for a workflow that never triggers, so a
+# path-filtered required check strands every PR that touches none of the watched
+# files at mergeStateStatus=BLOCKED forever. Measured live on #42, which this
+# workflow's old filter never saw. See appblocks-cli.yml for the full note; the
+# unfiltered trigger is a superset of the paths this file used to watch.
 on:
-  pull_request:
-    paths:
-      - 'appblocks-snapshots/hostHandlerParity.ts'
-      - 'scripts/gen-appblocks-messages.mjs'
-      - 'scripts/test-appblocks-messages.mjs'
-      - 'scripts/appblocks-util.mjs'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/appblocks-messages.yml'
+  pull_request: {}
   workflow_dispatch: {}
+
+# LEAST PRIVILEGE — see appblocks-cli.yml for the full reasoning. Checkout +
+# npm ci + offline node tests only; no upload, comment, issue, push or API
+# mutation. `contents: read` is all actions/checkout requires.
+permissions:
+  contents: read
 
 jobs:
   test-messages:

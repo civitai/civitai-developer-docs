@@ -19,6 +19,14 @@ on:
         options: [all, site, orch]
         default: all
 
+# LEAST PRIVILEGE — see appblocks-cli.yml for the full reasoning. Checkout +
+# node doc-sample runner only; no upload, comment, issue, push or API mutation.
+# The CIVITAI_TOKEN below is a repository SECRET, not the GITHUB_TOKEN — secret
+# availability is unaffected by this block, so pinning to read does not disturb
+# the authenticated sample runs.
+permissions:
+  contents: read
+
 jobs:
   test-samples:
     runs-on: ubuntu-latest
