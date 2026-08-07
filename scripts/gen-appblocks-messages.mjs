@@ -58,6 +58,27 @@ export function loadSdkBlockToParent() {
   return parseUnion(sf, 'BlockToParentMessage', 'block-to-host');
 }
 
+/** Parse the SDK's host->block (`ParentToBlockMessage`) union into names. */
+export function loadSdkParentToBlock() {
+  const dtsPath = resolveMessagesDts();
+  const project = new Project({ skipAddingFilesFromTsConfig: true, skipFileDependencyResolution: true });
+  const sf = project.addSourceFileAtPath(dtsPath);
+  return parseUnion(sf, 'ParentToBlockMessage', 'host-to-block');
+}
+
+/**
+ * RESOLUTION relation the generator hard-fails on: every `reply` an INVENTORY entry
+ * names must be a published SDK host->block message. Returns `NAME -> "reply"` strings
+ * for the ones that do NOT (empty array == healthy). Exported so the regression test
+ * asserts the exact same relation the generator's guard uses.
+ */
+export function findUnresolvedReplies(inventory, parentToBlock) {
+  const known = new Set(parentToBlock.map((m) => (typeof m === 'string' ? m : m.name)));
+  return Object.entries(inventory)
+    .filter(([, inv]) => inv.reply && !known.has(inv.reply))
+    .map(([name, inv]) => `${name} -> ${JSON.stringify(inv.reply)}`);
+}
+
 /**
  * COVERAGE relation the drift guard enforces: every published SDK block->host
  * message name MUST resolve to a parsed INVENTORY entry. Returns the names that
@@ -154,6 +175,45 @@ export function extractBraced(text, openIdx) {
   return null;
 }
 
+/**
+ * Split a raw INVENTORY `reply:` value into the MESSAGE TYPE and a free-prose
+ * CAVEAT.
+ *
+ * WHY THIS EXISTS — upstream declared `reply` DOCUMENTATION ONLY. hostHandlerParity.ts's
+ * own MessageSpec docblock now says, in as many words, that "NOTHING ENFORCES THIS
+ * STRING", that the host parity test only interpolates it into a test NAME, and that
+ * behavioural claims belong in the browser tests. This repo is the one consumer that
+ * reads it as MACHINE-READABLE: the value is looked up in the SDK's host->block union
+ * to attach `replyPayload`, and any name it matches is suppressed from the
+ * unsolicited-push list. So the moment upstream appended prose to one —
+ *
+ *   reply: 'TOKEN_REFRESH_RESPONSE (or a TOKEN_REFRESH push when no requestId was sent)'
+ *
+ * — a verbatim read silently (a) dropped REQUEST_TOKEN's reply payload shape from the
+ * reference, (b) rendered a whole sentence inside the `reply <code>` chip, and
+ * (c) re-promoted TOKEN_REFRESH_RESPONSE to a standalone "host -> block" PUSH, which is
+ * precisely the "replies mis-promoted to host->block pushes" failure the parser comment
+ * above warns about. Nothing was red; the docs were just wrong.
+ *
+ * Upstream is within its rights — it owns the field and told us it is prose — so the
+ * fix belongs HERE: parse the leading SCREAMING_SNAKE token as the type, keep the rest
+ * as `replyNote` for display. A value with no leading type token is returned verbatim
+ * with no note, so the reply-resolution guard in main() reports it rather than this
+ * helper guessing.
+ *
+ * @param {string} raw
+ * @returns {{ reply: string, replyNote: string | null }}
+ */
+export function splitReply(raw) {
+  if (!raw) return { reply: '', replyNote: null };
+  const m = raw.match(/^\s*([A-Z][A-Z0-9_]*)\s*([\s\S]*)$/);
+  if (!m) return { reply: raw.trim(), replyNote: null };
+  let note = m[2].trim();
+  // Strip one wrapping paren pair: `(or a TOKEN_REFRESH push when …)`.
+  if (note.startsWith('(') && note.endsWith(')')) note = note.slice(1, -1).trim();
+  return { reply: m[1], replyNote: note || null };
+}
+
 export function parseInventory(ts) {
   const start = ts.indexOf('export const INVENTORY');
   if (start < 0) return {};
@@ -172,13 +232,15 @@ export function parseInventory(ts) {
     if (body == null) continue;
     const request = /request:\s*true/.test(body);
     const replyM = body.match(/reply:\s*(['"`])(.*?)\1/);
-    const reply = replyM ? replyM[2] : '';
+    // `reply` is upstream-declared free prose; take the leading type, keep the
+    // rest as a display note (see splitReply).
+    const { reply, replyNote } = splitReply(replyM ? replyM[2] : '');
     const iframeM = body.match(/IframeHost:\s*(?:(?:'([^']*)')|(?:"([^"]*)")|([A-Za-z_]+))/);
     const pageM = body.match(/PageBlockHost:\s*(?:(?:'([^']*)')|(?:"([^"]*)")|([A-Za-z_]+))/);
     const iframeVal = iframeM ? (iframeM[1] ?? iframeM[2] ?? iframeM[3]) : '';
     const pageVal = pageM ? (pageM[1] ?? pageM[2] ?? pageM[3]) : '';
     const pageOnly = pageVal === 'required' && iframeVal !== 'required';
-    out[name] = { request, reply, pageOnly, iframeNote: iframeVal === 'required' ? null : iframeVal };
+    out[name] = { request, reply, replyNote, pageOnly, iframeNote: iframeVal === 'required' ? null : iframeVal };
   }
   return out;
 }
@@ -243,6 +305,26 @@ function main() {
   // Build a lookup of host->block replies so we can pair request/reply.
   const replyByName = new Map(parentToBlock.map((m) => [m.name, m]));
 
+  // (3) REPLY RESOLUTION: every `reply` an INVENTORY entry names MUST resolve to a
+  // published SDK host->block message. This is the guard the drift that motivated
+  // splitReply walked straight past: coverage (1) was fine and the flag sanity
+  // sample (2) does not include REQUEST_TOKEN, so a `reply` that had become prose
+  // just... stopped resolving. `replyPayload` went null and the orphaned type got
+  // re-emitted as an unsolicited push — a plausible, fully-populated, WRONG page.
+  // Measured at the time this landed: 36 of 36 replies resolve, so a hard failure
+  // here has no false-positive population; an unresolvable reply means the parse is
+  // wrong or the snapshot is stale, and both should stop the build rather than
+  // quietly publish.
+  const unresolvedReplies = findUnresolvedReplies(inventory, parentToBlock);
+  if (unresolvedReplies.length) {
+    throw new Error(
+      `gen-appblocks-messages: ${unresolvedReplies.length} INVENTORY reply value(s) do not name a published SDK ` +
+        `host->block message. The reply would lose its payload shape and the named type would be mis-emitted as an ` +
+        `unsolicited push. Fix splitReply/parseInventory or re-snapshot hostHandlerParity.ts. ` +
+        `Unresolved: ${unresolvedReplies.join(', ')}`
+    );
+  }
+
   const messages = [];
   for (const m of blockToParent) {
     const inv = inventory[m.name] ?? {};
@@ -253,6 +335,7 @@ function main() {
       direction: 'block-to-host',
       request: inv.request ?? Boolean(reply),
       reply,
+      replyNote: inv.replyNote ?? null,
       replyPayload: reply && replyByName.has(reply) ? replyByName.get(reply).payload : null,
       pageOnly: inv.pageOnly ?? false,
       slotNote: inv.slotNote ?? inv.iframeNote ?? null,
@@ -271,6 +354,7 @@ function main() {
       direction: 'host-to-block',
       request: false,
       reply: null,
+      replyNote: null,
       replyPayload: null,
       pageOnly: false,
       slotNote: null,

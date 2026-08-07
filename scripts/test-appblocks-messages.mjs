@@ -15,13 +15,19 @@
 //                          + GET_IMAGES_BY_IDS).
 //   (b) PARSER BREAKAGE  — hostHandlerParity.ts reformatted so parseInventory
 //                          silently yields nothing (indentation-agnostic check).
+//   (d) PROSE IN `reply`  — upstream declares `reply` documentation-only and appended
+//                          a caveat to REQUEST_TOKEN's; read verbatim that drops the
+//                          reply payload and re-promotes the reply to a fake push.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   extractBraced,
   findUncoveredMessages,
+  findUnresolvedReplies,
   loadSdkBlockToParent,
+  loadSdkParentToBlock,
   parseInventory,
+  splitReply,
 } from './gen-appblocks-messages.mjs';
 import { snapshotsDir } from './appblocks-util.mjs';
 
@@ -179,6 +185,79 @@ check('re-indenting the snapshot 2->4 space yields the same INVENTORY keys', () 
   for (const name of REGRESSION_MESSAGES) {
     assert(inv2[name], `${name} lost after re-indentation — parser is not indentation-agnostic`);
   }
+});
+
+console.log('DRIFT MODE (d) — a `reply` value carrying free PROSE still yields the message TYPE');
+
+// WHY: upstream's MessageSpec docblock declares `reply` DOCUMENTATION ONLY ("NOTHING
+// ENFORCES THIS STRING"), and then appended a caveat to REQUEST_TOKEN's. This repo reads
+// the field as machine-readable, so a verbatim read dropped the reply payload shape,
+// printed a sentence inside the `reply <code>` chip, and re-promoted
+// TOKEN_REFRESH_RESPONSE to a standalone host->block PUSH — all with a green build.
+
+check('splitReply separates the type from a parenthesised caveat', () => {
+  assertEqual(splitReply('TOKEN_REFRESH_RESPONSE').reply, 'TOKEN_REFRESH_RESPONSE', 'bare type .reply');
+  assertEqual(splitReply('TOKEN_REFRESH_RESPONSE').replyNote, null, 'bare type .replyNote');
+
+  const withNote = splitReply('TOKEN_REFRESH_RESPONSE (or a TOKEN_REFRESH push when no requestId was sent)');
+  assertEqual(withNote.reply, 'TOKEN_REFRESH_RESPONSE', 'prose-suffixed .reply');
+  assertEqual(
+    withNote.replyNote,
+    'or a TOKEN_REFRESH push when no requestId was sent',
+    'prose-suffixed .replyNote'
+  );
+
+  assertEqual(splitReply('').reply, '', 'empty .reply');
+  assertEqual(splitReply('').replyNote, null, 'empty .replyNote');
+  // No leading SCREAMING_SNAKE token ⇒ return verbatim rather than guess; the
+  // resolution guard is what reports it.
+  assertEqual(splitReply('see the browser tests').reply, 'see the browser tests', 'prose-only .reply');
+  assertEqual(splitReply('see the browser tests').replyNote, null, 'prose-only .replyNote');
+});
+
+check('REQUEST_TOKEN parses to the TYPE plus the conditional-reply caveat', () => {
+  // Pins the exact upstream fact this snapshot bump introduced. `reply` must stay a
+  // bare type (it is looked up in the SDK union); the caveat must survive as a note
+  // rather than being discarded — it is real, newly documented behaviour.
+  const inv = inventory.REQUEST_TOKEN;
+  assert(inv, 'REQUEST_TOKEN missing from parsed INVENTORY');
+  assertEqual(inv.reply, 'TOKEN_REFRESH_RESPONSE', 'REQUEST_TOKEN.reply');
+  assert(
+    inv.replyNote && inv.replyNote.includes('TOKEN_REFRESH'),
+    `REQUEST_TOKEN.replyNote should record the conditional-reply caveat, got ${JSON.stringify(inv.replyNote)}`
+  );
+  assert(!inv.replyNote.includes('('), 'the wrapping parens should be stripped from replyNote');
+});
+
+console.log('RESOLUTION GUARD — every INVENTORY reply names a published SDK host->block message');
+
+let sdkParentToBlock;
+try {
+  sdkParentToBlock = loadSdkParentToBlock();
+} catch (err) {
+  console.error(`  ERROR could not load the pinned @civitai/app-sdk host->block union: ${err.message}`);
+  process.exit(2);
+}
+
+check('every reply in the committed snapshot resolves (no lost payloads / phantom pushes)', () => {
+  const unresolved = findUnresolvedReplies(inventory, sdkParentToBlock);
+  assertEqual(
+    unresolved.length,
+    0,
+    `unresolvable reply value(s) — the reply loses its payload shape and the named type is ` +
+      `mis-emitted as an unsolicited push: ${unresolved.join(', ')}`
+  );
+});
+
+check('NEGATIVE — a reply that names no SDK message IS reported by the guard', () => {
+  // Positive control for the guard itself: without this, a green "0 unresolved" is
+  // indistinguishable from a relation wired to nothing.
+  const mutated = { ...inventory, FAKE_REQUEST: { request: true, reply: 'NO_SUCH_RESULT', replyNote: null } };
+  const unresolved = findUnresolvedReplies(mutated, sdkParentToBlock);
+  assert(
+    unresolved.some((u) => u.startsWith('FAKE_REQUEST ->')),
+    'resolution guard did NOT flag a reply naming a nonexistent message — the guard is broken'
+  );
 });
 
 console.log('');
