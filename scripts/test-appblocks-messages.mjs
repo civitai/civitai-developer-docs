@@ -21,6 +21,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  buildMessages,
   extractBraced,
   findUncoveredMessages,
   findUnresolvedReplies,
@@ -257,6 +258,42 @@ check('NEGATIVE — a reply that names no SDK message IS reported by the guard',
   assert(
     unresolved.some((u) => u.startsWith('FAKE_REQUEST ->')),
     'resolution guard did NOT flag a reply naming a nonexistent message — the guard is broken'
+  );
+});
+
+console.log('EMITTED ARTIFACT — the three fields the drift actually corrupted');
+
+// parseInventory being right is a step short of the artifact being right: `replyNote`
+// carry-through, `replyPayload` resolution and the push-suppression are decided in
+// buildMessages. Asserting only the parse left all three uncovered.
+check('REQUEST_TOKEN emits the type, the caveat AND its reply payload', () => {
+  const messages = buildMessages({
+    parentToBlock: sdkParentToBlock,
+    blockToParent: sdkBlockToParent,
+    inventory,
+  });
+  const byName = new Map(messages.map((m) => [m.name, m]));
+
+  const req = byName.get('REQUEST_TOKEN');
+  assert(req, 'REQUEST_TOKEN missing from the emitted messages');
+  assertEqual(req.reply, 'TOKEN_REFRESH_RESPONSE', 'emitted REQUEST_TOKEN.reply');
+  assert(
+    req.replyNote && req.replyNote.includes('TOKEN_REFRESH'),
+    `emitted REQUEST_TOKEN.replyNote lost the caveat, got ${JSON.stringify(req.replyNote)}`
+  );
+  assert(
+    req.replyPayload && req.replyPayload.includes('token'),
+    `emitted REQUEST_TOKEN.replyPayload should carry the reply shape, got ${JSON.stringify(req.replyPayload)}`
+  );
+
+  // …and the reply must NOT also appear as an unsolicited host->block push. This is
+  // the visible symptom: a duplicate entry in the Auth & token family of the
+  // reference, presented as something the host sends unprompted.
+  const orphan = byName.get('TOKEN_REFRESH_RESPONSE');
+  assert(
+    !orphan,
+    'TOKEN_REFRESH_RESPONSE was ALSO emitted as a standalone message — the reply pairing broke ' +
+      'and it is now advertised as an unsolicited push'
   );
 });
 

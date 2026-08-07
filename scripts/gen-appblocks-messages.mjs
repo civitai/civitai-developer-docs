@@ -245,6 +245,68 @@ export function parseInventory(ts) {
   return out;
 }
 
+/**
+ * Assemble the sorted `messages` array written into messages.json. Pure (no I/O), so
+ * the regression test can assert on the EMITTED shape rather than only on the parsed
+ * INVENTORY — the two are a step apart, and the fields that broke (`replyNote`
+ * carried through, `replyPayload` resolved, the reply NOT re-emitted as a push) are
+ * decided here, not in parseInventory.
+ */
+export function buildMessages({ parentToBlock, blockToParent, inventory }) {
+  // Build a lookup of host->block replies so we can pair request/reply.
+  const replyByName = new Map(parentToBlock.map((m) => [m.name, m]));
+
+  const messages = [];
+  for (const m of blockToParent) {
+    const inv = inventory[m.name] ?? {};
+    const reply = inv.reply || null;
+    messages.push({
+      name: m.name,
+      family: familyOf(m.name),
+      direction: 'block-to-host',
+      request: inv.request ?? Boolean(reply),
+      reply,
+      replyNote: inv.replyNote ?? null,
+      replyPayload: reply && replyByName.has(reply) ? replyByName.get(reply).payload : null,
+      pageOnly: inv.pageOnly ?? false,
+      slotNote: inv.slotNote ?? inv.iframeNote ?? null,
+      payload: m.payload,
+      payloadOptional: m.payloadOptional,
+    });
+  }
+  // Host->block messages that are NOT a reply to a block->host request (pushes:
+  // BLOCK_INIT, TOKEN_REFRESH, SUSPEND, RESUME, IMAGE_SCAN_RESOLVED).
+  const pairedReplies = new Set(messages.map((m) => m.reply).filter(Boolean));
+  for (const m of parentToBlock) {
+    if (pairedReplies.has(m.name)) continue;
+    messages.push({
+      name: m.name,
+      family: familyOf(m.name),
+      direction: 'host-to-block',
+      request: false,
+      reply: null,
+      replyNote: null,
+      replyPayload: null,
+      pageOnly: false,
+      slotNote: null,
+      payload: m.payload,
+      payloadOptional: m.payloadOptional,
+    });
+  }
+
+  if (messages.length === 0) {
+    throw new Error('gen-appblocks-messages: parsed 0 messages — refusing to write an empty artifact');
+  }
+
+  messages.sort((a, b) => {
+    const fa = FAMILY_ORDER.indexOf(a.family);
+    const fb = FAMILY_ORDER.indexOf(b.family);
+    if (fa !== fb) return fa - fb;
+    return a.name.localeCompare(b.name);
+  });
+  return messages;
+}
+
 // Family display order.
 const FAMILY_ORDER = [
   'lifecycle', 'auth', 'workflow', 'subqueue', 'buzz', 'viewer',
@@ -325,54 +387,7 @@ function main() {
     );
   }
 
-  const messages = [];
-  for (const m of blockToParent) {
-    const inv = inventory[m.name] ?? {};
-    const reply = inv.reply || null;
-    messages.push({
-      name: m.name,
-      family: familyOf(m.name),
-      direction: 'block-to-host',
-      request: inv.request ?? Boolean(reply),
-      reply,
-      replyNote: inv.replyNote ?? null,
-      replyPayload: reply && replyByName.has(reply) ? replyByName.get(reply).payload : null,
-      pageOnly: inv.pageOnly ?? false,
-      slotNote: inv.slotNote ?? inv.iframeNote ?? null,
-      payload: m.payload,
-      payloadOptional: m.payloadOptional,
-    });
-  }
-  // Host->block messages that are NOT a reply to a block->host request (pushes:
-  // BLOCK_INIT, TOKEN_REFRESH, SUSPEND, RESUME, IMAGE_SCAN_RESOLVED).
-  const pairedReplies = new Set(messages.map((m) => m.reply).filter(Boolean));
-  for (const m of parentToBlock) {
-    if (pairedReplies.has(m.name)) continue;
-    messages.push({
-      name: m.name,
-      family: familyOf(m.name),
-      direction: 'host-to-block',
-      request: false,
-      reply: null,
-      replyNote: null,
-      replyPayload: null,
-      pageOnly: false,
-      slotNote: null,
-      payload: m.payload,
-      payloadOptional: m.payloadOptional,
-    });
-  }
-
-  if (messages.length === 0) {
-    throw new Error('gen-appblocks-messages: parsed 0 messages — refusing to write an empty artifact');
-  }
-
-  messages.sort((a, b) => {
-    const fa = FAMILY_ORDER.indexOf(a.family);
-    const fb = FAMILY_ORDER.indexOf(b.family);
-    if (fa !== fb) return fa - fb;
-    return a.name.localeCompare(b.name);
-  });
+  const messages = buildMessages({ parentToBlock, blockToParent, inventory });
 
   const sdkVersion = JSON.parse(readFileSync(join(sdkRoot, 'package.json'), 'utf8')).version;
 
