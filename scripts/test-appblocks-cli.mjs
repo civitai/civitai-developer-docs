@@ -889,11 +889,32 @@ check('the rendered one-line `description` stays a one-liner with no example tex
 // line — not merely "the field is truthy".
 // ---------------------------------------------------------------------------
 
-// MEASURED on appblocks-snapshots/civitai-cli-help.txt @ civitai v0.1.90-13-g569f5dc:
-// all 52 emitted commands carry a non-empty Long, 40,678 characters in total,
-// 43 of them spanning more than one line. FLOORS, not equalities.
+// MEASURED on appblocks-snapshots/civitai-cli-help.txt @ civitai v0.1.90-25-g9cfe468
+// (the version in the snapshot's own header, line 3): all 52 emitted commands
+// carry a non-empty Long, 40,678 characters in total, 43 of them spanning more
+// than one line. FLOORS, not equalities.
+//
+// 🔴 THE COUNTS ARE TIGHT AND THE CHARACTER FLOOR IS DELIBERATELY NOT, BECAUSE
+// THEY MOVE FOR DIFFERENT REASONS. A command count and a multi-line count move
+// only when the command set or a body's SHAPE changes — which is precisely when
+// a human should look, and is the house convention every other floor in this
+// file follows. A CHARACTER count moves whenever upstream re-words a paragraph,
+// which is a routine, correct snapshot refresh that must not be made to look
+// like a defect. Set at 40,678 it was: simulated by shortening `app validate`'s
+// Long by 131 characters and regenerating, the check failed claiming the bodies
+// were "being TRUNCATED" — false, and `test-cli` is a REQUIRED status check, so
+// that wrong diagnosis would have blocked the next snapshot-refresh PR.
+//
+// 30,000 is chosen from BOTH margins rather than by rounding down: it sits 26%
+// below today's total (far more headroom than any plausible round of re-wording)
+// and still 5.4x ABOVE the largest surviving structural mutant — first-line-only
+// truncation yields 3,105 characters and first-paragraph-only yields 5,598, both
+// measured. So the floor keeps its whole point (a truncated or empty body is
+// caught) while no longer firing on prose edits. The tight, re-measured numbers
+// stay on the two counts beside it.
 const LONG_COMMAND_FLOOR = 52;
-const LONG_CHAR_FLOOR = 40678;
+const LONG_CHAR_FLOOR = 30000;
+const LONG_CHARS_MEASURED = 40678;
 const LONG_MULTILINE_FLOOR = 43;
 
 const commandsWithLong = artifact.commands.filter((c) => c.longDescription);
@@ -909,8 +930,12 @@ check(`at least ${LONG_COMMAND_FLOOR} commands carry a longDescription (an empty
   );
   assert(
     longCharTotal >= LONG_CHAR_FLOOR,
-    `only ${longCharTotal} longDescription characters total (floor ${LONG_CHAR_FLOOR}) — the bodies are ` +
-      `being TRUNCATED even though the commands were counted (the pre-fix shape kept only the first line)`,
+    `only ${longCharTotal} longDescription characters total (floor ${LONG_CHAR_FLOOR}, measured ${LONG_CHARS_MEASURED}) — ` +
+      `the bodies are being TRUNCATED rather than carried whole. This floor has 26% of slack precisely so ` +
+      `ROUTINE UPSTREAM RE-WORDING cannot trip it, so a small shortfall is NOT the expected cause; check ` +
+      `parseLongDescription and buildCommand's longDescription field first (first-line-only truncation ` +
+      `measures ~3,105 here and first-paragraph-only ~5,598). If upstream genuinely deleted this much prose, ` +
+      `re-measure and lower the floor deliberately`,
   );
   // Stated separately, because first-line-only truncation passes both counts
   // above on a corpus of one-line bodies and is the exact shape the old code had.
@@ -1098,6 +1123,130 @@ check('cliLongBody: synthetic controls for each branch, independent of the corpu
     'Do the thing.\n\nAnd here is how.',
     'a body that EXTENDS the summary must still render',
   );
+});
+
+// ---------------------------------------------------------------------------
+// THE .md / LLM CHANNEL'S COPY
+//
+// 🔴 WHY THIS IS HERE AND NOT LEFT TO `check:md-regions`. That guard asserts the
+// committed region equals what the renderer WOULD write right now — a
+// SELF-CONSISTENCY claim, with no floor on what the renderer produces. So a
+// regression in the CALL SITE (scripts/appblocks-md.mjs's `renderCli`) fails it
+// with a message whose own remedy is "run `npm run gen:appblocks:md`, then commit
+// the page diff" — and following that remedy makes the whole suite GREEN while
+// the long bodies vanish from the only copy of this content the LLM channel ever
+// sees. Measured: `const long = cliLongBody(c)` -> `const long = ''`, regenerate,
+// commit, and apps/reference/cli.md drops 81,040 -> 39,931 bytes with all 44
+// fenced blocks gone, every check passing.
+//
+// Aggravating, and the reason this must live in THIS file: `test-md-regions` is
+// NOT a required status check on `main` (measured: the required contexts are
+// `test-cli`, `test-messages`, `test-bridge`, `typecheck-snippets`), whereas this
+// file runs as `test-cli`, which is.
+//
+// The predicate `cliLongBody` was pinned above and NEITHER CALL SITE WAS — its
+// own docstring says the shared rule exists because "a duplicated predicate is
+// how those two views drift apart". This closes the .md call site. The `.vue`
+// one has no gate at all and that residual is declared in the PR.
+// ---------------------------------------------------------------------------
+
+// MEASURED on the committed apps/reference/cli.md: 44 ```text fences inside the
+// generated region, 40,317 characters of body. The floors carry slack for the
+// same reason LONG_CHAR_FLOOR does — upstream re-wording moves the character
+// count and an upstream command removal moves the block count, and neither is a
+// defect. The EQUALITY assertion below is what makes this tight anyway.
+const MD_LONG_BLOCK_FLOOR = 40;
+const MD_LONG_CHAR_FLOOR = 30000;
+
+/** The generated `cli` region of the committed page, markers included. */
+function committedCliRegion() {
+  const page = readFileSync(`${repoRoot}/apps/reference/cli.md`, 'utf8');
+  // Located by marker PREFIX, not by the exact marker text: appblocks-md.mjs
+  // matches its own markers loosely so the BEGIN comment's prose can evolve, and
+  // pinning the full sentence here would strand this check on a reworded marker.
+  const start = page.indexOf('<!-- BEGIN GENERATED: cli');
+  const end = page.indexOf('<!-- END GENERATED: cli -->', start + 1);
+  assert(
+    start !== -1 && end > start,
+    'could not locate the generated `cli` region in apps/reference/cli.md — did the markers change?',
+  );
+  return page.slice(start, end);
+}
+
+/** The bodies of every ```text fence in a region, in order. */
+function textFenceBodies(region) {
+  // Backreferenced fence length: `fence()` grows the fence past any backtick run
+  // in the body, so a 4-backtick block must not be read as a 3-backtick one.
+  return [...region.matchAll(/^(`{3,})text\n([\s\S]*?)\n\1$/gm)].map((m) => m[2]);
+}
+
+console.log('MD CHANNEL — the committed markdown fallback carries the long bodies');
+
+check(`the committed cli.md carries at least ${MD_LONG_BLOCK_FLOOR} long-body fences (a stripped region FAILS)`, () => {
+  const bodies = textFenceBodies(committedCliRegion());
+  const chars = bodies.reduce((n, b) => n + b.length, 0);
+  assert(
+    bodies.length >= MD_LONG_BLOCK_FLOOR,
+    `the committed apps/reference/cli.md carries only ${bodies.length} \`\`\`text long-body fences ` +
+      `(floor ${MD_LONG_BLOCK_FLOOR}, measured 44) — the .md/LLM channel has LOST the long descriptions. ` +
+      `\`check:md-regions\` cannot catch this: regenerating the region makes it agree with a renderer that ` +
+      `emits nothing. Check \`renderCli\` in scripts/appblocks-md.mjs — the \`cliLongBody(c)\` call site and ` +
+      `the \`fence('text', long)\` it feeds`,
+  );
+  assert(
+    chars >= MD_LONG_CHAR_FLOOR,
+    `the committed apps/reference/cli.md carries only ${chars} characters of long-body prose ` +
+      `(floor ${MD_LONG_CHAR_FLOOR}, measured 40,317) — the bodies are present but TRUNCATED`,
+  );
+});
+
+check('CONTENT — a specific sentence reaches the .md channel, not merely a fence', () => {
+  // A count cannot tell "the bodies" from "44 empty fences", and the LLM channel
+  // is the one surface where nobody would notice.
+  const region = committedCliRegion();
+  const want = "This is a best-effort LOCAL pre-check that mirrors the platform's approve-time";
+  assert(region.includes(want), `the committed cli.md region does not contain ${JSON.stringify(want)}`);
+  assert(
+    region.includes('THIS SPENDS REAL BUZZ AND CANNOT BE UNDONE'),
+    "the committed cli.md region lost `generate`'s irreversible-spend warning",
+  );
+  // The indented bullet: this is what a `para()` regression destroys, and it is
+  // exactly what the fence exists to preserve. `para()` collapses newlines, so
+  // the leading newline + two spaces cannot survive it.
+  assert(
+    region.includes('\n  - targets[].slotId must be a known registered slot'),
+    'the committed cli.md region lost the indented list structure — was the body sent through `para()`?',
+  );
+});
+
+check('STRUCTURAL — the committed fences equal `cliLongBody` over the artifact, in order', () => {
+  // 🔴 THE ASSERTION THE FLOORS CANNOT MAKE. The floors say "enough is there";
+  // this says "exactly the right thing is there", by recomputing the expected
+  // bodies from the SHARED predicate against the artifact built from the
+  // snapshot — never by reading the page back. So a call site that passes the
+  // wrong field (measured mutant: `cliLongBody({ ...c, longDescription:
+  // c.description })`, which the equality rule then suppresses for all 52) fails
+  // here even after the region is regenerated and committed, because the
+  // predicate itself still says what SHOULD have been written.
+  //
+  // It is also self-maintaining across a snapshot refresh: the artifact and the
+  // regenerated page move together, so a legitimate upstream change keeps this
+  // green without a re-measured constant.
+  const got = textFenceBodies(committedCliRegion());
+  const want = artifact.commands.map((c) => cliLongBody(c)).filter(Boolean);
+  assertEqual(
+    got.length,
+    want.length,
+    'the committed cli.md has a different NUMBER of long-body fences than cliLongBody yields',
+  );
+  for (let i = 0; i < want.length; i++) {
+    assertEqual(
+      got[i],
+      want[i],
+      `committed cli.md long-body fence #${i + 1} is not the body cliLongBody yields for ` +
+        `\`${artifact.commands.filter((c) => cliLongBody(c))[i]?.command}\``,
+    );
+  }
 });
 
 // ---------------------------------------------------------------------------

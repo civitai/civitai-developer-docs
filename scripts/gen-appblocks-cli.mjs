@@ -785,7 +785,10 @@ function buildCommand(blocks, path, parentShort) {
     // its FIRST LINE. A subcommand always has a `short` from its parent's
     // "Available Commands:" block, so `short` always won and the rest of the
     // body was parsed and thrown away on every command. Measured on
-    // appblocks-snapshots/civitai-cli-help.txt @ civitai v0.1.90-13-g569f5dc:
+    // appblocks-snapshots/civitai-cli-help.txt @ civitai v0.1.90-25-g9cfe468 —
+    // the version in the snapshot's OWN header (line 3), which is the only
+    // authority for it; several older comments in this file still name
+    // v0.1.90-13-g569f5dc from an earlier capture and are stale.
     // 52 of 52 commands carry a non-empty Long, 40,678 characters in total, of
     // which the published reference showed the first line of NONE (every one of
     // the 52 had a `short`). The largest are `generate` (5,731), `download`
