@@ -1,9 +1,140 @@
-civitai CLI help snapshot (App authoring command group)
+civitai CLI help snapshot (the WHOLE command tree)
 Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
 Binary version: civitai v0.1.90-13-g569f5dc
 Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
 else parses this committed snapshot. To refresh: run
 node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).
+Every node carries TWO blocks: its `--help` body, and the `__complete` enumeration
+the walk used to discover its children.
+===CMD (root)===
+civitai is the command-line interface for Civitai (https://civitai.com).
+
+It does three things from one static binary:
+
+  • Browse & download the public catalog — search models, list images and
+    articles, and fetch model files. Reading is anonymous; downloading a
+    model file needs a token (civitai login). --layout routes each file into
+    the right folder for ComfyUI / A1111.
+  • Build & submit Apps — small, sandboxed web apps that run inside Civitai
+    surfaces. Scaffold a correct project, validate it against the platform
+    contract, and package it for submission.
+  • Generate images — civitai generate "<prompt>". This SPENDS REAL BUZZ and
+    needs the AI Services scopes (civitai login --scopes generate, or a
+    full-scope personal API key); price a job with --dry-run first.
+
+Get started:
+
+  # Browse & download
+  civitai models search --query "pony" --limit 5
+  civitai images search --sort "Most Reactions" --period Week
+  civitai download 691639 --layout comfyui --root ~/ComfyUI
+
+  # Build an App
+  civitai login                    store your API token
+  civitai app create my-app        scaffold a ready-to-build App
+  civitai app submit               package + submit for review
+
+Exit codes:
+
+  Every command returns a differentiated exit code so scripts can branch on the
+  KIND of failure without parsing stderr (the error message itself is unchanged):
+
+    0  Success.
+    1  Generic / unclassified error.
+    2  Usage error — a bad flag, a missing required flag or argument (e.g.
+       civitai app withdraw with no publish-request id), a bad flag value
+       (--limit out of range, a non-integer id, --template nope), or a request
+       the API rejected as malformed (HTTP 400, e.g. a bad --period/--sort
+       enum). This does not depend on where the refusal happens: a mistake the
+       CLI catches locally and one the server rejects both exit 2. A local
+       image the CLI refuses before uploading anything (civitai app listing
+       set-icon <file>, civitai generate --image) exits 2 when the file is
+       missing, empty, a directory, over the size cap, or not a PNG/JPEG/WebP —
+       but a file that exists and cannot be read (permissions, an I/O error) is
+       a filesystem failure rather than a mistake about the invocation, and
+       does not exit 2.
+    3  Authentication/authorization — login required, token invalid/expired, or
+       the credential lacks the needed scope (HTTP 401/403, or no token
+       configured).
+    4  Not found — the requested resource does not exist. Usually an HTTP 404,
+       but not always: some lookups answer 200 with an empty result set instead
+       (civitai app status <slug> for an unregistered slug, civitai users get
+       for an unknown username), and those exit 4 too.
+    5  Network/transport failure or service unavailable — dial/timeout, or HTTP
+       502/503/504 after retries.
+    6  Rate limited — throttled by the API (HTTP 429).
+
+Usage:
+  civitai [flags]
+  civitai [command]
+
+Examples:
+  # Browse & download the public catalog (no account needed to read).
+  civitai models search --query "dreamshaper" --limit 5
+  civitai images search --sort "Most Reactions" --period Week
+  civitai download 691639 --layout comfyui --root ~/ComfyUI
+
+  # Browse the App store.
+  civitai app list
+  civitai app view <slug>
+
+  # Build & ship an App.
+  civitai login
+  civitai app create my-first-app
+  cd my-first-app
+  civitai app validate
+  civitai app submit
+
+Available Commands:
+  app            Browse, author, and ship Civitai Apps
+  articles       Search and inspect articles on Civitai
+  buzz           Show your spendable Buzz balance
+  collections    Search and inspect collections on Civitai
+  completion     Generate a shell-completion script
+  creators       Search creators on Civitai
+  download       Download a model version's file(s)
+  generate       Generate images from a text prompt (SPENDS BUZZ)
+  help           Help about any command
+  images         Search images on Civitai
+  login          Authenticate with Civitai
+  model-versions Inspect model versions on Civitai
+  models         Search and inspect models on Civitai
+  tags           Search model tags on Civitai
+  upgrade        Update the civitai CLI to the latest release
+  users          Look up users on Civitai
+  version        Print the CLI version, commit, and build date
+  whoami         Verify your stored API token and its capabilities
+  workflows      List, inspect and cancel generation workflows
+
+Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+  -h, --help              help for civitai
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+  -v, --version           version for civitai
+
+Use "civitai [command] --help" for more information about a command.
+===CMD complete (root)===
+app	Browse, author, and ship Civitai Apps
+articles	Search and inspect articles on Civitai
+buzz	Show your spendable Buzz balance
+collections	Search and inspect collections on Civitai
+completion	Generate a shell-completion script
+creators	Search creators on Civitai
+download	Download a model version's file(s)
+generate	Generate images from a text prompt (SPENDS BUZZ)
+help	Help about any command
+images	Search images on Civitai
+login	Authenticate with Civitai
+model-versions	Inspect model versions on Civitai
+models	Search and inspect models on Civitai
+tags	Search model tags on Civitai
+upgrade	Update the civitai CLI to the latest release
+users	Look up users on Civitai
+version	Print the CLI version, commit, and build date
+whoami	Verify your stored API token and its capabilities
+workflows	List, inspect and cancel generation workflows
+:4
 ===CMD app===
 Browse, author, and ship Civitai Apps.
 
@@ -140,6 +271,8 @@ Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
       --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete app create===
+:0
 ===CMD app init===
 Scaffold a correct, ready-to-build App project.
 
@@ -184,6 +317,8 @@ Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
       --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete app init===
+:0
 ===CMD app validate===
 Validate an App project.
 
@@ -242,6 +377,8 @@ Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
       --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete app validate===
+:0
 ===CMD app submit===
 Package the canonical App source tree and submit it for moderator
 review.
@@ -289,6 +426,8 @@ Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
       --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete app submit===
+:0
 ===CMD app status===
 Check the review and deploy status of your own App submissions.
 
@@ -323,6 +462,8 @@ Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
       --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete app status===
+:0
 ===CMD app withdraw===
 Withdraw your own pending App submission so you can resubmit a new bundle
 for the same slug.
@@ -359,6 +500,8 @@ Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
       --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete app withdraw===
+:0
 ===CMD app listing===
 Manage your App store listing's MEDIA — the icon, cover, and screenshots
 a listing needs before it can publish.
@@ -431,6 +574,8 @@ Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
       --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete app listing set-icon===
+:0
 ===CMD app listing set-cover===
 Set the listing cover (a landscape hero image)
 
@@ -448,6 +593,8 @@ Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
       --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete app listing set-cover===
+:0
 ===CMD app listing add-screenshot===
 Add a screenshot (up to 8) with an optional caption
 
@@ -466,6 +613,8 @@ Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
       --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete app listing add-screenshot===
+:0
 ===CMD app listing rm-screenshot===
 Remove a screenshot from your listing by its screenshot id (the id shown by
 `civitai app listing status`, e.g. alsc_...). Note: for a LIVE listing,
@@ -483,6 +632,8 @@ Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
       --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete app listing rm-screenshot===
+:0
 ===CMD app listing reorder===
 Reorder your listing's screenshots. Pass EXACTLY the current set of screenshot
 ids (from `civitai app listing status`) in the desired order — a partial or
@@ -500,6 +651,8 @@ Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
       --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete app listing reorder===
+:0
 ===CMD app listing status===
 Show your store listing's attached media (icon, cover, screenshots) and what
 is still required before it can publish (an icon and a cover are mandatory).
@@ -523,6 +676,8 @@ Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
       --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete app listing status===
+:0
 ===CMD app list===
 List published Apps from the Civitai store via GET /api/v1/apps.
 
@@ -564,6 +719,8 @@ Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
       --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete app list===
+:0
 ===CMD app view===
 Show the public detail for one published App by slug via
 GET /api/v1/apps/{slug} — its description, category, rating, gallery, and the
@@ -593,6 +750,8 @@ Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
       --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete app view===
+:0
 ===CMD app metrics===
 Show the owner-only analytics for one of YOUR App Blocks: installs, runs and
 the Buzz they spent, Buzz purchased through the app, and API engagement.
@@ -634,6 +793,8 @@ Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
       --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete app metrics===
+:0
 ===CMD app dev-token===
 Mint a short-lived dev block token so a scaffolded page-money app can run
 "npm run dev:live" against the REAL Civitai backend.
@@ -711,6 +872,8 @@ Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
       --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete app dev-token===
+:0
 ===CMD app dev-tunnel===
 Run your app locally (`npm run dev:tunnel`) and see it rendered INSIDE the
 real production host at civitai.com/apps/dev/<blockId> — the actual page host
@@ -766,6 +929,8 @@ Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
       --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete app dev-tunnel===
+:0
 ===CMD app pull===
 Clone (or, if [dir] is already a checkout, pull) the canonical repository
 backing one of YOUR approved Apps. This is the read side of git authoring:
@@ -807,3 +972,1188 @@ Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
       --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete app pull===
+--app	the app slug (repo name) or appBlockId to pull (required)
+:0
+===CMD articles===
+Read-only access to Civitai articles via the public REST API
+(GET /api/v1/articles). These endpoints are public and work anonymously; if you
+are logged in (civitai login) your token is sent automatically.
+
+Usage:
+  civitai articles [flags]
+  civitai articles [command]
+
+Examples:
+  civitai articles search --query "workflow" --limit 5
+  civitai articles get 1234
+
+Available Commands:
+  get         Get an article by id (GET /api/v1/articles/{id})
+  search      Search articles (GET /api/v1/articles)
+
+Flags:
+  -h, --help   help for articles
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+
+Use "civitai articles [command] --help" for more information about a command.
+===CMD complete articles===
+get	Get an article by id (GET /api/v1/articles/{id})
+search	Search articles (GET /api/v1/articles)
+:4
+===CMD articles get===
+Get one article by id (GET /api/v1/articles/{id}).
+
+By default it prints the article's metadata (title, author, stats, tags). Pass
+--content to also render the article BODY — the actual guide — as readable plain
+text / lightweight markdown (headings, paragraphs, lists, links, code blocks;
+HTML tags stripped and entities decoded). --json returns the raw API body
+(including the untouched HTML content) and takes precedence over --content.
+
+Usage:
+  civitai articles get <id> [flags]
+
+Examples:
+  civitai articles get 1234
+  civitai articles get 1234 --content
+  civitai articles get 1234 --json
+
+Flags:
+      --anon      force an anonymous request (ignore any stored login token)
+      --content   also render the article body as readable text/markdown (ignored with --json, which returns raw)
+  -h, --help      help for get
+      --json      print the raw API JSON response (for scripting)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete articles get===
+:0
+===CMD articles search===
+Search articles via GET /api/v1/articles.
+
+Pagination is cursor-based (the article feed uses a keyset cursor — there is no
+--page). The next cursor is printed after the results; pass it back via --cursor.
+
+Usage:
+  civitai articles search [flags]
+
+Examples:
+  civitai articles search --query "comfyui" --limit 5
+  civitai articles search --sort "Most Reactions" --nsfw
+  civitai articles search --username some-creator --cursor <cursor>
+
+Flags:
+      --anon              force an anonymous request (ignore any stored login token)
+      --cursor string     pagination cursor from a previous response
+  -h, --help              help for search
+      --json              print the raw API JSON response (for scripting)
+      --limit int         results per page (1-100)
+      --nsfw              include NSFW results
+      --query string      text search query (matches the article title)
+      --sort string       sort order (Newest, "Recently Updated", "Most Reactions", "Most Comments", "Most Bookmarks", "Most Collected")
+      --tags string       filter by tag ids (comma-separated, e.g. 5,12)
+      --username string   filter by author username
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete articles search===
+:0
+===CMD buzz===
+Show your spendable Buzz balance (blue / green / yellow, plus a total) using
+your stored credential.
+
+Reads buzz.getBuzzAccount with the same credential as `whoami` / `app status`.
+A full-scope personal API key can read your balance, as can a browser login that
+opted into the generate scope set (`civitai login --scopes generate`). A
+DEFAULT OAuth login (`civitai login`) can read neither balance nor spend Buzz —
+in that case this prints both ways to fix it.
+
+Usage:
+  civitai buzz [flags]
+
+Examples:
+  civitai buzz
+  civitai buzz --json   # raw JSON (scriptable)
+
+Flags:
+  -h, --help   help for buzz
+      --json   emit raw JSON (scriptable)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete buzz===
+:0
+===CMD collections===
+Read-only access to Civitai collections via the public REST API
+(GET /api/v1/collections). These endpoints are public and work anonymously; if
+you are logged in (civitai login) your token is sent automatically. Only public
+collections are discoverable.
+
+Usage:
+  civitai collections [flags]
+  civitai collections [command]
+
+Examples:
+  civitai collections search --query "favorites" --limit 5
+  civitai collections get 1234
+
+Available Commands:
+  get         Get a collection by id (GET /api/v1/collections/{id})
+  search      Search collections (GET /api/v1/collections)
+
+Flags:
+  -h, --help   help for collections
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+
+Use "civitai collections [command] --help" for more information about a command.
+===CMD complete collections===
+get	Get a collection by id (GET /api/v1/collections/{id})
+search	Search collections (GET /api/v1/collections)
+:4
+===CMD collections get===
+Get a collection by id (GET /api/v1/collections/{id})
+
+Usage:
+  civitai collections get <id> [flags]
+
+Examples:
+  civitai collections get 1234
+  civitai collections get 1234 --json
+
+Flags:
+      --anon   force an anonymous request (ignore any stored login token)
+  -h, --help   help for get
+      --json   print the raw API JSON response (for scripting)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete collections get===
+:0
+===CMD collections search===
+Search public collections via GET /api/v1/collections.
+
+Pagination is cursor-based (a keyset cursor on the collection id — there is no
+--page). The next cursor is printed after the results; pass it back via --cursor.
+
+Cursor paging is only supported for the default (Newest) sort. This is a server
+constraint: for any other --sort (e.g. "Most Followers") the API returns a
+nextCursor that it then rejects — a dead cursor that yields no further pages. So
+for a non-Newest sort the CLI shows the first page only and does NOT print a
+next-page hint; deep paging requires --sort Newest.
+
+Usage:
+  civitai collections search [flags]
+
+Examples:
+  civitai collections search --query "anime" --limit 5
+  civitai collections search --sort Newest --cursor <cursor>
+
+Flags:
+      --anon            force an anonymous request (ignore any stored login token)
+      --cursor string   pagination cursor from a previous response (Newest sort only)
+  -h, --help            help for search
+      --json            print the raw API JSON response (for scripting)
+      --limit int       results per page (1-100)
+      --nsfw            include NSFW results
+      --query string    text search query (matches the collection name)
+      --sort string     sort order (Newest, "Most Followers")
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete collections search===
+:0
+===CMD creators===
+Read-only access to Civitai creators via the public REST API
+(GET /api/v1/creators). Works anonymously.
+
+Usage:
+  civitai creators [flags]
+  civitai creators [command]
+
+Examples:
+  civitai creators search --query artist --limit 10
+
+Available Commands:
+  search      Search creators (GET /api/v1/creators)
+
+Flags:
+  -h, --help   help for creators
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+
+Use "civitai creators [command] --help" for more information about a command.
+===CMD complete creators===
+search	Search creators (GET /api/v1/creators)
+:4
+===CMD creators search===
+Search creators (GET /api/v1/creators)
+
+Usage:
+  civitai creators search [flags]
+
+Examples:
+  civitai creators search --query artist --limit 10
+
+Flags:
+      --anon           force an anonymous request (ignore any stored login token)
+  -h, --help           help for search
+      --json           print the raw API JSON response (for scripting)
+      --limit int      results per page
+      --page int       page number
+      --query string   text search query
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete creators search===
+:0
+===CMD download===
+Download the file(s) of a model VERSION from Civitai.
+
+Identify the version deterministically by its numeric version id:
+
+  civitai download 691639
+
+…or resolve a model's default (first published) version with --model:
+
+  civitai download --model 4384
+
+The positional id is normally a model-VERSION id, but 'civitai models search'
+and 'civitai models get' list MODEL ids — so handing a model id as the positional
+(e.g. 'civitai download 4384') just works: the CLI recognizes it's a model id and
+downloads that model's default version (printing a note that it did). When a
+pasted number is BOTH a valid model id and a valid version id (common for low/mid
+numbers), the CLI STOPS and asks you to disambiguate rather than silently
+downloading an unrelated model's version — re-run with --model <id> (the model's
+default version) or --version <id> (that version as-is). Use --version to name a
+version id explicitly and skip that stop; --yes proceeds on the version
+interpretation and echoes exactly which version it is downloading.
+
+Use --dry-run to print the resolved plan (files, sizes, SHA256, target paths,
+and whether auth is required) without transferring anything.
+
+By default the version's PRIMARY file is downloaded into the current directory
+under its server-provided name. Any file type downloads — model weights, but
+also non-weights deliverables like a "Workflows" model's Archive, training data,
+or other artifacts. Use --file to pick a specific file, or --all to download
+every file. Downloads stream to "<target>.part" and are renamed into place only
+on success, so an interrupted run never leaves a truncated final file.
+
+Selecting one of two same-named files: a version can ship two files with the
+SAME name (e.g. an fp16 and an fp8 both named flux_dev.safetensors). --file
+accepts a numeric FILE ID (the version's files[].id) as well as a name, so you
+can pick exactly one — the ids are shown by --dry-run and in the error you get
+if a name is ambiguous. --all refuses to run when two selected files would
+resolve to the same on-disk path (which would silently overwrite one), listing
+the colliding files with their ids so you can --file <id> the one you want.
+
+Authentication: most model files require a token to download — a gated file
+requires authentication (it 401s without a token), but some public files
+download with no token at all. Run 'civitai login' if a download 401s. Your
+stored login token or CIVITAI_TOKEN is sent automatically. The read/search
+commands (models, model-versions, articles, images, …) always work anonymously.
+
+Folder routing: pass --layout <a1111|comfyui> (with an optional --root <dir>,
+default ".") to write each file into the correct subfolder for that app, routed
+by the file/model type — so --all fans a bundled VAE into the VAE folder
+instead of polluting the checkpoint folder. --layout is mutually exclusive with
+--out/--out-dir.
+
+Compatibility: --for-base "<baseModel>" warns on stderr when the version's base
+model is in a confidently different family than your target (e.g. an SD 1.5
+embedding for an SDXL model). The version's base model is always shown.
+
+Integrity: the streamed bytes are verified against the file's SHA256 by default
+(--no-verify to skip; a file with no published SHA256 is downloaded with a
+warning). A hash mismatch deletes the partial file and fails. SHA256 verifies
+INTEGRITY (the bytes match what the API advertised), NOT authenticity — a
+compromised source that advertises a matching hash for malicious bytes can't be
+detected by the hash alone. Pickle/executable (.ckpt/.pt/.pth/.bin/.pickle/.pkl)
+and archive (.zip/.tar/.tar.gz/.tgz/.rar/.7z) files can execute code when loaded;
+the CLI notes this on stderr. Only download models from creators you trust.
+
+Usage:
+  civitai download [version-id] [flags]
+
+Examples:
+  civitai download 691639
+  civitai download --version 128713                # force a version id (skips the ambiguous-id stop)
+  civitai download --model 4384 --out ./dreamshaper.safetensors
+  civitai download 290640 --file vae --out-dir ./models
+  civitai download 691639 --file 1234567          # pick one of two same-named files by id
+  civitai download 290640 --all --out-dir ./models
+  civitai download 290640 --all --layout comfyui --root ~/ComfyUI
+  civitai download 691639 --layout a1111 --for-base "SDXL 1.0"
+
+Flags:
+      --all               download every file in the version (refuses if two files would overwrite the same path — pick one with --file <id>)
+      --anon              force an anonymous request (ignore any stored login token); NOTE: most downloads 401 without a token — --anon is meaningful for read commands, not downloads
+      --dry-run           print the resolved download plan (files, sizes, hashes, targets) and exit without downloading anything
+      --file string       select one file by numeric file id, or by name (exact, else a unique case-insensitive substring); use the id to pick one of two same-named files
+      --for-base string   warn if the version's base model is a confidently different family than this target (e.g. "SDXL 1.0")
+      --force             re-download even if the target file already exists
+  -h, --help              help for download
+      --layout string     route each file into its type's subfolder for an app (a1111|comfyui); mutually exclusive with --out/--out-dir
+      --model string      resolve+download a MODEL's default (first published) version instead of a version id
+      --no-verify         skip SHA256 verification of the downloaded bytes
+      --out string        target file path (single-file only; mutually exclusive with --all/--out-dir)
+      --out-dir string    directory to write server-named file(s) into (created if needed)
+      --root string       base directory for --layout routing (default "."; only applies with --layout)
+      --version string    download this model-VERSION id explicitly (skips the ambiguous model-id safety stop the bare positional id triggers)
+      --yes               proceed past the ambiguous-id safety stop (a bare id that is BOTH a model id and a version id): download the version as typed
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete download===
+:0
+===CMD generate===
+Generate images from a text prompt on Civitai's generator.
+
+🔴 THIS SPENDS REAL BUZZ AND CANNOT BE UNDONE. A submitted generation is charged;
+there is no cancel-for-refund and no "undo". Preview the price with --dry-run
+first — it calls the server's cost estimator and spends nothing.
+
+CREDENTIAL: generation needs the AI Services scopes. Two credentials carry them:
+`civitai login --scopes generate` (a browser login that opts into generation), or a full-scope personal API key (`civitai login --token <key>`, created at https://civitai.com/user/account). A DEFAULT OAuth browser login
+(`civitai login` with no --scopes) does NOT carry them and is refused — and
+re-running plain `civitai login` will not fix that. Check yours with
+`civitai whoami`.
+
+--max-cost IS AN ESTIMATE CHECK, NOT A SPENDING CAP. The cost this command shows
+is an estimate, not a quote: the server's estimator returns no quote id, no
+signed price and no expiry — there is nothing to hand back at submit time, and
+no server-side ceiling is reachable from an API key at all. The realized charge
+can exceed the estimate, and it is not refunded. --max-cost compares the
+ESTIMATE against your number and refuses locally before submitting; it catches a
+--quantity typo, and that is all it can do. Do not run an unattended loop
+believing it caps spend.
+
+CONFIRMATION: an interactive run prints the estimate and your balance and asks
+before spending. A non-interactive shell (pipe/CI) without --yes is REFUSED
+rather than charged silently.
+
+WHAT THE SERVER DOES NOT TELL YOU: the generator is permissive, not a validator.
+An out-of-range --quantity is clamped with no error, and a checkpoint id that
+does not exist is accepted with the ecosystem default silently substituted and
+billed. This command therefore resolves every --checkpoint / --lora id against
+the public model-version API BEFORE submitting, so a bad id is a hard local
+error instead of a wrong charge, and it echoes the resolved model NAME in the
+confirmation so you approve a name rather than an integer.
+
+WAITING AND DOWNLOADING: by default the command waits for the job to finish and
+writes every deliverable output into --out-dir as <workflow-id>-<n>.<ext>. Pass
+--no-wait to print the workflow id and exit immediately, and pick the results up
+later with `civitai workflows get <workflow-id>`. Output URLs are PRESIGNED AND
+EXPIRE, so download promptly; re-read the workflow for fresh links.
+
+🔴 --timeout STOPS WAITING. IT DOES NOT STOP PAYING. The generation keeps
+running server-side after the CLI gives up, and the charge stands — there is no
+cancel-for-refund, and a mid-run cancel bills the accrued cost anyway. The same
+is true of Ctrl-C. Both print the workflow id and the exact command to re-attach.
+
+CRASH SAFETY: the idempotency key is written to a local file BEFORE the request
+is sent, because the money moves server-side even if this process dies mid-POST.
+If a submit's reply never arrives, re-run with --external-id <the recorded key>:
+the orchestrator dedupes on it and returns the PRE-EXISTING workflow instead of
+charging a second time.
+
+IMAGE-TO-IMAGE: --image <file-or-url> attaches a reference image (repeatable).
+A local png/jpeg is uploaded to Civitai first and the stored blob is referenced;
+an https URL is passed through as-is, but must be publicly reachable, because the
+generator downloads it server-side too. Either way the CLI reads the image's
+width and height from its header and sends them — the server requires both and
+rejects an entry without them.
+
+🔴 --image REQUIRES --ecosystem, and the reason is money. The server turns a
+text-to-image job into image-to-image only when the request names an ecosystem;
+without one it ignores the images, generates from the prompt alone, and charges
+you the full amount with no error. Worse, only SOME ecosystems accept reference
+images at all (Qwen, Flux1Kontext, NanoBanana, Seedream, OpenAI, Grok and a few
+more do; the SD family and the default do not) — and the cost estimate cannot
+tell you which case you are in, because several edit-capable ecosystems price
+identically with and without images. Name an ecosystem you know supports editing.
+
+🔴 The server SILENTLY TRUNCATES too many reference images. Per-ecosystem limits
+run from 1 to 7 and are not knowable from here; over the limit the extras are
+dropped with no error and the truncated job is billed. The CLI refuses more than
+7 (no ecosystem accepts more) and warns for anything above 1.
+
+RAW GRAPHS: --input <file> (or --input -) sends a generation-graph JSON document
+exactly as written, instead of building one from the flags above. It is how you
+reach graph parameters this CLI has no flag for. Get a valid starting point with
+--print-input, which assembles the graph, prints it, and exits without
+submitting or even pricing anything.
+
+--input is txt2img only in this release. It cannot be combined with the content
+flags (--negative-prompt, --quantity, --aspect-ratio, --checkpoint, --lora) or
+with a prompt argument; the execution flags all still apply. Keys that belong to
+the request ENVELOPE rather than the graph — civitaiTip, creatorTip, buzzType,
+tags, externalId — are REFUSED in an input file: they are this CLI's to set, and
+a tip in particular is real Buzz that --dry-run structurally cannot see. Keys
+this CLI does not recognise are passed through with a warning, because the
+server silently drops what it does not declare rather than reporting an error.
+
+🔴 --input DOES NOT get the model-id safety net. --checkpoint and --lora are
+resolved against the public API before submitting, so a bad id fails locally
+instead of being billed with a substituted model; a raw graph is not
+interpreted, so nothing in it is checked before you pay for it.
+
+Usage:
+  civitai generate [prompt] [flags]
+
+Examples:
+  # Preview the price — spends nothing
+  civitai generate "a cat wearing sunglasses" --dry-run
+
+  # The same estimate as JSON, for scripts
+  civitai generate "a cat wearing sunglasses" --dry-run --json
+
+  # Generate 4 images, refusing if the estimate exceeds 50 Buzz
+  civitai generate "a cat wearing sunglasses" --quantity 4 --max-cost 50
+
+  # A specific checkpoint plus a LoRA at 0.8 strength
+  civitai generate "a cat" --checkpoint 128713 --lora 250712:0.8
+
+  # Image-to-image from a local file — --ecosystem is required
+  civitai generate "make it winter" --ecosystem Flux1Kontext --image ./cat.png --dry-run
+
+  # …or from a public URL, with two reference images
+  civitai generate "combine these" --ecosystem Seedream \
+    --image https://example.com/a.jpg --image ./b.png --yes
+
+  # Wait, and write the images into ./out
+  civitai generate "a cat" --yes --out-dir ./out
+
+  # Fire and forget; collect the results later
+  civitai generate "a cat" --yes --no-wait
+  civitai workflows get <workflow-id>
+
+  # Non-interactive (CI): --yes is required, or the run is refused
+  civitai generate "a cat" --yes --max-cost 20
+
+  # Graduate from flags to a raw graph: print, edit, send back
+  civitai generate "a cat" --quantity 2 --print-input > graph.json
+  civitai generate --input graph.json --dry-run
+  civitai generate --input graph.json --yes
+
+  # …or pipe it straight through
+  jq '.prompt = "a dog"' graph.json | civitai generate --input - --dry-run
+
+Flags:
+      --aspect-ratio string      aspect ratio bucket, e.g. 1:1 (width/height derive from it)
+      --checkpoint int           checkpoint model-VERSION id (not a model id) — resolved before submitting
+      --dry-run                  print the cost estimate and exit without submitting (spends nothing)
+      --ecosystem string         model family to generate with, e.g. Qwen or Flux1Kontext. Sent to the server verbatim and NOT checked locally; required with --image because the server only promotes a job to image-to-image when the ecosystem is stated
+      --external-id string       re-attach to an earlier submit by reusing its idempotency key (the orchestrator dedupes on it and returns the PRE-EXISTING workflow rather than charging again). Use the key recorded before the lost submit
+      --fail-on-substitution     refuse to submit if the server REPORTS it substituted a different checkpoint for the one you asked for. Checked against the ESTIMATE, so nothing is spent when it refuses. Off by default: the server substitutes deliberately so that a script pinned to a retired version keeps working. NOT A GUARANTEE: a server that does not report substitutions makes this flag silently inert, so it cannot be relied on as a spend guard against an older deployment
+      --force                    overwrite existing output files instead of refusing
+  -h, --help                     help for generate
+      --image stringArray        reference image for image-to-image: a local file (png or jpeg, uploaded) or an https URL (passed through). Repeatable. Requires --ecosystem, and only some ecosystems accept reference images at all
+      --input string             read the generation graph from a JSON file ('-' for stdin) and send it as-is, instead of building one from flags. txt2img only. Cannot be combined with the content flags above
+      --json                     emit the raw server payload on stdout (scriptable)
+      --lora stringArray         LoRA model-version id, optionally :strength (e.g. 250712:0.8). Repeatable
+      --max-cost int             refuse to submit if the ESTIMATE exceeds this many Buzz. This is an estimate check, NOT a spending cap: the estimate is not binding, the server enforces no ceiling, and the realized charge can be higher with no refund
+      --negative-prompt string   negative prompt
+      --no-download              wait for the result and print the output URLs, but write no files
+      --no-wait                  submit, print the workflow id and exit without waiting; collect the results later with 'civitai workflows get <id>'
+      --out-dir string           directory to write the generated files into (created if needed); named <workflow-id>-<n>.<ext> (default ".")
+      --print-input              print the exact generation graph that would be sent and exit without submitting. Redirect it to a file, edit it, and feed it back with --input
+      --quantity int             number of images to generate (server default when unset; no -n shorthand, it reads as "no")
+      --timeout duration         how long to WAIT for the generation to finish (e.g. 5m, 0 waits indefinitely). This stops the CLI waiting; it does NOT stop the generation and does NOT stop the charge — the job continues server-side and is not refunded (default 10m0s)
+  -y, --yes                      skip the confirmation and submit (required in a non-interactive shell)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete generate===
+:0
+===CMD images===
+Read-only access to Civitai images via the public REST API
+(GET /api/v1/images). Works anonymously.
+
+Usage:
+  civitai images [flags]
+  civitai images [command]
+
+Examples:
+  civitai images search --limit 5
+  civitai images search --model-id 4384 --period Month
+  civitai images search --base-model "Krea 2" --sort "Most Reactions" --period Week
+  civitai images search --nsfw --sort "Most Reactions" --period Month --meta
+  civitai images get 136456589
+
+Available Commands:
+  get         Get a single image by id (GET /api/v1/images?imageId=<id>)
+  search      Search images (GET /api/v1/images)
+
+Flags:
+  -h, --help   help for images
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+
+Use "civitai images [command] --help" for more information about a command.
+===CMD complete images===
+get	Get a single image by id (GET /api/v1/images?imageId=<id>)
+search	Search images (GET /api/v1/images)
+:4
+===CMD images get===
+Fetch one image by its numeric id — the id in a civitai.com/images/<id>
+URL — and render its generation metadata (prompt, settings, resources), the same
+detail block as `images search --meta`. Generation metadata is requested
+implicitly.
+
+Usage:
+  civitai images get <id> [flags]
+
+Examples:
+  civitai images get 136456589
+  civitai images get 136456589 --json
+
+Flags:
+      --anon   force an anonymous request (ignore any stored login token)
+  -h, --help   help for get
+      --json   print the raw API JSON response (for scripting)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete images get===
+:0
+===CMD images search===
+Search images via GET /api/v1/images.
+
+Pagination: use --page for shallow paging or --cursor for deep paging (the API
+caps page*limit at 1000). The next cursor is printed after the results.
+
+Usage:
+  civitai images search [flags]
+
+Examples:
+  civitai images search --limit 5
+  civitai images search --model-version-id 128713 --sort Newest
+  civitai images search --base-model "Krea 2" --sort "Most Reactions" --period Week
+  civitai images search --type video --sort "Most Reactions"
+  civitai images search --nsfw --sort "Most Reactions" --period Month --meta
+  civitai images search --username some-user --cursor <cursor>
+
+Flags:
+      --anon                   force an anonymous request (ignore any stored login token)
+      --base-model strings     filter by base model; repeatable (e.g. --base-model "Krea 2" --base-model Flux). The API OR-combines the given values
+      --cursor string          pagination cursor from a previous response
+  -h, --help                   help for search
+      --json                   print the raw API JSON response (for scripting)
+      --limit int              results per page (1-200)
+      --meta                   include generation metadata (prompt, sampler, seed, etc.)
+      --model-id int           filter by model id
+      --model-version-id int   filter by model version id
+      --nsfw                   include NSFW results
+      --page int               page number (shallow paging; prefer --cursor)
+      --period string          time period (AllTime, Year, Month, Week, Day)
+      --post-id int            filter by post id
+      --sort string            sort order ("Most Reactions", "Most Comments", Newest)
+      --type string            filter by media type (image, video, audio)
+      --username string        filter by uploader username
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete images search===
+:0
+===CMD login===
+Authenticate the CLI with Civitai for authenticated commands (whoami,
+app submit).
+
+By default `civitai login` runs a browser-based device login: it prints a
+URL and a code, you approve in your browser, and the CLI stores short-lived
+OAuth tokens that refresh automatically.
+
+Alternatively, pass --token to store a personal API key created at
+https://civitai.com/user/account (API Keys). Passing --token with NO value prints
+where to create that key and how to re-run (it does not log in). Either way the
+credential is saved
+to your config file (~/.config/civitai/config.yaml, owner-readable only). The
+CIVITAI_TOKEN environment variable still overrides the stored credential.
+
+SCOPES. By DEFAULT `civitai login` grants identity + Apps submit +
+dev-tunnel, and deliberately NOT Buzz-spend — a plain login must never silently
+hand the CLI authority to spend your Buzz. Opt in per named scope set with
+--scopes (additive — you keep everything the default grants):
+
+  --scopes generate
+      run `civitai generate` and read your Buzz balance (AIServicesRead|AIServicesWrite|BuzzRead) — this login WILL be able to SPEND your Buzz
+
+So `civitai login --scopes generate` yields ONE credential that can both
+submit apps and run `civitai generate`. Without it, generation is refused
+and `dev:live` cannot spend; the other way to get spend authority is a
+full-scope personal API key (`civitai login --token <key>`, created at
+https://civitai.com/user/account).
+
+--scopes applies only to the browser device login; it is rejected with --token.
+
+Switching accounts: running `civitai login` again overwrites the stored
+credential with the new account — no separate logout needed. (Check the active
+account with `civitai whoami`.)
+
+Usage:
+  civitai login [flags]
+
+Examples:
+  civitai login                    # browser device login (recommended); no Buzz-spend
+  civitai login --scopes generate  # ALSO grant generation + Buzz SPEND (civitai generate)
+  civitai login --no-browser       # device login without auto-opening a browser
+  civitai login --token <token>    # store a personal API key instead
+  civitai login --token            # no value: print where to create a personal key
+  civitai login                    # run again to SWITCH the active account (overwrites the stored credential)
+
+Flags:
+  -h, --help                                       help for login
+      --no-browser                                 do not attempt to open a browser for device login
+      --scopes strings                             extra scope sets to request on a browser device login, additive on top of the default (valid: generate). --scopes generate grants generation AND Buzz-SPEND authority; omit it and this login cannot spend your Buzz. Not valid with --token
+      --token string[="civitai-token-no-value"]  store a personal API key instead of the browser device login (pass with no value to print where to create one)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete login===
+:0
+===CMD model-versions===
+Read-only access to Civitai model versions via the public REST API. Look up a
+version by its id or by a file hash (AutoV2, SHA256, …). Works anonymously.
+
+Usage:
+  civitai model-versions [flags]
+  civitai model-versions [command]
+
+Aliases:
+  model-versions, model-version, mv
+
+Examples:
+  civitai model-versions get 128713
+  civitai model-versions by-hash 5D8D26E2A6
+
+Available Commands:
+  by-hash     Get a model version by file hash (GET /api/v1/model-versions/by-hash/{hash})
+  get         Get a model version by id (GET /api/v1/model-versions/{id})
+
+Flags:
+  -h, --help   help for model-versions
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+
+Use "civitai model-versions [command] --help" for more information about a command.
+===CMD complete model-versions===
+by-hash	Get a model version by file hash (GET /api/v1/model-versions/by-hash/{hash})
+get	Get a model version by id (GET /api/v1/model-versions/{id})
+:4
+===CMD model-versions by-hash===
+Look up a model version by any of its file hashes (AutoV1, AutoV2, SHA256, CRC32, BLAKE3). The hash is matched case-insensitively.
+
+Usage:
+  civitai model-versions by-hash <hash> [flags]
+
+Examples:
+  civitai model-versions by-hash 5D8D26E2A6
+
+Flags:
+      --anon   force an anonymous request (ignore any stored login token)
+  -h, --help   help for by-hash
+      --json   print the raw API JSON response (for scripting)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete model-versions by-hash===
+:0
+===CMD model-versions get===
+Get a model version by id (GET /api/v1/model-versions/{id})
+
+Usage:
+  civitai model-versions get <id> [flags]
+
+Examples:
+  civitai model-versions get 128713
+
+Flags:
+      --anon   force an anonymous request (ignore any stored login token)
+  -h, --help   help for get
+      --json   print the raw API JSON response (for scripting)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete model-versions get===
+:0
+===CMD models===
+Read-only access to Civitai models via the public REST API
+(GET /api/v1/models). These commands work anonymously; if you are logged in
+(civitai login) your token is sent automatically.
+
+Usage:
+  civitai models [flags]
+  civitai models [command]
+
+Examples:
+  civitai models search --query "pony" --limit 5
+  civitai models get 4384
+
+Available Commands:
+  get         Get a model by id (GET /api/v1/models/{id})
+  search      Search models (GET /api/v1/models)
+
+Flags:
+  -h, --help   help for models
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+
+Use "civitai models [command] --help" for more information about a command.
+===CMD complete models===
+get	Get a model by id (GET /api/v1/models/{id})
+search	Search models (GET /api/v1/models)
+:4
+===CMD models get===
+Get a model by id (GET /api/v1/models/{id})
+
+Usage:
+  civitai models get <id> [flags]
+
+Examples:
+  civitai models get 4384
+  civitai models get 4384 --json
+
+Flags:
+      --anon   force an anonymous request (ignore any stored login token)
+  -h, --help   help for get
+      --json   print the raw API JSON response (for scripting)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete models get===
+:0
+===CMD models search===
+Search models via GET /api/v1/models.
+
+Pagination: use --page for shallow paging, or --cursor for deep paging (the API
+caps page*limit at 1000 and otherwise returns 429 — prefer --cursor). The next
+cursor is printed after the results.
+
+Usage:
+  civitai models search [flags]
+
+Examples:
+  civitai models search --query "pony" --limit 5
+  civitai models search --type LORA --sort "Most Downloaded" --period Month
+  civitai models search --username some-creator --cursor <cursor>
+
+Flags:
+      --anon                 force an anonymous request (ignore any stored login token)
+      --base-model strings   filter by base model; repeatable (e.g. --base-model Pony --base-model "Illustrious"). Distinguishes video checkpoints ("Wan Video 2.2 T2V-A14B") that all share --type Checkpoint
+      --cursor string        pagination cursor from a previous response
+  -h, --help                 help for search
+      --json                 print the raw API JSON response (for scripting)
+      --limit int            results per page (1-100)
+      --nsfw                 include NSFW results
+      --page int             page number (shallow paging; prefer --cursor for deep paging)
+      --period string        time period (AllTime, Year, Month, Week, Day)
+      --query string         text search query
+      --sort string          sort order (e.g. "Highest Rated", "Most Downloaded", Newest)
+      --tag string           filter by tag name
+      --type string          filter by model type (e.g. Checkpoint, LORA, TextualInversion)
+      --username string      filter by creator username
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete models search===
+:0
+===CMD tags===
+Read-only access to Civitai model tags via the public REST API
+(GET /api/v1/tags). Works anonymously.
+
+Usage:
+  civitai tags [flags]
+  civitai tags [command]
+
+Examples:
+  civitai tags search --query anime --limit 10
+
+Available Commands:
+  search      Search tags (GET /api/v1/tags)
+
+Flags:
+  -h, --help   help for tags
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+
+Use "civitai tags [command] --help" for more information about a command.
+===CMD complete tags===
+search	Search tags (GET /api/v1/tags)
+:4
+===CMD tags search===
+Search tags (GET /api/v1/tags)
+
+Usage:
+  civitai tags search [flags]
+
+Examples:
+  civitai tags search --query anime --limit 10
+
+Flags:
+      --anon           force an anonymous request (ignore any stored login token)
+  -h, --help           help for search
+      --json           print the raw API JSON response (for scripting)
+      --limit int      results per page
+      --page int       page number
+      --query string   text search query
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete tags search===
+:0
+===CMD upgrade===
+Download and install the latest civitai release, replacing this binary.
+
+The latest release is resolved from the public GitHub releases API (no token is
+ever sent). The downloaded tarball is verified against its SHA-256 checksum
+before anything is replaced — a mismatch aborts the upgrade and leaves the
+current binary untouched.
+
+If this binary was installed via Homebrew, upgrade delegates to:
+    brew upgrade civitai/tap/civitai
+(use --force to self-replace anyway).
+
+Usage:
+  civitai upgrade [flags]
+
+Examples:
+  civitai upgrade
+  civitai upgrade --force
+
+Flags:
+      --force   reinstall even if already up to date, and self-replace a Homebrew install
+  -h, --help    help for upgrade
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete upgrade===
+:0
+===CMD users===
+Read-only access to Civitai users via the public REST API.
+
+NOTE: the public users route is the search endpoint GET /api/v1/users (keyed by
+?query= or ?ids=). The per-id route /api/v1/users/{userId} is an INTERNAL
+webhook (POST + system token) and is NOT usable by the CLI, so "users get"
+resolves a user through the public search. Works anonymously.
+
+Usage:
+  civitai users [flags]
+  civitai users [command]
+
+Examples:
+  civitai users get some-username
+  civitai users get 5
+
+Available Commands:
+  get         Look up a user by username or id (public search: GET /api/v1/users)
+
+Flags:
+  -h, --help   help for users
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+
+Use "civitai users [command] --help" for more information about a command.
+===CMD complete users===
+get	Look up a user by username or id (public search: GET /api/v1/users)
+:4
+===CMD users get===
+Look up a user by username or numeric id via the public user search
+(GET /api/v1/users). A numeric argument is matched via ?ids=; anything else via
+?query= (returning the best-matching users, from which an exact username match
+is selected when present).
+
+Usage:
+  civitai users get <username-or-id> [flags]
+
+Examples:
+  civitai users get some-username
+  civitai users get 5 --json
+
+Flags:
+      --anon   force an anonymous request (ignore any stored login token)
+  -h, --help   help for get
+      --json   print the raw API JSON response (for scripting)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete users get===
+:0
+===CMD version===
+Print detailed build information for this civitai binary.
+
+The version, commit, and date are stamped in at release time. For a plain
+"go install" or source build they fall back to the embedded Go build info
+(module version + VCS revision/time).
+
+After printing build info, this command makes a single unauthenticated call to
+the GitHub releases API to tell you if a newer release is available. The check
+is best-effort (short timeout, fails silently offline) and never sends your API
+token. Skip it with --no-update-check or by setting CIVITAI_NO_UPDATE_CHECK.
+
+Usage:
+  civitai version [flags]
+
+Examples:
+  civitai version
+  civitai version --no-update-check
+
+Flags:
+  -h, --help   help for version
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete version===
+:0
+===CMD whoami===
+Verify the stored API token by calling the Civitai API and printing the
+authenticated user PLUS a short capability summary: the credential type (OAuth
+login vs personal API key), whether it can read your Buzz balance, and whether
+it can spend Buzz. The money-path dead end — an OAuth `civitai login` token
+can submit/withdraw but cannot spend Buzz — is surfaced here, before dev:live.
+
+Reads the token from config or CIVITAI_TOKEN.
+
+Usage:
+  civitai whoami [flags]
+
+Examples:
+  civitai whoami
+  civitai whoami --scopes   # also list every granted scope
+  civitai whoami --json     # raw JSON (scriptable)
+
+Flags:
+  -h, --help     help for whoami
+      --json     emit raw JSON (scriptable)
+      --scopes   also print the full decoded scope list
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete whoami===
+:0
+===CMD workflows===
+Work with the generation workflows your account has submitted.
+
+A workflow is one submitted generation job. `civitai generate` prints a
+workflow id; `list` and `get` are how you find one afterwards — which is what
+makes `--no-wait`, a --timeout expiry and a Ctrl-C recoverable rather than a
+dead end.
+
+`list` and `get` are reads and SPEND NOTHING. 🔴 `cancel` stops a job but does
+NOT refund it — a mid-run cancel bills the accrued cost, non-refundably.
+
+Usage:
+  civitai workflows [flags]
+  civitai workflows [command]
+
+Examples:
+  civitai workflows list
+  civitai workflows get 01JABCXYZ
+  civitai workflows get 01JABCXYZ --json
+  civitai workflows cancel 01JABCXYZ
+
+Available Commands:
+  cancel      Cancel a running generation workflow (DOES NOT REFUND)
+  get         Show one generation workflow and its outputs
+  list        List the generation workflows you have submitted
+
+Flags:
+  -h, --help   help for workflows
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+
+Use "civitai workflows [command] --help" for more information about a command.
+===CMD complete workflows===
+cancel	Cancel a running generation workflow (DOES NOT REFUND)
+get	Show one generation workflow and its outputs
+list	List the generation workflows you have submitted
+:4
+===CMD workflows cancel===
+Cancel a generation workflow that is still running.
+
+🔴 CANCELLING DOES NOT GET YOUR BUZZ BACK. A mid-run cancel BILLS THE ACCRUED
+COST, orchestrator-side and non-refundably. There is no cancel-for-refund
+anywhere on this platform: by the time a workflow is running, the money has
+moved. Cancel a job because you no longer want its OUTPUT — never as a way to
+save money, and never as a way to undo a submit you regret.
+
+That is also why `civitai generate --timeout` and Ctrl-C do not cancel anything:
+stopping the wait costs nothing, while stopping the job would cost the same as
+letting it finish and would throw away the result you already paid for.
+
+Cancelling an already-finished workflow is harmless — the outputs of a succeeded
+workflow are not deleted by it (use the website to delete results).
+
+This needs the same AI Services scopes that `civitai generate` needs:
+`civitai login --scopes generate` (a browser login that opts into generation), or a full-scope personal API key (`civitai login --token <key>`, created at https://civitai.com/user/account).
+
+CONFIRMATION: cancelling is IRREVERSIBLE and destroys a job you have already paid
+for, so an interactive run asks first. Pass `--yes` to skip the prompt in a
+script; a non-interactive shell without `--yes` REFUSES rather than cancelling
+silently.
+
+Usage:
+  civitai workflows cancel <workflow-id> [flags]
+
+Examples:
+  civitai workflows cancel 01JABCXYZ
+  civitai workflows cancel 01JABCXYZ --yes
+  civitai workflows cancel 01JABCXYZ --json --yes
+
+Flags:
+  -h, --help   help for cancel
+      --json   emit the raw server reply on stdout (scriptable)
+  -y, --yes    skip the confirmation prompt and cancel (for scripts/CI)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete workflows cancel===
+:0
+===CMD workflows get===
+Show one generation workflow: its status, its steps, and its outputs.
+
+Use it to re-attach to a job you did not wait for — after `--no-wait`, after a
+--timeout expiry, or after Ctrl-C. The workflow id is printed by
+`civitai generate` in all three cases.
+
+OUTPUT URLS ARE PRESIGNED AND EXPIRE. The links this prints are short-lived;
+fetch them promptly or re-run this command for fresh ones.
+
+Outputs that are blocked by moderation, not available, or hidden are listed with
+the reason rather than omitted — a finished workflow can legitimately contain
+fewer usable results than it was charged for, and silently dropping them would
+make that invisible.
+
+Reading a workflow SPENDS NOTHING. It needs the same AI Services scopes that
+`civitai generate` needs: `civitai login --scopes generate` (a browser login that opts into generation), or a full-scope personal API key (`civitai login --token <key>`, created at https://civitai.com/user/account).
+
+Usage:
+  civitai workflows get <workflow-id> [flags]
+
+Examples:
+  civitai workflows get 01JABCXYZ
+  civitai workflows get 01JABCXYZ --json
+
+Flags:
+  -h, --help   help for get
+      --json   emit the raw server payload on stdout (scriptable)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete workflows get===
+:0
+===CMD workflows list===
+List your own generation workflows, newest first.
+
+This is the feed behind the website's generator queue: one entry per submitted
+job, with its status, when it was created, what it cost and how many outputs it
+produced.
+
+PAGING is by cursor, not page number. --limit sets the page size; when more
+results exist the command prints the next cursor, which you pass back as
+--cursor to fetch the following page. Deep pages are not cached server-side, so
+walk them at a civil pace.
+
+Each row reports outputs as "<deliverable>/<total>". They differ when an output
+was blocked by moderation, never landed, or was hidden on the website — a
+workflow you were charged for can legitimately have fewer usable results than it
+produced, and collapsing the two numbers would hide that. Use
+`civitai workflows get <id>` for the per-output reasons and the URLs.
+
+Reading SPENDS NOTHING. It needs the same AI Services scopes that
+`civitai generate` needs: `civitai login --scopes generate` (a browser login that opts into generation), or a full-scope personal API key (`civitai login --token <key>`, created at https://civitai.com/user/account).
+
+Usage:
+  civitai workflows list [flags]
+
+Examples:
+  civitai workflows list
+  civitai workflows list --limit 5
+  civitai workflows list --limit 50 --cursor <next-cursor>
+  civitai workflows list --json
+
+Flags:
+      --cursor string     opaque cursor from a previous page's next-cursor line
+  -h, --help              help for list
+      --json              emit the raw server payload on stdout (scriptable)
+      --limit int         how many workflows to fetch in this page (server default when unset)
+      --tag stringArray   only list workflows carrying this orchestrator tag. Repeatable
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete workflows list===
+:0

@@ -36,7 +36,7 @@ export function cliAnchorId(command) {
   return slug ? `cli-${slug}` : 'cli';
 }
 
-// The depth every top-level `civitai app <cmd>` renders at. The page places
+// The depth a TOP-LEVEL `civitai <cmd>` renders at. The page places
 // <CliReference /> under an `##` section, so its commands are that section's
 // children — and `.vitepress/config.mts` sets `outline: { level: [2, 3] }`,
 // which is what puts them in the page outline.
@@ -49,11 +49,24 @@ const MAX_LEVEL = 6;
  * 🔴 Was hardcoded `<h3>` for every entry. That rendered the six
  * `app listing <sub>` subcommands as SIBLINGS of the `app listing` group that
  * owns them — flat in the document outline and flat in the sidebar outline,
- * asserting a structure the CLI does not have. With `outline.level: [2, 3]`,
- * a subcommand at h4 nests visually under its group and drops out of the
- * outline, leaving the 13 top-level commands there as the navigable set.
+ * asserting a structure the CLI does not have.
  *
- * `app create` (2 tokens) -> 3; `app listing set-icon` (3 tokens) -> 4.
+ * 🔴 THE BASE MOVED WHEN THE REFERENCE WIDENED, AND LEAVING IT WOULD HAVE
+ * REINTRODUCED THAT EXACT DEFECT ONE LEVEL UP. The generator used to emit only
+ * `app …`, so depth was counted from TWO tokens and `app create` was the
+ * shallowest thing on the page. It now walks the whole binary, so `app` ITSELF
+ * is an entry — and under the old `tokens - 2` rule `app` (1 token, clamped to
+ * depth 0) and `app create` (2 tokens, depth 0) BOTH rendered h3: a group and
+ * its own subcommand as siblings, which is the defect above wearing a
+ * different hat. Depth is now counted from ONE token, the shallowest thing the
+ * generator actually emits.
+ *
+ * `app` / `login` (1 token) -> 3; `app create` (2) -> 4;
+ * `app listing set-icon` (3) -> 5.
+ *
+ * With `outline.level: [2, 3]` that leaves the top-level commands as the
+ * navigable outline set — 17 entries rather than all 52, which is the readable
+ * choice at this width.
  *
  * @param {string} command
  * @returns {number} 3..6
@@ -63,8 +76,10 @@ export function cliHeadingLevel(command) {
     .trim()
     .split(/\s+/)
     .filter(Boolean).length;
-  // `app <cmd>` is the shallowest thing the generator emits (2 tokens).
-  const depth = Math.max(0, tokens - 2);
+  // `<cmd>` is the shallowest thing the generator emits (1 token). Clamped at
+  // BOTH ends: an empty/absent command must never render ABOVE BASE_LEVEL, or
+  // it would collide with the page's own `##` sections.
+  const depth = Math.max(0, tokens - 1);
   return Math.min(MAX_LEVEL, BASE_LEVEL + depth);
 }
 

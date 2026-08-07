@@ -1,8 +1,21 @@
 ---
 title: CLI reference
-description: The civitai CLI's App-authoring commands and flags, generated from the canonical Go CLI (civitai/cli).
+description: The whole civitai CLI command tree — commands, flags, examples and the global flags — generated from the canonical Go CLI (civitai/cli).
 sources:
-  - go:github.com/civitai/cli#app
+  - go:github.com/civitai/cli
+# 🔴 PAGE-LOCAL OUTLINE DEPTH. The site default is `outline: { level: [2, 3] }`
+# (.vitepress/config.mts), which on this page means the right sidebar lists the
+# page sections plus the 17 top-level commands — and NOT `app submit`,
+# `app validate` and the other 11 `app <cmd>` entries, which were outlined
+# before the reference widened. That is a real navigation downgrade for this
+# page's primary audience: App authors reach `app submit` more often than
+# `civitai tags`. Widening to [2, 4] restores every entry that used to be there
+# and adds the rest, at the cost of a longer sidebar (measured: 23 entries at
+# [2,3] vs 52 at [2,4]). A command reference is precisely the page where the
+# outline IS the index, so the longer sidebar is the right trade. h5 —
+# `app listing <sub>` — stays out deliberately, so the outline reads as
+# "groups and their commands" rather than every media leaf.
+outline: [2, 4]
 ---
 
 # CLI
@@ -91,8 +104,19 @@ civitai app status               # track review / deploy state
 published immediately. On approval the platform builds + deploys it and serves it
 at `https://<blockId>.civit.ai/`.
 
-The commands and flags below are generated from the `civitai app --help` command
-tree.
+## Command reference
+
+Every command below is generated from the binary's own help output — the whole
+`civitai` command tree, not just `app`. Alongside App authoring it covers
+catalog browsing and downloads (`models`, `images`, `articles`, `collections`,
+`creators`, `tags`, `users`, `model-versions`, `download`), image generation
+(`generate`, `workflows` — these **spend Buzz**), and account commands
+(`login`, `whoami`, `buzz`, `upgrade`, `version`).
+
+`civitai app` and its subcommands come first; the rest follow alphabetically.
+Two `app` commands are badged **invite-only** — they are gated during the pre-GA
+beta. The `completion` command (shell-completion scripts) is deliberately not
+documented here; run `civitai completion --help` for it.
 
 <CliReference />
 
