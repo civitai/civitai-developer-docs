@@ -55,6 +55,7 @@ import {
   cliAnchorId,
   cliHeadingLevel,
   cliHeadingTag,
+  cliLongBody,
 } from '../.vitepress/theme/components/cliReference.shared.mjs';
 
 let failures = 0;
@@ -864,6 +865,239 @@ check('the rendered one-line `description` stays a one-liner with no example tex
       );
     }
   }
+});
+
+// ---------------------------------------------------------------------------
+// `Long` DESCRIPTION
+//
+// WHY THIS EXISTS: `parseLongDescription` has returned the WHOLE cobra `Long`
+// body since the generator was written, and buildCommand consumed it as
+//
+//     description: short || parseLongDescription(help).split('\n')[0] || ''
+//
+// — a FALLBACK, and even then only its FIRST LINE. Every subcommand has a
+// `short` from its parent's "Available Commands:" block, so `short` always won:
+// measured, the published reference showed the first line of the Long for ZERO
+// of the 52 commands, and 40,678 characters of documentation that already
+// existed in the binary were parsed and dropped on every build.
+//
+// The failure mode this section guards is the same reassuring zero the EXAMPLES
+// floor guards, plus a second one the examples never had: a field that IS
+// emitted but carries only the first line, or carries the `description` back
+// again, looks correct in every "is it non-empty?" assertion. Hence a floor, an
+// INDEPENDENT recount, and a SPECIFIC sentence from a SPECIFIC command's third
+// line — not merely "the field is truthy".
+// ---------------------------------------------------------------------------
+
+// MEASURED on appblocks-snapshots/civitai-cli-help.txt @ civitai v0.1.90-13-g569f5dc:
+// all 52 emitted commands carry a non-empty Long, 40,678 characters in total,
+// 43 of them spanning more than one line. FLOORS, not equalities.
+const LONG_COMMAND_FLOOR = 52;
+const LONG_CHAR_FLOOR = 40678;
+const LONG_MULTILINE_FLOOR = 43;
+
+const commandsWithLong = artifact.commands.filter((c) => c.longDescription);
+const longCharTotal = commandsWithLong.reduce((n, c) => n + c.longDescription.length, 0);
+
+console.log('LONG DESCRIPTION — the whole cobra `Long` body reaches the artifact');
+
+check(`at least ${LONG_COMMAND_FLOOR} commands carry a longDescription (an empty-body artifact FAILS)`, () => {
+  assert(
+    commandsWithLong.length >= LONG_COMMAND_FLOOR,
+    `only ${commandsWithLong.length}/${artifact.commands.length} commands carry a longDescription ` +
+      `(floor ${LONG_COMMAND_FLOOR}) — the Long body is being dropped again`,
+  );
+  assert(
+    longCharTotal >= LONG_CHAR_FLOOR,
+    `only ${longCharTotal} longDescription characters total (floor ${LONG_CHAR_FLOOR}) — the bodies are ` +
+      `being TRUNCATED even though the commands were counted (the pre-fix shape kept only the first line)`,
+  );
+  // Stated separately, because first-line-only truncation passes both counts
+  // above on a corpus of one-line bodies and is the exact shape the old code had.
+  const multiline = commandsWithLong.filter((c) => c.longDescription.includes('\n'));
+  assert(
+    multiline.length >= LONG_MULTILINE_FLOOR,
+    `only ${multiline.length} longDescriptions span more than one line (floor ${LONG_MULTILINE_FLOOR}) — ` +
+      `the field is carrying the FIRST LINE only, which is what the defect did`,
+  );
+});
+
+check('the field is ALWAYS PRESENT, on every command, even where it would be empty', () => {
+  // The artifact's stated convention (same as `examples`): a consumer must never
+  // have to distinguish "this command has no Long" from "this artifact predates
+  // the field". Every command in today's snapshot HAS one, so the empty case is
+  // unreachable from this corpus — which is exactly why presence is asserted
+  // structurally with `in` rather than inferred from the values.
+  for (const c of artifact.commands) {
+    assert(
+      Object.hasOwn(c, 'longDescription'),
+      `${c.command}: no \`longDescription\` key at all — the field must be present even when empty`,
+    );
+    assertEqual(typeof c.longDescription, 'string', `${c.command}: longDescription is not a string`);
+  }
+  // And a SYNTHETIC control for the empty case the corpus cannot reach, so the
+  // "possibly empty" half of the contract is not merely documentation. A help
+  // block whose body begins at `Usage:` has no Long at all.
+  const noLong = ['Usage:', '  civitai nolong [flags]', '', 'Flags:', '      --x   thing'].join('\n');
+  assertEqual(parseLongDescription(noLong), '', 'a help block with no Long body must parse to the empty string');
+});
+
+check('CONTENT — `app validate` carries a sentence from the MIDDLE of its Long, verbatim', () => {
+  // A count cannot tell "the whole body" from "the first line 52 times". This
+  // asserts a specific sentence that is on the THIRD line of `app validate`'s
+  // Long — unreachable by the pre-fix `.split('\n')[0]` — transcribed from the
+  // snapshot bytes rather than copied out of the generator's own output.
+  const v = artifact.commands.find((c) => c.command === 'app validate');
+  assert(v, 'no `app validate` command in the artifact');
+  const want = "This is a best-effort LOCAL pre-check that mirrors the platform's approve-time";
+  assert(
+    v.longDescription.includes(want),
+    `\`app validate\`'s longDescription does not contain ${JSON.stringify(want)} — got ` +
+      `${JSON.stringify(v.longDescription.slice(0, 200))}`,
+  );
+  assertEqual(v.longDescription.split('\n')[2], want, 'the sentence is not on the line the snapshot puts it on');
+  // Deeper still: a bullet from the ported-rules list, ~20 lines in, with its
+  // leading indentation intact. This is the structure that a reflow or a
+  // paragraph-collapse would destroy.
+  assert(
+    v.longDescription.includes('\n  - targets[].slotId must be a known registered slot'),
+    '`app validate` lost the indented bullet list from the middle of its Long',
+  );
+  // The 🔴 money warning in `generate`'s Long is the single highest-stakes
+  // sentence this change publishes, and it lives in paragraph 2 — invisible to
+  // the old first-line fallback.
+  const g = artifact.commands.find((c) => c.command === 'generate');
+  assert(g, 'no `generate` command in the artifact');
+  assert(
+    g.longDescription.includes('THIS SPENDS REAL BUZZ AND CANNOT BE UNDONE'),
+    "`generate`'s longDescription lost the irreversible-spend warning from its second paragraph",
+  );
+});
+
+check('`description` is UNCHANGED — still the parent\'s one-liner, NOT the Long\'s first line', () => {
+  // The wire-compat half. `description` and `longDescription` are independent
+  // fields and neither may start being derived from the other: measured, they
+  // DISAGREE on 44 of the 52 commands, so a build that quietly swapped one for
+  // the other would still look populated everywhere.
+  const v = artifact.commands.find((c) => c.command === 'app validate');
+  assert(v, 'no `app validate` command in the artifact');
+  assertEqual(
+    v.description,
+    'Validate block.manifest.json against the App schema',
+    '`app validate`.description is no longer the SHORT from `civitai app --help`',
+  );
+  assertEqual(
+    v.longDescription.split('\n')[0],
+    'Validate an App project.',
+    "`app validate`'s Long does not open the way the snapshot does — fixture drift",
+  );
+  const g = artifact.commands.find((c) => c.command === 'generate');
+  assertEqual(
+    g.description,
+    'Generate images from a text prompt (SPENDS BUZZ)',
+    '`generate`.description is no longer the SHORT from `civitai --help`',
+  );
+  // The relation, over the whole corpus rather than two rows: the two fields are
+  // independently sourced, so they must still disagree on most commands. A
+  // generator that set `description = longDescription.split('\n')[0]` drives
+  // this to 0 while every floor above stays green.
+  const differ = artifact.commands.filter(
+    (c) => c.description.trim() !== c.longDescription.split('\n')[0].trim(),
+  );
+  assert(
+    differ.length >= 44,
+    `only ${differ.length} commands have a description that differs from their Long's first line ` +
+      `(floor 44) — \`description\` is being derived from \`longDescription\``,
+  );
+  // And every description is STILL a one-liner, which is what a naive
+  // `description: parseLongDescription(help)` would break.
+  for (const c of artifact.commands) {
+    assert(!c.description.includes('\n'), `${c.command}: description became multi-line`);
+  }
+});
+
+check('POSITIVE CONTROL — the artifact count matches an INDEPENDENT recount of the snapshot', () => {
+  // Counted straight off the raw bundle with string ops, NOT through
+  // section()/parseLongDescription() — so if that parser regresses this number
+  // stays put and the comparison fires. A block's Long is whatever precedes its
+  // `Usage:` line. The ROOT block has one too but is not emitted as a command.
+  const rawWithLong = Object.entries(splitBlocks(bundle))
+    .filter(([label]) => label !== ROOT_LABEL && !label.startsWith('complete '))
+    .filter(([, help]) => {
+      const lines = help.split('\n');
+      const at = lines.findIndex((l) => l.trimStart().startsWith('Usage:'));
+      return (at === -1 ? lines : lines.slice(0, at)).join('\n').trim().length > 0;
+    })
+    .map(([label]) => label)
+    .sort();
+  assert(rawWithLong.length > 0, 'the raw snapshot has NO command with a Long body — fixture is broken');
+  assertEqual(
+    commandsWithLong.map((c) => c.command).sort().join(','),
+    rawWithLong.join(','),
+    'the set of commands the artifact gave a longDescription to differs from the set the snapshot has one for',
+  );
+});
+
+console.log('RENDERER — the longDescription body both channels show (`cliLongBody`)');
+
+check('cliLongBody SUPPRESSES only the bodies that duplicate the one-line description', () => {
+  // The presentation rule shared by <CliReference> and the .md fallback region.
+  // Both directions matter: suppressing too much silently un-publishes the
+  // documentation this whole change exists to ship, and suppressing nothing
+  // prints the same sentence twice on the short leaves.
+  const shown = artifact.commands.filter((c) => cliLongBody(c));
+  const hidden = artifact.commands.filter((c) => !cliLongBody(c));
+  assert(
+    shown.length >= 44,
+    `only ${shown.length}/${artifact.commands.length} commands would RENDER a long body (floor 44) — ` +
+      `the redundancy rule is eating real documentation`,
+  );
+  // MEASURED: exactly these 8 have a Long that flattens to their own Short.
+  assertEqual(
+    hidden.map((c) => c.command).sort().join(','),
+    [
+      'app listing add-screenshot',
+      'app listing set-cover',
+      'app listing set-icon',
+      'collections get',
+      'creators search',
+      'model-versions get',
+      'models get',
+      'tags search',
+    ].join(','),
+    'the set of commands whose long body is suppressed as redundant has changed',
+  );
+  // What it returns for a shown command is the body VERBATIM — not a summary,
+  // not a first line.
+  const v = artifact.commands.find((c) => c.command === 'app validate');
+  assertEqual(cliLongBody(v), v.longDescription, 'cliLongBody altered the body it decided to show');
+});
+
+check('cliLongBody: synthetic controls for each branch, independent of the corpus', () => {
+  // The corpus reaches the redundant and the non-redundant branch, but not the
+  // absent/whitespace ones, and not the "re-wrapped at a different column" case
+  // the flattening exists for.
+  assertEqual(cliLongBody({ description: 'a', longDescription: '' }), '', 'an empty body must not render');
+  assertEqual(cliLongBody({ description: 'a' }), '', 'an absent body must not render');
+  assertEqual(cliLongBody({ description: 'a', longDescription: '  \n \n' }), '', 'a blank body must not render');
+  assertEqual(
+    cliLongBody({ description: 'Do the thing', longDescription: 'Do the\nthing' }),
+    '',
+    'a body that only re-wraps the summary must be suppressed',
+  );
+  assertEqual(
+    cliLongBody({ description: 'Do the thing [coming soon]', longDescription: 'Do the thing' }),
+    '',
+    'the [coming soon] marker both renderers strip must not defeat the comparison',
+  );
+  // 🔴 EQUALITY, NOT A PREFIX TEST. A Long that opens with the summary and then
+  // says more is precisely the content this field exists to publish — 3 commands
+  // in today's snapshot are that shape, and a `startsWith` rule would hide them.
+  assertEqual(
+    cliLongBody({ description: 'Do the thing', longDescription: 'Do the thing.\n\nAnd here is how.' }),
+    'Do the thing.\n\nAnd here is how.',
+    'a body that EXTENDS the summary must still render',
+  );
 });
 
 // ---------------------------------------------------------------------------
