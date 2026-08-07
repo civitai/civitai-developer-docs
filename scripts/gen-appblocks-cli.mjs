@@ -779,6 +779,34 @@ function buildCommand(blocks, path, parentShort) {
     command,
     args: parseArgs(help, command),
     description: short || parseLongDescription(help).split('\n')[0] || '',
+    // 🔴 THE WHOLE `Long` BODY, AND IT IS A SEPARATE FIELD ON PURPOSE.
+    // `parseLongDescription` has always returned everything before `Usage:`, but
+    // it was only ever reached as a FALLBACK for `description` — and then only
+    // its FIRST LINE. A subcommand always has a `short` from its parent's
+    // "Available Commands:" block, so `short` always won and the rest of the
+    // body was parsed and thrown away on every command. Measured on
+    // appblocks-snapshots/civitai-cli-help.txt @ civitai v0.1.90-25-g9cfe468 —
+    // the version in the snapshot's OWN header (line 3), which is the only
+    // authority for it; several older comments in this file still name
+    // v0.1.90-13-g569f5dc from an earlier capture and are stale.
+    // 52 of 52 commands carry a non-empty Long, 40,678 characters in total, of
+    // which the published reference showed the first line of NONE (every one of
+    // the 52 had a `short`). The largest are `generate` (5,731), `download`
+    // (3,742) and `app dev-token` (3,245) — and `generate`'s body is where the
+    // "THIS SPENDS REAL BUZZ AND CANNOT BE UNDONE" warning lives, so this is not
+    // merely more prose.
+    //
+    // `description` is DELIBERATELY UNCHANGED. It is the one-line summary every
+    // consumer already reads, and it is NOT the Long's first line — measured, it
+    // differs from it on 44 of 52 commands (`app validate` summarises as
+    // "Validate block.manifest.json against the App schema" while its Long opens
+    // "Validate an App project."). Deriving one from the other would be a
+    // breaking wire change in both directions.
+    //
+    // Always present (possibly empty), for the same reason as `examples` below.
+    // Every command in today's snapshot has one, so the empty case is a contract
+    // a consumer can rely on rather than a state we ship.
+    longDescription: parseLongDescription(help),
     options: parseFlags(help),
     // Always present (possibly empty) so a consumer never has to distinguish
     // "no examples" from "an artifact generated before this field existed".
@@ -865,9 +893,16 @@ function main() {
   // scripts/test-appblocks-cli.mjs (PR-blocking via .github/workflows/appblocks-cli.yml).
   const withExamples = commands.filter((c) => c.examples.length);
   const exampleLines = withExamples.reduce((n, c) => n + c.examples.length, 0);
+  // Same reasoning for the Long bodies: a parser that silently stopped
+  // extracting them emits `longDescription: ''` everywhere and looks exactly
+  // like a CLI whose commands have no Long. The FLOOR that turns this into a
+  // gate lives in scripts/test-appblocks-cli.mjs alongside the examples one.
+  const withLong = commands.filter((c) => c.longDescription);
+  const longChars = withLong.reduce((n, c) => n + c.longDescription.length, 0);
   const groups = commands.filter((c) => c.command.includes(' ')).length;
   log(`cli: wrote ${commands.length} commands (${groups} nested, ${gated.length} gated: ${gated.join(', ')}) -> ${dest}`);
   log(`  examples: ${withExamples.length}/${commands.length} commands, ${exampleLines} lines`);
+  log(`  long descriptions: ${withLong.length}/${commands.length} commands, ${longChars} chars`);
   log(`  from ${source}`);
 }
 

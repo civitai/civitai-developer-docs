@@ -61,6 +61,11 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { outDir, repoRoot } from './appblocks-util.mjs';
+// The ONE redundancy rule `<CliReference>` uses to decide whether a command's
+// `longDescription` adds anything over its one-line `description`. Imported
+// rather than reimplemented for the reason this whole module exists: the .md
+// channel and the island must not be able to disagree about what they show.
+import { cliLongBody } from '../.vitepress/theme/components/cliReference.shared.mjs';
 
 export const REFRESH_CMD = 'npm run gen:appblocks:md';
 
@@ -487,10 +492,21 @@ function renderCli() {
   for (const c of commands) {
     const badge = cliBadge(c.status);
     const sig = `${bin} ${c.command}${c.args ? ` ${c.args}` : ''}`;
+    // The cobra `Long` body goes in a FENCE, not through `para()`. `para()`
+    // collapses newlines on purpose — which is right for a one-line summary and
+    // wrong here: 9 of the 52 bodies carry 2/4/6/14-space indentation holding
+    // real list structure, and collapsing it would run those lists into one
+    // sentence in the only copy of this content the LLM channel ever sees. A
+    // fence also stops the prose's own `*`, `#`, `-` and backticks re-parsing as
+    // markup, and `fence()` already grows past any backtick run in the body.
+    // `text`, not `bash`: it is prose, and this region already fences the actual
+    // shell transcript below as `bash`.
+    const long = cliLongBody(c);
     parts.push(
       blocks(
         `**${code(sig)}**${badge ? ` — ${badge}` : ''}`,
         para(c.description.replace(/\s*\[coming soon\]\s*$/i, '')),
+        long ? fence('text', long) : '',
         c.examples?.length ? fence('bash', c.examples.join('\n')) : '',
         c.options?.length ? optionRows(c.options) : '',
       ),
