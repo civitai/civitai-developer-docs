@@ -97,24 +97,33 @@ Layer LoRAs on top of the checkpoint with `additionalResources` — up to **5**
 entries, each `{ modelVersionId, strength? }` with `strength` in **[-1, 2]**
 (default `1`):
 
-```tsx
-import { useBuzzWorkflow, useResourcePicker, useBlockContext } from '@civitai/blocks-react';
-import type { WorkflowBodyTextToImage, ModelSlotContext } from '@civitai/app-sdk/blocks';
+Because `additionalResources` is page-only (see the warning below), this is a
+**page app**: the checkpoint comes from a resource picker, not from a slot
+context.
 
-export function GenerateWithLora() {
+```tsx
+import { useBuzzWorkflow, useResourcePicker } from '@civitai/blocks-react';
+import type { WorkflowBodyTextToImage } from '@civitai/app-sdk/blocks';
+
+// PAGE APP: modelId/modelVersionId come from a resource picker, not a slot
+// context. A page context carries no model fields — see the warning below.
+export function GenerateWithLora({ modelId, modelVersionId, baseModel }: {
+  modelId: number;
+  modelVersionId: number;
+  baseModel: string;
+}) {
   const { submit } = useBuzzWorkflow();
   const { open } = useResourcePicker();
-  const ctx = useBlockContext().context as ModelSlotContext;
 
   const run = async () => {
     // Constrain the LoRA pick to the checkpoint's base-model family.
-    const lora = await open({ resourceType: 'LORA', baseModelGroup: 'SDXL' });
+    const lora = await open({ resourceType: 'LORA', baseModelGroup: baseModel });
     if (!lora) return;
 
     const body: WorkflowBodyTextToImage = {
       kind: 'textToImage',
-      modelId: ctx.modelId,
-      modelVersionId: ctx.modelVersionId,
+      modelId,
+      modelVersionId,
       additionalResources: [{ modelVersionId: lora.versionId, strength: 0.8 }],
       params: { prompt: 'a serene alpine lake at golden hour, watercolor' },
     };
