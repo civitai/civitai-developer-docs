@@ -20,8 +20,10 @@
 // failure entirely and introduces a new one — a walk can LOSE a node — so the
 // same two guards were widened rather than retired, and this file grew the
 // sections that pin the walk itself.
-import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   DISPLAY_ORDER,
   IGNORED_SUBCOMMANDS,
@@ -35,9 +37,12 @@ import {
   cocheckedNodes,
   completionLabel,
   enumerationDisagreements,
+  liveVsSnapshotDrift,
+  nodeSetOf,
   orderChildren,
   parseCompletionNames,
   parseExamples,
+  parseFlags,
   parseLongDescription,
   parseShortDescriptions,
   repairPflagSentinel,
@@ -45,6 +50,7 @@ import {
   unlistedSubcommands,
   walkCommandPaths,
 } from './gen-appblocks-cli.mjs';
+import { repoRoot } from './appblocks-util.mjs';
 import {
   cliAnchorId,
   cliHeadingLevel,
@@ -863,6 +869,336 @@ check('GATED is keyed on the FULL path, so a shared leaf name cannot be mis-badg
     if (c.status !== 'gated') continue;
     assert(c.command.includes(' '), `a top-level command is gated: ${c.command}`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// 🔴 SOURCE RESOLUTION — a live binary must never silently outvote the snapshot
+//
+// Walking the tree deleted the curated lists AND, with them, the only thing that
+// noticed a stale binary: buildCommand used to throw when a LISTED command had
+// no help block. Measured on this machine with `civitai v0.1.89-20-g4018e2c` on
+// PATH, `node scripts/gen-appblocks-cli.mjs` wrote 47 commands instead of 52 and
+// exited 0, dropping `generate` and the whole `workflows` subtree.
+// ---------------------------------------------------------------------------
+
+console.log('SOURCE RESOLUTION — a live binary that disagrees with the snapshot is REFUSED');
+
+check('liveVsSnapshotDrift NAMES what an older binary would drop', () => {
+  // The exact reproduction, synthesised from the real snapshot: a binary that
+  // predates `generate`/`workflows` yields a bundle without those blocks.
+  const drop = new Set(['generate', 'workflows', 'workflows cancel', 'workflows get', 'workflows list']);
+  const older = Object.entries(blocks)
+    .filter(([label]) => !drop.has(label.replace(/^complete /, '')))
+    .map(([label, text]) => {
+      if (label !== ROOT_LABEL && label !== `complete ${ROOT_LABEL}`) return `===CMD ${label}===\n${text}`;
+      // Strip the dropped commands from the root's two enumerations as well.
+      const stripped = text
+        .split('\n')
+        .filter((l) => !/^ {2}(generate|workflows) /.test(l) && !/^(generate|workflows)\t/.test(l))
+        .join('\n');
+      return `===CMD ${label}===\n${stripped}`;
+    })
+    .join('');
+  const drift = liveVsSnapshotDrift(older, bundle);
+  assert(drift, 'drift was reported as incomparable on two walkable bundles');
+  assertEqual(drift.added.length, 0, 'an older binary should ADD nothing');
+  assertEqual(
+    drift.removed.join(','),
+    'generate,workflows,workflows cancel,workflows get,workflows list',
+    'the guard did not name exactly the commands an older binary drops',
+  );
+});
+
+check('drift is symmetric — a NEWER binary is caught too', () => {
+  // The other direction matters just as much: it produces a local artifact CI
+  // cannot reproduce, which is how a snapshot silently falls behind.
+  const newer = Object.entries(blocks)
+    .map(([label, text]) => {
+      if (label === ROOT_LABEL) return `===CMD ${label}===\n${text.replace(/^ {2}buzz /m, '  brand-new     Something new\n  buzz ')}`;
+      if (label === `complete ${ROOT_LABEL}`) return `===CMD ${label}===\n${text.replace(/^buzz\t/m, 'brand-new\tSomething new\nbuzz\t')}`;
+      return `===CMD ${label}===\n${text}`;
+    })
+    .join('') + `===CMD brand-new===\nSomething new\n\nUsage:\n  civitai brand-new [flags]\n===CMD complete brand-new===\n:0\n`;
+  const drift = liveVsSnapshotDrift(newer, bundle);
+  assert(drift, 'drift was reported as incomparable');
+  assertEqual(drift.added.join(','), 'brand-new', 'a newly-gained command was not reported as added');
+  assertEqual(drift.removed.length, 0, 'nothing should be reported as removed');
+});
+
+check('identical bundles report NO drift (the guard cannot be permanently red)', () => {
+  const drift = liveVsSnapshotDrift(bundle, bundle);
+  assert(drift, 'identical bundles were reported as incomparable');
+  assertEqual(drift.added.length + drift.removed.length, 0, 'a bundle drifted against ITSELF');
+});
+
+check('an UNWALKABLE bundle is "cannot compare", never "no drift"', () => {
+  // The reassuring-zero shape: if a malformed capture silently compared equal,
+  // the guard would wave through exactly the broken artifact it exists to stop.
+  assertEqual(nodeSetOf('not a bundle at all'), null, 'a malformed bundle should not walk');
+  assertEqual(liveVsSnapshotDrift('garbage', bundle), null, 'an unwalkable live bundle must be incomparable');
+  assertEqual(liveVsSnapshotDrift(bundle, 'garbage'), null, 'an unwalkable snapshot must be incomparable');
+  // …and the real snapshot IS walkable, so the checks above are not vacuous.
+  assert((nodeSetOf(bundle) ?? []).length >= COMMAND_COUNT_FLOOR, 'the committed snapshot did not walk');
+});
+
+// 🔴 THE POLICY ITSELF, END-TO-END, WITH A FAKE BINARY.
+//
+// Everything above drives the pure helper. That is not enough, and mutation
+// proved it: flipping `resolveBundle` back to "prefer live" left this whole
+// suite GREEN, because no test ever reached resolveBundle — the same
+// correct-but-unwired shape that `BOTH guards are WIRED INTO buildArtifact`
+// exists for. So this spawns the real generator against a STUB `civitai` that
+// reports a deliberately tiny tree, and asserts the POLICY:
+//   - by default the snapshot wins even though a binary is right there;
+//   - opting in with CIVITAI_CLI_LIVE=1 refuses, naming what it would drop.
+// Hermetic — the stub is a node script, so this arm runs in CI too.
+const stubDir = mkdtempSync(join(tmpdir(), 'civitai-stub-'));
+const STUB = join(stubDir, 'civitai-stub.mjs');
+writeFileSync(
+  STUB,
+  [
+    '#!/usr/bin/env node',
+    'const a = process.argv.slice(2);',
+    "if (a[0] === '--version') { console.log('civitai v0.0.0-stub'); process.exit(0); }",
+    "if (a[0] === '__complete') {",
+    "  const path = a.slice(1, -1);",
+    "  if (path.length === 0) { console.log('app\\tBrowse, author, and ship Civitai Apps'); }",
+    "  console.log(path.length === 0 ? ':4' : ':0');",
+    '  process.exit(0);',
+    '}',
+    "const path = a.filter((x) => x !== '--help');",
+    "if (path.length === 0) {",
+    "  console.log('A stub CLI.\\n\\nUsage:\\n  civitai [flags]\\n\\nAvailable Commands:\\n  app   Browse, author, and ship Civitai Apps\\n\\nFlags:\\n      --color   colour\\n');",
+    '} else {',
+    "  console.log('Stub app group.\\n\\nUsage:\\n  civitai app [flags]\\n');",
+    '}',
+  ].join('\n'),
+);
+chmodSync(STUB, 0o755);
+
+function runGenerator(env) {
+  const r = spawnSync(process.execPath, [join(repoRoot, 'scripts', 'gen-appblocks-cli.mjs')], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    env: { ...process.env, CIVITAI_CLI_BIN: STUB, APPBLOCKS_SNAPSHOT_ONLY: '', CIVITAI_CLI_LIVE: '', ...env },
+  });
+  return { status: r.status, out: `${r.stdout}${r.stderr}` };
+}
+
+check('END-TO-END — a resolvable binary does NOT outvote the committed snapshot', () => {
+  // The stub advertises ONE command. If the generator preferred it, the
+  // artifact would be that tree instead of the snapshot's 52.
+  const probe = runGenerator({});
+  assert(
+    /from snapshot:/.test(probe.out),
+    `the generator read a live binary by default — a stale \`civitai\` on PATH now decides what ships: ${probe.out.slice(0, 400)}`,
+  );
+  assertEqual(probe.status, 0, `the default generator run failed: ${probe.out.slice(0, 400)}`);
+  const m = probe.out.match(/wrote (\d+) commands/);
+  assert(m && Number(m[1]) >= COMMAND_COUNT_FLOOR, `default run wrote ${m?.[1]} commands, not the snapshot's full tree`);
+});
+
+check('END-TO-END — opting in to a DIVERGENT binary is refused, and the message names the loss', () => {
+  const probe = runGenerator({ CIVITAI_CLI_LIVE: '1' });
+  assert(probe.status !== 0, `a divergent live binary was accepted (exit ${probe.status}): ${probe.out.slice(0, 400)}`);
+  assert(/DIFFERENT command trees/.test(probe.out), `the refusal is not the drift guard: ${probe.out.slice(0, 500)}`);
+  for (const named of ['generate', 'workflows cancel']) {
+    assert(probe.out.includes(named), `the refusal does not name \`${named}\` among the dropped commands`);
+  }
+  assert(/OLDER than the snapshot/.test(probe.out), 'the refusal does not say which side is behind');
+});
+
+check('END-TO-END — `--write-snapshot` under APPBLOCKS_SNAPSHOT_ONLY refuses instead of no-oping', () => {
+  const r = spawnSync(process.execPath, [join(repoRoot, 'scripts', 'gen-appblocks-cli.mjs'), '--write-snapshot'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    env: { ...process.env, CIVITAI_CLI_BIN: STUB, APPBLOCKS_SNAPSHOT_ONLY: '1' },
+  });
+  const out = `${r.stdout}${r.stderr}`;
+  assert(r.status !== 0, `a refresh that cannot refresh exited 0 — the silent no-op is back: ${out.slice(0, 300)}`);
+  assert(/--write-snapshot needs a live/.test(out), `the refusal is not the expected one: ${out.slice(0, 300)}`);
+});
+
+// ---------------------------------------------------------------------------
+// 🔴 DEFAULT EXTRACTION — a machine annotation vs prose that merely says "default"
+//
+// Cobra machine-emits `(default …)` for a non-empty Go default and ALWAYS quotes
+// string defaults, leaving numbers/durations/bools bare. Several flags ALSO end
+// their authored usage string with a parenthesised "(default …)" that is prose.
+// The discriminating regex carried a nine-line justification and NO test:
+// loosening it to `/\s*\(default\s+(.*?)\)\s*$/` left the entire suite green
+// while changing six published defaults — including `download --root`, which
+// rendered `default = '."; only applies with --layout'`.
+// ---------------------------------------------------------------------------
+
+console.log('DEFAULTS — authored prose is not a cobra default annotation');
+
+check('PROSE `(default …)` stays in the description and yields no default', () => {
+  const prose = [
+    ['app create', '--dir', '(default ./<slug>)'],
+    ['app create', '--name', '(default derived from the name argument)'],
+    ['app init', '--dir', '(default ./<slug>)'],
+    ['app init', '--name', '(default derived from the name argument)'],
+    ['app dev-tunnel', '--tunnel-endpoint', '(default sish.civitai.com:2224, or $CIVITAI_DEV_TUNNEL_ENDPOINT)'],
+    ['download', '--root', '(default "."; only applies with --layout)'],
+  ];
+  for (const [command, flag, tail] of prose) {
+    const cmd = artifact.commands.find((c) => c.command === command);
+    assert(cmd, `no \`${command}\` in the artifact`);
+    const opt = cmd.options.find((o) => o.flags === flag || o.flags.startsWith(`${flag} `));
+    assert(opt, `\`${command}\` has no ${flag}`);
+    assertEqual(opt.default, null, `${command} ${flag}: authored prose was swallowed into \`default\``);
+    assert(
+      opt.description.endsWith(tail),
+      `${command} ${flag}: the prose was mangled or moved — got ${JSON.stringify(opt.description.slice(-80))}`,
+    );
+  }
+});
+
+check('GENUINE cobra annotations ARE extracted (the guard is not "never extract")', () => {
+  // Positive control. Without it, `default: null` everywhere would pass above.
+  const machine = [
+    ['app create', '-t, --template string', 'page-money'],
+    ['app init', '-t, --template string', 'static'],
+    ['app listing set-icon', '--dir string', '.'],
+  ];
+  for (const [command, flags, want] of machine) {
+    const opt = artifact.commands.find((c) => c.command === command)?.options.find((o) => o.flags === flags);
+    assert(opt, `\`${command}\` has no ${flags}`);
+    assertEqual(opt.default, want, `${command} ${flags}: cobra's own default was not extracted`);
+    assert(!opt.description.includes('(default'), `${command} ${flags}: the annotation was left in the description`);
+  }
+  const extracted = artifact.commands.reduce((n, c) => n + c.options.filter((o) => o.default !== null).length, 0);
+  assert(extracted >= 13, `only ${extracted} flags carry an extracted default — the extractor stopped working`);
+});
+
+check('SYNTHETIC control — every shape cobra emits, and every shape it does not', () => {
+  // Driven through parseFlags directly so the rule is pinned independently of
+  // whichever flags this particular binary happens to ship.
+  const rows = (...lines) => ['Flags:', ...lines].join('\n');
+  const one = (line) => parseFlags(rows(line))[0];
+  // Machine-emitted: quoted string, bare int, float, duration, bools, negative.
+  assertEqual(one('      --a string   x (default "page-money")').default, 'page-money', 'quoted string default');
+  assertEqual(one('      --b int      x (default 25)').default, '25', 'bare int default');
+  assertEqual(one('      --c float    x (default 1.5)').default, '1.5', 'float default');
+  assertEqual(one('      --d duration x (default 30m0s)').default, '30m0s', 'duration default');
+  assertEqual(one('      --e          x (default true)').default, 'true', 'true default');
+  assertEqual(one('      --f          x (default false)').default, 'false', 'false default');
+  assertEqual(one('      --g int      x (default -1)').default, '-1', 'negative default');
+  assertEqual(one('      --h string   x (default "")').default, '', 'empty-string default');
+  // Authored prose — none of these is a cobra annotation.
+  for (const tail of [
+    '(default ./<slug>)',
+    '(default derived from the name argument)',
+    '(default sish.civitai.com:2224, or $CIVITAI_DEV_TUNNEL_ENDPOINT)',
+    '(default "."; only applies with --layout)',
+    '(default the current directory)',
+  ]) {
+    const got = one(`      --p string   usage ${tail}`);
+    assertEqual(got.default, null, `prose ${JSON.stringify(tail)} was treated as a cobra default`);
+    assert(got.description.endsWith(tail), `prose ${JSON.stringify(tail)} was mangled`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GLOBAL FLAGS — the root's own flags, which no command entry can carry
+// ---------------------------------------------------------------------------
+
+console.log('GLOBAL FLAGS — documented once, from the root');
+
+check('the artifact carries the global flags', () => {
+  const g = artifact.program?.globalOptions;
+  assert(Array.isArray(g), 'program.globalOptions is missing — the page claims to document every flag');
+  const names = g.map((o) => o.flags);
+  for (const want of ['--color', '--no-color', '--no-update-check']) {
+    assert(names.includes(want), `global flag ${want} missing: ${JSON.stringify(names)}`);
+  }
+  assert(names.some((n) => n.includes('--version')), `--version missing: ${JSON.stringify(names)}`);
+  assert(!names.some((n) => /--help\b/.test(n)), '`--help` should be filtered out like everywhere else');
+  // They must NOT also be repeated on every command entry.
+  const onCommands = artifact.commands.filter((c) => c.options.some((o) => o.flags === '--no-color'));
+  assertEqual(onCommands.length, 0, 'a global flag leaked into per-command options');
+});
+
+check("REGRESSION — cobra's trailer never lands in a flag description", () => {
+  // 🔴 Found by RENDERING the new global-flags block, not by review. The root is
+  // the only node whose `Flags:` section is last in the body — every other node
+  // ends it at the `Global Flags:` heading — so its section ran to EOF and
+  // parseFlags joined cobra's trailer on as a wrapped continuation of `-v`.
+  const trailer = 'for more information about a command';
+  for (const o of artifact.program.globalOptions) {
+    assert(!o.description.includes(trailer), `global flag ${o.flags} swallowed cobra's trailer: ${JSON.stringify(o.description)}`);
+  }
+  for (const c of artifact.commands) {
+    for (const o of c.options) {
+      assert(!o.description.includes(trailer), `${c.command} ${o.flags} swallowed cobra's trailer`);
+    }
+  }
+  const version = artifact.program.globalOptions.find((o) => o.flags.includes('--version'));
+  assertEqual(version.description, 'version for civitai', 'the --version description is not the bare cobra usage string');
+  // POSITIVE CONTROL: the trailer really is present in the root block, so the
+  // assertions above are about a hazard that exists rather than one that cannot.
+  assert(rootHelp.includes(trailer), 'the root help no longer carries a trailer — re-measure this guard');
+});
+
+check('a section body ends at column 0, and blank lines do NOT end it', () => {
+  // The structural rule behind the fix. Blank lines are interior content —
+  // `app create`'s Examples block groups four scenarios with them — so a
+  // "stop at the first blank line" fix would have destroyed that instead.
+  const help = ['Flags:', '      --a   first', '      --b   second', '', 'Trailer at column zero.'].join('\n');
+  const flags = parseFlags(help);
+  assertEqual(flags.length, 2, 'wrong number of flags parsed');
+  assertEqual(flags[1].description, 'second', "the column-0 trailer was joined onto the last flag's description");
+  assert(
+    (artifact.commands.find((c) => c.command === 'app create')?.examples ?? []).length === 11,
+    'blank lines stopped being interior content — `app create` lost its scenario separators',
+  );
+});
+
+// ---------------------------------------------------------------------------
+// PAGE PROSE — hand-written curation is exactly what this PR exists to delete
+// ---------------------------------------------------------------------------
+
+console.log('PAGE PROSE — the hand-written command list on apps/reference/cli.md is GATED');
+
+check('the page names exactly the top-level commands the artifact carries', () => {
+  // 🔴 The `## Command reference` intro names all 17 top-level commands in
+  // prose. That is ungated curation — the same failure mode as the APP_COMMANDS
+  // list this PR deletes, reintroduced in English. Gate it, in BOTH directions,
+  // so a command the CLI gains or loses fails here instead of rotting silently.
+  const page = readFileSync(`${repoRoot}/apps/reference/cli.md`, 'utf8');
+  const start = page.indexOf('## Command reference');
+  const end = page.indexOf('<CliReference />', start);
+  assert(start !== -1 && end > start, 'could not locate the `## Command reference` intro — did the page restructure?');
+  const intro = page.slice(start, end);
+
+  // Single-word backticked tokens only, so `civitai app` / `civitai completion
+  // --help` (multi-word) are prose rather than a claimed command name. The
+  // program's own name is excluded: it is the binary, not a command, and no
+  // top-level command can be called `civitai` (it would be `civitai civitai`).
+  const named = new Set(
+    [...intro.matchAll(/`([^`]+)`/g)]
+      .map((m) => m[1])
+      .filter((t) => /^[a-z][a-z0-9-]*$/.test(t) && t !== (artifact.program?.name ?? 'civitai')),
+  );
+  const topLevel = artifact.commands.filter((c) => !c.command.includes(' ')).map((c) => c.command);
+  assert(topLevel.length >= TOP_LEVEL_FLOOR, 'no top-level commands to compare against');
+  // `completion` is named as the one deliberate exclusion, so it belongs in the
+  // prose while deliberately NOT being a command entry.
+  const expected = new Set([...topLevel, 'completion']);
+
+  const missing = [...expected].filter((c) => !named.has(c)).sort();
+  const stale = [...named].filter((c) => !expected.has(c)).sort();
+  assertEqual(
+    missing.join(','),
+    '',
+    'the page intro does not name every top-level command — the CLI gained one and the prose rotted',
+  );
+  assertEqual(
+    stale.join(','),
+    '',
+    'the page intro names something that is not a top-level command — the CLI removed one, or a typo',
+  );
 });
 
 // ---------------------------------------------------------------------------

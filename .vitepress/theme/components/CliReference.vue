@@ -17,13 +17,18 @@ interface CliCommand {
   status: string;
 }
 interface CliData {
-  program?: { name: string; description: string; version: string };
+  program?: { name: string; description: string; version: string; globalOptions?: CliOption[] };
   commands: CliCommand[];
 }
 
 const data = inject<CliData>('appblocks:cli', { commands: [] });
 const commands = data.commands ?? [];
 const bin = data.program?.name ?? 'civitai';
+// Cobra's `Global Flags:` — the ROOT command's own flags, accepted by every
+// command. Rendered ONCE here rather than repeated on all 52 entries, which is
+// why no per-command `options` table carries them. Optional, so an artifact
+// generated before this field existed still renders (the block just vanishes).
+const globalOptions = data.program?.globalOptions ?? [];
 
 // A short, human badge for any non-stable command status.
 const STATUS_LABELS: Record<string, string> = {
@@ -49,6 +54,22 @@ function exampleText(c: CliCommand): string {
 
 <template>
   <div class="ab-cli">
+    <section v-if="globalOptions.length" class="ab-cmd">
+      <h3 id="cli-global-flags"><code>Global flags</code></h3>
+      <p class="ab-desc">Accepted by every <code>{{ bin }}</code> command, in addition to the flags listed with it.</p>
+      <table>
+        <thead>
+          <tr><th>Flag</th><th>Description</th><th>Default</th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="o in globalOptions" :key="o.flags">
+            <td><code>{{ o.flags }}</code></td>
+            <td>{{ o.description }}</td>
+            <td><code v-if="o.default">{{ o.default }}</code><span v-else class="ab-muted">—</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
     <section v-for="c in commands" :key="c.command" class="ab-cmd">
       <component :is="cliHeadingTag(c.command)" :id="cliAnchorId(c.command)">
         <code>{{ bin }} {{ c.command }}<template v-if="c.args"> {{ c.args }}</template></code>

@@ -1,8 +1,21 @@
 ---
 title: CLI reference
-description: Every civitai CLI command and flag, generated from the canonical Go CLI (civitai/cli).
+description: The whole civitai CLI command tree — commands, flags, examples and the global flags — generated from the canonical Go CLI (civitai/cli).
 sources:
   - go:github.com/civitai/cli
+# 🔴 PAGE-LOCAL OUTLINE DEPTH. The site default is `outline: { level: [2, 3] }`
+# (.vitepress/config.mts), which on this page means the right sidebar lists the
+# page sections plus the 17 top-level commands — and NOT `app submit`,
+# `app validate` and the other 11 `app <cmd>` entries, which were outlined
+# before the reference widened. That is a real navigation downgrade for this
+# page's primary audience: App authors reach `app submit` more often than
+# `civitai tags`. Widening to [2, 4] restores every entry that used to be there
+# and adds the rest, at the cost of a longer sidebar (measured: 23 entries at
+# [2,3] vs 52 at [2,4]). A command reference is precisely the page where the
+# outline IS the index, so the longer sidebar is the right trade. h5 —
+# `app listing <sub>` — stays out deliberately, so the outline reads as
+# "groups and their commands" rather than every media leaf.
+outline: [2, 4]
 ---
 
 # CLI

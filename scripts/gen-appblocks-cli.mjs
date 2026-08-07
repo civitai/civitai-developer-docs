@@ -49,9 +49,11 @@ export const IGNORED_SUBCOMMANDS = new Set(['help', 'completion']);
 // invite-gated mint routes). Badged in the rendered reference.
 //
 // Keyed on the FULL command path, not the leaf name. With the whole tree in
-// scope leaf names are no longer unique — `status` is both `app status` and
-// `app listing status`, `get` is five different commands — so a leaf-keyed set
-// would badge (or fail to badge) the wrong node.
+// scope leaf names are no longer unique. Counted on the committed snapshot @
+// civitai v0.1.90-13-g569f5dc: `get` is SEVEN commands (articles, collections,
+// images, model-versions, models, users, workflows), `search` is six, and
+// `status` and `list` are two each. A leaf-keyed set would badge — or fail to
+// badge — the wrong node.
 const GATED = new Set(['app dev-token', 'app dev-tunnel']);
 
 // DISPLAY order only — never membership. Names listed here are emitted first, in
@@ -221,8 +223,24 @@ function captureCompletion(bin, path) {
 //
 // The `:<directive>` trailer does NOT discriminate: `app` answers `:4`
 // (NoFileComp) and `app pull` answers `:0`, and both are meaningful values a
-// group can legitimately return. So the ONLY reliable signal is the leading `-`,
-// which no cobra command name can carry (cobra command names are bare words).
+// group can legitimately return. The leading `-` is the signal, because no cobra
+// command name can carry one (command names are bare words).
+//
+// 🔴 IT IS THE BEST AVAILABLE SIGNAL, NOT A COMPLETE ONE — an earlier wording
+// here said "the ONLY reliable signal", which reasons about flags and forgets
+// the other thing `__complete` can emit. A POSITIONAL-ARGUMENT completion (a
+// cobra `ValidArgsFunction`, or `ValidArgs`) returns `value<TAB>description`
+// rows that are byte-identical to a subcommand row and carry no dash, and this
+// filter cannot see them. Unreachable today — measured on the whole tree at
+// civitai v0.1.90-13-g569f5dc, no node returns argument completions with a
+// description, and the one command that completes positionally (`completion`,
+// whose values carry no tab) is in IGNORED_SUBCOMMANDS. And the failure
+// direction is safe rather than silent: a phantom child would either dangle
+// (no help block -> walkCommandPaths throws by name) or be caught by
+// assertEnumerationsAgree, which compares against `Available Commands:` and
+// would name the extra. So this refuses to publish bad docs; it does not
+// guarantee it can classify every row.
+//
 // Without this filter the walk descends into `civitai app pull --app --help`,
 // which is not a command — and the enumeration cross-check reports a permanent
 // false disagreement at every such leaf, because `Available Commands:` never
@@ -283,19 +301,118 @@ function captureBundle(bin) {
   return parts.join('\n') + '\n';
 }
 
+/**
+ * The command paths a bundle documents, or null if it cannot be walked. Used to
+ * compare a live capture against the committed snapshot. Tolerant by design —
+ * an unwalkable bundle is reported as "cannot compare", never as "no drift".
+ */
+export function nodeSetOf(bundleText) {
+  try {
+    return walkCommandPaths(splitBlocks(bundleText)).map((p) => p.join(' '));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Compare a live capture's command set against the committed snapshot's.
+ * Pure + exported so the regression test can drive it without a binary.
+ * @returns {{added: string[], removed: string[]} | null} null when incomparable
+ */
+export function liveVsSnapshotDrift(liveText, snapshotText) {
+  const live = nodeSetOf(liveText);
+  const snap = nodeSetOf(snapshotText);
+  if (!live || !snap) return null;
+  return {
+    added: live.filter((c) => !snap.includes(c)).sort(),
+    removed: snap.filter((c) => !live.includes(c)).sort(),
+  };
+}
+
+// 🔴 THE SNAPSHOT IS THE DEFAULT SOURCE; A LIVE BINARY IS OPT-IN. This inverts
+// what this generator used to do, and the inversion is the fix for a real
+// regression this file introduced.
+//
+// The sibling generators' "prefer live, snapshot is the CI fallback" philosophy
+// is sound for THEM: their live source is the `civitai` repo at origin/main — a
+// shared, reviewable ref. This generator's "live" source is whatever `civitai`
+// binary happens to be on THIS machine's PATH, which is not a shared source at
+// all. It is per-developer state that silently decides what gets published.
+//
+// That was survivable while the command set was the curated APP_COMMANDS list:
+// buildCommand threw when a listed command had no help block, so an out-of-date
+// binary was caught. Walking the tree removed the list AND that check together,
+// leaving the command set free to float with the binary, bounded only by
+// MIN_COMMAND_COUNT. Measured on this machine with the `civitai
+// v0.1.89-20-g4018e2c` that was on PATH: `node scripts/gen-appblocks-cli.mjs`
+// wrote **47** commands instead of 52, silently dropping `generate` and the
+// entire `workflows` subtree — exactly the Buzz-spending surface
+// apps/reference/cli.md now promises the page covers — and exited 0.
+// Production was never at risk (the Dockerfile builds in node:20-alpine with no
+// `civitai`, so it always took the snapshot path), but a local `npm run build`
+// or any hand-built deploy would publish the hole.
+//
+// Two independent barriers, because either alone leaves a hole:
+//   1. Default to the snapshot. A build is then reproducible from the repo
+//      alone, on every machine, which is what the artifact is supposed to be.
+//   2. When the live path IS taken deliberately, DIFF it against the committed
+//      snapshot and hard-fail on any disagreement. Without this, opting in
+//      would restore the same silent-drift hole for whoever opted in — and it
+//      catches a NEWER binary too, which is the direction that produces a local
+//      artifact CI cannot reproduce.
 function resolveBundle() {
   const snapshotOnly = process.env.APPBLOCKS_SNAPSHOT_ONLY === '1';
-  if (!snapshotOnly) {
+  // `--write-snapshot` is by definition a live capture; `CIVITAI_CLI_LIVE=1` is
+  // the explicit opt-in for anyone who wants to generate straight from a binary.
+  const wantLive = !snapshotOnly && (WRITE_SNAPSHOT || process.env.CIVITAI_CLI_LIVE === '1');
+
+  if (snapshotOnly && WRITE_SNAPSHOT) {
+    // Previously this combination fell through and quietly refreshed NOTHING —
+    // a refresh command reporting a clean exit while doing nothing, which is the
+    // failure class this repo's AGENTS.md calls out by name.
+    throw new Error(
+      'gen-appblocks-cli: --write-snapshot needs a live `civitai` binary, but APPBLOCKS_SNAPSHOT_ONLY=1 forbids ' +
+        'running one. Unset APPBLOCKS_SNAPSHOT_ONLY to re-capture, or drop --write-snapshot to build from the ' +
+        'committed snapshot.',
+    );
+  }
+
+  if (wantLive) {
     const bin = binaryPath();
-    if (bin) {
-      const text = captureBundle(bin);
-      if (WRITE_SNAPSHOT) {
-        writeFileSync(SNAPSHOT, text);
-        log(`cli: wrote snapshot ${SNAPSHOT}`);
-      }
+    if (!bin) {
+      throw new Error(
+        `gen-appblocks-cli: no \`civitai\` binary found (looked at ${process.env.CIVITAI_CLI_BIN || 'civitai'} on PATH), ` +
+          `but a live capture was requested. Install one (\`go install github.com/civitai/cli/cmd/civitai@latest\`), ` +
+          `set CIVITAI_CLI_BIN, or build from the committed snapshot instead.`,
+      );
+    }
+    const text = captureBundle(bin);
+    if (WRITE_SNAPSHOT) {
+      writeFileSync(SNAPSHOT, text);
+      log(`cli: wrote snapshot ${SNAPSHOT}`);
       return { text, source: `civitai binary (${bin})` };
     }
+    // Opted into live WITHOUT refreshing the snapshot: the two must agree, or
+    // the artifact this build publishes is not the artifact CI publishes.
+    if (existsSync(SNAPSHOT)) {
+      const drift = liveVsSnapshotDrift(text, readFileSync(SNAPSHOT, 'utf8'));
+      if (drift && (drift.added.length || drift.removed.length)) {
+        throw new Error(
+          `gen-appblocks-cli: the live \`${bin}\` and the committed snapshot describe DIFFERENT command trees, so ` +
+            `this build would publish a reference CI cannot reproduce — refusing. ` +
+            (drift.removed.length
+              ? `Absent from the binary but present in the snapshot: ${drift.removed.join(', ')} (your binary is OLDER than the snapshot — upgrade it). `
+              : '') +
+            (drift.added.length
+              ? `Present in the binary but not the snapshot: ${drift.added.join(', ')} (your binary is NEWER — re-capture with \`node scripts/gen-appblocks-cli.mjs --write-snapshot\` and commit the result). `
+              : '') +
+            `Or build from the snapshot alone by dropping CIVITAI_CLI_LIVE=1.`,
+        );
+      }
+    }
+    return { text, source: `civitai binary (${bin})` };
   }
+
   if (existsSync(SNAPSHOT)) {
     return { text: readFileSync(SNAPSHOT, 'utf8'), source: `snapshot: ${SNAPSHOT}` };
   }
@@ -318,8 +435,33 @@ export function splitBlocks(bundle) {
   return blocks;
 }
 
-// The section of a `--help` body between `<Heading>:` and the next blank-line +
-// heading (or EOF). Returns the raw lines (heading excluded).
+// The section of a `--help` body between `<Heading>:` and the next heading (or
+// EOF). Returns the raw lines (heading excluded).
+//
+// 🔴 A SECTION ALSO ENDS AT ANY NON-BLANK LINE IN COLUMN 0, not just at a
+// heading — cobra indents every section BODY and leaves only headings and its
+// own trailer flush left. Without that rule the last section in a help body runs
+// to EOF and swallows cobra's trailer:
+//
+//     Flags:
+//       -v, --version           version for civitai
+//
+//     Use "civitai [command] --help" for more information about a command.
+//
+// parseFlags then joins the trailer on as a wrapped continuation, and `-v`'s
+// description renders as `version for civitai Use "civitai [command] --help"
+// for more information about a command.` It stayed invisible for every
+// per-command block because those end their `Flags:` section at the
+// `Global Flags:` heading — only the ROOT has no such heading, and the root's
+// flags were not published until the global-flags block was added. Found by
+// rendering it, not by review.
+//
+// Matching cobra's trailer TEXT would work today and rot the moment cobra
+// rewords it; the indentation rule is structural. Measured on the committed
+// snapshot @ civitai v0.1.90-13-g569f5dc, across `Usage`, `Examples`,
+// `Available Commands` and `Flags` on all 53 nodes: of **547** non-blank
+// section-body lines, exactly **one** sits in column 0 — the trailer above. So
+// this cuts the defect and nothing else.
 function section(help, heading) {
   const lines = help.split('\n');
   const start = lines.findIndex((l) => l.trimStart().startsWith(`${heading}:`));
@@ -327,8 +469,18 @@ function section(help, heading) {
   const out = [];
   for (let i = start + 1; i < lines.length; i++) {
     const l = lines[i];
-    // A new top-level heading (e.g. "Global Flags:", "Examples:") ends the section.
-    if (/^[A-Z][A-Za-z ]+:\s*$/.test(l)) break;
+    // ONE rule, because the second one this used to carry — "a new top-level
+    // heading (`/^[A-Z][A-Za-z ]+:\s*$/`) ends the section" — is now strictly
+    // subsumed by it: cobra prints every heading flush left too, so the
+    // indentation test already catches `Global Flags:`, `Examples:` and the
+    // rest, and it additionally catches the trailer that the heading pattern
+    // could not match. Keeping both would be two spellings of one predicate,
+    // free to drift apart and impossible to mutation-test independently.
+    //
+    // Blank lines are INTERIOR CONTENT and must not terminate the section —
+    // `app create`'s Examples block groups its four scenarios with them, so a
+    // "stop at the first blank line" rule would silently weld them together.
+    if (l.trim() && !/^\s/.test(l)) break;
     out.push(l);
   }
   return out;
@@ -415,7 +567,7 @@ function parseArgs(help, command) {
 
 // Parse a cobra `Flags:` block into [{ flags, description, default }], joining
 // wrapped continuation lines and excluding the ubiquitous -h/--help.
-function parseFlags(help) {
+export function parseFlags(help) {
   const lines = section(help, 'Flags');
   const isFlagStart = (l) => /^\s+(?:-\w,\s+)?--[a-zA-Z0-9-]+/.test(l);
   const entries = [];
@@ -666,6 +818,18 @@ export function buildArtifact(bundle, source = 'test') {
     name: 'civitai',
     description: 'Author and ship Civitai Apps.',
     version: versionMatch ? versionMatch[1] : '',
+    // 🔴 THE GLOBAL FLAGS, WHICH NO COMMAND ENTRY CAN CARRY. `parseFlags` reads
+    // a command's own `Flags:` section and deliberately does NOT read
+    // `Global Flags:` — repeating `--no-color` on all 52 entries would be noise,
+    // and cobra prints them there precisely because they are not the command's.
+    // The root is where they ARE the command's own flags, and the root is not
+    // emitted as an entry (it would render a second h3 owning every other h3).
+    // Net effect before this: `--color`, `--no-color`, `--no-update-check` and
+    // `-v/--version` appeared NOWHERE on a page whose frontmatter had just
+    // started claiming it documented every flag. The gap predates this change;
+    // the false claim did not, and closing the gap is the better of the two
+    // available fixes.
+    globalOptions: parseFlags(blocks[ROOT_LABEL]),
   };
 
   // Short one-liners for a node come from its PARENT's "Available Commands:"
