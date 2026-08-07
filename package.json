@@ -30,6 +30,7 @@
     "check:pins": "node scripts/check-appblocks-pins.mjs",
     "check:ds-pins": "node scripts/check-design-system-pins.mjs",
     "check:cli-install-parity": "node scripts/check-cli-install-parity.mjs",
+    "check:no-flag-tables": "node scripts/check-no-hand-flag-tables.mjs",
     "check:page-context": "node scripts/check-page-context.mjs",
     "test:tokens:drift": "node scripts/test-tokens-drift.mjs",
     "test:showcase:e2e": "node scripts/test-showcase-e2e.mjs"

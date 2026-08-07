@@ -45,8 +45,8 @@ To pin the CLI as a flake input (reproducible builds/CI), reference it in your
 ```nix
 {
   inputs.civitai-cli.url = "github:civitai/cli";
-  # optionally pin a release tag:
-  # inputs.civitai-cli.url = "github:civitai/cli/v0.1.67";
+  # …or pin a release tag from the Releases page:
+  # inputs.civitai-cli.url = "github:civitai/cli/<tag>";
 
   outputs = { self, nixpkgs, civitai-cli, ... }: {
     # add `civitai-cli.packages.${system}.default` to your devShell / packages
@@ -65,12 +65,12 @@ in the [Apps CLI reference](/apps/reference/cli)).
 
 ## Shared flags
 
-Every read subcommand accepts:
-
-| Flag | Description |
-|------|-------------|
-| `--json` | Print the raw API JSON response (for scripting) instead of the formatted table. |
-| `--anon` | Force an anonymous request, ignoring any stored login token. |
+**Every** read subcommand accepts `--json` — print the raw API JSON response
+(for scripting) instead of the formatted table — and `--anon`, which forces an
+anonymous request, ignoring any stored login token. That holds across all 13
+read commands with no exceptions, which is why it is stated once here instead of
+repeated per command; the per-command flag lists live in the
+[generated CLI reference](/apps/reference/cli#command-reference).
 
 Search commands paginate with `--limit` and either `--page` (shallow) or
 `--cursor` (deep paging — copy `metadata.nextCursor` from a previous response).
@@ -255,20 +255,10 @@ mismatch deletes the partial file and fails the run. Pass `--no-verify` to skip
 
 ### Download flags
 
-| Flag | Description |
-|------|-------------|
-| `--model <model-id>` | Resolve + download a model's default (first published) version instead of a version id. |
-| `--file <name>` | Select a specific file by name (exact match, else a unique case-insensitive substring). |
-| `--all` | Download every file in the version. |
-| `--out <path>` | Target file path (single-file only; mutually exclusive with `--all`/`--out-dir`). |
-| `--out-dir <dir>` | Directory to write server-named file(s) into (created if needed). |
-| `--layout <a1111\|comfyui>` | Route each file into its type's subfolder for an app; mutually exclusive with `--out`/`--out-dir`. |
-| `--root <dir>` | Base directory for `--layout` routing (default `.`; only applies with `--layout`). |
-| `--for-base <baseModel>` | Warn if the version's base model is a confidently different family than this target. |
-| `--dry-run` | Print the resolved plan (files, sizes, hashes, targets) and exit without downloading. |
-| `--force` | Re-download even if the target file already exists. |
-| `--no-verify` | Skip SHA256 verification of the downloaded bytes. |
-| `--anon` | Force an anonymous request — but downloads still `401` without a token. |
+The complete, always-current flag list for `download` — and for every other
+command — is in the [generated CLI reference](/apps/reference/cli#cli-download),
+which is built from the binary's own help output. `civitai download --help`
+prints the same thing locally.
 
 ## Authentication
 
