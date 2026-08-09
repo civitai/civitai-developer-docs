@@ -1,0 +1,95 @@
+name: build-site
+
+# 🔴 THE GAP THIS CLOSES: NOTHING IN CI HAD EVER BUILT THE SITE. Measured on the
+# tree at 30f52a0, `grep -rn "vitepress build\|npm run build" .github/workflows/`
+# returned NOTHING — so every `.vue` file under .vitepress/theme/ was never
+# compiled, never rendered and never asserted on by any job. A component could be
+# deleted, wired to the wrong variable, or switched to `v-html` and the entire
+# suite stayed green.
+#
+# Three mutants measured on CliReference.vue at that commit, each of which left
+# the whole node suite green AND `vitepress build` exiting 0:
+#
+#   1. deleting the `<pre v-if="longText(c)" class="ab-long">` line took the
+#      built cli.html from 44 long-body blocks to 0 — the published reference
+#      silently loses every cobra `Long` body;
+#   2. `{{ longText(c) }}` -> `{{ c.description }}` kept all 44 blocks and filled
+#      each with the one-line summary already printed directly above it (a
+#      count-only assertion does NOT see this);
+#   3. `<code>{{ longText(c) }}</code>` -> `<code v-html="…">` built cleanly and
+#      put raw `<slug>` / `<path>` / `<token>` markup into 15 of the 44 blocks.
+#
+# The .md/LLM channel of the SAME content has been guarded since #49
+# (`test-cli`'s STRUCTURAL check); that PR declared the `.vue` side as an open
+# residual. This is it. `scripts/check-built-site.mjs` asserts the BUILT HTML
+# against what the generator says should be there, recomputed through the SAME
+# shared predicate the component calls, plus escaping in both directions and a
+# non-zero floor — see that file's header for the full reasoning.
+#
+# RUNS ON EVERY PR, DELIBERATELY UNFILTERED — do not add a `paths:` filter. A
+# path-filtered required check leaves any PR touching none of the watched files
+# at mergeStateStatus=BLOCKED forever, because GitHub does not synthesise a
+# passing status for a workflow that never triggers (measured live on #42; #43
+# removed the filters for exactly this reason). This job is a superset of what a
+# filter could express anyway: the built page depends on the theme, the config,
+# the generators, the committed snapshots, the markdown and the lockfile.
+on:
+  pull_request: {}
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# LEAST PRIVILEGE — see appblocks-cli.yml for the full reasoning. This job checks
+# out, installs, builds into .vitepress/dist and runs an offline node assertion
+# over the result: no artifact upload, no deploy, no PR comment, no push, no `gh`
+# call. `contents: read` is exactly what actions/checkout needs.
+permissions:
+  contents: read
+
+jobs:
+  build-site:
+    runs-on: ubuntu-latest
+    # The build is ~30s of the job locally (measured 29–32s over 5 runs, node
+    # v26.5.0); the rest is checkout + `npm ci`. 20 minutes is slack, not a
+    # budget.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # Same version as every other job here (appblocks-cli, appblocks-messages,
+      # appblocks-bridge, appblocks-snippets, test-samples).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # `npm run build` runs `prebuild` -> `copy:spec` + `gen:appblocks`, which
+      # produce the gitignored public/appblocks/*.json (and public/openapi/) the
+      # VitePress theme imports directly. Without them the build cannot even
+      # resolve its imports, so the generators are NOT optional here.
+      #
+      # APPBLOCKS_SNAPSHOT_ONLY=1 pins the App Blocks generators to the committed
+      # snapshots under appblocks-snapshots/, the same hermetic codepath
+      # appblocks-cli.yml uses. On a runner there is no sibling civitai checkout
+      # to prefer anyway — setting it explicitly is what makes a local run of
+      # this job reproduce CI on a machine that HAS one.
+      #
+      # Known non-hermetic step, called out rather than hidden: `copy:spec`
+      # fetches the OpenAPI spec from orchestration.civitai.com when no sibling
+      # orchestration checkout is present (the same fallback the Dockerfile
+      # relies on). An outage there fails this job for a reason unrelated to the
+      # PR. That is the one thing to fix first if this job is ever made a
+      # required check.
+      - name: Build the site
+        env:
+          APPBLOCKS_SNAPSHOT_ONLY: '1'
+        run: npm run build
+
+      # The assertion lives in scripts/ rather than inline here so it is
+      # runnable locally against a local build: `npm run build && npm run
+      # check:built-site`.
+      - name: Assert the built HTML carries the CLI reference bodies + examples
+        run: npm run check:built-site
