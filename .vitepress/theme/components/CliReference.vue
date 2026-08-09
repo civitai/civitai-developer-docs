@@ -3,13 +3,16 @@ import { inject } from 'vue';
 // Plain-.mjs helpers (typed by cliReference.shared.d.mts), shared with the
 // PR-blocking gate in scripts/test-appblocks-cli.mjs — which runs under bare
 // `node` and so cannot import a `.vue` SFC.
-import { cliAnchorId, cliHeadingTag } from './cliReference.shared.mjs';
+import { cliAnchorId, cliHeadingTag, cliLongBody } from './cliReference.shared.mjs';
 
 interface CliOption { flags: string; description: string; default: string | null; }
 interface CliCommand {
   command: string;
   args: string;
   description: string;
+  // The whole cobra `Long` body. Always present; optional here so an artifact
+  // generated before this field existed still renders (the block just vanishes).
+  longDescription?: string;
   options: CliOption[];
   // Verbatim lines of the cobra `Examples:` block. Always present; empty for a
   // command whose help carries no examples.
@@ -50,6 +53,30 @@ function badgeLabel(status: string): string | null {
 function exampleText(c: CliCommand): string {
   return (c.examples ?? []).join('\n');
 }
+
+// The cobra `Long` body, verbatim. Interpolated as TEXT for the same reason the
+// examples are: the prose is full of backtick-quoted command names, `<slug>` /
+// `{id}` placeholders and `{{ … }}`-adjacent shapes, and Vue escapes a text
+// interpolation rather than handing it to the compiler.
+//
+// 🔴 RENDERED PREFORMATTED, AND NOT AS MARKDOWN. It is verbatim terminal output:
+// hard-wrapped at ~80 columns, with blank-line paragraph breaks and — measured
+// on 9 of the 52 bodies (`app validate`, `download`, `login`, `upgrade`, …) —
+// 2/4/6/14-space indentation carrying real structure (bullet lists, and hanging
+// indents the author aligned by hand). Reflowing it into `<p>` paragraphs
+// destroys exactly those 9; interpreting it as markdown would need a second
+// vendored renderer that can misread the `*`, `#` and backticks the prose
+// already contains. Preformatted is the lossless option and needs no parser.
+//
+// It differs from `.ab-example` in ONE deliberate way: `white-space: pre-wrap`
+// rather than `pre`. The examples are shell transcripts whose hand-aligned
+// trailing comments a wrap would destroy, so they scroll horizontally. This is
+// prose, already wrapped by the author — and the longest line in the corpus is
+// 224 characters, so a no-wrap rule would put a horizontal scrollbar under a
+// paragraph. Wrapping the overflow is strictly better here and lossless.
+function longText(c: CliCommand): string {
+  return cliLongBody(c);
+}
 </script>
 
 <template>
@@ -76,6 +103,7 @@ function exampleText(c: CliCommand): string {
         <span v-if="badgeLabel(c.status)" class="ab-badge ab-soon">{{ badgeLabel(c.status) }}</span>
       </component>
       <p class="ab-desc">{{ c.description.replace(/\s*\[coming soon\]\s*$/i, '') }}</p>
+      <pre v-if="longText(c)" class="ab-long"><code>{{ longText(c) }}</code></pre>
       <div v-if="c.examples?.length" class="ab-examples">
         <p class="ab-examples-label">Examples</p>
         <pre class="ab-example"><code>{{ exampleText(c) }}</code></pre>
@@ -108,6 +136,23 @@ function exampleText(c: CliCommand): string {
 }
 .ab-soon { background: var(--vp-c-warning-soft); color: var(--vp-c-warning-1); }
 .ab-desc { margin: 0.4rem 0 0.6rem; }
+/* The cobra `Long` body. Preformatted so the author's paragraph breaks and list
+   indentation survive, but `pre-wrap` so the handful of >80-column lines wrap
+   instead of putting a horizontal scrollbar under a paragraph — the opposite
+   call from `.ab-example`, and for the opposite reason (see longText()).
+   Deliberately NOT boxed like the examples block: a border + code background
+   would read as a command to copy. A left rule and the muted body colour read
+   as quoted prose, which is what it is. */
+.ab-long {
+  margin: 0 0 0.9rem; padding: 0.1rem 0 0.1rem 0.9rem;
+  border-left: 2px solid var(--vp-c-divider);
+  background: none; overflow: visible;
+}
+.ab-long code {
+  display: block; white-space: pre-wrap; overflow-wrap: anywhere;
+  font-size: 0.82em; line-height: 1.65;
+  background: none; padding: 0; color: var(--vp-c-text-2);
+}
 .ab-examples { margin: 0.6rem 0 0.9rem; }
 .ab-examples-label {
   margin: 0 0 0.35rem; font-size: 0.75rem; font-weight: 600;

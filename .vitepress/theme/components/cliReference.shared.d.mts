@@ -4,3 +4,4 @@
 export declare function cliAnchorId(command: string): string;
 export declare function cliHeadingLevel(command: string): number;
 export declare function cliHeadingTag(command: string): string;
+export declare function cliLongBody(command: { description?: string; longDescription?: string }): string;

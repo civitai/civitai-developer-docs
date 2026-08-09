@@ -87,3 +87,45 @@ export function cliHeadingLevel(command) {
 export function cliHeadingTag(command) {
   return `h${cliHeadingLevel(command)}`;
 }
+
+/**
+ * The `longDescription` body to RENDER for a command — `''` when there is
+ * nothing it can add over the one-line `description` already on screen.
+ *
+ * 🔴 THIS IS A PRESENTATION RULE, NOT A GENERATOR ONE. The artifact always
+ * carries the full Long (`longDescription` is emitted verbatim for every
+ * command, and the .json is what machine consumers read). What this suppresses
+ * is the narrow case where printing it would produce a VISIBLE DUPLICATE: the
+ * short leaves whose cobra `Long` is literally the same sentence as the `Short`
+ * their parent advertises. Measured on the committed snapshot, that is 8 of 52
+ * — `tags search`, `models get`, `collections get`, `creators search`,
+ * `model-versions get` and the three `app listing set-*`/`add-screenshot`
+ * commands — every one of which would otherwise render the same sentence twice
+ * in a row, once as the summary and once as the body.
+ *
+ * The comparison is on the FLATTENED text (whitespace collapsed, the same
+ * trailing `[coming soon]` marker both renderers already strip removed), so a
+ * body that merely re-wraps the summary at a different column still counts as
+ * redundant. It is deliberately EQUALITY, not a prefix test: a Long that starts
+ * with the summary and then goes on to say more is exactly the content this
+ * field exists to publish, and 3 commands in today's snapshot are that shape.
+ *
+ * It lives here, beside `cliAnchorId`/`cliHeadingTag`, because BOTH renderers
+ * need the identical answer — `<CliReference>` for the HTML and
+ * scripts/appblocks-md.mjs for the .md/LLM channel — and a duplicated predicate
+ * is how those two views drift apart. `scripts/test-appblocks-cli.mjs` pins it
+ * under bare node, which a helper inside the SFC could not be.
+ *
+ * @param {{ description?: string, longDescription?: string }} command
+ * @returns {string} the body to render, or `''`
+ */
+export function cliLongBody(command) {
+  const long = String(command?.longDescription ?? '');
+  if (!long.trim()) return '';
+  const flat = (s) =>
+    String(s ?? '')
+      .replace(/\s*\[coming soon\]\s*$/i, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  return flat(long) === flat(command?.description) ? '' : long;
+}
