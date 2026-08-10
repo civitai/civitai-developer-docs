@@ -1,6 +1,6 @@
 civitai CLI help snapshot (the WHOLE command tree)
 Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
-Binary version: civitai v0.1.90-25-g9cfe468
+Binary version: civitai v0.1.90-34-gc783b19
 Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
 else parses this committed snapshot. To refresh: run
 node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).
@@ -12,12 +12,15 @@ civitai is the command-line interface for Civitai (https://civitai.com).
 It does three things from one static binary:
 
   • Browse & download the public catalog — search models, list images and
-    articles, and fetch model files. Reading is anonymous; downloading a
-    model file needs a token (civitai login). --layout routes each file into
-    the right folder for ComfyUI / A1111.
+    articles, and fetch model files. Reading the PUBLIC catalog is anonymous;
+    downloading a model file needs a token (civitai login). --layout routes
+    each file into the right folder for ComfyUI / A1111.
   • Build & submit Apps — small, sandboxed web apps that run inside Civitai
     surfaces. Scaffold a correct project, validate it against the platform
-    contract, and package it for submission.
+    contract, and package it for submission. EVERY civitai app command needs a
+    token, including the App-store browse commands app list / app view: that
+    endpoint keys the visible catalog off your identity, so it has no
+    anonymous view.
   • Generate images — civitai generate "<prompt>". This SPENDS REAL BUZZ and
     needs the AI Services scopes (civitai login --scopes generate, or a
     full-scope personal API key); price a job with --dry-run first.
@@ -33,6 +36,57 @@ Get started:
   civitai login                    store your API token
   civitai app create my-app        scaffold a ready-to-build App
   civitai app submit               package + submit for review
+
+Usage:
+  civitai [flags]
+  civitai [command]
+
+Examples:
+  # Browse & download the public catalog (no account needed to read).
+  civitai models search --query "dreamshaper" --limit 5
+  civitai images search --sort "Most Reactions" --period Week
+  civitai download 691639 --layout comfyui --root ~/ComfyUI
+
+  # Browse the App store (needs civitai login — this is NOT an anonymous read).
+  civitai app list
+  civitai app view <slug>
+
+  # Build & ship an App.
+  civitai login
+  civitai app create my-first-app
+  cd my-first-app
+  civitai app validate
+  civitai app submit
+
+Available Commands:
+  app            Browse, author, and ship Civitai Apps
+  articles       Search and inspect articles on Civitai
+  buzz           Show your spendable Buzz balance
+  collections    Search and inspect collections on Civitai
+  completion     Generate a shell-completion script
+  creators       Search creators on Civitai
+  download       Download a model version's file(s)
+  generate       Generate images from a text prompt (SPENDS BUZZ)
+  help           Help about any command
+  images         Search images on Civitai
+  login          Authenticate with Civitai
+  model-versions Inspect model versions on Civitai
+  models         Search and inspect models on Civitai
+  tags           Search model tags on Civitai
+  upgrade        Update the civitai CLI to the latest release
+  users          Look up users on Civitai
+  version        Print the CLI version, commit, and build date
+  whoami         Verify your stored API token and its capabilities
+  workflows      List, inspect and cancel generation workflows
+
+Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+  -h, --help              help for civitai
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+  -v, --version           version for civitai
+
+Use "civitai [command] --help" for more information about a command.
 
 Exit codes:
 
@@ -79,57 +133,6 @@ Exit codes:
        permissions or I/O problem does not fix itself, and a loop that sleeps
        and re-runs would never terminate. Those exit 1.
     6  Rate limited — throttled by the API (HTTP 429).
-
-Usage:
-  civitai [flags]
-  civitai [command]
-
-Examples:
-  # Browse & download the public catalog (no account needed to read).
-  civitai models search --query "dreamshaper" --limit 5
-  civitai images search --sort "Most Reactions" --period Week
-  civitai download 691639 --layout comfyui --root ~/ComfyUI
-
-  # Browse the App store.
-  civitai app list
-  civitai app view <slug>
-
-  # Build & ship an App.
-  civitai login
-  civitai app create my-first-app
-  cd my-first-app
-  civitai app validate
-  civitai app submit
-
-Available Commands:
-  app            Browse, author, and ship Civitai Apps
-  articles       Search and inspect articles on Civitai
-  buzz           Show your spendable Buzz balance
-  collections    Search and inspect collections on Civitai
-  completion     Generate a shell-completion script
-  creators       Search creators on Civitai
-  download       Download a model version's file(s)
-  generate       Generate images from a text prompt (SPENDS BUZZ)
-  help           Help about any command
-  images         Search images on Civitai
-  login          Authenticate with Civitai
-  model-versions Inspect model versions on Civitai
-  models         Search and inspect models on Civitai
-  tags           Search model tags on Civitai
-  upgrade        Update the civitai CLI to the latest release
-  users          Look up users on Civitai
-  version        Print the CLI version, commit, and build date
-  whoami         Verify your stored API token and its capabilities
-  workflows      List, inspect and cancel generation workflows
-
-Flags:
-      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
-  -h, --help              help for civitai
-      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
-      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
-  -v, --version           version for civitai
-
-Use "civitai [command] --help" for more information about a command.
 ===CMD complete (root)===
 app	Browse, author, and ship Civitai Apps
 articles	Search and inspect articles on Civitai
@@ -361,6 +364,13 @@ plus the ported semantic rules and structural checks:
     platform installs strictly from the lockfile, so a mismatch or a missing
     lockfile is a guaranteed build failure. Only applies when package.json
     exists — a static app never installs.
+    The lockfile must also BE one, not merely exist: a package-lock.json has to
+    parse as JSON and declare a numeric "lockfileVersion" of 1 or more, and a
+    pnpm-lock.yaml / yarn.lock has to be non-empty. An empty lockfile fails the
+    platform build exactly like a missing one, so creating an empty one by hand
+    is not a fix — run the package manager and commit what it writes. A lockfile
+    that cannot be read (or is implausibly large) is left alone rather than
+    reported.
 
 It also emits non-fatal WARNINGS the schema can't catch as hard errors:
   - money-path footguns (e.g. a budgeted page with no page.buzzBudgetPerGen)
@@ -523,18 +533,25 @@ Manage your App store listing's MEDIA — the icon, cover, and screenshots
 a listing needs before it can publish.
 
 A store listing must have an ICON and a COVER before it can go live; screenshots
-are optional. These commands ingest a local image, wait for the content scan, and
-attach it to your listing — the same pipeline the web submit form uses.
+are optional. These commands ingest a local image, attach it to your listing,
+and then wait for the content scan — the same pipeline the web submit form
+uses. The platform validates dimensions, aspect and format at the ATTACH step,
+so a wrongly-shaped image is refused in seconds rather than after the scan.
 
 For a listing that is already LIVE (approved), attaching media opens a REVISION
 that goes back to moderator review (the live listing is untouched until the
 revision is approved); pass --changelog to describe the change.
 
 The app is resolved from block.manifest.json in the current directory (or pass
---slug). Your store listing is created as a DRAFT when you run `civitai app submit`,
-so you can set its media WHILE your app is pending review — the media you attach
-carries forward when a moderator approves it. Set it early to clear the publish
-floor before you go live.
+--slug). Your store listing is created as a DRAFT when you run
+`civitai app submit`, so you can set its media WHILE your app is pending review
+— the media you attach carries forward when a moderator approves it. Set it
+early to clear the publish floor before you go live.
+
+Source files are checked locally BEFORE any upload — png, jpeg or webp, at most
+2.0 MB for an icon, 4.0 MB for a cover, 2.0 MB for a screenshot.
+A file in the wrong format, or over its cap, is refused before anything is
+uploaded.
 
 Usage:
   civitai app listing [flags]
@@ -552,8 +569,8 @@ Available Commands:
   add-screenshot Add a screenshot (up to 8) with an optional caption
   reorder        Reorder screenshots (pass ALL current screenshot ids in the new order)
   rm-screenshot  Remove a screenshot by its id (see `app listing status`)
-  set-cover      Set the listing cover (a landscape hero image)
-  set-icon       Set the listing icon (a square-ish image)
+  set-cover      Set the listing cover (png, jpeg or webp, at most 4.0 MB)
+  set-icon       Set the listing icon (png, jpeg or webp, at most 2.0 MB)
   status         Show attached media and what's missing vs the publish floor
 
 Flags:
@@ -569,15 +586,34 @@ Use "civitai app listing [command] --help" for more information about a command.
 add-screenshot	Add a screenshot (up to 8) with an optional caption
 reorder	Reorder screenshots (pass ALL current screenshot ids in the new order)
 rm-screenshot	Remove a screenshot by its id (see `app listing status`)
-set-cover	Set the listing cover (a landscape hero image)
-set-icon	Set the listing icon (a square-ish image)
+set-cover	Set the listing cover (png, jpeg or webp, at most 4.0 MB)
+set-icon	Set the listing icon (png, jpeg or webp, at most 2.0 MB)
 status	Show attached media and what's missing vs the publish floor
 :4
 ===CMD app listing set-icon===
-Set the listing icon (a square-ish image)
+Set your store listing's ICON — the small image shown beside your app's name.
+An icon is MANDATORY: a listing cannot publish without one.
+
+The source file is validated locally first (png, jpeg or webp, at most 2.0 MB),
+then ingested and attached, and the content scan is waited on afterwards.
+Nothing is uploaded if the local check fails. The platform validates the
+image's dimensions and aspect at the ATTACH step, so a wrongly-shaped image is
+refused in seconds rather than after the scan.
+See "Listing media requirements" in the README for the platform's bounds.
+
+On a listing that is already LIVE this opens a REVISION for moderator re-review
+instead of changing the live listing — pass --changelog to describe the change,
+-y to skip the confirmation. On a DRAFT listing it attaches directly.
+
+Run `civitai app listing status` to see what the publish floor still needs.
 
 Usage:
   civitai app listing set-icon <file> [flags]
+
+Examples:
+  civitai app listing set-icon ./assets/icon.png
+  civitai app listing set-icon ./icon.png --slug my-app
+  civitai app listing set-icon ./icon.png --changelog "New brand mark" -y
 
 Flags:
       --changelog string   changelog for the moderator review (used only when the listing is already live)
@@ -593,10 +629,29 @@ Global Flags:
 ===CMD complete app listing set-icon===
 :0
 ===CMD app listing set-cover===
-Set the listing cover (a landscape hero image)
+Set your store listing's COVER — the wide image at the top of the listing
+page. A cover is MANDATORY: a listing cannot publish without one.
+
+The source file is validated locally first (png, jpeg or webp, at most 4.0 MB),
+then ingested and attached, and the content scan is waited on afterwards.
+Nothing is uploaded if the local check fails. The platform validates the
+image's dimensions and aspect at the ATTACH step, so a wrongly-shaped image is
+refused in seconds rather than after the scan.
+See "Listing media requirements" in the README for the platform's bounds.
+
+On a listing that is already LIVE this opens a REVISION for moderator re-review
+instead of changing the live listing — pass --changelog to describe the change,
+-y to skip the confirmation. On a DRAFT listing it attaches directly.
+
+Run `civitai app listing status` to see what the publish floor still needs.
 
 Usage:
   civitai app listing set-cover <file> [flags]
+
+Examples:
+  civitai app listing set-cover ./assets/cover.png
+  civitai app listing set-cover ./cover.jpg --slug my-app
+  civitai app listing set-cover ./cover.png --changelog "Updated hero" -y
 
 Flags:
       --changelog string   changelog for the moderator review (used only when the listing is already live)
@@ -612,10 +667,38 @@ Global Flags:
 ===CMD complete app listing set-cover===
 :0
 ===CMD app listing add-screenshot===
-Add a screenshot (up to 8) with an optional caption
+Add a SCREENSHOT to your store listing's gallery. Screenshots are OPTIONAL:
+they are not part of the publish floor.
+
+The source file is validated locally first (png, jpeg or webp, at most 2.0 MB),
+then ingested and appended to the gallery, and the content scan is waited on
+afterwards. Nothing is uploaded if the local check fails. The platform
+validates dimensions, aspect and format at the ATTACH step, so a bad image is
+refused in seconds rather than after the scan. --caption adds a one-line
+caption.
+See "Listing media requirements" in the README for the platform's bounds.
+
+Each run appends one screenshot; there is no bulk add. Use
+`civitai app listing reorder` to change the order afterwards and
+`civitai app listing rm-screenshot` to drop one — both take the screenshot ids
+that `civitai app listing status` prints.
+
+The gallery has a ceiling (8 at the time of writing) and it is the SERVER's, not
+this CLI's: nothing here counts the gallery before uploading, so hitting the
+ceiling surfaces as a server refusal after the ingest rather than as a local
+usage error.
+
+On a listing that is already LIVE this opens a REVISION for moderator re-review
+instead of changing the live listing — pass --changelog to describe the change,
+-y to skip the confirmation. On a DRAFT listing it attaches directly.
 
 Usage:
   civitai app listing add-screenshot <file> [flags]
+
+Examples:
+  civitai app listing add-screenshot ./shot.png
+  civitai app listing add-screenshot ./grid.png --caption "Grid view"
+  civitai app listing add-screenshot ./shot.png --slug my-app
 
 Flags:
       --caption string     optional one-line caption for the screenshot
@@ -639,6 +722,10 @@ direct screenshot edits are only possible while a revision is open.
 Usage:
   civitai app listing rm-screenshot <screenshotId> [flags]
 
+Examples:
+  civitai app listing rm-screenshot alsc_01H8XYZ
+  civitai app listing rm-screenshot alsc_01H8XYZ --slug my-app
+
 Flags:
       --dir string    app directory holding block.manifest.json (when --slug is not given) (default ".")
   -h, --help          help for rm-screenshot
@@ -655,8 +742,16 @@ Reorder your listing's screenshots. Pass EXACTLY the current set of screenshot
 ids (from `civitai app listing status`) in the desired order — a partial or
 unknown set is rejected.
 
+Ordering is positional: the first id becomes the first screenshot in the
+gallery. There is no "move one" form — read the current order out of
+`civitai app listing status` and pass the whole list back.
+
 Usage:
   civitai app listing reorder <screenshotId...> [flags]
+
+Examples:
+  civitai app listing reorder alsc_02 alsc_01 alsc_03
+  civitai app listing reorder alsc_02 alsc_01 --slug my-app
 
 Flags:
       --dir string    app directory holding block.manifest.json (when --slug is not given) (default ".")
@@ -673,8 +768,8 @@ Global Flags:
 Show your store listing's attached media (icon, cover, screenshots) and what
 is still required before it can publish (an icon and a cover are mandatory).
 
-Your store listing exists as a DRAFT from the moment you run `civitai app submit`,
-so this works while your app is still pending review.
+Your store listing exists as a DRAFT from the moment you run
+`civitai app submit`, so this works while your app is still pending review.
 
 Note: on a LIVE (approved) listing this opens an in-progress revision draft and
 reports ITS media (idempotent — it reuses any existing draft, and nothing is
@@ -682,6 +777,11 @@ submitted for moderator review until you run a set-/add- command and confirm).
 
 Usage:
   civitai app listing status [flags]
+
+Examples:
+  civitai app listing status
+  civitai app listing status --slug my-app
+  civitai app listing status --dir ./my-app
 
 Flags:
       --dir string    app directory holding block.manifest.json (when --slug is not given) (default ".")
@@ -783,8 +883,8 @@ command therefore always prints the window the SERVER served (echoed from the
 response), not the one you asked for. Pass --from / --to as a plain YYYY-MM-DD
 date (midnight UTC) or a full RFC3339 timestamp to widen it.
 
-CREDENTIAL: the analytics query is full-scope, so it needs a personal API key
-(`civitai login --token <key>`); an OAuth browser login is refused with 403.
+CREDENTIAL: the analytics query is full-scope, so it needs a full-scope personal API key (`civitai login --token <key>`, created at https://civitai.com/user/account);
+an OAuth browser login is refused with 403.
 
 DATA CAVEAT: engagement counts only AUTHENTICATED, scope-gated API calls. An app
 that ships no scoped API surface will show real installs and revenue with a flat
@@ -992,9 +1092,25 @@ Global Flags:
 --app	the app slug (repo name) or appBlockId to pull (required)
 :0
 ===CMD articles===
-Read-only access to Civitai articles via the public REST API
-(GET /api/v1/articles). These endpoints are public and work anonymously; if you
-are logged in (civitai login) your token is sent automatically.
+Read-only access to Civitai articles through the public REST API
+(GET /api/v1/articles, GET /api/v1/articles/{id}).
+
+No login is needed — these are public read routes (unlike `civitai app list`
+and `app view`, which are refused without a token). The CLI still sends your
+stored token when you have one; --anon forces an anonymous request.
+
+Articles are the site's long-form guides. `articles search` finds them;
+`articles get <id> --content` renders the BODY as readable text/markdown —
+headings, paragraphs, lists, links and code blocks, with the HTML stripped and
+entities decoded — so a guide is readable in the terminal without a browser.
+
+--json returns the raw API body, including the UNTOUCHED HTML content, and
+takes precedence over --content.
+
+--json writes the API response to stdout and nothing else — notes and errors go
+to stderr, so `… --json | jq -e .` always parses. The document is the API's,
+the bytes are not: it is re-indented on the way out, so do not diff or hash it
+against the wire.
 
 Usage:
   civitai articles [flags]
@@ -1003,6 +1119,7 @@ Usage:
 Examples:
   civitai articles search --query "workflow" --limit 5
   civitai articles get 1234
+  civitai articles get 1234 --content
 
 Available Commands:
   get         Get an article by id (GET /api/v1/articles/{id})
@@ -1030,6 +1147,9 @@ text / lightweight markdown (headings, paragraphs, lists, links, code blocks;
 HTML tags stripped and entities decoded). --json returns the raw API body
 (including the untouched HTML content) and takes precedence over --content.
 
+Works anonymously (no login needed); --anon forces an anonymous request even
+when you are logged in.
+
 Usage:
   civitai articles get <id> [flags]
 
@@ -1053,8 +1173,26 @@ Global Flags:
 ===CMD articles search===
 Search articles via GET /api/v1/articles.
 
-Pagination is cursor-based (the article feed uses a keyset cursor — there is no
---page). The next cursor is printed after the results; pass it back via --cursor.
+Filters: --query (matches the TITLE, not the body), --tags, --username and
+--nsfw. --tags takes numeric tag IDS, comma-separated (e.g. --tags 5,12), not
+tag names — and `civitai tags search` renders names, not ids, so it cannot
+supply this filter for you.
+
+--sort takes a server-owned value set.
+The CLI does not check those value sets — it passes the value through and the
+server rejects an unknown one with HTTP 400, reported as a usage mistake.
+
+Paging is cursor-only: the article feed is a keyset feed, so there is no --page
+here. --limit takes 1–100; omit it for the server's default page size.
+The next cursor is printed under the results; pass it back via --cursor.
+
+The REACTIONS column is likes plus favourites, from the list endpoint's own
+stats. `articles get <id>` reports all-time view / like / favourite /
+comment / collected counts instead — a different stats block, so the two need
+not agree — and --content renders the guide itself.
+
+Works anonymously (no login needed); --anon forces an anonymous request even
+when you are logged in.
 
 Usage:
   civitai articles search [flags]
@@ -1062,7 +1200,7 @@ Usage:
 Examples:
   civitai articles search --query "comfyui" --limit 5
   civitai articles search --sort "Most Reactions" --nsfw
-  civitai articles search --username some-creator --cursor <cursor>
+  civitai articles search --username some-creator --cursor '<cursor>'
 
 Flags:
       --anon              force an anonymous request (ignore any stored login token)
@@ -1110,10 +1248,28 @@ Global Flags:
 ===CMD complete buzz===
 :0
 ===CMD collections===
-Read-only access to Civitai collections via the public REST API
-(GET /api/v1/collections). These endpoints are public and work anonymously; if
-you are logged in (civitai login) your token is sent automatically. Only public
-collections are discoverable.
+Read-only access to Civitai collections through the public REST API
+(GET /api/v1/collections, GET /api/v1/collections/{id}).
+
+No login is needed — these are public read routes (unlike `civitai app list`
+and `app view`, which are refused without a token). The CLI still sends your
+stored token when you have one; --anon forces an anonymous request.
+
+Only PUBLIC collections are discoverable. Logging in does not widen this
+surface to your own private collections, and there is no create, edit or
+add-to-collection path in the CLI — this group is read-only.
+
+`collections search` finds collections by name; `collections get <id>`
+shows one collection's owner, type, read permission, description and tags.
+
+Neither command pages through a collection's CONTENTS: the public route
+answers with collection metadata (`search` adds an item COUNT), not with the
+models or images inside.
+
+--json writes the API response to stdout and nothing else — notes and errors go
+to stderr, so `… --json | jq -e .` always parses. The document is the API's,
+the bytes are not: it is re-indented on the way out, so do not diff or hash it
+against the wire.
 
 Usage:
   civitai collections [flags]
@@ -1122,6 +1278,7 @@ Usage:
 Examples:
   civitai collections search --query "favorites" --limit 5
   civitai collections get 1234
+  civitai collections get 1234 --json
 
 Available Commands:
   get         Get a collection by id (GET /api/v1/collections/{id})
@@ -1141,7 +1298,21 @@ get	Get a collection by id (GET /api/v1/collections/{id})
 search	Search collections (GET /api/v1/collections)
 :4
 ===CMD collections get===
-Get a collection by id (GET /api/v1/collections/{id})
+Get one collection by id: GET /api/v1/collections/{id}.
+
+The id is the number in a civitai.com/collections/<id> URL. A non-integer or
+non-positive argument is refused locally, as a usage mistake, before any
+request is made.
+
+Prints the collection's name, owner, type, read permission, public flag,
+description (truncated) and tags. Only PUBLIC collections are readable here.
+
+Two differences from the `search` row for the same collection, both of them
+the API's shape rather than the CLI's: the detail body drops the item COUNT and
+adds the TAGS. Neither shape lists the collection's items.
+
+Works anonymously (no login needed); --anon forces an anonymous request even
+when you are logged in.
 
 Usage:
   civitai collections get <id> [flags]
@@ -1164,14 +1335,18 @@ Global Flags:
 ===CMD collections search===
 Search public collections via GET /api/v1/collections.
 
-Pagination is cursor-based (a keyset cursor on the collection id — there is no
---page). The next cursor is printed after the results; pass it back via --cursor.
+Paging is cursor-only: a keyset cursor on the collection id, so there is
+no --page here. --limit takes 1–100; omit it for the server's default page size.
+The next cursor is printed under the results; pass it back via --cursor.
 
 Cursor paging is only supported for the default (Newest) sort. This is a server
 constraint: for any other --sort (e.g. "Most Followers") the API returns a
 nextCursor that it then rejects — a dead cursor that yields no further pages. So
 for a non-Newest sort the CLI shows the first page only and does NOT print a
 next-page hint; deep paging requires --sort Newest.
+
+Works anonymously (no login needed); --anon forces an anonymous request even
+when you are logged in.
 
 Usage:
   civitai collections search [flags]
@@ -1197,8 +1372,25 @@ Global Flags:
 ===CMD complete collections search===
 :0
 ===CMD creators===
-Read-only access to Civitai creators via the public REST API
-(GET /api/v1/creators). Works anonymously.
+Read-only access to Civitai creators through the public REST API
+(GET /api/v1/creators).
+
+No login is needed — these are public read routes (unlike `civitai app list`
+and `app view`, which are refused without a token). The CLI still sends your
+stored token when you have one; --anon forces an anonymous request.
+
+A creator row is a USERNAME, a published-model COUNT and a LINK. The group is
+search-only: the public API has no per-creator profile route, so there is no
+`creators get` to add.
+
+The follow-up is `civitai models search --username <name>`, which is what
+actually lists a creator's models. Use `civitai users get <name>` if you want
+the user record (id, avatar) behind the name.
+
+--json writes the API response to stdout and nothing else — notes and errors go
+to stderr, so `… --json | jq -e .` always parses. The document is the API's,
+the bytes are not: it is re-indented on the way out, so do not diff or hash it
+against the wire.
 
 Usage:
   civitai creators [flags]
@@ -1206,6 +1398,7 @@ Usage:
 
 Examples:
   civitai creators search --query artist --limit 10
+  civitai creators search --query artist --json
 
 Available Commands:
   search      Search creators (GET /api/v1/creators)
@@ -1223,19 +1416,34 @@ Use "civitai creators [command] --help" for more information about a command.
 search	Search creators (GET /api/v1/creators)
 :4
 ===CMD creators search===
-Search creators (GET /api/v1/creators)
+Search creators via GET /api/v1/creators.
+
+--query matches the username; omit it to page the whole creator list.
+--limit takes 1–200; omit it for the server's default page size.
+
+Paging is --page only. This endpoint answers with the classic page envelope
+(total items, current page, total pages) and no cursor, so there is no --cursor
+here. The footer prints the next --page while the response says there is one.
+
+Each row is USERNAME, MODELS (that creator's published model count) and LINK
+(the equivalent models query on the website). To list the models themselves,
+run `civitai models search --username <name>`.
+
+Works anonymously (no login needed); --anon forces an anonymous request even
+when you are logged in.
 
 Usage:
   civitai creators search [flags]
 
 Examples:
   civitai creators search --query artist --limit 10
+  civitai creators search --limit 50 --page 2
 
 Flags:
       --anon           force an anonymous request (ignore any stored login token)
   -h, --help           help for search
       --json           print the raw API JSON response (for scripting)
-      --limit int      results per page
+      --limit int      results per page (1-200)
       --page int       page number
       --query string   text search query
 
@@ -1358,6 +1566,13 @@ CREDENTIAL: generation needs the AI Services scopes. Two credentials carry them:
 (`civitai login` with no --scopes) does NOT carry them and is refused — and
 re-running plain `civitai login` will not fix that. Check yours with
 `civitai whoami`.
+The ONE exception is --print-input: it assembles the graph and exits before the
+estimator, the submit and the balance read, so it needs no credential. Two
+caveats, and they are NOT the same caveat. With --image it does need one, because
+it uploads each local file first and that upload is authenticated. With
+--checkpoint or --lora it still needs none — the model-version lookup is a public
+read — but it is not OFFLINE: that lookup is a real request and fails without a
+network. Only a bare --print-input needs neither a credential nor a network.
 
 --max-cost IS AN ESTIMATE CHECK, NOT A SPENDING CAP. The cost this command shows
 is an estimate, not a quote: the server's estimator returns no quote id, no
@@ -1509,8 +1724,30 @@ Global Flags:
 ===CMD complete generate===
 :0
 ===CMD images===
-Read-only access to Civitai images via the public REST API
-(GET /api/v1/images). Works anonymously.
+Read-only access to Civitai images through the public REST API
+(GET /api/v1/images). Videos and audio posts ride the same route — pick one
+with --type image|video|audio.
+
+No login is needed — these are public read routes (unlike `civitai app list`
+and `app view`, which are refused without a token). The CLI still sends your
+stored token when you have one; --anon forces an anonymous request.
+
+`images search` is the feed; `images get <id>` is one image, by the id in
+a civitai.com/images/<id> URL.
+
+Both can render the GENERATION METADATA — prompt, negative prompt, sampler,
+cfg, steps, seed, and the resources "recipe" of checkpoint plus LoRAs — which
+is what makes this a reproduction tool rather than a gallery. `search` omits
+it unless you pass --meta, matching the API (which leaves meta out by default
+to keep pages small); `get` always asks for it.
+
+An uploader can hide their generation data. Those images print
+"meta: (hidden by uploader)" rather than failing.
+
+--json writes the API response to stdout and nothing else — notes and errors go
+to stderr, so `… --json | jq -e .` always parses. The document is the API's,
+the bytes are not: it is re-indented on the way out, so do not diff or hash it
+against the wire.
 
 Usage:
   civitai images [flags]
@@ -1541,10 +1778,25 @@ get	Get a single image by id (GET /api/v1/images?imageId=<id>)
 search	Search images (GET /api/v1/images)
 :4
 ===CMD images get===
-Fetch one image by its numeric id — the id in a civitai.com/images/<id>
-URL — and render its generation metadata (prompt, settings, resources), the same
-detail block as `images search --meta`. Generation metadata is requested
-implicitly.
+Fetch one image by its numeric id — the id in a civitai.com/images/<id> URL —
+and render its generation metadata: prompt, negative prompt, sampler, cfg,
+steps, seed, and the resources recipe (checkpoint plus LoRAs, with weights and
+hashes). Metadata is requested implicitly, so this is the same detail block
+`images search --meta` prints.
+
+There is no per-id REST route. This is GET /api/v1/images?imageId=<id> — the
+search endpoint keyed to a single id — which is why `--json` hands back a
+one-item search envelope rather than a bare image object.
+
+The id is validated locally: a non-integer, non-positive, or beyond-32-bit
+value is refused as a usage mistake before any request, so an oversized id
+comes back as a clear refusal instead of a server error.
+
+A resource line falls back to meta.hashes when the generator inlined no hash;
+those hashes are exactly what `model-versions by-hash` resolves.
+
+Works anonymously (no login needed); --anon forces an anonymous request even
+when you are logged in.
 
 Usage:
   civitai images get <id> [flags]
@@ -1567,8 +1819,31 @@ Global Flags:
 ===CMD images search===
 Search images via GET /api/v1/images.
 
-Pagination: use --page for shallow paging or --cursor for deep paging (the API
-caps page*limit at 1000). The next cursor is printed after the results.
+Filters: --model-id, --model-version-id, --post-id, --username, --nsfw and
+--base-model (repeatable — the API ORs the values). --base-model is matched
+LITERALLY, so a misspelling returns zero results rather than an error; the CLI
+says so on stderr.
+
+--type, --sort and --period take server-owned value sets.
+The CLI does not check those value sets — it passes the value through and the
+server rejects an unknown one with HTTP 400, reported as a usage mistake.
+
+--sort is IGNORED when --model-id is set — the API returns that model's images
+in its own order whatever you ask, so the CLI notes it on stderr rather than
+let you believe the sort took. --model-version-id does honour --sort.
+
+--meta adds each image's prompt, sampler, cfg, steps, seed, model and resource
+list, rendered as a per-image block instead of the table (a table cannot hold a
+prompt). With --json it adds the raw meta object to every item.
+
+Paging: --limit takes 1–200; omit it for the server's default page size.
+--page is shallow paging, --cursor is deep paging, and the next cursor is
+printed under the results. The API caps page × limit at 1000 and answers 429
+past it — the CLI reports that cap as a usage mistake, not a rate limit, so a
+retry loop does not spin on it.
+
+Works anonymously (no login needed); --anon forces an anonymous request even
+when you are logged in.
 
 Usage:
   civitai images search [flags]
@@ -1664,8 +1939,27 @@ Global Flags:
 ===CMD complete login===
 :0
 ===CMD model-versions===
-Read-only access to Civitai model versions via the public REST API. Look up a
-version by its id or by a file hash (AutoV2, SHA256, …). Works anonymously.
+Read-only access to Civitai model versions through the public REST API
+(GET /api/v1/model-versions/{id} and .../by-hash/{hash}).
+Aliases: model-version, mv.
+
+No login is needed — these are public read routes (unlike `civitai app list`
+and `app view`, which are refused without a token). The CLI still sends your
+stored token when you have one; --anon forces an anonymous request.
+
+A model VERSION is the downloadable unit, and it is what most of the rest of
+this CLI wants: `civitai download --version <id>`,
+`civitai generate --checkpoint <id>` and `--lora <id>` all take a version
+id, never a model id. `civitai models get <id>` is where you read those
+version ids off a model.
+
+`by-hash` runs that lookup backwards: it identifies a file you already have
+on disk, which is how you put a name to an unlabelled .safetensors.
+
+--json writes the API response to stdout and nothing else — notes and errors go
+to stderr, so `… --json | jq -e .` always parses. The document is the API's,
+the bytes are not: it is re-indented on the way out, so do not diff or hash it
+against the wire.
 
 Usage:
   civitai model-versions [flags]
@@ -1676,6 +1970,7 @@ Aliases:
 
 Examples:
   civitai model-versions get 128713
+  civitai mv get 128713 --json
   civitai model-versions by-hash 5D8D26E2A6
 
 Available Commands:
@@ -1696,13 +1991,31 @@ by-hash	Get a model version by file hash (GET /api/v1/model-versions/by-hash/{ha
 get	Get a model version by id (GET /api/v1/model-versions/{id})
 :4
 ===CMD model-versions by-hash===
-Look up a model version by any of its file hashes (AutoV1, AutoV2, SHA256, CRC32, BLAKE3). The hash is matched case-insensitively.
+Look up a model version by any of its file hashes:
+GET /api/v1/model-versions/by-hash/{hash}.
+
+AutoV1, AutoV2, SHA256, CRC32 and BLAKE3 hashes all work — the server
+upper-cases the value, so case does not matter here. This is the "what IS this
+file?" lookup for a .safetensors you already have on disk.
+
+Note the API reports SHA256 in UPPER case while sha256sum prints lower case, so
+case-fold before comparing if you hash a file yourself. (`civitai download`'s
+own verification is already case-insensitive.)
+
+On a hit the CLI prints a ready-to-run download line for the resolved version.
+It uses --version rather than a bare positional id deliberately: a bare id is
+ambiguous between a model id and a version id, and the printed command must
+never be the one that trips that stop.
+
+Works anonymously (no login needed); --anon forces an anonymous request even
+when you are logged in.
 
 Usage:
   civitai model-versions by-hash <hash> [flags]
 
 Examples:
   civitai model-versions by-hash 5D8D26E2A6
+  civitai mv by-hash 5D8D26E2A6 --json
 
 Flags:
       --anon   force an anonymous request (ignore any stored login token)
@@ -1716,13 +2029,31 @@ Global Flags:
 ===CMD complete model-versions by-hash===
 :0
 ===CMD model-versions get===
-Get a model version by id (GET /api/v1/model-versions/{id})
+Get one model version by its version id: GET /api/v1/model-versions/{id}.
+
+This is the id `civitai download --version` and
+`civitai generate --checkpoint / --lora` take. A non-integer argument is
+refused locally, as a usage mistake, before any request is made.
+
+The output carries the base model, the trigger words, the AIR identifier and
+every file with its size and type. A version whose primary file is not model
+weights is tagged with that type ([Archive], [Training Data], [Other]).
+
+What a version does NOT carry is model-level data. Its .model is a stub — the
+CLI reads a name, a type and an nsfw flag out of it — and there is no creator
+and no model-level download count on this response at all. If you started from
+a version and need those, read them from `models get` / `models search`
+and join on the version's .modelId.
+
+Works anonymously (no login needed); --anon forces an anonymous request even
+when you are logged in.
 
 Usage:
   civitai model-versions get <id> [flags]
 
 Examples:
   civitai model-versions get 128713
+  civitai mv get 128713 --json
 
 Flags:
       --anon   force an anonymous request (ignore any stored login token)
@@ -1736,9 +2067,26 @@ Global Flags:
 ===CMD complete model-versions get===
 :0
 ===CMD models===
-Read-only access to Civitai models via the public REST API
-(GET /api/v1/models). These commands work anonymously; if you are logged in
-(civitai login) your token is sent automatically.
+Read-only access to Civitai models through the public REST API
+(GET /api/v1/models, GET /api/v1/models/{id}).
+
+No login is needed — these are public read routes (unlike `civitai app list`
+and `app view`, which are refused without a token). The CLI still sends your
+stored token when you have one; --anon forces an anonymous request.
+
+`models search` is the discovery surface — filter by --query / --tag /
+--username / --type / --base-model, order with --sort / --period, and page with
+--limit / --page / --cursor. `models get <id>` returns one model with its
+full version list.
+
+What lives one level down: a model is the PAGE, a model VERSION is the
+downloadable unit. `civitai download` and `civitai generate --checkpoint`
+both take a version id, which `models get` lists.
+
+--json writes the API response to stdout and nothing else — notes and errors go
+to stderr, so `… --json | jq -e .` always parses. The document is the API's,
+the bytes are not: it is re-indented on the way out, so do not diff or hash it
+against the wire.
 
 Usage:
   civitai models [flags]
@@ -1746,7 +2094,9 @@ Usage:
 
 Examples:
   civitai models search --query "pony" --limit 5
+  civitai models search --type LORA --base-model Illustrious --limit 20
   civitai models get 4384
+  civitai models get 4384 --json
 
 Available Commands:
   get         Get a model by id (GET /api/v1/models/{id})
@@ -1766,7 +2116,22 @@ get	Get a model by id (GET /api/v1/models/{id})
 search	Search models (GET /api/v1/models)
 :4
 ===CMD models get===
-Get a model by id (GET /api/v1/models/{id})
+Get one model by id: GET /api/v1/models/{id}.
+
+The id is the number in a civitai.com/models/<id> URL. A non-integer argument
+is refused locally, as a usage mistake, before any request is made.
+
+The human output lists every published VERSION (id, name, base model) — that
+version id is what `civitai download --version` and
+`civitai generate --checkpoint` take. A version whose primary file is not
+model weights is tagged with its actual file type ([Archive], [Training Data],
+[Other]); it still downloads, the tag just says it is not a .safetensors.
+
+--json carries much more than the human view — the description HTML, per-file
+hashes and download URLs, and the full stats block.
+
+Works anonymously (no login needed); --anon forces an anonymous request even
+when you are logged in.
 
 Usage:
   civitai models get <id> [flags]
@@ -1789,9 +2154,27 @@ Global Flags:
 ===CMD models search===
 Search models via GET /api/v1/models.
 
-Pagination: use --page for shallow paging, or --cursor for deep paging (the API
-caps page*limit at 1000 and otherwise returns 429 — prefer --cursor). The next
-cursor is printed after the results.
+Filters: --query (free text), --tag, --username, --base-model (repeatable — the
+API ORs the given values) and --nsfw. --base-model is matched LITERALLY, so a
+misspelling returns zero results rather than an error; the CLI says so on
+stderr.
+
+--type, --sort and --period take server-owned value sets.
+The CLI does not check those value sets — it passes the value through and the
+server rejects an unknown one with HTTP 400, reported as a usage mistake.
+
+Paging: --limit takes 1–100; omit it for the server's default page size.
+--page is shallow paging, --cursor is deep paging, and the next cursor is
+printed under the results. The API caps page × limit at 1000 and answers 429
+past it — the CLI reports that cap as a usage mistake, not a rate limit, so a
+retry loop does not spin on it.
+
+--period changes the SORT, not the DOWNLOADS column: the API returns only the
+all-time download count, so a later row can legitimately show more downloads
+than an earlier one. The column is labelled DL(all-time) for that reason.
+
+Works anonymously (no login needed); --anon forces an anonymous request even
+when you are logged in.
 
 Usage:
   civitai models search [flags]
@@ -1799,7 +2182,8 @@ Usage:
 Examples:
   civitai models search --query "pony" --limit 5
   civitai models search --type LORA --sort "Most Downloaded" --period Month
-  civitai models search --username some-creator --cursor <cursor>
+  civitai models search --base-model Pony --base-model Illustrious --limit 20
+  civitai models search --username some-creator --cursor '<cursor>'
 
 Flags:
       --anon                 force an anonymous request (ignore any stored login token)
@@ -1824,8 +2208,27 @@ Global Flags:
 ===CMD complete models search===
 :0
 ===CMD tags===
-Read-only access to Civitai model tags via the public REST API
-(GET /api/v1/tags). Works anonymously.
+Read-only access to Civitai MODEL tags through the public REST API
+(GET /api/v1/tags).
+
+No login is needed — these are public read routes (unlike `civitai app list`
+and `app view`, which are refused without a token). The CLI still sends your
+stored token when you have one; --anon forces an anonymous request.
+
+These are the model taxonomy — the same names `civitai models search --tag`
+filters on, which is what this group is for: find the tag, then search with it.
+
+The group is search-only, and deliberately so: the public route answers with a
+tag NAME and a LINK per tag and nothing else, so there is nothing for a
+`tags get` to fetch.
+
+Not to be confused with `civitai articles search --tags`, which takes numeric
+tag IDS rather than these names — a different filter on a different endpoint.
+
+--json writes the API response to stdout and nothing else — notes and errors go
+to stderr, so `… --json | jq -e .` always parses. The document is the API's,
+the bytes are not: it is re-indented on the way out, so do not diff or hash it
+against the wire.
 
 Usage:
   civitai tags [flags]
@@ -1833,6 +2236,7 @@ Usage:
 
 Examples:
   civitai tags search --query anime --limit 10
+  civitai tags search --query anime --json
 
 Available Commands:
   search      Search tags (GET /api/v1/tags)
@@ -1850,19 +2254,35 @@ Use "civitai tags [command] --help" for more information about a command.
 search	Search tags (GET /api/v1/tags)
 :4
 ===CMD tags search===
-Search tags (GET /api/v1/tags)
+Search model tags via GET /api/v1/tags.
+
+--query matches the tag name; omit it to page the whole tag list.
+--limit takes 1–200; omit it for the server's default page size.
+
+Paging is --page only. This endpoint answers with the classic page envelope
+(total items, current page, total pages) and no cursor, so there is no --cursor
+here. The footer prints the next --page while the response says there is one.
+
+Each row is a tag NAME and a LINK. The name is what
+`civitai models search --tag <name>` takes — that is the follow-up this
+command exists to set up. The link is the equivalent models query on the
+website.
+
+Works anonymously (no login needed); --anon forces an anonymous request even
+when you are logged in.
 
 Usage:
   civitai tags search [flags]
 
 Examples:
   civitai tags search --query anime --limit 10
+  civitai tags search --limit 50 --page 2
 
 Flags:
       --anon           force an anonymous request (ignore any stored login token)
   -h, --help           help for search
       --json           print the raw API JSON response (for scripting)
-      --limit int      results per page
+      --limit int      results per page (1-200)
       --page int       page number
       --query string   text search query
 
@@ -1902,12 +2322,29 @@ Global Flags:
 ===CMD complete upgrade===
 :0
 ===CMD users===
-Read-only access to Civitai users via the public REST API.
+Read-only access to Civitai users through the public REST API.
 
-NOTE: the public users route is the search endpoint GET /api/v1/users (keyed by
-?query= or ?ids=). The per-id route /api/v1/users/{userId} is an INTERNAL
-webhook (POST + system token) and is NOT usable by the CLI, so "users get"
-resolves a user through the public search. Works anonymously.
+No login is needed — these are public read routes (unlike `civitai app list`
+and `app view`, which are refused without a token). The CLI still sends your
+stored token when you have one; --anon forces an anonymous request.
+
+NOTE: the only public users route is the SEARCH endpoint GET /api/v1/users,
+keyed by ?query= or ?ids=. The per-id route /api/v1/users/{userId} is an
+INTERNAL webhook (POST plus a system token) and is not usable from the CLI, so
+`users get` resolves a user through that public search.
+
+That is also why there is no `users search`: the search endpoint is already
+what `users get` calls, and it answers with a handful of fuzzy neighbours
+rather than a browsable, pageable list — it has no pagination envelope at all.
+
+What comes back is identity only: id, username and avatar URL. For a user's
+models use `civitai models search --username <name>`; for their published
+model COUNT use `civitai creators search --query <name>`.
+
+--json writes the API response to stdout and nothing else — notes and errors go
+to stderr, so `… --json | jq -e .` always parses. The document is the API's,
+the bytes are not: it is re-indented on the way out, so do not diff or hash it
+against the wire.
 
 Usage:
   civitai users [flags]
@@ -1916,6 +2353,7 @@ Usage:
 Examples:
   civitai users get some-username
   civitai users get 5
+  civitai users get 5 --json
 
 Available Commands:
   get         Look up a user by username or id (public search: GET /api/v1/users)
@@ -1933,10 +2371,26 @@ Use "civitai users [command] --help" for more information about a command.
 get	Look up a user by username or id (public search: GET /api/v1/users)
 :4
 ===CMD users get===
-Look up a user by username or numeric id via the public user search
-(GET /api/v1/users). A numeric argument is matched via ?ids=; anything else via
-?query= (returning the best-matching users, from which an exact username match
-is selected when present).
+Look up a user by username or numeric id through the public user search
+(GET /api/v1/users). A numeric argument is sent as ?ids= and returns exactly
+that user; anything else is sent as ?query=.
+
+A NAME lookup is FUZZY on the server side — the endpoint answers with the
+closest-matching users, not with your user. So the CLI requires an exact
+(case-insensitive) username match before it prints anybody: a typo lists the
+near misses and fails as not-found rather than confidently printing the wrong
+person. When several users match, the exact one is printed and the rest are
+listed under "other matches". Pass the numeric id when you need certainty.
+
+An unknown user comes back from this endpoint as an empty HTTP 200 rather than
+a 404. The CLI still reports it as NOT FOUND, so a script gets the same signal
+it would from a real 404.
+
+The result is identity only — id, username, avatar URL. There are no stats and
+no model list on this route.
+
+Works anonymously (no login needed); --anon forces an anonymous request even
+when you are logged in.
 
 Usage:
   civitai users get <username-or-id> [flags]
