@@ -21,7 +21,8 @@ outline: [2, 4]
 # CLI
 
 The **`civitai` CLI** (Go, repo [`civitai/cli`](https://github.com/civitai/cli))
-is the canonical tool for authoring Civitai Apps. Its `app` command group
+is the canonical command-line tool for Civitai — searching and downloading
+models, running generations, and authoring Apps. Its `app` command group
 scaffolds a correct project, validates it against the platform contract, and
 packages + submits it for review.
 
@@ -33,8 +34,8 @@ below are the source of truth.
 
 ## Install
 
-Pick whichever fits — **npm** is the most convenient if you already have Node
-(App authors usually do); the others need no Node toolchain:
+Pick whichever fits — **npm** is the most convenient if you already have Node;
+the others need no Node toolchain:
 
 ```bash
 # npm (a thin wrapper that downloads the matching prebuilt binary)
