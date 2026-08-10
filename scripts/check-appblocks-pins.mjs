@@ -31,11 +31,14 @@
  *   - a 404 for the package itself          -> FAIL (the pin names a package npm
  *     doesn't serve — real drift, not transient).
  *
- * DESIGN — scheduled + PR-on-pin-change. Like the snapshot guard, a new upstream
- * publish is unrelated to an arbitrary docs PR, so the scheduled run is the
- * primary signal (`.github/workflows/appblocks-drift.yml`). It ALSO runs on a PR
- * that touches package.json so a pin bump is verified against `latest` at review
- * time.
+ * DESIGN — SCHEDULE-ONLY. Like the snapshot guard, a new upstream publish is
+ * unrelated to an arbitrary docs PR, so gating a PR on someone else's release
+ * would be a permanently-red gate. The ONLY invocation is the `check:pins` step
+ * in `.github/workflows/appblocks-drift.yml`. It used to also run on a PR
+ * touching package.json: #43 removed the `paths:` filter, then #44 removed the
+ * PR invocation entirely.
+ * NB `grep -c check:pins .github/workflows/appblocks-bridge.yml` returns 1 and
+ * reads as "still wired" — that hit is a COMMENT. Scope to `run:` lines.
  *
  * USAGE
  *   npm run check:pins
