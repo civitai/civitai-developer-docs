@@ -72,6 +72,57 @@ const SNAPSHOT = join(repoRoot, 'appblocks-snapshots', 'civitai-cli-help.txt');
 const RELEASES_URL =
   process.env.APPBLOCKS_CLI_RELEASES_URL || 'https://api.github.com/repos/civitai/cli/releases/latest';
 
+// Same, for the informational commits-behind probe below.
+const COMPARE_URL =
+  process.env.APPBLOCKS_CLI_COMPARE_URL || 'https://api.github.com/repos/civitai/cli/compare';
+
+/**
+ * How many civitai/cli commits have landed since the snapshot was captured.
+ *
+ * 🔴 THIS IS THE DRIFT THE TAG COMPARISON STRUCTURALLY CANNOT SEE, and it is the
+ * drift that actually bites. `classifySnapshot` compares TAGS only — the `ahead`
+ * and `sha` this file already parses never reach it. `main` moves daily and tags
+ * are rare, so a snapshot captured 30 commits ago at the CURRENT tag verdicts
+ * `ok` while every command added since is missing from the published reference.
+ * The header comment above concedes the same thing in passing ("a snapshot
+ * captured from an unreleased build of the current tag reads as current"); this
+ * is that sentence turned into a number.
+ *
+ * Measured 2026-08-09: the committed snapshot sat at v0.1.90-25-g9cfe468 with
+ * civitai/cli#274 and #276 both merged, and grep for their help prose returned
+ * 0 and 0 against a working positive control. This guard said `ok` throughout,
+ * and docs#52 had to be opened by hand.
+ *
+ * 🔴 REPORTED, NEVER FAILED — deliberate, not timid. Failing on a non-zero count
+ * would redden this daily job on every upstream commit, including the many that
+ * touch no help text (8 of 12 in one measured window), i.e. a permanently-red
+ * gate, which this repo's doctrine says is worse than no gate. The number exists
+ * so a human reading the run sees "38 commits behind" and decides.
+ *
+ * Returns null on ANY failure. This is an informational nicety bolted onto a
+ * guard whose real verdict is computed elsewhere; it must never be able to turn
+ * a passing run into a failing one, so every error path degrades to silence.
+ */
+export async function commitsSinceSnapshot(snapshotSha, fetchImpl = fetch) {
+  if (!snapshotSha) return null;
+  const headers = {
+    accept: 'application/vnd.github+json',
+    'user-agent': 'civitai-developer-docs-drift-guard',
+  };
+  if (process.env.GITHUB_TOKEN) headers.authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  try {
+    const res = await fetchImpl(`${COMPARE_URL}/${snapshotSha}...main`, {
+      signal: AbortSignal.timeout(20000),
+      headers,
+    });
+    if (!res.ok) return null;
+    const body = await res.json();
+    return typeof body?.ahead_by === 'number' ? body.ahead_by : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Parse the snapshot header's `Binary version:` line into its `git describe`
  * parts. Pure + exported so the regression test can drive it without network.
@@ -153,12 +204,33 @@ async function main() {
   }
 
   const cls = classifySnapshot(parsed.tag, remote.tag);
+
+  // The commits-behind line is printed on BOTH passing verdicts, because both are
+  // exactly where the tag comparison goes quiet while the snapshot rots. It is
+  // never printed on the failing path — there the remedy below is the message.
+  const behindLine = async () => {
+    const behind = await commitsSinceSnapshot(parsed.sha);
+    if (behind === null) return '  ⊘ commits-behind unavailable (compare API unreachable) — tag verdict stands';
+    if (behind === 0) return '  ✓ 0 civitai/cli commits since the capture — the snapshot is current';
+    return (
+      `  ⚠ ${behind} civitai/cli commit(s) have landed since this snapshot was captured.\n` +
+      '    This does NOT fail the check — most upstream commits touch no help text, and a\n' +
+      '    gate that reddens daily is one everybody clicks through. But the tag comparison\n' +
+      '    below CANNOT see this drift, and it is the drift that hid civitai/cli#274+#276\n' +
+      '    from the published reference until docs#52. If the number is large, or you know\n' +
+      "    a `--help` body changed upstream, re-capture: see the remedy in this file's\n" +
+      '    drift block, or `node scripts/gen-appblocks-cli.mjs --write-snapshot`.'
+    );
+  };
+
   if (cls.status === 'ok') {
     console.log(`  ✓ snapshot tag ${parsed.tag} matches the latest civitai/cli release ${remote.tag}`);
+    console.log(await behindLine());
     return;
   }
   if (cls.status === 'ahead') {
     console.log(`  ✓ snapshot tag ${parsed.tag} is AHEAD of the latest release ${remote.tag} — ok (unreleased build)`);
+    console.log(await behindLine());
     return;
   }
 
