@@ -11,6 +11,21 @@ const openapiSidebar = useSidebar({
   linkPrefix: '/orchestration/reference/operations/',
 });
 
+// Design-system showcase surfaces (live component gallery + token gallery).
+// Registered under both `/apps/showcase` and `/apps/tokens` so either page
+// shows the same sidebar group.
+const designSystemSidebar: DefaultTheme.SidebarItem[] = [
+  {
+    text: 'Design system',
+    items: [
+      { text: 'Component showcase', link: '/apps/showcase' },
+      { text: 'Design tokens', link: '/apps/tokens' },
+      { text: 'Theming guide', link: '/apps/guide/theming' },
+      { text: 'Components reference', link: '/apps/reference/components' },
+    ],
+  },
+];
+
 const sidebar: DefaultTheme.Sidebar = {
   '/orchestration/guide/': [
     {
@@ -62,6 +77,9 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Veo 3 video generation', link: '/orchestration/recipes/veo3' },
         { text: 'Grok video generation', link: '/orchestration/recipes/grok-video' },
         { text: 'Happy-Horse video generation', link: '/orchestration/recipes/happy-horse' },
+        { text: 'FLUX-3 video generation', link: '/orchestration/recipes/flux3-video' },
+        { text: 'MiniMax H3 video generation', link: '/orchestration/recipes/minimax-h3' },
+        { text: 'Seedance video generation', link: '/orchestration/recipes/seedance' },
         { text: 'HunyuanVideo generation', link: '/orchestration/recipes/hunyuan' },
         { text: 'Video upscaling', link: '/orchestration/recipes/video-upscaler' },
         { text: 'Video frame interpolation', link: '/orchestration/recipes/video-interpolation' },
@@ -116,6 +134,7 @@ const sidebar: DefaultTheme.Sidebar = {
       items: [
         { text: 'Prompt enhancement', link: '/orchestration/recipes/prompt-enhancement' },
         { text: 'Image conversion', link: '/orchestration/recipes/convert-image' },
+        { text: 'Image background removal', link: '/orchestration/recipes/image-background-removal' },
       ],
     },
     {
@@ -148,6 +167,40 @@ const sidebar: DefaultTheme.Sidebar = {
       ],
     },
   ],
+  '/apps/guide/': [
+    {
+      text: 'Guide',
+      items: [
+        { text: 'Introduction', link: '/apps/guide/' },
+        { text: 'Concepts', link: '/apps/guide/concepts' },
+        { text: 'Quickstart', link: '/apps/guide/quickstart' },
+        { text: 'Generating images (text-to-image)', link: '/apps/guide/text-to-image' },
+        { text: 'Comfy on Civitai (customComfy)', link: '/apps/guide/comfy-cloud' },
+        { text: 'Running embedded & direct traffic', link: '/apps/guide/embedding' },
+        { text: 'Theming & design system', link: '/apps/guide/theming' },
+        // The heading pins an explicit `{#retrofit}` anchor, so the auto-slug
+        // this link used to guess (`#theming-an-existing-app-…`) never existed.
+        { text: 'Theming an existing app (retrofit)', link: '/apps/guide/theming#retrofit' },
+      ],
+    },
+  ],
+  '/apps/reference/': [
+    {
+      text: 'Reference',
+      items: [
+        { text: 'Overview', link: '/apps/reference/' },
+        { text: 'Scopes', link: '/apps/reference/scopes' },
+        { text: 'Manifest', link: '/apps/reference/manifest' },
+        { text: 'Generation bridge', link: '/apps/reference/generation' },
+        { text: 'Components', link: '/apps/reference/components' },
+        { text: 'Messages', link: '/apps/reference/messages' },
+        { text: 'Hooks', link: '/apps/reference/hooks' },
+        { text: 'CLI', link: '/apps/reference/cli' },
+      ],
+    },
+  ],
+  '/apps/showcase': designSystemSidebar,
+  '/apps/tokens': designSystemSidebar,
   '/site/guide/': [
     {
       text: 'Guide',
@@ -155,6 +208,7 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Introduction', link: '/site/guide/' },
         { text: 'Getting Started', link: '/site/guide/getting-started' },
         { text: 'Authentication', link: '/site/guide/authentication' },
+        { text: 'CLI', link: '/site/guide/cli' },
         { text: 'Pagination', link: '/site/guide/pagination' },
         { text: 'Errors', link: '/site/guide/errors' },
         { text: 'AIR Identifiers', link: '/site/guide/air' },
@@ -182,6 +236,8 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Models', link: '/site/reference/models' },
         { text: 'Model Versions', link: '/site/reference/model-versions' },
         { text: 'Images', link: '/site/reference/images' },
+        { text: 'Articles', link: '/site/reference/articles' },
+        { text: 'Collections', link: '/site/reference/collections' },
         { text: 'Creators', link: '/site/reference/creators' },
         { text: 'Tags', link: '/site/reference/tags' },
         { text: 'Users', link: '/site/reference/users' },
@@ -222,6 +278,7 @@ export default withMermaid({
     nav: [
       { text: 'Orchestration', link: '/orchestration/', activeMatch: '/orchestration/' },
       { text: 'Civitai Site', link: '/site/', activeMatch: '/site/' },
+      { text: 'Apps', link: '/apps/', activeMatch: '/apps/' },
       {
         text: 'Guides',
         items: [
@@ -233,6 +290,10 @@ export default withMermaid({
           { text: 'Civitai Site OAuth', link: '/site/oauth/' },
           { text: 'Civitai Site Reference', link: '/site/reference/' },
           { text: 'Civitai MCP', link: '/site/mcp/' },
+          { text: 'Apps Guide', link: '/apps/guide/' },
+          { text: 'Apps Reference', link: '/apps/reference/' },
+          { text: 'Apps Component Showcase', link: '/apps/showcase' },
+          { text: 'Apps Design Tokens', link: '/apps/tokens' },
         ],
       },
     ],

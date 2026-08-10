@@ -2,3 +2,7 @@ node_modules/
 .vitepress/dist/
 .vitepress/cache/
 public/openapi/
+public/appblocks/
+.showcase-shots/
+.appblocks-snippet-tmp/
+.page-context-tmp/

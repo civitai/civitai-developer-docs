@@ -301,4 +301,5 @@ A single pass (`numberOfRepeats: 1`) with the default 4x-Remacri on a ~1-megapix
 - [Endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageUpscaler/openapi.yaml) — standalone OpenAPI 3.1 YAML for this endpoint, ready to import into Postman / Insomnia / OpenAPI Generator
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — generic path for chaining
 - [Video upscaling](./video-upscaler) — the `videoUpscaler` equivalent for video
+- [Image background removal](./image-background-removal) — cut out the subject before or after upscaling
 - [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism) — how the `@step.output.*` references work

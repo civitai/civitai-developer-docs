@@ -542,6 +542,7 @@ total    = base × quantity
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
 - [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
 - [Flux 1 image generation](./flux1) — classic Flux.1 family (sdcpp, Comfy, Kontext editing)
+- [FLUX-3 video generation](./flux3-video) — the Flux family's video model (`videoGen`, `engine: "flux"`)
 - [Image upscaling](./image-upscaler) — chain after `imageGen` for higher-res output
 - [Prompt enhancement](./prompt-enhancement) — LLM-rewrite a prompt before feeding it in via `$ref`
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — handling longer runs

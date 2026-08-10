@@ -1,0 +1,45 @@
+name: appblocks-messages
+
+# PR-BLOCKING: the messages generator runs at BUILD time (prebuild -> gen:appblocks)
+# and HARD-FAILS when the vendored appblocks-snapshots/hostHandlerParity.ts is
+# stale relative to the pinned @civitai/app-sdk (an SDK block->host message with no
+# INVENTORY entry) or when parseInventory stops matching a reformatted snapshot.
+# That failure would otherwise surface only in the Docker/CI build. This fast unit
+# test reproduces the exact SDK->INVENTORY coverage relation, so a PR that bumps the
+# SDK pin without re-vendoring the snapshot (or reformats the generator) is blocked
+# here first.
+#
+# RUNS ON EVERY PR, DELIBERATELY UNFILTERED — do not re-add a `paths:` filter.
+# `test-messages` is a REQUIRED status check on `main`, and GitHub does not
+# synthesise a passing status for a workflow that never triggers, so a
+# path-filtered required check strands every PR that touches none of the watched
+# files at mergeStateStatus=BLOCKED forever. Measured live on #42, which this
+# workflow's old filter never saw. See appblocks-cli.yml for the full note; the
+# unfiltered trigger is a superset of the paths this file used to watch.
+on:
+  pull_request: {}
+  workflow_dispatch: {}
+
+# LEAST PRIVILEGE — see appblocks-cli.yml for the full reasoning. Checkout +
+# npm ci + offline node tests only; no upload, comment, issue, push or API
+# mutation. `contents: read` is all actions/checkout requires.
+permissions:
+  contents: read
+
+jobs:
+  test-messages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install (pinned @civitai/app-sdk for the block->host message union)
+        run: npm ci
+
+      - name: Messages parser + SDK->INVENTORY coverage guard
+        run: npm run test:appblocks:messages

@@ -1,4 +1,3 @@
-
 ---
 title: Compose media (video)
 ---
@@ -55,6 +54,33 @@ const pipBody = {
             at: 0.0,
             layout: { x: 880, y: 500, scale: 0.3, zOrder: 1 },
             transformers: [{ type: 'fadeIn', durationMs: 300 }],
+          },
+        ],
+      },
+    },
+  ],
+};
+
+// Animated WebP with transparency — one generated animation, crop-fitted to a square canvas,
+// background removed per frame, encoded as a looping animated webp with real alpha.
+const webpBadgeBody = {
+  steps: [
+    {
+      $type: 'videoGen', name: 'anim',
+      input: { engine: 'ltx2.3', operation: 'createVideo', model: '22b-distilled',
+        prompt: 'A golden trophy slowly spinning on a plain solid white background, studio lighting',
+        duration: 3, width: 768, height: 768, fps: 24, generateAudio: false },
+    },
+    {
+      $type: 'composeMedia',
+      input: {
+        canvas: { width: 240, height: 240, fps: 12, background: '#00000000' },
+        output: { container: 'webp' },
+        elements: [
+          {
+            url: { $ref: 'anim', path: 'output.video.url' },
+            layout: { fit: 'cover' },
+            transformers: [{ type: 'backgroundRemoval', shadowRemoval: 'gentle' }],
           },
         ],
       },
@@ -120,6 +146,19 @@ Two videos on one canvas. The base clip fills the frame; the second is scaled to
 
 Array order is z-order: later elements draw over earlier ones (ties broken by `layout.zOrder`). Position the inset with `layout.x`/`layout.y` in canvas pixels, and size it with `layout.scale` (a fraction of the canvas).
 
+## Animated WebP with transparency
+
+`output.container: "webp"` produces a **looping animated WebP** — the format used for badges, stickers, and other decorative animations. Pair it with a `backgroundRemoval` transformer and a transparent canvas background (`#RRGGBBAA` with alpha `00`) to carry real per-pixel alpha into the output:
+
+- **`backgroundRemoval`** removes each frame's background with a deterministic edge-connected flood fill: the background colour is estimated from the frame border, and every border-connected pixel within tolerance becomes transparent. Background-coloured pixels *enclosed inside* the artwork are kept — unlike a global colour key.
+- **`shadowRemoval`** (`off` | `gentle` | `aggressive`, default `gentle`) also strips soft drop shadows the strict colour match would miss.
+- **`fromCenter: true`** additionally seeds the fill from the frame centre — for ring/frame artwork with an enclosed background-coloured hole.
+- Prompt your source animation onto a **plain, solid background** for the cleanest matte.
+
+WebP output ignores audio streams, and works without background removal too (an opaque background gives a plain animated webp).
+
+<RecipeRun :body="webpBadgeBody" :wait="0" />
+
 ## Input fields
 
 ### `composeMedia` step
@@ -127,7 +166,7 @@ Array order is z-order: later elements draw over earlier ones (ties broken by `l
 | Field | Required | Default | Notes |
 |-------|----------|---------|-------|
 | `elements` | ✅ | — | Array of elements to compose. At least one. |
-| `output` | | derived | `{ type, container }`. `type` is `audio`/`video` (derived from the elements when unset); `container` is `mp4`/`webm` for video or `ogg`/`mp3` for audio (`auto` picks mp4/ogg). |
+| `output` | | derived | `{ type, container }`. `type` is `audio`/`video` (derived from the elements when unset); `container` is `mp4`/`webm`/`webp` for video or `ogg`/`mp3` for audio (`auto` picks mp4/ogg). `webp` produces a looping animated WebP (video output, audio ignored). |
 | `canvas` | | derived | Optional output geometry. When omitted for video, derived from the elements. |
 | `normalize` | | `false` | When `true`, the audio mix divides by N to avoid clipping. |
 
@@ -138,7 +177,7 @@ Array order is z-order: later elements draw over earlier ones (ties broken by `l
 | `width` | ✅ | — | Output width in pixels (clamped server-side, rounded to even). |
 | `height` | ✅ | — | Output height in pixels. |
 | `fps` | | `30` | Output frame rate. Source clips are resampled to this rate. |
-| `background` | | `#000000` | Hex colour painted where no element covers the canvas. |
+| `background` | | `#000000` | Hex colour painted where no element covers the canvas. An 8-digit `#RRGGBBAA` value sets the background alpha; anything below fully opaque requires the `webp` container. |
 
 ### Per-element fields
 
@@ -168,6 +207,7 @@ Each entry is `{ "type": "<name>", ...params }`:
 | `fadeIn` | `durationMs` (int) | Picture and sound |
 | `fadeOut` | `durationMs` (int) | Picture and sound |
 | `volume` | `db` (float) | Sound only |
+| `backgroundRemoval` | `shadowRemoval` (`off`/`gentle`/`aggressive`, default `gentle`), `fromCenter` (bool, default `false`) | Picture only (video elements) — per-frame edge-connected background removal; see [Animated WebP with transparency](#animated-webp-with-transparency) |
 
 ## Reading the result
 
@@ -197,17 +237,17 @@ Each entry is `{ "type": "<name>", ...params }`:
 ```
 
 - **`type`** — `"video"` here. The output is discriminated on `type`: a video composition carries `videoBlob`, an audio mixdown carries `audioBlob`.
-- **`videoBlob.url`** — signed URL for the composed MP4/WebM.
+- **`videoBlob.url`** — signed URL for the composed MP4/WebM/WebP.
 - **`videoBlob.width` / `height`** — the output canvas dimensions.
 - **`elements[]`** — per-input resolved timing in submission order.
 
 ## Runtime
 
-Video compositing runs ffmpeg on a GPU worker (NVENC, with a software fallback). Wall-clock scales with output duration, resolution, and the number of layered elements — expect seconds-to-minutes for short clips. Submit with `wait=0` and poll.
+Video compositing runs ffmpeg on a GPU worker (NVENC, with a software fallback); animated WebP encoding and background removal are CPU work. Wall-clock scales with output duration, resolution, and the number of layered elements — expect seconds-to-minutes for short clips. Submit with `wait=0` and poll.
 
 ## Cost
 
-Video compositions carry a small compositing charge scaled by the number of elements (audio-only mixdowns remain free). See [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for how charges surface in the cost preview, and run a `whatif=true` submission to see the exact Buzz cost before executing.
+Video compositions carry a small compositing charge scaled by the number of elements (audio-only mixdowns remain free); elements with `backgroundRemoval` add a per-element surcharge for the frame-by-frame processing. See [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for how charges surface in the cost preview, and run a `whatif=true` submission to see the exact Buzz cost before executing.
 
 ## Troubleshooting
 
@@ -218,6 +258,8 @@ Video compositions carry a small compositing charge scaled by the number of elem
 | An element you expected on-screen is only audible | Its URL is an audio file (or it has no video stream), so it is mixed, not drawn | Supply a video URL for elements you want on the canvas. |
 | Inset is letterboxed inside its box | `fit: contain` preserves aspect ratio | Use `fit: cover` to fill the inset (cropping overflow), or size the box to the clip's aspect. |
 | Output longer/shorter than expected | Total length is `max(at + duration)` across all elements | Use `at`/`offset` to place elements on the timeline. |
+| WebP output has an opaque background despite `backgroundRemoval` | The canvas background is opaque, so the knockout is composited over it | Set `canvas.background` to a transparent value, e.g. `"#00000000"`. |
+| Background removal eats into the artwork (or misses shadows) | `shadowRemoval` tolerance doesn't match the source | Use `off` for hard-edged sources, `aggressive` for heavy soft shadows; prompt the source onto a plain solid background. |
 
 ## Related
 
@@ -225,3 +267,4 @@ Video compositions carry a small compositing charge scaled by the number of elem
 - [WAN video generation](./wan) and [other video recipes](./) — produce clips to feed into a composition via `$ref`.
 - [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism) — how `$ref` chains one step's output into another.
 - The [`ComposeMediaInput` and `ComposeMediaOutput` schemas](/orchestration/reference/operations/InvokeComposeMediaStepTemplate) — full parameter reference.
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) and [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — the underlying workflow endpoints.

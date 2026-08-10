@@ -1,0 +1,105 @@
+name: appblocks-drift
+
+# SCHEDULED, NOT PR-BLOCKING (by design). EVERY guard here detects UPSTREAM
+# movement — a re-snapshottable source file changing, the two manifest-schema
+# copies diverging, an SDK or civitai/cli release publishing — which is unrelated
+# to any given docs PR. Gating unrelated docs PRs on a stale snapshot / a schema
+# the docs repo doesn't own would be wrong, so this runs on a schedule (mirroring
+# test-samples) + on demand, where a red run is the visible signal to re-snapshot
+# or reconcile. To make any of them a non-blocking informational PR check later,
+# add a `pull_request` trigger with `continue-on-error: true`.
+#
+# The counterpart doctrine: a REPO-LOCAL invariant (no upstream input, so it
+# cannot false-fail on someone else's publish) DOES block a PR — see
+# appblocks-snippets.yml's --offline half and appblocks-cli.yml.
+#
+# NAME vs CONTENTS: the last step here guards the ORCHESTRATION OpenAPI
+# snapshot, not App Blocks, so this file now carries one non-App-Blocks signal.
+# It lives here rather than in a file of its own because it is the same KIND of
+# check under the same doctrine, and a second daily workflow would pay for a
+# second checkout + `npm ci` to run one HTTP GET. If a third non-App-Blocks
+# drift guard ever arrives, split this into a generically-named `drift` workflow
+# — and note that renaming it is free only while it stays schedule-only, since
+# nothing can require a context that never runs on a PR.
+on:
+  schedule:
+    # 06:37 UTC daily — just after the test-samples 06:17 run.
+    - cron: '37 6 * * *'
+  workflow_dispatch: {}
+
+# LEAST PRIVILEGE — see appblocks-cli.yml for the full reasoning. This is the
+# one workflow here that hands GITHUB_TOKEN to a step, so it is the one that
+# looks like it might need more than read. It does not: the token is passed to
+# check:cli-snapshot purely as a rate-limit lift on an UNAUTHENTICATED-capable
+# GET of a PUBLIC cross-repo endpoint
+# (api.github.com/repos/civitai/cli/releases/latest — see
+# scripts/check-appblocks-cli-snapshot.mjs). A `permissions:` block scopes the
+# token against THIS repo only and never gates reads of another public repo,
+# and the script already degrades to SKIP (never fail) on a 403. Every other
+# step reads over unauthenticated HTTPS (raw.githubusercontent.com, the npm
+# registry, the prod manifest endpoint) or runs a local `git show`.
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install (pinned SDK devDeps for the SDK-bundled manifest schema)
+        run: npm ci
+
+      - name: Snapshot drift — appblocks-snapshots/ vs civitai@origin/main
+        run: npm run check:snapshots
+
+      - name: CLI snapshot freshness — civitai-cli-help.txt vs the latest civitai/cli release
+        # NOT covered by check:snapshots, and not for lack of trying: that guard
+        # diffs a raw upstream FILE, while this snapshot is `--help` OUTPUT
+        # captured by running a compiled Go binary — there is nothing to fetch
+        # and byte-compare. It probes the snapshot header's recorded binary
+        # version against the latest published civitai/cli release instead. (The
+        # repo-local half — every advertised `app` subcommand being listed in the
+        # generator — blocks a PR from appblocks-cli.yml.)
+        if: always()
+        env:
+          # Lifts the shared-runner rate limit. Absent, a 403 SKIPs, never fails.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run check:cli-snapshot
+
+      - name: Manifest schema parity — prod endpoint vs SDK-bundled v1.json
+        # Always run so one scheduled run surfaces BOTH drift signals.
+        if: always()
+        run: npm run check:manifest-parity
+
+      - name: Generation-bridge pin drift — pinned SDK devDeps vs npm latest
+        # Always run so a lagging @civitai/app-sdk / blocks-react pin (which
+        # silently stales the generated hooks/messages/bridge reference) surfaces
+        # on the same scheduled sweep.
+        if: always()
+        run: npm run check:pins
+
+      - name: OpenAPI spec drift — openapi-snapshots/ vs the published spec
+        # The freshness half of the hermetic-build change. `npm run build` now
+        # resolves the spec from the COMMITTED snapshot and makes no network
+        # request, which is what lets build-site become a required check — the
+        # cost is that the published reference only moves when someone
+        # re-snapshots. This is the thing that says when: a red run means the
+        # orchestrator shipped spec changes the docs have not picked up.
+        # Remedy is one command, `npm run copy:spec -- --refresh`, plus a PR.
+        # Connectivity failures SKIP (exit 0); only real drift is red.
+        if: always()
+        run: npm run check:spec-drift
+
+      - name: Design-system pin drift — docs CDN literals vs the declared pin
+        # Distinct from check:pins, which never reads prose. These literals are
+        # copy-paste CDN URLs, so a stale one hands readers a 404 that renders as
+        # an unstyled page with no error.
+        if: always()
+        run: npm run check:ds-pins

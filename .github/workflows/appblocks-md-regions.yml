@@ -1,0 +1,85 @@
+name: appblocks-md-regions
+
+# PR-BLOCKING: the generated markdown-fallback regions in the App Blocks
+# reference pages must match what the generator would write right now.
+#
+# WHAT THE REGIONS ARE. developer.civitai.com publishes an LLM/scraper channel —
+# vitepress-plugin-llms serves every page again as `<path>.md` and aggregates
+# them into /llms.txt + /llms-full.txt — and that plugin STRIPS every HTML/Vue
+# node from the source markdown. Seven pages render their substance through a Vue
+# island reading a build-time JSON artifact, so their payload never reached that
+# channel at all: apps/reference/hooks.md was serving 5% of the page's words and
+# ZERO of the 33 hooks, under a sentence promising "the signatures below". Each
+# page now carries an equivalent static markdown table as SLOT content inside the
+# island's tags — invisible to the HTML (these components declare no `<slot />`),
+# visible to remark. scripts/appblocks-md.mjs has the full mechanism.
+#
+# WHY THIS BLOCKS RATHER THAN RUNNING ON THE SCHEDULE. Repo doctrine (see
+# appblocks-drift.yml): upstream movement is SCHEDULED, a REPO-LOCAL invariant
+# BLOCKS. This is repo-local — the regions render from artifacts this repo
+# generates out of its own committed snapshots and pinned devDeps, so it cannot
+# false-fail because someone else published something. The same reasoning as
+# appblocks-cli.yml and the --offline half of appblocks-snippets.
+#
+# It is worth blocking on for the same reason the CLI-omission guard is: the
+# failure is SILENT. A stale region renders a perfectly healthy-looking page
+# while the machine channel serves last month's hooks, and nothing in the build,
+# the diff or the browser says so.
+#
+# The guard has TWO halves, and the structural one is the reason a plain content
+# diff is not enough:
+#   - CONTENT — every region byte-equals the generator's output.
+#   - STRUCTURE — every region still sits inside its island's slot. Measured on a
+#     real build: move one region out of the tags and the page renders the static
+#     table a SECOND time under the island (2 <table> / 26 <tr>, vs 1 / 13 when
+#     in-slot) with every content check still green.
+#
+# RUNS ON EVERY PR, DELIBERATELY UNFILTERED — do not add a `paths:` filter. Same
+# reasoning as appblocks-cli.yml: a path-filtered REQUIRED check leaves any PR
+# touching none of the watched files BLOCKED forever waiting on a report that
+# never comes. The suite is offline, repo-local and seconds long.
+#
+# ⚠️ TO ACTUALLY BLOCK, `test-md-regions` must be added to the required status
+# checks on `main`. As of this workflow landing the required contexts are
+# ["test-cli","test-messages","test-bridge","typecheck-snippets"] (measured via
+# `gh api repos/civitai/civitai-developer-docs/branches/main/protection`), which
+# is a repo-settings change no PR can make. Until an admin adds it, this job
+# runs and reports on every PR but does not gate the merge button.
+on:
+  pull_request: {}
+  workflow_dispatch: {}
+
+# LEAST PRIVILEGE — see appblocks-cli.yml for the full reasoning. This job checks
+# out and runs offline node scripts: no upload, no comment, no push, no `gh`
+# call. `contents: read` is exactly what actions/checkout needs.
+permissions:
+  contents: read
+
+jobs:
+  test-md-regions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install (pinned SDK devDeps — the regions render from them)
+        run: npm ci
+
+      # The JSON artifacts are gitignored, so they must be generated before the
+      # guard can render anything. APPBLOCKS_SNAPSHOT_ONLY=1 forces the hermetic
+      # committed-snapshot codepath, which is what CI has anyway (no `civitai`
+      # sibling checkout) — stating it explicitly means a runner that somehow
+      # acquired one still grades the same bytes a contributor's refresh did.
+      - name: Generate the App Blocks artifacts (hermetic)
+        run: APPBLOCKS_SNAPSHOT_ONLY=1 npm run gen:appblocks
+
+      # Renders every region in memory and diffs it against the committed pages;
+      # never writes. Fails with the offending page, the first differing line,
+      # and the refresh command.
+      - name: Markdown-fallback region drift (content + in-slot structure)
+        run: npm run check:md-regions

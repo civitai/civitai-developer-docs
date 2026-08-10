@@ -1,0 +1,69 @@
+name: copy-spec
+
+# 🔴 THE GAP THIS CLOSES: `npm run build` USED TO MAKE A FATAL, UNTIMED,
+# UN-RETRIED, UN-FALLBACK-ED NETWORK FETCH. `scripts/copy-spec.mjs` runs as
+# `prebuild`, so a bad day at orchestration.civitai.com failed the whole build —
+# and it held the repo's only `fetch(` without an `AbortSignal.timeout`, while
+# the other five all used 20 s. Measured on the tree at 30f52a0, node v26.5.0:
+#
+#   host does not resolve        -> uncaught TypeError, exit 1 in ~60 ms
+#   host degraded (accepts, never answers)
+#                                -> 300,734 ms — undici's 5-minute headersTimeout
+#   HTTP 503                     -> exit 1 in ~70 ms
+#   an existing on-disk spec     -> never consulted in any of the three
+#
+# The 5-minute row is the one that mattered: it burns a job's whole budget and
+# reports a TIMEOUT, the least legible failure a required check can produce.
+# `build-site` cannot become a required context while that is reachable.
+#
+# The build is now hermetic — it resolves the spec from the COMMITTED
+# `openapi-snapshots/v2-consumers.json` and touches no network at all. This job
+# guards that contract.
+#
+# BLOCKS A PR, DELIBERATELY. Per this repo's split (see appblocks-drift.yml's
+# header): a REPO-LOCAL invariant with no upstream input cannot false-fail on
+# someone else's publish, so it gates. `scripts/test-copy-spec.mjs` never leaves
+# loopback. The FRESHNESS half — is the committed snapshot still what the
+# orchestrator publishes — is upstream movement, so it stays on the schedule in
+# appblocks-drift.yml as `check:spec-drift`.
+#
+# UNFILTERED on purpose — no `paths:` filter. A path-filtered required check
+# leaves any PR touching none of the watched files at mergeStateStatus=BLOCKED
+# forever, because GitHub does not synthesise a passing status for a workflow
+# that never triggers (measured live on #42; #43 removed the filters for exactly
+# this reason).
+on:
+  pull_request: {}
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# LEAST PRIVILEGE — see appblocks-cli.yml for the full reasoning. Checkout plus
+# one offline node script: no upload, no deploy, no comment, no push, no `gh`.
+permissions:
+  contents: read
+
+jobs:
+  copy-spec:
+    runs-on: ubuntu-latest
+    # The suite is ~8 s of loopback HTTP locally. 10 minutes is slack, not a
+    # budget — and if this job ever DOES approach it, that is itself the signal
+    # that something reintroduced an unbounded wait.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # Same version as every other job here.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      # `npm ci` is not strictly required — the guard imports nothing outside
+      # node: builtins — but installing keeps this job's environment identical to
+      # every other one, so a failure here is never "it only breaks in CI".
+      - name: Install
+        run: npm ci
+
+      - name: Spec resolution contract (offline)
+        run: npm run test:copy-spec

@@ -27,9 +27,21 @@ const filterIdx = args.indexOf('--filter');
 const filter = filterIdx >= 0 ? args[filterIdx + 1] : null;
 const verbose = args.includes('--verbose');
 
+// A missing CIVITAI_TOKEN is a graceful-skip, not a hard failure: fork PRs and
+// repos without the secret configured can't provide one, and false-failing there
+// is guard theater. Public GET samples still run and are real coverage; only
+// auth-requiring samples (auth/require-auth ApiTry + all RecipeRun POSTs) are
+// skipped. Set the CIVITAI_TOKEN secret to exercise the authed samples too.
 if (!TOKEN) {
-  console.error('CIVITAI_TOKEN env var is required. Generate one at https://civitai.com/user/account.');
-  process.exit(2);
+  console.warn('⚠  CIVITAI_TOKEN not set — running PUBLIC samples only; auth-requiring samples will be skipped.');
+  console.warn('   Set the CIVITAI_TOKEN secret (https://civitai.com/user/account) to exercise authed samples.\n');
+}
+
+/** Does this sample send an Authorization header (and thus need a token)? */
+function sampleNeedsAuth(sample) {
+  if (sample.kind === 'RecipeRun') return true; // orchestration POSTs always send a token
+  const p = sample.props ?? {};
+  return p.auth === 'true' || p.requireAuth === 'true' || p.auth === true || p.requireAuth === true;
 }
 
 /* ────────────────────────────────  parsing  ──────────────────────────────── */
@@ -152,9 +164,8 @@ function buildUrl(base, path, query) {
 async function runApiTry(sample) {
   const base = sample.props.base ?? SITE_BASE;
   const url = buildUrl(base, sample.props.path, sample.props.query);
-  const needsAuth = sample.props.auth === 'true' || sample.props.requireAuth === 'true' || sample.props.auth === true || sample.props.requireAuth === true;
   const headers = { Accept: 'application/json' };
-  if (needsAuth) headers.Authorization = `Bearer ${TOKEN}`;
+  if (sampleNeedsAuth(sample)) headers.Authorization = `Bearer ${TOKEN}`;
   const res = await fetch(url, { headers });
   return {
     ok: res.ok,
@@ -227,6 +238,12 @@ for (const sample of matched) {
     console.log(`  ✗ ${label}`);
     console.log(`      parse error: ${sample.error}`);
     failures.push({ sample, reason: sample.error });
+    continue;
+  }
+  if (!TOKEN && sampleNeedsAuth(sample)) {
+    console.log(`  ⊘ ${label}`);
+    console.log(`      skipped: needs CIVITAI_TOKEN (auth sample)`);
+    skipped.push({ sample, reason: 'needs CIVITAI_TOKEN (auth sample)' });
     continue;
   }
   try {

@@ -6,6 +6,10 @@ title: Recipes
 
 Task-oriented, end-to-end examples. Each recipe walks through a real workflow: what to send, what you get back, common parameter tweaks, and troubleshooting.
 
+::: tip Not the same as App Blocks recipes
+These are **Orchestration REST API** recipes — you hold a Bearer token and POST workflows to `orchestration.civitai.com` yourself. Not to be confused with **App Blocks [`customComfy` recipes](/apps/guide/comfy-cloud)**, which are server-registered ComfyUI workflows a sandboxed _block_ invokes by id through the host bridge (the block never calls the orchestrator directly).
+:::
+
 ## Video
 
 - [WAN video generation](./wan) — all WAN versions (2.1–2.7) across FAL, Comfy, and Civitai, with text-to-video, image-to-video, reference-to-video, and edit-video operations
@@ -13,7 +17,11 @@ Task-oriented, end-to-end examples. Each recipe walks through a real workflow: w
 - [Kling video generation](./kling) — Kuaishou Kling (v1/v1.5/v1.6/v2/v2.5-turbo with camera control) and Kling V3 (5 operations, multi-prompt, audio, video-to-video)
 - [Vidu video generation](./vidu) — Vidu 2.0 (flat 600 Buzz, anime style, first-last-frame) and Vidu Q3 (per-second pricing, 4 resolution tiers, turbo mode, native audio)
 - [Veo 3 video generation](./veo3) — Google Veo 3.0/3.1 in standard / fast / lite tiers; operation inferred from image count; optional synchronized audio track
+- [MiniMax H3 video generation](./minimax-h3) — MiniMax's native H3 model at 2K; text-to-video, first/last-frame, and reference-to-video with up to 3 reference images, videos, and audio clips
+- [Seedance video generation](./seedance) — ByteDance Seedance direct on BytePlus; v2 / v2-fast / v2-mini up to 15 s and 1080p, or v2.5 for 30 s single-shot and a 50-asset reference budget
 - [Grok video generation](./grok-video) — xAI Grok-Imagine-Video via FAL; text-to-video, image-to-video, and edit-video with 480p/720p output
+- [FLUX-3 video generation](./flux3-video) — Black Forest Labs FLUX-3 via FAL; text / image / first-last-frame / keyframes / extend plus draftEnhance, 720p–1080p with synchronized audio and a cheap draft-then-enhance loop
+- [Happy-Horse video generation](./happy-horse) — Alibaba Happy-Horse via FAL; text-to-video, image-to-video, video editing, and up to 9 character references
 - [HunyuanVideo generation](./hunyuan) — Tencent HunyuanVideo on Comfy workers; text-to-video with LoRA support; compute-intensive, always use `wait=0`
 - [Video upscaling](./video-upscaler) — FlashVSR, 2–4× with a 2560 px output cap
 - [Video frame interpolation](./video-interpolation) — VFIMamba, 2× or 3× frame-count, smooths generated or low-FPS footage
@@ -57,6 +65,7 @@ Task-oriented, end-to-end examples. Each recipe walks through a real workflow: w
 
 - [Prompt enhancement](./prompt-enhancement) — LLM rewrites a user prompt for a target ecosystem (Flux / SDXL / SD1 / LTX2), returns issues + recommendations + enhanced prompt
 - [Image conversion](./convert-image) — format conversion (JPEG / PNG / WebP / GIF), resize, and region blur; flat 1 Buzz
+- [Image background removal](./image-background-removal) — BiRefNet subject cutout with a transparent background; PNG or WebP output, ~6 Buzz
 
 ## Training
 

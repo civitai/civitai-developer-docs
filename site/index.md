@@ -20,7 +20,10 @@ see the [Orchestration docs](/orchestration/).
 - **[Guide](./guide/)** — authentication, pagination, error handling, and the
   AIR (AI Resource Identifier) format.
 - **[Reference](./reference/)** — per-resource documentation for every public
-  endpoint, sourced directly from the current Next.js handlers.
+  endpoint (models, images, articles, collections, creators, tags, users),
+  sourced directly from the current Next.js handlers.
+- **[CLI](./guide/cli)** — search and fetch these endpoints from the terminal
+  with the `civitai` CLI read commands.
 
 </div>
 

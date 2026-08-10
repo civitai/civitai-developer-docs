@@ -219,3 +219,4 @@ Grok video typically completes in 1–4 minutes. Use `wait=0` + polling or webho
 - [Grok image generation](./grok) — Grok for images
 - [Kling video generation](./kling) — comparable commercial video model
 - [Veo 3 video generation](./veo3) — Google's video model
+- [FLUX-3 video generation](./flux3-video) — BFL's video model with draft/enhance and keyframe control

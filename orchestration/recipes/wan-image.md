@@ -68,16 +68,16 @@ const v22FastBody = {
 
 # WAN image generation
 
-WAN is Alibaba's open video model family — and the same architecture generates images. The orchestrator exposes WAN's image-gen path via `engine: "wan"`, with the model version picked by the `version` field.
+WAN is an open video model family — and the same architecture generates images. The orchestrator exposes WAN's image-gen path via `engine: "wan"`, with the model version picked by the `version` field.
 
 For video workloads, see [WAN video generation](./wan) — shares the engine, different operations.
 
 | `version` | Notes |
 |-----------|-------|
-| `v2.2` | **Default** — stable fal.ai-hosted path. Exposes `steps` (default 27) and `acceleration` tier. Supports LoRAs. |
+| `v2.2` | **Default** — stable hosted path. Exposes `steps` (default 27) and `acceleration` tier. Supports LoRAs. |
 | `v2.2-5b` | 5B-parameter variant of v2.2 — lighter, exposes a `shift` parameter in addition to the base knobs. Default `steps: 40`. |
-| `v2.5` | Newer v2.5 release on fal. Simpler knob set than v2.2. |
-| `v2.7` | Latest release on fal. Simpler knob set than v2.2. |
+| `v2.5` | Newer v2.5 release. Simpler knob set than v2.2. |
+| `v2.7` | Latest release. Simpler knob set than v2.2. |
 
 **Default choice for new integrations**: `version: "v2.2"`, `provider: "fal"`. Step up to `v2.5` or `v2.7` when you want the newer output, drop to `v2.2-5b` for lower-cost generation with the `shift` control.
 
@@ -117,10 +117,10 @@ Content-Type: application/json
 | Field | Default | Range | Notes |
 |-------|---------|-------|-------|
 | `version` | `v2.2` | `v2.2` / `v2.2-5b` / `v2.5` / `v2.7` | Required — picks the model variant. |
-| `provider` | `fal` | `fal` | FAL is currently the only provider for WAN image gen. |
+| `provider` | `fal` | `fal` | `fal` is currently the only provider for WAN image gen. |
 | `prompt` | — ✅ | ≥ 1 char | Natural-language works best. |
 | `negativePrompt` | *(none)* | string | Optional. |
-| `imageSize` | `square_hd` | `square_hd`, `square`, `portrait_4_3`, `portrait_16_9`, `landscape_4_3`, `landscape_16_9` (FAL-style enum) | Enum, not width/height. |
+| `imageSize` | `square_hd` | `square_hd`, `square`, `portrait_4_3`, `portrait_16_9`, `landscape_4_3`, `landscape_16_9` (fixed enum) | Enum, not width/height. |
 | `guidanceScale` | `3.5` | `1`–`10` | |
 | `steps` | `27` | `2`–`40` | Only on `v2.2`. |
 | `quantity` | `1` | `1`–`10` | |
@@ -251,7 +251,7 @@ Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/or
 
 ## Runtime
 
-FAL queue is the dominant factor. Typical wall times for `quantity: 1`:
+Provider queue time is the dominant factor. Typical wall times for `quantity: 1`:
 
 | Version | Wall time (no acceleration) | With `acceleration: fast` / `faster` |
 |---------|----------------------------|--------------------------------------|
@@ -260,7 +260,7 @@ FAL queue is the dominant factor. Typical wall times for `quantity: 1`:
 | `v2.5` | 15–40 s | (no acceleration) |
 | `v2.7` | 15–40 s | (no acceleration) |
 
-Submit `wait=0` + poll for large `quantity` or busy FAL periods.
+Submit `wait=0` + poll for large `quantity` or busy periods.
 
 ## Cost
 
@@ -295,9 +295,9 @@ Dimensions (`imageSize` enum), `steps`, and `acceleration` don't change the Buzz
 | `400` with "provider must be fal" | Other providers aren't exposed yet | Stick with `fal`. |
 | `400` with "acceleration is not a valid property" | Only `v2.2` exposes `acceleration` | Remove the field on v2.5/v2.7/v2.2-5b. |
 | `400` with "shift is not a valid property" | Only `v2.2-5b` exposes `shift` | Remove the field on other versions. |
-| `400` with "imageSize must be one of" | Sent width/height like other ecosystems | WAN uses FAL's enum — pick `square_hd`, `landscape_16_9`, etc. Use a different engine (Flux 2, Qwen, etc.) if you need arbitrary dimensions. |
+| `400` with "imageSize must be one of" | Sent width/height like other ecosystems | WAN uses a fixed enum — pick `square_hd`, `landscape_16_9`, etc. Use a different engine (Flux 2, Qwen, etc.) if you need arbitrary dimensions. |
 | LoRA has no effect | Wrong AIR URN, or incompatible ecosystem | WAN LoRAs must be tagged for the WAN ecosystem and compatible with the version you're running. |
-| Request timed out (`wait` expired) | Large `quantity` or busy FAL queue | Resubmit with `wait=0` and poll. |
+| Request timed out (`wait` expired) | Large `quantity` or busy provider queue | Resubmit with `wait=0` and poll. |
 | Step `failed`, `reason = "blocked"` | Prompt hit content moderation | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
 
 ## Related
