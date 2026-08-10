@@ -1077,19 +1077,25 @@ check('cliLongBody SUPPRESSES only the bodies that duplicate the one-line descri
     `only ${shown.length}/${artifact.commands.length} commands would RENDER a long body (floor 44) — ` +
       `the redundancy rule is eating real documentation`,
   );
-  // MEASURED: exactly these 8 have a Long that flattens to their own Short.
+  // MEASURED, and the number is now ZERO. It was 8 — `app listing`
+  // add-screenshot/set-cover/set-icon, `collections get`, `creators search`,
+  // `model-versions get`, `models get`, `tags search` — every one of which had
+  // NO cobra `Long` at all, so cobra fell back to `Short` and the body
+  // flattened to a duplicate of it.
+  //
+  // civitai/cli#274 and #276 gave all eight a real `Long`, which is exactly what
+  // those PRs were for, so the redundant set emptied. Keep this assertion
+  // EXACT-EQUALITY rather than relaxing it to "<= 8": the direction that must
+  // stay loud is the set GROWING, because a command reappearing here means its
+  // help regressed to a one-liner upstream.
+  //
+  // 🔴 The suppression branch therefore has NO corpus coverage any more. That is
+  // survivable only because the synthetic controls in the next check exercise
+  // both branches directly, independent of the corpus — if those are ever
+  // deleted, this rule becomes untested rather than merely uncovered.
   assertEqual(
     hidden.map((c) => c.command).sort().join(','),
-    [
-      'app listing add-screenshot',
-      'app listing set-cover',
-      'app listing set-icon',
-      'collections get',
-      'creators search',
-      'model-versions get',
-      'models get',
-      'tags search',
-    ].join(','),
+    '',
     'the set of commands whose long body is suppressed as redundant has changed',
   );
   // What it returns for a shown command is the body VERBATIM — not a summary,
