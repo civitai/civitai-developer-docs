@@ -77,12 +77,22 @@ jobs:
       # to prefer anyway — setting it explicitly is what makes a local run of
       # this job reproduce CI on a machine that HAS one.
       #
-      # Known non-hermetic step, called out rather than hidden: `copy:spec`
-      # fetches the OpenAPI spec from orchestration.civitai.com when no sibling
-      # orchestration checkout is present (the same fallback the Dockerfile
-      # relies on). An outage there fails this job for a reason unrelated to the
-      # PR. That is the one thing to fix first if this job is ever made a
-      # required check.
+      # This step is HERMETIC, and the sentence that used to sit here saying
+      # otherwise is why this comment is worth reading. `copy:spec` USED TO fetch
+      # the OpenAPI spec from orchestration.civitai.com on every build — fatally,
+      # with no timeout, no retry and no fallback. Measured: a host that accepts
+      # the connection and never answers hung for FIVE MINUTES (undici's
+      # headersTimeout), so a merely degraded third party burned this job's whole
+      # budget and reported a TIMEOUT, the least legible failure a required check
+      # can produce. #51 committed the spec under openapi-snapshots/ and demoted
+      # the fetch to an opt-in `--refresh`; `npm run build` now makes NO network
+      # request at all (verified in a network namespace with no route: rc=0).
+      #
+      # That fix is what made this job safe to gate on — and it IS gating. As of
+      # 2026-08-09 `build-site` is a REQUIRED status check on main. If a network
+      # call is ever reintroduced here, take this job out of the required set
+      # first: a required check that reddens for reasons unrelated to the PR is
+      # one everybody learns to click through, which is worse than no check.
       - name: Build the site
         env:
           APPBLOCKS_SNAPSHOT_ONLY: '1'
