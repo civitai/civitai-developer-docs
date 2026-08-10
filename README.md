@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-The dev server starts with HMR. The OpenAPI spec is pulled automatically from the sibling [civitai-orchestration](https://github.com/civitai/civitai-orchestration) repo if present, otherwise fetched from the production API.
+The dev server starts with HMR. The OpenAPI spec is resolved automatically from the sibling [civitai-orchestration](https://github.com/civitai/civitai-orchestration) repo if present, otherwise from the committed snapshot — see [OpenAPI spec sync](#openapi-spec-sync). Neither path touches the network.
 
 ## Build
 
@@ -46,6 +46,7 @@ Produces an nginx:alpine image serving the static site.
 │       ├── components/                # AuthBar, RecipeRun, ResultViewer
 │       └── composables/               # useAuthToken, useWorkflow
 ├── scripts/copy-spec.mjs             # OpenAPI spec sync script
+├── openapi-snapshots/                 # Committed spec snapshot — the build's default source
 ├── public/openapi/                    # Spec destination (gitignored)
 ├── Dockerfile                         # Multi-stage build for production
 └── nginx.conf                         # cleanUrls routing + caching
@@ -59,16 +60,22 @@ The API reference uses [vitepress-openapi](https://github.com/enzonotario/vitepr
 
 ## OpenAPI spec sync
 
-The spec at `public/openapi/v2-consumers.json` is gitignored and resolved at dev/build time by `scripts/copy-spec.mjs`:
+The spec at `public/openapi/v2-consumers.json` is gitignored and resolved at dev/build time by `scripts/copy-spec.mjs`. **The build is hermetic — the default path makes no network request:**
 
-1. Sibling repo: `../../civitai-orchestration/repo/src/.../wwwroot/openapi/v2-consumers.json`
-2. Fallback: `https://orchestration.civitai.com/openapi/v2-consumers.json`
+1. Sibling repo, if the dev stack is checked out beside this one: `../../civitai-orchestration/repo/src/.../wwwroot/openapi/v2-consumers.json`
+2. The committed snapshot: `openapi-snapshots/v2-consumers.json`
 
-To refresh manually:
+If neither exists the build fails immediately with a message naming both paths — it never falls back to the network, so a `orchestration.civitai.com` outage can no longer fail a build or a CI job.
+
+To refresh the committed snapshot from the live spec (the only path that fetches):
 
 ```bash
-npm run copy:spec
+npm run copy:spec -- --refresh   # rewrites openapi-snapshots/v2-consumers.json
 ```
+
+Bounded: 20 s per attempt, 3 attempts. If it cannot reach the host it warns and falls back to the snapshot rather than failing.
+
+Staleness is caught by `npm run check:spec-drift`, which runs daily from `appblocks-drift.yml` and goes red when the published spec no longer matches the snapshot. Same doctrine as the App Blocks snapshots: upstream freshness belongs on a schedule, never on a PR gate.
 
 ## Adding a new section
 

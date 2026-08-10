@@ -12,6 +12,15 @@ name: appblocks-drift
 # The counterpart doctrine: a REPO-LOCAL invariant (no upstream input, so it
 # cannot false-fail on someone else's publish) DOES block a PR — see
 # appblocks-snippets.yml's --offline half and appblocks-cli.yml.
+#
+# NAME vs CONTENTS: the last step here guards the ORCHESTRATION OpenAPI
+# snapshot, not App Blocks, so this file now carries one non-App-Blocks signal.
+# It lives here rather than in a file of its own because it is the same KIND of
+# check under the same doctrine, and a second daily workflow would pay for a
+# second checkout + `npm ci` to run one HTTP GET. If a third non-App-Blocks
+# drift guard ever arrives, split this into a generically-named `drift` workflow
+# — and note that renaming it is free only while it stays schedule-only, since
+# nothing can require a context that never runs on a PR.
 on:
   schedule:
     # 06:37 UTC daily — just after the test-samples 06:17 run.
@@ -75,6 +84,18 @@ jobs:
         # on the same scheduled sweep.
         if: always()
         run: npm run check:pins
+
+      - name: OpenAPI spec drift — openapi-snapshots/ vs the published spec
+        # The freshness half of the hermetic-build change. `npm run build` now
+        # resolves the spec from the COMMITTED snapshot and makes no network
+        # request, which is what lets build-site become a required check — the
+        # cost is that the published reference only moves when someone
+        # re-snapshots. This is the thing that says when: a red run means the
+        # orchestrator shipped spec changes the docs have not picked up.
+        # Remedy is one command, `npm run copy:spec -- --refresh`, plus a PR.
+        # Connectivity failures SKIP (exit 0); only real drift is red.
+        if: always()
+        run: npm run check:spec-drift
 
       - name: Design-system pin drift — docs CDN literals vs the declared pin
         # Distinct from check:pins, which never reads prose. These literals are
