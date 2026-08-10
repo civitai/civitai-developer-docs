@@ -57,16 +57,31 @@ export const TRACKED_PACKAGES = ['@civitai/app-sdk', '@civitai/blocks-react'];
 
 const REGISTRY = process.env.APPBLOCKS_NPM_REGISTRY || 'https://registry.npmjs.org';
 
-/** Parse a `major.minor.patch[-pre]` version into comparable parts. */
+/**
+ * Parse a `major.minor.patch[-pre][+build]` version into comparable parts.
+ * Build metadata is STRIPPED, not rejected: SemVer 2.0.0 §10 says it MUST be
+ * ignored for precedence, and `latest` comes from someone else's publish — so
+ * returning null here made compareSemver throw, escaping to main().catch and
+ * exiting 2 on a valid upstream release. The PIN side never reaches this;
+ * readPinnedVersion rejects a non-exact pin first, with a friendly reason.
+ *
+ * BOTH halves of the pattern are load-bearing. `-([^+]+)` rather than `-(.+)`:
+ * the greedy form swallows `+build.7` INTO `pre`, which mis-sorts (two builds of
+ * one prerelease compare as different prereleases). Plus the `(?:\+.+)?` tail
+ * that discards the metadata. Do not "simplify" to only one of them.
+ */
 export function parseSemver(v) {
-  const m = /^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/.exec(String(v).trim());
+  const m = /^(\d+)\.(\d+)\.(\d+)(?:-([^+]+))?(?:\+.+)?$/.exec(String(v).trim());
   if (!m) return null;
   return { major: +m[1], minor: +m[2], patch: +m[3], pre: m[4] ?? null };
 }
 
 /**
  * Compare two release versions. Returns -1 if a<b, 0 if equal, 1 if a>b.
- * A prerelease sorts BELOW its release (1.2.3-rc < 1.2.3). Unparseable -> throws.
+ * A prerelease sorts BELOW its release (1.2.3-rc < 1.2.3). Build metadata is
+ * ignored (SemVer 2.0.0 §10), so `1.2.3+a` and `1.2.3+b` compare EQUAL.
+ * Unparseable -> throws, and callers are outside fetchLatest's try/catch, so a
+ * throw here exits 2 — keep parseSemver tolerant of anything npm can publish.
  */
 export function compareSemver(a, b) {
   const pa = parseSemver(a);
