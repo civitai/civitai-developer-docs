@@ -10,8 +10,10 @@ COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
 COPY . .
-# copy-spec.mjs will fall back to fetching from orchestration.civitai.com
-# when no sibling repo is present in the build context.
+# No network needed: copy-spec.mjs resolves the OpenAPI spec from the committed
+# openapi-snapshots/ when no sibling orchestration repo is in the build context.
+# The image therefore serves the SNAPSHOT — publish spec changes by re-snapshotting
+# (`npm run copy:spec -- --refresh`) and merging that PR, not by rebuilding.
 RUN npm run build
 
 
