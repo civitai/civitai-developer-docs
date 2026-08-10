@@ -205,6 +205,24 @@ check('parseSemver / compareSemver order correctly', () => {
   assert(compareSemver('1.0.0-rc.1', '1.0.0') < 0, 'prerelease sorts below its release');
 });
 
+check('parseSemver IGNORES build metadata (SemVer 2.0.0 §10)', () => {
+  assert(parseSemver('0.31.0+build.7'), 'build metadata must parse, not return null');
+  assert(compareSemver('0.31.0+build.7', '0.31.0') === 0, 'build metadata does not affect precedence');
+  assert(compareSemver('1.0.0-rc.1+b', '1.0.0') < 0, 'prerelease still sorts below release with metadata');
+  assert(parseSemver('1.0.0-rc.1+b').pre === 'rc.1', 'metadata must not leak into the prerelease field');
+  assert(parseSemver('not.a.version') === null, 'control: real garbage still returns null');
+});
+
+// The USER-VISIBLE defect, not just the unit: `latest` comes from someone
+// else's publish, and classifyPin is called OUTSIDE fetchLatest's try/catch, so
+// a throw here escapes to main().catch and exits 2 — a permanently-red gate on
+// a scheduled job, triggered by a release this repo does not control.
+check('classifyPin survives a build-metadata `latest` (the exit-2 path)', () => {
+  const cls = classifyPin('0.31.0', '0.31.0+build.7');
+  assert(cls && cls.status === 'ok', `expected status ok, got ${JSON.stringify(cls)}`);
+  assert(classifyPin('0.30.0', '0.31.0+build.7').status === 'lagging', 'a real lag behind a +build latest still fires');
+});
+
 check('classifyPin FIRES (status=lagging) when the pin trails latest', () => {
   // The exact drift the guard exists to catch: the assessment's 0.33 vs 0.35/0.37.
   assert(classifyPin('0.33.0', '0.37.0').status === 'lagging', 'a trailing blocks-react pin must be lagging');
