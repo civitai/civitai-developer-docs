@@ -284,7 +284,23 @@ jobs:
       pull-requests: write
 
     steps:
+      # 🔴 FULL HISTORY, DELIBERATELY. actions/checkout defaults to
+      # `fetch-depth: 1` — a SHALLOW clone. That was survivable while this job
+      # recreated the branch and force-pushed, and it is not the shape it has
+      # now: the run fetches `bot/cli-snapshot-refresh`, checks it out and
+      # commits ON TOP, so the new commit's parent sits at a shallow boundary
+      # and the push is a fast-forward of a ref whose history the local repo
+      # does not hold. That combination is where "attempt to push a shallow
+      # repository" lives.
+      #
+      # Stated as a HAZARD AVOIDED, not a bug observed: the shallow push has not
+      # been reproduced, and the offline suite clones fully so it cannot see the
+      # difference either way. `fetch-depth: 0` removes the question for the
+      # cost of a full clone of a docs repo — cheap, and better than discovering
+      # it on a cron run nobody is watching.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
