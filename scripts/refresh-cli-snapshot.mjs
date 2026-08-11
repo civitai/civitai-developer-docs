@@ -204,8 +204,9 @@ const repoRoot = resolve(__dirname, '..');
 export const SNAPSHOT_REL = 'appblocks-snapshots/civitai-cli-help.txt';
 
 /**
- * 🔴 A CONSTANT, force-updated. See the header: a per-run branch opens a PR per
- * day for one fact and gets muted, which buries the run that matters.
+ * 🔴 A CONSTANT, and EXTENDED rather than recreated. See the header: a per-run
+ * branch opens a PR per day for one fact and gets muted, which buries the run
+ * that matters — and RECREATING this one force-deleted human commits.
  */
 export const DEFAULT_BRANCH = 'bot/cli-snapshot-refresh';
 export const DEFAULT_BASE = 'main';
@@ -391,8 +392,9 @@ legible as a fix because somebody read the diff. Look for changed prose, new or
 removed flags, and new commands; \`git diff --stat\` alone will not show you any
 of it.
 
-This branch is \`${branch}\`, force-updated on every run: there is one PR, not
-one per day.
+This branch is \`${branch}\`, reused and extended on every run: there is one PR, not
+one per day. Anything **you** push to it — the empty commit above, a fixup —
+stays; the refresher commits on top and never force-pushes.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 `;

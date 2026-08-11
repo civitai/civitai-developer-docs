@@ -293,6 +293,22 @@ check('the body carries the numbers a reviewer needs to sanity-check the capture
   assert(/NUL bytes/.test(sampleBody), 'the body does not report the NUL count');
 });
 
+check('the body reports the versions in the RIGHT ORDER — was, then now', () => {
+  // 🔴 THE OPERAND-SWAP CLASS. Every assertion above is satisfied by a body that
+  // names both versions ANYWHERE, so exchanging `fromVersion` and `stats.tag`
+  // survives all of them — and the swapped body tells a reviewer the snapshot is
+  // being rolled BACKWARDS, which is the one thing that would make them reject a
+  // correct PR. Read the two rows separately.
+  const row = (label) => sampleBody.split('\n').find((l) => l.startsWith(`| ${label}`)) || '';
+  const was = row('snapshot was captured from');
+  const now = row('now captured from');
+  assert(was && now, `the body no longer carries the two version rows:\n${sampleBody}`);
+  assert(was.includes(SAMPLE.from), `the "was captured from" row does not name the OLD version: ${was}`);
+  assert(!was.includes(SAMPLE.to), `the "was captured from" row names the NEW version — the operands are swapped: ${was}`);
+  assert(now.includes(SAMPLE.to), `the "now captured from" row does not name the NEW version: ${now}`);
+  assert(!now.includes(SAMPLE.from), `the "now captured from" row names the OLD version — the operands are swapped: ${now}`);
+});
+
 check('the body says the floor exists and what it refuses', () => {
   assert(/fails the job instead of opening a PR/.test(sampleBody), 'the body does not state the floor contract');
 });
@@ -300,6 +316,14 @@ check('the body says the floor exists and what it refuses', () => {
 check('the body names the stable branch and says it is reused', () => {
   assert(sampleBody.includes(DEFAULT_BRANCH), 'the body does not name the branch');
   assert(/one PR, not\s+one per day/.test(sampleBody), 'the body does not explain the stable-branch design');
+  // 🔴 The body ASKS the reviewer to push an empty commit to this branch (it is
+  // the documented remedy for the zero-checks trap). It must therefore promise
+  // the commit survives — the promise and the behaviour ship together, or the
+  // instruction is the trap it used to be.
+  assert(
+    /never force-push/.test(sampleBody),
+    'the body asks for a commit on the bot branch without promising it survives the next run',
+  );
 });
 
 check('the title names the tag it captured', () => {
@@ -778,6 +802,75 @@ check('THE HERMETIC REBUILD ACTUALLY RUNS on the bytes about to be committed', (
   );
 });
 
+/**
+ * A `gh` stand-in on PATH that always fails with a chosen stderr. The script
+ * resolves `gh` through PATH, so this is the seam that lets the post-push
+ * failure paths be driven for real.
+ */
+function fakeGh(dir, stderrText) {
+  const binDir = join(dir, 'fakebin');
+  mkdirSync(binDir, { recursive: true });
+  const gh = join(binDir, 'gh');
+  writeFileSync(gh, `#!/bin/sh\nprintf '%s\\n' ${JSON.stringify(stderrText)} >&2\nexit 1\n`, { mode: 0o755 });
+  return binDir;
+}
+
+check('A POST-PUSH `gh` FAILURE PRINTS THE COMPARE URL — at the CALL SITE, not just in the helper', () => {
+  // 🔴 A UNIT TEST OF `branchPushedAdvice` CANNOT SEE THIS. The helper can be
+  // perfect and never called; that is exactly the shape the previous round
+  // shipped, where only `prCreationBlocked` reached advice and every other
+  // post-push failure exited with a stack trace. So drive the REAL script with
+  // a `gh` that fails, and read what the operator is left holding.
+  //
+  // The failure lands on `gh pr list` — the FIRST gh call, and the one that used
+  // to sit outside the try entirely.
+  const { work, origin, root, bin } = driftRepo();
+  const binDir = fakeGh(root, 'HTTP 502 Bad Gateway');
+  const res = runScript(work, [], {
+    CIVITAI_CLI_BIN: bin,
+    CLI_SNAPSHOT_REFRESH_TAG: SNAP_TAG,
+    PATH: `${binDir}:${process.env.PATH}`,
+    GITHUB_REPOSITORY: 'o/r',
+  });
+  const err = res.stderr;
+  assert(res.status !== 0, `a failed PR step exited 0:\n${res.stdout}\n${err}`);
+  // Premise: the run really did get past the push, or this proves nothing about
+  // the POST-push state.
+  const branches = execFileSync('git', ['-C', origin, 'branch', '--list'], { encoding: 'utf8' });
+  assert(branches.includes(DEFAULT_BRANCH), `the run never pushed — this row tests the wrong thing:\n${res.stdout}`);
+  assert(
+    err.includes(`https://github.com/o/r/compare/${DEFAULT_BASE}...${DEFAULT_BRANCH}?expand=1`),
+    `no compare URL after a post-push failure — the operator is told nothing:\n${err}`,
+  );
+  assert(/BRANCH IS PUSHED BUT NO PR/.test(err), `the run does not name the state it left behind:\n${err}`);
+  // …and it must NOT assert the repo-setting diagnosis for an unrelated failure.
+  assert(
+    !/Allow GitHub Actions to create and approve/.test(err),
+    `a 502 was reported as the repo-setting refusal:\n${err}`,
+  );
+});
+
+check('the BLOCKED-SETTING failure gets BOTH the state and the diagnosis', () => {
+  // The specific advice is an ADDITION to the generic one, never a replacement —
+  // measured against the real message text `gh` printed on a live run.
+  const { work, root, bin } = driftRepo();
+  const binDir = fakeGh(
+    root,
+    'pull request create failed: GraphQL: GitHub Actions is not permitted to create or approve pull requests (createPullRequest)',
+  );
+  const res = runScript(work, [], {
+    CIVITAI_CLI_BIN: bin,
+    CLI_SNAPSHOT_REFRESH_TAG: SNAP_TAG,
+    PATH: `${binDir}:${process.env.PATH}`,
+    GITHUB_REPOSITORY: 'o/r',
+  });
+  const err = res.stderr;
+  assert(res.status !== 0, 'the blocked-setting failure exited 0');
+  assert(/BRANCH IS PUSHED BUT NO PR/.test(err), `the generic state report is missing:\n${err}`);
+  assert(/Allow GitHub Actions to create and approve/.test(err), `the specific diagnosis is missing:\n${err}`);
+  assert(/can_approve_pull_request_reviews=true/.test(err), `the API equivalent is missing:\n${err}`);
+});
+
 check('OUTSIDE CI the pushing path REFUSES, before touching anything', () => {
   // F13: this was listed in the README's repair table beside a dozen read-only
   // `check:*` scripts, and it is not that shape — it pushes a shared branch and
@@ -1104,7 +1197,7 @@ console.log('');
 // section, a botched merge — prints a serene "all passed" over zero work. The
 // floor is the positive control on the harness itself: it must have executed at
 // least as many checks as it did when this line was written.
-const MIN_CHECKS = 48;
+const MIN_CHECKS = 54;
 if (executed < MIN_CHECKS) {
   console.error(
     `refresh-cli-snapshot tests: only ${executed} checks RAN, expected at least ${MIN_CHECKS} — ` +

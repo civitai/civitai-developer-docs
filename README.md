@@ -85,20 +85,47 @@ reference is generated from: the production image has no `civitai` binary, so
 developer.civitai.com silently serves wrong content — the v0.1.92 re-capture
 (#56) turned out to carry `2.0 MB` → `2.0 MiB` in 10 places.
 
+### 🔴 The snapshot tracks the latest **release**, not civitai/cli's `main`
+
+This is the policy the whole mechanism follows, and it was not written down
+anywhere until it caused a misunderstanding worth recording.
+
+**Why.** developer.civitai.com documents the binary a reader can actually
+install — `brew install civitai`, `npm i -g @civitai/cli`, a GitHub release
+archive. All three are *releases*. Capturing from civitai/cli's `main` would
+publish help text for flags and commands nobody can obtain, on a site whose
+whole job is to describe the tool in the reader's hands.
+
+**So the trigger is tag-lag, and that is sufficient**: there is no
+between-release build a reader could be holding for the docs to be wrong about.
+
+**The consequence, which is deliberate and not a bug.** Drift on civitai/cli's
+`main` between releases is *invisible* to this machinery. `check:cli-snapshot`
+compares tags; so does the refresher. Two earlier hand re-captures (#48, #52)
+happened while the tag was unchanged and that check was green — under this
+policy those were re-captures of *unreleased* `main` state, which is the thing
+that should not have happened, rather than incidents the automation missed.
+Changing this is a policy decision (a docs PR per upstream merge, and a snapshot
+header that stops naming an installable version), not a trigger swap.
+
 Two halves, and neither is a PR gate (a civitai/cli release is upstream
 movement, unrelated to any docs PR):
 
-```bash
-npm run check:cli-snapshot     # DETECT — daily, appblocks-drift.yml, goes red on drift
-npm run refresh:cli-snapshot   # REPAIR  — daily, cli-snapshot-refresh.yml, opens a PR
-```
+| | |
+|---|---|
+| **DETECT** | `npm run check:cli-snapshot` — daily from `appblocks-drift.yml`, red on drift. Read-only; safe to run anywhere. |
+| **REPAIR** | `cli-snapshot-refresh.yml`, daily. Builds, re-captures, opens a PR. **A workflow, not a local command** — see below. |
 
-Detection alone was not enough: it went red on an unwatched schedule twice and a
-human noticed both times, not the check. `cli-snapshot-refresh.yml` builds a
-`civitai` binary at the latest release tag, re-captures, and pushes the one
-stable branch `bot/cli-snapshot-refresh` — force-updated, so there is one PR
-rather than one per day. It **never pushes to `main`**: the human read of that
+`cli-snapshot-refresh.yml` builds a `civitai` binary at the latest release tag,
+re-captures, and pushes the one stable branch `bot/cli-snapshot-refresh` — reused
+rather than recreated, so there is one PR rather than one per day, and so a
+commit *you* push there (the empty "trigger checks" commit, a fixup) is not
+deleted by the next run. It **never pushes to `main`**: the human read of that
 diff is what makes a real user-facing change legible as one.
+
+🔴 **`npm run refresh:cli-snapshot` is not a repair command you run.** It commits
+to a shared remote branch and leaves your checkout sitting on it. It refuses
+outside CI for that reason; `--dry-run` (below) is the local form.
 
 A capture that is SHORT (fewer `===CMD` blocks than the snapshot it replaces),
 carries NUL bytes, or came from a binary whose version disagrees with the target
@@ -118,12 +145,20 @@ same diff opened by a human ran all seven. Close and reopen it (or push an empty
 commit) before reviewing. The PR body says so in its first section.
 
 To exercise the drift path on demand while the snapshot is current, run the
-workflow from the Actions tab with a `force_tag` input, or locally:
+workflow from the Actions tab with a `force_tag` input, or locally with
+`--dry-run`, which captures, validates, prints the PR body it *would* open, and
+restores the tree — no git writes, no `gh`:
 
 ```bash
 CIVITAI_CLI_BIN=/path/to/civitai CLI_SNAPSHOT_REFRESH_TAG=v0.1.92 \
   npm run refresh:cli-snapshot -- --dry-run
 ```
+
+The refresher's own tests run on every PR from `cli-snapshot-refresh-test.yml`
+(`npm run test:refresh-cli-snapshot`). They are repo-local and offline — a
+throwaway clone with a bare local `origin` and a `civitai` stand-in that replays
+the committed bundle — so they block a PR under the same doctrine as
+`appblocks-cli.yml`, while the workflow they guard stays scheduled.
 
 ## Adding a new section
 
