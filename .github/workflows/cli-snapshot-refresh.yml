@@ -8,16 +8,49 @@ name: cli-snapshot-refresh
 # site silently serves WRONG content — measured on the v0.1.92 re-capture
 # (docs#56): `2.0 MB` in 10 places across 8 lines where the CLI says `MiB`.
 #
-# `check:cli-snapshot` on appblocks-drift.yml already DETECTS that. It has gone
-# stale twice in this workstream and a human noticed both times, not the check —
-# because a red run on an unwatched SCHEDULED workflow is indistinguishable from
-# nobody looking. This workflow is the remedy half: when that check would fail,
-# re-capture the snapshot and OPEN A PULL REQUEST carrying it.
+# `check:cli-snapshot` on appblocks-drift.yml already DETECTS that, and detection
+# without a remedy is the failure mode: a red run on an unwatched SCHEDULED
+# workflow is indistinguishable from nobody looking. This workflow is the remedy
+# half: when that check would fail, re-capture the snapshot and OPEN A PULL
+# REQUEST carrying it.
+#
+# 🔴 THE POLICY THIS ENFORCES: THE SNAPSHOT TRACKS THE LATEST *RELEASE*, NOT
+# `main`'s TIP.
+#
+#   THE REASON. developer.civitai.com documents the binary a reader can actually
+#   install — `brew install civitai`, `npm i -g @civitai/cli`, a GitHub release
+#   archive. All three are RELEASES. Capturing from civitai/cli's `main` would
+#   publish help text for flags and commands no user can obtain, on a site whose
+#   whole job is to describe the tool in the reader's hands.
+#
+#   THE TRIGGER FOLLOWS FROM IT. Tag-lag is therefore the correct AND sufficient
+#   signal — there is no between-release build a reader could be holding for the
+#   docs to be wrong about — so `decideAction` compares the snapshot header's tag
+#   against the latest published release and nothing else.
+#
+#   THE CONSEQUENCE, STATED SO IT IS NOT READ AS A BUG. Drift on civitai/cli's
+#   `main` between releases is DELIBERATELY INVISIBLE to this workflow.
+#   `commitsSinceSnapshot` (docs#53, added for exactly that blind spot) is not
+#   consulted here, on purpose. This was never written down, and its absence
+#   produced a concrete error: the PR introducing this workflow claimed it would
+#   have fired for the hand re-captures docs#48 and docs#52. It would have fired
+#   for NEITHER — both happened while the snapshot's tag was unchanged and
+#   check:cli-snapshot was green. Under this policy those two were re-captures of
+#   UNRELEASED `main` state, i.e. the thing that should not have happened, rather
+#   than incidents this missed. docs#56 (v0.1.90-34 -> v0.1.92, a real release)
+#   is the shape this fires for.
+#
+#   CHANGING IT IS A POLICY DECISION, NOT A TRIGGER SWAP. Capturing `main` means
+#   a docs PR per civitai/cli merge, a snapshot header that stops naming an
+#   installable version, and a published reference describing a binary nobody
+#   has. Decide that on its merits; do not arrive at it by "fixing" this trigger.
 #
 # NOT A GATE, DELIBERATELY. A civitai/cli release is UPSTREAM movement, unrelated
 # to any given docs PR — the same doctrine that keeps every check in
 # appblocks-drift.yml off the PR path (read its header). Do NOT add this job to
-# the required contexts on `main`, and do NOT add a `pull_request:` trigger.
+# the required contexts on `main`, and do NOT add a `pull_request:` trigger. (The
+# TESTS for the refresher are a different thing entirely: they are repo-local and
+# offline, so they DO block a PR — see cli-snapshot-refresh-test.yml.)
 #
 # 🔴 IT OPENS A PR; IT NEVER PUSHES TO `main`. The human read of that diff is the
 # product: the MB→MiB change was only legible as a real user-facing fix rather
@@ -55,10 +88,17 @@ name: cli-snapshot-refresh
 # step as GH_TOKEN and delete that section from `prBody` — a stale warning is
 # worse than none.
 #
+# 🔴 AND THE EMPTY "TRIGGER CHECKS" COMMIT THAT REMEDY ASKS FOR USED TO BE
+# DELETED BY THE NEXT RUN. The refresher force-pushed a branch rebuilt from
+# `main`, so a reviewer who followed the PR body's own instructions lost their
+# commit — and their checks with it — on the next cron tick, silently. The script
+# now EXTENDS `bot/cli-snapshot-refresh` instead of recreating it. Do not
+# reintroduce `--force` there.
+#
 # THE LOGIC LIVES IN scripts/refresh-cli-snapshot.mjs, not here. A workflow body
 # is untestable by construction; that script is covered by
-# scripts/test-refresh-cli-snapshot.mjs, including a test that watches the
-# anti-truncation floor REFUSE a short capture.
+# scripts/test-refresh-cli-snapshot.mjs, which runs on every PR from
+# cli-snapshot-refresh-test.yml.
 on:
   schedule:
     # 07:07 UTC daily — 30 minutes after the appblocks-drift sweep at 06:37, so
@@ -74,6 +114,18 @@ on:
         required: false
         default: ''
 
+# 🔴 ONE RUN AT A TIME. The cron tick and a manual dispatch (or a re-run of
+# either) can overlap, and both would pass the `gh pr list --state open` check
+# before either created anything — then collide on `gh pr create`. The loser's
+# "a pull request already exists" is NOT the blocked-setting message, so it took
+# the generic path: exit non-zero with the branch already pushed. Serialised
+# instead. `cancel-in-progress: false` is the load-bearing half: cancelling a run
+# that has already pushed the branch would leave exactly the "pushed, nobody
+# told" state this workflow exists to end.
+concurrency:
+  group: cli-snapshot-refresh
+  cancel-in-progress: false
+
 # LEAST PRIVILEGE, and the elevation is JOB-SCOPED on purpose. The repo default
 # is `write` (measured 2026-08-06 via the actions/permissions/workflow API) which
 # every workflow here overrides down to `contents: read`; this file keeps that
@@ -83,22 +135,32 @@ permissions:
   contents: read
 
 jobs:
-  refresh:
+  # ---------------------------------------------------------------------------
+  # 1. ASK THE QUESTION FIRST, CHEAPLY.
+  #
+  # The Go toolchain and a full upstream `make build` used to run
+  # UNCONDITIONALLY, including on the ~364 days a year when the answer is
+  # "nothing to do" — the freshness decision was not made until the last step.
+  # appblocks-drift.yml's header reasons explicitly about exactly this cost for
+  # its own checks; this job is that reasoning applied here.
+  #
+  # It also RESOLVES THE RELEASE TAG ONCE. The tag used to be resolved twice —
+  # a `curl` here and the script's own fetch later — which can return two
+  # different answers if a release publishes in between, and the observable of
+  # that disagreement is a `WRONG BINARY` refusal blaming the capture for a race.
+  # The answer is passed forward as CLI_SNAPSHOT_REFRESH_LATEST_TAG. That `curl`
+  # was also UNAUTHENTICATED under `set -euo pipefail`, so a shared-runner rate
+  # limit (60/hr) killed the job outright — turning a condition whose whole
+  # contract is "never fail, just skip" into a red run.
+  decide:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    # The ONLY elevation in this repo, and exactly two scopes:
-    #   contents: write       — push the stable `bot/cli-snapshot-refresh` branch.
-    #                           (`main` is protected and is never a push target.)
-    #   pull-requests: write  — create the PR, or update the existing one in place.
-    # Nothing else: no issues, no packages, no id-token, no actions. The job
-    # checks out, builds a Go binary, runs node, pushes ONE branch and opens ONE
-    # PR. scripts/test-refresh-cli-snapshot.mjs asserts this block stays this
-    # shape — both that the two scopes are present and that the others are not.
+    timeout-minutes: 10
     permissions:
-      contents: write
-      pull-requests: write
-
+      contents: read
+    outputs:
+      action: ${{ steps.verdict.outputs.action }}
+      tag: ${{ steps.verdict.outputs.tag }}
+      latest: ${{ steps.verdict.outputs.latest }}
     steps:
       - uses: actions/checkout@v4
 
@@ -122,60 +184,132 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run check:cli-snapshot
 
-      # 🔴 BUILD THE BINARY, AND POINT THE GENERATOR AT IT EXPLICITLY.
-      # gen-appblocks-cli.mjs prefers a live `civitai` on PATH; a runner has
-      # none, and leaving it to search is precisely how a SHORT capture happens
-      # (measured in this repo: an older binary wrote 47 commands instead of 52,
-      # dropping `generate` and the whole `workflows` subtree, and exited 0).
-      #
-      # `go install` is deliberately NOT used: it sets no ldflags, so the binary
-      # reports version "dev" and the snapshot header — the thing every future
-      # freshness check reads — would record a version that is not a version.
-      # Cloning the tag and running `make build` derives the version from
-      # `git describe`, which at a tag is exactly the tag. The script then
-      # REFUSES any capture whose header disagrees with the tag it targeted, so
-      # a wrong build here fails the job rather than shipping a lie.
-      - name: Resolve the civitai/cli tag to capture
-        id: tag
+      - name: Decide whether a re-capture is needed
+        id: verdict
         env:
-          FORCE_TAG: ${{ github.event.inputs.force_tag }}
-        run: |
-          set -euo pipefail
-          if [ -n "${FORCE_TAG}" ]; then
-            TAG="${FORCE_TAG}"
-          else
-            TAG="$(curl -sSf -H 'accept: application/vnd.github+json' \
-              https://api.github.com/repos/civitai/cli/releases/latest | jq -r '.tag_name')"
-          fi
-          if [ -z "${TAG}" ] || [ "${TAG}" = "null" ]; then
-            echo "could not resolve a civitai/cli tag" >&2; exit 1
-          fi
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "capturing from civitai ${TAG}"
+          # Lifts the 60/hr unauthenticated rate limit on the releases GET. The
+          # script SKIPs rather than failing if the read does not come back.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CLI_SNAPSHOT_REFRESH_TAG: ${{ github.event.inputs.force_tag }}
+        run: node scripts/refresh-cli-snapshot.mjs --decide
 
+  # ---------------------------------------------------------------------------
+  # 2. BUILD THE UPSTREAM BINARY IN A JOB THAT HOLDS NOTHING WORTH STEALING.
+  #
+  # 🔴 THIS SEPARATION IS THE SECURITY BOUNDARY, NOT A TIDY-UP. This step clones
+  # civitai/cli at a MUTABLE tag and executes its Makefile. When that ran inside
+  # the job holding `contents: write` + `pull-requests: write`, and with
+  # actions/checkout's default `persist-credentials: true` having written this
+  # repo's token into `.git/config`, anyone able to move a tag in civitai/cli had
+  # write access to civitai-developer-docs. Two independent barriers now:
+  #   - this job declares `contents: read`, so the token it could reach is
+  #     read-only for this repo;
+  #   - it does not check this repository out AT ALL, so there is no
+  #     `.git/config` holding a credential for the upstream build to read.
+  # Keep both. Adding a checkout of this repo here re-opens half of it silently.
+  #
+  # `go install` is deliberately NOT used: it sets no ldflags, so the binary
+  # reports version "dev" and the snapshot header — the thing every future
+  # freshness check reads — would record a version that is not a version.
+  # Cloning the tag and running `make build` derives the version from
+  # `git describe`, which at a tag is exactly the tag.
+  build-cli:
+    needs: decide
+    if: needs.decide.outputs.action == 'refresh'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
 
-      - name: Build the civitai CLI at ${{ steps.tag.outputs.tag }}
+      # 🔴 THE TAG RIDES IN `env:`, NEVER INTERPOLATED INTO THE SHELL. A
+      # `${{ … }}` expansion is substituted into the script TEXT before bash sees
+      # it, so a tag containing shell metacharacters would be executed rather
+      # than compared. `"$TAG"` is a value; `${{ … }}` is code.
+      - name: Build the civitai CLI at the target tag
+        env:
+          TAG: ${{ needs.decide.outputs.tag }}
         run: |
           set -euo pipefail
-          git clone --depth 1 --branch "${{ steps.tag.outputs.tag }}" https://github.com/civitai/cli.git /tmp/civitai-cli
-          make -C /tmp/civitai-cli build
+          if [ -z "${TAG}" ]; then
+            echo "the decide job named no tag — refusing to build an unspecified version" >&2; exit 1
+          fi
+          git clone --depth 1 --branch "${TAG}" https://github.com/civitai/cli.git "${RUNNER_TEMP}/civitai-cli"
+          make -C "${RUNNER_TEMP}/civitai-cli" build
           # Positive control on the build itself: a binary whose --version does
           # not name the tag would poison the snapshot header, and the refresher
           # would (correctly) refuse it later — fail here instead, where the
           # message is about the build rather than about the capture.
-          /tmp/civitai-cli/bin/civitai --version
-          /tmp/civitai-cli/bin/civitai --version | grep -qx "civitai ${{ steps.tag.outputs.tag }}"
+          "${RUNNER_TEMP}/civitai-cli/bin/civitai" --version
+          "${RUNNER_TEMP}/civitai-cli/bin/civitai" --version | grep -qxF "civitai ${TAG}"
 
-      # The whole mechanism. Exits 0 and does NOTHING when the snapshot is
-      # current; exits NON-ZERO with no branch and no PR when the capture is
-      # short, carries NUL bytes, or came from the wrong binary.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: civitai-cli-bin
+          path: ${{ runner.temp }}/civitai-cli/bin/civitai
+          retention-days: 1
+          # A silently absent artifact would reach the next job as "no binary",
+          # which the refresher refuses anyway — but it refuses with a message
+          # about CIVITAI_CLI_BIN rather than about a build that produced
+          # nothing. Fail where the cause is.
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # 3. CAPTURE, AND OPEN THE PR. The only job that holds write scopes, and it
+  # runs no upstream code: it consumes the binary as an artifact.
+  #
+  # Exits 0 and does NOTHING when the snapshot turns out to be current after
+  # all; exits NON-ZERO with no branch and no PR when the capture is short,
+  # carries NUL bytes, or came from the wrong binary.
+  refresh:
+    needs: [decide, build-cli]
+    if: needs.decide.outputs.action == 'refresh'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # The ONLY elevation in this repo, and exactly two scopes:
+    #   contents: write       — push the stable `bot/cli-snapshot-refresh` branch.
+    #                           (`main` is protected and is never a push target.)
+    #   pull-requests: write  — create the PR, or update the existing one in place.
+    # Nothing else: no issues, no packages, no id-token, no actions. The job
+    # checks out, runs node, pushes ONE branch and opens ONE PR.
+    # scripts/test-refresh-cli-snapshot.mjs asserts this block stays this shape —
+    # both that the two scopes are present here and that NO OTHER JOB in this
+    # file holds write.
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: civitai-cli-bin
+          path: ${{ runner.temp }}/cli-bin
+
+      # upload-artifact does not preserve the executable bit.
+      - name: Make the binary executable
+        run: chmod +x "${RUNNER_TEMP}/cli-bin/civitai"
+
       - name: Re-capture and open/update the PR
         env:
-          CIVITAI_CLI_BIN: /tmp/civitai-cli/bin/civitai
+          CIVITAI_CLI_BIN: ${{ runner.temp }}/cli-bin/civitai
           CLI_SNAPSHOT_REFRESH_TAG: ${{ github.event.inputs.force_tag }}
+          # The release tag `decide` already resolved — classified normally, not
+          # forced. See the decide job: resolving it twice can disagree.
+          CLI_SNAPSHOT_REFRESH_LATEST_TAG: ${{ needs.decide.outputs.latest }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/refresh-cli-snapshot.mjs

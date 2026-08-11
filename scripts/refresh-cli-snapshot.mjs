@@ -17,11 +17,43 @@
  * places across 8 lines where the CLI says `MiB`, because civitai/cli#282 had
  * fixed the unit and the docs had not moved.
  *
- * check:cli-snapshot already DETECTS this. It has gone stale twice in this
- * workstream and both times a human noticed, not the check — because its only
- * output is a red run on a SCHEDULED workflow, and a red on an unwatched
- * schedule is indistinguishable from nobody looking. Detection without a
- * remedy is the failure mode; this script is the remedy.
+ * check:cli-snapshot already DETECTS this, and detection without a remedy is
+ * the failure mode: its only output is a red run on a SCHEDULED workflow, and a
+ * red on an unwatched schedule is indistinguishable from nobody looking. This
+ * script is the remedy half.
+ *
+ * 🔴 THE POLICY: THE SNAPSHOT TRACKS THE LATEST *RELEASE*, NOT `main`'s TIP
+ * ------------------------------------------------------------------------
+ * This was never written down anywhere, and its absence produced a concrete
+ * confusion — an earlier revision of this header, and of the PR that introduced
+ * it, claimed this mechanism would have fired for the two hand re-captures
+ * docs#48 and docs#52. It would not have fired for either: both happened while
+ * the snapshot's TAG was unchanged and check:cli-snapshot was GREEN, and
+ * `decideAction` below branches on exactly that tag comparison. So state the
+ * rule instead of leaving it to be re-derived:
+ *
+ *   THE REASON. developer.civitai.com documents the binary a reader can
+ *   actually install — `brew install civitai`, `npm i -g @civitai/cli`, a
+ *   GitHub release archive. All three are RELEASES. Capturing from `main`'s tip
+ *   would publish help text for flags and commands that no user can obtain, on
+ *   a site whose whole job is to describe the tool in the reader's hands. So
+ *   the snapshot's target is the latest published civitai/cli release, and
+ *   tag-lag is the correct AND sufficient trigger — there is no between-release
+ *   build a user could be holding for us to be wrong about.
+ *
+ *   THE CONSEQUENCE, STATED SO IT IS NOT READ AS A BUG. Drift on `main` between
+ *   releases is DELIBERATELY INVISIBLE here. `commitsSinceSnapshot` (added by
+ *   docs#53 for exactly that blind spot) is not consulted, on purpose. Under
+ *   this policy docs#48 and docs#52 — which re-captured from UNRELEASED `main`
+ *   builds — are the thing that should not have happened, not incidents this
+ *   should have caught. docs#56 (v0.1.90-34 -> v0.1.92, a real release) is the
+ *   shape this fires for, and check:cli-snapshot did go red that morning.
+ *
+ *   IF YOU DISAGREE, CHANGE THE POLICY DELIBERATELY — the switch is not a
+ *   one-line trigger swap. Capturing `main` means every civitai/cli merge opens
+ *   a docs PR, the snapshot header stops naming an installable version, and the
+ *   published reference starts describing a binary nobody has. Decide that on
+ *   its merits; do not arrive at it by "fixing" this trigger.
  *
  * WHAT IT DOES *NOT* DO
  * ---------------------
@@ -36,13 +68,26 @@
  * header in .github/workflows/appblocks-drift.yml. Do not add this workflow's
  * job to the required contexts on `main`.
  *
- * ONE STABLE BRANCH, FORCE-UPDATED
- * --------------------------------
- * The branch name is a CONSTANT (`bot/cli-snapshot-refresh`) and the push is a
- * force-update. A fresh branch per run would open a PR per day for the same
- * fact and get muted inside a week — strictly worse than the red it replaces,
- * because a muted PR stream also buries the ONE PR that matters. One PR,
- * updated in place, always describing the current gap.
+ * ONE STABLE BRANCH, EXTENDED — NEVER FORCE-PUSHED OVER
+ * -----------------------------------------------------
+ * The branch name is a CONSTANT (`bot/cli-snapshot-refresh`). A fresh branch
+ * per run would open a PR per day for the same fact and get muted inside a week
+ * — strictly worse than the red it replaces, because a muted PR stream also
+ * buries the ONE PR that matters. One PR, updated in place, always describing
+ * the current gap.
+ *
+ * 🔴 IT IS EXTENDED, NOT RECREATED, AND THAT IS A CORRECTNESS PROPERTY RATHER
+ * THAN A STYLE CHOICE. The first cut did `git checkout -B <branch>` from a
+ * fresh `main` and `git push --force`, consulting `origin/<branch>` not at all
+ * — so every commit a human had pushed there was silently deleted on the next
+ * cron tick, and a force-push reports success. The commit most certain to be
+ * destroyed was the one THIS TOOL'S OWN generated PR body tells the reviewer to
+ * push: `git commit --allow-empty -m "chore: trigger checks"`, the documented
+ * remedy for the zero-checks trap below. So the run now FETCHES the remote
+ * branch and builds on top of it when it exists, and the push is an ordinary
+ * fast-forward. Never reintroduce `--force` here; if a run cannot fast-forward,
+ * that is a concurrent writer and the correct answer is to fail loudly, not to
+ * overwrite them.
  *
  * 🔴 THE FLOOR — A SHORT CAPTURE MUST FAIL THE JOB, NEVER OPEN A PR
  * -----------------------------------------------------------------
@@ -115,22 +160,38 @@
  *
  * USAGE
  *   node scripts/refresh-cli-snapshot.mjs                # the CI path
+ *   node scripts/refresh-cli-snapshot.mjs --decide       # print/emit the verdict ONLY; no capture, no git, no gh
  *   node scripts/refresh-cli-snapshot.mjs --dry-run      # capture + validate + print; no git, no gh
  *   node scripts/refresh-cli-snapshot.mjs --no-pr        # branch/commit/push; print the PR instead of opening it
+ *
+ * `--decide` exists so the WORKFLOW can ask the question once, cheaply, before
+ * paying for a Go toolchain and a full upstream build — and so the answer the
+ * expensive jobs act on is the SAME answer, rather than a second resolution
+ * that can disagree with the first. It writes `action` / `tag` / `latest` to
+ * $GITHUB_OUTPUT when that is set.
  *
  * ENV
  *   CIVITAI_CLI_BIN                   the binary to capture from (required unless up to date)
  *   CLI_SNAPSHOT_REFRESH_TAG          FORCE a refresh at this tag, bypassing the freshness verdict.
  *                                     The documented test override — it is what lets the drift path be
  *                                     exercised on demand while the committed snapshot is current.
+ *   CLI_SNAPSHOT_REFRESH_LATEST_TAG   the latest RELEASE tag, already resolved. Answers the upstream
+ *                                     question WITHOUT asking again — it does not force anything and does
+ *                                     not bypass the verdict; `decideAction` classifies it exactly as it
+ *                                     would classify a freshly fetched answer. It exists because resolving
+ *                                     the tag twice in one workflow can return two different answers if a
+ *                                     release publishes in between, and the observable of that is a
+ *                                     `WRONG BINARY` refusal that blames the capture for a race.
  *   CLI_SNAPSHOT_REFRESH_BRANCH       override the stable branch name (default bot/cli-snapshot-refresh)
  *   CLI_SNAPSHOT_REFRESH_BASE         override the PR base branch (default main)
  *   APPBLOCKS_CLI_RELEASES_URL        release-endpoint override (shared with check-appblocks-cli-snapshot)
+ *   GITHUB_TOKEN / GH_TOKEN           lifts the 60/hr unauthenticated rate limit on the releases GET, and
+ *                                     is the `gh` credential. Absent, the GET may 403 and the run SKIPs.
  *   GITHUB_SERVER_URL / GITHUB_REPOSITORY / GITHUB_RUN_ID   used to link the run from the PR body
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -364,8 +425,40 @@ export function prCreationBlocked(errText) {
   return /not permitted to create or approve pull requests/i.test(String(errText));
 }
 
+const SLUG_FALLBACK = 'civitai/civitai-developer-docs';
+
+/**
+ * 🔴 "THE BRANCH IS PUSHED AND NOBODY HAS BEEN TOLD" IS THE STATE THIS WHOLE
+ * WORKFLOW EXISTS TO END, AND IT IS REACHABLE FROM EVERY FAILURE AFTER THE
+ * PUSH — NOT JUST THE ONE THAT HAD ADVICE.
+ *
+ * The first cut printed the compare URL only when `prCreationBlocked` matched.
+ * Everything else after the push — a `gh pr list` failure (it sat OUTSIDE the
+ * try entirely), a `gh pr edit` failure, a create failure with any other cause,
+ * `gh` missing, a 502, an auth expiry, the "a pull request already exists" race
+ * — exited 2 with a stack trace and no URL. Same repo state, same silence,
+ * strictly less help, and the failures with no advice are the ones nobody
+ * anticipated, i.e. exactly where a reader needs the state spelled out.
+ *
+ * So this is emitted for ANY post-push failure, and the blocked-setting text is
+ * an ADDITION to it rather than an alternative. Every branch still exits
+ * non-zero: the snapshot is on a branch and no PR announces it.
+ */
+export function branchPushedAdvice({ branch, base, repoSlug, cause }) {
+  const slug = repoSlug || SLUG_FALLBACK;
+  return [
+    `THE BRANCH IS PUSHED BUT NO PR ANNOUNCES IT — ${cause || 'the PR step failed'}.`,
+    '',
+    `  The re-captured snapshot is NOT lost. It is on \`${branch}\`, complete and already validated.`,
+    '  Nothing else in this run needs to be redone; only the announcement is missing.',
+    '',
+    '  Open the PR by hand (one click):',
+    `    https://github.com/${slug}/compare/${base}...${branch}?expand=1`,
+  ].join('\n');
+}
+
 export function prCreationBlockedAdvice({ branch, base, repoSlug }) {
-  const slug = repoSlug || 'civitai/civitai-developer-docs';
+  const slug = repoSlug || SLUG_FALLBACK;
   return [
     'PR CREATION IS BLOCKED BY A REPOSITORY SETTING — the branch was pushed, the PR was not opened.',
     '',
@@ -406,8 +499,18 @@ function gh(args) {
   return (res.stdout || '').trim();
 }
 
-/** The latest published civitai/cli release tag, or null on ANY failure (-> skip). */
+/**
+ * The latest published civitai/cli RELEASE tag (see the policy in the header —
+ * a release, never `main`'s tip), or null on ANY failure (-> skip).
+ *
+ * `CLI_SNAPSHOT_REFRESH_LATEST_TAG` short-circuits the GET with an answer an
+ * earlier job already obtained. It is NOT a force: the value flows into
+ * `decideAction` as `latestTag` and is classified normally, so a snapshot that
+ * matches it still decides up-to-date.
+ */
 async function fetchLatestReleaseTag() {
+  const preResolved = (process.env.CLI_SNAPSHOT_REFRESH_LATEST_TAG || '').trim();
+  if (preResolved) return preResolved;
   const headers = {
     accept: 'application/vnd.github+json',
     'user-agent': 'civitai-developer-docs-snapshot-refresher',
@@ -446,9 +549,23 @@ function captureSnapshot(bin) {
 /**
  * Re-run the generator on the HERMETIC codepath — the one CI and the Docker
  * build actually take. The live capture above already built an artifact, but
- * from the in-memory bundle; this proves the BYTES WE ARE ABOUT TO COMMIT
- * regenerate the reference on a machine with no binary. Cheap, and it is the
- * exact failure a PR must not carry.
+ * from the in-memory bundle; this re-derives it from the BYTES WE ARE ABOUT TO
+ * COMMIT, as read back off disk, on a machine pretending it has no binary.
+ *
+ * 🔴 STATE ITS STRENGTH HONESTLY. This is a FILE ROUND-TRIP check, not an
+ * independent verification. The hermetic run parses the same text the live run
+ * parsed, so given a live capture that passed, the only thing that can differ
+ * is the write/read of the file itself (a truncated write, a full disk, an
+ * encoding that does not round-trip) — plus environmental failure of the child
+ * process. It is cheap and it is the exact artifact CI will build, so it stays;
+ * it is not a second opinion about the CLI tree, and an earlier comment here
+ * implied otherwise.
+ *
+ * The observable that proves it RAN is the generator's own `from snapshot: …`
+ * source line, which the live capture (`from civitai binary (…)`) cannot emit.
+ * `TestTheHermeticRebuildActuallyRuns` reads exactly that, because commenting
+ * this call out is otherwise invisible to the entire suite — it was the single
+ * survivor of a 14-mutant semantic sweep.
  */
 function verifyHermeticBuild() {
   execFileSync(process.execPath, [join(repoRoot, 'scripts', 'gen-appblocks-cli.mjs')], {
@@ -458,21 +575,93 @@ function verifyHermeticBuild() {
   });
 }
 
+/**
+ * Does `origin/<branch>` exist, and what is it? Returns the fetched sha or null.
+ *
+ * 🔴 A FAILED FETCH IS NOT "THE BRANCH DOES NOT EXIST". `git fetch` exits
+ * non-zero for a missing ref AND for an unreachable remote, an auth failure, a
+ * proxy, a partial-clone hiccup — and treating the second as the first is
+ * precisely how a run would decide the branch is new and clobber it. So the
+ * question is asked with `ls-remote`, whose exit codes DO separate the two: 2
+ * means the ref is absent, anything else non-zero means we could not ask, and
+ * we refuse rather than guess.
+ */
+function remoteBranchSha(branch) {
+  const res = spawnSync('git', ['ls-remote', '--exit-code', 'origin', `refs/heads/${branch}`], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  });
+  if (res.error) throw res.error;
+  if (res.status === 2) return null; // ls-remote: the ref matched nothing.
+  if (res.status !== 0) {
+    const err = new Error(
+      `could not read origin/${branch} (git ls-remote exit ${res.status}). Refusing to touch the branch: ` +
+        `an unreadable remote is NOT an absent branch, and treating it as one would delete whatever is there.`,
+    );
+    err.stderr = res.stderr || '';
+    throw err;
+  }
+  return (res.stdout || '').trim().split(/\s+/)[0] || null;
+}
+
 function runUrl() {
   const { GITHUB_SERVER_URL, GITHUB_REPOSITORY, GITHUB_RUN_ID } = process.env;
   if (!GITHUB_SERVER_URL || !GITHUB_REPOSITORY || !GITHUB_RUN_ID) return null;
   return `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}`;
 }
 
+/**
+ * `--decide`: emit the verdict for a later job to gate on, and do nothing else.
+ *
+ * 🔴 IT MUST NOT DIFFER FROM THE REAL RUN'S VERDICT. It is the SAME
+ * `decideAction` over the SAME inputs, and the `latest` it emits is handed
+ * forward as CLI_SNAPSHOT_REFRESH_LATEST_TAG so the expensive job classifies
+ * the identical answer instead of asking upstream a second time. Re-deriving
+ * the verdict here with different code would recreate the disagreement the
+ * plumbing exists to remove.
+ */
+function emitDecision(decision, latestTag) {
+  const out = process.env.GITHUB_OUTPUT;
+  const kv = { action: decision.action, tag: decision.targetTag || '', latest: latestTag || '' };
+  for (const [k, v] of Object.entries(kv)) console.log(`  ${k}=${v}`);
+  if (out) appendFileSync(out, Object.entries(kv).map(([k, v]) => `${k}=${v}\n`).join(''));
+}
+
 async function main() {
   const argv = process.argv.slice(2);
+  const decideOnly = argv.includes('--decide');
   const dryRun = argv.includes('--dry-run');
   const noPr = argv.includes('--no-pr');
+  const allowLocalPush = argv.includes('--allow-local-push');
   const branch = process.env.CLI_SNAPSHOT_REFRESH_BRANCH || DEFAULT_BRANCH;
   const base = process.env.CLI_SNAPSHOT_REFRESH_BASE || DEFAULT_BASE;
   const snapshotPath = join(repoRoot, SNAPSHOT_REL);
 
   console.log('cli-snapshot-refresh — re-capture appblocks-snapshots/civitai-cli-help.txt and open a PR when it is stale\n');
+
+  // 🔴 REFUSE THE PUSHING PATH OUTSIDE CI, AND REFUSE IT *HERE* — BEFORE ANY
+  // WORK. This was documented in the README's repair table as a command to run,
+  // next to a dozen read-only `check:*` scripts, and it is not that shape at
+  // all: it pushes a shared remote branch, moves the developer's HEAD onto
+  // `bot/cli-snapshot-refresh`, and commits whatever the capture produced in
+  // THEIR checkout. Run by someone reading the table as "the repair command",
+  // the first they learn of it is being on a different branch.
+  //
+  // The check is first so the refusal costs nothing and leaves nothing behind:
+  // placed after the capture it would refuse while the tree already held new
+  // bytes. `--dry-run` and `--decide` are unaffected — neither writes git.
+  if (!decideOnly && !dryRun && !process.env.CI && !allowLocalPush) {
+    console.error(
+      '  ✗ this command PUSHES. It commits the capture to the shared branch\n' +
+        `    \`${branch}\` on origin and leaves your checkout on that branch — it is the CI path, not a\n` +
+        '    local repair command.\n\n' +
+        '    To see what it would do, with no git writes and the tree restored:\n' +
+        '      npm run refresh:cli-snapshot -- --dry-run\n\n' +
+        '    To run the real thing here anyway (you almost certainly do not want to):\n' +
+        '      npm run refresh:cli-snapshot -- --allow-local-push',
+    );
+    process.exit(1);
+  }
 
   if (!existsSync(snapshotPath)) {
     console.error(`  ✗ committed snapshot MISSING at ${SNAPSHOT_REL} — repo-local breakage, not drift.`);
@@ -489,6 +678,12 @@ async function main() {
   const forcedTag = process.env.CLI_SNAPSHOT_REFRESH_TAG || null;
   const latestTag = forcedTag ? null : await fetchLatestReleaseTag();
   const decision = decideAction({ snapshotTag: parsedPrev.tag, latestTag, forcedTag });
+
+  if (decideOnly) {
+    console.log(`  ${decision.action === 'refresh' ? '⚠' : '✓'} ${decision.reason}`);
+    emitDecision(decision, latestTag);
+    return;
+  }
 
   if (decision.action === 'skip') {
     // A connectivity failure or a rate limit must never look like "current",
@@ -552,7 +747,23 @@ async function main() {
     return;
   }
 
-  verifyHermeticBuild();
+  // 🔴 THE RESTORE COVERS THIS CALL TOO. Its own comment above promised
+  // "restore on EVERY failure path" while this line sat outside every `try`, so
+  // a throw here left the checkout holding a captured-but-un-PRed snapshot —
+  // measured. Honest scope, because it changes what this catch is worth: given
+  // a live capture that already passed, the hermetic run parses the same text,
+  // so what remains reachable is a file round-trip failure or an environmental
+  // one (the child process being killed, a full disk). Rare, not impossible,
+  // and the tree state it would leave behind is the same either way.
+  try {
+    verifyHermeticBuild();
+  } catch (err) {
+    writeFileSync(snapshotPath, prev);
+    console.error('\n--- HERMETIC REBUILD FAILED: the captured bytes do not regenerate the reference ---');
+    console.error(`  ✗ ${err.message}`);
+    console.error('  tree restored, nothing pushed, no PR.');
+    process.exit(1);
+  }
 
   const body = prBody({
     fromVersion: parsedPrev.raw,
@@ -572,24 +783,61 @@ async function main() {
     return;
   }
 
-  // ---- git: one stable branch, force-updated, ONE explicit path staged -----
+  // ---- git: one stable branch, EXTENDED (never force-pushed over) ----------
   git(['config', 'user.name', process.env.GIT_AUTHOR_NAME || 'github-actions[bot]']);
   git(['config', 'user.email', process.env.GIT_AUTHOR_EMAIL || '41898282+github-actions[bot]@users.noreply.github.com']);
-  git(['checkout', '-B', branch]);
+
+  // 🔴 BUILD ON WHAT IS THERE. See the header: the first cut recreated the
+  // branch from `main` and force-pushed, which deleted human commits — the
+  // `--allow-empty` "trigger checks" commit this tool's own PR body asks for,
+  // most of all. Restoring `prev` first is not tidiness: the working tree
+  // currently holds the CAPTURE, and `git checkout` refuses to move a branch
+  // when that would overwrite a locally modified file. Restore -> checkout ->
+  // re-write the capture.
+  const remoteSha = remoteBranchSha(branch);
+  writeFileSync(snapshotPath, prev);
+  if (remoteSha) {
+    // FETCH_HEAD rather than the ls-remote sha: if the ref moved between the
+    // two calls, building on the FRESHER tip is what keeps the push a
+    // fast-forward. Building on the stale one would fail the push instead —
+    // safe, but a needless red.
+    git(['fetch', 'origin', branch]);
+    git(['checkout', '-B', branch, 'FETCH_HEAD']);
+    console.log(`  ↳ continuing ${branch} at ${remoteSha.slice(0, 8)} (its existing commits are kept)`);
+  } else {
+    git(['checkout', '-B', branch]);
+    console.log(`  ↳ creating ${branch}`);
+  }
+  writeFileSync(snapshotPath, next);
+
   // Explicit path. Never `git add -A`: this job runs in a checkout where the
   // generator has also written gitignored artifacts, and a blind stage is how
   // an unrelated file rides along in a PR nobody is reading closely.
   git(['add', '--', SNAPSHOT_REL]);
-  git([
-    'commit',
-    '-m',
-    title,
-    '-m',
-    `${decision.reason}.\n\nCaptured from a civitai binary built at ${decision.targetTag}. ` +
-      `${verdict.stats.nextBlocks} ===CMD blocks (floor ${verdict.stats.prevBlocks}), ${verdict.stats.nuls} NUL bytes.\n\n` +
-      `Opened automatically by .github/workflows/cli-snapshot-refresh.yml.`,
-  ]);
-  git(['push', '--force', 'origin', `${branch}:${branch}`]);
+  // Nothing staged is REACHABLE now that the branch is extended rather than
+  // recreated: a second run finding the same drift re-captures byte-identical
+  // bytes that are already on the branch. `git commit` would exit 1 on that,
+  // failing a run whose actual state is "already done". Skip the commit, keep
+  // going — the PR still needs its body refreshed.
+  const staged = spawnSync('git', ['diff', '--cached', '--quiet'], { cwd: repoRoot });
+  if (staged.status === 0) {
+    console.log(`  ↳ ${branch} already carries these bytes — no new commit`);
+  } else {
+    git([
+      'commit',
+      '-m',
+      title,
+      '-m',
+      `${decision.reason}.\n\nCaptured from a civitai binary built at ${decision.targetTag}. ` +
+        `${verdict.stats.nextBlocks} ===CMD blocks (floor ${verdict.stats.prevBlocks}), ${verdict.stats.nuls} NUL bytes.\n\n` +
+        `Opened automatically by .github/workflows/cli-snapshot-refresh.yml.`,
+    ]);
+  }
+  // 🔴 NO `--force`. The push is a fast-forward of a branch we just built on
+  // top of. If it is rejected, another writer moved the ref between the
+  // ls-remote and here — the correct answer is to fail loudly (the workflow's
+  // `concurrency:` group is what makes that rare), never to overwrite them.
+  git(['push', 'origin', `${branch}:${branch}`]);
   console.log(`\n  ✓ pushed ${branch}`);
 
   if (noPr) {
@@ -601,11 +849,17 @@ async function main() {
 
   // Written OUTSIDE the repo: an untracked file in the checkout is one blind
   // `git add` away from riding along in the PR it describes.
-  const bodyFile = join(mkdtempSync(join(tmpdir(), 'cli-snapshot-pr-')), 'body.md');
+  const bodyDir = mkdtempSync(join(tmpdir(), 'cli-snapshot-pr-'));
+  const bodyFile = join(bodyDir, 'body.md');
   writeFileSync(bodyFile, body);
-  const existing = gh(['pr', 'list', '--head', branch, '--base', base, '--state', 'open', '--json', 'number']);
-  const open = JSON.parse(existing || '[]');
+  // 🔴 EVERYTHING AFTER THE PUSH IS INSIDE THIS TRY, `gh pr list` INCLUDED. It
+  // used to sit outside, so a list failure — an outage, an expired token, `gh`
+  // itself missing — exited 2 with a stack trace from a repo whose branch was
+  // already pushed: the "nobody has been told" state, reached by the one path
+  // with no advice attached to it.
   try {
+    const existing = gh(['pr', 'list', '--head', branch, '--base', base, '--state', 'open', '--json', 'number']);
+    const open = JSON.parse(existing || '[]');
     if (open.length) {
       gh(['pr', 'edit', String(open[0].number), '--title', title, '--body-file', bodyFile]);
       console.log(`  ✓ updated PR #${open[0].number}`);
@@ -613,17 +867,26 @@ async function main() {
       const url = gh(['pr', 'create', '--base', base, '--head', branch, '--title', title, '--body-file', bodyFile]);
       console.log(`  ✓ opened ${url}`);
     }
+    rmSync(bodyDir, { recursive: true, force: true });
   } catch (err) {
+    // Cleaned up HERE rather than in a `finally`: `process.exit` below
+    // terminates the process without unwinding, so a `finally` would silently
+    // never run — the tidy-looking spelling is the one that leaks.
+    rmSync(bodyDir, { recursive: true, force: true });
     const stderr = err.stderr || '';
     if (stderr) console.error(stderr.trimEnd());
+    const repoSlug = process.env.GITHUB_REPOSITORY;
+    // The compare URL is printed for EVERY post-push failure. The blocked-repo-
+    // setting text is an addition when it applies, not an alternative — losing
+    // the URL is what made the unanticipated failures the least helpful ones.
+    console.error(`\n--- ${branchPushedAdvice({ branch, base, repoSlug, cause: err.message })}`);
     if (prCreationBlocked(stderr)) {
-      console.error(`\n--- ${prCreationBlockedAdvice({ branch, base, repoSlug: process.env.GITHUB_REPOSITORY })}`);
-      // Non-zero: the branch is pushed but nobody has been told, which is the
-      // very state this whole workflow exists to end. A green run would claim
-      // the PR was opened.
-      process.exit(1);
+      console.error(`\n--- ${prCreationBlockedAdvice({ branch, base, repoSlug })}`);
     }
-    throw err;
+    // Non-zero in every branch: the branch is pushed but nobody has been told,
+    // which is the very state this whole workflow exists to end. A green run
+    // would claim the PR was opened.
+    process.exit(1);
   }
 }
 
