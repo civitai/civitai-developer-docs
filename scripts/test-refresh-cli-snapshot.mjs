@@ -764,6 +764,185 @@ check('A HUMAN COMMIT ON THE BOT BRANCH SURVIVES THE NEXT RUN', () => {
   assert(onBranch.includes(`Binary version: civitai ${SNAP_RAW}\n`), 'the branch no longer carries the fresh capture');
 });
 
+// ---------------------------------------------------------------------------
+// 🔴 THE BRANCH MUST STAY MERGEABLE ACROSS ITS OWN SUCCESS.
+//
+// One stable branch, extended forever, and NOTHING ever reconciled it with the
+// base. So the very first accepted PR broke the mechanism permanently: the
+// squash-merge puts the branch's bytes on `main` as a NEW commit that is not in
+// the branch's history, the branch keeps growing from its old tip, and every
+// later run produces a PR whose only file conflicts with `main` — on a GREEN
+// run, with `↳ continuing bot/cli-snapshot-refresh at …` in the log. Detection
+// without a usable remedy, which is the exact failure this workflow exists to
+// end. `delete_branch_on_merge` is measured FALSE on this repo, so the branch
+// persists and run N+1 really does continue from the stale tip.
+//
+// 🔴 IT ONLY REPRODUCES WITH A **SQUASH** MERGE. A merge commit makes the
+// branch tip an ancestor of the base, so the next run's diff is against a
+// merge base that already contains its own bytes and everything merges clean —
+// rc 0, no conflict, nothing to see. This repo squashes (measured on `main`:
+// of the last 100 commits, 64 commits and 3 merges, all three of those local
+// syncs; every PR landed as `… (#NN)`), so a fixture built on a merge commit
+// would pass green against the live bug. The control below asserts the fixture
+// really is a squash before it asserts anything about the outcome.
+
+/**
+ * Land `branch` on `base` the way this repo lands PRs: a SQUASH, so the branch
+ * tip does NOT become an ancestor of the base. Returns the branch tip that was
+ * squashed, for the premise assertions.
+ */
+function squashMergeIntoBase(work, branch, subject) {
+  g(work, ['checkout', '-f', DEFAULT_BASE]);
+  g(work, ['fetch', 'origin', branch]);
+  const tip = g(work, ['rev-parse', 'FETCH_HEAD']);
+  g(work, ['merge', '--squash', 'FETCH_HEAD']);
+  g(work, ['commit', '-m', subject]);
+  g(work, ['push', 'origin', DEFAULT_BASE]);
+  return tip;
+}
+
+/**
+ * Would `branch` merge into `base` without conflicts?
+ *
+ * 🔴 THE EXIT CODE IS THE ANSWER, AND A MARKER GREP IS NOT. On success
+ * `git merge-tree --write-tree` prints ONLY a tree OID and emits no `<<<<<<<`
+ * whatsoever — so grepping its output for conflict markers finds nothing
+ * whether or not a conflict exists, and reads as a confident "no conflicts"
+ * that is wrong. 0 = clean, 1 = conflicts, anything else = we could not ask
+ * (which callers must not read as either answer).
+ */
+function mergeTreeStatus(bareRepo, base, branch) {
+  const res = spawnSync('git', ['-C', bareRepo, 'merge-tree', '--write-tree', base, branch], { encoding: 'utf8' });
+  return { status: res.status, out: `${res.stdout}${res.stderr}` };
+}
+
+check('INSTRUMENT CONTROL: merge-tree reports 1 on a real conflict and 0 on a clean merge', () => {
+  // 🔴 Without this, the mergeability assertions below are a reassuring ZERO
+  // from a tool that might be wired to nothing: a mistyped ref, an unsupported
+  // git, a bare repo it cannot read all report non-clean or non-conflict for
+  // reasons that have nothing to do with the branch. Feed it a case that MUST
+  // conflict and watch the number move — and a case that must NOT.
+  const { work, origin } = scratchRepo();
+  const rewrite = (v) => committed.replace(/^Binary version: civitai .*$/m, `Binary version: civitai ${v}`);
+  for (const [name, version] of [
+    ['probe-a', 'v9.9.9'],
+    ['probe-b', 'v8.8.8'],
+  ]) {
+    g(work, ['checkout', '-B', name, DEFAULT_BASE]);
+    writeFileSync(join(work, SNAPSHOT_REL), rewrite(version));
+    g(work, ['commit', '-am', `probe ${version}`]);
+    g(work, ['push', 'origin', name]);
+  }
+  const conflict = mergeTreeStatus(origin, 'probe-a', 'probe-b');
+  assertEqual(conflict.status, 1, `merge-tree did not report a CONFLICT for two divergent edits:\n${conflict.out}`);
+  // …and it is not simply stuck at 1: a branch that changed nothing is clean.
+  g(work, ['checkout', '-B', 'probe-c', DEFAULT_BASE]);
+  g(work, ['commit', '--allow-empty', '-m', 'probe empty']);
+  g(work, ['push', 'origin', 'probe-c']);
+  const clean = mergeTreeStatus(origin, DEFAULT_BASE, 'probe-c');
+  assertEqual(clean.status, 0, `merge-tree did not report a CLEAN merge for a no-op branch:\n${clean.out}`);
+});
+
+check('AFTER THE BOT PR IS SQUASH-MERGED, THE NEXT RUN STILL PRODUCES A MERGEABLE BRANCH', () => {
+  const { work, origin, root, bin } = driftRepo();
+
+  // Run 1 — the ordinary drift run that opens the first PR.
+  const run1 = runScript(work, ['--no-pr'], { CIVITAI_CLI_BIN: bin, CLI_SNAPSHOT_REFRESH_TAG: SNAP_TAG });
+  assertEqual(run1.status, 0, `run 1 exited ${run1.status}\n${run1.stdout}\n${run1.stderr}`);
+
+  // A maintainer merges it, the way every PR lands here.
+  const squashed = squashMergeIntoBase(work, DEFAULT_BRANCH, `${prTitle(SNAP_TAG)} (#99)`);
+
+  // 🔴 PREMISE, ASSERTED: the fixture is a SQUASH. A merge commit does not
+  // reproduce the bug, so a fixture that quietly became one would pass here
+  // while the mechanism stayed broken.
+  const baseTip = g(work, ['rev-parse', DEFAULT_BASE]);
+  const revParents = g(work, ['rev-list', '--parents', '-n', '1', baseTip]).split(/\s+/);
+  assertEqual(revParents.length, 2, `the base tip has ${revParents.length - 1} parents — this fixture is not a squash`);
+  const ancestor = spawnSync('git', ['-C', work, 'merge-base', '--is-ancestor', squashed, baseTip]);
+  assert(
+    ancestor.status !== 0,
+    'the squashed branch tip is an ANCESTOR of the base — this fixture is a merge commit, which does not reproduce',
+  );
+  // The branch is still on the remote: `delete_branch_on_merge` is false here,
+  // and that is what makes run 2 continue from the stale tip rather than start
+  // a fresh branch.
+  const stillThere = execFileSync('git', ['-C', origin, 'branch', '--list'], { encoding: 'utf8' });
+  assert(stillThere.includes(DEFAULT_BRANCH), 'the fixture deleted the branch on merge — that is not this repo');
+
+  // Run 2 — a later release. Fresh checkout of `main`, as actions/checkout
+  // gives it, and a binary reporting the NEW tag so the capture really differs.
+  const bin2Dir = join(root, 'bin2');
+  mkdirSync(bin2Dir, { recursive: true });
+  const bin2 = fakeCliBin(bin2Dir, join(root, 'bundle.txt'), `civitai ${NEWER}`);
+  g(work, ['checkout', '-f', DEFAULT_BASE]);
+  const run2 = runScript(work, ['--no-pr'], { CIVITAI_CLI_BIN: bin2, CLI_SNAPSHOT_REFRESH_TAG: NEWER });
+  assertEqual(run2.status, 0, `run 2 exited ${run2.status}\n${run2.stdout}\n${run2.stderr}`);
+
+  // 🔴 THE PROPERTY: the PR this run would open is one a maintainer can merge.
+  const verdict = mergeTreeStatus(origin, DEFAULT_BASE, DEFAULT_BRANCH);
+  assertEqual(
+    verdict.status,
+    0,
+    `the branch run 2 produced CONFLICTS with ${DEFAULT_BASE} (merge-tree exit ${verdict.status}) — after one ` +
+      `accepted PR this mechanism opens conflicted PRs forever, on green runs:\n${verdict.out}`,
+  );
+
+  // …and "mergeable" was not bought by doing nothing: the branch carries the
+  // new capture, and it is genuinely ahead of the base.
+  const onBranch = execFileSync('git', ['-C', origin, 'show', `${DEFAULT_BRANCH}:${SNAPSHOT_REL}`], {
+    encoding: 'utf8',
+    maxBuffer: 8 * 1024 * 1024,
+  });
+  assert(
+    onBranch.includes(`Binary version: civitai ${NEWER}\n`),
+    'the branch does not carry run 2\'s capture — a branch that skipped the work merges cleanly too',
+  );
+  const behind = spawnSync('git', ['-C', origin, 'merge-base', '--is-ancestor', DEFAULT_BRANCH, DEFAULT_BASE]);
+  assert(behind.status !== 0, 'the branch adds nothing to the base — there would be no PR to open');
+});
+
+check('A GENUINELY DIVERGED BRANCH FAILS LOUDLY — it never pushes a conflicted PR', () => {
+  // 🔴 THE OTHER HALF OF THE PROPERTY. Reconciling with the base is only safe
+  // if the case it CANNOT reconcile is legible: a run that silently pushed the
+  // pre-merge tip would be back to opening a conflicted PR, and a run that
+  // aborted with a stack trace would leave the operator guessing which of the
+  // two sides to look at.
+  const { work, origin, root, bin } = driftRepo();
+  const run1 = runScript(work, ['--no-pr'], { CIVITAI_CLI_BIN: bin, CLI_SNAPSHOT_REFRESH_TAG: SNAP_TAG });
+  assertEqual(run1.status, 0, `run 1 exited ${run1.status}\n${run1.stdout}\n${run1.stderr}`);
+
+  const rewrite = (v) => committed.replace(/^Binary version: civitai .*$/m, `Binary version: civitai ${v}`);
+  // Somebody edits the same line on the branch…
+  g(work, ['checkout', '-f', DEFAULT_BASE]);
+  g(work, ['fetch', 'origin', DEFAULT_BRANCH]);
+  g(work, ['checkout', '-B', 'divergent', 'FETCH_HEAD']);
+  writeFileSync(join(work, SNAPSHOT_REL), rewrite('v8.8.8'));
+  g(work, ['commit', '-am', 'a human edits the snapshot on the bot branch']);
+  g(work, ['push', 'origin', `divergent:${DEFAULT_BRANCH}`]);
+  const divergedTip = g(work, ['rev-parse', 'HEAD']);
+  // …and somebody else edits it differently on the base.
+  g(work, ['checkout', '-f', DEFAULT_BASE]);
+  writeFileSync(join(work, SNAPSHOT_REL), rewrite('v9.9.9'));
+  g(work, ['commit', '-am', 'a human edits the snapshot on main']);
+  g(work, ['push', 'origin', DEFAULT_BASE]);
+
+  const bin2Dir = join(root, 'bin2');
+  mkdirSync(bin2Dir, { recursive: true });
+  const bin2 = fakeCliBin(bin2Dir, join(root, 'bundle.txt'), `civitai ${NEWER}`);
+  const run2 = runScript(work, ['--no-pr'], { CIVITAI_CLI_BIN: bin2, CLI_SNAPSHOT_REFRESH_TAG: NEWER });
+  const out = `${run2.stdout}\n${run2.stderr}`;
+  assert(run2.status !== 0, `a branch that cannot be reconciled with the base exited 0:\n${out}`);
+  assert(/DIVERGED/.test(out), `the failure does not name what diverged:\n${out}`);
+  assert(new RegExp(`compare/${DEFAULT_BASE}\\.\\.\\.${DEFAULT_BRANCH}`).test(out), `no compare URL to look at:\n${out}`);
+  // 🔴 The kill: it must not have pushed the un-reconciled tip.
+  assertEqual(
+    execFileSync('git', ['-C', origin, 'rev-parse', DEFAULT_BRANCH], { encoding: 'utf8' }).trim(),
+    divergedTip,
+    'the run pushed over a branch it could not reconcile with the base',
+  );
+});
+
 check('a capture identical to the committed snapshot opens NO PR', () => {
   const { work, origin, root } = scratchRepo();
   const bundlePath = join(root, 'same.txt');
@@ -1098,6 +1277,36 @@ check('EXACTLY ONE job holds write, and it is not the one that runs upstream cod
   assert(/pull-requests:\s*write/.test(writerBody), 'the writer job cannot open a PR');
 });
 
+check('THE DISCLOSED RESIDUAL: the privileged job still EXECUTES the upstream binary', () => {
+  // 🔴 THIS GUARD FAILS WHEN THE BOUNDARY IS *IMPROVED*, ON PURPOSE. The job
+  // split moved upstream's BUILD code out of the write-scoped job; it did not
+  // stop that job from downloading the resulting binary, `chmod +x`ing it and
+  // running it while holding `contents: write` + `pull-requests: write` and a
+  // `persist-credentials: true` checkout. So a tag-mover upstream can still
+  // reach this repo's write token by putting the payload in the Go source
+  // instead of the Makefile.
+  //
+  // The workflow header and the PR description both say so in those words. If
+  // you close it — `persist-credentials: false`, or a third unprivileged job
+  // that runs the binary and hands over only the captured bytes — this check
+  // is what stops the disclosure from silently becoming a lie: change it, and
+  // move the header comment with it.
+  const jobs = jobsOf(WORKFLOW);
+  const writers = Object.entries(jobs).filter(([, body]) => /^\s+(contents|pull-requests):\s*write$/m.test(body));
+  assertEqual(writers.length, 1, `${writers.length} jobs hold write`);
+  const [, writerBody] = writers[0];
+  assert(
+    /uses: actions\/download-artifact/.test(writerBody) && /chmod \+x/.test(writerBody),
+    'the privileged job no longer runs the upstream binary — good, but the workflow header and the PR body ' +
+      'disclose that it DOES. Update them in the same change.',
+  );
+  assert(
+    !/persist-credentials:\s*false/.test(writerBody),
+    'the privileged checkout now drops its credential — that is the residual being closed, so update the ' +
+      'workflow header, which still discloses it as open.',
+  );
+});
+
 check('the expensive jobs are GATED on the freshness decision', () => {
   // F9: the Go toolchain and a full upstream build used to run unconditionally,
   // including on the ~364 days a year the answer is "nothing to do" — the
@@ -1138,32 +1347,87 @@ check('the workflow serialises itself — a cron tick and a dispatch cannot race
   );
 });
 
-check('NO `${{ }}` EXPANSION REACHES A `run:` SCRIPT — values ride in env:', () => {
-  // F4: a `${{ … }}` expansion is substituted into the script TEXT before bash
-  // sees it, so an attacker-controllable value becomes CODE. The tag came from
-  // a `curl` of a third-party API and was interpolated into three `run:` lines.
-  // Reading the runnable lines only, because the header discusses the pattern.
-  const yml = readFileSync(WORKFLOW, 'utf8');
-  const lines = yml.split('\n');
+/**
+ * Every line of `yml` where a `${{ … }}` expression is substituted into shell
+ * SCRIPT TEXT — a `run: |` block body, or a single-line `run:`.
+ *
+ * 🔴 A `#` LINE INSIDE A `run:` BLOCK IS A SHELL COMMENT, NOT A YAML ONE, AND
+ * THE EXPANSION IS STILL SUBSTITUTED INTO THE SCRIPT. The first version
+ * `continue`d on `/^\s*#/` before any of the in-run bookkeeping, so such a line
+ * was skipped outright — a blind spot in a guard whose whole subject is text
+ * that gets interpolated before bash sees it. (It also meant a `#` line could
+ * not close a block it should have.) The comment skip now applies only OUTSIDE
+ * a run block, which is where a `#` really is a YAML comment — and that
+ * exclusion is load-bearing in the other direction: this workflow's header
+ * discusses the `${{ }}` hazard in prose, and a scanner that read comments
+ * would fail on the documentation of the rule it enforces.
+ *
+ * KNOWN AND DISCLOSED: it understands `run: |` and single-line `run:`, and NOT
+ * the folded `run: >` form, whose body would slip past. No such block exists in
+ * this repo's workflows. This is a pattern matcher, not a YAML parser — a YAML
+ * parser is a new dependency ("ask first" in AGENTS.md).
+ */
+function expressionsReachingRunScripts(yml) {
   const offenders = [];
   let inRun = false;
   let runIndent = 0;
-  for (const line of lines) {
-    if (/^\s*#/.test(line)) continue;
+  for (const line of yml.split('\n')) {
+    // Bookkeeping FIRST, and for every line: a dedent ends the block whether or
+    // not the line that dedents is a comment.
+    if (inRun) {
+      const indent = line.search(/\S/);
+      if (line.trim() !== '' && indent <= runIndent) inRun = false;
+    }
+    if (!inRun && /^\s*#/.test(line)) continue;
     const m = /^(\s*)(- )?run: \|/.exec(line);
     if (m) {
       inRun = true;
       runIndent = m[1].length;
       continue;
     }
-    if (inRun) {
-      const indent = line.search(/\S/);
-      if (line.trim() !== '' && indent <= runIndent) inRun = false;
-    }
     const single = /^\s*(- )?run: (?!\|).*\$\{\{/.test(line);
     if ((inRun && line.includes('${{')) || single) offenders.push(line.trim());
   }
+  return offenders;
+}
+
+check('NO `${{ }}` EXPANSION REACHES A `run:` SCRIPT — values ride in env:', () => {
+  // F4: a `${{ … }}` expansion is substituted into the script TEXT before bash
+  // sees it, so an attacker-controllable value becomes CODE. The tag came from
+  // a `curl` of a third-party API and was interpolated into three `run:` lines.
+  const offenders = expressionsReachingRunScripts(readFileSync(WORKFLOW, 'utf8'));
   assertEqual(offenders.length, 0, `shell scripts interpolate workflow expressions:\n  ${offenders.join('\n  ')}`);
+});
+
+check('the `${{ }}` scanner is driven against a CONTROL CORPUS — including a shell comment', () => {
+  // 🔴 A ZERO FROM THIS SCANNER IS ONLY EVIDENCE IF IT CAN REPORT A NON-ZERO.
+  // Run over the real workflow it answers 0 today, and 0 is exactly what a
+  // scanner wired to nothing reports. So feed it lines it MUST flag and lines
+  // it MUST NOT, and check both directions.
+  //
+  // The shell-comment row is the blind spot this corpus was written for: it
+  // was skipped by a `/^\s*#/` continue that ran before the in-run bookkeeping,
+  // while GitHub substitutes the expression into the script text regardless.
+  const mustFlag = [
+    ['a shell comment inside a run: block', '    - run: |\n        # rebuilding ${{ github.event.inputs.force_tag }}\n        echo hi\n'],
+    ['an ordinary line inside a run: block', '    - run: |\n        echo ${{ github.event.inputs.force_tag }}\n'],
+    ['a single-line run:', '    - run: echo ${{ github.event.inputs.force_tag }}\n'],
+    ['a run: block reopened after an earlier one closed', '    - run: |\n        echo one\n    - name: x\n    - run: |\n        # ${{ secrets.GITHUB_TOKEN }}\n'],
+  ];
+  for (const [what, yml] of mustFlag) {
+    assert(expressionsReachingRunScripts(yml).length > 0, `the scanner does not see ${what}`);
+  }
+  const mustNotFlag = [
+    ['a YAML comment at top level', '# never interpolate ${{ github.event.inputs.force_tag }} into a run:\njobs:\n'],
+    ['a YAML comment after a run: block has ended', '    - run: |\n        echo one\n    # ${{ secrets.GITHUB_TOKEN }} must not appear above\n'],
+    ['an expression in env:, which is a VALUE not code', '      env:\n        TAG: ${{ needs.decide.outputs.tag }}\n'],
+    ['an expression in a with: input', '      with:\n        path: ${{ runner.temp }}/cli-bin\n'],
+    ['a clean run: block', '    - run: |\n        set -euo pipefail\n        echo "$TAG"\n'],
+  ];
+  for (const [what, yml] of mustNotFlag) {
+    const got = expressionsReachingRunScripts(yml);
+    assertEqual(got.length, 0, `the scanner flags ${what} — a false positive it would be muted for:\n  ${got.join('\n  ')}`);
+  }
 });
 
 check('the tag is resolved ONCE, and never by an unauthenticated curl', () => {
@@ -1252,7 +1516,7 @@ console.log('');
 // section, a botched merge — prints a serene "all passed" over zero work. The
 // floor is the positive control on the harness itself: it must have executed at
 // least as many checks as it did when this line was written.
-const MIN_CHECKS = 56;
+const MIN_CHECKS = 61;
 if (executed < MIN_CHECKS) {
   console.error(
     `refresh-cli-snapshot tests: only ${executed} checks RAN, expected at least ${MIN_CHECKS} — ` +

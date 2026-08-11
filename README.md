@@ -120,8 +120,14 @@ movement, unrelated to any docs PR):
 re-captures, and pushes the one stable branch `bot/cli-snapshot-refresh` — reused
 rather than recreated, so there is one PR rather than one per day, and so a
 commit *you* push there (the empty "trigger checks" commit, a fixup) is not
-deleted by the next run. It **never pushes to `main`**: the human read of that
-diff is what makes a real user-facing change legible as one.
+deleted by the next run. Each run also merges `main` into that branch before it
+captures. Without that, the first PR you *accept* leaves the branch permanently
+at odds with `main` — the squash-merge puts its bytes on `main` as a commit
+outside the branch's own history — and every later run opens a **conflicted** PR
+on a green run. If the two genuinely diverge, the run fails with both sides named
+and a compare URL, rather than opening a PR nobody can merge. It **never pushes
+to `main`**: the human read of that diff is what makes a real user-facing change
+legible as one.
 
 🔴 **`npm run refresh:cli-snapshot` is not a repair command you run.** It commits
 to a shared remote branch and leaves your checkout sitting on it. It refuses

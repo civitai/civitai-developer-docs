@@ -196,17 +196,41 @@ jobs:
   # ---------------------------------------------------------------------------
   # 2. BUILD THE UPSTREAM BINARY IN A JOB THAT HOLDS NOTHING WORTH STEALING.
   #
-  # 🔴 THIS SEPARATION IS THE SECURITY BOUNDARY, NOT A TIDY-UP. This step clones
-  # civitai/cli at a MUTABLE tag and executes its Makefile. When that ran inside
-  # the job holding `contents: write` + `pull-requests: write`, and with
-  # actions/checkout's default `persist-credentials: true` having written this
-  # repo's token into `.git/config`, anyone able to move a tag in civitai/cli had
-  # write access to civitai-developer-docs. Two independent barriers now:
-  #   - this job declares `contents: read`, so the token it could reach is
+  # 🔴 THIS SEPARATION NARROWS A REAL EXPOSURE — AND IT DOES NOT CLOSE IT. STATE
+  # BOTH, because the first version of this comment claimed the boundary was
+  # complete and it is not.
+  #
+  # This step clones civitai/cli at a MUTABLE tag and executes its Makefile.
+  # When that ran inside the job holding `contents: write` + `pull-requests:
+  # write`, with actions/checkout's default `persist-credentials: true` having
+  # written this repo's token into `.git/config`, anyone able to move a tag in
+  # civitai/cli could read that credential directly out of the checkout. Two
+  # things changed:
+  #   - this job declares `contents: read`, so the token IT can reach is
   #     read-only for this repo;
   #   - it does not check this repository out AT ALL, so there is no
-  #     `.git/config` holding a credential for the upstream build to read.
-  # Keep both. Adding a checkout of this repo here re-opens half of it silently.
+  #     `.git/config` holding a credential for the upstream BUILD to read.
+  # Keep both. Adding a checkout of this repo here re-opens that directly.
+  #
+  # 🔴 WHAT IT DOES NOT BUY: THE UPSTREAM *BINARY* STILL RUNS WITH WRITE. The
+  # `refresh` job below downloads this job's artifact, `chmod +x`es it and
+  # EXECUTES it (the capture shells out to it per command) while holding
+  # `contents: write` + `pull-requests: write` and a `persist-credentials: true`
+  # checkout of this repo. So a tag-mover upstream can still reach this repo's
+  # write token — they just have to move the payload out of the Makefile and
+  # into the Go source, which the split does nothing to prevent. What the split
+  # removes is upstream's BUILD-TIME code (Makefile recipes, go generate,
+  # dependency resolution) from the privileged job; what remains is the one
+  # artifact that job exists to produce. Do not describe this as "the token is
+  # no longer reachable from upstream code" — it is reachable, by a longer
+  # route.
+  #
+  # Closing it properly is a separate, deliberate change, not a tightening to
+  # slip in here: either `persist-credentials: false` on the refresh checkout
+  # (plus an explicit credential for the one push), or a THIRD unprivileged job
+  # that runs the binary and uploads the captured bytes, leaving the privileged
+  # job to commit an artifact it never executed. Both are real designs with
+  # their own failure modes; neither is in this PR.
   #
   # `go install` is deliberately NOT used: it sets no ldflags, so the binary
   # reports version "dev" and the snapshot header — the thing every future

@@ -89,6 +89,20 @@
  * that is a concurrent writer and the correct answer is to fail loudly, not to
  * overwrite them.
  *
+ * 🔴 …AND IT MUST BE RECONCILED WITH THE BASE, OR ITS OWN FIRST SUCCESS BREAKS
+ * IT FOREVER. An extended-forever branch that nothing ever merges `main` into
+ * goes permanently sideways the moment a bot PR is accepted: the SQUASH puts
+ * the branch's bytes on `main` as a commit outside the branch's history, so
+ * from the next run on, both sides carry a different edit to the same header
+ * line and every PR this opens is born CONFLICTED — on a GREEN run, with
+ * `↳ continuing …` in the log. Measured end to end; `delete_branch_on_merge` is
+ * false here, so the branch really does survive the merge for the next run to
+ * continue from. `syncWithBase` merges the base in BEFORE the capture is
+ * written, which in that state is a clean no-content merge because the two
+ * sides are byte-identical. It only reproduces with a squash — a merge commit
+ * leaves the branch tip in the base's history and everything merges clean
+ * afterwards. See `syncWithBase` for why merge rather than reset or rebase.
+ *
  * 🔴 THE FLOOR — A SHORT CAPTURE MUST FAIL THE JOB, NEVER OPEN A PR
  * -----------------------------------------------------------------
  * This is the failure this whole path is most likely to produce, and it is
@@ -394,7 +408,11 @@ of it.
 
 This branch is \`${branch}\`, reused and extended on every run: there is one PR, not
 one per day. Anything **you** push to it — the empty commit above, a fixup —
-stays; the refresher commits on top and never force-pushes.
+stays; the refresher commits on top and never force-pushes. Each run also merges
+the base branch in before capturing, so accepting this PR does not leave the
+branch permanently conflicting with it — that is what a \`chore: sync …\` merge
+commit in the history is. If the two genuinely diverge, the run fails with both
+sides named rather than opening a conflicted PR.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 `;
@@ -456,6 +474,39 @@ export function branchPushedAdvice({ branch, base, repoSlug, cause }) {
     '',
     '  Open the PR by hand (one click):',
     `    https://github.com/${slug}/compare/${base}...${branch}?expand=1`,
+  ].join('\n');
+}
+
+/**
+ * 🔴 THE BRANCH CANNOT BE RECONCILED WITH THE BASE — the one state
+ * `syncWithBase` refuses to guess its way out of.
+ *
+ * Nothing has been pushed when this prints: the merge is attempted BEFORE the
+ * capture is committed, precisely so the alternative to a clean answer is a red
+ * run rather than a conflicted PR. So the advice is about the two sides, not
+ * about lost work — the previous run's branch is exactly as it was.
+ *
+ * It names DELETING the branch as a remedy on purpose: the branch is derived
+ * state, and a fresh one built from `<base>` is what the next run would produce
+ * anyway. That is destructive of anything a human pushed there, which is why it
+ * is offered second and qualified, never as the first suggestion.
+ */
+export function branchDivergedAdvice({ branch, base, repoSlug, detail }) {
+  const slug = repoSlug || SLUG_FALLBACK;
+  return [
+    `THE BOT BRANCH HAS DIVERGED FROM \`${base}\` AND CANNOT BE MERGED AUTOMATICALLY.`,
+    '',
+    `  \`${branch}\` and \`${base}\` both changed ${SNAPSHOT_REL} (or another file on the branch) in ways`,
+    '  git cannot reconcile, so a PR from it would be born conflicted. Nothing was pushed: the branch on',
+    '  origin is untouched, and this run captured nothing anybody has to clean up.',
+    '',
+    '  Look at the two sides:',
+    `    https://github.com/${slug}/compare/${base}...${branch}?expand=1`,
+    '',
+    `  Then either reconcile \`${branch}\` by hand (merge \`${base}\` into it and resolve), or — if nothing`,
+    '  on it is worth keeping — delete it, and the next run will build a fresh one from',
+    `  \`${base}\`. Deleting it discards any commits pushed there by a human, so read the compare first.`,
+    ...(detail ? ['', `  git said: ${detail}`] : []),
   ].join('\n');
 }
 
@@ -604,6 +655,77 @@ function remoteBranchSha(branch) {
     throw err;
   }
   return (res.stdout || '').trim().split(/\s+/)[0] || null;
+}
+
+/**
+ * A private ref this script fetches the base branch into. Deliberately NOT
+ * `FETCH_HEAD`: the branch fetch just above uses FETCH_HEAD too, and a name
+ * that means "whatever was fetched last" is a stale-read waiting to happen the
+ * next time a fetch is inserted between the two.
+ */
+const BASE_REF = 'refs/cli-snapshot-refresh/base';
+
+/**
+ * 🔴 RECONCILE THE STABLE BRANCH WITH THE BASE BEFORE COMMITTING ONTO IT —
+ * OTHERWISE THE FIRST ACCEPTED PR BREAKS THE MECHANISM PERMANENTLY.
+ *
+ * The branch is a constant that is EXTENDED and never recreated (see the
+ * header), and until this existed nothing ever merged, rebased or reset it
+ * against `main`. Reproduced end to end: run 1 pushes the branch, the PR is
+ * SQUASH-merged (which is how every PR lands in this repo), and run 2 exits 0,
+ * prints `↳ continuing bot/cli-snapshot-refresh at …` and produces a branch
+ * that CONFLICTS with `main` — because the squash put the branch's bytes on
+ * `main` as a commit that is not in the branch's history, so both sides now
+ * carry a different edit to the same header line. `delete_branch_on_merge` is
+ * measured FALSE here, so the branch really does persist for run 2 to continue
+ * from. After one success: conflicted PRs forever, on green runs. That is
+ * detection without a usable remedy — the failure this whole workflow exists to
+ * end, regenerated one level up.
+ *
+ * 🔴 IT ONLY REPRODUCES ON A SQUASH. A merge commit makes the branch tip an
+ * ancestor of the base and everything merges clean afterwards, so a fixture (or
+ * a mental model) built on one says nothing about this.
+ *
+ * MERGE, NOT RESET OR REBASE. In the state that matters the two sides are
+ * BYTE-IDENTICAL — the squash carries exactly the bytes the branch had — so the
+ * merge is trivial and clean. A reset or a rebase would be a rewrite of a
+ * shared branch, i.e. the force-push whose removal is the other half of this
+ * design, and it would delete whatever a human pushed there. A merge is
+ * additive: it cannot lose a commit.
+ *
+ * WHEN IT GENUINELY CANNOT MERGE, IT FAILS RATHER THAN PUSHING. This runs
+ * BEFORE the capture is written and committed, so the alternative to a clean
+ * merge is a red run with the two sides named — never a conflicted PR, and
+ * never a silent one.
+ */
+function syncWithBase({ branch, base }) {
+  git(['fetch', 'origin', `+refs/heads/${base}:${BASE_REF}`]);
+  const contained = spawnSync('git', ['merge-base', '--is-ancestor', BASE_REF, 'HEAD'], { cwd: repoRoot });
+  if (contained.status === 0) {
+    // 🔴 A SQUASH MERGE NEVER PUTS THE BRANCH TIP INTO THE BASE'S HISTORY, so
+    // this asks the question the other way round — does the BRANCH already
+    // contain the BASE — which is the one ancestry a merge actually changes.
+    console.log(`  ↳ ${branch} already contains ${base} — nothing to reconcile`);
+    return false;
+  }
+  const res = spawnSync(
+    'git',
+    ['merge', '--no-edit', '-m', `chore: sync ${branch} with ${base}`, BASE_REF],
+    { cwd: repoRoot, encoding: 'utf8' },
+  );
+  if (res.status === 0) {
+    console.log(`  ↳ merged ${base} into ${branch} — the PR this opens will be mergeable`);
+    return true;
+  }
+  // Leave no half-merged state behind for a later step to reason about. The
+  // abort is tolerant because git refuses one when no merge ever started (an
+  // unrelated-histories refusal, for instance) — and that refusal is not the
+  // failure we are reporting.
+  spawnSync('git', ['merge', '--abort'], { cwd: repoRoot });
+  const err = new Error(`could not merge ${base} into ${branch}`);
+  err.gitOutput = `${res.stdout || ''}${res.stderr || ''}`.trim();
+  err.diverged = true;
+  throw err;
 }
 
 function runUrl() {
@@ -806,6 +928,19 @@ async function main() {
     git(['fetch', 'origin', branch]);
     git(['checkout', '-B', branch, 'FETCH_HEAD']);
     console.log(`  ↳ continuing ${branch} at ${remoteSha.slice(0, 8)} (its existing commits are kept)`);
+    // 🔴 AND RECONCILE IT WITH THE BASE, BEFORE THE CAPTURE IS WRITTEN. See
+    // syncWithBase: an extended-forever branch that nothing ever merges into
+    // `main` produces conflicted PRs from its own first success onwards. The
+    // capture is written AFTER, because `git merge` refuses to run over a
+    // locally modified file it needs to update — and because a failed merge
+    // must leave a tree nobody has to clean up.
+    try {
+      syncWithBase({ branch, base });
+    } catch (err) {
+      if (!err.diverged) throw err;
+      console.error(`\n--- ${branchDivergedAdvice({ branch, base, repoSlug: process.env.GITHUB_REPOSITORY, detail: err.gitOutput })}`);
+      process.exit(1);
+    }
   } else {
     git(['checkout', '-B', branch]);
     console.log(`  ↳ creating ${branch}`);
