@@ -77,6 +77,54 @@ Bounded: 20 s per attempt, 3 attempts. If it cannot reach the host it warns and 
 
 Staleness is caught by `npm run check:spec-drift`, which runs daily from `appblocks-drift.yml` and goes red when the published spec no longer matches the snapshot. Same doctrine as the App Blocks snapshots: upstream freshness belongs on a schedule, never on a PR gate.
 
+## CLI snapshot — detected daily, and REPAIRED by a PR
+
+`appblocks-snapshots/civitai-cli-help.txt` is the only source the published CLI
+reference is generated from: the production image has no `civitai` binary, so
+`gen-appblocks-cli.mjs` always takes the snapshot path. A stale snapshot means
+developer.civitai.com silently serves wrong content — the v0.1.92 re-capture
+(#56) turned out to carry `2.0 MB` → `2.0 MiB` in 10 places.
+
+Two halves, and neither is a PR gate (a civitai/cli release is upstream
+movement, unrelated to any docs PR):
+
+```bash
+npm run check:cli-snapshot     # DETECT — daily, appblocks-drift.yml, goes red on drift
+npm run refresh:cli-snapshot   # REPAIR  — daily, cli-snapshot-refresh.yml, opens a PR
+```
+
+Detection alone was not enough: it went red on an unwatched schedule twice and a
+human noticed both times, not the check. `cli-snapshot-refresh.yml` builds a
+`civitai` binary at the latest release tag, re-captures, and pushes the one
+stable branch `bot/cli-snapshot-refresh` — force-updated, so there is one PR
+rather than one per day. It **never pushes to `main`**: the human read of that
+diff is what makes a real user-facing change legible as one.
+
+A capture that is SHORT (fewer `===CMD` blocks than the snapshot it replaces),
+carries NUL bytes, or came from a binary whose version disagrees with the target
+tag **fails the job instead of opening a PR** — a short capture otherwise looks
+like an ordinary refresh whose diff has quietly deleted whole command subtrees.
+
+⚠️ **One repository setting must be on**, and it is off today: *Settings →
+Actions → General → Workflow permissions → "Allow GitHub Actions to create and
+approve pull requests"*. It is a repo/org Actions policy, so no `permissions:`
+block can grant it. While it is off the job pushes the branch and then exits RED
+with the setting to flip and a compare URL — measured live, `gh pr create` fails
+with `GitHub Actions is not permitted to create or approve pull requests`.
+
+⚠️ A PR opened with the default `GITHUB_TOKEN` does **not** get its checks run,
+so that PR shows zero checks and `main`'s required contexts never report — the
+same diff opened by a human ran all seven. Close and reopen it (or push an empty
+commit) before reviewing. The PR body says so in its first section.
+
+To exercise the drift path on demand while the snapshot is current, run the
+workflow from the Actions tab with a `force_tag` input, or locally:
+
+```bash
+CIVITAI_CLI_BIN=/path/to/civitai CLI_SNAPSHOT_REFRESH_TAG=v0.1.92 \
+  npm run refresh:cli-snapshot -- --dry-run
+```
+
 ## Adding a new section
 
 1. Create a top-level directory (e.g. `signals/`)

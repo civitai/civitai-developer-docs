@@ -1,0 +1,181 @@
+name: cli-snapshot-refresh
+
+# SELF-HEALING for the one guard whose red nobody sees.
+#
+# appblocks-snapshots/civitai-cli-help.txt is the ONLY source the published CLI
+# reference is generated from (the production image has no `civitai` binary, so
+# gen-appblocks-cli.mjs always takes the snapshot path). When it goes stale the
+# site silently serves WRONG content — measured on the v0.1.92 re-capture
+# (docs#56): `2.0 MB` in 10 places across 8 lines where the CLI says `MiB`.
+#
+# `check:cli-snapshot` on appblocks-drift.yml already DETECTS that. It has gone
+# stale twice in this workstream and a human noticed both times, not the check —
+# because a red run on an unwatched SCHEDULED workflow is indistinguishable from
+# nobody looking. This workflow is the remedy half: when that check would fail,
+# re-capture the snapshot and OPEN A PULL REQUEST carrying it.
+#
+# NOT A GATE, DELIBERATELY. A civitai/cli release is UPSTREAM movement, unrelated
+# to any given docs PR — the same doctrine that keeps every check in
+# appblocks-drift.yml off the PR path (read its header). Do NOT add this job to
+# the required contexts on `main`, and do NOT add a `pull_request:` trigger.
+#
+# 🔴 IT OPENS A PR; IT NEVER PUSHES TO `main`. The human read of that diff is the
+# product: the MB→MiB change was only legible as a real user-facing fix rather
+# than snapshot churn because somebody looked at it. A bot committing to main
+# turns a review into a notification.
+#
+# 🔴 PREREQUISITE — ONE REPO SETTING, CURRENTLY OFF, AND THE PR STEP CANNOT
+# SUCCEED WITHOUT IT. "Settings -> Actions -> General -> Workflow permissions ->
+# Allow GitHub Actions to create and approve pull requests" is OFF here
+# (`gh api repos/civitai/civitai-developer-docs/actions/permissions/workflow`
+# -> `can_approve_pull_request_reviews: false`). No `permissions:` block can
+# grant it — it is a repo/org Actions POLICY, not a token scope. Measured live:
+# the branch pushes fine and `gh pr create` fails with "GitHub Actions is not
+# permitted to create or approve pull requests"; flipping the setting and
+# re-running the identical workflow opened the PR. Until it is on, this job
+# pushes the branch and then exits RED naming the setting and handing over a
+# one-click compare URL — deliberately not green, because the re-captured
+# snapshot would otherwise sit on a branch nobody had been told about.
+#
+# 🔴 THE PR'S CHECKS DO NOT RUN. A pull request opened by GITHUB_TOKEN does not
+# get its checks run — GitHub suppresses it to prevent recursion. Measured with
+# a discriminating control: two PRs carrying the same kind of diff into the same
+# repo, differing only in who opened them. The bot PR reported a
+# `statusCheckRollup` of 0 entries and `gh pr checks` printed "no checks
+# reported" (its seven pull_request runs existed only as
+# `conclusion=action_required` and never started); the human PR reported 7, all
+# in_progress. So state the OBSERVABLE — the PR shows ZERO checks — which reads
+# as "nothing to worry about" on exactly the PR whose content nobody has
+# verified; `main`'s six required contexts never report either, so it cannot
+# reach a mergeable state on its own. There is no PAT secret in this repo (measured:
+# `gh api repos/civitai/civitai-developer-docs/actions/secrets` -> total_count 0)
+# and creating one is a maintainer decision, so the mitigation is DISCLOSURE: the
+# PR body says it in its first section, with the two one-click remedies (close +
+# reopen, or push an empty commit). If a PAT is ever added, pass it to the `gh`
+# step as GH_TOKEN and delete that section from `prBody` — a stale warning is
+# worse than none.
+#
+# THE LOGIC LIVES IN scripts/refresh-cli-snapshot.mjs, not here. A workflow body
+# is untestable by construction; that script is covered by
+# scripts/test-refresh-cli-snapshot.mjs, including a test that watches the
+# anti-truncation floor REFUSE a short capture.
+on:
+  schedule:
+    # 07:07 UTC daily — 30 minutes after the appblocks-drift sweep at 06:37, so
+    # the human-facing red and the remedy PR do not race for the same answer.
+    - cron: '7 7 * * *'
+  workflow_dispatch:
+    inputs:
+      force_tag:
+        description: >-
+          Force a re-capture at this civitai/cli tag, bypassing the freshness
+          verdict (e.g. v0.1.92). Leave empty for the normal path. This is how
+          the drift path gets exercised while the committed snapshot is current.
+        required: false
+        default: ''
+
+# LEAST PRIVILEGE, and the elevation is JOB-SCOPED on purpose. The repo default
+# is `write` (measured 2026-08-06 via the actions/permissions/workflow API) which
+# every workflow here overrides down to `contents: read`; this file keeps that
+# default so any job ADDED later inherits read, and the one job that genuinely
+# needs more asks for it itself.
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # The ONLY elevation in this repo, and exactly two scopes:
+    #   contents: write       — push the stable `bot/cli-snapshot-refresh` branch.
+    #                           (`main` is protected and is never a push target.)
+    #   pull-requests: write  — create the PR, or update the existing one in place.
+    # Nothing else: no issues, no packages, no id-token, no actions. The job
+    # checks out, builds a Go binary, runs node, pushes ONE branch and opens ONE
+    # PR. scripts/test-refresh-cli-snapshot.mjs asserts this block stays this
+    # shape — both that the two scopes are present and that the others are not.
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # The freshness verdict, standalone and non-fatal. `check:cli-snapshot`
+      # exits 1 on drift, which is the SIGNAL this workflow acts on rather than
+      # a failure of it — so it is captured, echoed into the run log for the
+      # human reading it, and never allowed to fail the job. The refresher makes
+      # its own decision below from the same inputs; this step exists so the run
+      # log says WHY in the guard's own words.
+      - name: Freshness verdict (informational — never fails this job)
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run check:cli-snapshot
+
+      # 🔴 BUILD THE BINARY, AND POINT THE GENERATOR AT IT EXPLICITLY.
+      # gen-appblocks-cli.mjs prefers a live `civitai` on PATH; a runner has
+      # none, and leaving it to search is precisely how a SHORT capture happens
+      # (measured in this repo: an older binary wrote 47 commands instead of 52,
+      # dropping `generate` and the whole `workflows` subtree, and exited 0).
+      #
+      # `go install` is deliberately NOT used: it sets no ldflags, so the binary
+      # reports version "dev" and the snapshot header — the thing every future
+      # freshness check reads — would record a version that is not a version.
+      # Cloning the tag and running `make build` derives the version from
+      # `git describe`, which at a tag is exactly the tag. The script then
+      # REFUSES any capture whose header disagrees with the tag it targeted, so
+      # a wrong build here fails the job rather than shipping a lie.
+      - name: Resolve the civitai/cli tag to capture
+        id: tag
+        env:
+          FORCE_TAG: ${{ github.event.inputs.force_tag }}
+        run: |
+          set -euo pipefail
+          if [ -n "${FORCE_TAG}" ]; then
+            TAG="${FORCE_TAG}"
+          else
+            TAG="$(curl -sSf -H 'accept: application/vnd.github+json' \
+              https://api.github.com/repos/civitai/cli/releases/latest | jq -r '.tag_name')"
+          fi
+          if [ -z "${TAG}" ] || [ "${TAG}" = "null" ]; then
+            echo "could not resolve a civitai/cli tag" >&2; exit 1
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "capturing from civitai ${TAG}"
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Build the civitai CLI at ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch "${{ steps.tag.outputs.tag }}" https://github.com/civitai/cli.git /tmp/civitai-cli
+          make -C /tmp/civitai-cli build
+          # Positive control on the build itself: a binary whose --version does
+          # not name the tag would poison the snapshot header, and the refresher
+          # would (correctly) refuse it later — fail here instead, where the
+          # message is about the build rather than about the capture.
+          /tmp/civitai-cli/bin/civitai --version
+          /tmp/civitai-cli/bin/civitai --version | grep -qx "civitai ${{ steps.tag.outputs.tag }}"
+
+      # The whole mechanism. Exits 0 and does NOTHING when the snapshot is
+      # current; exits NON-ZERO with no branch and no PR when the capture is
+      # short, carries NUL bytes, or came from the wrong binary.
+      - name: Re-capture and open/update the PR
+        env:
+          CIVITAI_CLI_BIN: /tmp/civitai-cli/bin/civitai
+          CLI_SNAPSHOT_REFRESH_TAG: ${{ github.event.inputs.force_tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/refresh-cli-snapshot.mjs
