@@ -802,6 +802,61 @@ check('THE HERMETIC REBUILD ACTUALLY RUNS on the bytes about to be committed', (
   );
 });
 
+check('AN UNREADABLE REMOTE IS NOT AN ABSENT BRANCH — the run refuses rather than guessing', () => {
+  // 🔴 THE FAILURE MODE THE `ls-remote` SPELLING EXISTS FOR, and a SURVIVING
+  // mutant until this case was written. `git fetch` exits non-zero for a missing
+  // ref AND for an unreachable remote, an auth failure, a proxy — and reading
+  // the second as the first is how a run decides the branch is new and recreates
+  // it over whatever is there. `ls-remote --exit-code` separates them: measured,
+  // an ABSENT ref exits 2 and a BROKEN remote exits 128.
+  //
+  // The observable is not "the run failed" — treating the branch as absent also
+  // fails, at the push. It is WHERE it fails: refusing happens before any local
+  // branch exists and before the checkout has moved.
+  const { work, root, bin } = driftRepo();
+  execFileSync('git', ['-C', work, 'remote', 'set-url', 'origin', join(root, 'no-such-remote.git')], { stdio: 'ignore' });
+  // Premise: git really does report this as something other than an absent ref.
+  const probe = spawnSync('git', ['-C', work, 'ls-remote', '--exit-code', 'origin', 'refs/heads/whatever'], {
+    encoding: 'utf8',
+  });
+  assert(probe.status !== 2 && probe.status !== 0, `this fixture is not an unreadable remote (rc ${probe.status})`);
+
+  const res = runScript(work, ['--no-pr'], { CIVITAI_CLI_BIN: bin, CLI_SNAPSHOT_REFRESH_TAG: SNAP_TAG });
+  const out = `${res.stdout}\n${res.stderr}`;
+  assert(res.status !== 0, `an unreadable remote exited 0:\n${out}`);
+  assert(/could not read origin\//.test(out), `the run did not refuse on the unreadable remote:\n${out}`);
+  // 🔴 The kill: treating it as absent gets as far as creating the branch and
+  // committing before the push fails.
+  const local = execFileSync('git', ['-C', work, 'branch', '--list'], { encoding: 'utf8' });
+  assert(!local.includes(DEFAULT_BRANCH), `the run created ${DEFAULT_BRANCH} before discovering it could not ask:\n${local}`);
+  assertEqual(
+    execFileSync('git', ['-C', work, 'rev-parse', '--abbrev-ref', 'HEAD'], { encoding: 'utf8' }).trim(),
+    DEFAULT_BASE,
+    'the run moved the checkout onto the bot branch before it knew the remote state',
+  );
+});
+
+check('the push carries no --force (defence in depth, and a WEAKER guard than the one above)', () => {
+  // 🔴 LABELLED AS THE WEAK GUARD IT IS, so nobody counts it as the coverage.
+  // The behavioural test — "A HUMAN COMMIT ON THE BOT BRANCH SURVIVES THE NEXT
+  // RUN" — is the real one, and it kills the mutation that caused the bug
+  // (recreating the branch from `main`). It does NOT kill `--force` on its own:
+  // once the run builds on top of the fetched tip the push is a fast-forward, so
+  // the flag is inert in every state this suite can construct. It remains a live
+  // hazard in a state the suite CANNOT construct — a concurrent push landing
+  // between our fetch and our push, which `--force` would silently discard and a
+  // plain push correctly rejects. Nothing observable distinguishes those locally,
+  // so this reads the source: a spelled guard, which is what is available rather
+  // than what is wanted.
+  const src = readFileSync(join(repoRoot, 'scripts', 'refresh-cli-snapshot.mjs'), 'utf8');
+  const pushes = src
+    .split('\n')
+    .filter((l) => !/^\s*(\*|\/\/|\/\*)/.test(l))
+    .filter((l) => /git\(\[\s*'push'/.test(l));
+  assert(pushes.length > 0, 'no push call found — this guard is wired to nothing');
+  for (const p of pushes) assert(!/--force/.test(p), `the push force-updates the shared branch: ${p.trim()}`);
+});
+
 /**
  * A `gh` stand-in on PATH that always fails with a chosen stderr. The script
  * resolves `gh` through PATH, so this is the seam that lets the post-push
@@ -1197,7 +1252,7 @@ console.log('');
 // section, a botched merge — prints a serene "all passed" over zero work. The
 // floor is the positive control on the harness itself: it must have executed at
 // least as many checks as it did when this line was written.
-const MIN_CHECKS = 54;
+const MIN_CHECKS = 56;
 if (executed < MIN_CHECKS) {
   console.error(
     `refresh-cli-snapshot tests: only ${executed} checks RAN, expected at least ${MIN_CHECKS} — ` +
