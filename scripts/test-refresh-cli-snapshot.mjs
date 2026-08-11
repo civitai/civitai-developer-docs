@@ -935,6 +935,20 @@ check('A GENUINELY DIVERGED BRANCH FAILS LOUDLY — it never pushes a conflicted
   assert(run2.status !== 0, `a branch that cannot be reconciled with the base exited 0:\n${out}`);
   assert(/DIVERGED/.test(out), `the failure does not name what diverged:\n${out}`);
   assert(new RegExp(`compare/${DEFAULT_BASE}\\.\\.\\.${DEFAULT_BRANCH}`).test(out), `no compare URL to look at:\n${out}`);
+  // 🔴 AND IT LEAVES NO CAPTURE IN THE TREE. This is what pins the ORDER —
+  // reconcile first, write the capture second. The reverse ordering reads like
+  // a tidy-up and is not: it hands `git merge` a locally modified file, so a
+  // merge that would have been clean can be refused for a reason that has
+  // nothing to do with divergence and then reported AS divergence, and the run
+  // exits leaving the checkout holding bytes nobody asked for. The rest of this
+  // script restores the tree on every other failure path; this one must too.
+  // (Untracked files are excluded: the generator writes gitignored artifacts,
+  // and the scratch repo carries no .gitignore.)
+  assertEqual(
+    execFileSync('git', ['-C', work, 'status', '--porcelain', '--untracked-files=no'], { encoding: 'utf8' }).trim(),
+    '',
+    'the failed run left a modified working tree — the capture was written before the reconcile',
+  );
   // 🔴 The kill: it must not have pushed the un-reconciled tip.
   assertEqual(
     execFileSync('git', ['-C', origin, 'rev-parse', DEFAULT_BRANCH], { encoding: 'utf8' }).trim(),
@@ -1360,7 +1374,13 @@ check('the workflow serialises itself — a cron tick and a dispatch cannot race
  * a run block, which is where a `#` really is a YAML comment — and that
  * exclusion is load-bearing in the other direction: this workflow's header
  * discusses the `${{ }}` hazard in prose, and a scanner that read comments
- * would fail on the documentation of the rule it enforces.
+ * would fail on the documentation of the rule it enforces. 🔴 That second half
+ * is DEFENSIVE ONLY today, and is labelled so nobody counts it as covered:
+ * measured, replacing the skip with a no-op SURVIVES the whole suite, because
+ * `single` is ANCHORED at `run:` so no line beginning with `#` can match it and
+ * neither clause can reach a comment outside a run block. It stays because
+ * relaxing that anchor is an easy future edit, and the false positive it
+ * prevents is one this file has already had.
  *
  * KNOWN AND DISCLOSED: it understands `run: |` and single-line `run:`, and NOT
  * the folded `run: >` form, whose body would slip past. No such block exists in

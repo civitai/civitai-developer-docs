@@ -697,25 +697,35 @@ const BASE_REF = 'refs/cli-snapshot-refresh/base';
  * BEFORE the capture is written and committed, so the alternative to a clean
  * merge is a red run with the two sides named — never a conflicted PR, and
  * never a silent one.
+ *
+ * 🔴 IT IS UNCONDITIONAL, AND THE ANCESTRY TEST THAT USED TO GUARD IT WAS AN
+ * EQUIVALENT MUTANT — measured, so it is recorded rather than left for someone
+ * to "restore". `git merge` is ALREADY a no-op when the base is contained
+ * (measured: `Already up to date.`, exit 0, HEAD does not move), so the guard
+ * chose nothing but a log line — and swapping its operands into the exact
+ * squash trap, asking whether the BRANCH is in the BASE (which a squash makes
+ * permanently false), changed nothing observable and survived the whole suite.
+ * The line printed now comes from whether HEAD actually MOVED, which is an
+ * observation rather than a prediction. If you do reintroduce a predicate here,
+ * the ancestry that matters is `base` → `HEAD`; the reverse is never true after
+ * a squash and would make the branch look permanently unreconciled.
  */
 function syncWithBase({ branch, base }) {
   git(['fetch', 'origin', `+refs/heads/${base}:${BASE_REF}`]);
-  const contained = spawnSync('git', ['merge-base', '--is-ancestor', BASE_REF, 'HEAD'], { cwd: repoRoot });
-  if (contained.status === 0) {
-    // 🔴 A SQUASH MERGE NEVER PUTS THE BRANCH TIP INTO THE BASE'S HISTORY, so
-    // this asks the question the other way round — does the BRANCH already
-    // contain the BASE — which is the one ancestry a merge actually changes.
-    console.log(`  ↳ ${branch} already contains ${base} — nothing to reconcile`);
-    return false;
-  }
+  const before = git(['rev-parse', 'HEAD']);
   const res = spawnSync(
     'git',
     ['merge', '--no-edit', '-m', `chore: sync ${branch} with ${base}`, BASE_REF],
     { cwd: repoRoot, encoding: 'utf8' },
   );
   if (res.status === 0) {
-    console.log(`  ↳ merged ${base} into ${branch} — the PR this opens will be mergeable`);
-    return true;
+    const moved = git(['rev-parse', 'HEAD']) !== before;
+    console.log(
+      moved
+        ? `  ↳ merged ${base} into ${branch} — the PR this opens will be mergeable`
+        : `  ↳ ${branch} already contains ${base} — nothing to reconcile`,
+    );
+    return moved;
   }
   // Leave no half-merged state behind for a later step to reason about. The
   // abort is tolerant because git refuses one when no merge ever started (an
@@ -942,6 +952,12 @@ async function main() {
       process.exit(1);
     }
   } else {
+    // A branch being CREATED needs no reconciliation: it is built from this
+    // run's checkout of `base`. Residual, stated rather than hidden — if `base`
+    // moved after actions/checkout ran AND touched the snapshot, a first PR from
+    // a fresh branch could still conflict. That is a minutes-wide window and it
+    // is not the failure this fix is about, which is the permanent one the
+    // EXISTING-branch path had.
     git(['checkout', '-B', branch]);
     console.log(`  ↳ creating ${branch}`);
   }

@@ -322,6 +322,12 @@ jobs:
       # difference either way. `fetch-depth: 0` removes the question for the
       # cost of a full clone of a docs repo — cheap, and better than discovering
       # it on a cron run nobody is watching.
+      #
+      # 🔴 AND IT IS NOW LOAD-BEARING FOR A SECOND, HARDER REASON: the run MERGES
+      # the base branch into the bot branch before capturing (see `syncWithBase`
+      # — without it, the first ACCEPTED bot PR leaves every later one
+      # conflicted), and a merge needs a common ancestor. A shallow clone does
+      # not have one. This is no longer only about the push.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
