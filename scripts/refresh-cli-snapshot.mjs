@@ -941,9 +941,14 @@ async function main() {
     // 🔴 AND RECONCILE IT WITH THE BASE, BEFORE THE CAPTURE IS WRITTEN. See
     // syncWithBase: an extended-forever branch that nothing ever merges into
     // `main` produces conflicted PRs from its own first success onwards. The
-    // capture is written AFTER, because `git merge` refuses to run over a
-    // locally modified file it needs to update — and because a failed merge
-    // must leave a tree nobody has to clean up.
+    // capture is written AFTER, for two reasons of DIFFERENT strength — say
+    // which is which, or the weaker one gets counted as covered. (1) `git merge`
+    // refuses to run over a locally modified file it needs to update, so the
+    // reverse order can turn a merge that would have been clean into a refusal
+    // reported AS divergence. Real, but no fixture here reaches it, and the
+    // mutation that reverses the order SURVIVED until (2) was pinned. (2) A
+    // failed merge must leave a tree nobody has to clean up — which the
+    // divergence test now asserts directly, and which is what kills that mutant.
     try {
       syncWithBase({ branch, base });
     } catch (err) {
