@@ -57,11 +57,14 @@ today (see [Try it locally](#try-it-locally)).
 The block sends a tiny body that _names_ a workflow the platform already owns:
 
 ```ts
-import type { WorkflowBodyCustomComfy } from '@civitai/app-sdk/blocks';
+import type { WorkflowBodyCustomComfyRecipe } from '@civitai/app-sdk/blocks';
 
 // The block picks a registered recipe id + a small, per-recipe-validated params
-// object. The server owns the workflow in full.
-const body: WorkflowBodyCustomComfy = {
+// object. The server owns the workflow in full. Annotate the ARM, not the
+// `WorkflowBodyCustomComfy` union: excess-property checking against a union
+// admits ANY constituent's keys, so a union annotation would let an inline-arm
+// key (`workflow`, `resources`, `maxBuzz`) sit here uncaught.
+const body: WorkflowBodyCustomComfyRecipe = {
   kind: 'customComfy',
   recipe: 'starter-comfy-txt2img', // a SERVER-registered, code-reviewed id
   params: {
@@ -271,13 +274,16 @@ Civitai (either arm) is just a different `body`:
 
 ```tsx
 import { useBuzzWorkflow } from '@civitai/blocks-react';
-import type { WorkflowBodyCustomComfy } from '@civitai/app-sdk/blocks';
+import type { WorkflowBodyCustomComfyRecipe } from '@civitai/app-sdk/blocks';
 
 export function RunButton({ prompt }: { prompt: string }) {
   const { estimate, submit, watch, status, result } = useBuzzWorkflow();
 
   const run = async () => {
-    const body: WorkflowBodyCustomComfy = {
+    // `estimate`/`submit` take the whole `WorkflowBody` union, but THIS body is
+    // a recipe body — annotate the arm so a stray inline-arm key is a compile
+    // error here rather than a server-side rejection at submit time.
+    const body: WorkflowBodyCustomComfyRecipe = {
       kind: 'customComfy',
       recipe: 'starter-comfy-txt2img',
       params: { prompt },

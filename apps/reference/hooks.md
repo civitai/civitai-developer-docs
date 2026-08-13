@@ -631,9 +631,9 @@ server-registered, code-reviewed workflow and passes bounded params; the server
 owns the graph:
 
 ```ts
-import type { WorkflowBodyCustomComfy } from '@civitai/app-sdk/blocks';
+import type { WorkflowBodyCustomComfyRecipe } from '@civitai/app-sdk/blocks';
 
-const body: WorkflowBodyCustomComfy = {
+const body: WorkflowBodyCustomComfyRecipe = {
   kind: 'customComfy',
   recipe: 'starter-comfy-txt2img', // a SERVER-registered id — unknown ids are rejected fail-closed
   params: {
@@ -679,6 +679,13 @@ As of `@civitai/app-sdk@0.33.0`, `WorkflowBodyCustomComfy` is itself a union on
 `InlineComfyNode` for the graph nodes). Earlier versions typed the recipe arm
 only and this page told you to declare the inline shape locally — that is no
 longer necessary, and a locally-declared copy will now drift from the SDK.
+
+**Annotate the ARM, not the union**, as both examples above do. TypeScript's
+excess-property check against a union accepts any key that belongs to *any*
+constituent, so a body annotated `WorkflowBodyCustomComfy` silently tolerates
+a `workflow` key on a recipe body — you find out at submit, server-side.
+Annotating `WorkflowBodyCustomComfyRecipe` (or `…Inline`) makes that a compile
+error. Use the union only where a value genuinely holds either arm.
 
 Still narrow on the **value** of `body.mode === 'inline'`, never on whether the
 key is present: `mode` is optional on the recipe arm, so a body that merely
