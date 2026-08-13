@@ -1,6 +1,6 @@
 civitai CLI help snapshot (the WHOLE command tree)
 Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
-Binary version: civitai v0.1.93
+Binary version: civitai v0.1.94
 Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
 else parses this committed snapshot. To refresh: run
 node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).
@@ -633,7 +633,8 @@ See "Listing media requirements" in the README for the platform's bounds.
 
 On a listing that is already LIVE this opens a REVISION for moderator re-review
 instead of changing the live listing — pass --changelog to describe the change,
--y to skip the confirmation. On a DRAFT listing it attaches directly.
+-y to skip the confirmation — but a live listing still below the publish floor
+stages WITHOUT submitting, and exits 0. On a DRAFT listing it attaches directly.
 
 Run `civitai app listing status` to see what the publish floor still needs.
 
@@ -671,7 +672,8 @@ See "Listing media requirements" in the README for the platform's bounds.
 
 On a listing that is already LIVE this opens a REVISION for moderator re-review
 instead of changing the live listing — pass --changelog to describe the change,
--y to skip the confirmation. On a DRAFT listing it attaches directly.
+-y to skip the confirmation — but a live listing still below the publish floor
+stages WITHOUT submitting, and exits 0. On a DRAFT listing it attaches directly.
 
 Run `civitai app listing status` to see what the publish floor still needs.
 
@@ -720,7 +722,8 @@ usage error.
 
 On a listing that is already LIVE this opens a REVISION for moderator re-review
 instead of changing the live listing — pass --changelog to describe the change,
--y to skip the confirmation. On a DRAFT listing it attaches directly.
+-y to skip the confirmation — but a live listing still below the publish floor
+stages WITHOUT submitting, and exits 0. On a DRAFT listing it attaches directly.
 
 Usage:
   civitai app listing add-screenshot <file> [flags]
