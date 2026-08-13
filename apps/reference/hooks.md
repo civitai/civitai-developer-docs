@@ -680,12 +680,16 @@ As of `@civitai/app-sdk@0.33.0`, `WorkflowBodyCustomComfy` is itself a union on
 only and this page told you to declare the inline shape locally — that is no
 longer necessary, and a locally-declared copy will now drift from the SDK.
 
-**Annotate the ARM, not the union**, as both examples above do. TypeScript's
-excess-property check against a union accepts any key that belongs to *any*
-constituent, so a body annotated `WorkflowBodyCustomComfy` silently tolerates
-a `workflow` key on a recipe body — you find out at submit, server-side.
-Annotating `WorkflowBodyCustomComfyRecipe` (or `…Inline`) makes that a compile
-error. Use the union only where a value genuinely holds either arm.
+**Annotate the ARM, not the union**, as both examples above do. When the `mode`
+discriminant is **omitted** — which is the shape this page recommends —
+TypeScript's excess-property check runs against the whole union and accepts any
+key belonging to *any* constituent, so a body annotated
+`WorkflowBodyCustomComfy` silently tolerates a `workflow` key on a recipe body
+and you find out at submit, server-side. (Spelling `mode` out explicitly narrows
+the union to one constituent and *does* restore the error — but then you are
+carrying a field the recommended shape leaves off.) Annotating
+`WorkflowBodyCustomComfyRecipe` (or `…Inline`) makes it a compile error either
+way. Use the union only where a value genuinely holds either arm.
 
 Still narrow on the **value** of `body.mode === 'inline'`, never on whether the
 key is present: `mode` is optional on the recipe arm, so a body that merely

@@ -61,9 +61,10 @@ import type { WorkflowBodyCustomComfyRecipe } from '@civitai/app-sdk/blocks';
 
 // The block picks a registered recipe id + a small, per-recipe-validated params
 // object. The server owns the workflow in full. Annotate the ARM, not the
-// `WorkflowBodyCustomComfy` union: excess-property checking against a union
-// admits ANY constituent's keys, so a union annotation would let an inline-arm
-// key (`workflow`, `resources`, `maxBuzz`) sit here uncaught.
+// `WorkflowBodyCustomComfy` union: with `mode` omitted (as here), excess-property
+// checking runs against the whole union and admits ANY constituent's keys, so a
+// union annotation would let an inline-arm key (`workflow`, `resources`,
+// `maxBuzz`) sit here uncaught.
 const body: WorkflowBodyCustomComfyRecipe = {
   kind: 'customComfy',
   recipe: 'starter-comfy-txt2img', // a SERVER-registered, code-reviewed id

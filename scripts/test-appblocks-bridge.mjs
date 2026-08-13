@@ -209,8 +209,12 @@ check('a union member with no field table is flagged (the WorkflowBodyStep gap)'
 // `mode` WITHOUT changing the top-level member list at all — so a flat walk
 // reported a clean surface while the page defined neither arm, and the
 // recipe/params field table silently disappeared from the published docs at
-// EXIT 0. These three guards pin the RELATIONSHIP (the walk descends, and
-// descends completely), not the arm NAMES: asserting that the arms appear in
+// EXIT 0. These three guards pin the RELATIONSHIP (the walk descends past a
+// non-union member, and does not re-report a shared arm) rather than the arm
+// NAMES. 🔴 They pin descent by ONE level: a depth-capped-at-2 rewrite of the
+// BFS passes all of them. The shipped walk is unbounded, so a 3-level nesting is
+// handled — but it is NOT pinned here, and would need its own fixture. Asserting
+// that the arms appear in
 // the type list would be satisfied by a flat walk plus a hardcoded list, and so
 // would not catch a reverted walk at all.
 
@@ -253,6 +257,11 @@ check('descent SKIPS a non-union member instead of ending the walk', () => {
 });
 
 check('a missing arm reachable from TWO unions is reported exactly ONCE', () => {
+  // 🔴 This pins the OBSERVABLE (reported exactly once), NOT the mechanism: an
+  // implementation carrying no `seen` at all that de-duplicates the message list
+  // at end-of-walk passes this too — and that one has no cycle protection. A
+  // cyclic WorkflowBody union is not realistically constructible from the SDK
+  // types, which is why the weaker pin is accepted here.
   // `seen` must be a VISITED set: marked when a member is taken off a member
   // list, BEFORE the has-a-table test. If it is only marked for members that DO
   // have a table, a missing arm is re-reported once per inbound edge, so the
