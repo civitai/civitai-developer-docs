@@ -96,6 +96,41 @@ check('every WorkflowBody union member has a field table of its own', () => {
   assert(names.has('WorkflowBodyStep'), 'WorkflowBodyStep (kind:"step") has no field table');
 });
 
+// REACHABILITY PRECONDITION for the nested-descent guards further down. Those
+// guards delete a NESTED arm and require the coverage walk to notice; if the SDK
+// ever flattened WorkflowBodyCustomComfy back into an object, or promoted its
+// arms to top-level members, they would still pass — but for the wrong reason,
+// and a flat walk would once again go unnoticed. This turns that into a loud,
+// specific failure instead of a silent downgrade to a vacuous test.
+check('WorkflowBodyCustomComfy is a NESTED union — the arms are ONLY reachable by descending', () => {
+  const byName = Object.fromEntries(artifact.types.map((t) => [t.name, t]));
+  const cc = byName.WorkflowBodyCustomComfy;
+  assert(cc, 'WorkflowBodyCustomComfy not surfaced at all');
+  assert(
+    cc.kind === 'union',
+    `WorkflowBodyCustomComfy must be a union as of @civitai/app-sdk 0.33.0, got kind="${cc.kind}" — if the SDK really flattened it, the nested-descent guards below are now vacuous and must be re-pointed`
+  );
+  const topLevel = byName.WorkflowBody.members.map((m) => m.trim());
+  const arms = cc.members.map((m) => m.trim());
+  assert(arms.length >= 2, `expected both customComfy arms, got ${JSON.stringify(arms)}`);
+  for (const arm of arms) {
+    assert(
+      !topLevel.includes(arm),
+      `${arm} is ALSO a top-level WorkflowBody member — a flat walk would reach it, so the nested-descent guards would no longer prove descent`
+    );
+    assert(byName[arm], `nested arm ${arm} has no field table of its own`);
+  }
+  // The fields that vanish from the published page when the walk stays flat.
+  const recipeArm = byName.WorkflowBodyCustomComfyRecipe;
+  assert(recipeArm, 'WorkflowBodyCustomComfyRecipe (the default arm) not surfaced');
+  for (const f of ['recipe', 'params']) {
+    assert(
+      (recipeArm.fields ?? []).some((x) => x.name === f),
+      `WorkflowBodyCustomComfyRecipe.${f} not surfaced — this is the field table that silently disappears from the live page when the walk does not descend`
+    );
+  }
+});
+
 check("submit()'s options bag (the double-charge defence) is surfaced", () => {
   const opts = artifact.types.find((t) => t.name === 'SubmitWorkflowOptions');
   assert(opts, 'SubmitWorkflowOptions not surfaced — submit(body, options?) names a type the page never defines');
@@ -166,6 +201,87 @@ check('a union member with no field table is flagged (the WorkflowBodyStep gap)'
     `guard did not flag an announced-but-undocumented union member; got: ${problems.join('; ')}`
   );
   assertThrows(() => assertBridgeCoverage(mutated), 'assertBridgeCoverage must THROW when a union member has no table');
+});
+
+// ── NESTED-UNION DESCENT ─────────────────────────────────────────────────────
+// The guard above walks the TOP-LEVEL member list. That was the whole check
+// until @civitai/app-sdk 0.33.0 turned WorkflowBodyCustomComfy into a union on
+// `mode` WITHOUT changing the top-level member list at all — so a flat walk
+// reported a clean surface while the page defined neither arm, and the
+// recipe/params field table silently disappeared from the published docs at
+// EXIT 0. These three guards pin the RELATIONSHIP (the walk descends past a
+// non-union member, and does not re-report a shared arm) rather than the arm
+// NAMES. 🔴 They pin descent by ONE level: a depth-capped-at-2 rewrite of the
+// BFS passes all of them. The shipped walk is unbounded, so a 3-level nesting is
+// handled — but it is NOT pinned here, and would need its own fixture. Asserting
+// that the arms appear in
+// the type list would be satisfied by a flat walk plus a hardcoded list, and so
+// would not catch a reverted walk at all.
+
+check('a missing NESTED union arm is flagged — the walk DESCENDS (real artifact)', () => {
+  const mutated = clone(artifact);
+  mutated.types = mutated.types.filter((t) => t.name !== 'WorkflowBodyCustomComfyRecipe');
+  const problems = bridgeCoverageViolations(mutated);
+  assert(
+    problems.some((p) => /WorkflowBodyCustomComfyRecipe" has no field table/.test(p)),
+    `the walk did NOT descend into the nested WorkflowBodyCustomComfy union — a flat walk publishes a page with no recipe/params table and still exits 0; got: ${problems.join('; ') || '(NO violations at all)'}`
+  );
+  assertThrows(
+    () => assertBridgeCoverage(mutated),
+    'assertBridgeCoverage must THROW when a NESTED union arm has no field table'
+  );
+});
+
+check('descent SKIPS a non-union member instead of ending the walk', () => {
+  // Order-independent companion to the test above. The real WorkflowBody happens
+  // to list a non-union member (textToImage) BEFORE the nested union, so a walk
+  // that ABORTS on the first non-union it dequeues — rather than skipping it —
+  // never reaches the nested arms. Pinning that ordering here means a future SDK
+  // member reshuffle cannot quietly turn the real-artifact test above into one
+  // that passes for the wrong reason.
+  const synthetic = {
+    lifecycle: { members: [] },
+    types: [
+      { name: 'WorkflowBody', kind: 'union', members: ['WorkflowBodyTextToImage', 'WorkflowBodyNested'] },
+      { name: 'WorkflowBodyTextToImage', kind: 'object', fields: [] }, // dequeued FIRST, and NOT a union
+      { name: 'WorkflowBodyNested', kind: 'union', members: ['WorkflowBodyNestedArm'] },
+      // WorkflowBodyNestedArm is deliberately absent — reachable ONLY past the
+      // non-union member above.
+    ],
+  };
+  const problems = bridgeCoverageViolations(synthetic);
+  assert(
+    problems.some((p) => /WorkflowBodyNestedArm" has no field table/.test(p)),
+    `a non-union member must be SKIPPED, not terminate the walk; got: ${problems.join('; ') || '(NO violations at all)'}`
+  );
+});
+
+check('a missing arm reachable from TWO unions is reported exactly ONCE', () => {
+  // 🔴 This pins the OBSERVABLE (reported exactly once), NOT the mechanism: an
+  // implementation carrying no `seen` at all that de-duplicates the message list
+  // at end-of-walk passes this too — and that one has no cycle protection. A
+  // cyclic WorkflowBody union is not realistically constructible from the SDK
+  // types, which is why the weaker pin is accepted here.
+  // `seen` must be a VISITED set: marked when a member is taken off a member
+  // list, BEFORE the has-a-table test. If it is only marked for members that DO
+  // have a table, a missing arm is re-reported once per inbound edge, so the
+  // violation list grows with the SHAPE of the type graph rather than with the
+  // number of real gaps — and the build error names one gap N times.
+  const diamond = {
+    lifecycle: { members: [] },
+    types: [
+      { name: 'WorkflowBody', kind: 'union', members: ['WorkflowBodyTextToImage', 'WorkflowBodyLeft', 'WorkflowBodyRight'] },
+      { name: 'WorkflowBodyTextToImage', kind: 'object', fields: [] },
+      { name: 'WorkflowBodyLeft', kind: 'union', members: ['WorkflowBodyShared'] },
+      { name: 'WorkflowBodyRight', kind: 'union', members: ['WorkflowBodyShared'] },
+      // WorkflowBodyShared is absent, and reachable from BOTH arms.
+    ],
+  };
+  const hits = bridgeCoverageViolations(diamond).filter((p) => /WorkflowBodyShared/.test(p));
+  assert(
+    hits.length === 1,
+    `expected the shared missing arm to be reported exactly once, got ${hits.length}: ${hits.join(' | ') || '(NO violations at all — the walk never reached it)'}`
+  );
 });
 
 check('dropping SubmitWorkflowOptions.idempotencyKey is flagged (money)', () => {

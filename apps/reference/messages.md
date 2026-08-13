@@ -2,7 +2,7 @@
 title: Message bridge reference
 description: The full postMessage protocol between a Civitai App and its host — payloads, directions, request/reply pairing, and page-only messages.
 sources:
-  - npm:@civitai/app-sdk@0.31.0/blocks#messages.d.ts
+  - npm:@civitai/app-sdk@0.33.0/blocks#messages.d.ts
   - civitai:src/components/AppBlocks/hostHandlerParity.ts#INVENTORY
 ---
 
@@ -116,6 +116,14 @@ payload:
 
 **Auth & token**
 
+**`CONSENT_UNAVAILABLE`** — host → block
+
+payload:
+
+```ts
+ConsentUnavailablePayload
+```
+
 **`REQUEST_CONSENT`** — block → host · fire-and-forget
 
 payload (optional):
@@ -151,7 +159,7 @@ reply `TOKEN_REFRESH_RESPONSE`:
 
 ```ts
 {
-    requestId?: string;
+    requestId: string;
     token: WrappedToken;
 }
 ```
@@ -1002,6 +1010,16 @@ reply `SAVE_IMAGE_RESULT`:
 ```
 
 Model slot: download bridge is a page-only affordance today; the paid-output apps are page apps, the model slot has no such surface
+
+**`THEME_CHANGE`** — host → block
+
+payload:
+
+```ts
+{
+    theme: Theme;
+}
+```
 
 <!-- END GENERATED: messages -->
 </MessageTable>
