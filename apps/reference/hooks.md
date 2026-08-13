@@ -2,9 +2,9 @@
 title: Hooks reference
 description: Every @civitai/blocks-react hook — signature and example, generated from the published package.
 sources:
-  - npm:@civitai/blocks-react@0.39.0/dist/index.d.ts
-  - npm:@civitai/blocks-react@0.39.0#README
-  - npm:@civitai/app-sdk@0.31.0/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.41.0/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.41.0#README
+  - npm:@civitai/app-sdk@0.33.0/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
 
@@ -48,6 +48,21 @@ The primary hook. Returns everything the host delivered in `BLOCK_INIT` plus a `
 ```tsx
 const { ready, context, viewer, theme, settings, blockId, blockInstanceId, appId, token, renderMode } =
   useBlockContext();
+```
+
+**`useBlockTheme`**
+
+```ts
+useBlockTheme(): Theme
+```
+
+The host's CURRENT site theme, and nothing else. Same value as `useBlockContext().theme` — reach for this when theme is all you need.
+
+```tsx
+function ThemedRoot() {
+  const theme = useBlockTheme(); // 'light' | 'dark'
+  return <div data-theme={theme}>…</div>;
+}
 ```
 
 **`useBlockResize`**
@@ -454,8 +469,42 @@ useRequestConsent(): {
 Lazy consent: ask the host to open its consent UI when a LOGGED-IN viewer takes an action whose consent-gated scope the block token is missing (e.g. Generate needs `ai:write:budgeted` but the viewer hasn't granted it). Fire-and-forget — on grant the host pushes a new token; observe `useBlockToken().scopes` and retry.
 
 ```tsx
+import { useRequestConsent } from '@civitai/blocks-react';
+
 const { requestConsent } = useRequestConsent();
 requestConsent({ scopes: ['ai:write:budgeted', 'buzz:read:self'] });
+```
+
+**`useConsentUnavailable`**
+
+```ts
+useConsentUnavailable(): UseConsentUnavailable
+```
+
+Some environments withhold a scope at mint (a dev-tunnel preview token, a surface that carries no money scope), so no consent round-trip can ever add it. The host then pushes an uncorrelated `CONSENT_UNAVAILABLE` — *not* a reply, because `REQUEST_CONSENT` carries no `requestId`. Consume it and stop telling the user to retry something that can't succeed:
+
+```tsx
+import { useConsentUnavailable, useRequestConsent } from '@civitai/blocks-react';
+
+function ConsentAwareGenerate() {
+  const { requestConsent } = useRequestConsent();
+  const { refusal, reset } = useConsentUnavailable();
+
+  // 🔴 Branch on `refusal !== null`, NEVER on `refusal.scopes.length`. The host
+  // refuses on its own unfiltered set but names only scopes in the public
+  // vocabulary, so `scopes: []` is a legitimate refusal — gating on the length
+  // silently drops the very message you subscribed for. Use the names for copy.
+  if (refusal) {
+    return (
+      <div>
+        <p>Generating isn't available on this page.</p>
+        <button onClick={reset}>Try again</button>
+      </div>
+    );
+  }
+  // 🔴 `scopes` is REQUIRED for a refusal to ever arrive — see above.
+  return <button onClick={() => requestConsent({ scopes: ['ai:write:budgeted'] })}>Generate</button>;
+}
 ```
 
 **`useDomainMaturity`**
@@ -560,7 +609,7 @@ union keyed by `kind`. The hook forwards the body to the host verbatim and never
 reads member-specific fields, so every member flows through the same
 `estimate → submit → watch` lifecycle shown above.
 
-As of the pinned `@civitai/app-sdk@0.31.0` the union has three members:
+As of the pinned `@civitai/app-sdk@0.33.0` the union has three members:
 
 | `kind` | what it runs | what your block sends |
 |---|---|---|
@@ -598,16 +647,18 @@ const body: WorkflowBodyCustomComfy = {
 itself, plus a declared `resources` manifest and a `maxBuzz` ceiling:
 
 ```ts
-// Declared locally, not imported: the pinned SDK types only the recipe arm.
-// This mirrors the server's `blockInlineComfyBodySchema` field-for-field.
-type InlineComfyBody = {
-  kind: 'customComfy';
-  mode: 'inline';
-  workflow: Record<string, { class_type: string; inputs: Record<string, unknown> }>;
-  resources: string[];
-  prompt?: string;
-  negativePrompt?: string;
-  maxBuzz: number;
+import type { WorkflowBodyCustomComfyInline } from '@civitai/app-sdk/blocks';
+
+const body: WorkflowBodyCustomComfyInline = {
+  kind: 'customComfy',
+  mode: 'inline', // REQUIRED, and exactly this value — see below
+  workflow: {
+    // the ComfyUI `/prompt` graph, keyed by node id — the shape
+    // ComfyUI's "Save (API Format)" export produces
+    '3': { class_type: 'KSampler', inputs: { seed: 42, steps: 20 } },
+  },
+  resources: ['urn:air:sdxl:checkpoint:civitai:101055@128078'],
+  maxBuzz: 50, // integer 1…250, and ALSO the step timeout in seconds
 };
 ```
 
@@ -621,12 +672,18 @@ Three things trip up a first attempt, all covered in the guide:
 - **`maxBuzz` is the only spend knob**, and doubles as the step timeout in
   seconds.
 
-::: warning The published SDK types the recipe arm only
-In `@civitai/app-sdk@0.31.0`, `WorkflowBodyCustomComfy` is
-`{ kind, recipe, params }` — there is no `mode` field and no inline body type to
-import. The server accepts an inline body; the published types have not caught
-up. Declare the shape locally, as above, and narrow on the **value** of
-`body.mode === 'inline'` rather than on whether the key is present.
+::: tip The published SDK now types BOTH arms
+As of `@civitai/app-sdk@0.33.0`, `WorkflowBodyCustomComfy` is itself a union on
+`mode`, and both arms are importable from `@civitai/app-sdk/blocks`:
+`WorkflowBodyCustomComfyRecipe` and `WorkflowBodyCustomComfyInline` (plus
+`InlineComfyNode` for the graph nodes). Earlier versions typed the recipe arm
+only and this page told you to declare the inline shape locally — that is no
+longer necessary, and a locally-declared copy will now drift from the SDK.
+
+Still narrow on the **value** of `body.mode === 'inline'`, never on whether the
+key is present: `mode` is optional on the recipe arm, so a body that merely
+carries a `workflow` key routes to the recipe arm and is rejected for a missing
+`recipe`.
 :::
 
 The recipe arm is **mod-gated**; the inline arm additionally requires an
