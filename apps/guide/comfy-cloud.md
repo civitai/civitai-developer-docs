@@ -2,8 +2,8 @@
 title: Comfy on Civitai (customComfy)
 description: Drive ComfyUI from an App Block — either by naming a server-registered recipe, or by shipping your own graph inline. The two arms, the gates on each, the budget rules, and how to try it in the local harness.
 sources:
-  - npm:@civitai/app-sdk@0.31.0/blocks#WorkflowBodyCustomComfy
-  - npm:@civitai/blocks-react@0.39.0#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.33.0/blocks#WorkflowBodyCustomComfy
+  - npm:@civitai/blocks-react@0.41.0#useBuzzWorkflow
   - go:github.com/civitai/cli#app-create (page-money scaffold: src/comfy.ts)
   - civitai:public/schemas/app-block/v1.json#page.buzzBudgetPerGen
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
@@ -57,11 +57,15 @@ today (see [Try it locally](#try-it-locally)).
 The block sends a tiny body that _names_ a workflow the platform already owns:
 
 ```ts
-import type { WorkflowBodyCustomComfy } from '@civitai/app-sdk/blocks';
+import type { WorkflowBodyCustomComfyRecipe } from '@civitai/app-sdk/blocks';
 
 // The block picks a registered recipe id + a small, per-recipe-validated params
-// object. The server owns the workflow in full.
-const body: WorkflowBodyCustomComfy = {
+// object. The server owns the workflow in full. Annotate the ARM, not the
+// `WorkflowBodyCustomComfy` union: with `mode` omitted (as here), excess-property
+// checking runs against the whole union and admits ANY constituent's keys, so a
+// union annotation would let an inline-arm key (`workflow`, `resources`,
+// `maxBuzz`) sit here uncaught.
+const body: WorkflowBodyCustomComfyRecipe = {
   kind: 'customComfy',
   recipe: 'starter-comfy-txt2img', // a SERVER-registered, code-reviewed id
   params: {
@@ -131,21 +135,11 @@ Set `mode: 'inline'` and the body carries the ComfyUI graph itself, plus a
 declared manifest of every resource it needs:
 
 ```ts
-// The inline arm's body shape, written out here rather than imported so the
-// shape is visible. It mirrors the server's schema field-for-field.
-type InlineComfyBody = {
-  kind: 'customComfy';
-  mode: 'inline';
-  workflow: Record<string, { class_type: string; inputs: Record<string, unknown> }>;
-  resources: string[];
-  prompt?: string;
-  negativePrompt?: string;
-  maxBuzz: number;
-};
+import type { WorkflowBodyCustomComfyInline } from '@civitai/app-sdk/blocks';
 
 const CHECKPOINT = 'urn:air:sdxl:checkpoint:civitai:101055@128078';
 
-const body: InlineComfyBody = {
+const body: WorkflowBodyCustomComfyInline = {
   kind: 'customComfy',
   mode: 'inline',
   workflow: {
@@ -170,17 +164,17 @@ const body: InlineComfyBody = {
 };
 ```
 
-::: warning The published SDK does not type the inline arm yet
-That is why the shape above is written out by hand rather than imported. In the
-pinned `@civitai/app-sdk@0.31.0` — also the newest published version —
-`WorkflowBodyCustomComfy` is the **recipe** shape only
-(`{ kind, recipe, params }`): there is no `mode` field on it, and no
-`WorkflowBodyCustomComfyInline` or `InlineComfyNode` export to import. The
-server accepts an inline body; the published types have not caught up.
+::: tip The published SDK now types the inline arm
+In the pinned `@civitai/app-sdk@0.33.0` — also the newest published version —
+`WorkflowBodyCustomComfy` is a **union on `mode`**, and the inline arm ships as
+`WorkflowBodyCustomComfyInline` (with `InlineComfyNode` for the graph nodes) and
+`WorkflowBodyCustomComfyRecipe` for the recipe arm. Import them, as above.
+Earlier versions typed the recipe arm only, which is why this guide used to
+write the shape out by hand; a hand-declared copy will now drift from the SDK.
 
-So declare the shape locally, as above. When you narrow, narrow on the **value**
-of `body.mode === 'inline'` — never on whether the `mode` key is present,
-because a recipe body may legitimately carry `mode: 'recipe'` or even
+One thing the types still cannot enforce for you: when you narrow, narrow on the
+**value** of `body.mode === 'inline'` — never on whether the `mode` key is
+present, because a recipe body may legitimately carry `mode: 'recipe'` or even
 `mode: undefined`.
 :::
 
@@ -281,13 +275,16 @@ Civitai (either arm) is just a different `body`:
 
 ```tsx
 import { useBuzzWorkflow } from '@civitai/blocks-react';
-import type { WorkflowBodyCustomComfy } from '@civitai/app-sdk/blocks';
+import type { WorkflowBodyCustomComfyRecipe } from '@civitai/app-sdk/blocks';
 
 export function RunButton({ prompt }: { prompt: string }) {
   const { estimate, submit, watch, status, result } = useBuzzWorkflow();
 
   const run = async () => {
-    const body: WorkflowBodyCustomComfy = {
+    // `estimate`/`submit` take the whole `WorkflowBody` union, but THIS body is
+    // a recipe body — annotate the arm so a stray inline-arm key is a compile
+    // error here rather than a server-side rejection at submit time.
+    const body: WorkflowBodyCustomComfyRecipe = {
       kind: 'customComfy',
       recipe: 'starter-comfy-txt2img',
       params: { prompt },
