@@ -28,6 +28,15 @@ This page is the contract for advanced use and non-React SDK consumers.
 - **page-only** — handled only by the full-page host (a page app at
   `/apps/run/<slug>`), not by the model-slot host today. Slot apps are deferred
   during the closed beta, so build page apps and you get the full surface.
+- 🔴 **A host → block push added after your block was built is inert until you
+  rebuild.** Your bundle compiles in the `@civitai/blocks-react` you built
+  against, so it only understands the messages that version knew about. A push
+  the host began sending later — `THEME_CHANGE` is the current example — is
+  silently discarded: the transport finds no validator for the type, matches no
+  pending request and no push listener, and no-ops. **No error, no warning, and
+  nothing to see in the console.** Nothing rebuilds a deployed block on your
+  behalf, so it stays frozen at its build-time SDK until you resubmit; rebuilding
+  against the current SDK picks up every push added since, automatically.
 
 <MessageTable>
 <!-- BEGIN GENERATED: messages — markdown fallback for the .md/LLM channel. Do not edit by hand; run `npm run gen:appblocks:md`. -->
