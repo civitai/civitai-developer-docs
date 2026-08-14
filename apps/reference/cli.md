@@ -175,8 +175,9 @@ This is the friendly happy path: a thin superset of "civitai app init" that
 defaults to the rich page-money template — a Vite + React + TypeScript full-page
 app wired to the published App SDK (estimate -> consent -> submit -> poll ->
 Buzz spend), with a mock-host dev harness and a unit test. The scaffold is
-immediately runnable (npm install && npm run dev:harness), test-green, and
-validates clean.
+immediately runnable (npm install && npm run dev:harness) and test-green.
+"civitai app validate" passes once you have run "npm install" — until then it
+correctly reports the package-lock.json the platform build installs from.
 
 The default scaffold ships a runnable txt2img money path AND a Comfy on Civitai
 (customComfy) sample that runs a server-registered recipe (invite-only beta) —
@@ -200,6 +201,14 @@ Templates (override with --template):
 The display name can be free-form ("My Cool Block"); it is slugified for the
 blockId. A slug-shaped name is used verbatim.
 
+The blockId is your app's PERMANENT public identity — the hostname your app will
+be served at once it is approved, and the argument every later command takes — so
+derivation refuses rather than guesses when the name carries LETTERS a blockId
+cannot hold ("Café Del Mar", "ÜberApp", any non-Latin name). Punctuation, symbols
+and emoji still fold to a hyphen, as they always have ("Rocket 🚀 App" ->
+rocket-app). Pass --slug <slug> to choose the blockId yourself; it bypasses
+derivation entirely.
+
 By default the project is created in ./<slug>. Override the output directory with
 a positional [dir] or --dir <path>; override the display name independently with
 --name (so name, slug, and directory can all differ).
@@ -221,13 +230,17 @@ the AI Services scopes: `civitai login --scopes generate` (a browser login that 
 
   # Custom output directory (slug stays my-block; created in ./apps/foo).
   civitai app create my-block --dir ./apps/foo
+
+  # A name derivation cannot slugify: choose the blockId yourself.
+  civitai app create "Café Del Mar" --slug cafe-del-mar
 ```
 
 | Flag | Description | Default |
 |---|---|---|
 | `--dir string` | output directory (default ./\<slug>) | — |
-| `--from string` | fork from an existing published app slug (not yet wired) | — |
+| `--from string` | fork from an existing published app slug (NOT AVAILABLE YET — the CLI cannot fetch app source) | — |
 | `--name string` | display name (default derived from the name argument) | — |
+| `--slug string` | explicit blockId (bypasses derivation from the name; 3-40 chars, starts with a letter, lowercase a-z/0-9/hyphens) | — |
 | `-t, --template string` | project template: static \| page-vite \| page-money | `page-money` |
 | `-y, --yes` | non-interactive: never prompt (use flags/defaults; fail if a name is missing) | — |
 
@@ -247,6 +260,14 @@ Templates:
 The display name can be free-form ("My Cool Block"); it is slugified for the
 blockId. A slug-shaped name is used verbatim.
 
+The blockId is your app's PERMANENT public identity — the hostname your app will
+be served at once it is approved, and the argument every later command takes — so
+derivation refuses rather than guesses when the name carries LETTERS a blockId
+cannot hold ("Café Del Mar", "ÜberApp", any non-Latin name). Punctuation, symbols
+and emoji still fold to a hyphen, as they always have ("Rocket 🚀 App" ->
+rocket-app). Pass --slug <slug> to choose the blockId yourself; it bypasses
+derivation entirely.
+
 By default the project is created in ./<slug>. Override the output directory with
 a positional [dir] or --dir <path>; override the display name independently with
 --name (so name, slug, and directory can all differ).
@@ -262,6 +283,9 @@ a positional [dir] or --dir <path>; override the display name independently with
   # Custom output directory (slug stays my-block; created in ./apps/foo).
   civitai app init my-block --dir ./apps/foo
 
+  # A name derivation cannot slugify: choose the blockId yourself.
+  civitai app init "Café Del Mar" --slug cafe-del-mar
+
   # Name, slug, and dir all independent.
   civitai app init my-block ./apps/foo --name "My Block"
 ```
@@ -269,8 +293,9 @@ a positional [dir] or --dir <path>; override the display name independently with
 | Flag | Description | Default |
 |---|---|---|
 | `--dir string` | output directory (default ./\<slug>) | — |
-| `--from string` | fork from an existing published app slug (not yet wired) | — |
+| `--from string` | fork from an existing published app slug (NOT AVAILABLE YET — the CLI cannot fetch app source) | — |
 | `--name string` | display name (default derived from the name argument) | — |
+| `--slug string` | explicit blockId (bypasses derivation from the name; 3-40 chars, starts with a letter, lowercase a-z/0-9/hyphens) | — |
 | `-t, --template string` | project template: static \| page-vite \| page-money | `static` |
 | `-y, --yes` | non-interactive: never prompt (use flags/defaults; fail if a name is missing) | — |
 
@@ -477,7 +502,7 @@ The app is resolved from block.manifest.json in the current directory (or pass
 early to clear the publish floor before you go live.
 
 Source files are checked locally BEFORE any upload — png, jpeg or webp, at most
-2.0 MB for an icon, 4.0 MB for a cover, 2.0 MB for a screenshot.
+2.0 MiB for an icon, 4.0 MiB for a cover, 2.0 MiB for a screenshot.
 A file in the wrong format, or over its cap, is refused before anything is
 uploaded.
 ```
@@ -493,13 +518,13 @@ uploaded.
 
 **`civitai app listing set-icon <file>`**
 
-Set the listing icon (png, jpeg or webp, at most 2.0 MB)
+Set the listing icon (png, jpeg or webp, at most 2.0 MiB)
 
 ```text
 Set your store listing's ICON — the small image shown beside your app's name.
 An icon is MANDATORY: a listing cannot publish without one.
 
-The source file is validated locally first (png, jpeg or webp, at most 2.0 MB),
+The source file is validated locally first (png, jpeg or webp, at most 2.0 MiB),
 then ingested and attached, and the content scan is waited on afterwards.
 Nothing is uploaded if the local check fails. The platform validates the
 image's dimensions and aspect at the ATTACH step, so a wrongly-shaped image is
@@ -528,13 +553,13 @@ Run `civitai app listing status` to see what the publish floor still needs.
 
 **`civitai app listing set-cover <file>`**
 
-Set the listing cover (png, jpeg or webp, at most 4.0 MB)
+Set the listing cover (png, jpeg or webp, at most 4.0 MiB)
 
 ```text
 Set your store listing's COVER — the wide image at the top of the listing
 page. A cover is MANDATORY: a listing cannot publish without one.
 
-The source file is validated locally first (png, jpeg or webp, at most 4.0 MB),
+The source file is validated locally first (png, jpeg or webp, at most 4.0 MiB),
 then ingested and attached, and the content scan is waited on afterwards.
 Nothing is uploaded if the local check fails. The platform validates the
 image's dimensions and aspect at the ATTACH step, so a wrongly-shaped image is
@@ -569,7 +594,7 @@ Add a screenshot (up to 8) with an optional caption
 Add a SCREENSHOT to your store listing's gallery. Screenshots are OPTIONAL:
 they are not part of the publish floor.
 
-The source file is validated locally first (png, jpeg or webp, at most 2.0 MB),
+The source file is validated locally first (png, jpeg or webp, at most 2.0 MiB),
 then ingested and appended to the gallery, and the content scan is waited on
 afterwards. Nothing is uploaded if the local check fails. The platform
 validates dimensions, aspect and format at the ATTACH step, so a bad image is
@@ -1361,9 +1386,13 @@ Generate images from a text prompt (SPENDS BUZZ)
 ```text
 Generate images from a text prompt on Civitai's generator.
 
-🔴 THIS SPENDS REAL BUZZ AND CANNOT BE UNDONE. A submitted generation is charged;
-there is no cancel-for-refund and no "undo". Preview the price with --dry-run
-first — it calls the server's cost estimator and spends nothing.
+🔴 THIS SPENDS REAL BUZZ AND CANNOT BE UNDONE. A submitted generation is charged
+the moment the orchestrator accepts it, and nothing local can call that back —
+not --timeout, not Ctrl-C, not `civitai workflows cancel`. Preview the
+price with --dry-run first; it calls the server's cost estimator and spends
+nothing.
+What the LEDGER then does with that charge — if the run fails, expires, or you
+cancel it — is decided server-side, and this CLI cannot see your Buzz ledger — `civitai buzz` reports a balance, not a history, so settle it against your Buzz transaction history (/user/transactions).
 
 CREDENTIAL: generation needs the AI Services scopes. Two credentials carry them:
 `civitai login --scopes generate` (a browser login that opts into generation), or a full-scope personal API key (`civitai login --token <key>`, created at https://civitai.com/user/account). A DEFAULT OAuth browser login
@@ -1382,7 +1411,8 @@ network. Only a bare --print-input needs neither a credential nor a network.
 is an estimate, not a quote: the server's estimator returns no quote id, no
 signed price and no expiry — there is nothing to hand back at submit time, and
 no server-side ceiling is reachable from an API key at all. The realized charge
-can exceed the estimate, and it is not refunded. --max-cost compares the
+can exceed the estimate, and --max-cost cannot claw the difference back — it
+never reaches the server. --max-cost compares the
 ESTIMATE against your number and refuses locally before submitting; it catches a
 --quantity typo, and that is all it can do. Do not run an unattended loop
 believing it caps spend.
@@ -1399,6 +1429,13 @@ the public model-version API BEFORE submitting, so a bad id is a hard local
 error instead of a wrong charge, and it echoes the resolved model NAME in the
 confirmation so you approve a name rather than an integer.
 
+🔴 --dry-run's "Resources ready" line is NOT A PROMISE OF OUTPUT. It echoes the
+server's `ready` flag, which reports only that the resources this job needs are
+currently available — nothing about moderation, and nothing about whether the
+job will actually produce an image. A run that reports resources ready can still
+be charged and return nothing. Treat `ready: false` as "do not submit"; do not
+read `ready: true` as a green light.
+
 WAITING AND DOWNLOADING: by default the command waits for the job to finish and
 writes every deliverable output into --out-dir as <workflow-id>-<n>.<ext>. Pass
 --no-wait to print the workflow id and exit immediately, and pick the results up
@@ -1406,9 +1443,9 @@ later with `civitai workflows get <workflow-id>`. Output URLs are PRESIGNED AND
 EXPIRE, so download promptly; re-read the workflow for fresh links.
 
 🔴 --timeout STOPS WAITING. IT DOES NOT STOP PAYING. The generation keeps
-running server-side after the CLI gives up, and the charge stands — there is no
-cancel-for-refund, and a mid-run cancel bills the accrued cost anyway. The same
-is true of Ctrl-C. Both print the workflow id and the exact command to re-attach.
+running server-side after the CLI gives up, and cancelling it does not stop the
+cost already accrued — a mid-run cancel bills that. The same is true of Ctrl-C.
+Both print the workflow id and the exact command to re-attach.
 
 CRASH SAFETY: the idempotency key is written to a local file BEFORE the request
 is sent, because the money moves server-side even if this process dies mid-POST.
@@ -1510,14 +1547,14 @@ interpreted, so nothing in it is checked before you pay for it.
 | `--input string` | read the generation graph from a JSON file ('-' for stdin) and send it as-is, instead of building one from flags. txt2img only. Cannot be combined with the content flags above | — |
 | `--json` | emit the raw server payload on stdout (scriptable) | — |
 | `--lora stringArray` | LoRA model-version id, optionally :strength (e.g. 250712:0.8). Repeatable | — |
-| `--max-cost int` | refuse to submit if the ESTIMATE exceeds this many Buzz. This is an estimate check, NOT a spending cap: the estimate is not binding, the server enforces no ceiling, and the realized charge can be higher with no refund | — |
+| `--max-cost int` | refuse to submit if the ESTIMATE exceeds this many Buzz. This is an estimate check, NOT a spending cap: the estimate is not binding, the server enforces no ceiling, and the realized charge can be higher — this flag cannot claw that back | — |
 | `--negative-prompt string` | negative prompt | — |
 | `--no-download` | wait for the result and print the output URLs, but write no files | — |
 | `--no-wait` | submit, print the workflow id and exit without waiting; collect the results later with 'civitai workflows get \<id>' | — |
 | `--out-dir string` | directory to write the generated files into (created if needed); named \<workflow-id>-\<n>.\<ext> | `.` |
 | `--print-input` | print the exact generation graph that would be sent and exit without submitting. Redirect it to a file, edit it, and feed it back with --input | — |
 | `--quantity int` | number of images to generate (server default when unset; no -n shorthand, it reads as "no") | — |
-| `--timeout duration` | how long to WAIT for the generation to finish (e.g. 5m, 0 waits indefinitely). This stops the CLI waiting; it does NOT stop the generation and does NOT stop the charge — the job continues server-side and is not refunded | `10m0s` |
+| `--timeout duration` | how long to WAIT for the generation to finish (e.g. 5m, 0 waits indefinitely). This stops the CLI waiting; it does NOT stop the generation and does NOT stop the charge — the job continues server-side to completion | `10m0s` |
 | `-y, --yes` | skip the confirmation and submit (required in a non-interactive shell) | — |
 
 **`civitai images`**
@@ -2163,7 +2200,7 @@ makes `--no-wait`, a --timeout expiry and a Ctrl-C recoverable rather than a
 dead end.
 
 `list` and `get` are reads and SPEND NOTHING. 🔴 `cancel` stops a job but does
-NOT refund it — a mid-run cancel bills the accrued cost, non-refundably.
+not undo its cost — a mid-run cancel bills what has already accrued.
 ```
 
 ```bash
@@ -2175,16 +2212,16 @@ NOT refund it — a mid-run cancel bills the accrued cost, non-refundably.
 
 **`civitai workflows cancel <workflow-id>`**
 
-Cancel a running generation workflow (DOES NOT REFUND)
+Cancel a running generation workflow (DOES NOT UNDO THE CHARGE)
 
 ```text
 Cancel a generation workflow that is still running.
 
-🔴 CANCELLING DOES NOT GET YOUR BUZZ BACK. A mid-run cancel BILLS THE ACCRUED
-COST, orchestrator-side and non-refundably. There is no cancel-for-refund
-anywhere on this platform: by the time a workflow is running, the money has
-moved. Cancel a job because you no longer want its OUTPUT — never as a way to
-save money, and never as a way to undo a submit you regret.
+🔴 CANCELLING IS NOT A WAY TO SAVE MONEY. A mid-run cancel BILLS THE ACCRUED
+COST, orchestrator-side: by the time a workflow is running the money has already
+moved, and stopping it does not call that back. Cancel a job because you no
+longer want its OUTPUT — never to save money, and never to undo a submit you
+regret. What the ledger does afterwards is decided server-side, and this CLI cannot see your Buzz ledger — `civitai buzz` reports a balance, not a history, so settle it against your Buzz transaction history (/user/transactions).
 
 That is also why `civitai generate --timeout` and Ctrl-C do not cancel anything:
 stopping the wait costs nothing, while stopping the job would cost the same as

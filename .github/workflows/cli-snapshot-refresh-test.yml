@@ -1,0 +1,65 @@
+name: cli-snapshot-refresh-test
+
+# THE TESTS FOR THE SNAPSHOT REFRESHER. Paired with
+# scripts/test-refresh-cli-snapshot.mjs exactly as appblocks-cli.yml is paired
+# with test-appblocks-cli.mjs, appblocks-messages.yml with
+# test-appblocks-messages.mjs, and copy-spec.yml with test-copy-spec.mjs. This
+# repo has no aggregate `npm test`, so a `test:*` script with no workflow is a
+# script nothing runs.
+#
+# 🔴 IT SHIPPED WITHOUT ONE, AND THAT IS WHY THIS FILE EXISTS RATHER THAN A
+# LINE IN AN EXISTING WORKFLOW. The 600-line suite guarding the refresher — the
+# anti-truncation floor, the permissions shape, the non-gating triggers, the
+# zero-checks disclosure — ran in NO workflow at all, so every guard in it was
+# inert: three workflow mutations that the suite kills (a job gaining
+# `id-token: write`, the file-level default flipped to `contents: write`, a
+# `pull_request:` trigger added to the refresher) would all have merged green.
+# A test suite nobody runs is not a weaker gate than a test suite that runs; it
+# is not a gate, and it reads like one.
+#
+# PR-BLOCKING, AND THAT IS THE DOCTRINE RATHER THAN AN EXCEPTION TO IT. This
+# repo blocks a PR on REPO-LOCAL invariants (no upstream input, so they cannot
+# false-fail on someone else's publish) and keeps UPSTREAM-movement checks on a
+# schedule — see the headers of appblocks-cli.yml and appblocks-drift.yml. This
+# suite is entirely repo-local and offline: it drives the refresher against a
+# throwaway clone with a bare local `origin`, and a fake `civitai` that replays
+# the committed bundle, so there is no Go toolchain and no network. Its releases
+# endpoint is deliberately pointed at a dead loopback port. The workflow it
+# GUARDS (cli-snapshot-refresh.yml) is upstream-driven and stays scheduled; the
+# tests of that workflow are not, and conflating the two is what left them
+# unrun.
+#
+# RUNS ON EVERY PR, DELIBERATELY UNFILTERED — do not add a `paths:` filter. If
+# this job is ever added to `main`'s required contexts, a path filter would
+# leave any PR touching none of the watched files at mergeStateStatus=BLOCKED
+# forever, waiting on a report that never comes — measured live on docs#42.
+# The suite is seconds long, so running it unconditionally is cheap.
+on:
+  pull_request: {}
+  workflow_dispatch: {}
+
+# LEAST PRIVILEGE — see appblocks-cli.yml for the full reasoning. This job only
+# checks out and runs offline node tests: no upload, no comment, no `gh` call,
+# no git push. Note what it must NOT be given: the suite it runs asserts the
+# SHAPE of the refresher's permissions block, and it needs none of those scopes
+# itself to do so — it reads the YAML as text.
+permissions:
+  contents: read
+
+jobs:
+  test-cli-snapshot-refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: CLI snapshot refresher — floor, decision, PR body, branch safety
+        run: npm run test:refresh-cli-snapshot

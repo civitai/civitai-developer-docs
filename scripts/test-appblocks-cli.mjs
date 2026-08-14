@@ -762,14 +762,20 @@ check('CONTENT — `app dev-tunnel` examples appear VERBATIM, leading whitespace
   );
 });
 
-check('CONTENT — internal blank lines survive (`app create` groups four scenarios)', () => {
+check('CONTENT — internal blank lines survive (`app create` groups five scenarios)', () => {
   // The transcript's own grouping. A `.filter(Boolean)` anywhere in the chain
-  // silently welds the four scenarios into one wall of text.
+  // silently welds the five scenarios into one wall of text.
+  // Re-measured at civitai v0.1.92: `app create` grew a fifth scenario (the
+  // `--slug` escape hatch for a name derivation refuses to slugify), taking the
+  // block from 11 lines / 3 separators to 14 / 4. The COUNT is corpus state that
+  // moves with the CLI; the STRUCTURE — content, blank, content, blank … — is
+  // the invariant this guard is about, so the separator positions are derived
+  // from the block rather than restated as a second literal.
   const got = artifact.commands.find((c) => c.command === 'app create')?.examples ?? [];
-  assertEqual(got.length, 11, '`app create` should carry 11 lines (8 content + 3 blank separators)');
+  assertEqual(got.length, 14, '`app create` should carry 14 lines (10 content + 4 blank separators)');
   assertEqual(
     got.map((l, i) => (l.trim() ? '' : String(i))).filter(Boolean).join(','),
-    '2,5,8',
+    '2,5,8,11',
     'the internal blank lines moved or were dropped',
   );
   assert(got[0].startsWith('  # A page-money app'), `unexpected first line: ${JSON.stringify(got[0])}`);
@@ -1554,14 +1560,20 @@ check("REGRESSION — cobra's trailer never lands in a flag description", () => 
 
 check('a section body ends at column 0, and blank lines do NOT end it', () => {
   // The structural rule behind the fix. Blank lines are interior content —
-  // `app create`'s Examples block groups four scenarios with them — so a
-  // "stop at the first blank line" fix would have destroyed that instead.
+  // `app create`'s Examples block groups five scenarios with them (four before
+  // civitai v0.1.92 added the `--slug` one) — so a "stop at the first blank
+  // line" fix would have destroyed that instead. The assertion below is a
+  // SEPARATOR COUNT rather than a total-line pin so that a sixth scenario
+  // re-measures in ONE place (the CONTENT check above) instead of two: what
+  // this guard is about is that separators survive AT ALL, and it still fails
+  // loudly at zero.
   const help = ['Flags:', '      --a   first', '      --b   second', '', 'Trailer at column zero.'].join('\n');
   const flags = parseFlags(help);
   assertEqual(flags.length, 2, 'wrong number of flags parsed');
   assertEqual(flags[1].description, 'second', "the column-0 trailer was joined onto the last flag's description");
+  const createExamples = artifact.commands.find((c) => c.command === 'app create')?.examples ?? [];
   assert(
-    (artifact.commands.find((c) => c.command === 'app create')?.examples ?? []).length === 11,
+    createExamples.length > 0 && createExamples.filter((l) => !l.trim()).length >= 3,
     'blank lines stopped being interior content — `app create` lost its scenario separators',
   );
 });

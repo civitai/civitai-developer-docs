@@ -25,9 +25,11 @@
     "test:appblocks:messages": "node scripts/test-appblocks-messages.mjs",
     "test:appblocks:bridge": "node scripts/test-appblocks-bridge.mjs",
     "test:appblocks:cli": "node scripts/test-appblocks-cli.mjs",
+    "test:refresh-cli-snapshot": "node scripts/test-refresh-cli-snapshot.mjs",
     "test:copy-spec": "node scripts/test-copy-spec.mjs",
     "check:snapshots": "node scripts/check-appblocks-snapshots.mjs",
     "check:cli-snapshot": "node scripts/check-appblocks-cli-snapshot.mjs",
+    "refresh:cli-snapshot": "node scripts/refresh-cli-snapshot.mjs",
     "check:manifest-parity": "node scripts/check-manifest-parity.mjs",
     "check:pins": "node scripts/check-appblocks-pins.mjs",
     "check:spec-drift": "node scripts/check-openapi-drift.mjs",
@@ -41,8 +43,8 @@
     "test:showcase:e2e": "node scripts/test-showcase-e2e.mjs"
   },
   "devDependencies": {
-    "@civitai/app-sdk": "0.31.0",
-    "@civitai/blocks-react": "0.39.0",
+    "@civitai/app-sdk": "0.33.0",
+    "@civitai/blocks-react": "0.41.0",
     "@civitai/components": "0.3.0",
     "@civitai/components-react": "0.3.0",
     "@civitai/theme": "0.2.0",

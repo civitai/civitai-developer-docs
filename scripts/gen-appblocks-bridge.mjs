@@ -40,6 +40,14 @@ const SDK_TYPES = [
   'BlockTextToImageParams',
   'BlockSourceImage',
   'WorkflowBodyCustomComfy',
+  // `WorkflowBodyCustomComfy` became a UNION on `mode` in @civitai/app-sdk 0.33.0,
+  // so its own arms now carry the fields (`recipe`/`params`; `workflow`/`resources`/
+  // `maxBuzz`) that used to sit on the object directly. Without these two entries the
+  // page names both arms and defines neither — the same "announced with no field
+  // table" gap as WorkflowBodyStep, one level deeper. See bridgeCoverageViolations,
+  // which now recurses into nested union members for exactly this reason.
+  'WorkflowBodyCustomComfyRecipe',
+  'WorkflowBodyCustomComfyInline',
   'WorkflowBodyStep',
   'BlockWorkflowSnapshot',
   'AppWorkflow',
@@ -208,11 +216,28 @@ export function bridgeCoverageViolations(artifact) {
     // can truthfully say "the N members are the whole surface" while publishing
     // tables for N-1 of them — exactly how WorkflowBodyStep shipped announced but
     // undocumented when the SDK grew a third member.
-    for (const mem of union.members ?? []) {
-      const memberName = mem.trim();
-      if (!/^WorkflowBody[A-Za-z0-9]+$/.test(memberName)) continue; // inline literal member — nothing to link to
-      if (!byName[memberName]) {
-        problems.push(`WorkflowBody union member "${memberName}" has no field table (add it to SDK_TYPES)`);
+    //
+    // RECURSE into members that are themselves unions. A member can stop being an
+    // object and become a union without the top-level member list changing at all:
+    // @civitai/app-sdk 0.33.0 turned `WorkflowBodyCustomComfy` into a union on
+    // `mode`, which silently moved every field off the documented type and onto two
+    // arms this check could not see. A flat walk reports a clean surface while the
+    // page defines neither arm.
+    const seen = new Set();
+    const queue = ['WorkflowBody'];
+    while (queue.length) {
+      const current = byName[queue.shift()];
+      if (!current || current.kind !== 'union') continue;
+      for (const mem of current.members ?? []) {
+        const memberName = mem.trim();
+        if (!/^WorkflowBody[A-Za-z0-9]+$/.test(memberName)) continue; // inline literal member — nothing to link to
+        if (seen.has(memberName)) continue;
+        seen.add(memberName);
+        if (!byName[memberName]) {
+          problems.push(`WorkflowBody union member "${memberName}" has no field table (add it to SDK_TYPES)`);
+          continue;
+        }
+        queue.push(memberName); // may itself be a union — keep descending
       }
     }
   }
