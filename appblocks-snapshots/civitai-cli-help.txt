@@ -1,6 +1,6 @@
 civitai CLI help snapshot (the WHOLE command tree)
 Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
-Binary version: civitai v0.1.94
+Binary version: civitai v0.1.95
 Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
 else parses this committed snapshot. To refresh: run
 node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).
@@ -429,23 +429,43 @@ shown the app@version and asked to confirm. Pass --yes/-y to skip the prompt
 --yes is given, rather than hang or submit silently. --package-only is the safe
 preview — it never submits.
 
+Version guard:
+  A submit that would really upload first checks the app's own submissions and
+  REFUSES when the manifest version is not strictly above the highest APPROVED
+  version — submitting an older (or the same) version replaces the newer live
+  deployment on approval, which is what a repo that is behind what was last
+  released produces naturally. Pass --allow-downgrade for a deliberate rollback.
+
+Dirty-tree guard:
+  When the packaged directory is inside a git work tree, a submit that would
+  really upload REFUSES while files that go into the bundle are uncommitted —
+  the bundle is built from what is on disk, so approving one deploys code that
+  exists in no commit. Pass --allow-dirty to submit the tree as it is. This
+  degrades: a directory with no git repo (every scaffolded app starts that way)
+  submits exactly as before, and a clean tree whose HEAD is on no remote warns
+  rather than refusing.
+
 Defaults to the current directory.
 
 Usage:
   civitai app submit [dir] [flags]
 
 Examples:
-  civitai app submit                 # validate + package + confirm + submit
-  civitai app submit --yes           # skip the confirmation prompt (scripts/CI)
-  civitai app submit --package-only  # just write the .zip (safe preview, never submits)
+  civitai app submit                    # validate + package + confirm + submit
+  civitai app submit --yes              # skip the confirmation prompt (scripts/CI)
+  civitai app submit --package-only     # just write the .zip (safe preview, never submits)
+  civitai app submit --allow-downgrade  # deliberate rollback below the approved version
+  civitai app submit --allow-dirty      # submit uncommitted working-tree changes on purpose
   civitai app submit -o my-block.zip ./my-block
 
 Flags:
-  -h, --help            help for submit
-  -o, --out string      output .zip path (default: <blockId>-<version>.zip)
-      --package-only    only write the .zip; do not attempt submission
-      --skip-validate   skip manifest validation before packaging
-  -y, --yes             skip the confirmation prompt and submit (for scripts/CI)
+      --allow-dirty       submit even when the packaged directory has uncommitted git changes
+      --allow-downgrade   submit even when the version is not above the highest approved one (deliberate rollback)
+  -h, --help              help for submit
+  -o, --out string        output .zip path (default: <blockId>-<version>.zip)
+      --package-only      only write the .zip; do not attempt submission
+      --skip-validate     skip manifest validation before packaging
+  -y, --yes               skip the confirmation prompt and submit (for scripts/CI)
 
 Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
@@ -470,6 +490,13 @@ rejection reason (if rejected) and the live URL (if approved + deployed).
 size: this route accepts no limit and no cursor (that is what the cap note is
 about), so the CLI always fetches the same page and prints fewer rows of it.
 --limit therefore cannot reach submissions the API did not return.
+
+When a single submission is requested AND the current directory holds a
+block.manifest.json for that same app, the local manifest version is compared
+against your highest APPROVED version. If the repo is BEHIND, a warning is
+printed on stderr — a repo behind its own live deployment is how an accidental
+downgrade gets submitted. It is advisory only: the exit code never changes, and
+nothing is said when the versions cannot be compared.
 
 Note: a submission's <blockId>.civit.ai surface only serves AFTER it is approved
 and deployed (deployState 'live').
