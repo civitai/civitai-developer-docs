@@ -1,6 +1,6 @@
 civitai CLI help snapshot (the WHOLE command tree)
 Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
-Binary version: civitai v0.1.97
+Binary version: civitai v0.1.98
 Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
 else parses this committed snapshot. To refresh: run
 node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).
@@ -417,18 +417,19 @@ Excluded DIRECTORIES, by name, at any depth:
   build, coverage, dist, node_modules, out, venv
 ...and by pattern: a DIRECTORY named .env or .env.<anything> (e.g.
   .env.d/, .env.local/, .env.production/), or ending in .zip, is dropped
-  whole at any depth. Directories whose names merely start with .env —
-  .envrc/, .env-backup/, .envs/ — are NOT dropped, and a secret-bearing
-  file inside one (db.env, prod.env) is uploaded unless the FILE rule
-  below drops it. That rule KEEPS .env.example, .env.sample and
-  .env.production BY NAME — so .env-backup/.env.production is uploaded
-  too — but only where every directory above it is itself packaged: a
-  kept name anywhere under .env.d/ or node_modules/ goes with that
-  directory.
+  whole at any depth; matching ignores case, so .ENV.D/ and x.ZIP/ go
+  too. Directories whose names merely start with .env — .envrc/,
+  .env-backup/, .envs/ — are NOT dropped, but the FILE rules still reach
+  inside them: a db.env or prod.env there is dropped by the *.env rule.
+  What survives is the allow-list, which is matched by EXACT name —
+  .env.example, .env.sample and .env.production are uploaded, so
+  .env-backup/.env.production is uploaded too, but only where every
+  directory above it is itself packaged: a kept name anywhere under
+  .env.d/ or node_modules/ goes with that directory.
 
 Excluded FILES, by base name:
   *.zip, .env, .env.local, .env.*.local, .env.development, .env.test,
-  .env*
+  .env*, *.env
 ...but these three are KEPT and uploaded, anywhere every directory above them
 is itself packaged:
   .env.example, .env.production, .env.sample
@@ -644,14 +645,16 @@ Examples:
   civitai app listing add-screenshot ./shot.png --caption "Grid view"
   civitai app listing rm-screenshot alsc_01H...
   civitai app listing reorder alsc_02 alsc_01 alsc_03
+  civitai app listing submit-revision --changelog "Refreshed the gallery"
 
 Available Commands:
-  add-screenshot Add a screenshot (up to 8) with an optional caption
-  reorder        Reorder screenshots (pass ALL current screenshot ids in the new order)
-  rm-screenshot  Remove a screenshot by its id (see `app listing status`)
-  set-cover      Set the listing cover (png, jpeg or webp, at most 4.0 MiB)
-  set-icon       Set the listing icon (png, jpeg or webp, at most 2.0 MiB)
-  status         Show attached media and what's missing vs the publish floor
+  add-screenshot  Add a screenshot (up to 8) with an optional caption
+  reorder         Reorder screenshots (pass ALL current screenshot ids in the new order)
+  rm-screenshot   Remove a screenshot by its id (see `app listing status`)
+  set-cover       Set the listing cover (png, jpeg or webp, at most 4.0 MiB)
+  set-icon        Set the listing icon (png, jpeg or webp, at most 2.0 MiB)
+  status          Show attached media and what's missing vs the publish floor
+  submit-revision Submit your live listing's open revision for moderator review
 
 Flags:
   -h, --help   help for listing
@@ -669,6 +672,7 @@ rm-screenshot	Remove a screenshot by its id (see `app listing status`)
 set-cover	Set the listing cover (png, jpeg or webp, at most 4.0 MiB)
 set-icon	Set the listing icon (png, jpeg or webp, at most 2.0 MiB)
 status	Show attached media and what's missing vs the publish floor
+submit-revision	Submit your live listing's open revision for moderator review
 :4
 ===CMD app listing set-icon===
 Set your store listing's ICON — the small image shown beside your app's name.
@@ -804,8 +808,14 @@ Global Flags:
 :0
 ===CMD app listing rm-screenshot===
 Remove a screenshot from your listing by its screenshot id (the id shown by
-`civitai app listing status`, e.g. alsc_...). Note: for a LIVE listing,
-direct screenshot edits are only possible while a revision is open.
+`civitai app listing status`, e.g. alsc_...).
+
+On a listing that is already LIVE the removal lands in the open REVISION — the
+ids `status` prints are that revision's — and it is NOT submitted, so your
+public gallery keeps the screenshot until a moderator approves the revision.
+Curating a gallery is usually several removals, so the submit stays yours to
+make: run `civitai app listing submit-revision` when the revision is what you
+want. On a DRAFT listing the removal applies to the listing itself.
 
 Usage:
   civitai app listing rm-screenshot <screenshotId> [flags]
@@ -834,6 +844,11 @@ Ordering is positional: the first id becomes the first screenshot in the
 gallery. There is no "move one" form — read the current order out of
 `civitai app listing status` and pass the whole list back.
 
+On a listing that is already LIVE this opens a REVISION and submits it for
+moderator re-review instead of reordering the live gallery — pass --changelog
+to describe the change — but a live listing still below the publish floor
+stages WITHOUT submitting, and exits 0. A DRAFT listing is reordered directly.
+
 Usage:
   civitai app listing reorder <screenshotId...> [flags]
 
@@ -842,9 +857,10 @@ Examples:
   civitai app listing reorder alsc_02 alsc_01 --slug my-app
 
 Flags:
-      --dir string    app directory holding block.manifest.json (when --slug is not given) (default ".")
-  -h, --help          help for reorder
-      --slug string   app slug (defaults to block.manifest.json's blockId)
+      --changelog string   changelog for the moderator review (used only when the listing is already live)
+      --dir string         app directory holding block.manifest.json (when --slug is not given) (default ".")
+  -h, --help               help for reorder
+      --slug string        app slug (defaults to block.manifest.json's blockId)
 
 Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
@@ -863,6 +879,19 @@ Note: on a LIVE (approved) listing this opens an in-progress revision draft and
 reports ITS media (idempotent — it reuses any existing draft, and nothing is
 submitted for moderator review until you run a set-/add- command and confirm).
 
+--json emits the same read as one object: parentId, shadowId (null when there
+is no revision draft), status, hasPendingRevision, the attached media with
+their image ids, and the publish-floor verdict. The parent and the shadow are
+DIFFERENT listings and a change is addressed to one of them, so a script that
+has to decide which needs both ids. The server's own editTargetId is NOT in
+there: this CLI does not decode that field, and reporting an id it never read
+would be a guess.
+
+🔴 --json is not a pure read, so do not poll it in a loop: on a LIVE listing
+this opens the shadow revision described above, so a script calling it
+repeatedly keeps a revision draft open on your listing. Whether that makes this
+a read at all is civitai/cli#389, which is open.
+
 Usage:
   civitai app listing status [flags]
 
@@ -870,10 +899,12 @@ Examples:
   civitai app listing status
   civitai app listing status --slug my-app
   civitai app listing status --dir ./my-app
+  civitai app listing status --json | jq -r .shadowId
 
 Flags:
       --dir string    app directory holding block.manifest.json (when --slug is not given) (default ".")
   -h, --help          help for status
+      --json          emit the listing as JSON (scriptable) — includes the parent and shadow listing ids; NOT a pure read (see the note in --help)
       --slug string   app slug (defaults to block.manifest.json's blockId)
 
 Global Flags:
@@ -881,6 +912,40 @@ Global Flags:
       --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
 ===CMD complete app listing status===
+:0
+===CMD app listing submit-revision===
+Submit the REVISION your live listing already has open — the one that
+`civitai app listing status` reports and that `rm-screenshot` writes into — for
+moderator re-review. Pass --changelog to describe the change.
+
+Only an approved (LIVE) listing has a revision: a draft or pending listing is
+edited directly, so there is nothing to submit and this refuses. It refuses too
+when there is no open revision to submit, rather than sending a moderator an
+empty one.
+
+The revision is submitted as it stands, so stage everything you want in one
+review cycle first. Submitting is idempotent — a revision already awaiting
+review returns that same request rather than opening a second.
+
+Usage:
+  civitai app listing submit-revision [flags]
+
+Examples:
+  civitai app listing submit-revision
+  civitai app listing submit-revision --changelog "Dropped the outdated grid shot"
+  civitai app listing submit-revision --slug my-app
+
+Flags:
+      --changelog string   changelog for the moderator review
+      --dir string         app directory holding block.manifest.json (when --slug is not given) (default ".")
+  -h, --help               help for submit-revision
+      --slug string        app slug (defaults to block.manifest.json's blockId)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete app listing submit-revision===
 :0
 ===CMD app list===
 List published Apps from the Civitai store via GET /api/v1/apps.
