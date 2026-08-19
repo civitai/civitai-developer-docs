@@ -1,6 +1,6 @@
 civitai CLI help snapshot (the WHOLE command tree)
 Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
-Binary version: civitai v0.1.98
+Binary version: civitai v0.1.99
 Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
 else parses this committed snapshot. To refresh: run
 node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).
@@ -420,22 +420,24 @@ Excluded DIRECTORIES, by name, at any depth:
   whole at any depth; matching ignores case, so .ENV.D/ and x.ZIP/ go
   too. Directories whose names merely start with .env — .envrc/,
   .env-backup/, .envs/ — are NOT dropped, but the FILE rules still reach
-  inside them: a db.env or prod.env there is dropped by the *.env rule.
-  What survives is the allow-list, which is matched by EXACT name —
-  .env.example, .env.sample and .env.production are uploaded, so
-  .env-backup/.env.production is uploaded too, but only where every
-  directory above it is itself packaged: a kept name anywhere under
-  .env.d/ or node_modules/ goes with that directory.
+  inside them: a db.env or prod.env there is dropped by the *.env rule,
+  and so is a .env.production, because the allow-list applies at the
+  PROJECT ROOT only. .env.example, .env.sample and .env.production are
+  uploaded from the root and dropped everywhere else —
+  .env-backup/.env.production, backups/.env.production and
+  .env.d/.env.production all go.
 
 Excluded FILES, by base name:
   *.zip, .env, .env.local, .env.*.local, .env.development, .env.test,
   .env*, *.env
-...but these three are KEPT and uploaded, anywhere every directory above them
-is itself packaged:
+...but these three are KEPT and uploaded, AT THE PROJECT ROOT ONLY:
   .env.example, .env.production, .env.sample
-Nothing reads their contents, so put no token in any of them. A kept name does
-NOT rescue its directory: .env.d/.env.production and
-node_modules/pkg/.env.production are both dropped.
+Nothing reads their contents, so put no token in any of them. The allow-list
+does not travel: app/.env.production and .env-backup/.env.production are
+dropped, and the Skipped line names each one with the rule that matched.
+A kept name does not rescue its directory either: under node_modules/ or
+.env.d/ the whole directory goes, and the Skipped line names the DIRECTORY,
+not the file inside it.
 
 The two lists are separate rules, so the shape matters: a regular file named
 build or dist IS packaged, and .git / .hg / .svn go either way (in a linked
@@ -473,6 +475,16 @@ Dirty-tree guard:
   degrades: a directory with no git repo (every scaffolded app starts that way)
   submits exactly as before, and a clean tree whose HEAD is on no remote warns
   rather than refusing.
+
+Build provenance:
+  A submit that really uploads also STAMPS the commit it was built from — the
+  40-character sha of HEAD, plus whether the work tree was dirty — so
+  `civitai app status` can later say which source a live version came from.
+  It is a CLAIM, not a proof: the server records what this CLI reports and
+  cannot verify the bundle was built from that commit. It degrades the same way
+  the guard does — no repo, no git, or a repo with no commits sends nothing at
+  all rather than a guess — and --allow-dirty still stamps, marking the
+  submission dirty, because that is the case worth being able to look up.
 
 Defaults to the current directory.
 
@@ -526,6 +538,14 @@ against your highest APPROVED version. If the repo is BEHIND, a warning is
 printed on stderr — a repo behind its own live deployment is how an accidental
 downgrade gets submitted. It is advisory only: the exit code never changes, and
 nothing is said when the versions cannot be compared.
+
+The SOURCE column (and the detail view's "Source commit" line) is the commit the
+submitting client CLAIMED it built the bundle from — abbreviated in the table,
+full in the detail view and in --json. It is stored unverified: the server
+records what the client reported and cannot check it. A "-" means nothing was
+reported (a submission from before the CLI sent it, or from a directory that is
+in no git repo), which is NOT the same as a clean build; "(dirty)" means the
+client said uncommitted changes went into that bundle.
 
 Note: a submission's <blockId>.civit.ai surface only serves AFTER it is approved
 and deployed (deployState 'live').
@@ -887,10 +907,12 @@ has to decide which needs both ids. The server's own editTargetId is NOT in
 there: this CLI does not decode that field, and reporting an id it never read
 would be a guess.
 
-🔴 --json is not a pure read, so do not poll it in a loop: on a LIVE listing
-this opens the shadow revision described above, so a script calling it
-repeatedly keeps a revision draft open on your listing. Whether that makes this
-a read at all is civitai/cli#389, which is open.
+🔴 This is not a pure read — with or without --json — so do not poll it in a
+loop: on a LIVE listing it opens the shadow revision described above, so a
+script calling it repeatedly keeps a revision draft open on your listing. That
+holds for an OFFSITE app too, and they are approved in practice.
+civitai/cli#389 settled that a FAILED call writes nothing; a successful one
+still does.
 
 Usage:
   civitai app listing status [flags]
