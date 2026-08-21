@@ -118,6 +118,8 @@ Training takes minutes to hours depending on dataset size and `steps`. Always su
   - Any HTTPS URL that returns the zip without auth
 - An accurate `count` of images in the zip — used for batch sizing
 
+No hosted zip? Upload each image through `POST /v2/consumer/blobs` instead and pass them as `trainingData.items` — see [Training data as blobs](#blobs-training-data).
+
 ## SDXL
 
 Stable Diffusion XL trains at 1024² and produces a LoRA usable with any SDXL checkpoint. The base checkpoint defaults to `urn:air:sdxl:checkpoint:civitai:101055@128078` (Juggernaut XL); override `model` to train on top of a different SDXL checkpoint.
@@ -255,13 +257,55 @@ These apply to every AI Toolkit training input regardless of ecosystem. Defaults
 | `shuffleTokens` | | `false` | Randomize caption-tag order. |
 | `keepTokens` | | `0` | `0`–`10`. When `shuffleTokens: true`, keep the first N tokens fixed. |
 | `triggerWord` | | *(none)* | Activation token recommended for character/style LoRAs. |
-| `trainingData.type` | ✅ | — | `zip` (only currently supported type). |
-| `trainingData.sourceUrl` | ✅ | — | Signed HTTPS URL or Civitai R2 AIR. |
-| `trainingData.count` | ✅ | — | Number of images in the zip. |
+| `trainingData.type` | ✅ | — | `zip` or `blobs` (see [Training data as blobs](#blobs-training-data)). |
+| `trainingData.sourceUrl` | ✅ (zip) | — | Signed HTTPS URL or Civitai R2 AIR. |
+| `trainingData.count` | ✅ (zip) | — | Number of images in the zip. |
+| `trainingData.items[]` | ✅ (blobs) | — | Up to 1000 `{ air, caption? }` objects referencing consumer-uploaded blobs. |
 | `samples.prompts[]` | | `[]` | Up to a handful of preview prompts rendered at each saved checkpoint with the trained LoRA at strength 1.0. Empty entries are skipped. |
 | `samples.negativePrompt` | | *(none)* | Applied to all sample prompts. |
 | `samples.cfgScale` | | *(ecosystem default)* | Overrides the CFG / guidance scale used when rendering the preview samples. |
 | `samples.strength` | | `1.0` | Trained-LoRA weight applied in the preview samples. |
+
+## Training data as blobs {#blobs-training-data}
+
+If you don't have your dataset hosted as a zip, upload each image individually through [`UploadConsumerBlob`](/orchestration/reference/operations/UploadConsumerBlob) (`POST /v2/consumer/blobs`) and pass the returned blobs as `trainingData.items`. Every image goes through per-asset moderation on upload — which is why the blob endpoint accepts images but not zips.
+
+```http
+POST https://orchestration.civitai.com/v2/consumer/blobs
+Authorization: Bearer <your-token>
+Content-Type: image/jpeg
+
+< ./cat-01.jpg
+```
+
+The response's `id` is the blob key. Reference it in any of three equivalent forms — the bare key, the blob URL from the response, or the AIR urn `urn:air:other:other:orchestrator:blob@<id>`:
+
+```json
+{
+  "$type": "training",
+  "input": {
+    "engine": "ai-toolkit",
+    "ecosystem": "sdxl",
+    "steps": 2000,
+    "trainingData": {
+      "type": "blobs",
+      "items": [
+        { "air": "urn:air:other:other:orchestrator:blob@<id1>" },
+        { "air": "<id2>", "caption": "catz sitting on a windowsill, looking at viewer" },
+        { "air": "<id3>", "caption": "catz curled up asleep on a red blanket" }
+      ]
+    }
+  }
+}
+```
+
+Rules and behavior:
+
+- `items` are objects with a required `air` and an optional `caption` (max 1024 characters). Captions serve the same role as the `.txt` sidecar files in a training zip; items without one fall back to the trigger word / default caption.
+- At most **1000 items**, each referenced blob at most once. Any media type the blob endpoint accepts works (`jpg`, `png`, `webp`, `mp4`, `webm`, `mp3`, `wav`) — use images for the SD family, videos for video ecosystems like WAN/LTX, audio for ACE-Step.
+- There is no `count` field — the item count is `items.length`.
+- Uploaded blobs are retained for ~30 days (each re-upload or training submission refreshes the clock), so upload and train within the same session or at least the same month.
+- Item order matters for training-run dedup: resubmitting the same set in a different order is treated as a new training run.
 
 ## Continue training / train further {#continue-training}
 
