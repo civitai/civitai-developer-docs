@@ -72,14 +72,15 @@ const pngBody = {
 {
   "$type": "convertImage",
   "input": {
-    "image":      "https://...",       // source — URL, data URL, or Base64
-    "transforms": [ /* optional */ ],  // resize / blur — applied in order
-    "output":     { "format": "jpeg" } // required — format + per-format settings
+    "image":      "https://...",        // source — URL, data URL, or Base64
+    "transforms": [ /* optional */ ],   // resize / blur — applied in order
+    "output":     { "format": "jpeg" }, // required — format + per-format settings
+    "public":     false                 // optional — restricted, see "Public output"
   }
 }
 ```
 
-`transforms` is optional (omit to change format or settings only). `output` is required.
+`transforms` is optional (omit to change format or settings only). `output` is required. `public` is optional and restricted — see [Public output](#public-output).
 
 ## Examples
 
@@ -261,6 +262,28 @@ JPEG and PNG are inherently single-frame. Animated source images (GIF, animated 
 
 Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL.
 
+## Public output
+
+`"public": true` stores the result in a bucket that serves it directly. The returned `url` is then unsigned and permanent for the blob's lifetime, and `urlExpiresAt` is `null`:
+
+```json
+{
+  "blob": {
+    "id": "blob_...",
+    "url": "https://.../blob_....jpg",
+    "urlExpiresAt": null
+  }
+}
+```
+
+The point of this is caching. A signed URL carries a fresh signature every time it is issued, so the same image is a different URL — and a different CDN cache key — on every request. An unsigned URL is stable, so a CDN can serve it, and reads never reach the orchestrator at all.
+
+::: warning Restricted, and genuinely public
+This field requires an elevated token; ordinary consumer tokens get `403`. Anyone holding the URL can read the object, with no NSFW level, blocked reason, or mature-content restriction applied — and because the URL is served straight from storage, a block decided *after* the fact does not take it back. Only deleting the blob does.
+:::
+
+A public result does not reuse a cached private one, or vice versa. The two are separate objects, so asking for `"public": true` re-runs the conversion even when the same conversion already exists privately.
+
 ::: tip Result caching
 `convertImage` is deterministic: the same source image, transforms, and output settings always produce the same blob. The orchestrator caches the result, so repeated identical calls skip re-processing and return the cached blob immediately.
 :::
@@ -305,6 +328,7 @@ Flat **1 Buzz** per step — regardless of source image size, number of transfor
 | `400` with "targetWidth out of range" | Value outside 1–4096 | Clamp to 1–4096. |
 | `400` with "blur out of range" | Value outside 1–100 | Clamp to 1–100. |
 | `400` with "mode is required" | Blur transform sent without `mode` | `mode` is required on `blur` — set `"include"` or `"exclude"`. |
+| `403` with "Publicly readable blob output is restricted to privileged callers" | `"public": true` on an ordinary token | Drop `public` (or omit it) — the default signed URL works for every caller. |
 | Output height different from expected | `resize` maintains aspect ratio | Only `targetWidth` is specified; height is derived from the original aspect ratio. |
 | Animated source collapsed to one frame | JPEG or PNG output requested | These formats are single-frame; use WebP or GIF output to preserve animation. |
 
