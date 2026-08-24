@@ -47,7 +47,7 @@ const v30T2vBody = {
   steps: [{
     $type: 'videoGen',
     input: {
-      engine: 'wan', version: 'v3.0', provider: 'fal', operation: 'text-to-video',
+      engine: 'wan', version: 'v3.0', operation: 'text-to-video',
       prompt: 'A serene forest with sunlight filtering through the trees, cinematic quality',
       resolution: '1080p', aspectRatio: '16:9', duration: 5,
       enablePromptExpansion: true,
@@ -59,7 +59,7 @@ const v30I2vBody = {
   steps: [{
     $type: 'videoGen',
     input: {
-      engine: 'wan', version: 'v3.0', provider: 'fal', operation: 'image-to-video',
+      engine: 'wan', version: 'v3.0', operation: 'image-to-video',
       startImage: sampleImage,
       prompt: 'The camera slowly pushes in as the subject turns toward the light',
       resolution: '720p', duration: 5,
@@ -89,7 +89,7 @@ WAN is an open video-generation model family. The orchestrator exposes every shi
 
 | `version` | Providers | Operations | Notes |
 |-----------|-----------|------------|-------|
-| `v3.0` | `fal` | `text-to-video`, `image-to-video` | Newest release. Adds `480p`; prompt expansion on by default. |
+| `v3.0` | — | `text-to-video`, `image-to-video` | Newest release. Adds `480p`; prompt expansion on by default. |
 | `v2.7` | `fal` | `text-to-video`, `image-to-video`, `reference-to-video`, `edit-video` | Widest operation set — the only version with `edit-video`. |
 | `v2.6` | `fal` | `text-to-video`, `image-to-video`, `reference-to-video` | Production default for new integrations. |
 | `v2.5` | `fal` | `text-to-video`, `image-to-video` | Still supported; fewer operations than 2.6/2.7. |
@@ -100,7 +100,7 @@ WAN is an open video-generation model family. The orchestrator exposes every shi
 
 ## The request shape
 
-Every WAN request is a single `videoGen` step on [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow). Four keys select which WAN variant runs:
+Every WAN request is a single `videoGen` step on [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow). Up to four keys select which WAN variant runs:
 
 ```json
 {
@@ -108,7 +108,7 @@ Every WAN request is a single `videoGen` step on [`SubmitWorkflow`](/orchestrati
   "input": {
     "engine":    "wan",
     "version":   "v2.6",         // 2.1 | 2.2 | 2.5 | 2.6 | 2.7 | 3.0
-    "provider":  "fal",          // fal | comfy | civitai (version-dependent)
+    "provider":  "fal",          // fal | comfy | civitai (2.1–2.7 only; v3.0 has none)
     "operation": "text-to-video" // see table above
   }
 }
@@ -223,7 +223,7 @@ Replace `https://example.com/input.mp4` with a real publicly fetchable video URL
 
 ## WAN 3.0
 
-The newest release. `text-to-video` and `image-to-video` only, with a smaller, flatter input surface than 2.6/2.7: no `multiShots`, no audio attachment, no reference clips, and no `enableSafetyChecker`. Three things are new:
+The newest release, and the only version with **no `provider` key** — it runs on one backend, so `version` and `operation` fully specify the request. The input surface is smaller and flatter than 2.6/2.7: no `multiShots`, no audio attachment, no reference clips, and no `enableSafetyChecker`. Three things are new:
 
 - **`480p`** joins `720p` and `1080p`, for cheap drafts.
 - **`enablePromptExpansion` defaults to `true`.** Prompt rewriting improves results from short prompts but adds 20–60 s of latency. Set it to `false` for the fastest turnaround, and write a fully-specified prompt when you do.
@@ -233,7 +233,6 @@ The newest release. `text-to-video` and `image-to-video` only, with a smaller, f
 {
   "engine": "wan",
   "version": "v3.0",
-  "provider": "fal",
   "operation": "text-to-video",
   "prompt": "A serene forest with sunlight filtering through the trees, cinematic quality",
   "resolution": "1080p",
@@ -251,7 +250,6 @@ Image-to-video takes `startImage` (and optionally `endImage`), like v2.7:
 {
   "engine": "wan",
   "version": "v3.0",
-  "provider": "fal",
   "operation": "image-to-video",
   "startImage": "https://image.civitai.com/.../19325406.jpeg",
   "prompt": "The camera slowly pushes in as the subject turns toward the light",
