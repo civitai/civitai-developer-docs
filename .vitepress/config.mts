@@ -177,6 +177,7 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Generating images (text-to-image)', link: '/apps/guide/text-to-image' },
         { text: 'Comfy on Civitai (customComfy)', link: '/apps/guide/comfy-cloud' },
         { text: 'Running embedded & direct traffic', link: '/apps/guide/embedding' },
+        { text: 'Markup that holds up', link: '/apps/guide/markup' },
         { text: 'Theming & design system', link: '/apps/guide/theming' },
         // The heading pins an explicit `{#retrofit}` anchor, so the auto-slug
         // this link used to guess (`#theming-an-existing-app-…`) never existed.
