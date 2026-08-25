@@ -43,6 +43,31 @@ const r2vBody = {
   }],
 };
 
+const v30T2vBody = {
+  steps: [{
+    $type: 'videoGen',
+    input: {
+      engine: 'wan', version: 'v3.0', operation: 'text-to-video',
+      prompt: 'A serene forest with sunlight filtering through the trees, cinematic quality',
+      resolution: '1080p', aspectRatio: '16:9', duration: 5,
+      enablePromptExpansion: true,
+    },
+  }],
+};
+
+const v30I2vBody = {
+  steps: [{
+    $type: 'videoGen',
+    input: {
+      engine: 'wan', version: 'v3.0', operation: 'image-to-video',
+      startImage: sampleImage,
+      prompt: 'The camera slowly pushes in as the subject turns toward the light',
+      resolution: '720p', duration: 5,
+      enablePromptExpansion: false, usePrime: true,
+    },
+  }],
+};
+
 const editBody = {
   steps: [{
     $type: 'videoGen',
@@ -64,7 +89,8 @@ WAN is an open video-generation model family. The orchestrator exposes every shi
 
 | `version` | Providers | Operations | Notes |
 |-----------|-----------|------------|-------|
-| `v2.7` | `fal` | `text-to-video`, `image-to-video`, `reference-to-video`, `edit-video` | Current flagship. Adds `edit-video`. |
+| `v3.0` | — | `text-to-video`, `image-to-video` | Newest release. Adds `480p`; prompt expansion on by default. |
+| `v2.7` | `fal` | `text-to-video`, `image-to-video`, `reference-to-video`, `edit-video` | Widest operation set — the only version with `edit-video`. |
 | `v2.6` | `fal` | `text-to-video`, `image-to-video`, `reference-to-video` | Production default for new integrations. |
 | `v2.5` | `fal` | `text-to-video`, `image-to-video` | Still supported; fewer operations than 2.6/2.7. |
 | `v2.2` | `fal`, `comfy` | `text-to-video`, `image-to-video` | Only version with a native ComfyUI path. Supports LoRAs + Turbo mode. |
@@ -74,15 +100,15 @@ WAN is an open video-generation model family. The orchestrator exposes every shi
 
 ## The request shape
 
-Every WAN request is a single `videoGen` step on [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow). Four keys select which WAN variant runs:
+Every WAN request is a single `videoGen` step on [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow). Up to four keys select which WAN variant runs:
 
 ```json
 {
   "$type": "videoGen",
   "input": {
     "engine":    "wan",
-    "version":   "v2.6",         // 2.1 | 2.2 | 2.5 | 2.6 | 2.7
-    "provider":  "fal",          // fal | comfy | civitai (version-dependent)
+    "version":   "v2.6",         // 2.1 | 2.2 | 2.5 | 2.6 | 2.7 | 3.0
+    "provider":  "fal",          // fal | comfy | civitai (2.1–2.7 only; v3.0 has none)
     "operation": "text-to-video" // see table above
   }
 }
@@ -144,7 +170,7 @@ One or more source images animate into a clip. Supported on every version.
 
 <RecipeRun :body="i2vBody" />
 
-**v2.7 image-to-video uses `startImage` + `endImage`** (not `images[]`). Pass `startImage` to seed the first frame and optionally `endImage` to constrain the last frame (useful for loops and transitions). The `images[]` array accepted by v2.6 is not available on v2.7.
+**v2.7 and v3.0 image-to-video use `startImage` + `endImage`** (not `images[]`). Pass `startImage` to seed the first frame and optionally `endImage` to constrain the last frame (useful for loops and transitions). The `images[]` array accepted by v2.6 is not available on v2.7 or v3.0.
 
 ### reference-to-video *(v2.6, v2.7)*
 
@@ -195,24 +221,65 @@ Input video + prompt → transformed video. Preserves timing; rewrites content.
 Replace `https://example.com/input.mp4` with a real publicly fetchable video URL before submitting.
 :::
 
+## WAN 3.0
+
+The newest release, and the only version with **no `provider` key** — it runs on one backend, so `version` and `operation` fully specify the request. The input surface is smaller and flatter than 2.6/2.7: no `multiShots`, no audio attachment, no reference clips, and no `enableSafetyChecker`. Three things are new:
+
+- **`480p`** joins `720p` and `1080p`, for cheap drafts.
+- **`enablePromptExpansion` defaults to `true`.** Prompt rewriting improves results from short prompts but adds 20–60 s of latency. Set it to `false` for the fastest turnaround, and write a fully-specified prompt when you do.
+- **`usePrime`** switches to the Prime model. Output quality is identical — Prime only returns sooner, and costs about 40% more. Leave it `false` unless latency matters more than cost.
+
+```json
+{
+  "engine": "wan",
+  "version": "v3.0",
+  "operation": "text-to-video",
+  "prompt": "A serene forest with sunlight filtering through the trees, cinematic quality",
+  "resolution": "1080p",
+  "aspectRatio": "16:9",
+  "duration": 5,
+  "enablePromptExpansion": true
+}
+```
+
+<RecipeRun :body="v30T2vBody" />
+
+Image-to-video takes `startImage` (and optionally `endImage`), like v2.7:
+
+```json
+{
+  "engine": "wan",
+  "version": "v3.0",
+  "operation": "image-to-video",
+  "startImage": "https://image.civitai.com/.../19325406.jpeg",
+  "prompt": "The camera slowly pushes in as the subject turns toward the light",
+  "resolution": "720p",
+  "duration": 5,
+  "enablePromptExpansion": false,
+  "usePrime": true
+}
+```
+
+<RecipeRun :body="v30I2vBody" />
+
 ## Common parameters
 
 These appear on most (version, operation) combinations; the schema for your chosen variant is the source of truth.
 
 | Field | Typical values | Notes |
 |-------|----------------|-------|
-| `resolution` | `720p`, `1080p` | 1080p costs more and takes longer. |
-| `aspectRatio` | `16:9`, `9:16`, `1:1` | Vertical for reels/shorts. |
+| `resolution` | `720p`, `1080p` (plus `480p` on v3.0) | 1080p costs more and takes longer. |
+| `aspectRatio` | `16:9`, `9:16`, `1:1` | Vertical for reels/shorts. v3.0 text-to-video also takes `4:3` / `3:4`; v3.0 image-to-video takes none — the ratio comes from the source image. |
 | `duration` | `5`, `10` (seconds) | Longer clips push you past the 100 s `wait` cap — use webhooks. |
-| `enablePromptExpansion` | `true` \| `false` | Let the model expand short prompts. Disable for reproducibility. |
-| `enableSafetyChecker` | `true` (default) | Disable only if you handle moderation yourself. |
-| `audioUrl` / `audioSetting` | URL or `auto` | Attach background audio (2.6+) or drive audio inference (2.7 edit). |
+| `enablePromptExpansion` | `true` \| `false` | Let the model expand short prompts. Disable for reproducibility, or on v3.0 to cut 20–60 s of latency. |
+| `enableSafetyChecker` | `true` (default) | Disable only if you handle moderation yourself. Not accepted on v3.0. |
+| `audioUrl` / `audioSetting` | URL or `auto` | Attach background audio (2.6 / 2.7) or drive audio inference (2.7 edit). Not on v3.0. |
 
 ## Provider-specific features
 
-### `fal` (all versions)
+### `fal` (2.1–2.7)
 
-Hosted inference with low queue time. `provider: "fal"` is the production default; `enablePromptExpansion` and audio attachment only exist on these variants.
+Hosted inference with low queue time. `provider: "fal"` is the production default for these versions; audio attachment only exists on these variants. (v3.0 takes no `provider` — see [WAN 3.0](#wan-3-0).)
 
 ### Comfy (v2.2 only)
 
@@ -261,7 +328,7 @@ WAN jobs routinely run longer than 100 s (any 1080p clip ≥ 10 s; reference-to-
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| `400` with unknown field | Field isn't valid for this `(version, provider, operation)` combo | Check the specific `Wan<X><Provider><Op>Input` schema via [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow). |
+| `400` with unknown field | Field isn't valid for this `(version, provider, operation)` combo | Check the specific input schema via [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — `Wan26FalTextToVideoInput`, `Wan30TextToVideoInput`, and so on. |
 | Step `failed`, `error.code = "no_provider"` | No capacity for that resolution/duration on the chosen provider | Retry, drop to 720p, or switch provider. |
 | `workflow:processing` after `wait=90` returns | Job ran past the 100 s timeout | Expected — continue via webhook or poll. |
 | Blob URL `403` after a few minutes | Signed URL expired | Refetch the workflow to get a fresh URL. |
@@ -272,6 +339,23 @@ WAN jobs routinely run longer than 100 s (any 1080p clip ≥ 10 s; reference-to-
 Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
 
 WAN video pricing varies by `version`, `provider`, `resolution`, and acceleration flags. All the numbers below are per **single video** (not per second per clip unless noted).
+
+### v3.0
+
+Per-second, scaled by resolution. Prime costs about 40% more for the same output:
+
+| Resolution | Buzz per second | Prime |
+|-----------|-----------------|-------|
+| `480p` | **65** | 88.4 |
+| `720p` | **130** | 182 |
+| `1080p` | **260** | 364 |
+
+```
+total = buzzPerSecond × duration_seconds
+```
+
+- 1080p × 5 s → **1 300 Buzz** (Prime: 1 820)
+- 720p × 5 s → **650 Buzz** (Prime: 910)
 
 ### v2.7 (`fal`)
 
@@ -359,6 +443,6 @@ For new integrations on `v2.6` / `v2.7` at 720p × 5 s with no LoRAs, expect **~
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
 - [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — production-ready result handling
-- Full parameter catalog: the `Wan<version><Provider><Operation>Input` schemas in the [API reference](/orchestration/reference/) (e.g. `Wan26FalTextToVideoInput`, `Wan27FalEditVideoInput`)
+- Full parameter catalog: the `Wan…Input` schemas in the [API reference](/orchestration/reference/) (e.g. `Wan26FalTextToVideoInput`, `Wan27FalEditVideoInput`, `Wan30TextToVideoInput`)
 - [MiniMax H3](./minimax-h3) — 2K native video with first/last-frame and reference video + audio
 - [`videoGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/videoGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `videoGen` surface (WAN, LTX2, Flux, etc.); import into Postman / OpenAPI Generator

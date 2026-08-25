@@ -12,7 +12,7 @@ These are **Orchestration REST API** recipes — you hold a Bearer token and POS
 
 ## Video
 
-- [WAN video generation](./wan) — all WAN versions (2.1–2.7) across FAL, Comfy, and Civitai, with text-to-video, image-to-video, reference-to-video, and edit-video operations
+- [WAN video generation](./wan) — all WAN versions (2.1–3.0) across FAL, Comfy, Civitai, and Alibaba, with text-to-video, image-to-video, reference-to-video, and edit-video operations
 - [LTX2 video generation](./ltx2) — Lightricks LTX2 and LTX2.3 on Comfy, including the new videoToVideo (style transfer) and audioToVideo (talking-head) operations
 - [Kling video generation](./kling) — Kuaishou Kling (v1/v1.5/v1.6/v2/v2.5-turbo with camera control) and Kling V3 (5 operations, multi-prompt, audio, video-to-video)
 - [Vidu video generation](./vidu) — Vidu 2.0 (flat 600 Buzz, anime style, first-last-frame) and Vidu Q3 (per-second pricing, 4 resolution tiers, turbo mode, native audio)
