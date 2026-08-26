@@ -1,6 +1,6 @@
 civitai CLI help snapshot (the WHOLE command tree)
 Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
-Binary version: civitai v0.1.99
+Binary version: civitai v0.1.101
 Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
 else parses this committed snapshot. To refresh: run
 node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).
@@ -153,6 +153,7 @@ Examples:
   civitai app validate ./my-block
   civitai app submit ./my-block
   civitai app status
+  civitai app doctor
   civitai app metrics my-block
   civitai app withdraw pubreq_01H
   civitai app dev-token my-block
@@ -161,6 +162,7 @@ Available Commands:
   create      Create a ready-to-build App (batteries-included, SDK money-path)
   dev-token   Mint a short-lived dev block token for `npm run dev:live`
   dev-tunnel  Preview your LOCAL dev server inside the real Civitai host via a hardened tunnel
+  doctor      Diagnose what is incomplete or blocked on your App store listings
   init        Scaffold a ready-to-build App project
   list        Discover published Apps in the store (GET /api/v1/apps)
   listing     Manage your App store-listing media (icon, cover, screenshots)
@@ -185,6 +187,7 @@ Use "civitai app [command] --help" for more information about a command.
 create	Create a ready-to-build App (batteries-included, SDK money-path)
 dev-token	Mint a short-lived dev block token for `npm run dev:live`
 dev-tunnel	Preview your LOCAL dev server inside the real Civitai host via a hardened tunnel
+doctor	Diagnose what is incomplete or blocked on your App store listings
 init	Scaffold a ready-to-build App project
 list	Discover published Apps in the store (GET /api/v1/apps)
 listing	Manage your App store-listing media (icon, cover, screenshots)
@@ -660,6 +663,7 @@ Usage:
 
 Examples:
   civitai app listing status
+  civitai app listing set-text --tagline "Batch upscaling, in your browser"
   civitai app listing set-icon ./assets/icon.png
   civitai app listing set-cover ./assets/cover.png
   civitai app listing add-screenshot ./shot.png --caption "Grid view"
@@ -673,6 +677,7 @@ Available Commands:
   rm-screenshot   Remove a screenshot by its id (see `app listing status`)
   set-cover       Set the listing cover (png, jpeg or webp, at most 4.0 MiB)
   set-icon        Set the listing icon (png, jpeg or webp, at most 2.0 MiB)
+  set-text        Set your listing's tagline, description or category
   status          Show attached media and what's missing vs the publish floor
   submit-revision Submit your live listing's open revision for moderator review
 
@@ -691,6 +696,7 @@ reorder	Reorder screenshots (pass ALL current screenshot ids in the new order)
 rm-screenshot	Remove a screenshot by its id (see `app listing status`)
 set-cover	Set the listing cover (png, jpeg or webp, at most 4.0 MiB)
 set-icon	Set the listing icon (png, jpeg or webp, at most 2.0 MiB)
+set-text	Set your listing's tagline, description or category
 status	Show attached media and what's missing vs the publish floor
 submit-revision	Submit your live listing's open revision for moderator review
 :4
@@ -935,6 +941,61 @@ Global Flags:
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
 ===CMD complete app listing status===
 :0
+===CMD app listing set-text===
+Set the store listing's TEXT fields — tagline, description and category.
+
+These are the three problems `civitai app doctor` reports as
+empty-tagline / empty-description / empty-category, and this is the command that
+fixes them without the browser.
+
+Pass any combination of --tagline, --description and --category; they are sent
+as ONE patch, so a run either applies or does not. At least one is required.
+
+CLEARING vs EMPTYING are different server states and both are reachable:
+--tagline "" sets an EMPTY STRING; --clear tagline sets it to NULL. --clear
+takes a comma-separated list (tagline, description, category)
+and cannot be combined with the matching value flag.
+
+Blanking a field needs --yes, so an unset shell variable cannot silently empty
+a public field. Whitespace-only counts as blank (the server trims).
+
+CATEGORY must be one of:
+generation, games, utility, discovery, moderation, analytics, other
+
+ON-SITE apps are REFUSED (exit 1 — a verdict about the app, not a bad command):
+their copy comes from block.manifest.json and the platform overwrites it at your
+next approved version. Edit the manifest instead.
+
+This applies IN PLACE on every listing status — these are not "material"
+changes, so they never open a revision for re-review. The server rate-limits
+these edits (roughly 30 an hour).
+
+Usage:
+  civitai app listing set-text [flags]
+
+Examples:
+  civitai app listing set-text --tagline "Batch upscaling, in your browser"
+  civitai app listing set-text --category utility --slug my-app
+  civitai app listing set-text --description "$(cat DESCRIPTION.md)"
+  civitai app listing set-text --clear tagline,category
+
+Flags:
+      --category string      set the marketplace category: generation, games, utility, discovery, moderation, analytics, other
+      --clear strings        clear a field to null instead of setting it: tagline, description, category (comma-separated)
+      --description string   set the long description (max 2000 characters)
+      --dir string           app directory holding block.manifest.json (when --slug is not given) (default ".")
+  -h, --help                 help for set-text
+      --json                 emit the result as JSON (scriptable) — what was sent, and the server's own branch
+      --slug string          app slug (defaults to block.manifest.json's blockId)
+      --tagline string       set the short tagline (max 140 characters)
+  -y, --yes                  permit a blank value for --tagline/--description/--category; blanks are refused without it (the check is on the VALUE you passed, not on the field's current contents)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete app listing set-text===
+:0
 ===CMD app listing submit-revision===
 Submit the REVISION your live listing already has open — the one that
 `civitai app listing status` reports and that `rm-screenshot` writes into — for
@@ -1058,8 +1119,11 @@ command therefore always prints the window the SERVER served (echoed from the
 response), not the one you asked for. Pass --from / --to as a plain YYYY-MM-DD
 date (midnight UTC) or a full RFC3339 timestamp to widen it.
 
-CREDENTIAL: the analytics query is full-scope, so it needs a full-scope personal API key (`civitai login --token <key>`, created at https://civitai.com/user/account);
-an OAuth browser login is refused with 403.
+CREDENTIAL: the analytics query needs the Apps submit scope — the same bit
+`civitai app submit` and `civitai app status` require — so it accepts
+an OAuth login (`civitai login`) carrying the Apps submit scope, or a full-scope personal API key (`civitai login --token <key>`, created at https://civitai.com/user/account). An OAuth
+token minted before that scope existed does not carry it and is refused with
+403; re-run `civitai login` to mint one that does.
 
 DATA CAVEAT: engagement counts only AUTHENTICATED, scope-gated API calls. An app
 that ships no scoped API surface will show real installs and revenue with a flat
@@ -1265,6 +1329,66 @@ Global Flags:
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
 ===CMD complete app pull===
 --app	the app slug (repo name) or appBlockId to pull (required)
+:0
+===CMD app doctor===
+Report what is missing or blocked on your App store listings, and how to fix it.
+
+With no argument it checks EVERY listing you own or hold an accepted
+collaborator seat on. Pass an app slug to check just that one.
+
+Findings come from the platform, grouped per app, blocking first:
+
+  BLOCKING   the listing cannot publish until it is fixed — a missing icon or
+             cover, or an asset the content scan BLOCKED.
+  ADVISORY   recommended, but nothing is held up — no screenshots, or an empty
+             description, tagline or category.
+
+An app with nothing wrong is reported as complete, explicitly. A blank space is
+not an answer.
+
+Each finding prints the command or URL that fixes it. The three TEXT problems
+(description / tagline / category) depend on the app KIND: an on-site app's copy
+comes from block.manifest.json, an off-site app's from the web listing editor.
+A blocked asset is REPLACED for an icon or cover, but a blocked screenshot must
+be REMOVED — adding another does not clear it.
+
+DELISTED LISTINGS: an app whose status is 'removed' is still reported, in its
+own section, but its blocking problems do NOT set the exit code. The publish
+floor is a statement about a listing that is trying to publish, and a delisted
+one is not — without this, one old removed app would fail every run forever.
+
+EXIT CODES: 1 when a blocking problem was found on a listing that can still
+publish, 0 otherwise — including when only advisories were found, when the only
+blocking problems are on delisted listings, and when you have no listings at
+all. So it gates a release script directly:
+
+    civitai app doctor my-app || exit 1
+
+Every other exit code keeps its usual meaning (3 not authorized, 4 no such app,
+5 transport). --json emits the same verdict as one object and uses the same exit
+codes, so a script must branch on the code before trusting the payload.
+
+Unlike `civitai app listing status`, this is a PURE READ — it opens no
+revision draft on a live listing, so it is safe to run in a loop.
+
+Usage:
+  civitai app doctor [slug] [flags]
+
+Examples:
+  civitai app doctor                 # every app you can work on
+  civitai app doctor my-app          # just one
+  civitai app doctor --json | jq -e .ok
+  civitai app doctor my-app || echo "not ready to publish"
+
+Flags:
+  -h, --help   help for doctor
+      --json   emit the findings as JSON (scriptable); the exit code is unchanged — 1 when anything is blocking
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete app doctor===
 :0
 ===CMD articles===
 Read-only access to Civitai articles through the public REST API
@@ -2678,10 +2802,21 @@ Global Flags:
 :0
 ===CMD whoami===
 Verify the stored API token by calling the Civitai API and printing the
-authenticated user PLUS a short capability summary: the credential type (OAuth
-login vs personal API key), whether it can read your Buzz balance, and whether
-it can spend Buzz. The money-path dead end — an OAuth `civitai login` token
-can submit/withdraw but cannot spend Buzz — is surfaced here, before dev:live.
+authenticated user, then TWO sections.
+
+Credential: one identity ATTRIBUTE — the credential type (OAuth login vs
+personal API key). It is not a capability, which is why it no longer sits with
+them.
+
+Capabilities: three VERDICTS about what this token may do — whether it can read
+your Buzz balance, whether it can spend Buzz, and whether it can submit Apps.
+Submit Apps is TRI-STATE — yes / no / unknown — and unknown is the CLI declining
+to answer (an OAuth token whose scope mask the server did not report, or a
+response with no subject), never a "no". When the scope mask is absent the two
+Buzz rows are omitted rather than printed as "no".
+
+The money-path dead end — an OAuth `civitai login` token can submit/withdraw
+but cannot spend Buzz — is surfaced here, before dev:live.
 
 Reads the token from config or CIVITAI_TOKEN.
 
@@ -2691,11 +2826,11 @@ Usage:
 Examples:
   civitai whoami
   civitai whoami --scopes   # also list every granted scope
-  civitai whoami --json     # raw JSON (scriptable)
+  civitai whoami --json     # a stable, curated identity object (scriptable)
 
 Flags:
   -h, --help     help for whoami
-      --json     emit raw JSON (scriptable)
+      --json     emit a stable, curated identity object (scriptable)
       --scopes   also print the full decoded scope list
 
 Global Flags:
