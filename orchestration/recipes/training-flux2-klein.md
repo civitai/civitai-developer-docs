@@ -358,6 +358,8 @@ To use the trained LoRA, register it on Civitai (or reference its blob URN direc
 }
 ```
 
+Training can also be watched while it runs — with `"trace": "events"` (or `"logs"`) each `epochs[].traceUrl` is a tail-able stream of logs and step progress. See [SDXL/SD1 → Live progress & logs](./training-sdxl-sd1#live-progress).
+
 ## Runtime
 
 Per-step wall time, default settings on a 10-image dataset:

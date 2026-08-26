@@ -327,7 +327,7 @@ To resume from a LoRA you already trained instead of starting from the base chec
 
 ## Reading the result
 
-Submitting with `wait=0` returns immediately with `status: processing`. Poll [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) (or use a webhook — see [Results & webhooks](/orchestration/guide/results-and-webhooks)) until the step settles. A successful step produces an `epochs[]` array where each entry is a saved checkpoint; the number of checkpoints is derived from `steps`. Each entry contains the trained LoRA blob and any sample images:
+Submitting with `wait=0` returns immediately with `status: processing`. Poll [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) (or use a webhook — see [Results & webhooks](/orchestration/guide/results-and-webhooks)) until the step settles. The step reports an `epochs[]` array with one entry per epoch — the number of epochs is derived from `steps` — where `model.available` tells you whether that checkpoint has been saved yet. Each available entry contains the trained LoRA blob and any sample images:
 
 ```json
 {
@@ -357,6 +357,39 @@ Submitting with `wait=0` returns immediately with `status: processing`. Poll [`G
 The blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL when downloading the trained LoRA.
 
 `moderationStatus` reflects safety review of the dataset: `Approved` is the green-light case. `Rejected` means the run was halted because the dataset failed moderation.
+
+## Live progress & logs {#live-progress}
+
+Training runs for minutes to hours, so the output also lets you watch it *while* it runs:
+
+**`epochs[].traceUrl`** — opt in with `"trace": "events"` (or `"logs"`) on the input and each epoch gets a live, tail-able stream. `epochs[]` always lists every epoch of the run: a pending or training epoch has `model.available: false` and no samples yet, and its `traceUrl` is where to watch it (epochs served from an existing checkpoint have no trace):
+
+```json
+"epochs": [
+  { "epochNumber": 1, "model": { "id": "…", "available": true, "url": "https://…" }, "samples": [ … ],
+    "traceUrl": "https://orchestration.civitai.com/v2/consumer/streaming-blobs/training-...-epoch-1-trace.ndjson" },
+  { "epochNumber": 2, "model": { "id": "…", "available": false }, "samples": [],
+    "traceUrl": "https://orchestration.civitai.com/v2/consumer/streaming-blobs/training-...-epoch-2-trace.ndjson" }
+]
+```
+
+Only treat an epoch as downloadable when `model.available` is true. `GET` a trace with a streaming client (`curl -N`, `fetch` + `ReadableStream`); it stays open while that epoch trains and ends when its job does, so follow the run by moving to the next epoch's trace as each one closes. The two modes differ only in what is written:
+
+- `"logs"` — plain text (`text/plain`): one line per line of the trainer's console output, nothing else. The same shape as customComfy's `trace: "logs"`.
+- `"events"` — [NDJSON](https://github.com/ndjson/ndjson-spec) (`application/x-ndjson`): each line is one JSON object with a unix-millisecond `t`, a `type` and the `epoch`:
+
+| `type` | Fields | Notes |
+|--------|--------|-------|
+| `attempt` | `jobId`, `claimId` | First line of every upload; a second one means the job was retried on a new worker |
+| `phase` | `phase` | What the worker is doing: `loading_base_model`, `creating_session`, `copying_previous_epoch`, `running`, `uploading`, … |
+| `log` | `message` | One line of the trainer's console output (progress-bar redraws are filtered out) |
+| `step` | `step`, `maxSteps`, `epochStepsRemaining`, `secondsPerStep` | Sampled about every 2 s, so consecutive lines may skip steps; `secondsPerStep` is the average since training started and `null` until a few steps are in |
+| `epoch` | `checkpointPath` | The checkpoint for this epoch was written; the upload follows |
+| `error` | `message` | The job failed — the reason, since you'd otherwise only see `status: failed` |
+
+To render an ETA from the stream: `nextEpochIn ≈ epochStepsRemaining × secondsPerStep` and `remaining ≈ (maxSteps − step) × secondsPerStep`.
+
+A few things to expect: a trace URL answers `404` until its worker has written the first line (retry with backoff rather than treating it as final); if the worker falls behind on upload it drops the oldest queued lines, so resync on the next newline instead of assuming a gap-free sequence; a few log lines can go missing if the worker has to re-attach to the trainer's log stream; and a job retried on another worker continues into the same stream after a fresh `attempt` line.
 
 ## Runtime
 
