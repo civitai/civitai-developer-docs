@@ -69,7 +69,7 @@ These are **Orchestration REST API** recipes — you hold a Bearer token and POS
 
 ## Training
 
-Train a LoRA on your own dataset using AI Toolkit. You control training length with `steps`, the number of saved checkpoints with `epochs`, and can resume from an existing LoRA with `continueFrom`. All training runs are async — submit with `wait=0` and follow up via polling or a webhook. Cost is `steps × costPerStep + epochs × a per-epoch surcharge` with an 80%-of-default floor (rates vary per ecosystem — see each page); use `whatif=true` to preview the exact charge.
+Train a LoRA on your own dataset using AI Toolkit. You control training length with `steps`, the number of saved checkpoints with `epochs`, and can resume from an existing LoRA with `continueFrom`. All training runs are async — submit with `wait=0` and follow up via polling or a webhook; `trace: "events"` adds a tail-able log/step stream on each epoch. Cost is `steps × costPerStep + epochs × a per-epoch surcharge` with an 80%-of-default floor (rates vary per ecosystem — see each page); use `whatif=true` to preview the exact charge.
 
 - [SDXL & SD1 LoRA training](./training-sdxl-sd1) — classic Stable Diffusion ecosystems (500 Buzz default); cheapest pick for first fine-tunes
 - [Flux 1 LoRA training](./training-flux1) — Flux.1 Dev or Schnell (2000 Buzz default); higher quality, fixed BFL base checkpoints

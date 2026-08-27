@@ -251,6 +251,8 @@ Same envelope as the other training recipes — see [SDXL/SD1 → Reading the re
 
 The `model` blob is your trained LoRA — download it (URLs are signed and expire), or use the blob URL directly with [Flux 1 image generation](./flux1) by referencing its AIR in the `loras` field.
 
+Training can also be watched while it runs — with `"trace": "events"` (or `"logs"`) each `epochs[].traceUrl` is a tail-able stream of logs and step progress. See [SDXL/SD1 → Live progress & logs](./training-sdxl-sd1#live-progress).
+
 ## Runtime
 
 Per-step wall time on a 10-image dataset, default settings:

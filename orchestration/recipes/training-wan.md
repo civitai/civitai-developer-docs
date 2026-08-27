@@ -165,6 +165,8 @@ To resume from a Wan LoRA you already trained instead of starting from the base 
 
 Same envelope as the other training recipes — see [SDXL/SD1 → Reading the result](./training-sdxl-sd1#reading-the-result). Each saved checkpoint yields a video LoRA `.safetensors` blob plus any sample `.mp4` files. The trained LoRA is usable in [WAN video generation](./wan) by referencing it in the `loras` field.
 
+Training can also be watched while it runs — with `"trace": "events"` (or `"logs"`) each `epochs[].traceUrl` is a tail-able stream of logs and step progress. See [SDXL/SD1 → Live progress & logs](./training-sdxl-sd1#live-progress).
+
 ## Runtime
 
 Wall time, default settings on a 4-clip dataset:
