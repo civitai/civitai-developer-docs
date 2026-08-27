@@ -35594,7 +35594,8 @@
             "happyHorse": "#/components/schemas/HappyHorseVideoGenInput",
             "minimax-h3": "#/components/schemas/MiniMaxH3VideoGenInput",
             "minimax-h3-comfy": "#/components/schemas/ComfyMiniMaxH3VideoGenInput",
-            "flux": "#/components/schemas/Flux3VideoGenInput"
+            "flux": "#/components/schemas/Flux3VideoGenInput",
+            "gemini-omni": "#/components/schemas/GeminiOmniVideoGenInput"
           }
         }
       },
@@ -41090,6 +41091,71 @@
           "outdoor"
         ],
         "type": "string"
+      },
+      "GeminiOmniModel": {
+        "enum": [
+          "1.1-flash"
+        ],
+        "type": "string"
+      },
+      "GeminiOmniResolution": {
+        "enum": [
+          "360p",
+          "720p",
+          "1080p",
+          "4k"
+        ],
+        "type": "string"
+      },
+      "GeminiOmniVideoGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/VideoGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "maxBillableSeconds"
+            ],
+            "type": "object",
+            "properties": {
+              "model": {
+                "$ref": "#/components/schemas/GeminiOmniModel"
+              },
+              "aspectRatio": {
+                "enum": [
+                  "16:9",
+                  "9:16"
+                ],
+                "type": "string",
+                "default": "16:9"
+              },
+              "resolution": {
+                "$ref": "#/components/schemas/GeminiOmniResolution"
+              },
+              "images": {
+                "maxItems": 6,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "Either A URL, A DataURL or a Base64 string"
+                }
+              },
+              "maxBillableSeconds": {
+                "type": "integer",
+                "format": "int32",
+                "readOnly": true
+              },
+              "engine": {
+                "enum": [
+                  "gemini-omni"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
       }
     },
     "securitySchemes": {

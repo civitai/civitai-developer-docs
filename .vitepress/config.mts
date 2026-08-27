@@ -75,6 +75,7 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Kling video generation', link: '/orchestration/recipes/kling' },
         { text: 'Vidu video generation', link: '/orchestration/recipes/vidu' },
         { text: 'Veo 3 video generation', link: '/orchestration/recipes/veo3' },
+        { text: 'Gemini Omni video generation', link: '/orchestration/recipes/gemini-omni' },
         { text: 'Grok video generation', link: '/orchestration/recipes/grok-video' },
         { text: 'Happy-Horse video generation', link: '/orchestration/recipes/happy-horse' },
         { text: 'FLUX-3 video generation', link: '/orchestration/recipes/flux3-video' },
