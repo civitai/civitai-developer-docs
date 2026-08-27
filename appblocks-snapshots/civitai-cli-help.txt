@@ -1,6 +1,6 @@
 civitai CLI help snapshot (the WHOLE command tree)
 Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
-Binary version: civitai v0.1.101
+Binary version: civitai v0.1.102
 Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
 else parses this committed snapshot. To refresh: run
 node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).
