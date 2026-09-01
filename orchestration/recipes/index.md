@@ -67,6 +67,8 @@ These are **Orchestration REST API** recipes — you hold a Bearer token and POS
 - [Prompt enhancement](./prompt-enhancement) — LLM rewrites a user prompt for a target ecosystem (Flux / SDXL / SD1 / LTX2), returns issues + recommendations + enhanced prompt
 - [Image conversion](./convert-image) — format conversion (JPEG / PNG / WebP / GIF), resize, and region blur; flat 1 Buzz
 - [Image background removal](./image-background-removal) — BiRefNet subject cutout with a transparent background; PNG or WebP output, ~6 Buzz
+- [Web search](./web-search) — SearXNG-backed web search with optional inline page scraping; results feed `repeat`/`$ref` composition or ground LLM answers
+- [Web scrape](./web-scrape) — fetch and render a single page (headless browser) to LLM-ready markdown, HTML, or links
 
 ## Training
 

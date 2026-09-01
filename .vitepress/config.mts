@@ -136,6 +136,8 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Prompt enhancement', link: '/orchestration/recipes/prompt-enhancement' },
         { text: 'Image conversion', link: '/orchestration/recipes/convert-image' },
         { text: 'Image background removal', link: '/orchestration/recipes/image-background-removal' },
+        { text: 'Web search', link: '/orchestration/recipes/web-search' },
+        { text: 'Web scrape', link: '/orchestration/recipes/web-scrape' },
       ],
     },
     {
