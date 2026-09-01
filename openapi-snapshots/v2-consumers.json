@@ -174,6 +174,16 @@
         ],
         "summary": "Upload a blob directly with on-the-fly moderation.\nSupports both authenticated requests (Bearer token) and presigned URLs (sig query param).",
         "operationId": "UploadConsumerBlob",
+        "parameters": [
+          {
+            "name": "public",
+            "in": "query",
+            "description": "Store the blob in the public tier and return a durable, unsigned URL for it. Privileged callers only: nothing gates a read of that URL, so a block decided after the fact cannot take it back.",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "401": {
             "description": "Unauthorized",
@@ -4424,7 +4434,7 @@
           "Recipes"
         ],
         "summary": "Video Frame Extraction",
-        "description": "Extracts unique frames from a video at a specified rate using perceptual hashing to filter out duplicate/similar frames.\n/// Useful for generating video previews, storyboards, or analyzing video content.",
+        "description": "Extracts unique frames from a video at a specified rate, filtering near-duplicates by perceptual hash.",
         "operationId": "InvokeVideoFrameExtractionStepTemplate",
         "parameters": [
           {
@@ -4944,6 +4954,188 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/WDTaggingOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/consumer/recipes/webScrape": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "WebScrape",
+        "description": "Fetches and renders a single web page, returning its content as markdown and/or HTML.",
+        "operationId": "InvokeWebScrapeStepTemplate",
+        "parameters": [
+          {
+            "name": "experimental",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "allowMatureContent",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "whatif",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ephemeral",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebScrapeInput"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebScrapeInput"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebScrapeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebScrapeOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/consumer/recipes/webSearch": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "WebSearch",
+        "description": "Searches the web, returning result titles, URLs and descriptions, optionally with the scraped content of each result page.",
+        "operationId": "InvokeWebSearchStepTemplate",
+        "parameters": [
+          {
+            "name": "experimental",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "allowMatureContent",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "whatif",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ephemeral",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebSearchInput"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebSearchInput"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebSearchInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebSearchOutput"
                 }
               }
             }
@@ -7352,7 +7544,8 @@
         "properties": {
           "imageUrl": {
             "type": "string",
-            "description": "The cover image source."
+            "description": "The cover image source.",
+            "format": "source-image"
           }
         },
         "additionalProperties": false,
@@ -8231,7 +8424,8 @@
               },
               "image": {
                 "type": "string",
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "strength": {
                 "maximum": 1,
@@ -8279,6 +8473,83 @@
           "rtmpose-m_ap10k_256.onnx"
         ],
         "type": "string"
+      },
+      "AnimeBodyAgeClassificationResult": {
+        "required": [
+          "ageBand",
+          "apparentAge",
+          "childDetected",
+          "minorDetected",
+          "oodDetected",
+          "oodProbability",
+          "ordinalCutpointProbabilities",
+          "under13Probability",
+          "under18Probability"
+        ],
+        "type": "object",
+        "properties": {
+          "apparentAge": {
+            "type": "number",
+            "format": "double"
+          },
+          "ageBand": {
+            "type": "string"
+          },
+          "under13Probability": {
+            "type": "number",
+            "format": "double"
+          },
+          "under18Probability": {
+            "type": "number",
+            "format": "double"
+          },
+          "oodProbability": {
+            "type": "number",
+            "format": "double"
+          },
+          "ordinalCutpointProbabilities": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          "childDetected": {
+            "type": "boolean"
+          },
+          "minorDetected": {
+            "type": "boolean"
+          },
+          "oodDetected": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "ran": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "warning": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "error": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents anime apparent-age and child-risk results for a complete image.\nThe model is an additional risk signal, not a verified chronological-age claim."
       },
       "AnimeRecognitionResult": {
         "required": [
@@ -8368,6 +8639,13 @@
                   "$ref": "#/components/schemas/ChatCompletionGeneratedImage"
                 },
                 "description": "Generated images attached to this assistant message, populated when the request\nincluded \"image\" in its modalities. Each entry is a base64 data URI."
+              },
+              "reasoning_content": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Model reasoning separated from the answer by the host's reasoning parser (vLLM convention)."
               },
               "role": {
                 "enum": [
@@ -9511,7 +9789,8 @@
         "properties": {
           "url": {
             "type": "string",
-            "description": "The image source (can be a URL, base64 data URI, or raw base64).\nAfter processing, this will contain the blob URL."
+            "description": "The image source (can be a URL, base64 data URI, or raw base64).\nAfter processing, this will contain the blob URL.",
+            "format": "source-image"
           },
           "detail": {
             "type": [
@@ -10160,7 +10439,8 @@
               },
               "image": {
                 "type": "string",
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "denoiseStrength": {
                 "maximum": 1,
@@ -10499,7 +10779,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -10673,7 +10954,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -11467,7 +11749,8 @@
               },
               "image": {
                 "type": "string",
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "denoiseStrength": {
                 "maximum": 1,
@@ -11553,7 +11836,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -11831,7 +12115,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -11997,7 +12282,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -12549,7 +12835,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -13340,7 +13627,8 @@
                   "null",
                   "string"
                 ],
-                "description": "Optional reference image (e.g. talking-head subject). When provided, the video is anchored to this image."
+                "description": "Optional reference image (e.g. talking-head subject). When provided, the video is anchored to this image.",
+                "format": "source-image"
               },
               "sourceAudio": {
                 "type": "string",
@@ -13397,7 +13685,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 },
                 "description": "Optional source image for image-to-video generation"
               },
@@ -13534,14 +13823,16 @@
                   "null",
                   "string"
                 ],
-                "description": "First frame guide image. At least one of FirstFrame or LastFrame must be provided."
+                "description": "First frame guide image. At least one of FirstFrame or LastFrame must be provided.",
+                "format": "source-image"
               },
               "lastFrame": {
                 "type": [
                   "null",
                   "string"
                 ],
-                "description": "Last frame guide image. At least one of FirstFrame or LastFrame must be provided."
+                "description": "Last frame guide image. At least one of FirstFrame or LastFrame must be provided.",
+                "format": "source-image"
               },
               "frameGuideStrength": {
                 "maximum": 1,
@@ -13758,7 +14049,8 @@
                   "null",
                   "string"
                 ],
-                "description": "Optional reference image (e.g. talking-head subject). When provided, the video is anchored to this image."
+                "description": "Optional reference image (e.g. talking-head subject). When provided, the video is anchored to this image.",
+                "format": "source-image"
               },
               "sourceAudio": {
                 "type": "string",
@@ -13815,7 +14107,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 },
                 "description": "Optional source image for image-to-video generation"
               },
@@ -13938,14 +14231,16 @@
                   "null",
                   "string"
                 ],
-                "description": "First frame guide image. At least one of FirstFrame or LastFrame must be provided."
+                "description": "First frame guide image. At least one of FirstFrame or LastFrame must be provided.",
+                "format": "source-image"
               },
               "lastFrame": {
                 "type": [
                   "null",
                   "string"
                 ],
-                "description": "Last frame guide image. At least one of FirstFrame or LastFrame must be provided."
+                "description": "Last frame guide image. At least one of FirstFrame or LastFrame must be provided.",
+                "format": "source-image"
               },
               "frameGuideStrength": {
                 "maximum": 1,
@@ -14161,7 +14456,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 },
                 "description": "Optional source image for image-to-video generation"
               },
@@ -14298,14 +14594,16 @@
                   "null",
                   "string"
                 ],
-                "description": "First frame guide image. At least one of FirstFrame or LastFrame must be provided."
+                "description": "First frame guide image. At least one of FirstFrame or LastFrame must be provided.",
+                "format": "source-image"
               },
               "lastFrame": {
                 "type": [
                   "null",
                   "string"
                 ],
-                "description": "Last frame guide image. At least one of FirstFrame or LastFrame must be provided."
+                "description": "Last frame guide image. At least one of FirstFrame or LastFrame must be provided.",
+                "format": "source-image"
               },
               "frameGuideStrength": {
                 "maximum": 1,
@@ -14546,7 +14844,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "model": {
@@ -14613,7 +14912,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -14688,7 +14988,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "model": {
@@ -14755,7 +15056,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -15093,14 +15395,16 @@
                   "null",
                   "string"
                 ],
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "lastFrame": {
                 "type": [
                   "null",
                   "string"
                 ],
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "operation": {
                 "enum": [
@@ -15139,7 +15443,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -15745,7 +16050,8 @@
               },
               "image": {
                 "type": "string",
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "denoiseStrength": {
                 "maximum": 1,
@@ -15970,7 +16276,8 @@
               },
               "image": {
                 "type": "string",
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "denoiseStrength": {
                 "maximum": 1,
@@ -16614,7 +16921,8 @@
         "properties": {
           "image": {
             "type": "string",
-            "description": "The source image to convert."
+            "description": "The source image to convert.",
+            "format": "source-image"
           },
           "transforms": {
             "type": "array",
@@ -16781,13 +17089,6 @@
               "string"
             ],
             "description": "Optional custom comfy container image, declared as an\n`urn:air:oci:image:<source>:<repo>@<version|sha256:…>` AIR\n(e.g. `urn:air:oci:image:ghcr:civitai/civitai-spine-comfy@v2.5.5`).\nWhen set, the worker pulls and runs this image instead of its default\ncomfy image. Null = worker default."
-          },
-          "sessionOwnerApiToken": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "description": "Optional Civitai API token belonging to the session owner. When set,\nthe worker exposes it to the ComfyUI container as the\n`CIVITAI_API_TOKEN` environment variable, so custom-pack recipe\nnodes (e.g. civitai-comfy-nodes) can call the orchestrator and bill the\nuser. Sensitive: persisted on the workflow/job and forwarded to the\nclaiming worker — never log it. Null = no token exposed."
           },
           "minVramGb": {
             "type": [
@@ -17630,7 +17931,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "aspectRatio": {
@@ -17847,7 +18149,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -18017,7 +18320,8 @@
             "properties": {
               "image": {
                 "type": "string",
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "strength": {
                 "maximum": 1,
@@ -18102,7 +18406,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -18338,7 +18643,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -18488,7 +18794,8 @@
             "properties": {
               "image": {
                 "type": "string",
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "strength": {
                 "maximum": 1,
@@ -18573,7 +18880,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -18927,7 +19235,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -19092,7 +19401,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -19252,7 +19562,8 @@
             "properties": {
               "image": {
                 "type": "string",
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "strength": {
                 "maximum": 1,
@@ -19337,7 +19648,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -19456,7 +19768,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -19531,7 +19844,8 @@
         "properties": {
           "image": {
             "type": "string",
-            "description": "Either A URL, A DataURL or a Base64 string"
+            "description": "Either A URL, A DataURL or a Base64 string",
+            "format": "source-image"
           },
           "frameIndex": {
             "maximum": 480,
@@ -19737,11 +20051,13 @@
               },
               "startImage": {
                 "type": "string",
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "endImage": {
                 "type": "string",
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "operation": {
                 "enum": [
@@ -19824,7 +20140,8 @@
               },
               "image": {
                 "type": "string",
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "operation": {
                 "enum": [
@@ -20174,7 +20491,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -20280,6 +20598,72 @@
                 "2.5-flash": "#/components/schemas/Gemini25FlashImageGenInput"
               }
             }
+          }
+        ]
+      },
+      "GeminiOmniModel": {
+        "enum": [
+          "1.1-flash"
+        ],
+        "type": "string"
+      },
+      "GeminiOmniResolution": {
+        "enum": [
+          "360p",
+          "720p",
+          "1080p",
+          "4k"
+        ],
+        "type": "string"
+      },
+      "GeminiOmniVideoGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/VideoGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "maxBillableSeconds"
+            ],
+            "type": "object",
+            "properties": {
+              "model": {
+                "$ref": "#/components/schemas/GeminiOmniModel"
+              },
+              "aspectRatio": {
+                "enum": [
+                  "16:9",
+                  "9:16"
+                ],
+                "type": "string",
+                "default": "16:9"
+              },
+              "resolution": {
+                "$ref": "#/components/schemas/GeminiOmniResolution"
+              },
+              "images": {
+                "maxItems": 6,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
+                }
+              },
+              "maxBillableSeconds": {
+                "type": "integer",
+                "format": "int32",
+                "readOnly": true
+              },
+              "engine": {
+                "enum": [
+                  "gemini-omni"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
           }
         ]
       },
@@ -20429,7 +20813,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -20586,7 +20971,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -20800,7 +21186,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -20873,7 +21260,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 },
                 "description": "1–7 reference images guiding style and content; tag them in the prompt as <IMAGE_0>, <IMAGE_1>, etc."
               },
@@ -21110,7 +21498,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -21320,7 +21709,8 @@
                   "null",
                   "string"
                 ],
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "engine": {
                 "enum": [
@@ -21388,7 +21778,8 @@
             "properties": {
               "image": {
                 "type": "string",
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "operation": {
                 "enum": [
@@ -21432,7 +21823,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "aspectRatio": {
@@ -21540,7 +21932,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "audioSetting": {
@@ -21656,7 +22049,8 @@
             "properties": {
               "image": {
                 "type": "string",
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "operation": {
                 "enum": [
@@ -21700,7 +22094,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "aspectRatio": {
@@ -22461,7 +22856,8 @@
         "properties": {
           "image": {
             "type": "string",
-            "description": "The source image to remove the background from."
+            "description": "The source image to remove the background from.",
+            "format": "source-image"
           },
           "format": {
             "$ref": "#/components/schemas/ImageBackgroundRemovalFormat"
@@ -22624,7 +23020,8 @@
             "seedream": "#/components/schemas/SeedreamImageGenInput",
             "grok": "#/components/schemas/GrokImageGenInput",
             "fal": "#/components/schemas/FalImageGenInput",
-            "qwen": "#/components/schemas/QwenApiImageGenInput"
+            "qwen": "#/components/schemas/QwenApiImageGenInput",
+            "krea": "#/components/schemas/KreaImageGenInput"
           }
         }
       },
@@ -22771,14 +23168,16 @@
               "null",
               "string"
             ],
-            "description": "The preprocessed control image. Accepts an AIR URN, a URL, or a base64 data URL; the\norchestrator processes it into a stored blob before the job is dispatched."
+            "description": "The preprocessed control image. Accepts an AIR URN, a URL, or a base64 data URL; the\norchestrator processes it into a stored blob before the job is dispatched.",
+            "format": "source-image"
           },
           "mask": {
             "type": [
               "null",
               "string"
             ],
-            "description": "The inpaint mask image. Required when the preprocessor is Inpaint."
+            "description": "The inpaint mask image. Required when the preprocessor is Inpaint.",
+            "format": "source-image"
           }
         },
         "additionalProperties": false,
@@ -23031,7 +23430,8 @@
           },
           "image": {
             "type": "string",
-            "description": "Either A URL, A DataURL or a Base64 string"
+            "description": "Either A URL, A DataURL or a Base64 string",
+            "format": "source-image"
           }
         },
         "additionalProperties": false,
@@ -23255,7 +23655,8 @@
         "properties": {
           "image": {
             "type": "string",
-            "description": "Either A URL, A DataURL or a Base64 string"
+            "description": "Either A URL, A DataURL or a Base64 string",
+            "format": "source-image"
           },
           "model": {
             "type": [
@@ -23749,13 +24150,15 @@
               "null",
               "string"
             ],
-            "description": "Either A URL, A DataURL or a Base64 string"
+            "description": "Either A URL, A DataURL or a Base64 string",
+            "format": "source-image"
           },
           "referenceImages": {
             "type": "array",
             "items": {
               "type": "string",
-              "description": "Either A URL, A DataURL or a Base64 string"
+              "description": "Either A URL, A DataURL or a Base64 string",
+              "format": "source-image"
             }
           },
           "videoUrl": {
@@ -23827,14 +24230,16 @@
                   "null",
                   "string"
                 ],
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "endImage": {
                 "type": [
                   "null",
                   "string"
                 ],
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "videoUrl": {
                 "type": [
@@ -23847,7 +24252,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "elements": {
@@ -23960,7 +24366,8 @@
                   "null",
                   "string"
                 ],
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "engine": {
                 "enum": [
@@ -24355,6 +24762,175 @@
         },
         "additionalProperties": false
       },
+      "KreaCreateImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/KreaImageGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "image": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
+              },
+              "strength": {
+                "maximum": 1,
+                "minimum": 0,
+                "type": "number",
+                "description": "Denoising strength for image-to-image; ignored without Civitai.Orchestration.Grains.Workflows.Steps.ImageGen.Krea.KreaCreateImageGenInput.Image.",
+                "format": "double",
+                "default": 0.99
+              },
+              "operation": {
+                "enum": [
+                  "createImage"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "krea"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Text-to-image, or image-to-image when Civitai.Orchestration.Grains.Workflows.Steps.ImageGen.Krea.KreaCreateImageGenInput.Image is supplied."
+      },
+      "KreaImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ImageGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "imageStyleReferences",
+              "operation",
+              "prompt"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": "createImage"
+              },
+              "prompt": {
+                "maxLength": 5000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "krea2-medium",
+                  "krea2-large",
+                  "krea2-medium-turbo"
+                ],
+                "type": "string",
+                "default": "krea2-medium"
+              },
+              "aspectRatio": {
+                "enum": [
+                  "1:1",
+                  "4:3",
+                  "3:2",
+                  "16:9",
+                  "2.35:1",
+                  "4:5",
+                  "2:3",
+                  "9:16"
+                ],
+                "type": "string",
+                "default": "1:1"
+              },
+              "creativity": {
+                "enum": [
+                  "raw",
+                  "low",
+                  "medium",
+                  "high"
+                ],
+                "type": "string",
+                "description": "How much Krea expands the prompt: `raw` renders only what was written.",
+                "default": "medium"
+              },
+              "quantity": {
+                "maximum": 10,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 1
+              },
+              "seed": {
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int32"
+              },
+              "intensity": {
+                "maximum": 100,
+                "minimum": -100,
+                "type": "integer",
+                "description": "K2 intensity slider.",
+                "format": "int32",
+                "default": 0
+              },
+              "complexity": {
+                "maximum": 100,
+                "minimum": -100,
+                "type": "integer",
+                "description": "K2 complexity slider.",
+                "format": "int32",
+                "default": 0
+              },
+              "movement": {
+                "maximum": 100,
+                "minimum": -100,
+                "type": "integer",
+                "description": "K2 movement slider.",
+                "format": "int32",
+                "default": 0
+              },
+              "imageStyleReferences": {
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Krea2StyleReference"
+                }
+              },
+              "engine": {
+                "enum": [
+                  "krea"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "operation",
+              "mapping": {
+                "createImage": "#/components/schemas/KreaCreateImageGenInput"
+              }
+            }
+          }
+        ],
+        "description": "Krea 2 served by Krea's own API. Distinct from `fal`/`krea2` (the same models via FAL) and\nfrom the `comfy`/`krea2` ecosystem, which runs the open weights on our own workers."
+      },
       "LeresBoost": {
         "enum": [
           "disable",
@@ -24431,7 +25007,8 @@
                   "null",
                   "string"
                 ],
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "expandPrompt": {
                 "type": "boolean",
@@ -24759,7 +25336,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -25174,6 +25752,7 @@
         "required": [
           "includeAgeClassification",
           "includeAIRecognition",
+          "includeAnimeBodyAgeClassification",
           "includeAnimeRecognition",
           "includeBodyAgeClassification",
           "includeFaceRecognition",
@@ -25187,7 +25766,8 @@
               "null",
               "string"
             ],
-            "description": "The image to rate. Pre-processed in the API layer — imported into blob storage so the\nworker can pre-fetch it as a declared resource. After processing, contains the blob AIR URL."
+            "description": "The image to rate. Pre-processed in the API layer — imported into blob storage so the\nworker can pre-fetch it as a declared resource. After processing, contains the blob AIR URL.",
+            "format": "source-image"
           },
           "includeAgeClassification": {
             "type": "boolean",
@@ -25212,6 +25792,10 @@
           "includeBodyAgeClassification": {
             "type": "boolean",
             "description": "Include body-only apparent-age and child-risk classification in the results."
+          },
+          "includeAnimeBodyAgeClassification": {
+            "type": "boolean",
+            "description": "Include anime apparent-age and child-risk classification in the results."
           },
           "includeJointAgeClassification": {
             "type": "boolean",
@@ -25277,6 +25861,9 @@
           },
           "bodyAgeClassification": {
             "$ref": "#/components/schemas/BodyAgeClassificationResult"
+          },
+          "animeBodyAgeClassification": {
+            "$ref": "#/components/schemas/AnimeBodyAgeClassificationResult"
           },
           "jointAgeClassification": {
             "$ref": "#/components/schemas/JointAgeClassificationResult"
@@ -25978,20 +26565,23 @@
                   "null",
                   "string"
                 ],
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "lastFrameImage": {
                 "type": [
                   "null",
                   "string"
                 ],
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "referenceImages": {
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "referenceVideos": {
@@ -26210,7 +26800,8 @@
                   "null",
                   "string"
                 ],
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "engine": {
                 "enum": [
@@ -27150,7 +27741,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "seed": {
@@ -27231,7 +27823,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "seed": {
@@ -27313,7 +27906,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "model": {
@@ -27534,14 +28128,16 @@
             "properties": {
               "image": {
                 "type": "string",
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "mask": {
                 "type": [
                   "null",
                   "string"
                 ],
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "operation": {
                 "enum": [
@@ -27798,7 +28394,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "inputFidelity": {
@@ -27978,7 +28575,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "mask": {
@@ -27986,7 +28584,8 @@
                   "null",
                   "string"
                 ],
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "operation": {
                 "enum": [
@@ -28149,7 +28748,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "maskImage": {
@@ -28157,7 +28757,8 @@
                   "null",
                   "string"
                 ],
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "width": {
                 "type": [
@@ -28987,7 +29588,8 @@
           },
           "image": {
             "type": "string",
-            "description": "Either A URL, A DataURL or a Base64 string"
+            "description": "Either A URL, A DataURL or a Base64 string",
+            "format": "source-image"
           },
           "resolution": {
             "maximum": 4096,
@@ -29886,7 +30488,8 @@
             ],
             "items": {
               "type": "string",
-              "description": "Either A URL, A DataURL or a Base64 string"
+              "description": "Either A URL, A DataURL or a Base64 string",
+              "format": "source-image"
             },
             "description": "Optional reference images for the prompt enhancement model to consider when enhancing the prompt\n(subject, style, lighting, composition, color palette). Accepts URLs, data URIs, raw base64, or AIR strings.\nRequires the per-ecosystem prompt-analysis model to be a vision-capable LLM (configured via\nIPromptAnalysisGrain.SetConfigurationAsync) — non-VLM models will silently ignore the images."
           }
@@ -30107,7 +30710,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "width": {
@@ -30284,7 +30888,8 @@
               },
               "image": {
                 "type": "string",
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "strength": {
                 "maximum": 1,
@@ -30392,7 +30997,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -30562,7 +31168,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -30913,7 +31520,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 },
                 "description": "Reference images. DashScope numbers them by input order — prompts refer to them as \"Image 1\", \"Image 2\", \"Image 3\"."
               },
@@ -31087,7 +31695,8 @@
           },
           "image": {
             "type": "string",
-            "description": "The generated image to evaluate."
+            "description": "The generated image to evaluate.",
+            "format": "source-image"
           }
         },
         "additionalProperties": false,
@@ -31654,7 +32263,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 },
                 "description": "Address these from the prompt as <frame>N</frame>, 0-based."
               },
@@ -32060,7 +32670,8 @@
               },
               "image": {
                 "type": "string",
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "strength": {
                 "maximum": 1,
@@ -32433,7 +33044,8 @@
               },
               "image": {
                 "type": "string",
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "strength": {
                 "maximum": 1,
@@ -32559,7 +33171,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "referenceVideos": {
@@ -32650,7 +33263,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "engine": {
@@ -33126,7 +33740,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -33462,7 +34077,8 @@
               "null",
               "string"
             ],
-            "description": "An optional source image to trigger img-to-img"
+            "description": "An optional source image to trigger img-to-img",
+            "format": "source-image"
           },
           "sourceImageDenoiseStrenght": {
             "type": "number",
@@ -33789,7 +34405,8 @@
             "type": "array",
             "items": {
               "type": "string",
-              "description": "Either A URL, A DataURL or a Base64 string"
+              "description": "Either A URL, A DataURL or a Base64 string",
+              "format": "source-image"
             },
             "description": "Source images for edit training sample generation.\nProcessed by ISourceImageProcessor during initialization, then TryGetUri() yields URLs\nthat are passed as ReferenceImageUrls when generating samples with edit LoRAs."
           },
@@ -34014,6 +34631,13 @@
               "string"
             ],
             "format": "uri"
+          },
+          "public": {
+            "type": [
+              "null",
+              "boolean"
+            ],
+            "description": "Serves the result at a stable unsigned url. Privileged callers only: nothing gates a read of\nit, so a block decided after the fact cannot take it back."
           }
         },
         "additionalProperties": false
@@ -34053,6 +34677,13 @@
           "jobId": {
             "type": "string",
             "description": "Get the id of the job that is associated with this media."
+          },
+          "tier": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Storage tier holding the blob; null means the default tier."
           }
         },
         "additionalProperties": false
@@ -35041,7 +35672,8 @@
           "3.0",
           "3.1"
         ],
-        "type": "string"
+        "type": "string",
+        "description": "Google retired the Veo 3.0 endpoints on 2026-08-28; requests with `3.0` are rejected with 400. Use `3.1`."
       },
       "Veo3VideoGenInput": {
         "allOf": [
@@ -35096,7 +35728,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "version": {
@@ -35471,6 +36104,13 @@
             "description": "Time in seconds to seek to before extracting frames.\nDefault is 0 (start of video).",
             "format": "double",
             "default": 0
+          },
+          "public": {
+            "type": [
+              "null",
+              "boolean"
+            ],
+            "description": "Serves the frames at stable unsigned urls. Privileged callers only: nothing gates a read of\none, so a block decided after the fact cannot take it back."
           }
         },
         "additionalProperties": false,
@@ -35587,6 +36227,7 @@
             "vidu": "#/components/schemas/ViduVideoGenInput",
             "vidu-q3": "#/components/schemas/ViduQ3VideoGenInput",
             "veo3": "#/components/schemas/Veo3VideoGenInput",
+            "gemini-omni": "#/components/schemas/GeminiOmniVideoGenInput",
             "sora": "#/components/schemas/SoraVideoGenInput",
             "kling-v3": "#/components/schemas/KlingV3VideoGenInput",
             "grok": "#/components/schemas/GrokVideoGenInput",
@@ -35594,8 +36235,7 @@
             "happyHorse": "#/components/schemas/HappyHorseVideoGenInput",
             "minimax-h3": "#/components/schemas/MiniMaxH3VideoGenInput",
             "minimax-h3-comfy": "#/components/schemas/ComfyMiniMaxH3VideoGenInput",
-            "flux": "#/components/schemas/Flux3VideoGenInput",
-            "gemini-omni": "#/components/schemas/GeminiOmniVideoGenInput"
+            "flux": "#/components/schemas/Flux3VideoGenInput"
           }
         }
       },
@@ -36037,7 +36677,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "engine": {
@@ -36078,7 +36719,8 @@
                   "null",
                   "string"
                 ],
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "style": {
                 "$ref": "#/components/schemas/ViduVideoGenStyle"
@@ -36097,7 +36739,8 @@
                   "null",
                   "string"
                 ],
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "model": {
                 "$ref": "#/components/schemas/ViduVideoGenModel"
@@ -36129,7 +36772,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "enableBackgroundMusic": {
@@ -36381,7 +37025,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "provider": {
@@ -36554,7 +37199,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -36875,7 +37521,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "negativePrompt": {
@@ -37014,7 +37661,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -37357,7 +38005,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -37407,7 +38056,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -37708,7 +38358,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 }
               },
               "operation": {
@@ -38016,7 +38667,8 @@
                   "null",
                   "string"
                 ],
-                "description": "Reference image for reference-based editing"
+                "description": "Reference image for reference-based editing",
+                "format": "source-image"
               },
               "aspectRatio": {
                 "enum": [
@@ -38089,7 +38741,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 },
                 "description": "Reference images for editing (1-4 images required)"
               },
@@ -38196,14 +38849,16 @@
                   "null",
                   "string"
                 ],
-                "description": "First frame image URL"
+                "description": "First frame image URL",
+                "format": "source-image"
               },
               "endImage": {
                 "type": [
                   "null",
                   "string"
                 ],
-                "description": "Last frame image for first-and-last-frame-to-video"
+                "description": "Last frame image for first-and-last-frame-to-video",
+                "format": "source-image"
               },
               "videoUrl": {
                 "type": [
@@ -38276,7 +38931,8 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
                 },
                 "description": "Reference images for character/object appearance (max 20 MB each)"
               },
@@ -38620,14 +39276,16 @@
                   "null",
                   "string"
                 ],
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "endImage": {
                 "type": [
                   "null",
                   "string"
                 ],
-                "description": "Constrains the last frame, for loops and transitions."
+                "description": "Constrains the last frame, for loops and transitions.",
+                "format": "source-image"
               },
               "operation": {
                 "enum": [
@@ -38882,7 +39540,8 @@
                   "null",
                   "string"
                 ],
-                "description": "Either A URL, A DataURL or a Base64 string"
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
               },
               "cfgScale": {
                 "maximum": 100,
@@ -38945,6 +39604,278 @@
             }
           }
         ]
+      },
+      "WebScrapeInput": {
+        "required": [
+          "formats",
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "The URL of the page to scrape.",
+            "format": "uri"
+          },
+          "formats": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The formats to return the page content in (e.g. \"markdown\", \"html\", \"links\")."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents the input information needed for the WebScrape workflow step."
+      },
+      "WebScrapeOutput": {
+        "type": "object",
+        "properties": {
+          "markdown": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The page content as markdown, when requested."
+          },
+          "html": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The page content as HTML, when requested."
+          },
+          "links": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "The links found on the page, when requested."
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The title of the page."
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The description of the page."
+          },
+          "statusCode": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "description": "The HTTP status code returned by the page.",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents the output information returned from the WebScrape workflow step."
+      },
+      "WebScrapeStep": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStep"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/WebScrapeInput"
+              },
+              "output": {
+                "$ref": "#/components/schemas/WebScrapeOutput"
+              },
+              "$type": {
+                "enum": [
+                  "webScrape"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "WebScrape"
+      },
+      "WebScrapeStepTemplate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStepTemplate"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/WebScrapeInput"
+              },
+              "$type": {
+                "enum": [
+                  "webScrape"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "WebScrape"
+      },
+      "WebSearchInput": {
+        "required": [
+          "limit",
+          "query"
+        ],
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "The search query."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "The maximum number of results to return (1-10).",
+            "format": "int32"
+          },
+          "scrapeFormats": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional formats to scrape each result page in (e.g. [\"markdown\"]). When omitted,\nonly titles, URLs and descriptions are returned."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents the input information needed for the WebSearch workflow step."
+      },
+      "WebSearchOutput": {
+        "required": [
+          "results"
+        ],
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WebSearchResult"
+            },
+            "description": "The search results, in relevance order."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents the output information returned from the WebSearch workflow step."
+      },
+      "WebSearchResult": {
+        "required": [
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "The URL of the result page."
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The title of the result page."
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The search engine's snippet/description for the result."
+          },
+          "markdown": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The result page content as markdown. Only present when the step input requested\nscraping via Civitai.Orchestration.Grains.Workflows.Steps.WebSearch.WebSearchInput.ScrapeFormats."
+          }
+        },
+        "additionalProperties": false,
+        "description": "A single web search result."
+      },
+      "WebSearchStep": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStep"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/WebSearchInput"
+              },
+              "output": {
+                "$ref": "#/components/schemas/WebSearchOutput"
+              },
+              "$type": {
+                "enum": [
+                  "webSearch"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "WebSearch"
+      },
+      "WebSearchStepTemplate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStepTemplate"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/WebSearchInput"
+              },
+              "$type": {
+                "enum": [
+                  "webSearch"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "WebSearch"
       },
       "WebpOutputFormat": {
         "allOf": [
@@ -39521,6 +40452,9 @@
           },
           "preparation": {
             "$ref": "#/components/schemas/WorkflowStepPreparation"
+          },
+          "queuePosition": {
+            "$ref": "#/components/schemas/WorkflowStepQueuePosition"
           }
         },
         "additionalProperties": false,
@@ -39572,6 +40506,8 @@
             "videoMetadata": "#/components/schemas/VideoMetadataStep",
             "videoUpscaler": "#/components/schemas/VideoUpscalerStep",
             "wdTagging": "#/components/schemas/WDTaggingStep",
+            "webScrape": "#/components/schemas/WebScrapeStep",
+            "webSearch": "#/components/schemas/WebSearchStep",
             "xGuardModeration": "#/components/schemas/XGuardModerationStep"
           }
         }
@@ -39853,6 +40789,43 @@
         "additionalProperties": false,
         "description": "The resource download a step is waiting on while its status is preparing."
       },
+      "WorkflowStepQueuePosition": {
+        "required": [
+          "support"
+        ],
+        "type": "object",
+        "properties": {
+          "support": {
+            "$ref": "#/components/schemas/JobSupport"
+          },
+          "precedingJobs": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "description": "The number of preceding jobs in the queue.",
+            "format": "int32"
+          },
+          "estimatedStartAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "An estimated date / time for when the step will start.",
+            "format": "date-time"
+          },
+          "estimatedCompleteAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "An estimated date / time for when the step will complete.",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Details of a workflow step's position in the queue."
+      },
       "WorkflowStepTemplate": {
         "required": [
           "$type"
@@ -39946,6 +40919,8 @@
             "videoMetadata": "#/components/schemas/VideoMetadataStepTemplate",
             "videoUpscaler": "#/components/schemas/VideoUpscalerStepTemplate",
             "wdTagging": "#/components/schemas/WDTaggingStepTemplate",
+            "webScrape": "#/components/schemas/WebScrapeStepTemplate",
+            "webSearch": "#/components/schemas/WebSearchStepTemplate",
             "xGuardModeration": "#/components/schemas/XGuardModerationStepTemplate"
           }
         }
@@ -41091,71 +42066,6 @@
           "outdoor"
         ],
         "type": "string"
-      },
-      "GeminiOmniModel": {
-        "enum": [
-          "1.1-flash"
-        ],
-        "type": "string"
-      },
-      "GeminiOmniResolution": {
-        "enum": [
-          "360p",
-          "720p",
-          "1080p",
-          "4k"
-        ],
-        "type": "string"
-      },
-      "GeminiOmniVideoGenInput": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/VideoGenInput"
-          },
-          {
-            "required": [
-              "engine",
-              "maxBillableSeconds"
-            ],
-            "type": "object",
-            "properties": {
-              "model": {
-                "$ref": "#/components/schemas/GeminiOmniModel"
-              },
-              "aspectRatio": {
-                "enum": [
-                  "16:9",
-                  "9:16"
-                ],
-                "type": "string",
-                "default": "16:9"
-              },
-              "resolution": {
-                "$ref": "#/components/schemas/GeminiOmniResolution"
-              },
-              "images": {
-                "maxItems": 6,
-                "type": "array",
-                "items": {
-                  "type": "string",
-                  "description": "Either A URL, A DataURL or a Base64 string"
-                }
-              },
-              "maxBillableSeconds": {
-                "type": "integer",
-                "format": "int32",
-                "readOnly": true
-              },
-              "engine": {
-                "enum": [
-                  "gemini-omni"
-                ],
-                "type": "string"
-              }
-            },
-            "additionalProperties": false
-          }
-        ]
       }
     },
     "securitySchemes": {
