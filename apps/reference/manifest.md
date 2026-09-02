@@ -77,6 +77,20 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
 - **`type`** and **`minApiVersion`** (informational) — accepted but **not
   enforced** by the validator. Safe to include as documentation; don't treat
   them as load-bearing.
+- **`bootSkeleton`** (`boolean`, optional) — opts your app out of the full-page
+  run host's loading cover: no opaque veil, the iframe at `opacity: 1` from
+  mount, and no reveal settle. It is a **declaration that your document already
+  paints something**, not a performance switch, and the host takes you at your
+  word — so **`bootSkeleton: true` over an empty `#root` is a blank iframe for
+  the entire load, strictly worse than not opting in**, and nothing validates
+  that today. Never ship the key without the markup that justifies it. The
+  markup shape, the dark-by-default theme rule and the per-framework removal
+  step are in
+  [Running embedded → the boot skeleton](../guide/embedding#boot-skeleton).
+  *(Not in the generated table above yet: the table renders from the canonical
+  schema copy bundled with the pinned `@civitai/app-sdk` devDep, which does not
+  carry this field at the current pin. The row appears on its own once the pin
+  catches up — do not hand-write it into the generated region.)*
 
 ### Sizing `page.buzzBudgetPerGen`
 
