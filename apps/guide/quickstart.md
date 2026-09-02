@@ -147,6 +147,9 @@ Reach for it on the **model-slot** surface, where `IframeHost` does handle
 `iframe.minHeight` / `iframe.maxHeight`. (`iframe.resizable` in the manifest
 schema still describes itself in size-to-content terms; on a page app that
 wording does not apply.)
+
+Sizing your block to whatever box it lands in — on either surface — is
+[Responsive blocks](./responsive).
 :::
 
 A few things this snippet establishes as habits:
