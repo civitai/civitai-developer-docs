@@ -472,8 +472,11 @@ export const INVENTORY = {
   // REQUEST-style hang class + same host placement as SHARED_APPEND — the shared
   // datastore is a per-APP surface a model-slot block can also edit, so BOTH real
   // hosts wire it. Reply is the SHARED_WITHDRAW-style `{ ok, error? }` (NOT
-  // SHARED_APPEND's `{ key }`): the SDK's isValidSharedUpdateResult REQUIRES a
-  // boolean `ok`, so the error reply MUST carry `ok: false` or it's dropped.
+  // SHARED_APPEND's `{ key }`). The SDK's isValidSharedUpdateResult accepts an
+  // error reply whether or not it carries `ok` — every `{ ok, error }` validator
+  // early-accepts on a PRESENT `error`, so an error reply is never dropped. The
+  // hosts still send `ok: false` because it is the clearer signal, NOT because
+  // omitting it would hang.
   SHARED_UPDATE: {
     request: true,
     reply: 'SHARED_UPDATE_RESULT',
@@ -518,8 +521,10 @@ export const INVENTORY = {
   // User report of a posted shared row (Batch-D item 5) — the server procedure
   // `apps.shared.report` already exists; this is the postMessage seam. Same both-
   // host placement as SHARED_WITHDRAW (its reply is the SHARED_WITHDRAW-style
-  // `{ ok, error? }`: the error path MUST carry `ok: false` or the SDK drops it →
-  // hang). Ahead of the published SDK dist union — forward-looking coverage.
+  // `{ ok, error? }`: the validator accepts an error reply with or without `ok`,
+  // and the hosts send `ok: false` because it is the clearer signal, not because
+  // omitting it would hang). Ahead of the published SDK dist union — forward-
+  // looking coverage.
   SHARED_REPORT: {
     request: true,
     reply: 'SHARED_REPORT_RESULT',
