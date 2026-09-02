@@ -339,6 +339,34 @@ When the model calls a tool, the assistant message in the response contains a `t
 }
 ```
 
+### Server-executed web search
+
+Add a tool of type `civitai:web_search` and the orchestrator runs the tool loop for you: the marker expands into two function tools — `web_search(query, limit?)` (SearXNG-backed web search) and `fetch_page(url)` (page content as markdown) — and when the model calls them, the orchestrator executes the searches, feeds the results back, and returns the final grounded answer as the workflow output. No client-side tool handling is needed.
+
+```json
+{
+  "model": "google/gemini-2.5-flash",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Does the name 'Ada Lovelace' refer to a real person? Search the web before answering."
+    }
+  ],
+  "tools": [
+    { "type": "civitai:web_search" }
+  ]
+}
+```
+
+Notes:
+
+- Not supported with `stream: true` — the request is rejected.
+- Available on OpenRouter-routed models. AIR-routed models fail until search-capable workers roll out more widely.
+- The loop is bounded (up to 4 tool rounds); each round costs a model call, so expect a few seconds per round. The final response's `usage` includes tokens from the intermediate rounds.
+- Each executed `web_search` / `fetch_page` call adds **1 Buzz** on top of the model-token cost, billed after the run completes — a `whatif=true` preview cannot include it because the number of tool calls is up to the model.
+- `civitai:web_search` can be combined with your own function tools, but if the model calls one of *your* tools the loop stops and the `tool_calls` response is returned to you as usual.
+- For direct (non-LLM) access to the same capability, see the [webSearch](/orchestration/recipes/web-search) and [webScrape](/orchestration/recipes/web-scrape) steps.
+
 ## Model selection
 
 `model` accepts any string that identifies a model on OpenRouter or a Civitai AIR URI:
@@ -366,7 +394,7 @@ When the model calls a tool, the assistant message in the response contains a `t
 | `user` | `null` | End-user identifier for abuse monitoring. |
 | `logprobs` | `null` | Return log probabilities for generated tokens. |
 | `topLogprobs` | `null` | 0–20. Number of top log-prob candidates per token (requires `logprobs: true`). |
-| `tools` | `null` | Function definitions available to the model. |
+| `tools` | `null` | Function definitions available to the model. A `{ "type": "civitai:web_search" }` entry enables [server-executed web search](#server-executed-web-search). |
 | `tool_choice` | `null` | `"auto"`, `"none"`, `"required"`, or `{ "type": "function", "function": { "name": "..." } }`. |
 | `chatTemplateKwargs` | `null` | Extra kwargs passed to the model's chat template (vLLM-specific). |
 | `modalities` | `null` | Output modalities. Include `"image"` to route the request through the image-generation pipeline. See [Image generation](#image-generation). |
@@ -516,7 +544,7 @@ Most chat completions finish in 5–30 seconds depending on model and output len
 | `504 Gateway Timeout` (via `/v1`) | Slow model or long output | Retry with `wait=0` via `SubmitWorkflow` + polling. |
 | `400` with "topLogprobs requires logprobs" | Sent `topLogprobs` without `logprobs: true` | Set `"logprobs": true` alongside `topLogprobs`. |
 | Response truncated mid-sentence | `maxTokens` reached | Raise `maxTokens` or omit it to let the model decide. |
-| Tool call in response instead of content | Expected behaviour | The model chose to call a tool — feed the `tool_calls` back as a `tool` message in the next turn. |
+| Tool call in response instead of content | Expected behaviour | The model chose to call a tool — feed the `tool_calls` back as a `tool` message in the next turn. Exception: `civitai:web_search` tool calls are executed server-side and never reach you (see [Server-executed web search](#server-executed-web-search)). |
 | Step `failed`, `reason = "no_provider_available"` | AIR model offline or no worker available | Retry shortly. |
 
 ## Related
