@@ -82,6 +82,11 @@ from that scope:
 | Token | CSS property | Light | Dark |
 |---|---|---|---|
 | `radius` | `--civitai-radius` | `0.25rem` | `0.25rem` |
+| `bpXs` | `--civitai-bp-xs` | `480px` | `480px` |
+| `bpSm` | `--civitai-bp-sm` | `768px` | `768px` |
+| `bpMd` | `--civitai-bp-md` | `1024px` | `1024px` |
+| `bpLg` | `--civitai-bp-lg` | `1184px` | `1184px` |
+| `bpXl` | `--civitai-bp-xl` | `1440px` | `1440px` |
 
 <!-- END GENERATED: tokens -->
 </TokenGallery>

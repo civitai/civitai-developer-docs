@@ -2,7 +2,7 @@
 title: Message bridge reference
 description: The full postMessage protocol between a Civitai App and its host — payloads, directions, request/reply pairing, and page-only messages.
 sources:
-  - npm:@civitai/app-sdk@0.33.0/blocks#messages.d.ts
+  - npm:@civitai/app-sdk@0.37.0/blocks#messages.d.ts
   - civitai:src/components/AppBlocks/hostHandlerParity.ts#INVENTORY
 ---
 
@@ -559,7 +559,7 @@ reply `USER_CHECKPOINT_SET`:
 ```ts
 {
     requestId: string;
-    ok: boolean;
+    ok?: boolean;
     error?: string;
 }
 ```
@@ -582,8 +582,8 @@ reply `APP_STORAGE_DELETE_RESULT`:
 ```ts
 {
     requestId: string;
-    ok: boolean;
-    deleted: boolean;
+    ok?: boolean;
+    deleted?: boolean;
     error?: string;
 }
 ```
@@ -676,7 +676,7 @@ reply `APP_STORAGE_SET_RESULT`:
 ```ts
 {
     requestId: string;
-    ok: boolean;
+    ok?: boolean;
     error?: string;
     sizeBytes?: number;
 }
@@ -809,7 +809,7 @@ reply `SHARED_REPORT_RESULT`:
 ```ts
 {
     requestId: string;
-    ok: boolean;
+    ok?: boolean;
     error?: string;
 }
 ```
@@ -852,7 +852,7 @@ reply `SHARED_UPDATE_RESULT`:
 ```ts
 {
     requestId: string;
-    ok: boolean;
+    ok?: boolean;
     error?: string;
 }
 ```
@@ -894,8 +894,8 @@ reply `SHARED_WITHDRAW_RESULT`:
 ```ts
 {
     requestId: string;
-    ok: boolean;
-    deleted: boolean;
+    ok?: boolean;
+    deleted?: boolean;
     error?: string;
 }
 ```
@@ -1004,7 +1004,7 @@ reply `SAVE_IMAGE_RESULT`:
 ```ts
 {
     requestId: string;
-    ok: boolean;
+    ok?: boolean;
     error?: string;
 }
 ```
