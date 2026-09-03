@@ -116,3 +116,20 @@ jobs:
       - name: Page-surface context — page apps vs model slots
         if: always()
         run: npm run check:page-context
+
+      # `bootSkeleton: true` makes the run host stand down its loading veil, so
+      # the key over an empty `#root` is a BLANK IFRAME for the whole load —
+      # strictly worse than not opting in. NOTHING on the platform validates
+      # that today, which makes the docs the only thing an author has, and makes
+      # a doc example that quietly stops satisfying the rule a copy-pasteable
+      # blank page. The guard runs the REAL rule over the example extracted from
+      # the markdown (plus a table of must-FAIL fixtures, so it has been shown
+      # to go red), asserts the dark default by LUMINANCE rather than by a
+      # keyword, and pins the three non-negotiables as normalised whole
+      # sentences. Offline and repo-local — it reads two committed markdown
+      # files and nothing else, so it cannot false-fail on someone else's
+      # publish, which is what makes it safe to require by the doctrine above.
+      # (Gates — see the note above.)
+      - name: Boot-skeleton contract — the example satisfies the rule it teaches
+        if: always()
+        run: npm run check:boot-skeleton

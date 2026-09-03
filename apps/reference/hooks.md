@@ -2,9 +2,9 @@
 title: Hooks reference
 description: Every @civitai/blocks-react hook — signature and example, generated from the published package.
 sources:
-  - npm:@civitai/blocks-react@0.41.0/dist/index.d.ts
-  - npm:@civitai/blocks-react@0.41.0#README
-  - npm:@civitai/app-sdk@0.33.0/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.45.0/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.45.0#README
+  - npm:@civitai/app-sdk@0.37.0/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
 
@@ -78,6 +78,21 @@ const rootRef = useRef<HTMLDivElement>(null);
 useBlockResize(rootRef);
 ```
 
+**`useBlockBreakpoint`**
+
+```ts
+useBlockBreakpoint(ref?: RefObject<HTMLElement | null>): BlockBreakpoint
+```
+
+Reports the block's **own** width tier, so you can branch on "am I narrow?" without hand-rolling a `ResizeObserver` or hard-coding pixel numbers.
+
+```tsx
+const bp = useBlockBreakpoint();
+<div style={{ display: 'flex', flexDirection: bp.below('sm') ? 'column' : 'row' }}>
+  {bp.atLeast('md') && <aside>…</aside>}
+</div>
+```
+
 **`useBlockToken`**
 
 ```ts
@@ -144,9 +159,66 @@ const body: WorkflowBody = {
   modelVersionId,
   params: { prompt: userPrompt },
 };
-await estimate(body);            // status 'estimating' → 'confirming' (cost in result.cost.total)
-const snap = await submit(body); // status 'submitting' → 'polling'; returns a workflowId
-await poll(snap.workflowId);     // you loop this on a backoff until terminal
+// The viewer-facing copy is a string YOUR APP owns, chosen by `err.code`.
+// Nothing on the error may be rendered: `err.message` is developer-facing and
+// its wording is not a contract; `err.snapshot.error` is server-authored and
+// unsanitised.
+const estimateFailureMessage = (err: WorkflowEstimateError) =>
+  err.code === 'no-cost'
+    ? 'We could not get a price for this configuration. Try adjusting it.'
+    : 'Pricing is unavailable right now. Please try again shortly.';
+
+// 🔴 estimate() REJECTS when the reply carries no usable price. ALWAYS catch it.
+let priced = false;
+try {
+  await estimate(body);          // status 'estimating' → 'confirming' (cost in result.cost.total)
+  priced = true;
+} catch (err) {
+  if (!(err instanceof WorkflowEstimateError)) throw err;
+  // status is now 'error'. Log both for the developer; render neither.
+  logForDebugging(err.message, err.snapshot.error);
+  showError(estimateFailureMessage(err));
+}
+if (priced) {
+  // 🔴 submit() REJECTS when the reply carries no usable workflow outcome. A
+  // priced refusal is different — it RESOLVES.
+  try {
+    const snap = await submit(body); // status 'submitting' → 'polling'
+    if (snap.status === 'failed') {
+      // 🔴 A RESOLVED `failed` IS A PRICED SERVER OUTCOME — and only SOME of
+      // them are about the viewer's wallet. Affordability (per-call budget, the
+      // per-user daily Buzz cap) IS fixable by buying Buzz; the per-app velocity
+      // limit, the per-app aggregate daily cap, a fail-closed "temporarily
+      // unavailable" deny and a missing price quote are NOT. Selling Buzz for
+      // one of those takes money and fixes nothing, so branch before you offer.
+      showError(submitOutcomeMessage(snap)); // YOUR app owns this copy
+    } else {
+      await poll(snap.workflowId);   // you loop this on a backoff until terminal
+    }
+  } catch (err) {
+    if (!(err instanceof WorkflowSubmitError)) throw err;
+    // Log both for the developer; render neither.
+    logForDebugging(err.message, err.snapshot.error);
+    // 🔴 TWO SEPARATE QUESTIONS — DO NOT CONJOIN THEM. `code` decides what you may
+    // say about MONEY; the id decides only whether there is something to POLL.
+    // Folding the id test into the `code` test sends a 'workflow-failed' reply
+    // whose id is 'whatif' into the reassuring arm — the exact blind-retry
+    // invitation this whole guard exists to remove.
+    if (err.code === 'workflow-failed') {
+      // 🔴 Spend MAY ALREADY BE COMMITTED. Do not tell the viewer it was free,
+      // and do not retry blindly — a retry mints a fresh idempotency key, i.e. a
+      // SECOND reservation.
+      showError('The generation may have started but did not complete. Check your history.');
+      // Only NOW ask about pollability: 'whatif' is a non-workflow sentinel.
+      if (err.snapshot.workflowId !== 'whatif') await poll(err.snapshot.workflowId);
+    } else {
+      // 🔴 'exception' means the host had no workflow to report — USUALLY nothing
+      // was queued, but a lost response or an in-progress idempotency conflict
+      // reaches this arm too. Retry with the SAME idempotencyKey, not a fresh one.
+      showError('Could not start the generation. Please try again.');
+    }
+  }
+}
 ```
 
 **`useBuzzPurchase`**
@@ -553,7 +625,7 @@ const { allowance, refetch } = useTipAllowance();
 usePublishGenerationOutputs(): UsePublishGenerationOutputs
 ```
 
-Publish selected outputs of one of the calling app's OWN generations into bare, real-scanned public `Image` rows via the host-mediated `PUBLISH_GENERATION_OUTPUTS` → `PUBLISH_RESULT` bridge. Token-bound + fail-closed: the host self-binds the account off the block token, re-derives (viewer, app, workflowId) ownership before reading the workflow, and re-uploads + FULL-scans each selected output server-side (no url ever crosses from the iframe). The result is a set of bare (post-less) scanned `Image` row ids — no Post, no gallery attach, no rewards/notifications. Host-chrome shows a consent confirm before anything is published.
+Publish selected outputs of one of the calling app's OWN generations into bare, real-scanned public `Image` rows via the host-mediated `PUBLISH_GENERATION_OUTPUTS` → `PUBLISH_RESULT` bridge. Token-bound + fail-closed: the host self-binds the account off the block token, re-derives (viewer, app, workflowId) ownership before reading the workflow, and re-uploads + FULL-scans each selected output server-side (no url ever crosses from the iframe). The result is a set of bare (post-less) scanned `Image` row ids — no Post, no gallery attach, no rewards/notifications. Host-chrome shows a consent confirm before anything is published, and because that confirm waits on a human the request carries {@link HUMAN_INTERACTION_TIMEOUT_MS}, not the default protocol timeout.
 
 ```tsx
 const { publish } = usePublishGenerationOutputs();
@@ -609,7 +681,7 @@ union keyed by `kind`. The hook forwards the body to the host verbatim and never
 reads member-specific fields, so every member flows through the same
 `estimate → submit → watch` lifecycle shown above.
 
-As of the pinned `@civitai/app-sdk@0.33.0` the union has three members:
+As of the pinned `@civitai/app-sdk@0.37.0` the union has three members:
 
 | `kind` | what it runs | what your block sends |
 |---|---|---|
@@ -673,7 +745,7 @@ Three things trip up a first attempt, all covered in the guide:
   seconds.
 
 ::: tip The published SDK now types BOTH arms
-As of `@civitai/app-sdk@0.33.0`, `WorkflowBodyCustomComfy` is itself a union on
+As of `@civitai/app-sdk@0.37.0`, `WorkflowBodyCustomComfy` is itself a union on
 `mode`, and both arms are importable from `@civitai/app-sdk/blocks`:
 `WorkflowBodyCustomComfyRecipe` and `WorkflowBodyCustomComfyInline` (plus
 `InlineComfyNode` for the graph nodes). Earlier versions typed the recipe arm

@@ -3,8 +3,8 @@ title: Quickstart
 description: Scaffold a Civitai App with the civitai CLI, run it in the local harness, and write your first block.
 sources:
   - go:github.com/civitai/cli#app
-  - npm:@civitai/blocks-react@0.41.0#README
-  - npm:@civitai/app-sdk@0.33.0/blocks#defineBlock
+  - npm:@civitai/blocks-react@0.45.0#README
+  - npm:@civitai/app-sdk@0.37.0/blocks#defineBlock
   - civitai-app-starters:docs/build-your-first-app-block.md
 ---
 
@@ -147,6 +147,9 @@ Reach for it on the **model-slot** surface, where `IframeHost` does handle
 `iframe.minHeight` / `iframe.maxHeight`. (`iframe.resizable` in the manifest
 schema still describes itself in size-to-content terms; on a page app that
 wording does not apply.)
+
+Sizing your block to whatever box it lands in — on either surface — is
+[Responsive blocks](./responsive).
 :::
 
 A few things this snippet establishes as habits:
