@@ -116,15 +116,34 @@
  * ----------------------------------------------
  * `apps/reference/components.md` is generated verbatim from the `MARKUP.md` that
  * ships INSIDE the published `@civitai/components` package, and that upstream
- * file carries its own CDN `<link>`s. As of `@civitai/components@0.3.0` those
- * still read `@0.1.1`. This repo cannot fix them without diverging from the
- * canonical prose the generator exists to mirror — the fix belongs in
+ * file carries its own CDN `<link>`s. This repo cannot fix them without diverging
+ * from the canonical prose the generator exists to mirror — the fix belongs in
  * civitai-app-starters `packages/civitai-components/MARKUP.md`, after which a
  * re-vendor clears it here.
  *
  * So a stale pin on that page is reported as a WARNING with the upstream
  * pointer, and does NOT fail. A gate that cannot be made green by anyone in this
  * repo would just train people to ignore it.
+ *
+ * 🔴 AS OF `@civitai/components@0.4.1` THAT WARNING IS EXPECTED TO BE SILENT, AND
+ * ITS RETURN IS THE SIGNAL. Upstream MARKUP.md now ships those `<link>`s
+ * **unversioned** (`cdn.jsdelivr.net/npm/@civitai/components/styles.css`) on
+ * purpose, so they track `latest` and cannot rot. There is no version literal on
+ * that page for this arm to match, so it emits nothing — which is the fixed
+ * state, not a broken scan. (The per-family positive control above is what keeps
+ * that distinguishable: it counts AUTHORED literals, which are still pinned and
+ * still guarded, so a matcher that stopped working fails loudly regardless.)
+ *
+ * The history is worth keeping, because it is what a re-appearing warning means.
+ * The page shipped `components@0.1.1` links while npm was on 0.3.0, then
+ * `components@0.3.0` / `theme@0.2.0` while the pins were 0.4.0 / 0.3.0 — the
+ * second of which contradicted the docs' own responsive guide, since
+ * `theme@0.2.x` contains ZERO `--civitai-bp-*` tokens and that guide is written
+ * entirely against them. Every one of those URLs returned **200**, with the OLD
+ * stylesheet. So if this warning ever fires again, upstream has RE-PINNED the
+ * URLs; do not "fix" it by re-adding a rewrite shim to
+ * `gen-appblocks-components.mjs` — one lived there, froze at `0.1.1`, and would
+ * have silently re-pinned the page three minors backwards. Fix it upstream.
  *
  * RESULTS (mirrors check-appblocks-pins.mjs's network contract)
  *   - all literals match the pin, no pin lags npm    -> PASS (exit 0)
@@ -224,6 +243,22 @@ export const HISTORICAL_LITERALS = [
     // correct this row in the same change.
     count: 2,
     why: 'the `step` WorkflowBody member was ADDED in 0.30.0 — a changelog fact. Bumping it to the current pin would state a false arrival version.',
+  },
+  {
+    file: 'apps/guide/responsive.md',
+    pkg: '@civitai/components',
+    version: '0.4.0',
+    // EXACT count 1: the "Since @civitai/components@0.4.0 you get some of this
+    // without writing anything" sentence. This file ALSO carries a `sources:`
+    // stamp for the same package, which must stay at the pin — if that stamp
+    // ever regresses to 0.4.0 the count becomes 2 and this row fails, which is
+    // the whole point of pinning the count rather than the (file, pkg, version).
+    count: 1,
+    // Measured, not assumed: `styles.css` is BYTE-IDENTICAL between 0.4.0 and
+    // 0.4.1 (`cmp` rc=0), and differs from 0.3.0 — 0.4.1 changed only MARKUP.md,
+    // README.md, demo/index.html and the version field. So group-wrap-by-default
+    // and `data-nowrap` shipped in 0.4.0.
+    why: 'group wrapping by default + `data-nowrap` ARRIVED in components 0.4.0 — 0.4.1 is a docs-only release with a byte-identical styles.css. Bumping this to the pin would name a version in which nothing about this behaviour changed.',
   },
 ];
 
