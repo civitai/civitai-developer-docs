@@ -131,44 +131,36 @@ function renderSummaryTable(components) {
 }
 
 /**
- * Version-pin the CDN URLs the upstream MARKUP.md Setup section ships bare
- * (unversioned). As of 0.1.1 each package ships a real package-root
- * `styles.css`, so BOTH jsDelivr and unpkg resolve `@civitai/<pkg>@0.1.1/styles.css`
- * (all verified 200 text/css) — the old 0.1.0 jsDelivr-404 (exports-alias) problem
- * is gone. The only correction now is to pin the version so the rendered page
- * doesn't recommend an unpinned `latest` URL.
- *
- * This is a targeted swap on the exact bare specifiers, so it NO-OPS the moment
- * upstream MARKUP.md ships pinned URLs. The committed snapshot stays
- * byte-identical to civitai-app-starters@main, so the snapshot drift-guard is
- * unaffected — only the rendered page is corrected. Remove this shim once the
- * @civitai/components package ships version-pinned URLs upstream.
- */
-const CDN_URL_FIXES = [
-  [
-    'https://cdn.jsdelivr.net/npm/@civitai/theme/styles.css',
-    'https://unpkg.com/@civitai/theme@0.1.1/styles.css',
-  ],
-  [
-    'https://cdn.jsdelivr.net/npm/@civitai/components/styles.css',
-    'https://unpkg.com/@civitai/components@0.1.1/styles.css',
-  ],
-];
-function fixCdnUrls(body) {
-  return CDN_URL_FIXES.reduce((acc, [broken, fixed]) => acc.replaceAll(broken, fixed), body);
-}
-
-/**
  * The MARKUP.md body reproduced on the page: from the first `## ` section
  * (Setup) onward (Setup / Theming / Cascade / Components / React parity),
- * verbatim so the contract never diverges — except the two broken CDN URLs in
- * the Setup section, corrected by fixCdnUrls (see above). The H1 and MARKUP.md's
- * own intro paragraph are dropped — this page supplies its own H1 + intro above.
+ * VERBATIM, so the contract never diverges. The H1 and MARKUP.md's own intro
+ * paragraph are dropped — this page supplies its own H1 + intro above.
+ *
+ * 🔴 THERE IS DELIBERATELY NO CDN-URL REWRITE HERE ANY MORE, and re-adding one
+ * would reintroduce the exact defect this generator's page shipped for months.
+ *
+ * A `CDN_URL_FIXES` shim used to live here. It rewrote the bare (unversioned)
+ * `cdn.jsdelivr.net/npm/@civitai/<pkg>/styles.css` specifiers the upstream Setup
+ * section shipped into VERSION-PINNED `unpkg.com/@civitai/<pkg>@0.1.1/...` URLs,
+ * on the theory that a page should not recommend an unpinned `latest` URL.
+ *
+ * That theory was wrong in the one way that matters: a pinned CDN URL ROTS
+ * SILENTLY. Every published version resolves forever, so a stale pin returns
+ * **200 with the OLD stylesheet** — components added since render unstyled and
+ * nothing errors. The docs shipped precisely that: `components@0.3.0` /
+ * `theme@0.2.0` links on a page whose own responsive guide is written entirely
+ * against `--civitai-bp-*` tokens that `theme@0.2.x` does not contain.
+ *
+ * Upstream fixed it at the source — `@civitai/components@0.4.1`'s MARKUP.md ships
+ * the URLs UNVERSIONED on purpose, so they can never rot. The shim's own literals
+ * were frozen at `0.1.1`, so leaving it in place would have re-pinned the page to
+ * a version THREE minors older than the one being fixed — measured, not feared.
+ * Reproduce the correct URLs verbatim; that is the whole contract.
  */
 function markupBody(md) {
   const firstH2 = md.search(/^## /m);
   if (firstH2 < 0) throw new Error('gen-appblocks-components: no "## " section found in MARKUP.md');
-  return fixCdnUrls(md.slice(firstH2).trimEnd());
+  return md.slice(firstH2).trimEnd();
 }
 
 function buildPage(md, components) {

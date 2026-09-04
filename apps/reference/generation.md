@@ -3,7 +3,7 @@ title: Generation bridge reference
 description: The field-level generation contract — the WorkflowBody union, the useBuzzWorkflow lifecycle (incl. cancel), and the BlockWorkflowSnapshot result — generated from the published SDK type JSDoc.
 sources:
   - npm:@civitai/app-sdk@0.37.0/blocks#WorkflowBody
-  - npm:@civitai/blocks-react@0.45.0#useBuzzWorkflow
+  - npm:@civitai/blocks-react@0.45.1#useBuzzWorkflow
 ---
 
 # Generation bridge reference
