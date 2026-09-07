@@ -55,12 +55,20 @@ endpoint.
 - `modelCount` is only included when greater than zero; creators with no
   published models are excluded from the listing entirely.
 - `image` is null when the creator has no avatar.
+- When a `query` is supplied, `metadata.totalItems` and `metadata.totalPages`
+  are **lower bounds**, not exact counts. They grow monotonically as you page
+  and are exact only once you reach the final page. Treat the presence of
+  `metadata.nextPage` as the authoritative "another page exists" signal rather
+  than comparing `currentPage` against `totalPages`. The unfiltered listing (no
+  `query`) still returns an exact `totalItems`/`totalPages`.
 
 ### Notes
 
 - For very deep traversals, scope with `?query=` rather than paging linearly —
   the listing is sorted alphabetically by username, so `query=A`, `query=B`,
-  ... is a reliable way to walk the full set.
+  ... is a reliable way to walk the full set. Page within each `query` by
+  following `metadata.nextPage` until it is absent (on the search path the total
+  counts are lower bounds — see the note above).
 
 ### Examples
 
