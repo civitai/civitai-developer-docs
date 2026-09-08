@@ -92,6 +92,33 @@ export function renderPromptRegion(promptText) {
 export const regionBlock = (body) => `${beginMarker()}\n\n${body.replace(/\s+$/, '')}\n\n${endMarker()}`;
 
 /**
+ * Why `promptText` cannot be inlined, or null when it can.
+ *
+ * 🔴 FAIL-CLOSED IS NOT ENOUGH WHEN THE REMEDY IS UNREACHABLE. If prompt.md ever
+ * contains a line that is itself one of this region's markers, the generator
+ * writes it into the page once and `locateRegion` then finds TWO markers
+ * forever: check 4 fails with "found 2", its remedy is "run the generator", and
+ * the generator fails the same way. Fail-closed, but only repairable by hand —
+ * which is precisely what the region forbids.
+ *
+ * So both callers ask this FIRST and report the real cause, which does have a
+ * remedy: the marker line does not belong in prompt.md.
+ */
+export function regionConflict(promptText) {
+  const kind = beginRe().test(promptText) ? 'BEGIN' : endRe().test(promptText) ? 'END' : null;
+  if (!kind) return null;
+  return (
+    `${PROMPT_SOURCE} contains a line that is itself this region's ${kind} marker ` +
+    `for '${REGION_KEY}'.\n` +
+    `    It cannot be inlined: the generated copy would carry a SECOND ${kind} marker into\n` +
+    `    ${LANDING_PAGE}, after which the region can no longer be located and\n` +
+    `    \`${REFRESH_CMD}\` cannot repair it either — it fails on this same line. Remove or\n` +
+    `    reword that line in ${PROMPT_SOURCE}; the markers are matched anchored to the start\n` +
+    `    of a line, so indenting it is enough.`
+  );
+}
+
+/**
  * Locate the committed region in `pageText`.
  *
  * @returns {{ start: number, end: number, block: string }} character offsets of

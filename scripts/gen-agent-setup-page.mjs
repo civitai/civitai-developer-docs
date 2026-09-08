@@ -20,9 +20,19 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { LANDING_PAGE, PROMPT_SOURCE } from '../.vitepress/agent-setup.mjs';
-import { readSources, renderPromptRegion, repoRoot, spliceRegion } from './agent-setup-page.mjs';
+import { readSources, regionConflict, renderPromptRegion, repoRoot, spliceRegion } from './agent-setup-page.mjs';
 
 const { page, prompt } = readSources();
+
+// Refuse BEFORE writing. Writing a marker-carrying prompt into the page leaves
+// both this generator and check 4 failing permanently with no reachable remedy —
+// see `regionConflict` for the mechanism.
+const conflict = regionConflict(prompt);
+if (conflict) {
+  console.error(`\n❌ agent-setup page: refusing to write.\n\n  ✗ ${conflict}\n`);
+  process.exit(1);
+}
+
 const after = spliceRegion(page, renderPromptRegion(prompt));
 
 if (after === page) {

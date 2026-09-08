@@ -56,9 +56,19 @@ jobs:
         with:
           node-version: '20'
 
-      # No `npm ci`: the guard imports nothing outside this repo (node:fs,
-      # node:path, node:url and .vitepress/agent-setup.mjs). Skipping the install
-      # keeps the job seconds long and removes the registry as a way for this
-      # check to fail for reasons that have nothing to do with the prompt.
+      # No `npm ci`: the guard imports nothing outside this repo — node:fs,
+      # node:path, node:url, ../.vitepress/agent-setup.mjs and
+      # ./agent-setup-page.mjs (added in 91b93be; it in turn imports only node:fs,
+      # node:path, node:url and those same constants). Skipping the install keeps
+      # the job seconds long and removes the registry as a way for this check to
+      # fail for reasons that have nothing to do with the prompt.
+      #
+      # 🔴 THAT IS A CONSTRAINT ON THE GUARD, NOT MERELY A NOTE ABOUT IT. Adding
+      # ANY node_modules import to scripts/check-agent-setup.mjs — markdown-it is
+      # the obvious candidate, and it IS present via VitePress — breaks this job
+      # with MODULE_NOT_FOUND. That is why the guard's markdown block scanner is
+      # hand-written; see the "THE BLOCK SCANNER" banner in that file. If an
+      # install ever becomes necessary here, the offline property above is what
+      # you are spending, so say so in the same diff.
       - name: prompt.md vs the CLI help snapshot, and the page vs its constants
         run: node scripts/check-agent-setup.mjs

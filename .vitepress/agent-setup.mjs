@@ -10,9 +10,14 @@
 // vitepress-plugin-llms `.md` export is a machine channel and a Vue expression
 // would reach it verbatim as `{{ SETUP_PROMPT }}`), and
 // `scripts/check-agent-setup.mjs` asserts every literal against these constants
-// on every PR — the page's copy-paste string, every URL on it that claims to be
-// the raw prompt, and the exact-match nginx route that serves PROMPT_PATH.
-// Drift is therefore a red check, not a silent one.
+// on every PR, in FOUR checks — (1) every command `public/agent-setup/prompt.md`
+// names exists in the CLI help snapshot and every non-`civitai` binary it
+// invokes is allowlisted; (2) the page's copy-paste string, and every absolute
+// URL it carries; (3) the exact-match nginx route that serves PROMPT_PATH; and
+// (4) the inline copy of the prompt on the landing page, byte for byte. Drift is
+// therefore a red check, not a silent one. That script's header is the authority
+// on what each check does and does NOT cover; this list is a pointer, and a
+// pointer that enumerates goes stale — it listed three of the four for a while.
 //
 // Plain `.mjs` on purpose: imported by node scripts AND resolvable by Vite.
 
