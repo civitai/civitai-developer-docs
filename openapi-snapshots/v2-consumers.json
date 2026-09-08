@@ -8647,6 +8647,14 @@
                 ],
                 "description": "Model reasoning separated from the answer by the host's reasoning parser (vLLM convention)."
               },
+              "reasoning": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Input alias for the vLLM 0.26+ / OpenRouter field name; responses always use reasoning_content.",
+                "writeOnly": true
+              },
               "role": {
                 "enum": [
                   "assistant"
@@ -40092,6 +40100,8 @@
               "enum": [
                 "workflow:*",
                 "workflow:unassigned",
+                "workflow:preparing",
+                "workflow:scheduled",
                 "workflow:processing",
                 "workflow:succeeded",
                 "workflow:failed",
@@ -40099,6 +40109,8 @@
                 "workflow:canceled",
                 "step:*",
                 "step:unassigned",
+                "step:preparing",
+                "step:scheduled",
                 "step:processing",
                 "step:succeeded",
                 "step:failed",
@@ -40106,6 +40118,8 @@
                 "step:canceled",
                 "job:*",
                 "job:unassigned",
+                "job:preparing",
+                "job:scheduled",
                 "job:processing",
                 "job:succeeded",
                 "job:failed",

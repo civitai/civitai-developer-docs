@@ -55,13 +55,14 @@ Event types use a `<scope>:<status>` format. Scopes fan out at decreasing granul
 | `step:*` | Each step transition | Multi-step workflows where you want intermediate output. |
 | `job:*` | Each internal job transition | Debugging / observability — usually too noisy for production. |
 
-Statuses you can filter on: `unassigned`, `processing`, `succeeded`, `failed`, `expired`, `canceled`. Use `*` to receive every status for a scope.
+Statuses you can filter on: `unassigned`, `preparing`, `scheduled`, `processing`, `succeeded`, `failed`, `expired`, `canceled` (see [Workflow statuses](./workflows#status-lifecycle)). Use `*` to receive every status for a scope. Prefer naming the statuses you act on: `*` also delivers every `preparing` progress tick, and any status added later.
 
 Common subscriptions:
 
 - **"Tell me when it's done, pass or fail"** → `["workflow:succeeded", "workflow:failed", "workflow:expired", "workflow:canceled"]`
 - **"Everything about the workflow"** → `["workflow:*"]`
 - **"Per-step progress in a multi-step pipeline"** → `["step:succeeded", "step:failed"]`
+- **"Show download progress while models are fetched"** → `["step:preparing", "step:processing", "step:succeeded", "step:failed"]` — `preparing` events carry a `preparation` object with the resource being downloaded and its progress.
 
 ## Event payload
 
@@ -92,13 +93,13 @@ Step events use [`WorkflowStepEvent`](/orchestration/reference/operations/Submit
 
 - **In-order, serialized per workflow.** The orchestrator waits for each callback invocation to complete before sending the next one, so `processing` always arrives before `succeeded` for a given workflow / step.
 - **Terminal states are terminal.** Once a workflow or step reaches `succeeded`, `failed`, `expired`, or `canceled`, it will not transition back to `processing` or any other state.
-- **`processing` can repeat.** You may get multiple `processing` events for the same workflow or step — each one signals progress. If you need the latest details (e.g. partial output), call [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) in response.
+- **`preparing` and `processing` can repeat.** You may get multiple `preparing` or `processing` events for the same workflow or step — each one signals progress. If you need the latest details (e.g. partial output), call [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) in response.
 - **Automatic retries on transient errors.** If your endpoint returns a non-`2xx` or times out, the orchestrator retries before advancing to the next event.
 
 ## Receiving endpoint checklist
 
 - **Return `2xx` quickly.** Do the real work on a queue after acknowledging. Slow receivers delay subsequent events (delivery is serialized) and get retried.
-- **Be idempotent on `processing`.** Retries and legitimately repeated `processing` events mean the same event can arrive more than once. Use `(workflowId, status, timestamp)` as your dedupe key, or treat `processing` as "latest progress, refetch if you care."
+- **Be idempotent on `preparing` and `processing`.** Retries and legitimately repeated `preparing` / `processing` events mean the same event can arrive more than once. Use `(workflowId, status, timestamp)` as your dedupe key, or treat `processing` as "latest progress, refetch if you care."
 - **Accept only HTTPS URLs** — the orchestrator won't post to plain HTTP.
 
 ## Blobs in results
