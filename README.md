@@ -45,12 +45,57 @@ Produces an nginx:alpine image serving the static site.
 │   └── theme/
 │       ├── components/                # AuthBar, RecipeRun, ResultViewer
 │       └── composables/               # useAuthToken, useWorkflow
+├── agent-setup/index.md               # Landing page for the one-line agent setup
+├── public/agent-setup/prompt.md       # The raw prompt, served VERBATIM (see below)
 ├── scripts/copy-spec.mjs             # OpenAPI spec sync script
 ├── openapi-snapshots/                 # Committed spec snapshot — the build's default source
 ├── public/openapi/                    # Spec destination (gitignored)
 ├── Dockerfile                         # Multi-stage build for production
-└── nginx.conf                         # cleanUrls routing + caching
+└── nginx.conf                         # cleanUrls routing + caching, and .md content types
 ```
+
+## The serving layer, for machine consumers
+
+Two facts about how this site is served that are easy to get wrong and hard to
+notice, plus one that is not ours to fix.
+
+**`.md` is `text/markdown`, not `text/plain`.** nginx's `mime.types` has no entry
+for `.md`, so `nginx.conf` sets it explicitly. It used to say `text/plain` "like
+GitHub raw". That is the wrong type and it is not cosmetic: some agent fetchers
+bypass lossy summarisation only for `text/markdown` responses under ~100k
+characters, so every per-page `.md` this site publishes *for machines* was being
+summarised away by exactly the consumers `vitepress-plugin-llms` exists to serve.
+
+**`/agent-setup/prompt.md` is a verbatim static route.** It is
+`public/agent-setup/prompt.md`; VitePress copies `public/` into the output with no
+markdown pipeline, so the served bytes equal the source bytes. It gets an exact
+`location =` match in `nginx.conf` with `text/markdown; charset=utf-8` and
+`X-Content-Type-Options: nosniff`, and **no redirect** — Claude Code does not
+follow a cross-host redirect, it returns a *description* of the redirect instead,
+which would break every first fetch. `public/**` is in `srcExclude` so VitePress
+does not also compile the raw prompt into a page.
+
+**🔴 UPSTREAM, NOT FIXABLE HERE: Cloudflare 403s two user agents.** Measured
+2026-09-08 against the live zone:
+
+```
+curl -sI -A 'Python-urllib/3.11' https://developer.civitai.com/   -> 403, body `error code: 1010`
+curl -sI -A 'libwww-perl/6.0'    https://developer.civitai.com/   -> 403, body `error code: 1010`
+curl -sI -A 'curl/8.5.0'         https://developer.civitai.com/   -> 200
+```
+
+`python-requests`, `httpx`, `aiohttp`, `Scrapy`, `Wget`, `Go-http-client`,
+`node-fetch`, `okhttp`, `Java`, `ClaudeBot` and browsers all get 200; a
+lowercased `python-urllib` gets 200, so the match is an exact, case-sensitive
+signature list. It is path-independent (`/`, `/llms.txt`, `/apps/guide.md`,
+`/favicon.ico` all 403) and `civitai.com` behaves identically, so it is
+zone/account scope, not this site. Cloudflare error **1010** is the *Browser
+Integrity Check*. **Nothing in this repository can change it** — the same
+`nginx.conf`, run locally against the built `dist/`, returns 200 to both UAs. The
+remedy is a Cloudflare dashboard change (disable Browser Integrity Check for this
+hostname, or add a WAF skip rule); until then, a naive `urllib.request` fetch of
+anything on `developer.civitai.com`, including `/agent-setup/prompt.md`, is hard
+blocked.
 
 ## Interactive features
 

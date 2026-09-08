@@ -267,7 +267,15 @@ export default withMermaid({
   ],
   cleanUrls: true,
   lastUpdated: true,
-  srcExclude: ['**/CLAUDE.md', '**/README.md', 'orchestration/internals/**'],
+  // 🔴 `public/**` is NOT excluded by default. VitePress globs `**/*.md` from
+  // srcDir and `public/` is inside it, so `public/agent-setup/prompt.md` — the
+  // raw file we ship verbatim — was ALSO being compiled into a page at
+  // /public/agent-setup/prompt.html and re-emitted by the llms plugin with
+  // frontmatter injected. Measured on this tree: two stray artifacts, one of
+  // which is a MUTATED copy of a file whose entire contract is that it is not
+  // mutated. The verbatim copy at /agent-setup/prompt.md was correct either way,
+  // which is exactly why this would have gone unnoticed.
+  srcExclude: ['**/CLAUDE.md', '**/README.md', 'orchestration/internals/**', 'public/**'],
   // The dynamic operations routes are generated from [operationId].paths.js — the
   // dead-link checker doesn't resolve them ahead of time, so we skip them here.
   ignoreDeadLinks: [/^\/orchestration\/reference\/operations\//],
@@ -334,7 +342,9 @@ export default withMermaid({
           'Orchestration section covers the consumer-facing REST API: authenticating, submitting workflows, polling / receiving webhooks for results, and using each recipe (videoGen/WAN, imageGen/Flux, upscalers, transcription, TTS, prompt enhancement). ' +
           'Reference pages are generated from the v2-consumers OpenAPI specification and stay in sync with the live API on every build.',
         sidebar,
-        ignoreFiles: ['orchestration/reference/operations/**/*.md'],
+        // srcExclude already keeps public/ out of the page set; the llms plugin
+        // walks its own file list, so it needs telling separately.
+        ignoreFiles: ['orchestration/reference/operations/**/*.md', 'public/**/*.md'],
       }),
     ],
   },

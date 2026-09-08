@@ -27,6 +27,7 @@
     "test:appblocks:cli": "node scripts/test-appblocks-cli.mjs",
     "test:refresh-cli-snapshot": "node scripts/test-refresh-cli-snapshot.mjs",
     "test:copy-spec": "node scripts/test-copy-spec.mjs",
+    "check:agent-setup": "node scripts/check-agent-setup.mjs",
     "check:snapshots": "node scripts/check-appblocks-snapshots.mjs",
     "check:cli-snapshot": "node scripts/check-appblocks-cli-snapshot.mjs",
     "refresh:cli-snapshot": "node scripts/refresh-cli-snapshot.mjs",

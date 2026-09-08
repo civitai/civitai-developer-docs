@@ -1,0 +1,64 @@
+name: agent-setup
+
+# The anti-rot guard for the hosted agent-setup surface —
+# https://developer.civitai.com/agent-setup/prompt.md and the page that
+# advertises it. See scripts/check-agent-setup.mjs for what it asserts and why.
+#
+# 🔴 SEQUENCING — READ BEFORE ADDING THIS TO THE REQUIRED CONTEXTS ON `main`.
+# This job is EXPECTED to be red until civitai/cli ships `civitai agent-setup`
+# AND this repo re-captures the help snapshot
+# (`node scripts/gen-appblocks-cli.mjs --write-snapshot`). That red is the
+# feature working: prompt.md tells an agent to run a command that does not exist
+# yet, and the guard says so by name. It is also the correct merge blocker for
+# the PR that introduces the prompt — publishing it before the CLI ships would
+# hand every agent a broken install.
+#
+# So the deliberate order is:
+#   1. this workflow + the guard land, red, naming `civitai agent-setup`;
+#   2. civitai/cli ships the command and cuts a release;
+#   3. someone re-captures civitai-cli-help.txt here — the job goes green;
+#   4. ONLY THEN add `check-agent-setup` to the required status checks on `main`.
+#
+# Doing (4) early gives this repo a permanently-red required check, which its own
+# doctrine (and appblocks-cli.yml's header) says is worse than no check at all:
+# everybody learns to click through it. Do not "temporarily" soften the guard to
+# reach green sooner — a green run here is the ONLY thing asserting that a file
+# we host, and that agents execute, names commands that exist.
+#
+# RUNS ON EVERY PR, DELIBERATELY UNFILTERED — same reasoning as appblocks-cli.yml
+# and build-site.yml: a path-filtered required check leaves any PR touching none
+# of the watched files BLOCKED forever, because GitHub does not synthesise a
+# passing status for a workflow that never triggers (measured live on #42). The
+# guard is offline, repo-local and sub-second, so unconditional is cheap. It is
+# also a superset of what a filter could express: the prompt, the landing page,
+# the shared constants and the CLI snapshot all feed it.
+on:
+  pull_request: {}
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# LEAST PRIVILEGE — see appblocks-cli.yml for the full reasoning. This job checks
+# out and runs one offline node script that reads committed files: no network, no
+# artifact upload, no PR comment, no push, no `gh` call.
+permissions:
+  contents: read
+
+jobs:
+  check-agent-setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # Same version as every other job here.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # No `npm ci`: the guard imports nothing outside this repo (node:fs,
+      # node:path, node:url and .vitepress/agent-setup.mjs). Skipping the install
+      # keeps the job seconds long and removes the registry as a way for this
+      # check to fail for reasons that have nothing to do with the prompt.
+      - name: prompt.md vs the CLI help snapshot, and the page vs its constants
+        run: node scripts/check-agent-setup.mjs

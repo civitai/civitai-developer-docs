@@ -118,10 +118,17 @@ Both agents are review-only — they report findings, they don't edit. Read thei
 Docker build: `docker build . -t civitai-developer-docs`
 - Multi-stage: Node 20 build → nginx:alpine runtime
 - `copy-spec.mjs` resolves the spec from the committed `openapi-snapshots/` when no sibling repo is in the build context, so `docker build` needs no network for the spec (and cannot be broken by an orchestrator outage). The image therefore serves the SNAPSHOT: to publish spec changes, re-snapshot (`npm run copy:spec -- --refresh`) and merge that PR first.
-- `nginx.conf` handles VitePress `cleanUrls` rewrites and asset caching
+- `nginx.conf` handles VitePress `cleanUrls` rewrites, asset caching, and the
+  `.md` content types. See README → "The serving layer, for machine consumers"
+  before touching it: `.md` must be `text/markdown` (not `text/plain`),
+  `/agent-setup/prompt.md` is an exact-match verbatim route that must never
+  redirect, and a Cloudflare **Browser Integrity Check** 403 (error 1010) on
+  `Python-urllib` / `libwww-perl` is upstream of this repo and cannot be fixed
+  here — the same config serves those UAs 200 locally.
 
 ## Key gotchas
 
 - The OpenAPI spec file (`public/openapi/v2-consumers.json`) is gitignored. If `npm run dev` or `npm run build` fails with a missing import, run `npm run copy:spec` first — it needs no network, only the committed `openapi-snapshots/v2-consumers.json`.
-- `srcExclude` in config.mts excludes `CLAUDE.md` and `README.md` from the built site.
+- `srcExclude` in config.mts excludes `CLAUDE.md`, `README.md` and `public/**` from the built site. The `public/**` entry is load-bearing, not tidiness: VitePress globs `**/*.md` from srcDir and `public/` is inside it, so without it `public/agent-setup/prompt.md` is ALSO compiled into a page at `/public/agent-setup/prompt.html` and re-emitted by the llms plugin with frontmatter injected — a mutated copy of a file whose entire contract is that it is not mutated.
+- `npm run check:agent-setup` asserts every `civitai …` command and flag named in `public/agent-setup/prompt.md` exists in the CLI help snapshot, and that the landing page's copy-paste string matches `.vitepress/agent-setup.mjs`. It is deliberately red until civitai/cli ships `civitai agent-setup`; see `.github/workflows/agent-setup.yml` for the sequencing.
 - `VITE_ORCHESTRATION_API_URL` defaults to `https://orchestration.civitai.com` in the composable when not set (standalone dev without Aspire).
