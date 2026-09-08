@@ -75,6 +75,19 @@ follow a cross-host redirect, it returns a *description* of the redirect instead
 which would break every first fetch. `public/**` is in `srcExclude` so VitePress
 does not also compile the raw prompt into a page.
 
+**The `.md` type has one human-facing cost, and the landing page absorbs it.**
+`text/markdown` + `nosniff` means a browser offers to SAVE a `.md` URL rather than
+render it. Site-wide that is nearly free — humans visit `/apps/guide`, and
+`/apps/guide.md` is the machine channel by convention. The exception is
+`/agent-setup/prompt.md`, whose whole point is that a human reads it before
+pasting an unsigned prompt into an agent. So `agent-setup/index.md` renders the
+prompt's full text inline, generated from the served file by
+`npm run gen:agent-setup-page` and graded byte-for-byte by
+`npm run check:agent-setup`; the raw URL stays on the page, labelled as the
+machine copy. Run the generator after **any** edit to `public/agent-setup/prompt.md`
+— the check blocks a PR that forgot. See `scripts/agent-setup-page.mjs` for why
+the inline copy is a fence rather than spliced markdown.
+
 **🔴 UPSTREAM, NOT FIXABLE HERE: Cloudflare 403s two user agents.** Measured
 2026-09-08 against the live zone:
 

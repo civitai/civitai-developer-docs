@@ -15,7 +15,7 @@
  * direction: the page keeps serving 200 while the command it names no longer
  * exists, and the agent reports a broken install as the user's problem.
  *
- * THREE INDEPENDENT CHECKS. All are REPO-LOCAL — they read committed files only,
+ * FOUR INDEPENDENT CHECKS. All are REPO-LOCAL — they read committed files only,
  * make no network request, and cannot false-fail on someone else's publish,
  * which is the property this repo requires of anything that blocks a PR.
  *
@@ -33,6 +33,16 @@
  *      `location =` block. `PROMPT_PATH` is the declared authority for that URL,
  *      and nothing graded one against the other: changing `PROMPT_PATH` left the
  *      route on the old URL with every check green.
+ *
+ *   4. INLINE COPY. The landing page renders the prompt's full text so a human
+ *      can actually READ it — the raw route is `text/markdown` + `nosniff`, which
+ *      a browser offers to SAVE rather than display, on the one link the page's
+ *      whole "these instructions are unsigned, read them first" posture rests on.
+ *      That copy is GENERATED from the source file; this check grades the
+ *      committed region byte-for-byte against what the generator would write
+ *      right now. A landing page that quietly disagrees with the file an agent
+ *      actually executes is worse than the download dialog it replaced. See
+ *      scripts/agent-setup-page.mjs for the mechanism and why it is a fence.
  *
  * WHAT CHECK 1 ACTUALLY COVERS
  * ----------------------------
@@ -113,6 +123,12 @@ import {
   SITE_ORIGIN,
   SETUP_PROMPT,
 } from '../.vitepress/agent-setup.mjs';
+import {
+  REFRESH_CMD,
+  locateRegion,
+  regionBlock,
+  renderPromptRegion,
+} from './agent-setup-page.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SNAPSHOT = join(repoRoot, 'appblocks-snapshots', 'civitai-cli-help.txt');
@@ -494,6 +510,63 @@ function checkServingRoute() {
   return failures;
 }
 
+/** First differing line, so the error points at something rather than a blob. */
+function firstDiff(expected, actual) {
+  const e = expected.split('\n');
+  const a = actual.split('\n');
+  for (let i = 0; i < Math.max(e.length, a.length); i++) {
+    if (e[i] !== a[i]) {
+      return { line: i + 1, expected: e[i] ?? '(end of region)', actual: a[i] ?? '(end of region)' };
+    }
+  }
+  return null;
+}
+
+function checkInlineCopy() {
+  const failures = [];
+  const page = readFileSync(join(repoRoot, LANDING_PAGE), 'utf8');
+  const prompt = readFileSync(join(repoRoot, PROMPT_SOURCE), 'utf8');
+  const expected = regionBlock(renderPromptRegion(prompt));
+
+  let actual;
+  try {
+    ({ block: actual } = locateRegion(page));
+  } catch (err) {
+    failures.push(
+      `${LANDING_PAGE} — ${err.message}.\n` +
+        `    The inline copy of the prompt is what a human READS before pasting the one-liner;\n` +
+        `    the raw route is served as text/markdown, which a browser saves instead of showing.\n` +
+        `    Restore the markers and run \`${REFRESH_CMD}\`.`,
+    );
+    return failures;
+  }
+
+  if (actual !== expected) {
+    const d = firstDiff(expected, actual);
+    failures.push(
+      `${LANDING_PAGE}'s inline copy has DRIFTED from ${PROMPT_SOURCE}.\n` +
+        (d
+          ? `    first difference at region line ${d.line}:\n` +
+            `      committed: ${JSON.stringify(d.actual)}\n` +
+            `      generated: ${JSON.stringify(d.expected)}\n`
+          : `    the region differs only in trailing whitespace.\n`) +
+        `    The page is telling a reader something other than what the file an agent executes\n` +
+        `    says — the exact failure the inline copy exists to prevent. Re-generate and commit:\n\n` +
+        `        ${REFRESH_CMD}\n\n` +
+        `    Do NOT hand-edit the region: it is overwritten, and the generator is the only thing\n` +
+        `    keeping the two in sync.`,
+    );
+  }
+
+  if (!failures.length) {
+    console.log(
+      `  ✓ ${LANDING_PAGE} renders ${PROMPT_SOURCE} inline, byte-for-byte ` +
+        `(${prompt.split('\n').length} lines)`,
+    );
+  }
+  return failures;
+}
+
 function main() {
   console.log('agent-setup surface — prompt.md vs the CLI help snapshot, and the page vs its constants\n');
   // FIRST, and not folded into checkSingleSource: both halves READ this file, so
@@ -518,6 +591,7 @@ function main() {
     ['1. command surface', checkCommandSurface],
     ['2. single source', checkSingleSource],
     ['3. serving route', checkServingRoute],
+    ['4. inline copy', checkInlineCopy],
   ];
   const failures = [];
   for (const [label, fn] of checks) {
