@@ -9,8 +9,10 @@
 // literals (deliberately literal, not `{{ }}` interpolation — the
 // vitepress-plugin-llms `.md` export is a machine channel and a Vue expression
 // would reach it verbatim as `{{ SETUP_PROMPT }}`), and
-// `scripts/check-agent-setup-prompt.mjs` asserts every literal against these
-// constants on every PR. Drift is therefore a red check, not a silent one.
+// `scripts/check-agent-setup.mjs` asserts every literal against these constants
+// on every PR — the page's copy-paste string, every URL on it that claims to be
+// the raw prompt, and the exact-match nginx route that serves PROMPT_PATH.
+// Drift is therefore a red check, not a silent one.
 //
 // Plain `.mjs` on purpose: imported by node scripts AND resolvable by Vite.
 

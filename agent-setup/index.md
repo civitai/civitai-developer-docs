@@ -21,9 +21,12 @@ you is to run `civitai login` yourself.
 
 - Writes an `AGENTS.md` into your project describing how to build a Civitai App
   (`CLAUDE.md` is added as a one-line shim only when you don't already have one).
-- Registers the two Civitai MCP servers in *your* agent's own config file — the
+- Registers two remote Civitai MCP servers in *your* agent's own config file —
+  `https://mcp.civitai.com/mcp` (the platform) and
+  `https://orchestration.civitai.com/mcp` (generation orchestration). The config
   path and the key name differ per agent, which is exactly why a command does it
-  rather than you.
+  rather than you. This is the one change that persists outside your project
+  directory: your agent will connect to both hosts on every start.
 - Verifies the result and prints it.
 
 ## Read it first

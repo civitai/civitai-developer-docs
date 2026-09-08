@@ -45,6 +45,17 @@ This writes an `AGENTS.md` into the project, registers the two Civitai MCP
 servers in this agent's own config file, and prints what it did. It does not log
 you in and does not need a token.
 
+If the project does not already have a `CLAUDE.md`, it also writes a one-line
+`CLAUDE.md` that points at `AGENTS.md`. An existing `CLAUDE.md` is never
+modified.
+
+The two MCP servers are remote, and registering them is the only change this
+setup makes outside the project directory:
+
+- `https://mcp.civitai.com/mcp` — the Civitai platform MCP server
+- `https://orchestration.civitai.com/mcp` — the generation orchestration MCP
+  server
+
 Do not hand-write MCP config yourself — the config path and key name differ per
 agent and the command already knows them.
 

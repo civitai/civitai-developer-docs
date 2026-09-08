@@ -58,6 +58,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { repoRoot } from './appblocks-util.mjs';
 import { cliLongBody } from '../.vitepress/theme/components/cliReference.shared.mjs';
+import { PROMPT_PATH, PROMPT_SOURCE, PROMPT_URL } from '../.vitepress/agent-setup.mjs';
 
 // MEASURED on the build at 30f52a0: 44 `.ab-long` and 46 `.ab-example` blocks,
 // from a 52-command artifact. The floors carry slack because an upstream
@@ -297,6 +298,67 @@ checkFamily({
   want: exampleOwners.map((c) => c.examples.join('\n')),
   owners: exampleOwners.map((c) => c.command),
   source: '`exampleText(c)` and the `<pre class="ab-example">` it feeds',
+});
+
+// ---------------------------------------------------------------------------
+// THE RAW AGENT-SETUP PROMPT.
+//
+// 🔴 WHY THIS IS HERE AND NOT IN check-agent-setup.mjs. That guard is
+// deliberately offline and SOURCE-only: it grades
+// `public/agent-setup/prompt.md` against the CLI help snapshot and the shared
+// constants. Nothing graded the BUILT artifact — measured, `check-built-site.mjs`
+// mentioned `agent-setup` zero times. So a change to `publicDir`, to the
+// Dockerfile's `COPY --from=build /app/.vitepress/dist`, to `.gitignore`, or a
+// VitePress upgrade that started running `public/**` through the markdown
+// pipeline would ship a 404 — or a MUTATED body — at the exact URL the landing
+// page tells every agent to fetch, with every gate green.
+//
+// The assertion is byte-identity, not existence, because the contract this
+// route publishes IS byte-identity: `PROMPT_URL` is fetched by an agent that
+// then executes what it says, and a frontmatter-injected or re-serialised copy
+// is a different file that still 200s.
+const promptSrc = join(repoRoot, PROMPT_SOURCE);
+const promptBuilt = join(distDir, ...PROMPT_PATH.split('/').filter(Boolean));
+
+console.log(`\nBUILT SITE — ${promptBuilt}`);
+
+check(`the raw prompt is copied into the build at ${PROMPT_PATH}`, () => {
+  assert(
+    existsSync(promptSrc),
+    `${PROMPT_SOURCE} does not exist — the source of ${PROMPT_URL} is gone. ` +
+      `See scripts/check-agent-setup.mjs, which owns that failure.`,
+  );
+  assert(
+    existsSync(promptBuilt),
+    `${promptBuilt} does not exist, so ${PROMPT_URL} would 404.\n` +
+      `       Only files under public/ are copied verbatim into the output. Check that\n` +
+      `       ${PROMPT_SOURCE} is still there, that config.mts has not changed publicDir, and\n` +
+      `       that public/ is not being excluded from the build.`,
+  );
+});
+
+check(`the built ${PROMPT_PATH} is BYTE-IDENTICAL to ${PROMPT_SOURCE}`, () => {
+  if (!existsSync(promptSrc) || !existsSync(promptBuilt)) {
+    throw new Error('skipped — see the existence check above, which already failed');
+  }
+  const want = readFileSync(promptSrc);
+  const got = readFileSync(promptBuilt);
+  // POSITIVE CONTROL. Two empty files are byte-identical; that must not read as
+  // a pass. MEASURED on this tree: 2,798 bytes. The floor is loose because the
+  // prompt is edited often and the equality below is what makes this tight.
+  assert(
+    want.length >= 500,
+    `${PROMPT_SOURCE} is only ${want.length} bytes — it is empty or truncated, so a byte-identity ` +
+      `assertion against it would pass vacuously.`,
+  );
+  assert(
+    got.equals(want),
+    `the built copy is ${got.length} bytes, the source is ${want.length} — they are NOT identical.\n` +
+      `       ${PROMPT_URL} is served verbatim precisely so the bytes an agent executes are the\n` +
+      `       bytes in this repo. Something in the build is now REWRITING the file (VitePress\n` +
+      `       compiling public/**, the llms plugin re-emitting it with frontmatter, a copy step\n` +
+      `       normalising line endings). Fix the build, not this check.`,
+  );
 });
 
 console.log(failures ? `\n${failures} check(s) FAILED` : '\nall built-site checks passed');
