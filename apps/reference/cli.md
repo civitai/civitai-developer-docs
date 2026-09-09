@@ -111,8 +111,9 @@ Every command below is generated from the binary's own help output — the whole
 `civitai` command tree, not just `app`. Alongside App authoring it covers
 catalog browsing and downloads (`models`, `images`, `articles`, `collections`,
 `creators`, `tags`, `users`, `model-versions`, `download`), image generation
-(`generate`, `workflows` — these **spend Buzz**), and account commands
-(`login`, `whoami`, `buzz`, `upgrade`, `version`).
+(`generate`, `workflows` — these **spend Buzz**), account commands
+(`login`, `whoami`, `buzz`, `upgrade`, `version`), and `agent-setup`, which
+configures your coding agent for Civitai App development.
 
 `civitai app` and its subcommands come first; the rest follow alphabetically.
 Two `app` commands are badged **invite-only** — they are gated during the pre-GA
