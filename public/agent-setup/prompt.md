@@ -6,6 +6,8 @@ Complete all of the following steps yourself by running the commands directly.
 Do not ask the user to run any of these commands.
 
 - Install the Civitai CLI and configure this agent for Civitai App development
+- Relay the CLI's own authentication output verbatim (step 5) — never write
+  authentication instructions yourself
 
 ## 1. Work out what the user is building
 
@@ -15,10 +17,9 @@ Check the project for these signals:
 - `@civitai/app-sdk` or `@civitai/blocks-react` in `package.json` → a **Civitai
   App**. Continue to step 2.
 - Neither → **assume a Civitai App and continue to step 2.** An empty directory
-  is the normal starting point for this setup, and nothing in steps 2 to 4 is
-  specific to a project that already exists. Do not stop to ask — say which you
-  assumed when you report back in step 5, so the user can correct you in one
-  sentence.
+  is the normal starting point, and nothing in steps 2 to 4 depends on a project
+  that already exists. Do not stop to ask — say which you assumed when you report
+  back in step 5, so the user can correct you in one sentence.
 
 The one case this setup does not cover: the user has already told you they are
 calling the Civitai API from their own service, rather than building something
@@ -45,9 +46,8 @@ brew install civitai/tap/civitai
 
 ### If the install fails
 
-Two failures were measured on a real machine. They are the two that were
-measured, not the only ways an install can fail — if you hit a third, report the
-exact error and stop rather than guessing.
+Two failures were measured on a real machine — not the only ways an install can
+fail. On a third, report the exact error and stop rather than guessing.
 
 - **npm fails with `EACCES`, or with `ENOENT` on a `mkdir` under npm's global
   prefix.** The prefix is not writable. This is normal on NixOS, in some
@@ -60,17 +60,20 @@ exact error and stop rather than guessing.
   PATH="$HOME/.npm-global/bin:$PATH"
   ```
 
+  That `PATH` line lasts only for this shell. Report it verbatim in step 5 so
+  the user can make it permanent — do not edit their shell profile yourself.
+
 - **brew is not found.** Homebrew is not installed, and installing Homebrew is
   not part of this setup. Use the npm path above.
 
 ### The `install-scripts` warning is expected
 
-npm 11 does not run package install scripts by default, so a **successful**
-install still ends with a warning naming `@civitai/cli` and a skipped
-`postinstall`. That is not a broken install and it is not a reason to stop.
-`@civitai/cli` is a thin wrapper whose `postinstall` downloads the matching
-platform binary; when the `postinstall` is skipped, the wrapper downloads it on
-first run instead. Step 4 is what tells you whether the install worked.
+A **successful** npm 11 install still ends with a warning that `@civitai/cli`'s
+`postinstall` is "not yet covered by allowScripts". That is an advisory about a
+future npm policy, not a report that the script was skipped — measured on npm
+11.19, the postinstall ran and the platform binary was on disk before the CLI
+was run once. Do not stop, and do not re-install with an allow-scripts flag.
+Step 4 tells you whether the install worked.
 
 ## 3. Configure this agent
 
@@ -92,11 +95,11 @@ The two MCP servers are remote:
 - `https://orchestration.civitai.com/mcp` — the generation orchestration MCP
   server
 
-**The command prints the full path of every file it writes, and that printed
-list is the complete footprint of this setup.** How much of it lands outside the
-project directory depends on which agent was detected: some agents keep MCP
+**The command prints the full path of every file it writes, that list is the
+complete footprint of this setup, and you must report it.** How much lands
+outside the project directory depends on which agent was detected: some keep MCP
 config in the repo, others in your home directory, and the command names the
-path it actually used rather than guessing. Report that list.
+path it actually used rather than guessing.
 
 Do not hand-write MCP config yourself — the config path and key name differ per
 agent and the command already knows them.
@@ -112,12 +115,15 @@ civitai agent-setup --check --json
 
 Read the output, not just the exit code:
 
-- **The version must be the one you just installed.** If it is older, a
-  different `civitai` earlier on PATH is shadowing the new one — the install
-  succeeded and you are running a different binary. Fix PATH (see step 2) and
-  re-run.
-- An error saying "unknown command" or "unknown flag" means the same thing: the
-  binary actually being run is too old for this setup. Same fix.
+- **An old version, or an "unknown command" / "unknown flag" error, means the
+  binary being run is too old.** Usually there is only one `civitai` and it is
+  simply out of date: `civitai upgrade` replaces it in place, checksum-verified,
+  handing off to Homebrew if that is how it was installed. Run it, then re-run
+  both commands above. Replacing the binary in place is what makes the user's own
+  shell get the new CLI; installing a second copy does not.
+- Only if the version still does not move is a different `civitai` earlier on
+  PATH — possible only if you used the `--prefix` install in step 2. Fix it
+  there, and report that PATH line in step 5.
 
 Do not report success if any check fails. State any command that could not run
 and why.
@@ -126,9 +132,8 @@ and why.
 
 **Do not write the authentication instructions yourself.** `civitai agent-setup`
 already worked them out for the agent it detected, and they genuinely differ per
-agent: most need `CIVITAI_TOKEN` exported into the environment, spelled the way
-that particular agent reads environment variables, and at least one agent gets
-no `Authorization` header at all and needs one added by hand. Running
+agent: the `CIVITAI_TOKEN` spelling differs per agent, and at least one gets no
+`Authorization` header at all and needs one added by hand. Running
 `civitai login` on its own does not reach your agent — it stores a token this
 CLI can see and your agent cannot.
 
@@ -138,12 +143,17 @@ do not replace them with a sentence of your own, and do not run them yourself �
 they are the user's to run. If you no longer have that output, run the step 3
 command again (it is idempotent) and relay the sections from the new run.
 
+Where that token comes from, if the user asks: a personal API key created at
+https://civitai.com/user/account (API Keys). A browser `civitai login` instead
+stores a short-lived OAuth token that the CLI refreshes for itself — exported
+into the environment it is never refreshed and stops working when it expires.
+
 ## 6. Where to go from here
 
 `AGENTS.md` — written into the project by step 3, and the file this agent reads
 first from now on — is the source of truth for scaffolding, running, validating
-and submitting an App. Follow it rather than repeating it here. The first
-command it takes you to is `civitai app init`.
+and submitting an App. Follow it rather than repeating it here, including which
+command it tells you to scaffold with — do not pick one yourself.
 
 ## Resources
 
