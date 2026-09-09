@@ -58,6 +58,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { repoRoot } from './appblocks-util.mjs';
 import { cliLongBody } from '../.vitepress/theme/components/cliReference.shared.mjs';
+import { LANDING_PAGE, PROMPT_PATH, PROMPT_SOURCE, PROMPT_URL } from '../.vitepress/agent-setup.mjs';
+import { renderPromptRegion } from './agent-setup-page.mjs';
 
 // MEASURED on the build at 30f52a0: 44 `.ab-long` and 46 `.ab-example` blocks,
 // from a 52-command artifact. The floors carry slack because an upstream
@@ -297,6 +299,138 @@ checkFamily({
   want: exampleOwners.map((c) => c.examples.join('\n')),
   owners: exampleOwners.map((c) => c.command),
   source: '`exampleText(c)` and the `<pre class="ab-example">` it feeds',
+});
+
+// ---------------------------------------------------------------------------
+// THE RAW AGENT-SETUP PROMPT.
+//
+// 🔴 WHY THIS IS HERE AND NOT IN check-agent-setup.mjs. That guard is
+// deliberately offline and SOURCE-only: it grades
+// `public/agent-setup/prompt.md` against the CLI help snapshot and the shared
+// constants. Nothing graded the BUILT artifact — measured, `check-built-site.mjs`
+// mentioned `agent-setup` zero times. So a change to `publicDir`, to the
+// Dockerfile's `COPY --from=build /app/.vitepress/dist`, to `.gitignore`, or a
+// VitePress upgrade that started running `public/**` through the markdown
+// pipeline would ship a 404 — or a MUTATED body — at the exact URL the landing
+// page tells every agent to fetch, with every gate green.
+//
+// The assertion is byte-identity, not existence, because the contract this
+// route publishes IS byte-identity: `PROMPT_URL` is fetched by an agent that
+// then executes what it says, and a frontmatter-injected or re-serialised copy
+// is a different file that still 200s.
+const promptSrc = join(repoRoot, PROMPT_SOURCE);
+const promptBuilt = join(distDir, ...PROMPT_PATH.split('/').filter(Boolean));
+
+console.log(`\nBUILT SITE — ${promptBuilt}`);
+
+check(`the raw prompt is copied into the build at ${PROMPT_PATH}`, () => {
+  assert(
+    existsSync(promptSrc),
+    `${PROMPT_SOURCE} does not exist — the source of ${PROMPT_URL} is gone. ` +
+      `See scripts/check-agent-setup.mjs, which owns that failure.`,
+  );
+  assert(
+    existsSync(promptBuilt),
+    `${promptBuilt} does not exist, so ${PROMPT_URL} would 404.\n` +
+      `       Only files under public/ are copied verbatim into the output. Check that\n` +
+      `       ${PROMPT_SOURCE} is still there, that config.mts has not changed publicDir, and\n` +
+      `       that public/ is not being excluded from the build.`,
+  );
+});
+
+check(`the built ${PROMPT_PATH} is BYTE-IDENTICAL to ${PROMPT_SOURCE}`, () => {
+  if (!existsSync(promptSrc) || !existsSync(promptBuilt)) {
+    throw new Error('skipped — see the existence check above, which already failed');
+  }
+  const want = readFileSync(promptSrc);
+  const got = readFileSync(promptBuilt);
+  // POSITIVE CONTROL. Two empty files are byte-identical; that must not read as
+  // a pass. MEASURED on this tree: 2,798 bytes. The floor is loose because the
+  // prompt is edited often and the equality below is what makes this tight.
+  assert(
+    want.length >= 500,
+    `${PROMPT_SOURCE} is only ${want.length} bytes — it is empty or truncated, so a byte-identity ` +
+      `assertion against it would pass vacuously.`,
+  );
+  assert(
+    got.equals(want),
+    `the built copy is ${got.length} bytes, the source is ${want.length} — they are NOT identical.\n` +
+      `       ${PROMPT_URL} is served verbatim precisely so the bytes an agent executes are the\n` +
+      `       bytes in this repo. Something in the build is now REWRITING the file (VitePress\n` +
+      `       compiling public/**, the llms plugin re-emitting it with frontmatter, a copy step\n` +
+      `       normalising line endings). Fix the build, not this check.`,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// THE RENDERED INLINE COPY.
+//
+// 🔴 WHAT NEITHER OTHER GATE CAN SEE. The assertion above grades the built
+// MACHINE copy (dist/agent-setup/prompt.md). `check:agent-setup`'s check 4
+// grades the SOURCE region on agent-setup/index.md. Nothing graded the thing a
+// human actually reads: the RENDERED page. So a rendering-layer regression — a
+// VitePress or markdown-it change that spills the fence, a plugin that drops the
+// generated region, a shiki upgrade that mangles the body — would show the
+// reader something other than the file an agent executes with BOTH of those
+// checks green. scripts/agent-setup-page.mjs calls exactly that state "strictly
+// worse than the download dialog it replaces", because the page's whole posture
+// is "these instructions are unsigned, read them first".
+//
+// The assertion is EQUALITY against what the generator would put in the fence,
+// not a first-line/last-line spot check: a renderer that dropped the middle of
+// the prompt passes a spot check, and the middle is where the commands are. The
+// generator's own `renderPromptRegion` supplies the expected body, so the one
+// normalisation (its trailing-newline strip) is not duplicated here — a second
+// copy is how the two drift apart.
+const landingBuilt = join(distDir, ...LANDING_PAGE.replace(/\.md$/, '.html').split('/'));
+
+console.log(`\nBUILT SITE — ${landingBuilt}`);
+
+check(`the rendered ${LANDING_PAGE} carries the prompt verbatim inside a <pre>`, () => {
+  assert(existsSync(promptSrc), `${PROMPT_SOURCE} does not exist — see the checks above.`);
+  assert(
+    existsSync(landingBuilt),
+    `${landingBuilt} does not exist, so the page a human is told to READ was not built at all.`,
+  );
+
+  // The fence body the generator would write: `renderPromptRegion` minus its own
+  // opening and closing fence lines.
+  const region = renderPromptRegion(readFileSync(promptSrc, 'utf8')).split('\n');
+  const want = region.slice(1, -1).join('\n');
+
+  // POSITIVE CONTROL. An empty expectation is satisfied by an empty <pre>, and a
+  // prompt this short would mean the source is truncated.
+  assert(
+    want.split('\n').length >= 20,
+    `the expected inline body is only ${want.split('\n').length} line(s) — ${PROMPT_SOURCE} is ` +
+      `truncated, so an equality assertion against it would pass close to vacuously.`,
+  );
+
+  const html = readFileSync(landingBuilt, 'utf8');
+  const pres = [...html.matchAll(/<pre\b[^>]*>[\s\S]*?<\/pre>/g)].map((m) => m[0]);
+  // CONTROL ON THE EXTRACTOR, same shape as `rawBlocks` above: zero <pre> means
+  // the pattern broke, which must not read as "the prompt is missing".
+  assert(
+    pres.length >= 2,
+    `only ${pres.length} <pre> block(s) in the built page — the page has a copy-paste fence AND ` +
+      `the inline prompt, so this is the extractor failing, not the content.`,
+  );
+
+  const texts = pres.map((p) => unescapeHTML(p.replace(/<[^>]+>/g, '')).replace(/\n$/, ''));
+  const hits = texts.filter((t) => t === want);
+  assert(
+    hits.length === 1,
+    `no <pre> in the built page holds ${PROMPT_SOURCE} verbatim (${hits.length} exact match(es) ` +
+      `among ${pres.length} blocks).\n` +
+      `       The page renders the prompt inline because the raw route is text/markdown +\n` +
+      `       nosniff, which a browser SAVES rather than displays — so this <pre> IS the\n` +
+      `       "read it before you paste it" instruction. A reader now sees something other than\n` +
+      `       what an agent executes.\n` +
+      `       Closest built block, first line: ` +
+      `${JSON.stringify(texts.map((t) => t.split('\n')[0]).join(' | ').slice(0, 200))}\n` +
+      `       Expected first line: ${JSON.stringify(want.split('\n')[0])}\n` +
+      `       Expected last line:  ${JSON.stringify(want.split('\n').at(-1))}`,
+  );
 });
 
 console.log(failures ? `\n${failures} check(s) FAILED` : '\nall built-site checks passed');
