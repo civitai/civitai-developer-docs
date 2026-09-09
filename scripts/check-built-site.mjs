@@ -129,6 +129,51 @@ function rawBlocks(html, cls) {
   return blocks;
 }
 
+const MAX_STRIP_PASSES = 8;
+
+/**
+ * The TEXT CONTENT of a built HTML fragment: markup removed to a fixed point.
+ *
+ * 🔴 THIS IS NOT SANITISATION, AND IT IS DELIBERATELY NOT THE SAME RULE AS
+ * `stripTags` IN check-agent-setup.mjs. There the strip decides whether a
+ * COMMAND IS SEEN, so it refuses to delete a `<…>` run holding `|`, `&` or `;`.
+ * Here the result is compared with `===` against text derived from the committed
+ * `public/agent-setup/prompt.md` and is never rendered, printed to a terminal or
+ * handed to a shell — and that rule would break this check outright: measured on
+ * the built page, 107 of the 416 tags inside these `<pre>` blocks carry a `;`,
+ * because that is how shiki writes `style="--shiki-light:#24292E;…"`.
+ *
+ * What the two DO share is the part the scanner flags: one pass of `<…>` removal
+ * is not a fixed point, so nested or malformed markup can leave a reassembled
+ * tag behind. Measured on this repo's own build, one pass already IS the fixed
+ * point for all three blocks and leaves zero literal `<` or `>`, so this loop
+ * changes nothing today; it is here so a renderer that starts emitting nested
+ * markup cannot quietly change what the equality is comparing.
+ *
+ * At the bound the most-stripped form is used. A block that has not converged in
+ * 8 passes is markup this page is not supposed to contain, and the equality then
+ * FAILS — the red direction, which is the one this check wants.
+ *
+ * AND THE INPUT CLASS, because "trusted input" is not a claim anyone can check.
+ * The only content an author supplies to this comparison is
+ * `public/agent-setup/prompt.md`, and it CANNOT reach the strip as markup:
+ * VitePress renders the inline fence entity-escaped. Measured — a prompt line
+ * reading `MARKERLINE <b onclick="x">HIDDEN</b> & <tag> tail` built to
+ * `MARKERLINE &lt;b onclick=&quot;x&quot;&gt;HIDDEN&lt;/b&gt; &amp; &lt;tag&gt; tail`,
+ * and the strip runs BEFORE `unescapeHTML`, so it sees the entities. That is one
+ * shape, not a proof about every shape; what it does establish is that the tags
+ * this function deletes come from the renderer, not from the file under test.
+ */
+function textContent(fragment) {
+  let cur = fragment;
+  for (let pass = 0; pass < MAX_STRIP_PASSES; pass++) {
+    const next = cur.replace(/<[^>]+>/g, '');
+    if (next === cur) return cur;
+    cur = next;
+  }
+  return cur;
+}
+
 /** Undo the five entities Vue's text interpolation produces, plus numeric refs. */
 function unescapeHTML(s) {
   return String(s)
@@ -416,7 +461,7 @@ check(`the rendered ${LANDING_PAGE} carries the prompt verbatim inside a <pre>`,
       `the inline prompt, so this is the extractor failing, not the content.`,
   );
 
-  const texts = pres.map((p) => unescapeHTML(p.replace(/<[^>]+>/g, '')).replace(/\n$/, ''));
+  const texts = pres.map((p) => unescapeHTML(textContent(p)).replace(/\n$/, ''));
   const hits = texts.filter((t) => t === want);
   assert(
     hits.length === 1,
