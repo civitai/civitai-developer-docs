@@ -26,7 +26,7 @@ const klein4bBody = {
       keepTokens: 0,
       trainingData: {
         type: 'zip',
-        sourceUrl: 'urn:air:other:other:civitai-r2:civitai-delivery-worker-prod@training-images/6/2658016TrainingData.1zGG.zip',
+        sourceUrl: 'urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip',
         count: 15,
       },
       samples: {
@@ -62,8 +62,8 @@ const klein9bBody = {
       flipAugmentation: false,
       trainingData: {
         type: 'zip',
-        sourceUrl: 'urn:air:other:other:civitai-r2:civitai-delivery-worker-prod@training-images/6/2657604TrainingData.EYBd.zip',
-        count: 1,
+        sourceUrl: 'urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip',
+        count: 15,
       },
       samples: { prompts: [] },
     },
@@ -142,7 +142,7 @@ Always submit with `wait=0`. Klein training runs at a fraction of a second per s
 ## Prerequisites
 
 - A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
-- A training-data zip:
+- A training-data zip addressed by an AIR — a Hugging Face file AIR (as below), or a Civitai R2/B2/Spaces AIR or URL:
   - For standard training: a flat zip of training images
   - For [edit training](#edit-training): a zip with `main/`, `control_1/`, `control_2/`, `control_3/` subfolders
 
@@ -174,7 +174,7 @@ Content-Type: application/json
       "networkAlpha": 1,
       "trainingData": {
         "type": "zip",
-        "sourceUrl": "urn:air:other:other:civitai-r2:civitai-delivery-worker-prod@training-images/6/2658016TrainingData.1zGG.zip",
+        "sourceUrl": "urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip",
         "count": 15
       },
       "samples": {
@@ -220,8 +220,8 @@ Content-Type: application/json
       "networkAlpha": 32,
       "trainingData": {
         "type": "zip",
-        "sourceUrl": "urn:air:other:other:civitai-r2:civitai-delivery-worker-prod@training-images/6/2657604TrainingData.EYBd.zip",
-        "count": 1
+        "sourceUrl": "urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip",
+        "count": 15
       },
       "samples": { "prompts": [] }
     }

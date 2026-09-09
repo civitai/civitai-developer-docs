@@ -24,8 +24,8 @@ const wan21Body = {
       flipAugmentation: false,
       trainingData: {
         type: 'zip',
-        sourceUrl: 'urn:air:other:other:civitai-r2:civitai-delivery-worker-prod@training-images/5418/2202966TrainingData.Kjwp.zip',
-        count: 4,
+        sourceUrl: 'urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip',
+        count: 15,
       },
       samples: {
         prompts: ['a video of TOK', 'TOK moving in a garden'],
@@ -68,8 +68,8 @@ Video training is the slowest training mode on the platform — a 2000-step run 
 ## Prerequisites
 
 - A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
-- A training-data zip containing source video clips (each ≤ a few seconds, similar resolution)
-- An accurate `count` of clips in the zip
+- A training-data zip of images, video clips, or a mix — addressed by an AIR, as in [the image recipes](./training-flux1#prerequisites). Keep clips to a few seconds at a similar resolution.
+- An accurate `count` of items in the zip
 
 ## Wan 2.1 / 2.2
 
@@ -100,8 +100,8 @@ Content-Type: application/json
       "networkAlpha": 32,
       "trainingData": {
         "type": "zip",
-        "sourceUrl": "urn:air:other:other:civitai-r2:civitai-delivery-worker-prod@training-images/5418/2202966TrainingData.Kjwp.zip",
-        "count": 4
+        "sourceUrl": "urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip",
+        "count": 15
       },
       "samples": {
         "prompts": ["a video of TOK", "TOK moving in a garden"]
@@ -136,7 +136,7 @@ Defaults shown are the post-`ApplyDefaults` values for Wan.
 | `flipAugmentation` | | `false` | Random horizontal flips. |
 | `shuffleTokens` / `keepTokens` | | `false` / `0` | Caption-tag shuffling. |
 | `triggerWord` | | *(none)* | Activation token. Per the source, not all video ecosystems support `triggerWord` — leave empty if you see schema rejections. |
-| `trainingData.{type, sourceUrl, count}` | ✅ | — | `type: "zip"`. Zip should contain video clips. |
+| `trainingData.{type, sourceUrl, count}` | ✅ | — | `type: "zip"`. Images, video clips, or a mix; the example uses an image dataset. |
 | `samples.prompts[]` | | `[]` | Preview videos rendered at each saved checkpoint with the trained LoRA. |
 | `samples.negativePrompt` | | *(none)* | — |
 | `samples.cfgScale` | | *(ecosystem default)* | Overrides the CFG / guidance scale used when rendering the preview samples. |

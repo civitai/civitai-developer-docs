@@ -26,8 +26,8 @@ const chromaBody = {
       keepTokens: 0,
       trainingData: {
         type: 'zip',
-        sourceUrl: 'https://civitai-delivery-worker-prod.5ac0637cfd0766c97916cefa3764fbdf.r2.cloudflarestorage.com/training-images/5418/2382561TrainingData.B6Tr.zip',
-        count: 10,
+        sourceUrl: 'urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip',
+        count: 15,
       },
       samples: {
         prompts: [
@@ -60,8 +60,8 @@ const ernieBody = {
       flipAugmentation: false,
       trainingData: {
         type: 'zip',
-        sourceUrl: 'urn:air:other:other:civitai-r2:civitai-delivery-worker-prod@training-images/7918795/2435272TrainingData.bJ7P.zip',
-        count: 10,
+        sourceUrl: 'urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip',
+        count: 15,
       },
       samples: {
         prompts: [
@@ -95,8 +95,8 @@ const qwenBody = {
       flipAugmentation: false,
       trainingData: {
         type: 'zip',
-        sourceUrl: 'urn:air:other:other:civitai-r2:civitai-delivery-worker-prod@training-images/3315022/2526079TrainingData.o4S8.zip',
-        count: 10,
+        sourceUrl: 'urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip',
+        count: 15,
       },
       samples: {
         prompts: [
@@ -128,8 +128,8 @@ const zImageTurboBody = {
       noiseOffset: 0,
       trainingData: {
         type: 'zip',
-        sourceUrl: 'urn:air:other:other:civitai-r2:civitai-delivery-worker-prod@training-images/3315022/2526079TrainingData.o4S8.zip',
-        count: 10,
+        sourceUrl: 'urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip',
+        count: 15,
       },
       samples: {
         prompts: ['a photo of TOK', 'TOK in a garden', 'TOK portrait'],
@@ -157,8 +157,8 @@ const zImageBaseBody = {
       noiseOffset: 0,
       trainingData: {
         type: 'zip',
-        sourceUrl: 'urn:air:other:other:civitai-r2:civitai-delivery-worker-prod@training-images/3315022/2526079TrainingData.o4S8.zip',
-        count: 10,
+        sourceUrl: 'urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip',
+        count: 15,
       },
       samples: {
         prompts: ['a photo of TOK', 'TOK in a garden', 'TOK portrait'],
@@ -201,7 +201,7 @@ Always submit with `wait=0`. These ecosystems run anywhere from a fraction of a 
 ## Prerequisites
 
 - A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
-- A training-data zip (signed R2 URL, Civitai R2 AIR, or any HTTPS URL)
+- A training-data zip addressed by an AIR — a Hugging Face file AIR (as below), or a Civitai R2/B2/Spaces AIR or URL. Other hosts are rejected.
 - An accurate `count` of images in the zip
 
 ## Chroma
@@ -232,8 +232,8 @@ Content-Type: application/json
       "networkAlpha": 16,
       "trainingData": {
         "type": "zip",
-        "sourceUrl": "https://civitai-delivery-worker-prod.5ac0637cfd0766c97916cefa3764fbdf.r2.cloudflarestorage.com/training-images/5418/2382561TrainingData.B6Tr.zip",
-        "count": 10
+        "sourceUrl": "urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip",
+        "count": 15
       },
       "samples": {
         "prompts": [
@@ -278,8 +278,8 @@ Content-Type: application/json
       "networkAlpha": 32,
       "trainingData": {
         "type": "zip",
-        "sourceUrl": "urn:air:other:other:civitai-r2:civitai-delivery-worker-prod@training-images/7918795/2435272TrainingData.bJ7P.zip",
-        "count": 10
+        "sourceUrl": "urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip",
+        "count": 15
       },
       "samples": {
         "prompts": ["a portrait of TOK", "TOK walking through a comic book city"]
@@ -328,8 +328,8 @@ Content-Type: application/json
       "networkAlpha": 16,
       "trainingData": {
         "type": "zip",
-        "sourceUrl": "urn:air:other:other:civitai-r2:civitai-delivery-worker-prod@training-images/3315022/2526079TrainingData.o4S8.zip",
-        "count": 10
+        "sourceUrl": "urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip",
+        "count": 15
       },
       "samples": {
         "prompts": [
@@ -374,8 +374,8 @@ Content-Type: application/json
       "networkAlpha": 32,
       "trainingData": {
         "type": "zip",
-        "sourceUrl": "urn:air:other:other:civitai-r2:civitai-delivery-worker-prod@training-images/3315022/2526079TrainingData.o4S8.zip",
-        "count": 10
+        "sourceUrl": "urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip",
+        "count": 15
       },
       "samples": {
         "prompts": ["a photo of TOK", "TOK in a garden", "TOK portrait"]
@@ -416,8 +416,8 @@ Content-Type: application/json
       "networkAlpha": 32,
       "trainingData": {
         "type": "zip",
-        "sourceUrl": "urn:air:other:other:civitai-r2:civitai-delivery-worker-prod@training-images/3315022/2526079TrainingData.o4S8.zip",
-        "count": 10
+        "sourceUrl": "urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip",
+        "count": 15
       },
       "samples": {
         "prompts": ["a photo of TOK", "TOK in a garden", "TOK portrait"]

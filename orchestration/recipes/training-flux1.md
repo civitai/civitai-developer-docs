@@ -27,8 +27,8 @@ const flux1DevBody = {
       keepTokens: 0,
       trainingData: {
         type: 'zip',
-        sourceUrl: 'urn:air:other:other:civitai-r2:civitai-delivery-worker-prod@training-images/6/2657604TrainingData.EYBd.zip',
-        count: 10,
+        sourceUrl: 'urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip',
+        count: 15,
       },
       samples: {
         prompts: [
@@ -60,8 +60,8 @@ const flux1SchnellBody = {
       networkAlpha: 16,
       trainingData: {
         type: 'zip',
-        sourceUrl: 'urn:air:other:other:civitai-r2:civitai-delivery-worker-prod@training-images/6/2657604TrainingData.EYBd.zip',
-        count: 10,
+        sourceUrl: 'urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip',
+        count: 15,
       },
       samples: {
         prompts: ['a photo of TOK', 'TOK in a garden'],
@@ -102,7 +102,7 @@ Flux 1 training is the most expensive AI Toolkit image ecosystem (2000 Buzz for 
 ## Prerequisites
 
 - A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
-- A training-data zip uploaded to a reachable URL (signed R2 URL, Civitai R2 AIR, or any HTTPS URL)
+- A training-data zip addressed by an AIR — a Hugging Face file AIR (as below), or a Civitai R2/B2/Spaces AIR or URL. Other hosts are rejected.
 - An accurate `count` of images in the zip
 
 ## Flux 1 dev (default)
@@ -134,8 +134,8 @@ Content-Type: application/json
       "networkAlpha": 16,
       "trainingData": {
         "type": "zip",
-        "sourceUrl": "urn:air:other:other:civitai-r2:civitai-delivery-worker-prod@training-images/6/2657604TrainingData.EYBd.zip",
-        "count": 10
+        "sourceUrl": "urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip",
+        "count": 15
       },
       "samples": {
         "prompts": ["a photo of TOK", "TOK in a garden", "TOK portrait"]
@@ -171,8 +171,8 @@ Content-Type: application/json
       "networkAlpha": 16,
       "trainingData": {
         "type": "zip",
-        "sourceUrl": "urn:air:other:other:civitai-r2:civitai-delivery-worker-prod@training-images/6/2657604TrainingData.EYBd.zip",
-        "count": 10
+        "sourceUrl": "urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip",
+        "count": 15
       },
       "samples": { "prompts": ["a photo of TOK", "TOK in a garden"] }
     }
@@ -290,7 +290,7 @@ Sample-prompt rendering is billed separately at the appropriate Flux 1 generatio
 |---------|--------------|-----|
 | `400` with "modelVariant required" | Missing `modelVariant` field | Set to `"dev"` or `"schnell"`. |
 | `400` with "steps out of range" | `steps` outside `1`–`10000` | Cap at 10000. |
-| `400` with "trainingData.sourceUrl not reachable" | Signed URL expired | Regenerate. Prefer Civitai R2 AIRs over signed URLs for long-lived references. |
+| `400` with "uses a resource which could not be resolved" | The zip behind `sourceUrl` is gone, private, or the signed URL expired | Re-upload it, or point `sourceUrl` at an AIR pinned to an immutable revision. |
 | Trained LoRA underbaked | Too few steps for dataset, or `lr` too low | Raise `steps` to 1500–2500 for character LoRAs; keep `lr` at `0.0001`–`0.0003`. |
 | Trained LoRA overfits | Too many steps / too high `networkDim` | Lower `steps`, drop `networkDim` to 8–12. |
 | Step `failed`, output `moderationStatus: "Rejected"` | Dataset failed content moderation | Replace flagged images. |

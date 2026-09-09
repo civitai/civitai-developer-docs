@@ -23,8 +23,8 @@ const ltx2Body = {
       flipAugmentation: false,
       trainingData: {
         type: 'zip',
-        sourceUrl: 'https://civitai-delivery-worker-prod.5ac0637cfd0766c97916cefa3764fbdf.r2.cloudflarestorage.com/training-images/4470934/2725414TrainingData.nuB3.zip',
-        count: 4,
+        sourceUrl: 'urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip',
+        count: 15,
       },
       samples: {
         prompts: ['a video of TOK', 'TOK moving in a garden'],
@@ -52,8 +52,8 @@ const ltx23Body = {
       flipAugmentation: false,
       trainingData: {
         type: 'zip',
-        sourceUrl: 'https://civitai-delivery-worker-prod.5ac0637cfd0766c97916cefa3764fbdf.r2.cloudflarestorage.com/training-images/4470934/2725414TrainingData.nuB3.zip',
-        count: 4,
+        sourceUrl: 'urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip',
+        count: 15,
       },
       samples: {
         prompts: ['a video of TOK', 'TOK moving in a garden'],
@@ -93,8 +93,8 @@ Video training is the slowest training mode on the platform — video needs a lo
 ## Prerequisites
 
 - A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
-- A training-data zip containing source video clips
-- An accurate `count` of clips in the zip
+- A training-data zip of images, video clips, or a mix — addressed by an AIR, as in [the image recipes](./training-flux1#prerequisites)
+- An accurate `count` of items in the zip
 
 ## LTX2
 
@@ -124,8 +124,8 @@ Content-Type: application/json
       "networkAlpha": 32,
       "trainingData": {
         "type": "zip",
-        "sourceUrl": "https://civitai-delivery-worker-prod.5ac0637cfd0766c97916cefa3764fbdf.r2.cloudflarestorage.com/training-images/4470934/2725414TrainingData.nuB3.zip",
-        "count": 4
+        "sourceUrl": "urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip",
+        "count": 15
       },
       "samples": { "prompts": ["a video of TOK", "TOK moving in a garden"] }
     }
@@ -162,8 +162,8 @@ Content-Type: application/json
       "networkAlpha": 32,
       "trainingData": {
         "type": "zip",
-        "sourceUrl": "https://civitai-delivery-worker-prod.5ac0637cfd0766c97916cefa3764fbdf.r2.cloudflarestorage.com/training-images/4470934/2725414TrainingData.nuB3.zip",
-        "count": 4
+        "sourceUrl": "urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip",
+        "count": 15
       },
       "samples": { "prompts": ["a video of TOK", "TOK moving in a garden"] }
     }
@@ -195,7 +195,7 @@ Defaults shown are the post-`ApplyDefaults` values for both LTX ecosystems.
 | `flipAugmentation` | | `false` | Random horizontal flips. |
 | `shuffleTokens` / `keepTokens` | | `false` / `0` | Caption-tag shuffling. |
 | `triggerWord` | | *(none)* | Activation token. |
-| `trainingData.{type, sourceUrl, count}` | ✅ | — | `type: "zip"`. Zip should contain video clips. |
+| `trainingData.{type, sourceUrl, count}` | ✅ | — | `type: "zip"`. Images, video clips, or a mix; the example uses an image dataset. |
 | `samples.prompts[]` | | `[]` | Preview videos rendered at each saved checkpoint. |
 | `samples.negativePrompt` | | *(none)* | — |
 | `samples.cfgScale` | | *(ecosystem default)* | Overrides the CFG / guidance scale used when rendering the preview samples. |
@@ -260,7 +260,7 @@ Sample-prompt rendering uses LTX2 video-generation rates and is billed separatel
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| `400` with "trainingData.sourceUrl not reachable" | Signed URL expired, or zip behind auth | Regenerate the URL. R2 signed URLs default to 24h. |
+| `400` with "uses a resource which could not be resolved" | The zip behind `sourceUrl` is gone, private, or the signed URL expired | Re-upload it, or point `sourceUrl` at an AIR pinned to an immutable revision. |
 | Step `failed` with VRAM-related error | Resolution × clip length too high | Lower `resolution` (e.g. to `512`), shorten clips. |
 | Training cost surprises you | Video defaults to 3000 steps, so the floor is higher than image ecosystems | Check `whatif=true` before submitting. Lowering `steps`/`epochs` saves at most 20% (the floor). |
 | Trained LoRA produces no motion | Too few steps / static reference clips | Raise `steps`, ensure clips show the motion you want learned. |

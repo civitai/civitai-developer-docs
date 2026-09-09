@@ -26,7 +26,7 @@ const sdxlBody = {
       triggerWord: 'cat',
       trainingData: {
         type: 'zip',
-        sourceUrl: 'urn:air:other:other:civitai-r2:civitai-delivery-worker-prod@training-images/6/2783465TrainingData.koBd.zip',
+        sourceUrl: 'urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip',
         count: 15,
       },
       samples: {
@@ -63,8 +63,8 @@ const sd1Body = {
       keepTokens: 0,
       trainingData: {
         type: 'zip',
-        sourceUrl: 'urn:air:other:other:civitai-r2:civitai-delivery-worker-prod@training-images/6/2707938TrainingData.Ac22.zip',
-        count: 8,
+        sourceUrl: 'urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip',
+        count: 15,
       },
       samples: {
         prompts: [
@@ -112,13 +112,13 @@ Training takes minutes to hours depending on dataset size and `steps`. Always su
 ## Prerequisites
 
 - A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
-- A training-data zip uploaded to a Civitai-reachable URL. Three accepted forms:
-  - A signed `https://civitai-delivery-worker-prod.*.r2.cloudflarestorage.com/...` URL
-  - A Civitai R2 AIR (e.g. `urn:air:other:other:civitai-r2:civitai-delivery-worker-prod@training-images/.../...zip`)
-  - Any HTTPS URL that returns the zip without auth
-- An accurate `count` of images in the zip — used for batch sizing
+- A training-data zip that `sourceUrl` can address. `sourceUrl` is an AIR, so the accepted forms are:
+  - A Hugging Face file AIR — `urn:air:other:other:huggingface:{repo}@{revision}/{path}`, as the examples below use. Pin a commit sha rather than `main` so the reference can't move.
+  - A Civitai storage AIR or URL — R2 (`urn:air:other:other:civitai-r2:{bucket}@{key}`, or the equivalent `*.r2.cloudflarestorage.com` URL), Backblaze B2, or DigitalOcean Spaces
+  - No hosted zip? Upload each image through `POST /v2/consumer/blobs` and pass them as `trainingData.items` instead — see [Training data as blobs](#blobs-training-data).
 
-No hosted zip? Upload each image through `POST /v2/consumer/blobs` instead and pass them as `trainingData.items` — see [Training data as blobs](#blobs-training-data).
+  A URL on any other host is rejected: nothing maps it to an AIR.
+- An accurate `count` of images in the zip — used for batch sizing
 
 ## SDXL
 
@@ -152,7 +152,7 @@ Content-Type: application/json
       "triggerWord": "cat",
       "trainingData": {
         "type": "zip",
-        "sourceUrl": "urn:air:other:other:civitai-r2:civitai-delivery-worker-prod@training-images/6/2783465TrainingData.koBd.zip",
+        "sourceUrl": "urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip",
         "count": 15
       },
       "samples": {
@@ -209,8 +209,8 @@ Content-Type: application/json
       "minSnrGamma": 5,
       "trainingData": {
         "type": "zip",
-        "sourceUrl": "urn:air:other:other:civitai-r2:civitai-delivery-worker-prod@training-images/6/2707938TrainingData.Ac22.zip",
-        "count": 8
+        "sourceUrl": "urn:air:other:other:huggingface:datasets/Civitai/orchestration-samples@e86d025874700507615ae8ef74937c319ea41dfe/sample-training-dataset.zip",
+        "count": 15
       },
       "samples": {
         "prompts": [
@@ -258,7 +258,7 @@ These apply to every AI Toolkit training input regardless of ecosystem. Defaults
 | `keepTokens` | | `0` | `0`–`10`. When `shuffleTokens: true`, keep the first N tokens fixed. |
 | `triggerWord` | | *(none)* | Activation token recommended for character/style LoRAs. |
 | `trainingData.type` | ✅ | — | `zip` or `blobs` (see [Training data as blobs](#blobs-training-data)). |
-| `trainingData.sourceUrl` | ✅ (zip) | — | Signed HTTPS URL or Civitai R2 AIR. |
+| `trainingData.sourceUrl` | ✅ (zip) | — | Hugging Face file AIR, or a Civitai R2/B2/Spaces AIR or URL. |
 | `trainingData.count` | ✅ (zip) | — | Number of images in the zip. |
 | `trainingData.items[]` | ✅ (blobs) | — | Up to 1000 `{ air, caption? }` objects referencing consumer-uploaded blobs. |
 | `samples.prompts[]` | | `[]` | Up to a handful of preview prompts rendered at each saved checkpoint with the trained LoRA at strength 1.0. Empty entries are skipped. |
@@ -434,7 +434,7 @@ Sample-prompt rendering is billed separately at standard SDXL / SD1 image-genera
 |---------|--------------|-----|
 | `400` with "steps out of range" | `steps` outside `1`–`10000` | The hard cap is 10000. For longer SD1 runs (rare), submit multiple training workflows and chain them. |
 | `400` with "model not found" | `model` URN points at a checkpoint that isn't the right ecosystem (e.g. an SD1 model on `ecosystem: "sdxl"`) | Use a `urn:air:sdxl:checkpoint:...` AIR for SDXL; `urn:air:sd1:checkpoint:...` for SD1. |
-| `400` with "trainingData.sourceUrl not reachable" | Signed URL expired, or zip behind auth | R2 signed URLs expire — regenerate. Prefer Civitai R2 AIRs for stable references. |
+| `400` with "uses a resource which could not be resolved" | The zip behind `sourceUrl` is gone, private, or the signed URL expired | Re-upload it, or point `sourceUrl` at an AIR pinned to an immutable revision. |
 | `400` with "count mismatch" | `trainingData.count` doesn't match the actual image count in the zip | Inspect the zip contents and update `count`. |
 | Step `failed`, output `moderationStatus: "Rejected"` | Dataset failed automated content moderation | Replace flagged images and resubmit. Don't retry the same dataset. |
 | Trained LoRA looks under-trained | Too few steps for the dataset | Raise `steps`; or increase `lr`. |
