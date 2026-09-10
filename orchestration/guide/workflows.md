@@ -39,6 +39,8 @@ Key fields on a returned [`Workflow`](/orchestration/reference/operations/GetWor
 | `nsfwLevel` | Content classification, computed from step outputs. |
 | `callbacks` | Registered webhooks — see [Results & webhooks](./results-and-webhooks). |
 
+| `downloadPriority` | Which lane resources this workflow needs are downloaded in — see [Download priority](#download-priority). |
+
 Submitted-only fields (`upgradeMode`, `allowMatureContent`, `currencies`, `experimental`, `arguments`) come back on the response as well so you can see what policy the workflow ran under.
 
 ## Steps
@@ -215,7 +217,7 @@ unassigned → preparing → scheduled → processing ──▶ succeeded
 ```
 
 - `unassigned` — submitted, not yet routed to a provider
-- `preparing` — assigned to a worker that is still downloading the required models/resources; work can't start until they're all local. While preparing, the step's `estimatedProgressRate` reflects download progress (0–1). Expect this state when a workflow uses models that aren't already cached on the fleet.
+- `preparing` — assigned to a worker that is still downloading the required models/resources; work can't start until they're all local. While preparing, the step's `estimatedProgressRate` reflects download progress (0–1), and its `preparation` object lists every resource being waited on with a queue position and ETA — see [Download priority](#download-priority). Expect this state when a workflow uses models that aren't already cached on the fleet.
 - `scheduled` — waiting in the queue of a worker that has all required resources ready
 - `processing` — actively running; `estimatedProgressRate` now reflects generation progress
 - `succeeded` / `failed` / `expired` / `canceled` — **terminal**; status will not change again
@@ -223,6 +225,76 @@ unassigned → preparing → scheduled → processing ──▶ succeeded
 A workflow can move back and forth between `preparing` and `scheduled` (e.g. when it's reassigned to a different worker) — treat both as "queued, not started".
 
 Terminal states are documented and webhook delivery enforces the invariant — see [Results & webhooks → Delivery semantics](./results-and-webhooks#delivery-semantics). Workflow status rolls up from step status: all steps succeeded → workflow succeeded; any step failed / expired / canceled → workflow does the same.
+
+## Download priority
+
+Any model is submittable, whether or not the fleet already holds it. When it doesn't, the resource
+is downloaded from origin first — free, but you wait behind everyone else. `downloadPriority`
+decides which queue you wait in.
+
+| Lane | Who gets it |
+|------|-------------|
+| `low` | Non-members, by default |
+| `normal` | Members, by default |
+| `high` | Anyone who pays for it |
+
+Omit `downloadPriority` and it is derived from your membership. You may only ever set it to `high`;
+`normal` and `low` are rejected with a `400`, and a workflow cannot be moved back down once boosted.
+
+Each lane has its own concurrency, so a boosted download does not queue behind slower traffic. One
+payer's boost lifts the resource for everyone waiting on it — but every workflow that needs a cold
+resource pays its own charge.
+
+### What it costs
+
+Charged per distinct resource the fleet does not already hold:
+
+- Under 512 MB: free.
+- 512 MB and up: 500 Buzz per 4 GB, rounded up. A 512 MB LoRA and a 4 GB checkpoint both cost 500;
+  a 4.5 GB checkpoint costs 1000.
+
+A resource already available on the fleet is free regardless of size, and a resource two steps share
+is charged once. If the workflow ends — cancelled, expired or failed — before any boosted download
+has started moving, the boost is refunded in full.
+
+### Boosting after submission
+
+`PUT /v2/consumer/workflows/{id}` with `{"downloadPriority": "high"}` boosts a workflow that is
+already running. Add `?whatif=true` to price it first — the response is the full workflow with the
+updated `cost` and `transactions`, and nothing is charged or changed.
+
+### Seeing where you are in the queue
+
+While a step is `preparing`, its `preparation` object carries the gating resource plus the full list:
+
+```json
+{
+  "resource": "urn:air:sdxl:checkpoint:civitai:1234@5678",
+  "queuePosition": 3,
+  "lane": "low",
+  "etaSeconds": 840,
+  "boostedEtaSeconds": 120,
+  "resources": [
+    {
+      "resource": "urn:air:sdxl:checkpoint:civitai:1234@5678",
+      "sizeBytes": 6900000000,
+      "lane": "low",
+      "queuePosition": 3,
+      "etaSeconds": 840,
+      "boostedEtaSeconds": 120
+    }
+  ]
+}
+```
+
+`boostedEtaSeconds` is what the ETA would become in the `high` lane — the number to show alongside
+the price. It is null once the resource is already `high`. A resource that is transferring reports
+`progress` and `bytesPerSecond` instead of `queuePosition`.
+
+The same information per resource is on [`GetResource`](/orchestration/reference/operations/GetResource)
+under `availability`, whose `status` is one of `available`, `loading` (transferring — carries
+`progress`, `bytesPerSecond`, `etaSeconds`), `queued` (waiting — carries `lane`, `queuePosition`,
+`etaSeconds`, `boostedEtaSeconds`), `unavailable` (nothing is fetching it), or `unsupported`.
 
 ## When to look at each level
 
