@@ -478,5 +478,154 @@ check(`the rendered ${LANDING_PAGE} carries the prompt verbatim inside a <pre>`,
   );
 });
 
+// ---------------------------------------------------------------------------
+// llms.txt — NO SIDEBAR GROUP MAY BE EMITTED TWICE.
+//
+// 🔴 THE DEFECT THIS PINS, MEASURED. VitePress ROUTES a sidebar: one key per
+// path prefix, and a leaf page keeps a sidebar by ALIASING an existing array
+// under a second key (`'/apps/examples': appsGuideSidebar` beside
+// `'/apps/guide/': appsGuideSidebar`; same for `/apps/showcase` +
+// `/apps/tokens`). vitepress-plugin-llms routes nothing — it does
+// `Object.values(sidebar).flat()` — so every alias emitted that array's groups
+// a second time. On the build at 75035bc, and live on
+// https://developer.civitai.com/llms.txt: `### Guide`, `### Examples` and
+// `### Design system` each appeared TWICE, +20 duplicated lines. The rendered
+// HTML, the nav and the on-page sidebars were all correct, which is exactly why
+// nothing caught it: llms.txt was the only affected surface, and it is the one
+// surface no human reads. It is also the flat index the `civitai` CLI's
+// generated AGENTS.md block points agents at.
+//
+// The fix is `dedupeSidebarGroups` in .vitepress/config.mts. This is the gate on
+// it — asserted against the BUILT artifact, because the bug was invisible in the
+// source object (both keys are correct VitePress) and visible only after the
+// plugin flattened it.
+//
+// WHAT IS COMPARED, and why it is not the heading. Heading text repeats
+// legitimately: `### MCP Server` appears twice for two DIFFERENT groups
+// (`/orchestration/mcp/`, `/site/mcp/`) whose entries differ, and both belong
+// there. The key is therefore the WHOLE BLOCK — heading line plus its entry
+// lines — so two groups are "the same group" only when the reader would get the
+// identical list twice.
+
+/** Split the llms.txt Table of Contents into `### `-headed blocks. */
+export function tocGroups(llms) {
+  const at = llms.indexOf('\n## Table of Contents');
+  const body = at === -1 ? llms : llms.slice(at);
+  const lines = body.split('\n');
+  const groups = [];
+  let cur = null;
+  for (const line of lines) {
+    if (line.startsWith('### ')) {
+      cur = { heading: line.slice(4).trim(), lines: [] };
+      groups.push(cur);
+    } else if (cur && line.startsWith('##')) {
+      cur = null; // a new top-level section ends the run of groups
+    } else if (cur && line.trim()) {
+      cur.lines.push(line.trim());
+    }
+  }
+  return groups;
+}
+
+/** `[key, count]` for every block appearing more than once, in first-seen order. */
+export function duplicateGroups(groups) {
+  const counts = new Map();
+  for (const g of groups) {
+    const key = [g.heading, ...g.lines].join('\n');
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return [...counts.entries()].filter(([, n]) => n > 1);
+}
+
+// The detector's own fixtures. A rule shown only passing input is
+// indistinguishable from a rule wired to nothing, and this one's whole job is to
+// report a ZERO — the reading a broken extractor also produces.
+const LLMS_FIXTURES = [
+  {
+    name: 'two groups, distinct entries — clean',
+    expect: 0,
+    text: '\n## Table of Contents\n\n### A\n- [x](/x)\n\n### B\n- [y](/y)\n',
+  },
+  {
+    name: 'same heading, DIFFERENT entries — not a duplicate (the two `MCP Server` groups)',
+    expect: 0,
+    text: '\n## Table of Contents\n\n### MCP Server\n- [Overview](/orchestration/mcp/)\n\n### MCP Server\n- [Overview](/site/mcp/)\n',
+  },
+  {
+    name: 'an ALIASED sidebar array — the live defect',
+    expect: 1,
+    text: '\n## Table of Contents\n\n### Guide\n- [Intro](/apps/guide/)\n\n### Guide\n- [Intro](/apps/guide/)\n',
+  },
+  {
+    name: 'an alias of a TWO-group array — both groups duplicate',
+    expect: 2,
+    text: '\n## Table of Contents\n\n### Guide\n- [Intro](/apps/guide/)\n\n### Examples\n- [Example apps](/apps/examples)\n\n### Guide\n- [Intro](/apps/guide/)\n\n### Examples\n- [Example apps](/apps/examples)\n',
+  },
+];
+
+// MEASURED on the build at 75035bc: 23 `###` groups WITH the duplication, 21
+// without. The floor rejects a zero — an extractor that stopped matching, or a
+// plugin that stopped emitting a table of contents, both yield [] and would
+// otherwise satisfy "no duplicates" vacuously.
+const TOC_GROUP_FLOOR = 15;
+
+const llmsTxt = join(distDir, 'llms.txt');
+let llmsGroupCount = null;
+
+console.log(`\nBUILT SITE — ${llmsTxt}`);
+
+check('the llms.txt duplicate detector still detects (fixture table)', () => {
+  const wrong = LLMS_FIXTURES.filter((f) => duplicateGroups(tocGroups(f.text)).length !== f.expect);
+  assert(
+    wrong.length === 0,
+    `${wrong.length} fixture(s) disagreed: ${wrong
+      .map((f) => `"${f.name}" expected ${f.expect}, got ${duplicateGroups(tocGroups(f.text)).length}`)
+      .join('; ')}`,
+  );
+  const negatives = LLMS_FIXTURES.filter((f) => f.expect > 0).length;
+  assert(
+    negatives >= 2 && LLMS_FIXTURES.length - negatives >= 2,
+    `the fixture table lost its controls (${negatives} must-detect, ` +
+      `${LLMS_FIXTURES.length - negatives} must-not) — restore them.`,
+  );
+});
+
+check('no sidebar group is emitted twice in dist/llms.txt', () => {
+  assert(
+    existsSync(llmsTxt),
+    `${llmsTxt} does not exist — the llms plugin produced no flat index at all. That is the file ` +
+      `the civitai CLI's generated AGENTS.md block points agents at.`,
+  );
+  const groups = tocGroups(readFileSync(llmsTxt, 'utf8'));
+
+  // POSITIVE CONTROL first: a broken extractor and a clean file both print 0.
+  assert(
+    groups.length >= TOC_GROUP_FLOOR,
+    `only ${groups.length} \`###\` group(s) parsed out of llms.txt (floor ${TOC_GROUP_FLOOR}). ` +
+      `Either the plugin stopped emitting a Table of Contents, or \`tocGroups\` no longer ` +
+      `understands its markup — in which case the duplicate check below asserted nothing.`,
+  );
+
+  const dupes = duplicateGroups(groups);
+  assert(
+    dupes.length === 0,
+    `${dupes.length} sidebar group(s) appear more than once in llms.txt:\n` +
+      dupes
+        .map(([key, n]) => {
+          const entries = key.split('\n').length - 1;
+          return `         "${key.split('\n')[0]}" ×${n} (${entries} entr${entries === 1 ? 'y' : 'ies'})`;
+        })
+        .join('\n') +
+      `\n       A sidebar array registered under TWO route keys in .vitepress/config.mts is emitted\n` +
+      `       twice by vitepress-plugin-llms, which flattens every key instead of routing them.\n` +
+      `       That is correct for VitePress (a leaf page keeps a sidebar by aliasing one) and wrong\n` +
+      `       for llms.txt. Route the plugin through \`dedupeSidebarGroups\` — it is already there —\n` +
+      `       rather than dropping the alias, which would strip the page's sidebar.`,
+  );
+  // The verdict always carries the number it is a claim about.
+  llmsGroupCount = groups.length;
+});
+if (llmsGroupCount !== null) console.log(`       ${llmsGroupCount} groups parsed, 0 duplicated`);
+
 console.log(failures ? `\n${failures} check(s) FAILED` : '\nall built-site checks passed');
 process.exit(failures ? 1 : 0);
