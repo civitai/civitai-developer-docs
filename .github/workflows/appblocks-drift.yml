@@ -213,6 +213,13 @@ jobs:
   # verified. The decision table lives in scripts/drift-notify.mjs, which
   # self-tests on every invocation and is additionally run as a PR-gating step
   # from example-apps.yml; a workflow body is untestable by construction.
+  #
+  # 🔴 NO `npm ci` IN THIS JOB, DELIBERATELY, AND IT IS A CONSTRAINT ON THE
+  # SCRIPT. scripts/drift-notify.mjs imports node:crypto, node:fs and node:url
+  # and nothing else; adding a node_modules import breaks this job with
+  # MODULE_NOT_FOUND. Two reasons, and the second is the real one: a registry
+  # outage must not be what stops an alert going out, and the one job here
+  # holding a write scope should execute no third-party code at all.
   notify:
     needs: drift
     if: always()
@@ -232,11 +239,10 @@ jobs:
         with:
           node-version: '20'
 
-      # 🔴 NO `npm ci`, DELIBERATELY, AND IT IS A CONSTRAINT ON THE SCRIPT.
-      # scripts/drift-notify.mjs imports node:crypto, node:fs and node:url and
-      # nothing else. Two reasons, and the second is the real one: a registry
-      # outage must not be what stops an alert going out, and the job holding
-      # `issues: write` should execute no third-party code at all.
+      # `continue-on-error`, because a MISSING artifact is a signal rather than a
+      # failure: it means the drift job died before the guard ran, or was
+      # skipped outright, and the notifier's job is to say so. A hard failure
+      # here would swallow exactly the case this job exists for.
       - name: Download the example-apps report
         continue-on-error: true
         uses: actions/download-artifact@v4
