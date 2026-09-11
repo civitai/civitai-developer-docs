@@ -13,8 +13,10 @@ name: appblocks-drift
 # cannot false-fail on someone else's publish) DOES block a PR — see
 # appblocks-snippets.yml's --offline half and appblocks-cli.yml.
 #
-# NAME vs CONTENTS: the last step here guards the ORCHESTRATION OpenAPI
-# snapshot, not App Blocks, so this file now carries one non-App-Blocks signal.
+# NAME vs CONTENTS: the `check:spec-drift` step here guards the ORCHESTRATION
+# OpenAPI snapshot, not App Blocks, so this file carries one non-App-Blocks
+# signal. (It used to be the LAST step, and this note used to identify it that
+# way; `check:ds-pins` and `check:example-apps` were appended after it.)
 # It lives here rather than in a file of its own because it is the same KIND of
 # check under the same doctrine, and a second daily workflow would pay for a
 # second checkout + `npm ci` to run one HTTP GET. If a third non-App-Blocks
@@ -103,3 +105,23 @@ jobs:
         # an unstyled page with no error.
         if: always()
         run: npm run check:ds-pins
+
+      - name: Example App Block rot — apps/examples.md's repositories vs GitHub
+        # The UPSTREAM half of the example-apps guard; the repo-local half
+        # (`--offline`: the page parses and still names >= MIN_EXAMPLE_REPOS
+        # repositories) blocks a PR from example-apps.yml.
+        #
+        # A repository named on that page can be deleted, made private, archived
+        # or RENAMED by somebody who has never heard of this repo — textbook
+        # upstream movement, so it belongs on this schedule rather than on a PR.
+        # The rename case is the reason the guard exists at all: GitHub
+        # 301-redirects a renamed repo and the REST API follows it, so a
+        # status-code check reports 200 for a link that no longer points where it
+        # says. The verdict is computed from the response BODY's `full_name`.
+        if: always()
+        env:
+          # Lifts the shared-runner rate limit. Absent, a 403 SKIPs (loudly),
+          # never fails. The repos read are PUBLIC and cross-repo, so this token
+          # buys headroom and nothing else.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run check:example-apps
