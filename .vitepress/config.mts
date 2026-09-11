@@ -30,10 +30,13 @@ const designSystemSidebar: DefaultTheme.SidebarItem[] = [
 // `/apps/guide/` and `/apps/examples` so the leaf examples page keeps a sidebar.
 //
 // `Examples` is a SEPARATE group rather than a row inside `Guide`: the llms
-// plugin emits llms.txt straight from this object, so a group becomes a `##`
-// section there. Its own heading is what makes the catalog findable by an agent
-// that fetched llms.txt and nothing else — which is exactly how the `civitai`
-// CLI's generated AGENTS.md block points at this page.
+// plugin emits llms.txt straight from this object, so a group becomes its own
+// heading there. Measured on the built dist/llms.txt: `### Examples` — THREE
+// hashes, not two; the plugin reserves `##` for the top-level section. That
+// heading, plus the page's frontmatter `description` (which becomes the entry's
+// trailing summary), is what makes the catalog findable by an agent that
+// fetched llms.txt and nothing else — which is how the `civitai` CLI's
+// generated AGENTS.md block reaches this page.
 const appsGuideSidebar: DefaultTheme.SidebarItem[] = [
   {
     text: 'Guide',
