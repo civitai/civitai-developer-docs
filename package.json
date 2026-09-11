@@ -30,6 +30,7 @@
     "test:copy-spec": "node scripts/test-copy-spec.mjs",
     "check:agent-setup": "node scripts/check-agent-setup.mjs",
     "check:example-apps": "node scripts/check-example-apps.mjs",
+    "check:ai-catalog": "node scripts/check-ai-catalog.mjs",
     "check:snapshots": "node scripts/check-appblocks-snapshots.mjs",
     "check:cli-snapshot": "node scripts/check-appblocks-cli-snapshot.mjs",
     "refresh:cli-snapshot": "node scripts/refresh-cli-snapshot.mjs",
