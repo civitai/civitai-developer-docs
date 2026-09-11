@@ -1,0 +1,70 @@
+name: example-apps
+
+# The PR-side half of the anti-rot guard for `apps/examples.md` — the page that
+# names the public example App Block repositories, and the single URL the
+# `civitai agent-setup` managed block points an agent at instead of embedding a
+# repo list into every scaffolded project.
+#
+# WHY ONLY HALF RUNS HERE. `scripts/check-example-apps.mjs` asserts two different
+# kinds of thing, and this repo's doctrine (see appblocks-drift.yml's header)
+# puts them in different places:
+#
+#   - REPO-LOCAL — the page exists, parses, and still names at least
+#     MIN_EXAMPLE_REPOS repositories. No upstream input, so it cannot false-fail
+#     on somebody else's action. That belongs on a PR, and it is what this job
+#     runs, via `--offline`.
+#
+#   - UPSTREAM — whether each of those repositories still exists, still lives at
+#     that owner/repo (GitHub 301-redirects a RENAME, so a status check says
+#     200 for a repo that moved), and is not archived. A rename is unrelated to
+#     whatever docs change is in flight, so gating a PR on it would be a
+#     permanently-red gate — the thing this repo repeatedly says is worse than no
+#     gate at all. That half runs on the daily `appblocks-drift` schedule.
+#
+# RUNS ON EVERY PR, DELIBERATELY UNFILTERED — do not add a `paths:` filter. Same
+# reasoning as agent-setup.yml, appblocks-cli.yml and build-site.yml: GitHub does
+# not synthesise a passing status for a workflow that never triggers, so a
+# path-filtered check that later becomes REQUIRED strands every PR touching none
+# of the watched files at mergeStateStatus=BLOCKED forever (measured live on
+# #42). The offline half is sub-second and reads one file, so unconditional is
+# free.
+#
+# NOT YET A REQUIRED CONTEXT. Adding it to the branch-protection required checks
+# on `main` is a maintainer decision and a separate change; until then this
+# reports without blocking.
+on:
+  pull_request: {}
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# LEAST PRIVILEGE — see appblocks-cli.yml for the full reasoning. This job checks
+# out and runs one node script that reads one committed file: with `--offline`
+# there is no network at all, no artifact upload, no PR comment, no push, no `gh`
+# call.
+permissions:
+  contents: read
+
+jobs:
+  check-example-apps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # Same version as every other job here.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # No `npm ci`: the guard imports node:fs, node:path and node:url and
+      # nothing else. Skipping the install keeps the job seconds long and removes
+      # the registry as a way for this check to fail for reasons that have
+      # nothing to do with the page.
+      #
+      # 🔴 THAT IS A CONSTRAINT ON THE GUARD, NOT MERELY A NOTE ABOUT IT. Adding
+      # any node_modules import to scripts/check-example-apps.mjs breaks this job
+      # with MODULE_NOT_FOUND. If an install ever becomes necessary, the offline
+      # property above is what you are spending — say so in the same diff.
+      - name: apps/examples.md parses and still names the example repositories
+        run: npm run check:example-apps -- --offline

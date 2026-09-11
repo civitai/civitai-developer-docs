@@ -16,6 +16,9 @@ hero:
       text: Concepts
       link: /apps/guide/concepts
     - theme: alt
+      text: Examples
+      link: /apps/examples
+    - theme: alt
       text: Reference
       link: /apps/reference/
 

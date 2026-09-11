@@ -26,6 +26,43 @@ const designSystemSidebar: DefaultTheme.SidebarItem[] = [
   },
 ];
 
+// The Apps guide, plus the example-app catalog. One array, registered under both
+// `/apps/guide/` and `/apps/examples` so the leaf examples page keeps a sidebar.
+//
+// `Examples` is a SEPARATE group rather than a row inside `Guide`: the llms
+// plugin emits llms.txt straight from this object, so a group becomes its own
+// heading there. Measured on the built dist/llms.txt: `### Examples` — THREE
+// hashes, not two; the plugin reserves `##` for the top-level section. That
+// heading, plus the page's frontmatter `description` (which becomes the entry's
+// trailing summary), is what makes the catalog findable by an agent that
+// fetched llms.txt and nothing else — which is how the `civitai` CLI's
+// generated AGENTS.md block reaches this page.
+const appsGuideSidebar: DefaultTheme.SidebarItem[] = [
+  {
+    text: 'Guide',
+    items: [
+      { text: 'Introduction', link: '/apps/guide/' },
+      { text: 'Concepts', link: '/apps/guide/concepts' },
+      { text: 'Quickstart', link: '/apps/guide/quickstart' },
+      { text: 'Generating images (text-to-image)', link: '/apps/guide/text-to-image' },
+      { text: 'Comfy on Civitai (customComfy)', link: '/apps/guide/comfy-cloud' },
+      { text: 'Running embedded & direct traffic', link: '/apps/guide/embedding' },
+      { text: 'Markup that holds up', link: '/apps/guide/markup' },
+      { text: 'Responsive blocks', link: '/apps/guide/responsive' },
+      { text: 'Theming & design system', link: '/apps/guide/theming' },
+      // The heading pins an explicit `{#retrofit}` anchor, so the auto-slug
+      // this link used to guess (`#theming-an-existing-app-…`) never existed.
+      { text: 'Theming an existing app (retrofit)', link: '/apps/guide/theming#retrofit' },
+    ],
+  },
+  {
+    text: 'Examples',
+    items: [
+      { text: 'Example apps', link: '/apps/examples' },
+    ],
+  },
+];
+
 const sidebar: DefaultTheme.Sidebar = {
   '/orchestration/guide/': [
     {
@@ -170,25 +207,12 @@ const sidebar: DefaultTheme.Sidebar = {
       ],
     },
   ],
-  '/apps/guide/': [
-    {
-      text: 'Guide',
-      items: [
-        { text: 'Introduction', link: '/apps/guide/' },
-        { text: 'Concepts', link: '/apps/guide/concepts' },
-        { text: 'Quickstart', link: '/apps/guide/quickstart' },
-        { text: 'Generating images (text-to-image)', link: '/apps/guide/text-to-image' },
-        { text: 'Comfy on Civitai (customComfy)', link: '/apps/guide/comfy-cloud' },
-        { text: 'Running embedded & direct traffic', link: '/apps/guide/embedding' },
-        { text: 'Markup that holds up', link: '/apps/guide/markup' },
-        { text: 'Responsive blocks', link: '/apps/guide/responsive' },
-        { text: 'Theming & design system', link: '/apps/guide/theming' },
-        // The heading pins an explicit `{#retrofit}` anchor, so the auto-slug
-        // this link used to guess (`#theming-an-existing-app-…`) never existed.
-        { text: 'Theming an existing app (retrofit)', link: '/apps/guide/theming#retrofit' },
-      ],
-    },
-  ],
+  '/apps/guide/': appsGuideSidebar,
+  // `/apps/examples` is a leaf page, not a section, so it has no sidebar of its
+  // own — it shares the guide's. Same arrangement as `/apps/showcase` and
+  // `/apps/tokens` above. NB the key has NO trailing slash, matching the
+  // `cleanUrls` route: /apps/examples is a 200 and /apps/examples/ is a 404.
+  '/apps/examples': appsGuideSidebar,
   '/apps/reference/': [
     {
       text: 'Reference',
@@ -304,6 +328,7 @@ export default withMermaid({
           { text: 'Civitai Site Reference', link: '/site/reference/' },
           { text: 'Civitai MCP', link: '/site/mcp/' },
           { text: 'Apps Guide', link: '/apps/guide/' },
+          { text: 'Apps Examples', link: '/apps/examples' },
           { text: 'Apps Reference', link: '/apps/reference/' },
           { text: 'Apps Component Showcase', link: '/apps/showcase' },
           { text: 'Apps Design Tokens', link: '/apps/tokens' },
