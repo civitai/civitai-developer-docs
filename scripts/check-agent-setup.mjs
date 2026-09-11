@@ -46,6 +46,17 @@
  *      actually executes is worse than the download dialog it replaced. See
  *      scripts/agent-setup-page.mjs for the mechanism and why it is a fence.
  *
+ *   5. PROMPT SIZE. A byte budget on `public/agent-setup/prompt.md`, with a
+ *      ceiling bounding the budget and a floor as the positive control. 🔴 READ
+ *      IT NARROWLY: it is a RATCHET AGAINST GROWTH and NOT a guarantee that an
+ *      agent receives the whole file. The measured loss — an LLM summary that
+ *      dropped the install-failure section, both MCP URLs and all of step 5 —
+ *      happened at 6,949 bytes, INSIDE the budget this check permits. Lossy
+ *      summarisation is a property of the consumer and nothing here can assert
+ *      it away. What the budget buys is that the file cannot go
+ *      2,798 -> 6,232 -> 6,949 bytes in three commits again with nothing
+ *      measuring the total. See the constants for the derivations.
+ *
  * WHAT CHECK 1 ACTUALLY COVERS
  * ----------------------------
  * From `public/agent-setup/prompt.md` only (never the landing page):
@@ -278,6 +289,70 @@ import {
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SNAPSHOT = join(repoRoot, 'appblocks-snapshots', 'civitai-cli-help.txt');
 const NGINX_CONF = 'nginx.conf';
+
+// ---------------------------------------------------------------------------
+// Check 5: the prompt's byte budget.
+//
+// 🔴 WHAT THIS IS, STATED NARROWLY, BECAUSE THE OBVIOUS WIDER READING IS FALSE.
+// This is a RATCHET AGAINST UNBOUNDED GROWTH. It is **not** a guarantee that an
+// agent receives the whole file, and it must never be described as one. The
+// measured loss happened AT 6,949 bytes — a real agent's `WebFetch` returned an
+// LLM summary that dropped the install-failure section, BOTH MCP URLs and all of
+// step 5 — and PROMPT_MAX_BYTES below permits 7,200. So a green check 5 says
+// "this file did not grow", and says nothing whatsoever about what a summarising
+// fetcher will do with it. Lossy summarisation is a property of the CONSUMER;
+// nothing in this repository can assert it away.
+//
+// What it does buy is the thing that was actually missing: the file went
+// 2,798 → 6,232 → 6,949 bytes in three commits on a single day (a94fee3,
+// 61925ed, ab43157) with NOTHING measuring the total. Each diff was individually
+// reasonable. That is the shape a ratchet exists for.
+// ---------------------------------------------------------------------------
+
+/**
+ * The budget. Derived from a property of the file, not a round percentage, so
+ * the next author can re-derive it instead of nudging it.
+ *
+ * At the time this landed the file was 6,949 bytes in 9 sections, the SMALLEST
+ * of which was 321 bytes ("## 2. Install the CLI"). 7,200 leaves 251 bytes of
+ * headroom — deliberately LESS than that smallest section, so **no new section
+ * fits without a deliberate, reviewable edit to this constant.** Ordinary
+ * wording fixes (a clause, a corrected sentence) still fit; a new step does not.
+ */
+const PROMPT_MAX_BYTES = 7_200;
+
+/**
+ * Bounds PROMPT_MAX_BYTES itself, so the budget above cannot be turned into
+ * unlimited slack by editing one number — the same failure one level up.
+ *
+ * Derived against the MEDIAN section (890 bytes) rather than the smallest:
+ * raising PROMPT_MAX_BYTES all the way to this ceiling yields 851 bytes of
+ * headroom over the 6,949 achieved, still under that median. So even a maximal
+ * raise cannot quietly absorb a typical new section.
+ *
+ * 🔴 IT MOVES WITH THE ACHIEVED SIZE, OR IT STOPS BOUNDING ANYTHING. Whoever
+ * changes the shape of this file re-derives both numbers in the same commit.
+ */
+const PROMPT_MAX_BYTES_CEILING = 7_800;
+
+/**
+ * The POSITIVE CONTROL. A truncated, half-written or empty prompt is comfortably
+ * UNDER any ceiling, and "0 bytes, well within budget" is the reassuring-zero
+ * shape: the guard reports success having measured a file that no longer holds
+ * the content it is guarding.
+ *
+ * 2,500 is derived from history rather than chosen: the smallest version this
+ * file ever shipped at was **2,798 bytes** (a94fee3), and that was a complete,
+ * working prompt. Below that it is not a shorter prompt, it is a broken one.
+ *
+ * 🔴 THIS FLOOR IS DELIBERATELY WEAK, AND THE REASON IS WORTH KNOWING. A tighter
+ * floor (say 21% under the achieved size, as civitai/cli's AGENTS.md guard uses)
+ * would catch partial truncation too — but check 5 exists BECAUSE this file is
+ * too long, so a future change that legitimately trims it hard is a change this
+ * guard should welcome rather than fight. Catching the catastrophic case without
+ * obstructing the desirable one is the trade being made here, on purpose.
+ */
+const PROMPT_MIN_BYTES = 2_500;
 
 /**
  * The third-party binaries `public/agent-setup/prompt.md` is allowed to tell an
@@ -1359,6 +1434,82 @@ function checkServingRoute() {
   return failures;
 }
 
+/**
+ * Check 5 — the prompt's byte budget. See the constants above for what this does
+ * and, more importantly, what it does NOT claim.
+ *
+ * Measures the SOURCE file. The served bytes are the source bytes by
+ * construction (VitePress copies `public/` verbatim, and check-built-site.mjs
+ * asserts `dist/agent-setup/prompt.md` is byte-identical to it), so measuring
+ * here needs no network and no build.
+ */
+function checkPromptSize() {
+  const failures = [];
+
+  // Guard the constants against each other FIRST. If PROMPT_MAX_BYTES has been
+  // raised past its own ceiling, every verdict below is about a budget nobody
+  // bounded, so reporting on the file would be reporting the wrong thing.
+  if (PROMPT_MAX_BYTES > PROMPT_MAX_BYTES_CEILING) {
+    failures.push(
+      `PROMPT_MAX_BYTES (${PROMPT_MAX_BYTES}) exceeds PROMPT_MAX_BYTES_CEILING (${PROMPT_MAX_BYTES_CEILING}).\n` +
+        `    The ceiling exists so the budget cannot be turned into unlimited slack by editing one\n` +
+        `    number. Raising it is a deliberate decision: re-derive BOTH from the file's section\n` +
+        `    sizes in the same commit, as their doc comments describe.`,
+    );
+    return failures;
+  }
+  if (PROMPT_MIN_BYTES >= PROMPT_MAX_BYTES) {
+    failures.push(`PROMPT_MIN_BYTES (${PROMPT_MIN_BYTES}) is not below PROMPT_MAX_BYTES (${PROMPT_MAX_BYTES}) — the window is empty, so no file could pass`);
+    return failures;
+  }
+
+  const bytes = Buffer.byteLength(readFileSync(join(repoRoot, PROMPT_SOURCE)));
+
+  if (bytes < PROMPT_MIN_BYTES) {
+    failures.push(
+      `${PROMPT_SOURCE} is ${bytes} bytes, UNDER the ${PROMPT_MIN_BYTES}-byte floor.\n` +
+        `    This is the positive control, not a style rule: a truncated or half-written prompt is\n` +
+        `    comfortably under any ceiling, so without a floor the guard reports "well within\n` +
+        `    budget" about a file that no longer holds what it is guarding. The smallest COMPLETE\n` +
+        `    version this file ever shipped at was 2,798 bytes.\n` +
+        `    If you trimmed it on purpose, lower PROMPT_MIN_BYTES in the same commit and say why.`,
+    );
+  }
+
+  if (bytes > PROMPT_MAX_BYTES) {
+    failures.push(
+      `${PROMPT_SOURCE} is ${bytes} bytes, OVER the ${PROMPT_MAX_BYTES}-byte budget by ${bytes - PROMPT_MAX_BYTES}.\n` +
+        `\n` +
+        `    This file went 2,798 -> 6,232 -> 6,949 bytes in three commits on one day, with nothing\n` +
+        `    measuring the total. Every one of those diffs was individually reasonable. That is what\n` +
+        `    this budget is for.\n` +
+        `\n` +
+        `    🔴 DO NOT just raise PROMPT_MAX_BYTES. The headroom is deliberately smaller than the\n` +
+        `    smallest section in the file, so "it needs one more step" is exactly the case that is\n` +
+        `    supposed to stop here and be argued for. Prefer, in order:\n` +
+        `      1. Cut or tighten prose — this is a prompt an agent executes, not documentation.\n` +
+        `      2. Move detail behind a link. The site already serves llms.txt as the flat index,\n` +
+        `         and one hop to a leaf measured better than inlining (0.462 vs 0.267).\n` +
+        `      3. Only then raise the constant, re-deriving it AND PROMPT_MAX_BYTES_CEILING from\n` +
+        `         the new section sizes, in the same commit.\n` +
+        `\n` +
+        `    🔴 And do not read this budget as a promise that agents receive the whole file. They\n` +
+        `    may not: the measured loss (an LLM summary that dropped the install-failure section,\n` +
+        `    both MCP URLs and all of step 5) happened at 6,949 bytes, INSIDE this budget. Shorter\n` +
+        `    is better here for reasons this check cannot enforce.`,
+    );
+  }
+
+  if (!failures.length) {
+    const headroom = PROMPT_MAX_BYTES - bytes;
+    console.log(
+      `  ✓ ${PROMPT_SOURCE} is ${bytes} bytes — within [${PROMPT_MIN_BYTES}, ${PROMPT_MAX_BYTES}], ` +
+        `${headroom} to spare (a growth ratchet only; it makes no claim about what a summarising fetcher receives)`,
+    );
+  }
+  return failures;
+}
+
 /** First differing line, so the error points at something rather than a blob. */
 function firstDiff(expected, actual) {
   const e = expected.split('\n');
@@ -1451,6 +1602,7 @@ function main() {
     ['2. single source', checkSingleSource],
     ['3. serving route', checkServingRoute],
     ['4. inline copy', checkInlineCopy],
+    ['5. prompt size', checkPromptSize],
   ];
   const failures = [];
   for (const [label, fn] of checks) {
