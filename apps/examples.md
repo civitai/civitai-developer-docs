@@ -24,6 +24,16 @@ organization. Treat them as references to read, not as an API contract — the
 enforcement boundary.
 
 Verified 2026-09-11: all eight are public, not forks, and not archived.
+
+**The two lists under each example are not equally fresh, and the difference is
+worth knowing before you rely on one.** The **scopes** are a checked claim: a
+scheduled job reads each repository's `block.manifest.json` and fails if its
+`scopes` array and the list below disagree, so a scope added upstream shows up
+here as a red build rather than as a page that quietly went wrong. The **hooks**
+are not — verifying what eight repositories import means parsing their source,
+which is more machinery than this page is worth — so they are dated instead.
+**Hook lists verified by hand on 2026-09-11.** Read them as a snapshot of that
+day; the repository is always the authority.
 :::
 
 ::: warning These links go to source
@@ -198,7 +208,25 @@ each repository's `full_name` back from the API and fails on a mismatch, as well
 as on a 404, a 451 takedown and on `archived: true`. Its offline half runs on
 every pull request — the page parses, still names at least six repositories, and
 does not contradict itself: the counts stated in this prose are graded against
-the links actually on the page, and every `#anchor` in the table above must
-resolve to a section that is still here. The half that reaches GitHub runs on
-the daily `appblocks-drift` schedule, because an upstream rename is unrelated to
-whatever docs change is in flight.
+the links actually on the page, every `#anchor` in the table above must resolve
+to a section that is still here, and every example section must state a scope
+list in a shape the next paragraph can grade. The half that reaches GitHub runs
+on the daily `appblocks-drift` schedule, because an upstream rename is unrelated
+to whatever docs change is in flight.
+
+A live, unrenamed, unarchived repository can still be described wrongly, so that
+scheduled half also fetches each repository's `block.manifest.json` and compares
+its `scopes` array against the scope list stated above. The comparison is by
+**set, not order**: the page's claim is about *which* scopes an example declares,
+so a manifest that merely reorders its array leaves the sentence true and is
+reported as a note rather than a failure. A manifest that is missing,
+unparseable, or carries no `scopes` array fails with that named as the reason —
+never a silent pass. A scheduled run that goes red now **opens a GitHub issue**
+naming the repository and how it rotted, and closes it again on the next clean
+run; a run that verified *nothing* opens one too, because a silent zero and a
+clean bill of health print the same thing.
+
+The **hook** lists are the one thing on this page nothing re-checks, which is why
+they carry a date rather than a guarantee. The guard asserts the date stamp is
+present, is a real date and is not in the future, and prints its age on every
+run — so the lists can get old, but they cannot get old *quietly*.

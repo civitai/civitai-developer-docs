@@ -5,9 +5,18 @@ name: appblocks-drift
 # copies diverging, an SDK or civitai/cli release publishing — which is unrelated
 # to any given docs PR. Gating unrelated docs PRs on a stale snapshot / a schema
 # the docs repo doesn't own would be wrong, so this runs on a schedule (mirroring
-# test-samples) + on demand, where a red run is the visible signal to re-snapshot
-# or reconcile. To make any of them a non-blocking informational PR check later,
+# test-samples) + on demand, where a red run is the signal to re-snapshot or
+# reconcile. To make any of them a non-blocking informational PR check later,
 # add a `pull_request` trigger with `continue-on-error: true`.
+#
+# 🔴 "VISIBLE SIGNAL" USED TO BE THIS SENTENCE'S CLAIM, AND IT WAS FALSE. A red
+# run on a scheduled workflow surfaces nowhere — there is no PR to annotate and
+# no reviewer to notify — so a genuine rot failure and a fully-skipped run were
+# equally invisible unless a human opened the Actions tab. The `notify` job at
+# the bottom of this file is what makes the word "visible" true: it opens (or
+# refreshes) ONE GitHub issue naming what rotted, and closes it on the next clean
+# run. It also fires when nothing was verified at all, because a silent zero and
+# a clean bill of health print the same thing.
 #
 # The counterpart doctrine: a REPO-LOCAL invariant (no upstream input, so it
 # cannot false-fail on someone else's publish) DOES block a PR — see
@@ -31,25 +40,47 @@ on:
 
 # LEAST PRIVILEGE — see appblocks-cli.yml for the full reasoning. This is the
 # one workflow here that hands GITHUB_TOKEN to any step, so it is the one that
-# looks like it might need more than read. It does not.
+# looks like it might need more than read.
 #
-# 🔴 TWO steps take it, not one — and this comment said "one" for a while after
-# the second arrived, which is exactly the undercount a maintainer auditing
-# token reach would have inherited. Keep this list in sync with the `env:`
-# blocks below; it is the only place the reach is stated in one piece:
+# 🔴 KEEP THIS LIST IN SYNC WITH THE `env:` BLOCKS AND `permissions:` BLOCKS
+# BELOW. It said "one step takes the token" for a while after the second arrived,
+# which is exactly the undercount a maintainer auditing token reach would have
+# inherited; it then said "it does not [need more than read]" after the notify
+# job below started needing `issues: write`, which is the same mistake in the
+# other direction. This is the only place the reach is stated in one piece:
+#
+#   READ-ONLY (`contents: read`), token buys rate-limit headroom and nothing else
 #   - check:cli-snapshot   -> api.github.com/repos/civitai/cli/releases/latest
 #                             (scripts/check-appblocks-cli-snapshot.mjs)
 #   - check:example-apps   -> api.github.com/repos/<owner>/<repo> for each
-#                             repository apps/examples.md names
-#                             (scripts/check-example-apps.mjs)
+#                             repository apps/examples.md names, plus
+#                             raw.githubusercontent.com/<owner>/<repo>/HEAD/
+#                             block.manifest.json for each scope list the page
+#                             states (scripts/check-example-apps.mjs). The
+#                             manifests are on the RAW host on purpose: the
+#                             api.github.com call count stays at one per
+#                             repository, so the scope check did not move this
+#                             job closer to the unauthenticated 60/hr limit.
 #
-# Both are the SAME shape and the same argument: an UNAUTHENTICATED-capable GET
-# of a PUBLIC cross-repo endpoint, with the token buying nothing but the
-# shared-runner rate limit. A `permissions:` block scopes the token against THIS
-# repo only and never gates reads of another public repo, and both scripts
-# already degrade to SKIP (never fail) on a 403. Every other step reads over
-# unauthenticated HTTPS (raw.githubusercontent.com, the npm registry, the prod
-# manifest endpoint) or runs a local `git show`.
+#   WRITE (`issues: write`), and it is one job, one script, one endpoint family
+#   - the `notify` job     -> api.github.com/repos/<this repo>/issues{,/N,/N/comments}
+#                             (scripts/drift-notify.mjs)
+#
+# The read steps are all the SAME shape and the same argument: an
+# UNAUTHENTICATED-capable GET of a PUBLIC cross-repo endpoint. A `permissions:`
+# block scopes the token against THIS repo only and never gates reads of another
+# public repo, and both scripts already degrade to SKIP (never fail) on a 403.
+# Every other step reads over unauthenticated HTTPS (raw.githubusercontent.com,
+# the npm registry, the prod manifest endpoint) or runs a local `git show`.
+#
+# 🔴 THE ELEVATION IS JOB-SCOPED, AND THE SPLIT IS THE POINT. The workflow-level
+# default stays `contents: read`, so a job added later inherits read; the `drift`
+# job — the one that runs `npm ci`, executes every dependency's install scripts
+# and talks to seven third-party hosts — PINS `contents: read` explicitly rather
+# than inheriting it; and `issues: write` is held only by `notify`, which runs
+# ONE node script with no `npm ci` and no third-party code at all. That is the
+# same boundary cli-snapshot-refresh.yml draws for the same reason: the
+# privileged job should be the one holding nothing worth stealing.
 permissions:
   contents: read
 
@@ -57,6 +88,10 @@ jobs:
   drift:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Pinned, not inherited: a later edit to the file-level default must not be
+    # able to silently elevate the job that runs third-party install scripts.
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -131,10 +166,87 @@ jobs:
         # 301-redirects a renamed repo and the REST API follows it, so a
         # status-code check reports 200 for a link that no longer points where it
         # says. The verdict is computed from the response BODY's `full_name`.
+        #
+        # It also grades each example's SCOPE list against that repository's own
+        # block.manifest.json: a repository can stay public, unrenamed and
+        # unarchived while its manifest gains a scope, and the page then tells
+        # every reader something false about the privileged surface it declares.
+        # Those fetches go to raw.githubusercontent.com, so they add ZERO
+        # api.github.com calls — see the token-reach list in the header.
+        #
+        # `--report` is what makes the `notify` job below possible. Written on
+        # EVERY exit path, including a run that verified nothing, because "0
+        # verified" and "all clear" are the same exit code and must not be the
+        # same signal.
         if: always()
         env:
           # Lifts the shared-runner rate limit. Absent, a 403 SKIPs (loudly),
           # never fails. The repos read are PUBLIC and cross-repo, so this token
           # buys headroom and nothing else.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run check:example-apps
+        run: npm run check:example-apps -- --report "$RUNNER_TEMP/example-apps-report.json"
+
+      # The report is the only thing that crosses the job boundary. `warn`, not
+      # `error`: a drift job that died before the guard ran produces no report,
+      # and that ABSENCE is a signal the notifier acts on — turning it into a
+      # failed upload step would replace a deliverable alert with a second red
+      # nobody reads.
+      - name: Upload the example-apps report for the notifier
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: example-apps-report
+          path: ${{ runner.temp }}/example-apps-report.json
+          if-no-files-found: warn
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # DELIVERY. Every check above DETECTS upstream movement; until this job
+  # existed, none of them DELIVERED it. A red run on a scheduled workflow is
+  # indistinguishable from nobody looking — cli-snapshot-refresh.yml's header
+  # says so in those words, and then that reasoning covered exactly one of the
+  # sweep's checks.
+  #
+  # `if: always()` is load-bearing twice over: the whole point is to react to a
+  # `drift` job that FAILED, and equally to one that was SKIPPED or CANCELLED —
+  # neither of which renders as red anywhere, and both of which mean nothing was
+  # verified. The decision table lives in scripts/drift-notify.mjs, which
+  # self-tests on every invocation and is additionally run as a PR-gating step
+  # from example-apps.yml; a workflow body is untestable by construction.
+  notify:
+    needs: drift
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # The ONE elevation in this workflow, and exactly one scope beyond read:
+    #   issues: write — open, update, comment on and close the single tracking
+    #                   issue. Nothing else: no contents: write, no
+    #                   pull-requests, no packages, no id-token, no actions.
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # 🔴 NO `npm ci`, DELIBERATELY, AND IT IS A CONSTRAINT ON THE SCRIPT.
+      # scripts/drift-notify.mjs imports node:crypto, node:fs and node:url and
+      # nothing else. Two reasons, and the second is the real one: a registry
+      # outage must not be what stops an alert going out, and the job holding
+      # `issues: write` should execute no third-party code at all.
+      - name: Download the example-apps report
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: example-apps-report
+          path: ${{ runner.temp }}/report
+
+      - name: Open, refresh or close the drift issue
+        env:
+          DRIFT_NOTIFY_JOB_RESULT: ${{ needs.drift.result }}
+          DRIFT_NOTIFY_REPORT: ${{ runner.temp }}/report/example-apps-report.json
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run notify:drift

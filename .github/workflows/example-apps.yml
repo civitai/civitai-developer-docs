@@ -20,10 +20,16 @@ name: example-apps
 #
 #   - UPSTREAM — whether each of those repositories still exists, still lives at
 #     that owner/repo (GitHub 301-redirects a RENAME, so a status check says
-#     200 for a repo that moved), and is not archived. A rename is unrelated to
-#     whatever docs change is in flight, so gating a PR on it would be a
-#     permanently-red gate — the thing this repo repeatedly says is worse than no
-#     gate at all. That half runs on the daily `appblocks-drift` schedule.
+#     200 for a repo that moved), is not archived, and still declares the scopes
+#     the page states for it. A rename is unrelated to whatever docs change is in
+#     flight, so gating a PR on it would be a permanently-red gate — the thing
+#     this repo repeatedly says is worse than no gate at all. That half runs on
+#     the daily `appblocks-drift` schedule, which now also DELIVERS its red as a
+#     GitHub issue rather than leaving it in a tab nobody opens.
+#
+# The second step here is the other half of that delivery: the notifier's own
+# decision table. It runs nowhere else on a PR, and the branch it exists for is
+# the one that is invisible when it breaks — see the step's comment.
 #
 # RUNS ON EVERY PR, DELIBERATELY UNFILTERED — do not add a `paths:` filter. Same
 # reasoning as agent-setup.yml, appblocks-cli.yml and build-site.yml: GitHub does
@@ -43,9 +49,10 @@ on:
   workflow_dispatch: {}
 
 # LEAST PRIVILEGE — see appblocks-cli.yml for the full reasoning. This job checks
-# out and runs one node script that reads one committed file: with `--offline`
-# there is no network at all, no artifact upload, no PR comment, no push, no `gh`
-# call.
+# out and runs two node scripts, one reading one committed file and one reading
+# nothing at all: with `--offline` and `--self-test` there is no network, no
+# artifact upload, no PR comment, no push, no `gh` call and — note, since the
+# second script's normal mode DOES write GitHub issues — no token of any kind.
 permissions:
   contents: read
 
@@ -72,3 +79,18 @@ jobs:
       # property above is what you are spending — say so in the same diff.
       - name: the guard self-tests, and apps/examples.md parses and agrees with itself
         run: npm run check:example-apps -- --offline
+
+      # 🔴 THE NOTIFIER'S DECISION TABLE, GATED HERE BECAUSE NOTHING ELSE RUNS
+      # IT ON A PR. scripts/drift-notify.mjs decides whether a scheduled sweep
+      # opens, refreshes or closes the tracking issue, and it only ever executes
+      # on the daily `appblocks-drift` schedule — so a regression in it would
+      # merge green and then surface, at the earliest, a day later on a workflow
+      # nobody watches, in the form of an alert that did not arrive. The one
+      # branch that matters most is the one that cannot be observed at all when
+      # it is wrong: a run that verified ZERO repositories must alert, not
+      # resolve.
+      #
+      # `--self-test` makes no decision, reads no environment and opens no
+      # socket. It is node-builtins-only for the same reason the step above is.
+      - name: the drift notifier's decision table still holds
+        run: npm run notify:drift -- --self-test
