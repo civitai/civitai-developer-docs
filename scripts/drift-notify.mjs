@@ -578,7 +578,22 @@ async function main(argv = process.argv.slice(2)) {
   const fp = fingerprint(decision);
 
   if (!existing) {
-    const created = await api(ctx, 'POST', `/repos/${ctx.repo}/issues`, { title, body, labels: [LABEL] });
+    // 🔴 THE LABEL MUST NEVER BE WHY THE ALERT DOES NOT ARRIVE. The label is a
+    // convenience for whoever triages; the ISSUE is the product. Creating one
+    // with a label that does not exist yet normally creates the label too, but
+    // that depends on a permission this job may or may not have been given, and
+    // a notifier that fails over a taxonomy detail has failed at the one thing
+    // it does. So: try with, fall back to without, and SAY which happened —
+    // degraded delivery, stated, never silent.
+    let created;
+    try {
+      created = await api(ctx, 'POST', `/repos/${ctx.repo}/issues`, { title, body, labels: [LABEL] });
+    } catch (err) {
+      console.error(`  ! could not create the issue with the \`${LABEL}\` label (${err.message})`);
+      console.error(`  ! retrying WITHOUT it — the label is cosmetic, the alert is not.`);
+      created = await api(ctx, 'POST', `/repos/${ctx.repo}/issues`, { title, body });
+      console.log(`  (opened without the \`${LABEL}\` label; add it by hand, or create the label once.)`);
+    }
     console.log(`\nOpened #${created.number}: ${created.html_url}`);
     return;
   }
