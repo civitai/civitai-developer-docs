@@ -1,0 +1,101 @@
+name: ai-catalog
+
+# The PR-side half of the guard for machine discovery:
+# `public/.well-known/ai-catalog.json` (what this site publishes for agents) and
+# the `Link:` header in `nginx.conf` (how an agent is told it exists).
+#
+# WHY ONLY HALF RUNS HERE. `scripts/check-ai-catalog.mjs` asserts two different
+# kinds of thing, and this repo's doctrine (see appblocks-drift.yml's header)
+# puts them in different places:
+#
+#   - REPO-LOCAL — the catalog parses and carries its shape; nginx.conf defines
+#     the advertisement exactly once; every location that sets any header also
+#     sets `Link` (or is a named exemption); and the two files name the same
+#     URLs. No network, no upstream input, sub-second. That belongs on a PR, and
+#     it is what this job runs, via `--offline`.
+#
+#   - DEPLOYED — whether developer.civitai.com actually serves those URLs and
+#     actually sends that header. 🔴 THIS CANNOT GATE A PR, AND THE REASON IS
+#     STRUCTURAL RATHER THAN STYLISTIC: the origin serves what is on `main`, so a
+#     PR that ADDS a catalogued URL is red until it merges and deploys, by
+#     construction. Gating on it would make every such PR unmergeable — a
+#     permanently-red gate, which this repo repeatedly states is worse than no
+#     gate at all because it trains people to click through. Measured on the
+#     2026-09-11 deploy: the origin kept serving the previous build for ~340 s
+#     after a merge, so even a post-merge job would race it.
+#
+#     That half runs on the daily schedule below, which is also the cadence that
+#     matches what it detects: rot, not regression.
+#
+# WHAT THE SCHEDULED HALF IS ACTUALLY FOR. Advertising a dead target is worse
+# than advertising nothing, and that is measured rather than feared — on
+# 2026-09-11 `docs.mintlify.com` advertised six rels whose targets ALL returned
+# 530. Nothing on their side was red, because a Link header is consumed by
+# fetchers and no human ever sees the result. Only a scheduled fetch can see it.
+#
+# RUNS ON EVERY PR, DELIBERATELY UNFILTERED — do not add a `paths:` filter. Same
+# reasoning as example-apps.yml, agent-setup.yml and build-site.yml: GitHub does
+# not synthesise a passing status for a workflow that never triggers, so a
+# path-filtered check that later becomes REQUIRED strands every PR touching none
+# of the watched files at mergeStateStatus=BLOCKED forever (measured live on
+# #42).
+#
+# NOT YET A REQUIRED CONTEXT. Adding it to branch protection on `main` is a
+# maintainer decision and a separate change; until then it reports without
+# blocking.
+on:
+  pull_request: {}
+  push:
+    branches: [main]
+  schedule:
+    # Daily, offset from appblocks-drift so two network jobs do not collide.
+    - cron: '37 6 * * *'
+  workflow_dispatch:
+    inputs:
+      network:
+        description: 'Also fetch every advertised and catalogued URL from the live origin'
+        type: boolean
+        default: true
+
+# LEAST PRIVILEGE — see appblocks-cli.yml for the full reasoning. This job checks
+# out and runs one node script over two committed files. The scheduled half adds
+# outbound GETs to developer.civitai.com and nothing else: no artifact upload, no
+# PR comment, no push, no `gh` call.
+permissions:
+  contents: read
+
+jobs:
+  check-ai-catalog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # Same version as every other job here.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # No `npm ci`: the guard imports node:fs, node:path and node:url and
+      # nothing else. Skipping the install keeps the job seconds long and removes
+      # the registry as a way for this check to fail for reasons that have
+      # nothing to do with the catalog.
+      #
+      # 🔴 THAT IS A CONSTRAINT ON THE GUARD, NOT MERELY A NOTE ABOUT IT. Adding
+      # any node_modules import to scripts/check-ai-catalog.mjs breaks this job
+      # with MODULE_NOT_FOUND. If an install ever becomes necessary, the offline
+      # property above is what you are spending — say so in the same diff.
+      - name: catalog and nginx advertisement agree (offline)
+        run: npm run check:ai-catalog -- --offline
+
+      # The deployed half. `if:` keeps it off pull_request entirely — see the
+      # permanently-red-gate reasoning in the header.
+      #
+      # It exits 0 when the origin is unreachable (DNS, timeout, 5xx), printing a
+      # `⊘` line per skipped URL and a summary that always carries the number of
+      # URLs it actually checked — so a run that verified nothing says `0
+      # checked` rather than a bare "ok". A 404 is NOT treated as an outage: it
+      # is the exact symptom this job exists to report.
+      - name: every advertised and catalogued URL resolves on the live origin
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.network)
+        run: npm run check:ai-catalog -- --verbose

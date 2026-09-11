@@ -1,0 +1,59 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "Civitai Developer Documentation",
+    "identifier": "did:web:developer.civitai.com",
+    "documentationUrl": "https://developer.civitai.com/"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:developer.civitai.com:docs:llms-txt",
+      "displayName": "Civitai Developer Docs Index (llms.txt)",
+      "type": "text/plain",
+      "url": "https://developer.civitai.com/llms.txt",
+      "description": "Flat index of every page on this site: one hop from this file to the leaf you need. Read this before fetching llms-full.txt, which is ~1.2 MB.",
+      "tags": [
+        "civitai",
+        "documentation",
+        "llms.txt"
+      ],
+      "representativeQueries": [
+        "Where is the Civitai developer documentation index?",
+        "List the Civitai Apps documentation pages"
+      ]
+    },
+    {
+      "identifier": "urn:air:developer.civitai.com:docs:llms-full-txt",
+      "displayName": "Civitai Developer Docs, Full Text (llms-full.txt)",
+      "type": "text/plain",
+      "url": "https://developer.civitai.com/llms-full.txt",
+      "description": "Every documentation page concatenated into one file. Large (~1.2 MB); prefer llms.txt and fetch only the leaves it names.",
+      "tags": [
+        "civitai",
+        "documentation",
+        "llms.txt"
+      ],
+      "representativeQueries": [
+        "Give me the entire Civitai developer documentation as one file",
+        "Full text of the Civitai Apps reference"
+      ]
+    },
+    {
+      "identifier": "urn:air:developer.civitai.com:agent-setup:prompt",
+      "displayName": "Civitai Apps Agent-Setup Prompt",
+      "type": "text/markdown",
+      "url": "https://developer.civitai.com/agent-setup/prompt.md",
+      "description": "The onboarding entrypoint: paste this URL into a coding agent and it configures itself to build Civitai Apps, via the `civitai agent-setup` command. Served verbatim as text/markdown, with no markdown pipeline and no redirect.",
+      "tags": [
+        "civitai",
+        "apps",
+        "agent-setup",
+        "onboarding"
+      ],
+      "representativeQueries": [
+        "How do I set up my coding agent to build Civitai Apps?",
+        "Civitai agent onboarding prompt"
+      ]
+    }
+  ]
+}

@@ -50,14 +50,15 @@ Produces an nginx:alpine image serving the static site.
 ├── scripts/copy-spec.mjs             # OpenAPI spec sync script
 ├── openapi-snapshots/                 # Committed spec snapshot — the build's default source
 ├── public/openapi/                    # Spec destination (gitignored)
+├── public/.well-known/ai-catalog.json  # Machine-discovery catalog (see below)
 ├── Dockerfile                         # Multi-stage build for production
-└── nginx.conf                         # cleanUrls routing + caching, and .md content types
+└── nginx.conf                         # cleanUrls routing + caching, .md content types, Link: advertisement
 ```
 
 ## The serving layer, for machine consumers
 
-Two facts about how this site is served that are easy to get wrong and hard to
-notice, plus one that is not ours to fix.
+Facts about how this site is served that are easy to get wrong and hard to
+notice, plus one that turned out not to be ours at all.
 
 **`.md` is `text/markdown`, not `text/plain`.** nginx's `mime.types` has no entry
 for `.md`, so `nginx.conf` sets it explicitly. It used to say `text/plain` "like
@@ -88,27 +89,74 @@ machine copy. Run the generator after **any** edit to `public/agent-setup/prompt
 — the check blocks a PR that forgot. See `scripts/agent-setup-page.mjs` for why
 the inline copy is a fence rather than spliced markdown.
 
-**🔴 UPSTREAM, NOT FIXABLE HERE: Cloudflare 403s two user agents.** Measured
-2026-09-08 against the live zone:
+**✅ RESOLVED — Cloudflare used to 403 two user agents; it no longer does.** This
+section said *"Nothing in this repository can change it … a naive
+`urllib.request` fetch … is hard blocked"*, and that has been false since the fix
+below. Re-measured 2026-09-11 against the live zone:
 
 ```
-curl -sI -A 'Python-urllib/3.11' https://developer.civitai.com/   -> 403, body `error code: 1010`
-curl -sI -A 'libwww-perl/6.0'    https://developer.civitai.com/   -> 403, body `error code: 1010`
-curl -sI -A 'curl/8.5.0'         https://developer.civitai.com/   -> 200
+curl -sI -A 'Python-urllib/3.11' https://developer.civitai.com/   -> 200
+curl -sI -A 'Python-urllib/3.12' https://developer.civitai.com/   -> 200
+curl -sI -A 'libwww-perl/6.0'    https://developer.civitai.com/   -> 200
 ```
 
-`python-requests`, `httpx`, `aiohttp`, `Scrapy`, `Wget`, `Go-http-client`,
-`node-fetch`, `okhttp`, `Java`, `ClaudeBot` and browsers all get 200; a
-lowercased `python-urllib` gets 200, so the match is an exact, case-sensitive
-signature list. It is path-independent (`/`, `/llms.txt`, `/apps/guide.md`,
-`/favicon.ico` all 403) and `civitai.com` behaves identically, so it is
-zone/account scope, not this site. Cloudflare error **1010** is the *Browser
-Integrity Check*. **Nothing in this repository can change it** — the same
-`nginx.conf`, run locally against the built `dist/`, returns 200 to both UAs. The
-remedy is a Cloudflare dashboard change (disable Browser Integrity Check for this
-hostname, or add a WAF skip rule); until then, a naive `urllib.request` fetch of
-anything on `developer.civitai.com`, including `/agent-setup/prompt.md`, is hard
-blocked.
+All three also return 200 on `/llms.txt` and `/agent-setup/prompt.md`, with
+`python-requests` and default `curl` as controls.
+
+The cause was **Cloudflare's Browser Integrity Check** (error **1010**), a
+zone-level setting — never this repo, which is why the same `nginx.conf` run
+locally always returned 200 to the blocked UAs. It was fixed with a
+**Configuration Rule** on the `civitai.com` zone scoped to
+`http.host eq "developer.civitai.com"`, setting `bic: false`; `browser_check`
+stays `on` zone-wide, so `civitai.com` and `image.civitai.com` keep it.
+
+🔴 **If this ever regresses, re-probe rather than re-reading Cloudflare's docs.**
+No Cloudflare documentation states that a Configuration Rule overrides the
+zone-level `browser_check` — that precedence was established empirically, by
+reading `browser_check: "on"` while the exempted host served 200 to a UA that
+setting blocks.
+
+**This site ships a machine-discovery catalog, and also advertises it.** The
+artifacts are `/llms.txt`, `/llms-full.txt` and `/agent-setup/prompt.md`;
+`public/.well-known/ai-catalog.json` names all three in one document, and
+`nginx.conf` sends a `Link:` header pointing at the catalog and the two `llms`
+files from every document route. Measured 2026-09-11, no precedent does both:
+`developers.cloudflare.com` ships the same two `.well-known` artifacts and
+advertises neither, while `mintlify.com/docs` advertises six rels. Doing both
+costs three header lines.
+
+Two things about it are load-bearing and easy to undo by tidying:
+
+- **`Link` is repeated in every `location` that sets any header.** nginx inherits
+  `add_header` from an outer block *only if* the inner block declares none of its
+  own, so one server-level `Link` is silently dropped by any location that sets a
+  header. Measured on a real nginx: with a single server-level copy, four of five
+  document routes served no `Link` — including `/`, which resolves through an
+  internal redirect into `location ~* \.html$`. A one-URL smoke test of the
+  homepage would have passed on a config that advertises almost nowhere.
+- **The catalog's `location` carries an empty `types { }` block.** `.json` *is* in
+  nginx's `mime.types`, so `default_type application/ai-catalog+json` alone is
+  never consulted and the response comes back `application/json`. The empty block
+  clears the map so `default_type` applies. It looks like a no-op; deleting it
+  silently reverts the declared type.
+
+`npm run check:ai-catalog` asserts the catalog and the header describe the same
+site, and — on a schedule, never as a PR gate — that every URL either names
+actually resolves. Advertising a dead target is worse than advertising nothing:
+on 2026-09-11 `docs.mintlify.com` advertised six rels whose targets all returned
+530, with nothing on their side red, because a `Link` header is consumed by
+fetchers and no human ever sees the result.
+
+**Not published, and deliberately:** `.well-known/agent-skills/index.json`. Every
+entry in that format is a `tar.gz` or `SKILL.md` with a `sha256:` digest, and
+this project publishes no skill bundles — `llms.txt` is already the flat index,
+and a measured comparison put a flat index at 0.462 against 0.267 for a
+hierarchy. An index with zero or invented entries would read as coverage while
+providing none. The two MCP endpoints are absent for a different reason: a `GET`
+to `mcp.civitai.com/mcp` is a 405 and `orchestration.civitai.com/mcp` a 401, so
+they are transports rather than fetchable documents. The entry that would
+represent them is a `.well-known/mcp/server-card.json`, which this site does not
+serve yet.
 
 ## Interactive features
 
