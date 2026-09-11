@@ -30,16 +30,26 @@ on:
   workflow_dispatch: {}
 
 # LEAST PRIVILEGE — see appblocks-cli.yml for the full reasoning. This is the
-# one workflow here that hands GITHUB_TOKEN to a step, so it is the one that
-# looks like it might need more than read. It does not: the token is passed to
-# check:cli-snapshot purely as a rate-limit lift on an UNAUTHENTICATED-capable
-# GET of a PUBLIC cross-repo endpoint
-# (api.github.com/repos/civitai/cli/releases/latest — see
-# scripts/check-appblocks-cli-snapshot.mjs). A `permissions:` block scopes the
-# token against THIS repo only and never gates reads of another public repo,
-# and the script already degrades to SKIP (never fail) on a 403. Every other
-# step reads over unauthenticated HTTPS (raw.githubusercontent.com, the npm
-# registry, the prod manifest endpoint) or runs a local `git show`.
+# one workflow here that hands GITHUB_TOKEN to any step, so it is the one that
+# looks like it might need more than read. It does not.
+#
+# 🔴 TWO steps take it, not one — and this comment said "one" for a while after
+# the second arrived, which is exactly the undercount a maintainer auditing
+# token reach would have inherited. Keep this list in sync with the `env:`
+# blocks below; it is the only place the reach is stated in one piece:
+#   - check:cli-snapshot   -> api.github.com/repos/civitai/cli/releases/latest
+#                             (scripts/check-appblocks-cli-snapshot.mjs)
+#   - check:example-apps   -> api.github.com/repos/<owner>/<repo> for each
+#                             repository apps/examples.md names
+#                             (scripts/check-example-apps.mjs)
+#
+# Both are the SAME shape and the same argument: an UNAUTHENTICATED-capable GET
+# of a PUBLIC cross-repo endpoint, with the token buying nothing but the
+# shared-runner rate limit. A `permissions:` block scopes the token against THIS
+# repo only and never gates reads of another public repo, and both scripts
+# already degrade to SKIP (never fail) on a 403. Every other step reads over
+# unauthenticated HTTPS (raw.githubusercontent.com, the npm registry, the prod
+# manifest endpoint) or runs a local `git show`.
 permissions:
   contents: read
 
@@ -108,8 +118,11 @@ jobs:
 
       - name: Example App Block rot — apps/examples.md's repositories vs GitHub
         # The UPSTREAM half of the example-apps guard; the repo-local half
-        # (`--offline`: the page parses and still names >= MIN_EXAMPLE_REPOS
-        # repositories) blocks a PR from example-apps.yml.
+        # (`--offline`: the guard's own fixture tables, the page parsing and
+        # still naming >= MIN_EXAMPLE_REPOS repositories, and the page agreeing
+        # with its own stated counts and anchors) blocks a PR from
+        # example-apps.yml. Note this job runs BOTH halves — the self-test and
+        # the page checks run here too, before any request is made.
         #
         # A repository named on that page can be deleted, made private, archived
         # or RENAMED by somebody who has never heard of this repo — textbook

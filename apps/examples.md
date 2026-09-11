@@ -68,7 +68,8 @@ published outputs.
 
 ### Sensei
 
-**[github.com/ZacxDev/civitai-app-sensei](https://github.com/ZacxDev/civitai-app-sensei)** — page app, ~91 TS/TSX files. The largest example here.
+**[github.com/ZacxDev/civitai-app-sensei](https://github.com/ZacxDev/civitai-app-sensei)** — page app, ~91 TS/TSX files — **the most
+code of any example here**, though Playable Collections has more files.
 
 **Read it for** a multi-turn LLM assistant built on the same generation bridge
 as image work — the model's own replies drive follow-up catalog queries — with
@@ -194,7 +195,10 @@ claims the old name.
 
 `npm run check:example-apps` (`scripts/check-example-apps.mjs`) therefore reads
 each repository's `full_name` back from the API and fails on a mismatch, as well
-as on a 404 and on `archived: true`. Its offline half — the page parses, and
-still names at least six repositories — runs on every pull request; the half
-that reaches GitHub runs on the daily `appblocks-drift` schedule, because an
-upstream rename is unrelated to whatever docs change is in flight.
+as on a 404, a 451 takedown and on `archived: true`. Its offline half runs on
+every pull request — the page parses, still names at least six repositories, and
+does not contradict itself: the counts stated in this prose are graded against
+the links actually on the page, and every `#anchor` in the table above must
+resolve to a section that is still here. The half that reaches GitHub runs on
+the daily `appblocks-drift` schedule, because an upstream rename is unrelated to
+whatever docs change is in flight.
