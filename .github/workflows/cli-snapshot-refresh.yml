@@ -131,6 +131,16 @@ concurrency:
 # every workflow here overrides down to `contents: read`; this file keeps that
 # default so any job ADDED later inherits read, and the one job that genuinely
 # needs more asks for it itself.
+#
+# 🔴 THE `refresh` JOB BELOW USED TO BE DESCRIBED AS "THE ONLY ELEVATION IN THIS
+# REPO". THAT IS NO LONGER TRUE, AND A COMMENT UNDERCOUNTING WHERE WRITE LIVES IS
+# EXACTLY WHAT A MAINTAINER AUDITING TOKEN REACH WOULD INHERIT. There are two,
+# they are disjoint in job and in scope, and both follow the same rule — the
+# privileged job runs no third-party code it did not have to:
+#   - this file's `refresh` job   -> contents + pull-requests (push a branch, open a PR)
+#   - appblocks-drift.yml `notify` -> the issues scope, to deliver the scheduled
+#                                     sweep's red as a tracking issue. That job
+#                                     runs one node script, no `npm ci`.
 permissions:
   contents: read
 
@@ -294,12 +304,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
-    # The ONLY elevation in this repo, and exactly two scopes:
+    # The only elevation in THIS workflow, and exactly two scopes:
     #   contents: write       — push the stable `bot/cli-snapshot-refresh` branch.
     #                           (`main` is protected and is never a push target.)
     #   pull-requests: write  — create the PR, or update the existing one in place.
     # Nothing else: no issues, no packages, no id-token, no actions. The job
     # checks out, runs node, pushes ONE branch and opens ONE PR.
+    #
+    # This block used to be described as the only elevation in the whole repo;
+    # it is not any more. The corrected statement is in this file's header — it
+    # is a cross-workflow fact, and it also cannot be written here, because
+    # test-refresh-cli-snapshot.mjs greps the raw `jobs:` text (comments
+    # included) for scope names this job must not request.
     # scripts/test-refresh-cli-snapshot.mjs asserts this block stays this shape —
     # both that the two scopes are present here and that NO OTHER JOB in this
     # file holds write.

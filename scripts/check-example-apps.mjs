@@ -78,6 +78,50 @@
  *                                          carrying a token that CAN see it must
  *                                          not report the page healthy for
  *                                          readers who cannot)
+ *     5. Every SCOPES line on the page matches the repository's own
+ *        `block.manifest.json`. See the SCOPES banner below.
+ *
+ * 🔴 THE PAGE'S MOST AUTHORITATIVE CONTENT USED TO BE ITS LEAST GUARDED
+ * --------------------------------------------------------------------
+ * `apps/examples.md` states, per repository, a SCOPES array and a HOOK list. An
+ * audit read all eight against live source and found them exact — and that was a
+ * ONE-TIME READ. Everything above it guarded URL LIVENESS: a repository can stay
+ * public, unrenamed and unarchived while its manifest gains a scope, and the page
+ * then tells a reader — and every agent the `civitai agent-setup` block points
+ * here — something false about the privileged surface an example declares. All
+ * eight repositories were pushed within days of the page being written, so drift
+ * is likely and, until check 5, silent.
+ *
+ * SCOPES ARE NOW A CHECKED CLAIM; HOOKS ARE DATE-STAMPED. The split is
+ * deliberate and it is about COST, not importance:
+ *   - a manifest is ONE file at a known path holding a flat array, so checking it
+ *     is one GET and a set comparison;
+ *   - a hook list is what a repository IMPORTS, which means fetching and parsing
+ *     a whole `src/` tree across eight repositories. That is disproportionate
+ *     here, so the page carries a `Hook lists verified by hand on <date>` stamp
+ *     instead and check 3b asserts the stamp is present, parseable and not in the
+ *     future — the reader gets the AGE of the claim rather than a guarantee, and
+ *     the guard's own summary prints that age on every run.
+ *
+ * 🔴 THE SCOPE COMPARISON IS A SET COMPARISON, AND THAT IS THE CLAIM THE PAGE
+ * MAKES. The page says these are "the scopes its `block.manifest.json`
+ * declares" — a statement about WHICH scopes, not about the order they appear
+ * in the JSON. Reordering a manifest array leaves the page's sentence TRUE, so
+ * failing on it would be a false-fail, and this file's doctrine picks a loud
+ * skip over a false-fail every time. Measured 2026-09-11: all eight agree as
+ * sets AND in order, so order drift is reported as a non-fatal `note` — visible
+ * to anyone tidying the page, red for nobody.
+ *
+ * MANIFEST FETCHES ADD ZERO api.github.com CALLS, ON PURPOSE. They go to
+ * `raw.githubusercontent.com`, a different host with a different budget, so the
+ * run's api.github.com count stays at exactly one GET per repository and the
+ * unauthenticated 60/hr shared-runner limit is no closer than it was. (Reading
+ * them through `/repos/:o/:r/contents/` would have DOUBLED it.) Same doctrine on
+ * failure: 403/429/5xx/timeout/DNS SKIP loudly, exit 0. A 404 on the manifest
+ * does NOT skip — it is terminal, exactly like a 404 on the repository, and it
+ * means the page's claim to have read that file cannot be true at that path.
+ * Unparseable JSON, and a `scopes` key that is not an array, fail the same way:
+ * a clear diagnosis, never a crash and never a silent pass.
  *
  * 🔴 UNREACHABLE API -> LOUD SKIP, EXIT 0. STATED, NOT IMPLIED.
  * ------------------------------------------------------------
@@ -120,14 +164,24 @@
  * USAGE
  *   npm run check:example-apps              # self-test + page + network
  *   npm run check:example-apps -- --offline # self-test + page only, no network
+ *   npm run check:example-apps -- --report <path>
+ *                              also write a machine-readable JSON report, which
+ *                              is what scripts/drift-notify.mjs turns into the
+ *                              GitHub issue a scheduled red run would otherwise
+ *                              announce to nobody. Written on EVERY exit path,
+ *                              including a broken self-test — a run that made no
+ *                              claim must be able to SAY so downstream.
  *
  *   EXAMPLE_APPS_PAGE=<path>   point the page checks at a different markdown
  *                              file — how the controls in this file's own
  *                              red/green matrix were driven; not used in CI
  *   EXAMPLE_APPS_API=<base>    override the REST base (default api.github.com)
+ *   EXAMPLE_APPS_RAW=<base>    override the raw base (default
+ *                              raw.githubusercontent.com), where the manifests
+ *                              are read from
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -141,6 +195,27 @@ const repoRoot = resolve(__dirname, '..');
 export const PAGE = process.env.EXAMPLE_APPS_PAGE || 'apps/examples.md';
 
 const API_BASE = process.env.EXAMPLE_APPS_API || 'https://api.github.com';
+
+/**
+ * Where the per-repository manifests are read from. A DIFFERENT HOST from
+ * API_BASE on purpose — see the SCOPES banner at the top: it keeps the
+ * api.github.com call count at exactly one per repository, so adding check 5 did
+ * not move this run one request closer to the unauthenticated 60/hr limit.
+ */
+const RAW_BASE = process.env.EXAMPLE_APPS_RAW || 'https://raw.githubusercontent.com';
+
+/**
+ * The path the page's own sentence names. NOT a search: a fallback that quietly
+ * found a manifest somewhere else would make check 5 assert something other than
+ * what the page says it read, and the run would print `✓` for a claim nobody
+ * verified. If a repository moves its manifest, this guard's red IS the signal,
+ * and the fix is a page edit (or a deliberate, reviewed change here).
+ *
+ * `HEAD` resolves to the default branch without a second request to learn its
+ * name. Measured 2026-09-11: 200 on all eight repositories the page names.
+ */
+const MANIFEST_PATH = 'block.manifest.json';
+const MANIFEST_REF = 'HEAD';
 
 /**
  * The POSITIVE-CONTROL FLOOR.
@@ -270,6 +345,7 @@ export function classifyRepo(entry, result) {
     if (result.status === 404 || result.status === 410) {
       return {
         verdict: 'fail',
+        kind: 'MISSING',
         reason: `HTTP ${result.status} — no public repository at github.com/${entry.full}`,
         hint: 'it was deleted, or made private. Remove the row, or point it at the live repo.',
       };
@@ -281,6 +357,7 @@ export function classifyRepo(entry, result) {
     if (result.status === 451) {
       return {
         verdict: 'fail',
+        kind: 'TAKEDOWN',
         reason: `HTTP 451 — github.com/${entry.full} is UNAVAILABLE FOR LEGAL REASONS (takedown)`,
         hint: 'a reader following this link gets a takedown notice, not code. Drop the row.',
       };
@@ -302,6 +379,7 @@ export function classifyRepo(entry, result) {
   if (remote.toLowerCase() !== entry.full.toLowerCase()) {
     return {
       verdict: 'fail',
+      kind: 'RENAMED',
       reason: `RENAMED — the API redirected github.com/${entry.full} to ${remote}`,
       hint: `update the page to https://github.com/${remote}. GitHub releases the old path as soon as anyone else claims it, at which point this link points at a stranger's repo.`,
     };
@@ -310,6 +388,7 @@ export function classifyRepo(entry, result) {
   if (result.body?.private === true) {
     return {
       verdict: 'fail',
+      kind: 'PRIVATE',
       reason: `github.com/${entry.full} is PRIVATE`,
       hint: 'this run can see it because it carries a token; a reader following the link cannot. Make it public or drop the row.',
     };
@@ -318,8 +397,288 @@ export function classifyRepo(entry, result) {
   if (result.body?.archived === true) {
     return {
       verdict: 'fail',
+      kind: 'ARCHIVED',
       reason: `github.com/${entry.full} is ARCHIVED`,
       hint: 'an archived repo is read-only — no issues, no PRs, and no sign it tracks the current SDK. Unarchive it or drop the row.',
+    };
+  }
+
+  return { verdict: 'ok' };
+}
+
+// ---------------------------------------------------------------------------
+// CHECK 5 — THE SCOPES THE PAGE STATES, AND THE HOOK LISTS IT CANNOT CHECK.
+// Read the SCOPES banner at the top of this file first: it states why scopes are
+// verified and hooks are date-stamped, and why the comparison is a SET
+// comparison rather than a sequence one.
+// ---------------------------------------------------------------------------
+
+/**
+ * A scope string as the platform spells one: lowercase colon-separated segments
+ * (`ai:write:budgeted`, `user:read:self`, `apps:storage:shared:write`).
+ *
+ * 🔴 THIS IS A GUARD ON THE PARSER, NOT A VALIDATION OF THE PLATFORM'S SCOPE
+ * REGISTRY. Its job is to notice when the line matcher below has walked onto the
+ * WRONG LINE — the `**Hooks**` bullet sits directly under the `**Scopes**` one
+ * and is also a list of backticked tokens, so a one-character drift in the
+ * matcher silently starts grading `useSharedStorage` against a manifest. That
+ * failure would otherwise read as "the manifest is missing every scope", which
+ * points a maintainer at eight upstream repositories instead of at this file.
+ */
+const SCOPE_TOKEN_RE = /^[a-z][a-z0-9]*(?::[a-z0-9]+)+$/;
+
+/** Every backticked token on one line, in order. */
+function backtickedTokens(line) {
+  return [...line.matchAll(/`([^`]+)`/g)].map((m) => m[1]);
+}
+
+/**
+ * Split the page into its per-example `###` sections and read, for each, the
+ * repository it links and the claims it makes about that repository.
+ *
+ * Pure + exported so SECTION_FIXTURES can drive it with no filesystem. Both
+ * bullet spellings are matched because the page genuinely carries both, and the
+ * second one is not an oversight: `civitai/app-panorama-360` imports NO hooks at
+ * all — it drives the transport directly — so its section states an
+ * `**SDK surface**` instead. A guard that demanded `**Hooks**` everywhere would
+ * be red on a page that is correct, so the requirement below is "one of the
+ * two", which is the claim the page actually makes.
+ *
+ * @returns {{ heading: string, anchor: string, repo: {owner,repo,full}|null,
+ *             scopes: string[]|null, hasSurfaceLine: boolean }[]}
+ */
+export function parseExampleSections(markdown) {
+  const sections = [];
+  // Split on H3 headings; `parts` is [preamble, h1, body1, h2, body2, …].
+  const parts = markdown.split(/^###[ \t]+(.+?)[ \t]*$/m);
+  for (let i = 1; i < parts.length; i += 2) {
+    const heading = parts[i];
+    const body = parts[i + 1] ?? '';
+    const repos = parseRepoUrls(body);
+    // The em dash the page uses, a plain hyphen, and an en dash — the three
+    // spellings a reader or an editor's autocorrect will produce.
+    const scopeLine = body.match(/^[ \t]*[-*][ \t]+\*\*Scopes\*\*[ \t]*[—–-][ \t]*(.+)$/m);
+    const surfaceLine = /^[ \t]*[-*][ \t]+\*\*(?:Hooks|SDK surface)\*\*[ \t]*[—–-]/m.test(body);
+    sections.push({
+      heading,
+      anchor: headingSlug(heading),
+      repo: repos[0] ?? null,
+      scopes: scopeLine ? backtickedTokens(scopeLine[1]) : null,
+      hasSurfaceLine: surfaceLine,
+    });
+  }
+  return sections;
+}
+
+/**
+ * The page-local half of check 5, so it gates a PR: every example section that
+ * links a repository must also STATE something checkable about it.
+ *
+ * Repo-local by construction — it reads one committed file and nothing else — so
+ * it cannot false-fail on anybody's action but ours, which is this repo's whole
+ * test for what may block a PR.
+ *
+ * The floor is the POSITIVE CONTROL, and it is deliberately the same number as
+ * MIN_EXAMPLE_REPOS rather than a new constant: a section matcher that stops
+ * matching (someone converts the list to a component, a table, a `<details>`)
+ * reports zero sections, zero scope claims and zero findings — indistinguishable
+ * from a clean page. It is stated as a floor rather than as `=== entries.length`
+ * so that adding a prose link to some other GitHub repository, which is a
+ * perfectly ordinary page edit, does not red the gate.
+ */
+export function checkScopeClaimShape(sections, entries) {
+  const failures = [];
+  const withRepo = sections.filter((s) => s.repo);
+  let claimed = 0;
+  let tokens = 0;
+
+  for (const s of withRepo) {
+    if (!s.scopes || s.scopes.length === 0) {
+      failures.push(
+        `"${s.heading}" links ${s.repo.full} but states no \`- **Scopes** — …\` line.\n` +
+          `      That line is what the scheduled half grades against the repository's own\n` +
+          `      block.manifest.json; without it the most authoritative content on the page is\n` +
+          `      back to being unchecked.`,
+      );
+      continue;
+    }
+    claimed++;
+    tokens += s.scopes.length;
+    const bad = s.scopes.filter((t) => !SCOPE_TOKEN_RE.test(t));
+    if (bad.length) {
+      failures.push(
+        `"${s.heading}" states ${bad.length} token(s) that are not scope strings: ` +
+          `${bad.map((b) => `\`${b}\``).join(', ')}\n` +
+          `      Either the page lists something that is not a scope, or — far more likely — the\n` +
+          `      Scopes matcher in parseExampleSections has drifted onto the Hooks bullet, which is\n` +
+          `      also a list of backticked tokens. Check that before touching the page.`,
+      );
+    }
+    if (!s.hasSurfaceLine) {
+      failures.push(
+        `"${s.heading}" states scopes but no \`- **Hooks** — …\` or \`- **SDK surface** — …\` line.\n` +
+          `      Every example says which API surface it uses; the SDK-surface spelling exists for\n` +
+          `      the one example that imports no hooks at all.`,
+      );
+    }
+    const known = entries.some((e) => e.full.toLowerCase() === s.repo.full.toLowerCase());
+    if (!known) {
+      failures.push(
+        `"${s.heading}" links ${s.repo.full}, which the page-wide parse did not find. ` +
+          `The two parsers disagree; neither verdict can be trusted until they do not.`,
+      );
+    }
+  }
+
+  if (withRepo.length < MIN_EXAMPLE_REPOS) {
+    failures.push(
+      `only ${withRepo.length} example section(s) with a repository were found (floor ` +
+        `${MIN_EXAMPLE_REPOS}) — parseExampleSections no longer sees the page's structure, so NO\n` +
+        `      scope claim was graded this run and the scheduled half will verify nothing. Fix the\n` +
+        `      matcher to the new layout; do not lower the floor.`,
+    );
+  }
+
+  return { sections: withRepo.length, claimed, tokens, failures };
+}
+
+/**
+ * The prose the hook lists are dated by. A NAMED CONSTANT, and matched WHOLE:
+ * the stamp is the entire mechanism by which a reader learns those lists are a
+ * snapshot rather than a checked claim, so a reword that leaves it unmatched
+ * must be a red check and a deliberate edit here, not a silent loss of the only
+ * thing standing in for a guard.
+ */
+export const HOOKS_STAMP_RE = /\bHook lists verified by hand on (\d{4})-(\d{2})-(\d{2})\b/;
+
+/**
+ * Grade the hook-list date stamp. `now` is injected so STAMP_FIXTURES can drive
+ * the future-date case without depending on when the suite runs.
+ *
+ * 🔴 IT DOES NOT FAIL ON AGE, DELIBERATELY. A stamp that goes red after N days
+ * is a permanently-red gate with a countdown — this repo's own doctrine says
+ * that is worse than no gate, because everyone learns to click through it. What
+ * the run does instead is PRINT the age, every time, so the number is in front
+ * of whoever reads the output rather than inferred from a date they have to
+ * subtract in their head.
+ */
+export function checkHooksStamp(markdown, now = new Date()) {
+  const m = markdown.match(HOOKS_STAMP_RE);
+  if (!m) {
+    return {
+      stamp: null,
+      ageDays: null,
+      failures: [
+        `the page carries no hook-list date stamp.\n` +
+          `      The hook lists are NOT machine-checked — verifying what eight repositories import\n` +
+          `      needs source parsing this guard deliberately does not do — so the stamp is the only\n` +
+          `      thing telling a reader how old they are. Restore the sentence matched by\n` +
+          `      HOOKS_STAMP_RE, or change that constant in the same commit as the reword.`,
+      ],
+    };
+  }
+
+  const [, y, mo, d] = m;
+  const stamp = `${y}-${mo}-${d}`;
+  const when = new Date(`${stamp}T00:00:00Z`);
+  if (Number.isNaN(when.getTime()) || when.toISOString().slice(0, 10) !== stamp) {
+    return {
+      stamp,
+      ageDays: null,
+      failures: [`the hook-list stamp "${stamp}" is not a real calendar date.`],
+    };
+  }
+
+  const ageDays = Math.floor((now.getTime() - when.getTime()) / 86_400_000);
+  const failures = [];
+  // A two-day grace: a commit made near midnight in a UTC+N timezone is not a
+  // defect, and neither is a clock-skewed runner.
+  if (ageDays < -2) {
+    failures.push(
+      `the hook-list stamp is dated ${stamp}, which is ${-ageDays} days in the FUTURE.\n` +
+        `      A stamp nobody can have verified yet is worse than none: it reads as fresher than\n` +
+        `      anything on the page actually is.`,
+    );
+  }
+  return { stamp, ageDays, failures };
+}
+
+/**
+ * Classify one repository's manifest against the scopes its page section claims.
+ * Pure + exported: SCOPES_FIXTURES below is its mutation test, run on every
+ * invocation with no network.
+ *
+ * `result` is what fetchManifest returns: `{ok:true, body}`, `{ok:true,
+ * parseError}`, `{ok:false, status}` for a terminal status, or `{ok:false,
+ * reason}` for anything transient.
+ *
+ * @returns {{ verdict: 'ok'|'fail'|'skip', reason?: string, hint?: string, note?: string }}
+ */
+export function classifyManifest(entry, declared, result) {
+  if (!result.ok) {
+    if (result.status === 404 || result.status === 410) {
+      return {
+        verdict: 'fail',
+        kind: 'MANIFEST MISSING',
+        reason: `MANIFEST MISSING — HTTP ${result.status} for ${MANIFEST_PATH} in github.com/${entry.full}`,
+        hint:
+          `the page states this repository's scopes as read out of ${MANIFEST_PATH}, and there is no ` +
+          `such file at its root any more. Either it moved (point MANIFEST_PATH at the new one, ` +
+          `deliberately) or the claim cannot be true.`,
+      };
+    }
+    return { verdict: 'skip', reason: result.reason };
+  }
+
+  if (result.parseError) {
+    return {
+      verdict: 'fail',
+      kind: 'MANIFEST UNPARSEABLE',
+      reason: `MANIFEST UNPARSEABLE — ${MANIFEST_PATH} in github.com/${entry.full} is not valid JSON (${result.parseError})`,
+      hint: 'the page claims to have read this file. Nothing downstream of it can be trusted until it parses.',
+    };
+  }
+
+  const remote = result.body?.scopes;
+  if (!Array.isArray(remote)) {
+    return {
+      verdict: 'fail',
+      kind: 'MANIFEST INVALID',
+      reason: `MANIFEST HAS NO scopes ARRAY — ${MANIFEST_PATH} in github.com/${entry.full} carries ${JSON.stringify(remote) ?? 'nothing'} at \`scopes\``,
+      hint: 'a block manifest declares its privileged surface in a top-level `scopes` array; the page quotes it.',
+    };
+  }
+
+  // 🔴 SET, NOT SEQUENCE. See the SCOPES banner: the page's sentence is about
+  // WHICH scopes are declared, so a reordered manifest leaves it true and
+  // failing on that would be the false-fail this file exists not to have.
+  const want = declared.map((s) => s.toLowerCase());
+  const got = remote.map((s) => String(s).toLowerCase());
+  const missing = want.filter((s) => !got.includes(s));
+  const extra = got.filter((s) => !want.includes(s));
+
+  if (missing.length || extra.length) {
+    const bits = [];
+    if (extra.length) bits.push(`the manifest declares ${extra.map((s) => `\`${s}\``).join(', ')} which the page does not list`);
+    if (missing.length) bits.push(`the page lists ${missing.map((s) => `\`${s}\``).join(', ')} which the manifest does not declare`);
+    return {
+      verdict: 'fail',
+      kind: 'SCOPES DRIFTED',
+      reason: `SCOPES DRIFTED for github.com/${entry.full} — ${bits.join('; ')}`,
+      hint:
+        `update the \`- **Scopes** — …\` line for this example to the manifest's array ` +
+        `(${remote.map((s) => `\`${s}\``).join(', ')}). A scope list a reader trusts and the platform ` +
+        `does not enforce is the one kind of wrong this page must not be.`,
+    };
+  }
+
+  if (want.join('|') !== got.join('|')) {
+    return {
+      verdict: 'ok',
+      note:
+        `scopes match as a set but not in order — the page reads ` +
+        `${declared.join(', ')}, the manifest ${remote.join(', ')}. Not a failure (the page's claim is ` +
+        `about which scopes, not their order); tidy it when you are next in there.`,
     };
   }
 
@@ -474,7 +833,210 @@ export const CLASSIFY_FIXTURES = [
   },
 ];
 
-/** Failures from the two tables above; empty when both still assert what they say. */
+/**
+ * A minimal page in the shape the real one has. Written as a template so
+ * SECTION_FIXTURES can mutate exactly one thing at a time — a fixture that
+ * differs in two places cannot tell you which one the verdict came from.
+ */
+const SECTION_PAGE = (body) => `# Example apps\n\n## The examples\n\n${body}\n`;
+
+const SECTION_OK = [
+  '### Gen Matrix',
+  '',
+  '**[github.com/ZacxDev/civitai-app-gen-matrix](https://github.com/ZacxDev/civitai-app-gen-matrix)** — page app.',
+  '',
+  '- **Scopes** — `ai:write:budgeted`, `apps:storage:read`',
+  '- **Hooks** — `useBuzzWorkflow`, `useAppStorage`',
+].join('\n');
+
+/**
+ * What the section parser must read out of a page. Every `expect` is written
+ * from what the SECTION MEANS to a reader, never from what the code returns.
+ */
+export const SECTION_FIXTURES = [
+  {
+    name: 'a complete section yields repo + scopes + a surface line',
+    md: SECTION_PAGE(SECTION_OK),
+    expect: [{ heading: 'Gen Matrix', repo: 'ZacxDev/civitai-app-gen-matrix', scopes: ['ai:write:budgeted', 'apps:storage:read'], hasSurfaceLine: true }],
+  },
+  {
+    name: 'the SDK-surface spelling counts as a surface line (the no-hooks example)',
+    md: SECTION_PAGE(SECTION_OK.replace('**Hooks**', '**SDK surface**')),
+    expect: [{ heading: 'Gen Matrix', repo: 'ZacxDev/civitai-app-gen-matrix', scopes: ['ai:write:budgeted', 'apps:storage:read'], hasSurfaceLine: true }],
+  },
+  {
+    name: 'a trailing parenthetical after the scopes does not become a scope',
+    md: SECTION_PAGE(SECTION_OK.replace('`ai:write:budgeted`, `apps:storage:read`', '`ai:write:budgeted` (the shortest manifest here)')),
+    expect: [{ heading: 'Gen Matrix', repo: 'ZacxDev/civitai-app-gen-matrix', scopes: ['ai:write:budgeted'], hasSurfaceLine: true }],
+  },
+  {
+    name: 'a section with no Scopes line reports scopes: null, not an empty list',
+    md: SECTION_PAGE(SECTION_OK.split('\n').filter((l) => !l.includes('**Scopes**')).join('\n')),
+    expect: [{ heading: 'Gen Matrix', repo: 'ZacxDev/civitai-app-gen-matrix', scopes: null, hasSurfaceLine: true }],
+  },
+  {
+    name: 'two sections are two sections, each with its own repo',
+    md: SECTION_PAGE(`${SECTION_OK}\n\n### App Requests\n\nhttps://github.com/ZacxDev/civitai-app-requests\n\n- **Scopes** — \`user:read:self\`\n- **Hooks** — \`useSharedStorage\``),
+    expect: [
+      { heading: 'Gen Matrix', repo: 'ZacxDev/civitai-app-gen-matrix', scopes: ['ai:write:budgeted', 'apps:storage:read'], hasSurfaceLine: true },
+      { heading: 'App Requests', repo: 'ZacxDev/civitai-app-requests', scopes: ['user:read:self'], hasSurfaceLine: true },
+    ],
+  },
+  // 🔴 NEGATIVE CONTROL ON THE MATCHER'S AIM. The Hooks bullet sits directly
+  // under the Scopes one and is also a list of backticked tokens; a matcher that
+  // grabbed the wrong bullet would satisfy every positive row above while
+  // grading `useBuzzWorkflow` against a manifest.
+  {
+    name: 'negative control — the Hooks bullet is never read as scopes',
+    md: SECTION_PAGE(SECTION_OK.split('\n').filter((l) => !l.includes('**Scopes**')).join('\n')),
+    expect: [{ heading: 'Gen Matrix', repo: 'ZacxDev/civitai-app-gen-matrix', scopes: null, hasSurfaceLine: true }],
+  },
+  {
+    name: 'negative control — an H2 is not an example section',
+    md: '# Example apps\n\n## Keeping this list honest\n\nhttps://github.com/civitai/cli\n',
+    expect: [],
+  },
+];
+
+/**
+ * Verdicts the manifest comparison must reach. The SCOPES DRIFTED rows are the
+ * mutation test for the set comparison — the load-bearing line of check 5 — and
+ * the order-only row is the mutation test for the decision NOT to fail on order.
+ */
+export const SCOPES_FIXTURES = [
+  {
+    name: 'manifest agrees exactly -> ok',
+    entry: { full: 'civitai/app' },
+    declared: ['ai:write:budgeted', 'buzz:read:self'],
+    result: { ok: true, body: { scopes: ['ai:write:budgeted', 'buzz:read:self'] } },
+    expect: 'ok',
+  },
+  {
+    name: 'one scope, agreeing -> ok (the shortest manifest on the page)',
+    entry: { full: 'civitai/app-panorama-360' },
+    declared: ['ai:write:budgeted'],
+    result: { ok: true, body: { scopes: ['ai:write:budgeted'] } },
+    expect: 'ok',
+  },
+  {
+    // 🔴 THE ORDER DECISION, PINNED. Flipping this to `expect: 'fail'` is the
+    // false-fail the SCOPES banner refuses; flipping the implementation to
+    // compare sequences reddens this row.
+    name: 'same set, different order -> ok, with a note naming both orders',
+    entry: { full: 'civitai/app' },
+    declared: ['buzz:read:self', 'ai:write:budgeted'],
+    result: { ok: true, body: { scopes: ['ai:write:budgeted', 'buzz:read:self'] } },
+    expect: 'ok',
+    noteIncludes: 'not in order',
+  },
+  {
+    // 🔴 THE MUTATION TEST for the set comparison. Replacing the difference with
+    // `if (false && …)` — the "just check it parses" simplification — turns this
+    // row's verdict from 'fail' to 'ok'.
+    name: 'the manifest gained a scope the page does not list -> fail',
+    entry: { full: 'civitai/app' },
+    declared: ['ai:write:budgeted'],
+    result: { ok: true, body: { scopes: ['ai:write:budgeted', 'apps:storage:shared:write'] } },
+    expect: 'fail',
+    reasonIncludes: 'SCOPES DRIFTED',
+  },
+  {
+    name: 'the page lists a scope the manifest dropped -> fail',
+    entry: { full: 'civitai/app' },
+    declared: ['ai:write:budgeted', 'buzz:read:self'],
+    result: { ok: true, body: { scopes: ['ai:write:budgeted'] } },
+    expect: 'fail',
+    reasonIncludes: 'SCOPES DRIFTED',
+  },
+  {
+    name: 'case differs only -> ok (scope strings are compared case-insensitively)',
+    entry: { full: 'civitai/app' },
+    declared: ['AI:Write:Budgeted'],
+    result: { ok: true, body: { scopes: ['ai:write:budgeted'] } },
+    expect: 'ok',
+  },
+  {
+    name: 'manifest 404 -> fail, terminal (it is not an outage)',
+    entry: { full: 'civitai/app' },
+    declared: ['ai:write:budgeted'],
+    result: { ok: false, status: 404 },
+    expect: 'fail',
+    reasonIncludes: 'MANIFEST MISSING',
+  },
+  {
+    name: 'manifest is not JSON -> fail, with the parser error named',
+    entry: { full: 'civitai/app' },
+    declared: ['ai:write:budgeted'],
+    result: { ok: true, parseError: 'Unexpected token < in JSON at position 0' },
+    expect: 'fail',
+    reasonIncludes: 'MANIFEST UNPARSEABLE',
+  },
+  {
+    name: 'manifest parses but has no scopes array -> fail, never a silent pass',
+    entry: { full: 'civitai/app' },
+    declared: ['ai:write:budgeted'],
+    result: { ok: true, body: { blockId: 'x' } },
+    expect: 'fail',
+    reasonIncludes: 'NO scopes ARRAY',
+  },
+  {
+    name: 'scopes present but not an array -> fail',
+    entry: { full: 'civitai/app' },
+    declared: ['ai:write:budgeted'],
+    result: { ok: true, body: { scopes: 'ai:write:budgeted' } },
+    expect: 'fail',
+    reasonIncludes: 'NO scopes ARRAY',
+  },
+  {
+    name: 'rate limit / outage -> skip, never fail',
+    entry: { full: 'civitai/app' },
+    declared: ['ai:write:budgeted'],
+    result: { ok: false, reason: 'HTTP 429 from raw.githubusercontent.com' },
+    expect: 'skip',
+  },
+];
+
+/** The hook-list date stamp: present, real, and not dated in the future. */
+export const STAMP_FIXTURES = [
+  {
+    name: 'a stamp in the page is read and aged',
+    md: 'Hook lists verified by hand on 2026-09-01. Read them as a snapshot.',
+    now: '2026-09-11T00:00:00Z',
+    expectStamp: '2026-09-01',
+    expectAgeDays: 10,
+    expectFailures: 0,
+  },
+  {
+    name: 'NEGATIVE CONTROL — no stamp at all is a failure, not a pass',
+    md: 'Verified 2026-09-11: all eight are public, not forks, and not archived.',
+    now: '2026-09-11T00:00:00Z',
+    expectStamp: null,
+    expectFailures: 1,
+  },
+  {
+    name: 'a stamp in the future is a failure',
+    md: 'Hook lists verified by hand on 2026-12-01.',
+    now: '2026-09-11T00:00:00Z',
+    expectStamp: '2026-12-01',
+    expectFailures: 1,
+  },
+  {
+    name: 'a stamp one day ahead is inside the timezone grace, not a failure',
+    md: 'Hook lists verified by hand on 2026-09-12.',
+    now: '2026-09-11T00:00:00Z',
+    expectStamp: '2026-09-12',
+    expectFailures: 0,
+  },
+  {
+    name: 'a date that is not a real calendar day is a failure',
+    md: 'Hook lists verified by hand on 2026-02-31.',
+    now: '2026-09-11T00:00:00Z',
+    expectStamp: '2026-02-31',
+    expectFailures: 1,
+  },
+];
+
+/** Failures from the tables above; empty when all of them still assert what they say. */
 export function runSelfTest() {
   const failures = [];
 
@@ -513,8 +1075,89 @@ export function runSelfTest() {
     }
   }
 
-  // CONTROLS ON THE TABLE ITSELF. A table graded only on passing input is a
-  // table wired to nothing; these floors are what make the count above a claim.
+  for (const f of SECTION_FIXTURES) {
+    const got = parseExampleSections(f.md).map((s) => ({
+      heading: s.heading,
+      repo: s.repo?.full ?? null,
+      scopes: s.scopes,
+      hasSurfaceLine: s.hasSurfaceLine,
+    }));
+    const want = f.expect.map((e) => ({ heading: e.heading, repo: e.repo, scopes: e.scopes, hasSurfaceLine: e.hasSurfaceLine }));
+    if (JSON.stringify(got) !== JSON.stringify(want)) {
+      failures.push(
+        `SECTION — ${f.name}\n` +
+          `      expected: ${JSON.stringify(want)}\n` +
+          `      got:      ${JSON.stringify(got)}\n` +
+          `      parseExampleSections feeds the scope comparison. Read the wrong bullet and this guard\n` +
+          `      grades hook names against a manifest and blames eight upstream repositories.`,
+      );
+    }
+  }
+
+  for (const f of SCOPES_FIXTURES) {
+    const cls = classifyManifest(f.entry, f.declared, f.result);
+    if (cls.verdict !== f.expect) {
+      failures.push(
+        `SCOPES — ${f.name}\n` +
+          `      expected verdict "${f.expect}", got "${cls.verdict}"${cls.reason ? ` (${cls.reason})` : ''}\n` +
+          `      This table IS the mutation test for the scope SET comparison — check 5's load-bearing\n` +
+          `      line. A live, unrenamed, unarchived repository can still declare scopes the page does\n` +
+          `      not list; nothing else in this repository would see that.`,
+      );
+    } else if (f.reasonIncludes && !(cls.reason ?? '').includes(f.reasonIncludes)) {
+      failures.push(
+        `SCOPES — ${f.name}\n` +
+          `      verdict was "${cls.verdict}" as expected, but its reason does not name ` +
+          `${JSON.stringify(f.reasonIncludes)}: ${JSON.stringify(cls.reason ?? '')}\n` +
+          `      The reason IS the remedy a maintainer acts on.`,
+      );
+    } else if (f.noteIncludes && !(cls.note ?? '').includes(f.noteIncludes)) {
+      failures.push(
+        `SCOPES — ${f.name}\n` +
+          `      verdict was "${cls.verdict}" as expected, but no note named ` +
+          `${JSON.stringify(f.noteIncludes)}: ${JSON.stringify(cls.note ?? '')}\n` +
+          `      Order drift is deliberately not a failure; it is only useful if it is still SAID.`,
+      );
+    }
+  }
+
+  for (const f of STAMP_FIXTURES) {
+    const got = checkHooksStamp(f.md, new Date(f.now));
+    if (got.stamp !== f.expectStamp) {
+      failures.push(`STAMP — ${f.name}\n      expected stamp ${JSON.stringify(f.expectStamp)}, got ${JSON.stringify(got.stamp)}`);
+    } else if (got.failures.length !== f.expectFailures) {
+      failures.push(
+        `STAMP — ${f.name}\n` +
+          `      expected ${f.expectFailures} failure(s), got ${got.failures.length}: ${JSON.stringify(got.failures)}\n` +
+          `      The stamp is the ONLY thing standing in for a guard on the hook lists. If it can go\n` +
+          `      missing quietly, the lists have no age and no check.`,
+      );
+    } else if (f.expectAgeDays !== undefined && got.ageDays !== f.expectAgeDays) {
+      failures.push(`STAMP — ${f.name}\n      expected age ${f.expectAgeDays} days, got ${got.ageDays}`);
+    }
+  }
+
+  // EVERY must-FAIL verdict must carry a `kind`. 🔴 A FIELD THAT EXISTS IN THE
+  // RETURN VALUE IS NOT A GUARD — the report writes `f.kind ?? 'ROT'`, so a
+  // classifier branch that forgets to set one degrades silently to the generic
+  // label, and the issue all of this ends up in stops naming what went wrong.
+  // The `??` fallback is what makes the omission invisible; this is what makes
+  // it visible.
+  const kindless = [
+    ...CLASSIFY_FIXTURES.filter((f) => f.expect === 'fail').map((f) => [f.name, classifyRepo(f.entry, f.result)]),
+    ...SCOPES_FIXTURES.filter((f) => f.expect === 'fail').map((f) => [f.name, classifyManifest(f.entry, f.declared, f.result)]),
+  ].filter(([, c]) => typeof c.kind !== 'string' || !c.kind.length);
+  if (kindless.length) {
+    failures.push(
+      `KIND MISSING — ${kindless.length} failing classification(s) carry no \`kind\`: ` +
+        `${kindless.map(([n]) => JSON.stringify(n)).join(', ')}\n` +
+        `      The report falls back to the generic "ROT" label, and that label is what the drift\n` +
+        `      notifier puts in front of a maintainer. Set a kind on the branch.`,
+    );
+  }
+
+  // CONTROLS ON THE TABLES THEMSELVES. A table graded only on passing input is a
+  // table wired to nothing; these floors are what make the counts above a claim.
   const parseNegatives = PARSE_FIXTURES.filter((f) => f.expect.length === 0).length;
   const classifyFails = CLASSIFY_FIXTURES.filter((f) => f.expect === 'fail').length;
   const classifyOks = CLASSIFY_FIXTURES.filter((f) => f.expect === 'ok').length;
@@ -526,6 +1169,25 @@ export function runSelfTest() {
         `${renames} RENAMED row(s)).\n` +
         `      At least one RENAMED row is mandatory: it is the only thing in this repository that\n` +
         `      kills the "simplify it to a status check" mutant.`,
+    );
+  }
+
+  // The same control for check 5, stated separately so a table can only lose its
+  // own controls. `drifts` is check 5's RENAMED row: without one, "compare the
+  // manifest" degrades to "fetch the manifest and print a tick".
+  const sectionNegatives = SECTION_FIXTURES.filter((f) => f.expect.length === 0 || f.expect.some((e) => e.scopes === null)).length;
+  const scopeDrifts = SCOPES_FIXTURES.filter((f) => f.reasonIncludes === 'SCOPES DRIFTED').length;
+  const scopeOks = SCOPES_FIXTURES.filter((f) => f.expect === 'ok').length;
+  const scopeSkips = SCOPES_FIXTURES.filter((f) => f.expect === 'skip').length;
+  const stampNegatives = STAMP_FIXTURES.filter((f) => f.expectFailures > 0).length;
+  if (sectionNegatives < 2 || scopeDrifts < 2 || scopeOks < 2 || scopeSkips < 1 || stampNegatives < 2) {
+    failures.push(
+      `SELF-TEST DEGENERATE (check 5) — the scope tables lost their controls ` +
+        `(${sectionNegatives} section negatives, ${scopeOks} must-ok, ${scopeDrifts} SCOPES DRIFTED row(s), ` +
+        `${scopeSkips} must-skip, ${stampNegatives} stamp negatives).\n` +
+        `      At least two SCOPES DRIFTED rows are mandatory — one in each direction. Without them\n` +
+        `      the manifest fetch is a round-trip whose result nothing reads, which is precisely the\n` +
+        `      shape the audit that produced this check went looking for.`,
     );
   }
 
@@ -786,12 +1448,97 @@ async function fetchRepo(entry, fetchImpl = fetch) {
   }
 }
 
+/**
+ * GET one repository's `block.manifest.json`. Never throws.
+ *
+ * Deliberately UNAUTHENTICATED and on raw.githubusercontent.com — see the SCOPES
+ * banner. A JSON parse failure comes back as `{ ok: true, parseError }` rather
+ * than as an exception, because "the file is there and it is garbage" is a
+ * finding a maintainer must be told, not a crash.
+ */
+async function fetchManifest(entry, fetchImpl = fetch) {
+  const url = `${RAW_BASE}/${entry.owner}/${entry.repo}/${MANIFEST_REF}/${MANIFEST_PATH}`;
+  try {
+    const res = await fetchImpl(url, {
+      signal: AbortSignal.timeout(20000),
+      headers: { accept: 'application/json', 'user-agent': 'civitai-developer-docs-example-apps-guard' },
+    });
+    if (!res.ok) {
+      if (res.status === 404 || res.status === 410) return { ok: false, status: res.status };
+      return { ok: false, reason: `HTTP ${res.status} from ${url}` };
+    }
+    const text = await res.text();
+    try {
+      return { ok: true, body: JSON.parse(text) };
+    } catch (err) {
+      return { ok: true, parseError: err.message };
+    }
+  } catch (err) {
+    return { ok: false, reason: err.message };
+  }
+}
+
 function resolvePage() {
   return isAbsolute(PAGE) ? PAGE : join(repoRoot, PAGE);
 }
 
+/**
+ * The machine-readable summary scripts/drift-notify.mjs reads.
+ *
+ * 🔴 WRITTEN ON EVERY EXIT PATH, INCLUDING THE ONES WHERE THIS GUARD CONCLUDED
+ * NOTHING. A notifier that only ever sees a report from a run that finished is
+ * blind to exactly the case it exists for — a run that verified zero
+ * repositories, or died before it verified any, and so is indistinguishable from
+ * a clean one. `verdict` is what the notifier branches on; `verified` is the
+ * number that makes a green claim mean anything.
+ */
+function writeReport(path, report) {
+  if (!path) return;
+  try {
+    mkdirSync(dirname(resolve(path)), { recursive: true });
+    writeFileSync(path, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+  } catch (err) {
+    // Never let the bookkeeping fail the guard: the verdict is the product.
+    console.error(`  ! could not write the report to ${path}: ${err.message}`);
+  }
+}
+
 async function main(argv = process.argv.slice(2)) {
   const offline = argv.includes('--offline');
+  const reportAt = argv.includes('--report') ? argv[argv.indexOf('--report') + 1] : null;
+  if (argv.includes('--report') && !reportAt) {
+    console.error('check-example-apps: --report takes a path');
+    process.exit(2);
+  }
+
+  // The report is built up as the run proceeds and written on EVERY exit path —
+  // `finish` is the only way out below. See writeReport: a run that concluded
+  // nothing must be able to say so to the notifier, or a broken guard and a
+  // clean page deliver the same silence.
+  const report = {
+    schema: 1,
+    generatedAt: new Date().toISOString(),
+    page: PAGE,
+    offline,
+    verdict: 'incomplete',
+    stage: 'self-test',
+    listed: 0,
+    verified: 0,
+    rotted: 0,
+    unverified: 0,
+    scopesVerified: 0,
+    scopesRotted: 0,
+    scopesClaimed: 0,
+    scopesUnverified: 0,
+    hooksStamp: null,
+    hooksAgeDays: null,
+    notes: [],
+    findings: [],
+  };
+  const finish = (code) => {
+    writeReport(reportAt, report);
+    if (code) process.exit(code);
+  };
 
   console.log(
     `Example App Blocks guard — ${PAGE}${offline ? ' (offline: self-test + page, no network)' : ''}\n`,
@@ -805,9 +1552,13 @@ async function main(argv = process.argv.slice(2)) {
   if (selfTest.length) {
     console.error('  ✗ SELF-TEST FAILED — this guard is broken, so it made no claim about the page\n');
     for (const f of selfTest) console.error(`    - ${f}`);
-    process.exit(1);
+    report.verdict = 'broken';
+    report.findings = selfTest.map((f) => ({ kind: 'SELF-TEST', repo: null, reason: f.split('\n')[0], hint: null }));
+    finish(1);
+    return;
   }
   const renameRows = CLASSIFY_FIXTURES.filter((f) => f.reasonIncludes === 'RENAMED').length;
+  const driftRows = SCOPES_FIXTURES.filter((f) => f.reasonIncludes === 'SCOPES DRIFTED').length;
   console.log(
     `  ✓ self-test: ${PARSE_FIXTURES.length} parse fixture(s) ` +
       `(${PARSE_FIXTURES.filter((f) => f.expect.length === 0).length} negative control(s)) · ` +
@@ -815,18 +1566,30 @@ async function main(argv = process.argv.slice(2)) {
       `(${CLASSIFY_FIXTURES.filter((f) => f.expect === 'fail').length} must-FAIL, ` +
       `${renameRows} of them the RENAMED mutation test)`,
   );
+  console.log(
+    `  ✓ self-test: ${SECTION_FIXTURES.length} section fixture(s) · ` +
+      `${SCOPES_FIXTURES.length} manifest fixture(s) ` +
+      `(${SCOPES_FIXTURES.filter((f) => f.expect === 'fail').length} must-FAIL, ` +
+      `${driftRows} of them the SCOPES DRIFTED mutation test) · ` +
+      `${STAMP_FIXTURES.length} hook-stamp fixture(s)`,
+  );
 
   // ---- OFFLINE HALF -------------------------------------------------------
+  report.stage = 'page';
   const pagePath = resolvePage();
   if (!existsSync(pagePath)) {
     console.error(`  ✗ page MISSING at ${PAGE}`);
     console.error('    the civitai CLI agents block links readers here; a missing page is a dead link');
     console.error('    on every scaffolded project. Restore it, or update PAGE in this script.');
-    process.exit(1);
+    report.verdict = 'rot';
+    report.findings.push({ kind: 'PAGE MISSING', repo: null, reason: `no page at ${PAGE}`, hint: 'restore it, or update PAGE in scripts/check-example-apps.mjs' });
+    finish(1);
+    return;
   }
 
   const markdown = readFileSync(pagePath, 'utf8');
   const entries = parseRepoUrls(markdown);
+  report.listed = entries.length;
   console.log(`  ${PAGE} names ${entries.length} distinct GitHub repositories (floor: ${MIN_EXAMPLE_REPOS})`);
 
   if (entries.length < MIN_EXAMPLE_REPOS) {
@@ -835,42 +1598,79 @@ async function main(argv = process.argv.slice(2)) {
     console.error('    the reason in the message), or — far more likely — the page was restructured and');
     console.error('    this guard is no longer looking at the links. A guard that parses zero URLs passes');
     console.error('    forever; that is what this floor exists to make impossible.');
-    process.exit(1);
+    report.verdict = 'rot';
+    report.findings.push({ kind: 'FLOOR BREACHED', repo: null, reason: `${entries.length} repositories parsed, floor ${MIN_EXAMPLE_REPOS}`, hint: 'the page was probably restructured past the link matcher' });
+    finish(1);
+    return;
   }
 
   // ---- 3. THE PAGE'S CLAIMS ABOUT ITSELF ----------------------------------
   // Repo-local, so it runs on the PR half too: removing an example must not be
   // able to leave "eight" in the prose and a Pick-one row pointing at a section
-  // that no longer exists.
+  // that no longer exists. 3b adds the per-example claims: every section that
+  // links a repository must state the scopes the scheduled half grades, and the
+  // hook lists — which nothing grades — must carry their date stamp.
   const claims = checkPageClaims(markdown, entries);
   const anchors = checkPageAnchors(markdown);
-  const pageFailures = [...claims.failures, ...anchors.failures];
+  const sections = parseExampleSections(markdown);
+  const shape = checkScopeClaimShape(sections, entries);
+  const stamp = checkHooksStamp(markdown);
+  report.hooksStamp = stamp.stamp;
+  report.hooksAgeDays = stamp.ageDays;
+  const pageFailures = [...claims.failures, ...anchors.failures, ...shape.failures, ...stamp.failures];
   console.log(
     `  ${claims.claims} self-count claim(s) graded (floor ${MIN_PAGE_CLAIMS}) · ` +
       `${anchors.anchors} in-page anchor(s) across ${anchors.headings} heading(s)`,
+  );
+  console.log(
+    `  ${shape.claimed} of ${shape.sections} example section(s) state scopes ` +
+      `(${shape.tokens} scope string(s), floor ${MIN_EXAMPLE_REPOS} sections) · ` +
+      `hook lists stamped ${stamp.stamp ?? 'NOWHERE'}` +
+      `${stamp.ageDays === null ? '' : ` (${stamp.ageDays} day(s) old — not machine-checked, by design)`}`,
   );
   if (pageFailures.length) {
     console.error(`\n  ✗ THE PAGE CONTRADICTS ITSELF — ${pageFailures.length} finding(s)`);
     for (const f of pageFailures) console.error(`    - ${f}`);
     console.error('');
-    console.error('    These numerals and anchors are hand-written and nothing else reads them, so a');
-    console.error('    removed or added example leaves them behind silently — the links keep checking');
-    console.error('    out while the page tells a reader something untrue about itself.');
-    process.exit(1);
+    console.error('    These numerals, anchors, scope lists and date stamps are hand-written and nothing');
+    console.error('    else reads them, so a removed or added example leaves them behind silently — the');
+    console.error('    links keep checking out while the page tells a reader something untrue about itself.');
+    report.verdict = 'rot';
+    for (const f of pageFailures) report.findings.push({ kind: 'PAGE', repo: null, reason: f.split('\n')[0], hint: null });
+    finish(1);
+    return;
   }
 
   if (offline) {
     console.log(`\nOffline checks passed: page present, ${entries.length} repositories parsed (>= ${MIN_EXAMPLE_REPOS}),`);
-    console.log(`self-count claims agree, ${anchors.anchors} in-page anchors resolve.`);
-    console.log('Repository liveness (404 / rename / archived) is the scheduled half — not checked here.');
+    console.log(`self-count claims agree, ${anchors.anchors} in-page anchors resolve, ${shape.claimed} scope lists`);
+    console.log(`are stated in a gradeable shape, and the hook lists carry a date stamp.`);
+    console.log('Repository liveness (404 / rename / archived) and the scope lists themselves are the');
+    console.log('scheduled half — not checked here.');
+    report.verdict = 'offline-ok';
+    finish(0);
     return;
   }
 
   // ---- NETWORK HALF -------------------------------------------------------
+  report.stage = 'network';
   console.log('');
   const failures = [];
   const skipped = [];
   let ok = 0;
+
+  // Scope claims keyed by repository, so check 5 can look one up per entry. Only
+  // repositories the page states scopes for are candidates; checkScopeClaimShape
+  // above has already failed the run if a section links a repo and states none.
+  const declaredFor = new Map();
+  for (const s of sections) {
+    if (s.repo && s.scopes && s.scopes.length) declaredFor.set(s.repo.full.toLowerCase(), s.scopes);
+  }
+  report.scopesClaimed = declaredFor.size;
+
+  const scopeFailures = [];
+  const scopeSkipped = [];
+  let scopeOk = 0;
 
   for (const entry of entries) {
     const cls = classifyRepo(entry, await fetchRepo(entry));
@@ -884,6 +1684,53 @@ async function main(argv = process.argv.slice(2)) {
       console.log(`  ✗ ${entry.full} — ${cls.reason}`);
       failures.push({ entry, ...cls });
     }
+
+    // ---- 5. THE SCOPES THE PAGE STATES -----------------------------------
+    // Not run for a repository that already FAILED liveness: a second finding
+    // about a repository that is gone, renamed or archived is noise on top of a
+    // remedy the maintainer already has. A SKIPPED one is still attempted —
+    // raw.githubusercontent.com is a different host, so it can be reachable when
+    // api.github.com is not, and more coverage under a rate limit is the point.
+    const declared = declaredFor.get(entry.full.toLowerCase());
+    if (cls.verdict === 'fail') continue;
+    if (!declared) continue;
+    const mcls = classifyManifest(entry, declared, await fetchManifest(entry));
+    if (mcls.verdict === 'ok') {
+      scopeOk++;
+      if (mcls.note) {
+        console.log(`    · ${entry.full} scopes: ${mcls.note}`);
+        report.notes.push(`${entry.full}: ${mcls.note}`);
+      } else {
+        console.log(`    · ${entry.full} scopes: ${declared.length} declared, all agree with ${MANIFEST_PATH}`);
+      }
+    } else if (mcls.verdict === 'skip') {
+      console.log(`    ⊘ ${entry.full} scopes — ${mcls.reason} — could not verify (skip, no false-fail)`);
+      scopeSkipped.push({ entry, ...mcls });
+    } else {
+      console.log(`    ✗ ${entry.full} scopes — ${mcls.reason}`);
+      scopeFailures.push({ entry, ...mcls });
+    }
+  }
+
+  report.verified = ok;
+  report.rotted = failures.length;
+  report.unverified = skipped.length;
+  report.scopesVerified = scopeOk;
+  report.scopesRotted = scopeFailures.length;
+  report.scopesUnverified = scopeSkipped.length;
+  for (const f of [...failures, ...scopeFailures]) {
+    report.findings.push({
+      // 🔴 THE CLASSIFIER'S OWN `kind`, NEVER THE FIRST WORDS OF ITS PROSE. The
+      // first version of this line derived the kind by splitting the reason on a
+      // dash and taking three words, which produced `"SCOPES DRIFTED for"` — and
+      // that string is what the notifier puts in an ISSUE TITLE. A label derived
+      // from a sentence moves whenever the sentence is reworded; a label the
+      // classifier states does not.
+      kind: f.kind ?? 'ROT',
+      repo: f.entry.full,
+      reason: f.reason,
+      hint: f.hint ?? null,
+    });
   }
 
   // ALWAYS printed, and always carrying the numbers the verdict is about: a run
@@ -891,30 +1738,61 @@ async function main(argv = process.argv.slice(2)) {
   console.log(
     `\nRepositories: ${entries.length} listed · ${ok} verified live · ${failures.length} rotted · ${skipped.length} unverified (API unreachable)`,
   );
+  console.log(
+    `Scopes: ${declaredFor.size} claimed on the page · ${scopeOk} verified against ${MANIFEST_PATH} · ` +
+      `${scopeFailures.length} drifted · ${scopeSkipped.length} unverified (manifest unreachable)`,
+  );
+  if (stamp.stamp) {
+    console.log(
+      `Hook lists: NOT machine-checked, by design — stamped ${stamp.stamp}, ${stamp.ageDays} day(s) old.`,
+    );
+  }
 
-  if (failures.length) {
-    console.error('\n--- EXAMPLE APP ROT: a repository this page names is gone, renamed or frozen ---');
+  if (failures.length || scopeFailures.length) {
+    console.error('\n--- EXAMPLE APP ROT: the page says something about a repository that is not true ---');
     console.error(`${PAGE} is the ONE URL the civitai CLI's agents block points at instead of embedding`);
-    console.error('a repo list in every scaffolded project, so a dead row here reaches every reader.');
-    for (const f of failures) {
+    console.error('a repo list in every scaffolded project, so a wrong row here reaches every reader.');
+    for (const f of [...failures, ...scopeFailures]) {
       console.error(`  - ${f.entry.full}: ${f.reason}`);
       if (f.hint) console.error(`      ${f.hint}`);
     }
-    process.exit(1);
+    report.verdict = 'rot';
+    finish(1);
+    return;
   }
 
-  if (skipped.length === entries.length) {
-    console.log('\n--- NOTHING WAS VERIFIED ---');
+  // 🔴 A RUN THAT VERIFIED NOTHING IS NOT A GREEN RUN, AND THIS IS WHERE IT SAYS
+  // SO — in the log for a human, and in `verdict` for the notifier, which opens
+  // an issue on it. A silent zero is indistinguishable from success, and until
+  // the report existed it WAS success as far as anything downstream could tell.
+  if (ok === 0) {
+    console.log('\n--- NO REPOSITORY WAS VERIFIED ---');
     console.log(`The GitHub API was unreachable for all ${entries.length} repositories, so this run made NO`);
     console.log('claim about whether any of them still exists. Exiting 0 because a connectivity failure is');
     console.log('not drift — but do not read this run as a clean bill of health. Re-run it, or set');
     console.log('GITHUB_TOKEN if the cause was the unauthenticated rate limit.');
+    // Say what DID happen, or this banner overstates the loss in the other
+    // direction. The manifests come from a different host, so they can verify
+    // while api.github.com is down — which is part of why they were put there.
+    if (scopeOk) {
+      console.log(
+        `(${scopeOk} scope list(s) WERE verified against ${MANIFEST_PATH}; those come from ${RAW_BASE},`,
+      );
+      console.log('a different host, so they survived this outage. Liveness did not.)');
+    }
+    report.verdict = 'nothing-verified';
+    finish(0);
     return;
   }
 
-  if (skipped.length) {
-    console.log(`\nNote: ${skipped.length} of ${entries.length} could not be reached and were NOT verified this run.`);
+  if (skipped.length || scopeSkipped.length) {
+    console.log(
+      `\nNote: ${skipped.length} of ${entries.length} repositories and ${scopeSkipped.length} of ` +
+        `${declaredFor.size} scope lists could not be reached and were NOT verified this run.`,
+    );
   }
+  report.verdict = 'ok';
+  finish(0);
 }
 
 // Run only when invoked directly (not when imported for the exported helpers).
