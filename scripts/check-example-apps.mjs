@@ -15,21 +15,33 @@
  * 🔴 WHY A STATUS-CODE CHECK IS WORTHLESS HERE
  * --------------------------------------------
  * **GitHub 301-redirects a RENAMED repository, and both the web and the REST
- * API follow the redirect to the new location.** So `GET
- * api.github.com/repos/<old-owner>/<old-repo>` answers **200 OK** for a repo
- * that no longer exists at that path. Measured 2026-09-10, unauthenticated:
+ * API follow the redirect to the new location — and `fetch` follows it
+ * SILENTLY, so the status this script sees is 200, not 301.** WHATWG fetch
+ * defaults to `redirect: 'follow'`; the 301 is consumed inside the call and
+ * never reaches the caller. Measured 2026-09-11, unauthenticated, node v26.8.1,
+ * on `api.github.com/repos/facebook/jest` (renamed to `jestjs/jest`):
  *
- *     repos/facebook/jest      -> HTTP 200, body.full_name = "jestjs/jest"
+ *     fetch(url)                        -> status=200 ok=true  redirected=true
+ *                                          body.full_name = "jestjs/jest"
+ *     fetch(url, {redirect: 'manual'})  -> status=301 ok=false redirected=false
+ *     curl -o /dev/null -w '%{http_code}'  (no -L)     -> 301
  *
- * A guard that reads `res.ok` calls that link healthy. A reader who clicks it
- * lands somewhere, so nobody notices either — until the redirect is dropped
- * (GitHub releases a rename's old path the moment someone else claims it) and
- * the link becomes a 404 pointing at a stranger's repository.
+ * So `res.ok` is TRUE for a repository that no longer exists at the path the
+ * page spells, and a guard reading it calls that link healthy. A human clicking
+ * it lands somewhere too, so nobody notices — right up until the redirect is
+ * dropped, which happens the moment anyone else claims the old name, at which
+ * point the link points at a stranger's repository.
  *
  * So the verdict is computed from the RESPONSE BODY, never the status line:
  * `body.full_name` must equal the `owner/repo` the page spells, case-
  * insensitively. A redirect is therefore a FAILURE with the new name printed,
  * which is also the fix.
+ *
+ * `redirect: 'manual'` would catch the same case and is deliberately NOT used:
+ * it hides the real assertion inside an options bag, where a later tidy-up that
+ * drops one word leaves the guard silently inert, and it would report a bare
+ * "HTTP 301" rather than naming the repository's new home. The body comparison
+ * has no option to lose, and its failure message IS the remedy.
  *
  * WHAT IS CHECKED
  *   OFFLINE (always; this is the half that can gate a PR)
