@@ -150,8 +150,17 @@ Once submitted, a workflow is live until it reaches a terminal state. You can:
 
 - [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — fetch by ID
 - [`QueryWorkflows`](/orchestration/reference/operations/QueryWorkflows) — list by tag, status, date range
-- [`UpdateWorkflow`](/orchestration/reference/operations/UpdateWorkflow) / [`PatchWorkflow`](/orchestration/reference/operations/PatchWorkflow) — amend metadata / tags
+- [`UpdateWorkflow`](/orchestration/reference/operations/UpdateWorkflow) / [`PatchWorkflow`](/orchestration/reference/operations/PatchWorkflow) — amend metadata / tags, or raise [`downloadPriority`](./workflows#download-priority)
 - [`AddWorkflowTag`](/orchestration/reference/operations/AddWorkflowTag) / [`RemoveWorkflowTag`](/orchestration/reference/operations/RemoveWorkflowTag) — tag maintenance
 - [`DeleteWorkflow`](/orchestration/reference/operations/DeleteWorkflow) — cancel / remove
+
+::: warning Breaking changes
+`UpdateWorkflow` (`PUT`) now returns `200` with the full workflow body instead of `204 No Content`,
+and accepts `?whatif=true` to price a change without applying it.
+
+Resource `availability` gained a `queued` status. A resource that previously reported
+`unavailable` with a `queuePosition` now reports `queued`; `unavailable` is left to mean
+"eligible, but nothing is fetching it". Clients that exhaustively match on `status` must handle it.
+:::
 
 For step-level updates (e.g. rewriting `input` before execution, if still `unassigned`), use [`UpdateWorkflowStep`](/orchestration/reference/operations/UpdateWorkflowStep) / [`PatchWorkflowStep`](/orchestration/reference/operations/PatchWorkflowStep).

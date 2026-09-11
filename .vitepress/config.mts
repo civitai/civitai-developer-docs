@@ -212,6 +212,11 @@ const sidebar: DefaultTheme.Sidebar = {
   // own — it shares the guide's. Same arrangement as `/apps/showcase` and
   // `/apps/tokens` above. NB the key has NO trailing slash, matching the
   // `cleanUrls` route: /apps/examples is a 200 and /apps/examples/ is a 404.
+  //
+  // 🔴 This key is an ALIAS of the line above, and an alias is free for
+  // VitePress but NOT for the llms plugin, which flattens every key — see
+  // `dedupeSidebarGroups` below, which is what keeps llms.txt from emitting the
+  // whole Apps Guide group twice. Any further alias is covered by it too.
   '/apps/examples': appsGuideSidebar,
   '/apps/reference/': [
     {
@@ -277,6 +282,49 @@ const sidebar: DefaultTheme.Sidebar = {
     },
   ],
 };
+
+/**
+ * The sidebar as the llms plugin must see it: every group exactly once.
+ *
+ * 🔴 VitePress ROUTES a sidebar (one key per path prefix, and a leaf page keeps
+ * a sidebar by ALIASING an existing array under a second key). The llms plugin
+ * does not route anything — it does `Object.values(sidebar).flat()` and emits
+ * every group it lands on, so an alias emits that array's groups TWICE in
+ * `llms.txt`. Measured on the built `dist/llms.txt` at 75035bc, and confirmed
+ * live on https://developer.civitai.com/llms.txt: `### Guide` + `### Examples`
+ * (from `/apps/guide/` aliased to `/apps/examples`) and `### Design system`
+ * (from `/apps/showcase` aliased to `/apps/tokens`) each appeared twice: 23
+ * duplicated lines in all — 16 for the Apps Guide alias, 7 for Design system —
+ * taking the file from 215 lines to 192. The rendered HTML, the nav and the on-page sidebars were
+ * all correct — `llms.txt` was the only surface affected, which is why nothing
+ * else caught it.
+ *
+ * That matters more than tidiness here: `llms.txt` is the flat index the
+ * `civitai` CLI's generated AGENTS.md block points agents at, so a doubled
+ * catalog is a doubled instruction to whatever reads it.
+ *
+ * Deduped by SERIALIZED CONTENT, not by array identity, so a group copy-pasted
+ * into a second key is caught as well as an alias. Two groups that share a
+ * `text` but differ in `items` are NOT the same group and both survive — e.g.
+ * the two distinct `### MCP Server` groups (`/orchestration/mcp/`, `/site/mcp/`)
+ * are still emitted twice, correctly. First occurrence wins, so document order
+ * is unchanged.
+ *
+ * Pinned by `scripts/check-built-site.mjs` against the real built artifact.
+ */
+export function dedupeSidebarGroups(config: DefaultTheme.Sidebar): DefaultTheme.SidebarItem[] {
+  const seen = new Set<string>();
+  const groups: DefaultTheme.SidebarItem[] = [];
+  for (const group of Object.values(config).flat() as DefaultTheme.SidebarItem[]) {
+    const key = JSON.stringify(group);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    groups.push(group);
+  }
+  return groups;
+}
+
+const llmsSidebar = dedupeSidebarGroups(sidebar);
 
 export default withMermaid({
   title: 'Civitai Developer',
@@ -366,7 +414,9 @@ export default withMermaid({
         details:
           'Orchestration section covers the consumer-facing REST API: authenticating, submitting workflows, polling / receiving webhooks for results, and using each recipe (videoGen/WAN, imageGen/Flux, upscalers, transcription, TTS, prompt enhancement). ' +
           'Reference pages are generated from the v2-consumers OpenAPI specification and stay in sync with the live API on every build.',
-        sidebar,
+        // NOT the routed `sidebar` object — see `dedupeSidebarGroups` above: the
+        // plugin flattens every key, so an aliased array emits its groups twice.
+        sidebar: llmsSidebar,
         // srcExclude already keeps public/ out of the page set; the llms plugin
         // walks its own file list, so it needs telling separately.
         ignoreFiles: ['orchestration/reference/operations/**/*.md', 'public/**/*.md'],

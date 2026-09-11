@@ -9,10 +9,14 @@ name: example-apps
 # kinds of thing, and this repo's doctrine (see appblocks-drift.yml's header)
 # puts them in different places:
 #
-#   - REPO-LOCAL — the page exists, parses, and still names at least
-#     MIN_EXAMPLE_REPOS repositories. No upstream input, so it cannot false-fail
-#     on somebody else's action. That belongs on a PR, and it is what this job
-#     runs, via `--offline`.
+#   - REPO-LOCAL — the guard's own fixture tables still hold (the parser parses,
+#     and the `full_name` comparison still FAILS a rename: the mutation test);
+#     the page exists, parses, and still names at least MIN_EXAMPLE_REPOS
+#     repositories; and the page does not contradict itself — the counts its
+#     prose states match the links on it, and every in-page `#anchor` resolves
+#     to a heading that is still there. No upstream input, so none of it can
+#     false-fail on somebody else's action. That belongs on a PR, and it is what
+#     this job runs, via `--offline`.
 #
 #   - UPSTREAM — whether each of those repositories still exists, still lives at
 #     that owner/repo (GitHub 301-redirects a RENAME, so a status check says
@@ -66,5 +70,5 @@ jobs:
       # any node_modules import to scripts/check-example-apps.mjs breaks this job
       # with MODULE_NOT_FOUND. If an install ever becomes necessary, the offline
       # property above is what you are spending — say so in the same diff.
-      - name: apps/examples.md parses and still names the example repositories
+      - name: the guard self-tests, and apps/examples.md parses and agrees with itself
         run: npm run check:example-apps -- --offline
