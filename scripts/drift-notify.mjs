@@ -458,10 +458,15 @@ export const DECIDE_FIXTURES = [
  * "could not name the steps" forever and reads exactly like a 403.
  *
  * Rows carrying `wantSteps` are the POSITIVE CONTROLS — without one, a fetcher
- * hard-wired to return a problem passes every other row here. There are TWO now
- * (this one and the 403-retry row); the count printed at the end is DERIVED from
- * `wantSteps` rather than written down, because an earlier literal said "1" and
- * kept saying it after rows changed.
+ * hard-wired to return a problem passes every other row here. The count printed
+ * at the end is DERIVED from `wantSteps` rather than written down — and this
+ * sentence deliberately names no number.
+ *
+ * 🔴 IT NAMED ONE TWICE AND WAS WRONG TWICE. First "1", which kept printing after
+ * rows changed; then "TWO now (this one and the 403-retry row)", written in the
+ * same commit that added a THIRD such row 33 lines below it. Both drafts were
+ * fixing the previous draft's staleness. A literal here has no reader — the
+ * printed line is derived and always right — so the fix is to stop writing one.
  */
 const STEPS_FIXTURES = [
   {
@@ -505,6 +510,23 @@ const STEPS_FIXTURES = [
     ],
     wantAuth: [true, false],
     wantSteps: ['OpenAPI spec drift'],
+  },
+  {
+    // 🔴 THE ROW THAT PINS THE PREVIOUS ROUND'S OWN FIX. That round made the
+    // degraded message carry the FIRST call's status — and shipped it asserted by
+    // nothing: restoring the old "403 both with and without" literal, or making
+    // ${firstStatus} a no-op, both survived the whole suite. The only row reaching
+    // that branch matched on a substring present in BOTH wordings. This is the
+    // one arm where the two statuses DIFFER, so it is the only row that can tell
+    // them apart. Second time this commit series shipped a claim with no fixture;
+    // the shape is the finding, not the line.
+    name: 'a 404 then a rate-limited 403 reports BOTH statuses, not one twice',
+    replies: [
+      { ok: false, status: 404 },
+      { ok: false, status: 403 },
+    ],
+    wantAuth: [true, false],
+    wantProblem: 'answered 404 with the token and 403 without',
   },
   {
     name: 'a 403 BOTH ways is a rate limit, and says so rather than blaming a scope',
@@ -623,7 +645,12 @@ export async function runFetchSelfTest() {
     // leaving the API default of 30 jobs per page, so a workflow that grew past 30
     // jobs would report `no job named "drift"` forever — degraded, silent, green.
     // One of the three recorded fields was decorative; now none is.
-    const wantUrl = `https://api.example/repos/o/r/actions/runs/1/jobs?per_page=100`;
+    // Built from the row's OWN ctx, not a hard literal. `ctx` is already an
+    // advertised per-row override, and a literal makes a correct future row (a
+    // GHES api base, say) fail with a message about page size — a fixture problem
+    // reported as a request-target bug.
+    const c = f.ctx || ctx;
+    const wantUrl = `${c.api}/repos/${c.repo}/actions/runs/${c.runId}/jobs?per_page=100`;
     if (f.expectCalls !== 0 && sent.some((r) => r.url !== wantUrl)) {
       failures.push(
         `STEPS — ${f.name}\n      a request went to ${JSON.stringify(sent.map((r) => r.url))}, want every call at ` +
