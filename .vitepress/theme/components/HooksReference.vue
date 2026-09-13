@@ -7,7 +7,10 @@ interface Hook {
   description: string;
   example: string;
   exampleSource: string | null;
-  /** Stamped by gen-appblocks-hooks.mjs and branched on at :31. Declared here
+  /** Stamped by gen-appblocks-hooks.mjs, branched on by the `<pre v-if>` in the
+   *  template below. (It said ":31" until round 3: the same commit that wrote
+   *  the pointer shifted the template five lines down, so it was wrong when
+   *  written. Name the construct, not the line.) Declared here
    *  because NOTHING in CI type-checks .vue: a typo or a generator rename would
    *  silently yield `undefined`, fall every description back to <p>, and restore
    *  the collapsed-table bug with a fully green build. */

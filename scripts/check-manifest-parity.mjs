@@ -234,7 +234,14 @@ async function main() {
     console.error('The docs + SDK + Go CLI all use the CANONICAL schema (public/schemas/app-block/v1.json,');
     console.error('bundled in @civitai/app-sdk). The prod endpoint /api/blocks/manifest-schema still serves an');
     console.error('older/looser copy, so any consumer that fetches the endpoint gets an under-specified contract.');
-    console.error('ACTION: merge the sibling civitai PR that makes the endpoint serve the canonical file verbatim.');
+    // 🔴 No named remedy here on purpose. This arm used to print "merge the
+    // sibling civitai PR that makes the endpoint serve the canonical file
+    // verbatim" — a PR that had already landed by the time anyone read it, so
+    // the line pointed an operator at work that no longer existed. Same vintage
+    // as the header claim retracted above, and it survived that retraction
+    // because only the header was swept.
+    console.error('ACTION: reconcile the endpoint with the canonical schema. Read the delta above first —');
+    console.error('do NOT assume a specific upstream change is still pending; check before filing anything.');
     console.error('This guard goes GREEN automatically once the endpoint returns the canonical body — no docs change.');
   }
   process.exit(1);

@@ -24,6 +24,7 @@
     "test:samples:orch": "node scripts/test-doc-samples.mjs --orch",
     "test:snippets:appblocks": "node scripts/typecheck-appblocks-snippets.mjs",
     "test:appblocks:messages": "node scripts/test-appblocks-messages.mjs",
+    "test:appblocks:hooks": "node scripts/test-appblocks-hooks.mjs",
     "test:appblocks:bridge": "node scripts/test-appblocks-bridge.mjs",
     "test:appblocks:cli": "node scripts/test-appblocks-cli.mjs",
     "test:refresh-cli-snapshot": "node scripts/test-refresh-cli-snapshot.mjs",

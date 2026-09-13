@@ -9,43 +9,18 @@ import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget } from 'ts-morp
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { log, resolvePackageRoot, writeArtifact } from './appblocks-util.mjs';
+import { descriptionHasTable } from './lib/description-has-table.mjs';
 
 const pkgRoot = resolvePackageRoot('@civitai/blocks-react');
 const version = JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf8')).version;
 const indexDts = join(pkgRoot, 'dist', 'index.d.ts');
 const readmePath = join(pkgRoot, 'README.md');
 
-// 🔴 COMPUTED ONCE, HERE, AND STAMPED INTO THE ARTIFACT — because the answer is
-// needed by TWO channels that render independently, and civitai-developer-docs#80
-// first fixed only one. appblocks-md.mjs writes the .md fallback region; the page
-// humans read is the Vue island <HooksReference>, which declares NO <slot /> and
-// therefore discards that region entirely. A predicate duplicated in both places
-// drifts; a predicate in only one is what shipped.
-//
-// GFM allows a delimiter cell of ONE or more dashes and a table with no
-// leading/trailing pipe. An earlier regex demanded a pipe on both sides and 3+
-// dashes, and missed both shapes.
-function descriptionHasTable(description) {
-  // Split the line into CELLS and ask whether every one is a delimiter, rather
-  // than counting pipes. `check-no-hand-flag-tables.mjs` already does exactly
-  // this, and a second predicate that disagrees with it is the thing the comment
-  // above forbids.
-  //
-  // 🔴 THE PIPE-COUNTING VERSION WAS NARROWER THAN THE ONE IT REPLACED. It read
-  // `(\|\s*:?-+:?\s*)+`, whose `+` demands TWO dash-cells, so a one-column GFM
-  // table — `| check |` over `| --- |` — never matched, while the regex before it
-  // did. It was introduced as a strict widening and silently traded one miss for
-  // another; a description in that shape would collapse exactly as
-  // useCollectionFollow's did, with both required checks green.
-  return String(description ?? '')
-    .split('\n')
-    .some((line) => {
-      const t = line.trim();
-      if (!t.includes('-')) return false;
-      const cells = t.replace(/^\|/, '').replace(/\|$/, '').split('|');
-      return cells.length > 0 && cells.every((c) => /^\s*:?-+:?\s*$/.test(c)) && t.replace(/[^|]/g, '').length > 0;
-    });
-}
+// 🔴 COMPUTED ONCE AND STAMPED INTO THE ARTIFACT — the predicate itself lives in
+// `lib/description-has-table.mjs`, imported above, because it is needed by two
+// channels that render independently and a copy in each drifts. That module's
+// doc comment carries the two earlier versions and why each was wrong; its
+// fixture battery is `test-appblocks-hooks.mjs`.
 
 
 // ── README: heading order + example + prose per hook ──────────────────────────
