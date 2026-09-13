@@ -2,8 +2,8 @@
 title: Hooks reference
 description: Every @civitai/blocks-react hook — signature and example, generated from the published package.
 sources:
-  - npm:@civitai/blocks-react@0.45.1/dist/index.d.ts
-  - npm:@civitai/blocks-react@0.45.1#README
+  - npm:@civitai/blocks-react@0.49.0/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.49.0#README
   - npm:@civitai/app-sdk@0.39.0/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
@@ -323,6 +323,33 @@ if (error instanceof WildcardPackError && error.code === 'busy') void refetch();
 if (!loading && pack) console.log(Object.keys(pack.lists));
 ```
 
+**`useCollectionFollow`**
+
+```ts
+useCollectionFollow(): UseCollectionFollow
+```
+
+Follow / unfollow a collection **for the viewer**, host-mediated over `SET_COLLECTION_FOLLOW`. Returns `{ setFollow, pending, error }`. **No block scope, and no token on the wire.** The host calls the session-authed `collection.follow` / `collection.unfollow` procedures, which self-bind to the viewer server-side — `collectionId` is the only thing a block influences. 🔴 **Every call opens a host-chrome consent confirm naming the collection**, and that click is the *only* consent this path has ever had: the HTTP predecessor's `collections:write:self` scope is consent-exempt server-side and prompted nobody. Moving to this bridge **tightens** the flow; what it gives up is the manifest `scopes` declaration a moderator reads before install. The host resolves the collection's name itself (there is no `name` field on the wire, deliberately) and bounds that to **20 distinct ids per block instance** — past the cap it refuses with `collection-unavailable`, the same code a collection the viewer cannot see gets. `setFollow` **rejects** with a `CollectionFollowError` on every non-success. Two of those are not failures to render: | | meaning | what to do | |---|---|---| | `err.declined` | the viewer dismissed the confirm — **no write occurred** | revert, say nothing | | `err.signInRequired` | no session | route into `useRequestSignIn()` | | `err.timedOut` | no reply arrived within the 10-min consent bound | 🔴 **check this BEFORE `.message`** — it also has no `.code`, and its message is an SDK-internal string. It does **not** mean no write occurred; re-read your state | | `err.code` set otherwise | a host refusal (`invalid-request` / `review-mode` / `not-ready` / `collection-unavailable`) | show or ignore per case | | `err.code === undefined` **and** `!err.timedOut` | a **server** message the host forwarded verbatim | show `err.message` |
+
+```tsx
+const { setFollow, pending } = useCollectionFollow();
+const { requestSignIn } = useRequestSignIn();
+
+async function toggle() {
+  try {
+    const result = await setFollow({ collectionId, follow: !followed });
+    setFollowed(result.followed); // adopt the host's echo, not the guess
+  } catch (err) {
+    if (err instanceof CollectionFollowError) {
+      if (err.signInRequired) return requestSignIn();
+      if (err.declined) return; // the viewer said no — say nothing
+      if (err.timedOut) return showToast('Still working — check back in a moment.');
+      showToast(err.message); // a real server message, safe to render
+    }
+  }
+}
+```
+
 **`useAppWorkflows`**
 
 ```ts
@@ -585,7 +612,7 @@ function ConsentAwareGenerate() {
 useDomainMaturity(): DomainMaturity
 ```
 
-Read the surrounding color-domain's maturity ceiling (civitai #2670) so a block can hide/blur mature affordances on a SFW domain. **Fail-closed SFW** until `BLOCK_INIT` lands or against a host that predates the field.
+Read the maturity ceiling in force for the current viewer, so a block can hide/blur mature affordances. **Fail-closed SFW** until `BLOCK_INIT` lands or against a host that projects no ceiling.
 
 ```tsx
 const { isSfw, isLevelAllowed } = useDomainMaturity();
