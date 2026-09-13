@@ -7,6 +7,11 @@ interface Hook {
   description: string;
   example: string;
   exampleSource: string | null;
+  /** Stamped by gen-appblocks-hooks.mjs and branched on at :31. Declared here
+   *  because NOTHING in CI type-checks .vue: a typo or a generator rename would
+   *  silently yield `undefined`, fall every description back to <p>, and restore
+   *  the collapsed-table bug with a fully green build. */
+  descriptionHasTable?: boolean;
 }
 interface HooksData { hooks: Hook[]; reactPackage?: string; }
 

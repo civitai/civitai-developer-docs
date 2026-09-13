@@ -12,18 +12,23 @@
  *      the Phase-2 generator reads into public/appblocks/manifest-schema.json →
  *      renders reference/manifest.md. THIS is the source of record.
  *   B. the prod ENDPOINT  https://civitai.com/api/blocks/manifest-schema
- *      (its hand-built MANIFEST_JSON_SCHEMA object). This is the LAGGING copy:
- *      it understates blockId/version and OMITS the enforced `category` +
- *      `assetBundleUrl` fields, so it under-documents the real constraints.
+ *      (its hand-built MANIFEST_JSON_SCHEMA object).
+ *
+ * 🔴 NEITHER COPY IS DECLARED THE LAGGING ONE HERE, AND THAT IS THE POINT.
+ * This comment used to assert that B lagged A — that it understated
+ * blockId/version and omitted the enforced `category` + `assetBundleUrl`
+ * fields. That was true when written and is REFUTED as of 2026-09-13: the
+ * guard passes, and those fields are present on both sides. A direction
+ * hardcoded in prose outlives the reading it came from, so the direction is
+ * now DERIVED from the delta at runtime, per run, and this header states no
+ * direction at all.
  *
  * The docs no longer generate from the endpoint (that was the bug this guard
- * used to paper over). This guard now exists to flag the endpoint's divergence
- * as an ACTIONABLE signal: while B differs from A, the public CLI-fetchable
- * endpoint is still behind the canonical, and the sibling civitai PR that makes
- * the endpoint serve the canonical file verbatim has not shipped. It
- * deep-compares the two and FAILS on any SUBSTANTIVE divergence, naming the
- * delta. Once the endpoint serves the canonical, this guard goes GREEN
- * automatically — no docs change required.
+ * used to paper over). It deep-compares the two and FAILS on any SUBSTANTIVE
+ * divergence, naming the delta and — where the delta permits — which side is
+ * behind. It does NOT guess when the delta is two-sided: see the third arm
+ * under RESULTS. Whenever the two agree, this guard goes GREEN automatically —
+ * no docs change required.
  *
  * The top-level `$id` and `$schema` are EXCLUDED from the equality decision by
  * design: the endpoint may keep serving under its own `$id` (the `/api/...` URL)
@@ -42,7 +47,14 @@
  *
  * RESULTS
  *   - both fetched, deep-equal        -> PASS (exit 0)
- *   - both fetched, differ            -> FAIL (exit 1), printing the field/key delta
+ *   - only the ENDPOINT has extra     -> FAIL (exit 1): the canonical lags the endpoint
+ *   - only the CANONICAL has extra    -> FAIL (exit 1): the endpoint lags the canonical
+ *   - each side has something, or the -> FAIL (exit 1): DIVERGED, direction NOT determined.
+ *     delta is not in `properties`       The guard refuses to name a side, because a
+ *                                        two-sided delta establishes none. Read the delta
+ *                                        before filing anything upstream — an asserted
+ *                                        direction here is how #78 reported a platform gap
+ *                                        for what turned out to be a stale local pin.
  *   - prod unreachable                -> SKIP (exit 0, note) — never false-fail
  *   - SDK doesn't ship the schema     -> SKIP (exit 0, note)
  *

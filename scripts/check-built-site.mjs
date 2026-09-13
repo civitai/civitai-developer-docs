@@ -574,6 +574,71 @@ let llmsGroupCount = null;
 
 console.log(`\nBUILT SITE — ${llmsTxt}`);
 
+// --- apps/reference/hooks.html: the collapsed-description regression ---------
+//
+// 🔴 THIS FILE HAD ZERO COVERAGE OF hooks.html, AND THAT IS HOW THE BUG SHIPPED.
+// civitai-developer-docs#80 flattened a hook description carrying a GFM table
+// into a single 1853-codepoint run of literal pipes on the rendered page —
+// burying that docstring's own instruction to check `err.timedOut` BEFORE
+// `.message`. The first fix targeted the .md fallback region, which
+// <HooksReference> DISCARDS (it declares no <slot />), so `check:md-regions`
+// went green over a page that was still broken. Only building the site and
+// reading the HTML found it, by hand, once.
+//
+// These three assertions are the same three mutants build-site.yml's header
+// enumerates for CliReference.vue, applied to the component that actually
+// regressed: delete the `<pre v-if>` branch, break the flag the template reads,
+// or swap the interpolation — each turns one of these red.
+const HOOKS_PAGE = 'apps/reference/hooks.html';
+const hooksBuilt = join(distDir, 'apps', 'reference', 'hooks.html');
+// Read once per check, like the other families here, and refuse a MISSING page
+// rather than letting an absent file read as "nothing to assert" — the zero that
+// looks exactly like a pass.
+function readHooksHtml() {
+  assert(existsSync(hooksBuilt), `${hooksBuilt} was not built, so nothing below measured the page a human reads.`);
+  return readFileSync(hooksBuilt, 'utf8');
+}
+
+check(`the rendered ${HOOKS_PAGE} keeps table-bearing descriptions on their own lines`, () => {
+  const html = readHooksHtml();
+  const pres = [...html.matchAll(/<pre class="ab-hook-desc ab-hook-desc-pre"[^>]*>([\s\S]*?)<\/pre>/g)];
+  assert(
+    pres.length >= 1,
+    `no <pre class="ab-hook-desc-pre"> in ${HOOKS_PAGE}. Either no hook description carries a GFM ` +
+      `table any more (check hooks.json's descriptionHasTable), or the <pre> branch in ` +
+      `HooksReference.vue was removed — in which case the description collapses into one run ` +
+      `of literal pipes and nobody can read its error table.`,
+  );
+  for (const [, body] of pres) {
+    const lines = body.split('\n').filter((l) => l.trim());
+    assert(
+      lines.length >= 10,
+      `a table-bearing description rendered as ${lines.length} line(s). It is being collapsed; ` +
+        `the point of the <pre> is that every table row keeps its own line.`,
+    );
+  }
+});
+
+check(`${HOOKS_PAGE} still renders ordinary descriptions as flowing <p>`, () => {
+  const html = readHooksHtml();
+  const ps = (html.match(/<p class="ab-hook-desc"[^>]*>/g) || []).length;
+  assert(
+    ps >= 20,
+    `only ${ps} <p class="ab-hook-desc"> in ${HOOKS_PAGE}. If this collapsed toward zero the ` +
+      `predicate is over-matching and ordinary prose is being fenced; if it is zero the ` +
+      `component stopped rendering descriptions at all.`,
+  );
+});
+
+check(`${HOOKS_PAGE} escapes descriptions rather than injecting them as HTML`, () => {
+  const html = readHooksHtml();
+  assert(
+    !/<pre class="ab-hook-desc[^"]*"[^>]*>[^<]*<(?!\/pre)/.test(html),
+    `a description in ${HOOKS_PAGE} contains live markup. These are uploader-adjacent strings ` +
+      `from an upstream package; they must be interpolated ({{ }}), never v-html.`,
+  );
+});
+
 check('the llms.txt duplicate detector still detects (fixture table)', () => {
   const wrong = LLMS_FIXTURES.filter((f) => duplicateGroups(tocGroups(f.text)).length !== f.expect);
   assert(

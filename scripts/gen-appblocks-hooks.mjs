@@ -26,7 +26,25 @@ const readmePath = join(pkgRoot, 'README.md');
 // leading/trailing pipe. An earlier regex demanded a pipe on both sides and 3+
 // dashes, and missed both shapes.
 function descriptionHasTable(description) {
-  return /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/m.test(String(description ?? ''));
+  // Split the line into CELLS and ask whether every one is a delimiter, rather
+  // than counting pipes. `check-no-hand-flag-tables.mjs` already does exactly
+  // this, and a second predicate that disagrees with it is the thing the comment
+  // above forbids.
+  //
+  // 🔴 THE PIPE-COUNTING VERSION WAS NARROWER THAN THE ONE IT REPLACED. It read
+  // `(\|\s*:?-+:?\s*)+`, whose `+` demands TWO dash-cells, so a one-column GFM
+  // table — `| check |` over `| --- |` — never matched, while the regex before it
+  // did. It was introduced as a strict widening and silently traded one miss for
+  // another; a description in that shape would collapse exactly as
+  // useCollectionFollow's did, with both required checks green.
+  return String(description ?? '')
+    .split('\n')
+    .some((line) => {
+      const t = line.trim();
+      if (!t.includes('-')) return false;
+      const cells = t.replace(/^\|/, '').replace(/\|$/, '').split('|');
+      return cells.length > 0 && cells.every((c) => /^\s*:?-+:?\s*$/.test(c)) && t.replace(/[^|]/g, '').length > 0;
+    });
 }
 
 
