@@ -116,7 +116,7 @@ export function readReport(path, read = readFileSync) {
  *
  * @returns {{ action: 'alert'|'resolve', reasons: string[], findings: object[] }}
  */
-export function decideNotification({ jobResult, report, problem }) {
+export function decideNotification({ jobResult, report, problem, failedSteps = null, stepsProblem = null }) {
   const reasons = [];
   const findings = Array.isArray(report?.findings) ? report.findings : [];
 
@@ -124,11 +124,28 @@ export function decideNotification({ jobResult, report, problem }) {
   //    green everywhere else: GitHub shows no red X for them, and the sweep's
   //    conclusion rolls up as neutral.
   if (jobResult !== 'success') {
-    reasons.push(
-      jobResult === 'skipped' || jobResult === 'cancelled'
-        ? `the scheduled drift job was ${jobResult} — none of its checks ran, so NOTHING was verified`
-        : `the scheduled drift job ended "${jobResult}" — at least one drift check is red`,
-    );
+    if (jobResult === 'skipped' || jobResult === 'cancelled') {
+      reasons.push(`the scheduled drift job was ${jobResult} — none of its checks ran, so NOTHING was verified`);
+    } else if (Array.isArray(failedSteps) && failedSteps.length) {
+      // 🔴 NAME THE STEPS. THE REPORTING DEFECT #76 IS ABOUT IS THAT THIS DID
+      // NOT. `jobResult` is one scalar for a job of ~10 checks, so the body said
+      // "at least one drift check is red" and then rendered the example-apps
+      // counters — which are about a DIFFERENT check and were reading 8 verified,
+      // 0 rotted, 0 drifted while SIX other steps were failing. A reader saw a
+      // table of green numbers under a red banner and learned to dismiss it.
+      reasons.push(
+        `the scheduled drift job ended "${jobResult}" — ${failedSteps.length} check(s) are red:\n` +
+          failedSteps.map((s) => `  - ${s}`).join('\n'),
+      );
+    } else {
+      // The degraded path: the API was unreachable, the token lacked
+      // `actions: read`, or the run had no matching job. Say which, rather than
+      // silently falling back to a sentence that reads as if one check failed.
+      reasons.push(
+        `the scheduled drift job ended "${jobResult}" — at least one drift check is red` +
+          (stepsProblem ? ` (the failing steps could not be named: ${stepsProblem})` : ''),
+      );
+    }
   }
 
   // 2. No report at all. Covers a job that died before the guard ran, an
@@ -294,6 +311,60 @@ export const DECIDE_FIXTURES = [
     expect: 'resolve',
   },
   {
+    // 🔴 THE #76 ROW. Before this, a failed job produced "at least one drift
+    // check is red" and then a table of example-apps counters reading 8
+    // verified / 0 rotted — about a DIFFERENT check — while six others were
+    // failing. The reason must NAME them, or the body is green prose under a
+    // red banner and readers learn to dismiss it.
+    name: 'a failed job with named steps -> alert, and the reason NAMES each failing step',
+    input: {
+      jobResult: 'failure',
+      report: REPORT_OK,
+      problem: null,
+      failedSteps: ['Snapshot drift — appblocks-snapshots/ vs civitai@origin/main', 'OpenAPI spec drift — openapi-snapshots/ vs the published spec'],
+    },
+    expect: 'alert',
+    reasonIncludes: 'OpenAPI spec drift',
+  },
+  {
+    // The count must move with the list. A reason naming two steps while saying
+    // "1 check(s) are red" is the kind of mismatch a reader trusts and acts on.
+    name: 'the named-steps reason states the COUNT it actually lists',
+    input: {
+      jobResult: 'failure',
+      report: REPORT_OK,
+      problem: null,
+      failedSteps: ['a', 'b', 'c'],
+    },
+    expect: 'alert',
+    reasonIncludes: '3 check(s) are red',
+  },
+  {
+    // 🔴 THE DEGRADED PATH IS A FINDING, NOT A FALLBACK. If the steps cannot be
+    // listed the alert still goes out — but it must say WHY they are unnamed,
+    // otherwise it is indistinguishable from the pre-#76 sentence and a reader
+    // cannot tell "one check failed" from "we could not look".
+    name: 'a failed job whose steps could NOT be listed says so in the reason',
+    input: {
+      jobResult: 'failure',
+      report: REPORT_OK,
+      problem: null,
+      failedSteps: null,
+      stepsProblem: 'the token lacks `actions: read`, so the run\'s steps could not be listed',
+    },
+    expect: 'alert',
+    reasonIncludes: 'could not be named',
+  },
+  {
+    // A skipped job has no steps to name, and must NOT acquire the enriched
+    // sentence — "none of its checks ran" is the stronger statement and the one
+    // that survives here.
+    name: 'a skipped job keeps its own reason and never claims named steps',
+    input: { jobResult: 'skipped', report: REPORT_OK, problem: null, failedSteps: ['x'] },
+    expect: 'alert',
+    reasonIncludes: 'NOTHING was verified',
+  },
+  {
     name: 'the job failed -> alert',
     input: { jobResult: 'failure', report: { ...REPORT_OK, verdict: 'rot', rotted: 1, findings: [{ repo: 'x/y', reason: 'RENAMED — …' }] }, problem: null },
     expect: 'alert',
@@ -371,6 +442,79 @@ export const DECIDE_FIXTURES = [
     reasonIncludes: 'wrong about 1 thing(s)',
   },
 ];
+
+/**
+ * The fetcher's own table. It exists because fetchFailedSteps NEVER THROWS, and
+ * an un-tested never-throws function is where a silent failure lives: every
+ * degraded path returns the same SHAPE as a success, so a broken one reports
+ * "could not name the steps" forever and reads exactly like a 403.
+ *
+ * The first row is the POSITIVE CONTROL — without it, a fetcher hard-wired to
+ * return a problem passes every other row here.
+ */
+const STEPS_FIXTURES = [
+  {
+    name: 'POSITIVE CONTROL: a real run names its failed steps, and only those',
+    reply: { ok: true, json: { jobs: [{ name: 'drift', steps: [
+      { name: 'Snapshot drift', conclusion: 'failure' },
+      { name: 'A green one', conclusion: 'success' },
+      { name: 'OpenAPI spec drift', conclusion: 'failure' },
+      { name: 'A skipped one', conclusion: 'skipped' },
+    ] }, { name: 'notify', steps: [] }] } },
+    wantSteps: ['Snapshot drift', 'OpenAPI spec drift'],
+  },
+  {
+    name: 'a 403 names the missing scope rather than crashing',
+    reply: { ok: false, status: 403 },
+    wantProblem: 'actions: read',
+  },
+  {
+    name: 'an unreachable API is reported, not thrown',
+    throws: new Error('getaddrinfo ENOTFOUND'),
+    wantProblem: 'unreachable',
+  },
+  {
+    name: 'a run with no matching job says so',
+    reply: { ok: true, json: { jobs: [{ name: 'something-else', steps: [] }] } },
+    wantProblem: 'no job named',
+  },
+  {
+    name: 'a job that failed with NO step failing is its own signal, not an empty list',
+    reply: { ok: true, json: { jobs: [{ name: 'drift', steps: [{ name: 'x', conclusion: 'success' }] }] } },
+    wantProblem: 'died in setup',
+  },
+];
+
+/** Runs STEPS_FIXTURES. Async, so main() awaits it beside the sync table. */
+export async function runFetchSelfTest() {
+  const failures = [];
+  const ctx = { api: 'https://api.example', repo: 'o/r', runId: '1', token: 't' };
+  for (const f of STEPS_FIXTURES) {
+    const fake = async () => {
+      if (f.throws) throw f.throws;
+      return { ok: f.reply.ok, status: f.reply.status, json: async () => f.reply.json };
+    };
+    const got = await fetchFailedSteps(ctx, 'drift', fake);
+    if (f.wantSteps) {
+      if (JSON.stringify(got.failedSteps) !== JSON.stringify(f.wantSteps)) {
+        failures.push(
+          `STEPS — ${f.name}\n      expected ${JSON.stringify(f.wantSteps)}, got ${JSON.stringify(got.failedSteps)}` +
+            ` (problem: ${got.stepsProblem})\n` +
+            `      This row is the control on the other four: a fetcher that always returned a problem\n` +
+            `      would satisfy every one of them while naming nothing, ever.`,
+        );
+      }
+    } else if (!got.stepsProblem || !got.stepsProblem.includes(f.wantProblem)) {
+      failures.push(
+        `STEPS — ${f.name}\n      expected a problem containing ${JSON.stringify(f.wantProblem)}, got ` +
+          `${JSON.stringify(got.stepsProblem)}\n` +
+          `      The degraded path must say WHY the steps are unnamed. Reported as a bare null it is\n` +
+          `      indistinguishable from "one check failed", which is the defect #76 is about.`,
+      );
+    }
+  }
+  return failures;
+}
 
 export function runSelfTest() {
   const failures = [];
@@ -467,6 +611,73 @@ function ghContext() {
 }
 
 /**
+ * Which STEPS of the drift job failed, for the body a maintainer reads.
+ *
+ * 🔴 READ FROM THE RUN, NOT FROM THE STEPS THEMSELVES — civitai-developer-docs#76.
+ * The obvious alternative is to have each drift step record its own result into
+ * an artifact the notifier reads. That regenerates the defect at the NEXT step
+ * added: a step nobody wired is invisible, and invisible reads as green. Asking
+ * the API for the run's jobs covers every step that exists, including ones added
+ * after this file was written, which is the only version of this that cannot rot.
+ *
+ * 🔴 NEVER THROWS, unlike api() below, and the asymmetry is deliberate. A
+ * notifier that cannot reach the API has failed at its only job — but a notifier
+ * that cannot ENRICH its alert must still send it. Returning a problem string
+ * makes the degraded path say WHY the steps are unnamed instead of quietly
+ * printing the old one-scalar sentence.
+ *
+ * Requires `actions: read`; without it GitHub answers 403 and that lands here as
+ * a named problem rather than a crash.
+ *
+ * @returns {Promise<{ failedSteps: string[]|null, stepsProblem: string|null }>}
+ */
+export async function fetchFailedSteps(ctx, jobName = 'drift', fetchImpl = fetch) {
+  if (!ctx.runId) return { failedSteps: null, stepsProblem: 'no GITHUB_RUN_ID in the environment' };
+  if (!ctx.repo) return { failedSteps: null, stepsProblem: 'no GITHUB_REPOSITORY in the environment' };
+  let res;
+  try {
+    res = await fetchImpl(`${ctx.api}/repos/${ctx.repo}/actions/runs/${ctx.runId}/jobs?per_page=100`, {
+      signal: AbortSignal.timeout(20000),
+      headers: {
+        accept: 'application/vnd.github+json',
+        'x-github-api-version': '2022-11-28',
+        ...(ctx.token ? { authorization: `Bearer ${ctx.token}` } : {}),
+      },
+    });
+  } catch (err) {
+    return { failedSteps: null, stepsProblem: `the jobs API was unreachable (${err.name || err.message})` };
+  }
+  if (!res.ok) {
+    return {
+      failedSteps: null,
+      stepsProblem:
+        res.status === 403
+          ? 'the token lacks `actions: read`, so the run\'s steps could not be listed'
+          : `the jobs API answered ${res.status}`,
+    };
+  }
+  let body;
+  try {
+    body = await res.json();
+  } catch (err) {
+    return { failedSteps: null, stepsProblem: `the jobs API returned unparseable JSON (${err.message})` };
+  }
+  const jobs = Array.isArray(body?.jobs) ? body.jobs : [];
+  const job = jobs.find((j) => j?.name === jobName);
+  if (!job) {
+    return { failedSteps: null, stepsProblem: `this run has no job named "${jobName}" (saw ${jobs.length})` };
+  }
+  const steps = Array.isArray(job.steps) ? job.steps : [];
+  const failed = steps.filter((st) => st?.conclusion === 'failure').map((st) => String(st.name || '(unnamed step)'));
+  // An EMPTY list where the job failed is itself information: the job died
+  // before any step recorded a conclusion, or failed in its own setup.
+  if (!failed.length) {
+    return { failedSteps: null, stepsProblem: `the "${jobName}" job failed with no step recording a failure — it died in setup, or was killed` };
+  }
+  return { failedSteps: failed, stepsProblem: null };
+}
+
+/**
  * One API call. THROWS on failure, on purpose — see the banner: the guard skips
  * loudly on an unreachable network because a false-fail would poison a gate; a
  * notifier that cannot reach the API has failed at the only thing it does.
@@ -525,6 +736,13 @@ async function main(argv = process.argv.slice(2)) {
       `(${DECIDE_FIXTURES.filter((f) => f.expect === 'alert').length} must-ALERT, ` +
       `${zeroRows} of them the silent-zero mutation test) · fingerprint round-trips`,
   );
+  const fetchFailures = await runFetchSelfTest();
+  if (fetchFailures.length) {
+    console.error('✗ SELF-TEST FAILED — the step fetcher is broken, so it delivered an un-named alert\n');
+    for (const f of fetchFailures) console.error(`  - ${f}`);
+    process.exit(1);
+  }
+  console.log(`✓ self-test: ${STEPS_FIXTURES.length} step-fetcher fixture(s) (1 positive control, ${STEPS_FIXTURES.length - 1} degraded paths)`);
   if (argv.includes('--self-test')) {
     console.log('Self-test only: no decision made, no API call attempted.');
     return;
@@ -533,10 +751,20 @@ async function main(argv = process.argv.slice(2)) {
   // ---- 1. DECIDE ----------------------------------------------------------
   const jobResult = process.env.DRIFT_NOTIFY_JOB_RESULT || 'unknown';
   const { report, problem } = readReport(process.env.DRIFT_NOTIFY_REPORT);
-  const decision = decideNotification({ jobResult, report, problem });
   const ctx = ghContext();
+  // Only ask when there is something to explain. A green job has no failing
+  // steps to name, and a skipped/cancelled one has no steps at all — spending an
+  // API call on either would be a call that can only fail.
+  const { failedSteps, stepsProblem } =
+    jobResult !== 'success' && jobResult !== 'skipped' && jobResult !== 'cancelled'
+      ? await fetchFailedSteps(ctx)
+      : { failedSteps: null, stepsProblem: null };
+  const decision = decideNotification({ jobResult, report, problem, failedSteps, stepsProblem });
 
   console.log(`\ndrift job result: ${jobResult} · report: ${report ? 'present' : `ABSENT (${problem})`}`);
+  console.log(
+    `failing steps: ${failedSteps ? `${failedSteps.length} named` : `NOT NAMED (${stepsProblem || 'not applicable'})`}`,
+  );
   console.log(`decision: ${decision.action.toUpperCase()}`);
   for (const r of decision.reasons) console.log(`  - ${r}`);
 

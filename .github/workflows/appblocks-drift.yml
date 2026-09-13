@@ -232,6 +232,13 @@ jobs:
     permissions:
       contents: read
       issues: write
+      # actions: read — so the notifier can list THIS run's jobs and NAME the
+      # steps that failed (civitai-developer-docs#76). Read-only, this repo only,
+      # and one endpoint: /actions/runs/<id>/jobs. Without it that call answers
+      # 403, which the script reports as a named problem rather than crashing —
+      # the alert still goes out, it just cannot say which check is red, which is
+      # the defect #76 is about.
+      actions: read
     steps:
       - uses: actions/checkout@v4
 
