@@ -62,9 +62,19 @@ on:
 #                             repository, so the scope check did not move this
 #                             job closer to the unauthenticated 60/hr limit.
 #
-#   WRITE (`issues: write`), and it is one job, one script, one endpoint family
+#   WRITE (`issues: write`), one job and one script, and it reaches TWO endpoint
+#   families — not one, which is what this block said until #76's notifier landed
 #   - the `notify` job     -> api.github.com/repos/<this repo>/issues{,/N,/N/comments}
+#                          -> api.github.com/repos/<this repo>/actions/runs/<id>/jobs
 #                             (scripts/drift-notify.mjs)
+#
+#   🔴 THE SECOND ONE NEEDS NO SCOPE, AND THAT IS WHY IT IS EASY TO MISS HERE.
+#   This repo is PUBLIC, so the jobs endpoint answers 200 anonymously (measured;
+#   a bogus run id 404s, so the probe can fail). The notifier sends the token
+#   FIRST for rate-limit headroom and retries ANONYMOUSLY on 403/404, so no
+#   `actions:` grant appears in the permissions block below to hint that this
+#   reach exists. The token IS handed to it on the first call, which is the only
+#   reason it belongs in this list at all.
 #
 # The read steps are all the SAME shape and the same argument: an
 # UNAUTHENTICATED-capable GET of a PUBLIC cross-repo endpoint. A `permissions:`
@@ -253,6 +263,10 @@ jobs:
       - name: Open, refresh or close the drift issue
         env:
           DRIFT_NOTIFY_JOB_RESULT: ${{ needs.drift.result }}
+          # The job's NAME, for the API lookup that names its failed steps. It
+          # sits here rather than defaulted in the script so that this line and
+          # the `needs.drift` above it are renamed together.
+          DRIFT_NOTIFY_JOB_NAME: drift
           DRIFT_NOTIFY_REPORT: ${{ runner.temp }}/report/example-apps-report.json
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run notify:drift

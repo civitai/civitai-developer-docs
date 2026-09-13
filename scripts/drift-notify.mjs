@@ -58,6 +58,9 @@
  *   node scripts/drift-notify.mjs               # decide + deliver
  *
  *   DRIFT_NOTIFY_JOB_RESULT=<success|failure|cancelled|skipped>
+ *   DRIFT_NOTIFY_JOB_NAME=<the drift job's NAME as the API reports it — equal to the
+ *                          workflow job id only while that job declares no `name:`.
+ *                          Unset disables the enrichment>
  *                               the drift job's own result, from `needs.*.result`
  *   DRIFT_NOTIFY_REPORT=<path>  the JSON check-example-apps wrote with --report.
  *                               ABSENT OR UNREADABLE IS A SIGNAL, NOT AN ERROR.
@@ -116,7 +119,7 @@ export function readReport(path, read = readFileSync) {
  *
  * @returns {{ action: 'alert'|'resolve', reasons: string[], findings: object[] }}
  */
-export function decideNotification({ jobResult, report, problem }) {
+export function decideNotification({ jobResult, report, problem, failedSteps = null, stepsProblem = null }) {
   const reasons = [];
   const findings = Array.isArray(report?.findings) ? report.findings : [];
 
@@ -124,11 +127,28 @@ export function decideNotification({ jobResult, report, problem }) {
   //    green everywhere else: GitHub shows no red X for them, and the sweep's
   //    conclusion rolls up as neutral.
   if (jobResult !== 'success') {
-    reasons.push(
-      jobResult === 'skipped' || jobResult === 'cancelled'
-        ? `the scheduled drift job was ${jobResult} — none of its checks ran, so NOTHING was verified`
-        : `the scheduled drift job ended "${jobResult}" — at least one drift check is red`,
-    );
+    if (jobResult === 'skipped' || jobResult === 'cancelled') {
+      reasons.push(`the scheduled drift job was ${jobResult} — none of its checks ran, so NOTHING was verified`);
+    } else if (Array.isArray(failedSteps) && failedSteps.length) {
+      // 🔴 NAME THE STEPS. THE REPORTING DEFECT #76 IS ABOUT IS THAT THIS DID
+      // NOT. `jobResult` is one scalar for a job of ~10 checks, so the body said
+      // "at least one drift check is red" and then rendered the example-apps
+      // counters — which are about a DIFFERENT check and were reading 8 verified,
+      // 0 rotted, 0 drifted while SIX other steps were failing. A reader saw a
+      // table of green numbers under a red banner and learned to dismiss it.
+      reasons.push(
+        `the scheduled drift job ended "${jobResult}" — ${failedSteps.length} check(s) are red:\n` +
+          failedSteps.map((s) => `  - ${s}`).join('\n'),
+      );
+    } else {
+      // The degraded path: the API was unreachable, the token lacked
+      // `actions: read`, or the run had no matching job. Say which, rather than
+      // silently falling back to a sentence that reads as if one check failed.
+      reasons.push(
+        `the scheduled drift job ended "${jobResult}" — at least one drift check is red` +
+          (stepsProblem ? ` (the failing steps could not be named: ${stepsProblem})` : ''),
+      );
+    }
   }
 
   // 2. No report at all. Covers a job that died before the guard ran, an
@@ -294,6 +314,65 @@ export const DECIDE_FIXTURES = [
     expect: 'resolve',
   },
   {
+    // 🔴 THE #76 ROW. Before this, a failed job produced "at least one drift
+    // check is red" and then a table of example-apps counters reading 8
+    // verified / 0 rotted — about a DIFFERENT check — while six others were
+    // failing. The reason must NAME them, or the body is green prose under a
+    // red banner and readers learn to dismiss it.
+    name: 'a failed job with named steps -> alert, and the reason NAMES each failing step',
+    input: {
+      jobResult: 'failure',
+      report: REPORT_OK,
+      problem: null,
+      failedSteps: ['Snapshot drift — appblocks-snapshots/ vs civitai@origin/main', 'OpenAPI spec drift — openapi-snapshots/ vs the published spec'],
+    },
+    expect: 'alert',
+    reasonIncludes: 'OpenAPI spec drift',
+  },
+  {
+    // The count must move with the list. A reason naming two steps while saying
+    // "1 check(s) are red" is the kind of mismatch a reader trusts and acts on.
+    name: 'the named-steps reason states the COUNT it actually lists',
+    input: {
+      jobResult: 'failure',
+      report: REPORT_OK,
+      problem: null,
+      failedSteps: ['a', 'b', 'c'],
+    },
+    expect: 'alert',
+    reasonIncludes: '3 check(s) are red',
+  },
+  {
+    // 🔴 THE DEGRADED PATH IS A FINDING, NOT A FALLBACK. If the steps cannot be
+    // listed the alert still goes out — but it must say WHY they are unnamed,
+    // otherwise it is indistinguishable from the pre-#76 sentence and a reader
+    // cannot tell "one check failed" from "we could not look".
+    name: 'a failed job whose steps could NOT be listed says so in the reason',
+    input: {
+      jobResult: 'failure',
+      report: REPORT_OK,
+      problem: null,
+      failedSteps: null,
+      stepsProblem: 'the token lacks `actions: read`, so the run\'s steps could not be listed',
+    },
+    expect: 'alert',
+    reasonIncludes: 'could not be named',
+  },
+  {
+    // A skipped job has no steps to name, and must NOT acquire the enriched
+    // sentence — "none of its checks ran" is the stronger statement and the one
+    // that survives here.
+    // ⚠ INVARIANT GUARD, LABELLED AS ONE. main() forces failedSteps to null
+    // whenever jobResult is skipped/cancelled, so this combination is
+    // UNREACHABLE in production and no mutant kills it alone. It pins branch
+    // ORDER inside an exported function, which is worth a row — it is not
+    // regression coverage and must not be counted as such.
+    name: 'INVARIANT: a skipped job keeps its own reason and never claims named steps',
+    input: { jobResult: 'skipped', report: REPORT_OK, problem: null, failedSteps: ['x'] },
+    expect: 'alert',
+    reasonIncludes: 'NOTHING was verified',
+  },
+  {
     name: 'the job failed -> alert',
     input: { jobResult: 'failure', report: { ...REPORT_OK, verdict: 'rot', rotted: 1, findings: [{ repo: 'x/y', reason: 'RENAMED — …' }] }, problem: null },
     expect: 'alert',
@@ -371,6 +450,248 @@ export const DECIDE_FIXTURES = [
     reasonIncludes: 'wrong about 1 thing(s)',
   },
 ];
+
+/**
+ * The fetcher's own table. It exists because fetchFailedSteps NEVER THROWS, and
+ * an un-tested never-throws function is where a silent failure lives: every
+ * degraded path returns the same SHAPE as a success, so a broken one reports
+ * "could not name the steps" forever and reads exactly like a 403.
+ *
+ * Rows carrying `wantSteps` are the POSITIVE CONTROLS — without one, a fetcher
+ * hard-wired to return a problem passes every other row here. The count printed
+ * at the end is DERIVED from `wantSteps` rather than written down — and this
+ * sentence deliberately names no number.
+ *
+ * 🔴 IT NAMED ONE TWICE AND WAS WRONG TWICE. First "1", which kept printing after
+ * rows changed; then "TWO now (this one and the 403-retry row)", written in the
+ * same commit that added a THIRD such row 33 lines below it. Both drafts were
+ * fixing the previous draft's staleness. A literal here has no reader — the
+ * printed line is derived and always right — so the fix is to stop writing one.
+ */
+const STEPS_FIXTURES = [
+  {
+    name: 'POSITIVE CONTROL: a real run names its failed steps, and only those',
+    wantAuth: [true], // token only: a 200 must never trigger the anonymous retry
+    reply: { ok: true, json: { jobs: [{ name: 'drift', steps: [
+      { name: 'Snapshot drift', conclusion: 'failure' },
+      { name: 'A green one', conclusion: 'success' },
+      { name: 'OpenAPI spec drift', conclusion: 'failure' },
+      { name: 'A skipped one', conclusion: 'skipped' },
+    ] }, { name: 'notify', steps: [] }] } },
+    wantSteps: ['Snapshot drift', 'OpenAPI spec drift'],
+  },
+  {
+    // 🔴 THE ROW THAT REMOVES A PERMISSION SCOPE. This repo is PUBLIC, so the
+    // jobs endpoint answers 200 anonymously — measured, with a bogus run id
+    // returning 404 as the control. An earlier draft sent the token
+    // unconditionally, so a GITHUB_TOKEN without `actions: read` got a 403 where
+    // NO token gets a 200, and the workflow grew a scope to paper over it. This
+    // row pins the retry that made the scope unnecessary; delete it and the
+    // grant comes back.
+    name: 'a 403 WITH the token retries WITHOUT it and names the steps',
+    wantAuth: [true, false], // the ORDER is the claim, not the count
+    replies: [
+      { ok: false, status: 403 },
+      { ok: true, json: { jobs: [{ name: 'drift', steps: [{ name: 'Snapshot drift', conclusion: 'failure' }] }] } },
+    ],
+    wantSteps: ['Snapshot drift'],
+  },
+  {
+    // 🔴 THE ROW THE PREVIOUS ROUND SHIPPED WITHOUT. Widening the retry to 404 was
+    // a behaviour change that nothing pinned: reverting it to 403-only survived
+    // the entire suite. That is the same defect this table was convened to kill,
+    // one level along — a claim with no fixture. 404 matters because whether a
+    // scope-less GITHUB_TOKEN gets 403 or 404 here cannot be measured without a
+    // real privileged run, which is exactly why the retry covers both.
+    name: 'a 404 WITH the token also retries anonymously — the status a scope-less token may get',
+    replies: [
+      { ok: false, status: 404 },
+      { ok: true, json: { jobs: [{ name: 'drift', steps: [{ name: 'OpenAPI spec drift', conclusion: 'failure' }] }] } },
+    ],
+    wantAuth: [true, false],
+    wantSteps: ['OpenAPI spec drift'],
+  },
+  {
+    // 🔴 THE ROW THAT PINS THE PREVIOUS ROUND'S OWN FIX. That round made the
+    // degraded message carry the FIRST call's status — and shipped it asserted by
+    // nothing: restoring the old "403 both with and without" literal, or making
+    // ${firstStatus} a no-op, both survived the whole suite. The only row reaching
+    // that branch matched on a substring present in BOTH wordings. This is the
+    // one arm where the two statuses DIFFER, so it is the only row that can tell
+    // them apart. Second time this commit series shipped a claim with no fixture;
+    // the shape is the finding, not the line.
+    name: 'a 404 then a rate-limited 403 reports BOTH statuses, not one twice',
+    replies: [
+      { ok: false, status: 404 },
+      { ok: false, status: 403 },
+    ],
+    wantAuth: [true, false],
+    wantProblem: 'answered 404 with the token and 403 without',
+  },
+  {
+    name: 'a 403 BOTH ways is a rate limit, and says so rather than blaming a scope',
+    wantAuth: [true, false],
+    replies: [
+      { ok: false, status: 403 },
+      { ok: false, status: 403 },
+    ],
+    wantProblem: 'rate limit, not a missing scope',
+  },
+  {
+    // The no-token path had ZERO coverage, which is why the "both with and
+    // without the token" message was able to print after a single call.
+    name: 'with NO token there is nothing to retry, and the message does not claim two calls',
+    ctx: { api: 'https://api.example', repo: 'o/r', runId: '1', token: '' },
+    reply: { ok: false, status: 403 },
+    wantAuth: [false],
+    wantProblem: 'anonymous request',
+  },
+  {
+    // A 500 is not an auth problem, so retrying anonymously buys nothing and
+    // spends the anonymous budget. Pins that the retry is NOT "on any failure".
+    name: 'a 500 is reported as-is and never retried',
+    reply: { ok: false, status: 500 },
+    wantAuth: [true],
+    wantProblem: 'answered 500',
+  },
+  {
+    name: 'a missing job name is reported, not guessed',
+    jobName: '',
+    reply: { ok: true, json: { jobs: [{ name: 'drift', steps: [] }] } },
+    wantProblem: 'DRIFT_NOTIFY_JOB_NAME unset',
+    expectCalls: 0, // it refuses before reaching the network
+  },
+  {
+    name: 'an unreachable API is reported, not thrown',
+    wantAuth: [true],
+    throws: new Error('getaddrinfo ENOTFOUND'),
+    wantProblem: 'unreachable',
+  },
+  {
+    name: 'a run with no matching job says so',
+    wantAuth: [true],
+    reply: { ok: true, json: { jobs: [{ name: 'something-else', steps: [] }] } },
+    wantProblem: 'no job named',
+  },
+  {
+    name: 'a job that failed with NO step failing is its own signal, not an empty list',
+    wantAuth: [true],
+    reply: { ok: true, json: { jobs: [{ name: 'drift', steps: [{ name: 'x', conclusion: 'success' }] }] } },
+    wantProblem: 'died in setup',
+  },
+];
+
+/** Runs STEPS_FIXTURES. Async, so main() awaits it beside the sync table. */
+export async function runFetchSelfTest() {
+  const failures = [];
+  const ctx = { api: 'https://api.example', repo: 'o/r', runId: '1', token: 't' };
+  for (const f of STEPS_FIXTURES) {
+    // A queue, so a row can script the 403-then-retry sequence. A single `reply`
+    // is the degenerate case of a one-element queue that never runs out.
+    const queue = f.replies ? [...f.replies] : null;
+    let calls = 0;
+    // 🔴 THE FAKE RECORDS THE REQUEST, AND AN EARLIER VERSION THREW IT AWAY.
+    // It took no arguments, so the table could assert only HOW MANY calls were
+    // made — never what was IN them. Measured: five mutants survived the whole
+    // suite, including "never send the token" and "anonymous first, token on
+    // retry", which is the exact INVERSION of the ordering this table's own
+    // failure text says it protects. A count is not a request.
+    const sent = [];
+    const fake = async (url, init) => {
+      calls += 1;
+      sent.push({ url, auth: Boolean(init?.headers?.authorization), signal: Boolean(init?.signal) });
+      if (f.throws) throw f.throws;
+      const r = queue ? queue.shift() ?? f.replies[f.replies.length - 1] : f.reply;
+      return { ok: r.ok, status: r.status, json: async () => r.json };
+    };
+    const got = await fetchFailedSteps(f.ctx || ctx, f.jobName === undefined ? 'drift' : f.jobName, fake);
+    // 🔴 EVERY ROW ASSERTS ITS CALL COUNT, NOT JUST THE SCRIPTED ONES. An earlier
+    // draft checked it only when `replies` was present, and a mutant that retried
+    // UNCONDITIONALLY instead of on 403 SURVIVED the whole table: the single-reply
+    // rows still got their answer, just after a redundant second call. That is not
+    // cosmetic — it doubles every request and spends the 60/hr anonymous budget
+    // that is the entire reason the token goes first.
+    const wantCalls = f.throws ? 1 : f.replies ? f.replies.length : f.expectCalls ?? 1;
+    // wantAuth is the per-call ordering: [true] = token only; [true, false] =
+    // token first, then the anonymous retry. Writing it per call is what makes an
+    // inverted ordering a different array rather than the same count.
+    // 🔴 MANDATORY FOR ANY ROW THAT REACHES THE NETWORK — optional is the exact
+    // anti-pattern recorded 20 lines below, where a conditional call-count check
+    // let an unconditional-retry mutant survive the whole table. A row added
+    // without wantAuth would assert nothing about its own ordering.
+    if (!f.wantAuth && f.expectCalls !== 0) {
+      failures.push(
+        `STEPS — ${f.name}\n      declares no wantAuth. Every row that reaches the network must state its ` +
+          `per-call Authorization ORDER, or it silently asserts nothing about the one property this table exists for.`,
+      );
+    }
+    if (f.wantAuth) {
+      const gotAuth = sent.map((r) => r.auth);
+      if (JSON.stringify(gotAuth) !== JSON.stringify(f.wantAuth)) {
+        failures.push(
+          `STEPS — ${f.name}\n      Authorization per call was ${JSON.stringify(gotAuth)}, want ` +
+            `${JSON.stringify(f.wantAuth)}.\n` +
+            `      The ORDER is the claim: the token goes first for rate-limit headroom on a shared\n` +
+            `      runner IP, and anonymous is the FALLBACK. Inverted, every call spends the 60/hr\n` +
+            `      anonymous budget; never sent, it spends all of them.`,
+        );
+      }
+    }
+    // Every request must carry a timeout. Without one the notify job can hang to
+    // its own 10-minute limit and the alert simply never arrives — a failure that
+    // looks like nothing happening at all.
+    // 🔴 THE URL WAS RECORDED AND READ BY NOTHING. Round 2 found five surviving
+    // request-target mutants through that gap; the sharpest drops `?per_page=100`,
+    // leaving the API default of 30 jobs per page, so a workflow that grew past 30
+    // jobs would report `no job named "drift"` forever — degraded, silent, green.
+    // One of the three recorded fields was decorative; now none is.
+    // Built from the row's OWN ctx, not a hard literal. `ctx` is already an
+    // advertised per-row override, and a literal makes a correct future row (a
+    // GHES api base, say) fail with a message about page size — a fixture problem
+    // reported as a request-target bug.
+    const c = f.ctx || ctx;
+    const wantUrl = `${c.api}/repos/${c.repo}/actions/runs/${c.runId}/jobs?per_page=100`;
+    if (f.expectCalls !== 0 && sent.some((r) => r.url !== wantUrl)) {
+      failures.push(
+        `STEPS — ${f.name}\n      a request went to ${JSON.stringify(sent.map((r) => r.url))}, want every call at ` +
+          `${JSON.stringify(wantUrl)}.\n` +
+          `      The page size is part of the target: without it the API returns 30 jobs and a run with more ` +
+          `      would never contain the drift job at all.`,
+      );
+    }
+    if (sent.some((r) => !r.signal)) {
+      failures.push(
+        `STEPS — ${f.name}\n      a request went out with no abort signal. fetch has no default timeout, so ` +
+          `the notify job can hang until the workflow kills it and the alert is never delivered.`,
+      );
+    }
+    if (!f.skipCallCount && calls !== wantCalls) {
+      failures.push(
+        `STEPS — ${f.name}\n      the fetcher made ${calls} call(s), want ${wantCalls} — the retry either did not ` +
+          `happen, or happened when it should not have. A retry on every call doubles the request rate and ` +
+          `burns the anonymous limit the token-first ordering exists to protect.`,
+      );
+    }
+    if (f.wantSteps) {
+      if (JSON.stringify(got.failedSteps) !== JSON.stringify(f.wantSteps)) {
+        failures.push(
+          `STEPS — ${f.name}\n      expected ${JSON.stringify(f.wantSteps)}, got ${JSON.stringify(got.failedSteps)}` +
+            ` (problem: ${got.stepsProblem})\n` +
+            `      This row is the control on the other four: a fetcher that always returned a problem\n` +
+            `      would satisfy every one of them while naming nothing, ever.`,
+        );
+      }
+    } else if (!got.stepsProblem || !got.stepsProblem.includes(f.wantProblem)) {
+      failures.push(
+        `STEPS — ${f.name}\n      expected a problem containing ${JSON.stringify(f.wantProblem)}, got ` +
+          `${JSON.stringify(got.stepsProblem)}\n` +
+          `      The degraded path must say WHY the steps are unnamed. Reported as a bare null it is\n` +
+          `      indistinguishable from "one check failed", which is the defect #76 is about.`,
+      );
+    }
+  }
+  return failures;
+}
 
 export function runSelfTest() {
   const failures = [];
@@ -467,6 +788,119 @@ function ghContext() {
 }
 
 /**
+ * Which STEPS of the drift job failed, for the body a maintainer reads.
+ *
+ * 🔴 READ FROM THE RUN, NOT FROM THE STEPS THEMSELVES — civitai-developer-docs#76.
+ * The obvious alternative is to have each drift step record its own result into
+ * an artifact the notifier reads. That regenerates the defect at the NEXT step
+ * added: a step nobody wired is invisible, and invisible reads as green. Asking
+ * the API for the run's jobs covers every step that exists, including ones added
+ * after this file was written, which is the only version of this that cannot rot.
+ *
+ * 🔴 NEVER THROWS, unlike api() below, and the asymmetry is deliberate. A
+ * notifier that cannot reach the API has failed at its only job — but a notifier
+ * that cannot ENRICH its alert must still send it. Returning a problem string
+ * makes the degraded path say WHY the steps are unnamed instead of quietly
+ * printing the old one-scalar sentence.
+ *
+ * 🔴 REQUIRES NO SCOPE **ON A PUBLIC REPO**, AND AN EARLIER DRAFT SAID BOTH
+ * HALVES WRONG. It first said `actions: read` is required; the retry below made
+ * that false. The replacement said "REQUIRES NO SCOPE" flat, which is true only
+ * because this repo is public and the jobs endpoint answers anonymously. Copy
+ * this to a PRIVATE repo and the retry fails too, the enrichment degrades
+ * forever, and an unconditional sentence here would tell whoever investigates
+ * that no scope is needed. The earlier draft said `actions: read`.
+ * That was written when the token went out unconditionally; it is false since the
+ * 403/404 retry below, and the workflow grant it named has been deleted. Left
+ * standing it would send the next maintainer debugging a degraded enrichment
+ * straight to re-adding the scope — undoing the commit that removed it and
+ * re-falsifying the workflow's own "no actions" line.
+ *
+ * @returns {Promise<{ failedSteps: string[]|null, stepsProblem: string|null }>}
+ */
+// 🔴 jobName IS PASSED IN, NOT DEFAULTED HERE. A literal 'drift' in this file has
+// nothing tying it to the workflow's job id: rename the job and the fetcher
+// degrades PERMANENTLY and quietly to "no job named drift", which is the same
+// rot-on-next-change failure this design rejects the per-step ledger for. The
+// workflow supplies it from DRIFT_NOTIFY_JOB_NAME on the line next to
+// DRIFT_NOTIFY_JOB_RESULT's `needs.<id>.result`, so the two references sit
+// together and a rename that misses one is visible in the diff.
+export async function fetchFailedSteps(ctx, jobName, fetchImpl = fetch) {
+  if (!jobName) return { failedSteps: null, stepsProblem: 'no job name was given to the fetcher (DRIFT_NOTIFY_JOB_NAME unset)' };
+  if (!ctx.runId) return { failedSteps: null, stepsProblem: 'no GITHUB_RUN_ID in the environment' };
+  if (!ctx.repo) return { failedSteps: null, stepsProblem: 'no GITHUB_REPOSITORY in the environment' };
+  const url = `${ctx.api}/repos/${ctx.repo}/actions/runs/${ctx.runId}/jobs?per_page=100`;
+  const get = (withToken) =>
+    fetchImpl(url, {
+      signal: AbortSignal.timeout(20000),
+      headers: {
+        accept: 'application/vnd.github+json',
+        'x-github-api-version': '2022-11-28',
+        ...(withToken && ctx.token ? { authorization: `Bearer ${ctx.token}` } : {}),
+      },
+    });
+
+  // 🔴 TOKEN FIRST, THEN UNAUTHENTICATED ON 403 — AND THAT ORDER BUYS US NO NEW
+  // SCOPE. This repo is PUBLIC, so /actions/runs/<id>/jobs answers 200 to an
+  // anonymous GET; measured, with a bogus run id returning 404 as the control.
+  // An earlier draft sent the token unconditionally and therefore needed
+  // `actions: read` on the one privileged job in this workflow — a scope that
+  // turns a working 200 into a 403 and nothing else. The retry removes it.
+  //
+  // Token first anyway, because the workflow header's own argument applies: the
+  // unauthenticated limit is 60/hr shared across a runner IP, so the anonymous
+  // call is the FALLBACK rather than the default. This is the same
+  // "UNAUTHENTICATED-capable GET of a PUBLIC cross-repo endpoint" shape every
+  // read step in this workflow already uses.
+  let res;
+  let firstStatus;
+  try {
+    res = await get(true);
+    firstStatus = res.status;
+    // 403 OR 404, and the 404 is not padding. A token that cannot see a resource
+    // is answered 403 by some GitHub token types and 404 by others, and which one
+    // a GITHUB_TOKEN lacking `actions` gets is the load-bearing precondition here
+    // — one this repo cannot measure without a real run. The notify job always
+    // queries the run it is EXECUTING INSIDE, so a 404 there cannot mean "gone";
+    // it can only mean "this token cannot see it", which is exactly the case the
+    // anonymous retry answers. Retrying on both removes the assumption for free.
+    if ((res.status === 403 || res.status === 404) && ctx.token) res = await get(false);
+  } catch (err) {
+    return { failedSteps: null, stepsProblem: `the jobs API was unreachable (${err.name || err.message})` };
+  }
+  if (!res.ok) {
+    return {
+      failedSteps: null,
+      stepsProblem:
+        res.status === 403
+          ? ctx.token
+            ? `the jobs API answered ${firstStatus} with the token and ${res.status} without — on a PUBLIC repo that is a rate limit, not a missing scope`
+            : 'the jobs API answered 403 to an anonymous request — on a PUBLIC repo that is the 60/hr shared-runner rate limit'
+          : `the jobs API answered ${res.status}`,
+    };
+  }
+  let body;
+  try {
+    body = await res.json();
+  } catch (err) {
+    return { failedSteps: null, stepsProblem: `the jobs API returned unparseable JSON (${err.message})` };
+  }
+  const jobs = Array.isArray(body?.jobs) ? body.jobs : [];
+  const job = jobs.find((j) => j?.name === jobName);
+  if (!job) {
+    return { failedSteps: null, stepsProblem: `this run has no job named "${jobName}" (saw ${jobs.length})` };
+  }
+  const steps = Array.isArray(job.steps) ? job.steps : [];
+  const failed = steps.filter((st) => st?.conclusion === 'failure').map((st) => String(st.name || '(unnamed step)'));
+  // An EMPTY list where the job failed is itself information: the job died
+  // before any step recorded a conclusion, or failed in its own setup.
+  if (!failed.length) {
+    return { failedSteps: null, stepsProblem: `the "${jobName}" job failed with no step recording a failure — it died in setup, or was killed` };
+  }
+  return { failedSteps: failed, stepsProblem: null };
+}
+
+/**
  * One API call. THROWS on failure, on purpose — see the banner: the guard skips
  * loudly on an unreachable network because a false-fail would poison a gate; a
  * notifier that cannot reach the API has failed at the only thing it does.
@@ -525,6 +959,33 @@ async function main(argv = process.argv.slice(2)) {
       `(${DECIDE_FIXTURES.filter((f) => f.expect === 'alert').length} must-ALERT, ` +
       `${zeroRows} of them the silent-zero mutation test) · fingerprint round-trips`,
   );
+  // 🔴 THIS ONE WARNS; IT DOES NOT EXIT. The decision table's self-test above
+  // exits 1 because a broken DECISION means the alert would be wrong. This table
+  // covers the ENRICHMENT, and fetchFailedSteps is explicitly built never to
+  // throw so that "cannot name the steps" degrades instead of blocking. Exiting
+  // here would undo exactly that: a bug in an optional feature's own test would
+  // stop the alert going out, which is the failure this whole file exists to
+  // prevent, one level up. --self-test still exits 1, because there the fixtures
+  // ARE the deliverable.
+  const fetchFailures = await runFetchSelfTest();
+  if (fetchFailures.length) {
+    console.error('⚠ the step-fetcher self-test FAILED — the alert will still be delivered, un-enriched\n');
+    for (const f of fetchFailures) console.error(`  - ${f}`);
+    if (argv.includes('--self-test')) process.exit(1);
+  }
+  // 🔴 GUARDED. This printed unconditionally, so on the production path — where
+  // the failure above is deliberately non-fatal — a ✓ appeared directly under the
+  // FAILED banner for the table that had just failed. In a file whose whole
+  // doctrine is "a green that is not evidence", that is the exact shape.
+  // The count is DERIVED, not a literal: an earlier version hardcoded "1 positive
+  // control" and went on printing it after the control row was deleted.
+  if (!fetchFailures.length) {
+    const controls = STEPS_FIXTURES.filter((f) => f.wantSteps).length;
+    console.log(
+      `✓ self-test: ${STEPS_FIXTURES.length} step-fetcher fixture(s) ` +
+        `(${controls} positive control(s), ${STEPS_FIXTURES.length - controls} degraded paths)`,
+    );
+  }
   if (argv.includes('--self-test')) {
     console.log('Self-test only: no decision made, no API call attempted.');
     return;
@@ -533,10 +994,20 @@ async function main(argv = process.argv.slice(2)) {
   // ---- 1. DECIDE ----------------------------------------------------------
   const jobResult = process.env.DRIFT_NOTIFY_JOB_RESULT || 'unknown';
   const { report, problem } = readReport(process.env.DRIFT_NOTIFY_REPORT);
-  const decision = decideNotification({ jobResult, report, problem });
   const ctx = ghContext();
+  // Only ask when there is something to explain. A green job has no failing
+  // steps to name, and a skipped/cancelled one has no steps at all — spending an
+  // API call on either would be a call that can only fail.
+  const { failedSteps, stepsProblem } =
+    jobResult !== 'success' && jobResult !== 'skipped' && jobResult !== 'cancelled'
+      ? await fetchFailedSteps(ctx, process.env.DRIFT_NOTIFY_JOB_NAME || '')
+      : { failedSteps: null, stepsProblem: null };
+  const decision = decideNotification({ jobResult, report, problem, failedSteps, stepsProblem });
 
   console.log(`\ndrift job result: ${jobResult} · report: ${report ? 'present' : `ABSENT (${problem})`}`);
+  console.log(
+    `failing steps: ${failedSteps ? `${failedSteps.length} named` : `NOT NAMED (${stepsProblem || 'not applicable'})`}`,
+  );
   console.log(`decision: ${decision.action.toUpperCase()}`);
   for (const r of decision.reasons) console.log(`  - ${r}`);
 
