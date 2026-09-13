@@ -58,7 +58,9 @@
  *   node scripts/drift-notify.mjs               # decide + deliver
  *
  *   DRIFT_NOTIFY_JOB_RESULT=<success|failure|cancelled|skipped>
- *   DRIFT_NOTIFY_JOB_NAME=<the drift job's id, for the step lookup — unset disables the enrichment>
+ *   DRIFT_NOTIFY_JOB_NAME=<the drift job's NAME as the API reports it — equal to the
+ *                          workflow job id only while that job declares no `name:`.
+ *                          Unset disables the enrichment>
  *                               the drift job's own result, from `needs.*.result`
  *   DRIFT_NOTIFY_REPORT=<path>  the JSON check-example-apps wrote with --report.
  *                               ABSENT OR UNREADABLE IS A SIGNAL, NOT AN ERROR.
@@ -455,8 +457,11 @@ export const DECIDE_FIXTURES = [
  * degraded path returns the same SHAPE as a success, so a broken one reports
  * "could not name the steps" forever and reads exactly like a 403.
  *
- * The first row is the POSITIVE CONTROL — without it, a fetcher hard-wired to
- * return a problem passes every other row here.
+ * Rows carrying `wantSteps` are the POSITIVE CONTROLS — without one, a fetcher
+ * hard-wired to return a problem passes every other row here. There are TWO now
+ * (this one and the 403-retry row); the count printed at the end is DERIVED from
+ * `wantSteps` rather than written down, because an earlier literal said "1" and
+ * kept saying it after rows changed.
  */
 const STEPS_FIXTURES = [
   {
@@ -485,6 +490,21 @@ const STEPS_FIXTURES = [
       { ok: true, json: { jobs: [{ name: 'drift', steps: [{ name: 'Snapshot drift', conclusion: 'failure' }] }] } },
     ],
     wantSteps: ['Snapshot drift'],
+  },
+  {
+    // 🔴 THE ROW THE PREVIOUS ROUND SHIPPED WITHOUT. Widening the retry to 404 was
+    // a behaviour change that nothing pinned: reverting it to 403-only survived
+    // the entire suite. That is the same defect this table was convened to kill,
+    // one level along — a claim with no fixture. 404 matters because whether a
+    // scope-less GITHUB_TOKEN gets 403 or 404 here cannot be measured without a
+    // real privileged run, which is exactly why the retry covers both.
+    name: 'a 404 WITH the token also retries anonymously — the status a scope-less token may get',
+    replies: [
+      { ok: false, status: 404 },
+      { ok: true, json: { jobs: [{ name: 'drift', steps: [{ name: 'OpenAPI spec drift', conclusion: 'failure' }] }] } },
+    ],
+    wantAuth: [true, false],
+    wantSteps: ['OpenAPI spec drift'],
   },
   {
     name: 'a 403 BOTH ways is a rate limit, and says so rather than blaming a scope',
@@ -573,6 +593,16 @@ export async function runFetchSelfTest() {
     // wantAuth is the per-call ordering: [true] = token only; [true, false] =
     // token first, then the anonymous retry. Writing it per call is what makes an
     // inverted ordering a different array rather than the same count.
+    // 🔴 MANDATORY FOR ANY ROW THAT REACHES THE NETWORK — optional is the exact
+    // anti-pattern recorded 20 lines below, where a conditional call-count check
+    // let an unconditional-retry mutant survive the whole table. A row added
+    // without wantAuth would assert nothing about its own ordering.
+    if (!f.wantAuth && f.expectCalls !== 0) {
+      failures.push(
+        `STEPS — ${f.name}\n      declares no wantAuth. Every row that reaches the network must state its ` +
+          `per-call Authorization ORDER, or it silently asserts nothing about the one property this table exists for.`,
+      );
+    }
     if (f.wantAuth) {
       const gotAuth = sent.map((r) => r.auth);
       if (JSON.stringify(gotAuth) !== JSON.stringify(f.wantAuth)) {
@@ -588,6 +618,20 @@ export async function runFetchSelfTest() {
     // Every request must carry a timeout. Without one the notify job can hang to
     // its own 10-minute limit and the alert simply never arrives — a failure that
     // looks like nothing happening at all.
+    // 🔴 THE URL WAS RECORDED AND READ BY NOTHING. Round 2 found five surviving
+    // request-target mutants through that gap; the sharpest drops `?per_page=100`,
+    // leaving the API default of 30 jobs per page, so a workflow that grew past 30
+    // jobs would report `no job named "drift"` forever — degraded, silent, green.
+    // One of the three recorded fields was decorative; now none is.
+    const wantUrl = `https://api.example/repos/o/r/actions/runs/1/jobs?per_page=100`;
+    if (f.expectCalls !== 0 && sent.some((r) => r.url !== wantUrl)) {
+      failures.push(
+        `STEPS — ${f.name}\n      a request went to ${JSON.stringify(sent.map((r) => r.url))}, want every call at ` +
+          `${JSON.stringify(wantUrl)}.\n` +
+          `      The page size is part of the target: without it the API returns 30 jobs and a run with more ` +
+          `      would never contain the drift job at all.`,
+      );
+    }
     if (sent.some((r) => !r.signal)) {
       failures.push(
         `STEPS — ${f.name}\n      a request went out with no abort signal. fetch has no default timeout, so ` +
@@ -732,7 +776,13 @@ function ghContext() {
  * makes the degraded path say WHY the steps are unnamed instead of quietly
  * printing the old one-scalar sentence.
  *
- * 🔴 REQUIRES NO SCOPE, AND AN EARLIER DRAFT OF THIS LINE SAID `actions: read`.
+ * 🔴 REQUIRES NO SCOPE **ON A PUBLIC REPO**, AND AN EARLIER DRAFT SAID BOTH
+ * HALVES WRONG. It first said `actions: read` is required; the retry below made
+ * that false. The replacement said "REQUIRES NO SCOPE" flat, which is true only
+ * because this repo is public and the jobs endpoint answers anonymously. Copy
+ * this to a PRIVATE repo and the retry fails too, the enrichment degrades
+ * forever, and an unconditional sentence here would tell whoever investigates
+ * that no scope is needed. The earlier draft said `actions: read`.
  * That was written when the token went out unconditionally; it is false since the
  * 403/404 retry below, and the workflow grant it named has been deleted. Left
  * standing it would send the next maintainer debugging a degraded enrichment
@@ -776,8 +826,10 @@ export async function fetchFailedSteps(ctx, jobName, fetchImpl = fetch) {
   // "UNAUTHENTICATED-capable GET of a PUBLIC cross-repo endpoint" shape every
   // read step in this workflow already uses.
   let res;
+  let firstStatus;
   try {
     res = await get(true);
+    firstStatus = res.status;
     // 403 OR 404, and the 404 is not padding. A token that cannot see a resource
     // is answered 403 by some GitHub token types and 404 by others, and which one
     // a GITHUB_TOKEN lacking `actions` gets is the load-bearing precondition here
@@ -795,7 +847,7 @@ export async function fetchFailedSteps(ctx, jobName, fetchImpl = fetch) {
       stepsProblem:
         res.status === 403
           ? ctx.token
-            ? 'the jobs API answered 403 both with and without the token — on a PUBLIC repo that is a rate limit, not a missing scope'
+            ? `the jobs API answered ${firstStatus} with the token and ${res.status} without — on a PUBLIC repo that is a rate limit, not a missing scope`
             : 'the jobs API answered 403 to an anonymous request — on a PUBLIC repo that is the 60/hr shared-runner rate limit'
           : `the jobs API answered ${res.status}`,
     };
