@@ -34,18 +34,43 @@ import { descriptionHasTable } from './lib/description-has-table.mjs';
 // future action — its own header argues it will one day be unnecessary — so the
 // failure needs to carry its own remedy.
 let flagTablesIn;
+let isDelimiterRow;
 try {
-  ({ flagTablesIn } = await import('./check-no-hand-flag-tables.mjs'));
+  ({ flagTablesIn, isDelimiterRow } = await import('./check-no-hand-flag-tables.mjs'));
 } catch (err) {
+  // Two different failures reach here and they need different remedies, so do
+  // NOT print one message for both: a module that cannot be RESOLVED is the
+  // retirement case, while a module that resolves and throws while EVALUATING is
+  // a broken sibling that is still wanted. An earlier version printed the
+  // retirement remedy for both.
+  const retired = err?.code === 'ERR_MODULE_NOT_FOUND';
   console.error(
-    'FAIL could not load scripts/check-no-hand-flag-tables.mjs, which the last test below\n' +
-      '     measures this predicate against. If that guard was deliberately retired, delete the\n' +
-      '     "no-outer-pipe" test here and the paragraph in lib/description-has-table.mjs that\n' +
-      '     cites it as the reason for not importing it. Do not silence this by re-declaring the\n' +
-      '     regex locally — that is what it replaced.\n' +
-      `     underlying error: ${err.message}`,
+    retired
+      ? 'FAIL scripts/check-no-hand-flag-tables.mjs could not be resolved. If that guard was\n' +
+        '     deliberately retired, delete the "no-outer-pipe" test below AND the paragraph in\n' +
+        '     lib/description-has-table.mjs that cites it as the reason for not importing it. Do\n' +
+        '     not silence this by re-declaring its regex locally — that is what it replaced.'
+      : 'FAIL scripts/check-no-hand-flag-tables.mjs threw while loading. It still EXISTS, so this\n' +
+        '     is not the retirement case — fix it there; the test below is only its reader.',
   );
+  console.error(`     underlying error: ${err?.message}`);
   process.exit(1);
+}
+// 🔴 A RENAMED EXPORT DOES NOT THROW. ESM namespace destructuring yields
+// `undefined`, so the catch above never runs and the run dies later inside a
+// check with "flagTablesIn is not a function" — an error that names neither the
+// file nor the remedy. The static import this replaced failed at LINK time with
+// "does not provide an export named", which was at least legible; wrapping it
+// took that away, so put it back explicitly.
+for (const [name, fn] of [['flagTablesIn', flagTablesIn], ['isDelimiterRow', isDelimiterRow]]) {
+  if (typeof fn !== 'function') {
+    console.error(
+      `FAIL scripts/check-no-hand-flag-tables.mjs loaded but exports no \`${name}\` function.\n` +
+        '     It was renamed or removed rather than retired. Re-point the test below at its new\n' +
+        '     name, and update the paragraph in lib/description-has-table.mjs that names it.',
+    );
+    process.exit(1);
+  }
 }
 
 let failures = 0;
@@ -151,37 +176,52 @@ check('NEGATIVE CONTROL — the fixtures separate this predicate from the one it
 // `check-no-hand-flag-tables.mjs`'s `isDelimiterRow`, which is gated behind a
 // leading-pipe test and so cannot see a no-outer-pipe table. An earlier comment
 // claimed the two agreed. Pin the disagreement so it stays a decision.
-check('the no-outer-pipe shape is exactly where the sibling predicate cannot reach', () => {
-  // 🔴 MEASURED AGAINST `flagTablesIn`, THE SIBLING'S WHOLE PIPELINE — not against
-  // `isDelimiterRow` alone, which is what an earlier version did. That helper is
-  // only ONE of three places the sibling applies its leading-pipe rule (the other
-  // two gate the header and body rows inside `scanMarkdown`), so a change that
-  // open-codes those two while leaving the helper alone makes the FILE reach this
-  // shape while the HELPER still says it does not. Measured: that mutant left this
-  // battery green while `flagTablesIn` returned a match — a false green, in a test
-  // whose message is a claim about the file. The end-to-end entry point cannot
-  // disagree with itself that way.
-  const noOuter = 'a | b\n--- | ---\n1 | 2';
-  assert(descriptionHasTable(noOuter) === true, 'this predicate must detect a no-outer-pipe table');
-
-  // A no-outer-pipe FLAG table: the shape the sibling exists to find, written the
-  // one way it cannot see. If it ever returns a match here, the two predicates
-  // have converged.
-  const noOuterFlagTable = 'Flag | Description\n--- | ---\n`--json` | print raw JSON';
+// 🔴 THE SIBLING APPLIES ITS LEADING-PIPE RULE IN THREE PLACES, AND A TEST THAT
+// WATCHES ONE OF THEM IS A FALSE GREEN WAITING TO HAPPEN. Two earlier versions
+// of this test each watched a different single place and each MISSED a mutant
+// the other caught — they were a trade, not successive improvements:
+//
+//   mutant                                    isDelimiterRow-only   flagTablesIn-only
+//   widen isDelimiterRow's own gate                   RED                GREEN
+//   open-code the two scanMarkdown gates             GREEN               GREEN
+//   open-code all three                              GREEN                RED
+//
+// The middle row was green under BOTH, and a commit message claimed it red — it
+// described a two-edit mutant while the run that produced the number had made
+// three. So: assert every level, over every shape. They cost one line each.
+check('the sibling predicate cannot reach a no-outer-pipe flag table, at any level', () => {
   assert(
-    flagTablesIn(noOuterFlagTable, '(fixture)').length === 0,
-    'check-no-hand-flag-tables.mjs now DOES reach the no-outer-pipe shape. The two predicates no ' +
-      'longer disagree, so the reason lib/description-has-table.mjs gives for not importing it is ' +
-      'stale — re-check whether they can be unified, and update that comment either way.',
+    descriptionHasTable('a | b\n--- | ---\n1 | 2') === true,
+    'this predicate must detect a no-outer-pipe table',
   );
-  // POSITIVE CONTROL for the line above: prove `flagTablesIn` can return a match
-  // at all, so its zero is a reading rather than a function wired to nothing.
+
+  const STALE =
+    'check-no-hand-flag-tables.mjs now DOES reach a no-outer-pipe shape. The two predicates no ' +
+    'longer disagree, so the reason lib/description-has-table.mjs gives for not importing it is ' +
+    'stale — re-check whether they can be unified, and update that comment either way. Shape: ';
+
+  // LEVEL 1 — the exported helper, on the delimiter row alone.
+  assert(!isDelimiterRow('--- | ---'), `${STALE}isDelimiterRow('--- | ---')`);
+
+  // LEVEL 2 — the whole pipeline, over each of the three ways a flag table can
+  // shed its outer pipes. `scanMarkdown` gates the header and the body rows
+  // SEPARATELY, so a shape that unpipes only one of them is its own case.
+  const SHAPES = [
+    { why: 'header unpiped, delimiter and body piped', md: 'Flag | Description\n| --- | --- |\n| `--json` | print raw JSON |' },
+    { why: 'body unpiped, header and delimiter piped', md: '| Flag | Description |\n| --- | --- |\n`--json` | print raw JSON' },
+    { why: 'fully unpiped', md: 'Flag | Description\n--- | ---\n`--json` | print raw JSON' },
+  ];
+  const reached = SHAPES.filter((sh) => flagTablesIn(sh.md, '(fixture)').length > 0);
+  assert(reached.length === 0, STALE + reached.map((sh) => sh.why).join('; '));
+
+  // POSITIVE CONTROL for every `=== 0` above: prove flagTablesIn can return a
+  // match at all, or those zeros are a function wired to nothing rather than a
+  // reading. Differs from the shapes above in ONE dimension — the outer pipes.
   const withOuterPipes = '| Flag | Description |\n| --- | --- |\n| `--json` | print raw JSON |';
   assert(
     flagTablesIn(withOuterPipes, '(fixture)').length > 0,
-    'flagTablesIn found nothing in a CONVENTIONAL hand-written flag table, so its zero above ' +
-      'proves nothing about the no-outer-pipe shape. The sibling guard is not working — fix it ' +
-      'there, not here.',
+    'flagTablesIn found nothing in a CONVENTIONAL hand-written flag table, so every zero above ' +
+      'proves nothing. The sibling guard is not working — fix it there, not here.',
   );
 });
 
