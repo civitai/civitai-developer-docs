@@ -15,6 +15,21 @@ const version = JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf8')).
 const indexDts = join(pkgRoot, 'dist', 'index.d.ts');
 const readmePath = join(pkgRoot, 'README.md');
 
+// 🔴 COMPUTED ONCE, HERE, AND STAMPED INTO THE ARTIFACT — because the answer is
+// needed by TWO channels that render independently, and civitai-developer-docs#80
+// first fixed only one. appblocks-md.mjs writes the .md fallback region; the page
+// humans read is the Vue island <HooksReference>, which declares NO <slot /> and
+// therefore discards that region entirely. A predicate duplicated in both places
+// drifts; a predicate in only one is what shipped.
+//
+// GFM allows a delimiter cell of ONE or more dashes and a table with no
+// leading/trailing pipe. An earlier regex demanded a pipe on both sides and 3+
+// dashes, and missed both shapes.
+function descriptionHasTable(description) {
+  return /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/m.test(String(description ?? ''));
+}
+
+
 // ── README: heading order + example + prose per hook ──────────────────────────
 function parseReadme(md) {
   const order = [];
@@ -102,6 +117,7 @@ for (const name of readmeOrder) {
   ordered.push({
     ...hooks[name],
     description: readme.prose || hooks[name].jsdocDesc || '',
+    descriptionHasTable: descriptionHasTable(readme.prose || hooks[name].jsdocDesc || ''),
     example: readme.example || hooks[name].jsdocExample || '',
     exampleSource: readme.example ? 'readme' : hooks[name].jsdocExample ? 'jsdoc' : null,
   });
@@ -111,6 +127,7 @@ for (const [name, h] of Object.entries(hooks)) {
   ordered.push({
     ...h,
     description: h.jsdocDesc || '',
+    descriptionHasTable: descriptionHasTable(h.jsdocDesc || ''),
     example: h.jsdocExample || '',
     exampleSource: h.jsdocExample ? 'jsdoc' : null,
   });

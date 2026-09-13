@@ -180,17 +180,38 @@ async function main() {
   const props = (o) => Object.keys((o && o.properties) || {});
   const endpointOnly = props(prodCore).filter((k) => !props(sdkCore).includes(k));
   const canonicalOnly = props(sdkCore).filter((k) => !props(prodCore).includes(k));
+  // 🔴 THREE OUTCOMES, NOT TWO — AND THE MISSING THIRD WAS THIS FIX'S OWN DEFECT.
+  // The first version branched on `endpointOnly > 0 && canonicalOnly === 0` and
+  // fell through to the ORIGINAL hardcoded "prod endpoint LAGS" for everything
+  // else. Measured across five delta shapes: the MIXED case (both sides hold
+  // exclusive properties) printed that label directly above its own contradicting
+  // evidence — verbatim the defect this block exists to close — and a delta in
+  // `required[]` or in a per-field constraint moves NEITHER counter, so the
+  // direction was asserted with nothing to derive it from.
+  //
+  // A direction that cannot be established must be reported as undetermined.
   const docsBehind = endpointOnly.length > 0 && canonicalOnly.length === 0;
+  const endpointBehind = canonicalOnly.length > 0 && endpointOnly.length === 0;
+  const undetermined = !docsBehind && !endpointBehind;
 
   console.log(
     docsBehind
       ? '  ✗ the SDK-bundled (canonical) schema LAGS the prod endpoint (excluding $id/$schema):'
-      : '  ✗ prod endpoint LAGS the canonical (SDK-bundled) schema (excluding $id/$schema):',
+      : endpointBehind
+        ? '  ✗ prod endpoint LAGS the canonical (SDK-bundled) schema (excluding $id/$schema):'
+        : '  ✗ the two copies have DIVERGED — direction NOT determinable from the delta (excluding $id/$schema):',
   );
   for (const line of summarize(prodCore, sdkCore)) console.log(line);
   if (idNote) console.log(idNote);
 
-  if (docsBehind) {
+  if (undetermined) {
+    console.error('\n--- DIVERGED: DIRECTION NOT DETERMINED ---');
+    console.error('Each copy holds something the other does not, or the delta is not in `properties` at all');
+    console.error('(a differing `required[]`, or a per-field constraint). Either way NOTHING here establishes');
+    console.error('which side is behind, so this guard will not guess — read the summary above.');
+    console.error('🔴 Do NOT file a platform bug on this shape without checking the delta first: that is exactly');
+    console.error('how civitai-developer-docs#78 asserted a platform gap for what was a stale local pin.');
+  } else if (docsBehind) {
     console.error('\n--- OUR BUNDLED SCHEMA IS BEHIND THE ENDPOINT ---');
     console.error(`The endpoint declares ${endpointOnly.length} propert(y/ies) the SDK-bundled copy does not: ${endpointOnly.join(', ')}.`);
     console.error('That is OUR pin being stale, NOT a platform gap — the endpoint is ahead.');

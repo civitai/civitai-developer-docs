@@ -416,11 +416,11 @@ function renderManifest() {
  * content that cannot render inline (see `fence`), it is `v-pre` so no Vue
  * interpolation can reach it, and it keeps every row on its own line.
  */
-function describeHook(description) {
-  // A GFM delimiter row is the thing collapsing destroys. Match it anywhere,
-  // not just at a line start, because by the time we see a collapsed candidate
-  // it may already be mid-line.
-  return /\|\s*:?-{3,}:?\s*\|/.test(description) ? fence('md', description) : para(description);
+function describeHook(h) {
+  // Reads the flag gen-appblocks-hooks.mjs stamped into the artifact — the SAME
+  // value the Vue island branches on. One rule, one place: this used to be a
+  // second regex here, and it was the only channel that got fixed.
+  return h.descriptionHasTable ? fence('md', h.description) : para(h.description);
 }
 
 /** apps/reference/hooks.md — mirrors <HooksReference>. */
@@ -435,7 +435,7 @@ function renderHooks() {
         // which would put phantom entries in the outline.
         `**${code(h.name)}**`,
         fence('ts', h.signature),
-        h.description ? describeHook(h.description) : '',
+        h.description ? describeHook(h) : '',
         h.example ? fence('tsx', h.example) : '',
       ),
     )

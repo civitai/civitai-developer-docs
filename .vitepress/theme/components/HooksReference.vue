@@ -20,7 +20,16 @@ const hooks = data.hooks ?? [];
       <h3 :id="`hook-${h.name}`"><code>{{ h.name }}</code></h3>
       <div class="ab-sig-label">signature</div>
       <pre class="ab-sig"><code>{{ h.signature }}</code></pre>
-      <p v-if="h.description" class="ab-hook-desc">{{ h.description }}</p>
+      <!-- 🔴 A DESCRIPTION CARRYING A TABLE MUST NOT BE COLLAPSED. This <p> has no
+           white-space rule, so the browser flattens the source newlines: the
+           useCollectionFollow docstring rendered as an 1853-codepoint run of
+           literal pipes, burying its own instruction to check `err.timedOut`
+           BEFORE `.message`. `descriptionHasTable` is computed in
+           gen-appblocks-hooks.mjs and stamped into hooks.json, so this island and
+           the .md fallback region agree by construction rather than by two
+           regexes that drift. -->
+      <pre v-if="h.description && h.descriptionHasTable" class="ab-hook-desc ab-hook-desc-pre">{{ h.description }}</pre>
+      <p v-else-if="h.description" class="ab-hook-desc">{{ h.description }}</p>
       <template v-if="h.example">
         <div class="ab-sig-label">example</div>
         <pre class="ab-example"><code>{{ h.example }}</code></pre>
@@ -47,5 +56,6 @@ const hooks = data.hooks ?? [];
 }
 .ab-hook pre code { font-family: var(--vp-font-family-mono); font-size: 0.82rem; white-space: pre; }
 .ab-hook-desc { margin: 0.4rem 0 0.8rem; color: var(--vp-c-text-1); }
+.ab-hook-desc-pre { white-space: pre-wrap; font-family: inherit; overflow-x: auto; }
 .ab-empty { color: var(--vp-c-text-3); font-style: italic; }
 </style>
