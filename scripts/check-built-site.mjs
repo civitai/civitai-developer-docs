@@ -621,6 +621,27 @@ function readHooksJson() {
   const parsed = JSON.parse(readFileSync(hooksArtifact, 'utf8'));
   const hooks = (parsed.hooks ?? parsed).filter((h) => h && h.description);
   assert(hooks.length > 0, `${hooksArtifact} lists no hook with a description, so every assertion below is vacuous.`);
+  // 🔴 POSITIVE CONTROL FOR THE SET-SIZE LEDGER BELOW, AND THE ONLY THING THAT
+  // CATCHES THIS CLASS. The ledger is an equality: `pre.length === flagged`. If
+  // the generator stops stamping the flag — a rename, a typo at the one call
+  // site, a refactor — every hook arrives `undefined`, the template's
+  // `v-if="h.description && h.descriptionHasTable"` falls EVERY description to
+  // <p>, useCollectionFollow's error table collapses into the run of literal
+  // pipes this whole PR exists to fix, and the ledger reads `0 === 0` and
+  // `35 === 35`. MEASURED: with the field misspelled generator-side, the page
+  // built with ZERO <pre> and `check:built-site` exited 0.
+  //
+  // Asserting the TYPE rather than a count is deliberate: a `flagged >= 1` floor
+  // would also kill that mutant, but would red legitimately the day upstream
+  // ships no table at all. This cannot.
+  const untyped = hooks.filter((h) => typeof h.descriptionHasTable !== 'boolean').map((h) => h.name);
+  assert(
+    untyped.length === 0,
+    `${untyped.length} hook(s) carry no boolean \`descriptionHasTable\` (${untyped.slice(0, 3).join(', ')}${untyped.length > 3 ? ', …' : ''}). ` +
+      `The generator has stopped stamping it, so every description falls back to <p> and any GFM ` +
+      `table collapses — while the set-size ledger below still balances at zero. Check the field ` +
+      `name in gen-appblocks-hooks.mjs against the one HooksReference.vue reads.`,
+  );
   return hooks;
 }
 // Vue interpolation entity-encodes these on the way into the HTML; undo it so a
@@ -687,8 +708,19 @@ check(`${HOOKS_PAGE} escapes descriptions rather than injecting them as HTML`, (
     const want = String(h.description).trim();
     const body = raw.find((b) => decodeEntities(b).trim() === want);
     if (!body) continue; // the element check above owns "not on the page"
-    for (const ch of ['<', '>', '&', '"', "'"]) {
+    for (const ch of ['<', '>', '"', "'"]) {
       if (want.includes(ch) && body.includes(ch)) leaked.push(`${h.name}: a literal ${ch} survived into the HTML`);
+    }
+    // `&` is NOT in that list, and must not be: a correctly escaped page is FULL
+    // of `&` — it opens every entity Vue emits — so `body.includes('&')` is true
+    // whether or not the page is escaped, and an earlier version of this loop
+    // therefore red-lighted a perfectly rendered page the moment any upstream
+    // docstring contained an ampersand. `build-site` is a required context, so
+    // that is the reddens-for-unrelated-reasons failure this file warns about
+    // elsewhere. Ask the question that actually discriminates: is there an `&`
+    // that does NOT begin one of the five entities Vue produces?
+    if (/&(?!amp;|lt;|gt;|quot;|#39;)/.test(body)) {
+      leaked.push(`${h.name}: an & that begins no entity — the description was injected, not interpolated`);
     }
   }
   assert(

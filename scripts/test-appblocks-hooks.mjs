@@ -21,6 +21,11 @@
 // matches three columns is invisible to the real artifact. The fixtures below
 // are deliberately shapes the live corpus does NOT contain.
 import { descriptionHasTable } from './lib/description-has-table.mjs';
+// Imported, NOT re-declared. An earlier version of the test below copied that
+// file's `isTableRow` regex into a local const, which made its failure message —
+// a claim about the SIBLING — a tautology about a local literal: deleting
+// check-no-hand-flag-tables.mjs outright left this battery fully green.
+import { isDelimiterRow } from './check-no-hand-flag-tables.mjs';
 
 let failures = 0;
 function check(name, fn) {
@@ -128,10 +133,11 @@ check('NEGATIVE CONTROL — the fixtures separate this predicate from the one it
 check('the no-outer-pipe shape is exactly where the sibling predicate cannot reach', () => {
   const noOuter = 'a | b\n--- | ---\n1 | 2';
   assert(descriptionHasTable(noOuter) === true, 'this predicate must detect a no-outer-pipe table');
-  const siblingIsTableRow = (line) => /^\s*\|/.test(line);
   assert(
-    noOuter.split('\n').every((l) => !siblingIsTableRow(l)),
-    'the sibling gate would now reach this shape — re-check whether the two can be unified',
+    noOuter.split('\n').every((l) => !isDelimiterRow(l)),
+    'check-no-hand-flag-tables.mjs now DOES reach the no-outer-pipe shape. The two predicates no ' +
+      'longer disagree, so the reason lib/description-has-table.mjs gives for not importing it is ' +
+      'stale — re-check whether they can be unified, and update that comment either way.',
   );
 });
 
