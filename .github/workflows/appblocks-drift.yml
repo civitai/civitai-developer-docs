@@ -232,13 +232,6 @@ jobs:
     permissions:
       contents: read
       issues: write
-      # actions: read — so the notifier can list THIS run's jobs and NAME the
-      # steps that failed (civitai-developer-docs#76). Read-only, this repo only,
-      # and one endpoint: /actions/runs/<id>/jobs. Without it that call answers
-      # 403, which the script reports as a named problem rather than crashing —
-      # the alert still goes out, it just cannot say which check is red, which is
-      # the defect #76 is about.
-      actions: read
     steps:
       - uses: actions/checkout@v4
 
@@ -260,6 +253,10 @@ jobs:
       - name: Open, refresh or close the drift issue
         env:
           DRIFT_NOTIFY_JOB_RESULT: ${{ needs.drift.result }}
+          # The job's NAME, for the API lookup that names its failed steps. It
+          # sits here rather than defaulted in the script so that this line and
+          # the `needs.drift` above it are renamed together.
+          DRIFT_NOTIFY_JOB_NAME: drift
           DRIFT_NOTIFY_REPORT: ${{ runner.temp }}/report/example-apps-report.json
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run notify:drift
