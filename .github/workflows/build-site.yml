@@ -93,6 +93,15 @@ jobs:
       # call is ever reintroduced here, take this job out of the required set
       # first: a required check that reddens for reasons unrelated to the PR is
       # one everybody learns to click through, which is worse than no check.
+      # Runs BEFORE the build on purpose: it is a unit test of the predicate the
+      # build consumes, so a failure here should name the predicate rather than
+      # surfacing later as a page that renders under the wrong element. It is
+      # also the only check that can see a predicate regression at all — the
+      # page assertions in check:built-site pass when the flag and the element
+      # agree with each other, which is exactly what a narrowing produces.
+      - name: Assert the hook table-detection predicate still matches every GFM shape
+        run: npm run test:appblocks:hooks
+
       - name: Build the site
         env:
           APPBLOCKS_SNAPSHOT_ONLY: '1'

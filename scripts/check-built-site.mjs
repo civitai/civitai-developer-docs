@@ -574,6 +574,163 @@ let llmsGroupCount = null;
 
 console.log(`\nBUILT SITE — ${llmsTxt}`);
 
+// --- apps/reference/hooks.html: the collapsed-description regression ---------
+//
+// 🔴 THIS FILE HAD ZERO COVERAGE OF hooks.html, AND THAT IS HOW THE BUG SHIPPED.
+// civitai-developer-docs#80 flattened a hook description carrying a GFM table
+// into a single 1853-codepoint run of literal pipes on the rendered page —
+// burying that docstring's own instruction to check `err.timedOut` BEFORE
+// `.message`. The first fix targeted the .md fallback region, which
+// <HooksReference> DISCARDS (it declares no <slot />), so `check:md-regions`
+// went green over a page that was still broken. Only building the site and
+// reading the HTML found it, by hand, once.
+//
+// 🔴 WHAT THESE CAN AND CANNOT SEE — stated because the first version of this
+// block claimed more than it did, and round 3 measured the gap:
+//   CAN  — the <pre> branch being deleted; the flag the template reads being
+//          misspelled; the interpolation being swapped to an adjacent field
+//          (`h.example`); a description rendered through the wrong element.
+//   CANNOT — a regression in the PREDICATE itself. If `descriptionHasTable`
+//          narrows, the stamped flag and the rendered element still AGREE, and
+//          every assertion here passes. Measured: restoring the pre-fix regex
+//          left `check:built-site`, `check:md-regions`, `check:no-flag-tables`
+//          and `check:snapshots` all green. `test-appblocks-hooks.mjs` is the
+//          only thing that covers that class; do not read this block as if it
+//          did.
+//
+// These assert a RELATIONSHIP — every description in `hooks.json` appears on the
+// page under the element its own flag calls for, and the two sets are the same
+// size — rather than a floor on how many lines or elements exist. An earlier
+// version used floors (`>= 10` lines, `>= 1` <pre>), which red-lighted a
+// CORRECTLY rendered small table: a minimal 2x2 GFM table is 5 lines, and the
+// failure message asserted it "is being collapsed" when it was not.
+const HOOKS_PAGE = 'apps/reference/hooks.html';
+const hooksBuilt = join(distDir, 'apps', 'reference', 'hooks.html');
+const hooksArtifact = join(repoRoot, 'public', 'appblocks', 'hooks.json');
+
+// Read once per check, like the other families here, and refuse a MISSING page
+// rather than letting an absent file read as "nothing to assert" — the zero that
+// looks exactly like a pass. Same for the artifact: without it every loop below
+// iterates zero times and reports success.
+function readHooksHtml() {
+  assert(existsSync(hooksBuilt), `${hooksBuilt} was not built, so nothing below measured the page a human reads.`);
+  return readFileSync(hooksBuilt, 'utf8');
+}
+function readHooksJson() {
+  assert(existsSync(hooksArtifact), `${hooksArtifact} is missing — run \`npm run gen:appblocks\`. Without it the checks below iterate over nothing and pass vacuously.`);
+  const parsed = JSON.parse(readFileSync(hooksArtifact, 'utf8'));
+  const hooks = (parsed.hooks ?? parsed).filter((h) => h && h.description);
+  assert(hooks.length > 0, `${hooksArtifact} lists no hook with a description, so every assertion below is vacuous.`);
+  // 🔴 POSITIVE CONTROL FOR THE SET-SIZE LEDGER BELOW, AND THE ONLY THING THAT
+  // CATCHES THIS CLASS. The ledger is an equality: `pre.length === flagged`. If
+  // the generator stops stamping the flag — a rename, a typo at either of the
+  // two call sites, a refactor — every hook arrives `undefined`, the template's
+  // `v-if="h.description && h.descriptionHasTable"` falls EVERY description to
+  // <p>, useCollectionFollow's error table collapses into the run of literal
+  // pipes this whole PR exists to fix, and the ledger reads `0 === 0` and
+  // `35 === 35`. MEASURED: with the field misspelled generator-side, the page
+  // built with ZERO <pre> and `check:built-site` exited 0.
+  //
+  // Asserting the TYPE rather than a count is deliberate: a `flagged >= 1` floor
+  // would also kill that mutant, but would red legitimately the day upstream
+  // ships no table at all. This cannot.
+  const untyped = hooks.filter((h) => typeof h.descriptionHasTable !== 'boolean').map((h) => h.name);
+  assert(
+    untyped.length === 0,
+    `${untyped.length} hook(s) carry no boolean \`descriptionHasTable\` (${untyped.slice(0, 3).join(', ')}${untyped.length > 3 ? ', …' : ''}). ` +
+      `The generator has stopped stamping it, so every description falls back to <p> and any GFM ` +
+      `table collapses — while the set-size ledger below still balances at zero. Check the field ` +
+      `name in gen-appblocks-hooks.mjs against the one HooksReference.vue reads.`,
+  );
+  return hooks;
+}
+// Vue interpolation entity-encodes these on the way into the HTML; undo it so a
+// rendered body can be compared to the source string it came from.
+const decodeEntities = (s) =>
+  s
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&');
+const bodiesOf = (html, re) => [...html.matchAll(re)].map((m) => m[1]);
+const PRE_RE = /<pre class="ab-hook-desc ab-hook-desc-pre"[^>]*>([\s\S]*?)<\/pre>/g;
+const P_RE = /<p class="ab-hook-desc"[^>]*>([\s\S]*?)<\/p>/g;
+
+check(`every ${HOOKS_PAGE} description renders under the element its own flag calls for`, () => {
+  const html = readHooksHtml();
+  const hooks = readHooksJson();
+  const pre = bodiesOf(html, PRE_RE).map((b) => decodeEntities(b).trim());
+  const para = bodiesOf(html, P_RE).map((b) => decodeEntities(b).trim());
+
+  const wrong = [];
+  for (const h of hooks) {
+    const want = String(h.description).trim();
+    const inPre = pre.includes(want);
+    const inP = para.includes(want);
+    if (h.descriptionHasTable && !inPre) {
+      wrong.push(`${h.name}: carries a GFM table but its description is ${inP ? 'in a <p>, where every row collapses into one run of literal pipes' : 'NOT ON THE PAGE AT ALL — the template is rendering some other field here'}`);
+    }
+    if (!h.descriptionHasTable && !inP) {
+      wrong.push(`${h.name}: ordinary prose, but its description is ${inPre ? 'fenced in a <pre>, where it renders as unwrapped monospace' : 'NOT ON THE PAGE AT ALL — the template is rendering some other field here'}`);
+    }
+  }
+  assert(wrong.length === 0, `${wrong.length} hook description(s) rendered under the wrong element:\n` + wrong.map((w) => `         - ${w}`).join('\n'));
+
+  // Both directions: a description the artifact does not list must not appear
+  // either, or the page is rendering something this check never inspected.
+  const flagged = hooks.filter((h) => h.descriptionHasTable).length;
+  assert(
+    pre.length === flagged && para.length === hooks.length - flagged,
+    `the page holds ${pre.length} <pre> and ${para.length} <p> description(s), but hooks.json ` +
+      `declares ${flagged} table-bearing and ${hooks.length - flagged} ordinary. The sets have ` +
+      `diverged — something is rendering a description this check did not match.`,
+  );
+});
+
+check(`${HOOKS_PAGE} escapes descriptions rather than injecting them as HTML`, () => {
+  const html = readHooksHtml();
+  const hooks = readHooksJson();
+  // POSITIVE CONTROL. Without it this check is a reassuring zero: if no
+  // description contained an escapable character, the assertion below could not
+  // fail however the page were rendered. Measured at the time of writing: 18 of
+  // 35 descriptions carry one (apostrophes, mostly).
+  const escapable = hooks.filter((h) => /[<>&"']/.test(h.description));
+  assert(
+    escapable.length > 0,
+    `no description contains a character that needs escaping, so this check cannot ` +
+      `distinguish an escaped page from a v-html one. It is currently proving nothing — ` +
+      `re-point it at a field that does, or delete it.`,
+  );
+  const raw = [...bodiesOf(html, PRE_RE), ...bodiesOf(html, P_RE)];
+  const leaked = [];
+  for (const h of escapable) {
+    const want = String(h.description).trim();
+    const body = raw.find((b) => decodeEntities(b).trim() === want);
+    if (!body) continue; // the element check above owns "not on the page"
+    for (const ch of ['<', '>', '"', "'"]) {
+      if (want.includes(ch) && body.includes(ch)) leaked.push(`${h.name}: a literal ${ch} survived into the HTML`);
+    }
+    // `&` is NOT in that list, and must not be: a correctly escaped page is FULL
+    // of `&` — it opens every entity Vue emits — so `body.includes('&')` is true
+    // whether or not the page is escaped, and an earlier version of this loop
+    // therefore red-lighted a perfectly rendered page the moment any upstream
+    // docstring contained an ampersand. `build-site` is a required context, so
+    // that is the reddens-for-unrelated-reasons failure this file warns about
+    // elsewhere. Ask the question that actually discriminates: is there an `&`
+    // that does NOT begin one of the five entities Vue produces?
+    if (/&(?!amp;|lt;|gt;|quot;|#39;)/.test(body)) {
+      leaked.push(`${h.name}: an & that begins no entity — the description was injected, not interpolated`);
+    }
+  }
+  assert(
+    leaked.length === 0,
+    `${leaked.length} description(s) reached the page unescaped. These are uploader-adjacent ` +
+      `strings from an upstream package; they must be interpolated ({{ }}), never v-html:\n` +
+      leaked.map((l) => `         - ${l}`).join('\n'),
+  );
+});
+
 check('the llms.txt duplicate detector still detects (fixture table)', () => {
   const wrong = LLMS_FIXTURES.filter((f) => duplicateGroups(tocGroups(f.text)).length !== f.expect);
   assert(

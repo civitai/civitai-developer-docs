@@ -9,11 +9,19 @@ import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget } from 'ts-morp
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { log, resolvePackageRoot, writeArtifact } from './appblocks-util.mjs';
+import { descriptionHasTable } from './lib/description-has-table.mjs';
 
 const pkgRoot = resolvePackageRoot('@civitai/blocks-react');
 const version = JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf8')).version;
 const indexDts = join(pkgRoot, 'dist', 'index.d.ts');
 const readmePath = join(pkgRoot, 'README.md');
+
+// 🔴 COMPUTED ONCE AND STAMPED INTO THE ARTIFACT — the predicate itself lives in
+// `lib/description-has-table.mjs`, imported above, because it is needed by two
+// channels that render independently and a copy in each drifts. That module's
+// doc comment carries the two earlier versions and why each was wrong; its
+// fixture battery is `test-appblocks-hooks.mjs`.
+
 
 // ── README: heading order + example + prose per hook ──────────────────────────
 function parseReadme(md) {
@@ -102,6 +110,7 @@ for (const name of readmeOrder) {
   ordered.push({
     ...hooks[name],
     description: readme.prose || hooks[name].jsdocDesc || '',
+    descriptionHasTable: descriptionHasTable(readme.prose || hooks[name].jsdocDesc || ''),
     example: readme.example || hooks[name].jsdocExample || '',
     exampleSource: readme.example ? 'readme' : hooks[name].jsdocExample ? 'jsdoc' : null,
   });
@@ -111,6 +120,7 @@ for (const [name, h] of Object.entries(hooks)) {
   ordered.push({
     ...h,
     description: h.jsdocDesc || '',
+    descriptionHasTable: descriptionHasTable(h.jsdocDesc || ''),
     example: h.jsdocExample || '',
     exampleSource: h.jsdocExample ? 'jsdoc' : null,
   });

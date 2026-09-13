@@ -12,18 +12,23 @@
  *      the Phase-2 generator reads into public/appblocks/manifest-schema.json →
  *      renders reference/manifest.md. THIS is the source of record.
  *   B. the prod ENDPOINT  https://civitai.com/api/blocks/manifest-schema
- *      (its hand-built MANIFEST_JSON_SCHEMA object). This is the LAGGING copy:
- *      it understates blockId/version and OMITS the enforced `category` +
- *      `assetBundleUrl` fields, so it under-documents the real constraints.
+ *      (its hand-built MANIFEST_JSON_SCHEMA object).
+ *
+ * 🔴 NEITHER COPY IS DECLARED THE LAGGING ONE HERE, AND THAT IS THE POINT.
+ * This comment used to assert that B lagged A — that it understated
+ * blockId/version and omitted the enforced `category` + `assetBundleUrl`
+ * fields. That was true when written and is REFUTED as of 2026-09-13: the
+ * guard passes, and those fields are present on both sides. A direction
+ * hardcoded in prose outlives the reading it came from, so the direction is
+ * now DERIVED from the delta at runtime, per run, and this header states no
+ * direction at all.
  *
  * The docs no longer generate from the endpoint (that was the bug this guard
- * used to paper over). This guard now exists to flag the endpoint's divergence
- * as an ACTIONABLE signal: while B differs from A, the public CLI-fetchable
- * endpoint is still behind the canonical, and the sibling civitai PR that makes
- * the endpoint serve the canonical file verbatim has not shipped. It
- * deep-compares the two and FAILS on any SUBSTANTIVE divergence, naming the
- * delta. Once the endpoint serves the canonical, this guard goes GREEN
- * automatically — no docs change required.
+ * used to paper over). It deep-compares the two and FAILS on any SUBSTANTIVE
+ * divergence, naming the delta and — where the delta permits — which side is
+ * behind. It does NOT guess when the delta is two-sided: see the third arm
+ * under RESULTS. Whenever the two agree, this guard goes GREEN automatically —
+ * no docs change required.
  *
  * The top-level `$id` and `$schema` are EXCLUDED from the equality decision by
  * design: the endpoint may keep serving under its own `$id` (the `/api/...` URL)
@@ -42,7 +47,14 @@
  *
  * RESULTS
  *   - both fetched, deep-equal        -> PASS (exit 0)
- *   - both fetched, differ            -> FAIL (exit 1), printing the field/key delta
+ *   - only the ENDPOINT has extra     -> FAIL (exit 1): the canonical lags the endpoint
+ *   - only the CANONICAL has extra    -> FAIL (exit 1): the endpoint lags the canonical
+ *   - each side has something, or the -> FAIL (exit 1): DIVERGED, direction NOT determined.
+ *     delta is not in `properties`       The guard refuses to name a side, because a
+ *                                        two-sided delta establishes none. Read the delta
+ *                                        before filing anything upstream — an asserted
+ *                                        direction here is how #78 reported a platform gap
+ *                                        for what turned out to be a stale local pin.
  *   - prod unreachable                -> SKIP (exit 0, note) — never false-fail
  *   - SDK doesn't ship the schema     -> SKIP (exit 0, note)
  *
@@ -169,16 +181,69 @@ async function main() {
     return;
   }
 
-  console.log('  ✗ prod endpoint LAGS the canonical (SDK-bundled) schema (excluding $id/$schema):');
+  // 🔴 READ THE DIRECTION OFF THE DELTA. DO NOT HARDCODE IT.
+  // This block said 'prod endpoint LAGS' on ANY inequality, and printed it
+  // directly above its own contradicting evidence: on run 34737535532 the next
+  // line read 'manifest fields only in the ENDPOINT : bootSkeleton' — the
+  // endpoint was the WIDER side and our bundled copy was behind. That label was
+  // believed over the evidence and filed as a platform gap in civitai-developer-docs#78;
+  // it was a stale @civitai/app-sdk pin here, and 0.37.0 -> 0.39.0 greened it
+  // with no platform change at all.
+  const props = (o) => Object.keys((o && o.properties) || {});
+  const endpointOnly = props(prodCore).filter((k) => !props(sdkCore).includes(k));
+  const canonicalOnly = props(sdkCore).filter((k) => !props(prodCore).includes(k));
+  // 🔴 THREE OUTCOMES, NOT TWO — AND THE MISSING THIRD WAS THIS FIX'S OWN DEFECT.
+  // The first version branched on `endpointOnly > 0 && canonicalOnly === 0` and
+  // fell through to the ORIGINAL hardcoded "prod endpoint LAGS" for everything
+  // else. Measured across five delta shapes: the MIXED case (both sides hold
+  // exclusive properties) printed that label directly above its own contradicting
+  // evidence — verbatim the defect this block exists to close — and a delta in
+  // `required[]` or in a per-field constraint moves NEITHER counter, so the
+  // direction was asserted with nothing to derive it from.
+  //
+  // A direction that cannot be established must be reported as undetermined.
+  const docsBehind = endpointOnly.length > 0 && canonicalOnly.length === 0;
+  const endpointBehind = canonicalOnly.length > 0 && endpointOnly.length === 0;
+  const undetermined = !docsBehind && !endpointBehind;
+
+  console.log(
+    docsBehind
+      ? '  ✗ the SDK-bundled (canonical) schema LAGS the prod endpoint (excluding $id/$schema):'
+      : endpointBehind
+        ? '  ✗ prod endpoint LAGS the canonical (SDK-bundled) schema (excluding $id/$schema):'
+        : '  ✗ the two copies have DIVERGED — direction NOT determinable from the delta (excluding $id/$schema):',
+  );
   for (const line of summarize(prodCore, sdkCore)) console.log(line);
   if (idNote) console.log(idNote);
 
-  console.error('\n--- MANIFEST ENDPOINT BEHIND CANONICAL ---');
-  console.error('The docs + SDK + Go CLI all use the CANONICAL schema (public/schemas/app-block/v1.json,');
-  console.error('bundled in @civitai/app-sdk). The prod endpoint /api/blocks/manifest-schema still serves an');
-  console.error('older/looser copy, so any consumer that fetches the endpoint gets an under-specified contract.');
-  console.error('ACTION: merge the sibling civitai PR that makes the endpoint serve the canonical file verbatim.');
-  console.error('This guard goes GREEN automatically once the endpoint returns the canonical body — no docs change.');
+  if (undetermined) {
+    console.error('\n--- DIVERGED: DIRECTION NOT DETERMINED ---');
+    console.error('Each copy holds something the other does not, or the delta is not in `properties` at all');
+    console.error('(a differing `required[]`, or a per-field constraint). Either way NOTHING here establishes');
+    console.error('which side is behind, so this guard will not guess — read the summary above.');
+    console.error('🔴 Do NOT file a platform bug on this shape without checking the delta first: that is exactly');
+    console.error('how civitai-developer-docs#78 asserted a platform gap for what was a stale local pin.');
+  } else if (docsBehind) {
+    console.error('\n--- OUR BUNDLED SCHEMA IS BEHIND THE ENDPOINT ---');
+    console.error(`The endpoint declares ${endpointOnly.length} propert(y/ies) the SDK-bundled copy does not: ${endpointOnly.join(', ')}.`);
+    console.error('That is OUR pin being stale, NOT a platform gap — the endpoint is ahead.');
+    console.error('ACTION: bump @civitai/app-sdk in package.json to a version whose bundled v1.json carries them,');
+    console.error('then re-run. Do NOT file a platform bug for this shape; see civitai-developer-docs#76.');
+  } else {
+    console.error('\n--- MANIFEST ENDPOINT BEHIND CANONICAL ---');
+    console.error('The docs + SDK + Go CLI all use the CANONICAL schema (public/schemas/app-block/v1.json,');
+    console.error('bundled in @civitai/app-sdk). The prod endpoint /api/blocks/manifest-schema still serves an');
+    console.error('older/looser copy, so any consumer that fetches the endpoint gets an under-specified contract.');
+    // 🔴 No named remedy here on purpose. This arm used to print "merge the
+    // sibling civitai PR that makes the endpoint serve the canonical file
+    // verbatim" — a PR that had already landed by the time anyone read it, so
+    // the line pointed an operator at work that no longer existed. Same vintage
+    // as the header claim retracted above, and it survived that retraction
+    // because only the header was swept.
+    console.error('ACTION: reconcile the endpoint with the canonical schema. Read the delta above first —');
+    console.error('do NOT assume a specific upstream change is still pending; check before filing anything.');
+    console.error('This guard goes GREEN automatically once the endpoint returns the canonical body — no docs change.');
+  }
   process.exit(1);
 }
 
