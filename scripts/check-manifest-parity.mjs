@@ -169,16 +169,41 @@ async function main() {
     return;
   }
 
-  console.log('  ✗ prod endpoint LAGS the canonical (SDK-bundled) schema (excluding $id/$schema):');
+  // 🔴 READ THE DIRECTION OFF THE DELTA. DO NOT HARDCODE IT.
+  // This block said 'prod endpoint LAGS' on ANY inequality, and printed it
+  // directly above its own contradicting evidence: on run 34737535532 the next
+  // line read 'manifest fields only in the ENDPOINT : bootSkeleton' — the
+  // endpoint was the WIDER side and our bundled copy was behind. That label was
+  // believed over the evidence and filed as a platform gap in civitai-developer-docs#78;
+  // it was a stale @civitai/app-sdk pin here, and 0.37.0 -> 0.39.0 greened it
+  // with no platform change at all.
+  const props = (o) => Object.keys((o && o.properties) || {});
+  const endpointOnly = props(prodCore).filter((k) => !props(sdkCore).includes(k));
+  const canonicalOnly = props(sdkCore).filter((k) => !props(prodCore).includes(k));
+  const docsBehind = endpointOnly.length > 0 && canonicalOnly.length === 0;
+
+  console.log(
+    docsBehind
+      ? '  ✗ the SDK-bundled (canonical) schema LAGS the prod endpoint (excluding $id/$schema):'
+      : '  ✗ prod endpoint LAGS the canonical (SDK-bundled) schema (excluding $id/$schema):',
+  );
   for (const line of summarize(prodCore, sdkCore)) console.log(line);
   if (idNote) console.log(idNote);
 
-  console.error('\n--- MANIFEST ENDPOINT BEHIND CANONICAL ---');
-  console.error('The docs + SDK + Go CLI all use the CANONICAL schema (public/schemas/app-block/v1.json,');
-  console.error('bundled in @civitai/app-sdk). The prod endpoint /api/blocks/manifest-schema still serves an');
-  console.error('older/looser copy, so any consumer that fetches the endpoint gets an under-specified contract.');
-  console.error('ACTION: merge the sibling civitai PR that makes the endpoint serve the canonical file verbatim.');
-  console.error('This guard goes GREEN automatically once the endpoint returns the canonical body — no docs change.');
+  if (docsBehind) {
+    console.error('\n--- OUR BUNDLED SCHEMA IS BEHIND THE ENDPOINT ---');
+    console.error(`The endpoint declares ${endpointOnly.length} propert(y/ies) the SDK-bundled copy does not: ${endpointOnly.join(', ')}.`);
+    console.error('That is OUR pin being stale, NOT a platform gap — the endpoint is ahead.');
+    console.error('ACTION: bump @civitai/app-sdk in package.json to a version whose bundled v1.json carries them,');
+    console.error('then re-run. Do NOT file a platform bug for this shape; see civitai-developer-docs#76.');
+  } else {
+    console.error('\n--- MANIFEST ENDPOINT BEHIND CANONICAL ---');
+    console.error('The docs + SDK + Go CLI all use the CANONICAL schema (public/schemas/app-block/v1.json,');
+    console.error('bundled in @civitai/app-sdk). The prod endpoint /api/blocks/manifest-schema still serves an');
+    console.error('older/looser copy, so any consumer that fetches the endpoint gets an under-specified contract.');
+    console.error('ACTION: merge the sibling civitai PR that makes the endpoint serve the canonical file verbatim.');
+    console.error('This guard goes GREEN automatically once the endpoint returns the canonical body — no docs change.');
+  }
   process.exit(1);
 }
 

@@ -395,6 +395,34 @@ function renderManifest() {
   );
 }
 
+/**
+ * A hook description, which is upstream's docstring and therefore not ours to
+ * reword.
+ *
+ * 🔴 `para()` COLLAPSES NEWLINES, AND ONE UPSTREAM DOCSTRING NOW CONTAINS A GFM
+ * TABLE. `useCollectionFollow` (blocks-react 0.49.0) documents its five error
+ * cases as a table; collapsed, the delimiter row lands mid-sentence and the whole
+ * thing renders as an 1853-character run of literal pipes — including the 🔴
+ * instruction to test `err.timedOut` BEFORE `.message`, and the warning that a
+ * timeout does not mean no write occurred. A reader who misses that reverts local
+ * state on a follow that actually succeeded.
+ *
+ * check:md-regions cannot see it: the region IS byte-identical to generator
+ * output. "Freshly generated" and "renders" are different claims.
+ *
+ * codeCell's idiom here is to THROW and tell the author to reword — but the
+ * author is upstream, so throwing would make the docs un-regenerable until
+ * someone else's package changes. A fence is this file's other escape hatch for
+ * content that cannot render inline (see `fence`), it is `v-pre` so no Vue
+ * interpolation can reach it, and it keeps every row on its own line.
+ */
+function describeHook(description) {
+  // A GFM delimiter row is the thing collapsing destroys. Match it anywhere,
+  // not just at a line start, because by the time we see a collapsed candidate
+  // it may already be mid-line.
+  return /\|\s*:?-{3,}:?\s*\|/.test(description) ? fence('md', description) : para(description);
+}
+
 /** apps/reference/hooks.md — mirrors <HooksReference>. */
 function renderHooks() {
   const { hooks } = loadArtifact('hooks.json');
@@ -407,7 +435,7 @@ function renderHooks() {
         // which would put phantom entries in the outline.
         `**${code(h.name)}**`,
         fence('ts', h.signature),
-        h.description ? para(h.description) : '',
+        h.description ? describeHook(h.description) : '',
         h.example ? fence('tsx', h.example) : '',
       ),
     )
