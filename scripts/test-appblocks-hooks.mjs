@@ -25,7 +25,28 @@ import { descriptionHasTable } from './lib/description-has-table.mjs';
 // file's `isTableRow` regex into a local const, which made its failure message —
 // a claim about the SIBLING — a tautology about a local literal: deleting
 // check-no-hand-flag-tables.mjs outright left this battery fully green.
-import { isDelimiterRow } from './check-no-hand-flag-tables.mjs';
+//
+// 🔴 Dynamic, and wrapped, because this file is step 1 of the `build-site` job
+// and `build-site` is a required context. A bare static import of a file that
+// has been retired or renamed kills the run with an unexplained
+// ERR_MODULE_NOT_FOUND stack inside a job called "build-site", which tells the
+// next maintainer nothing about what to do. Retiring that guard is a legitimate
+// future action — its own header argues it will one day be unnecessary — so the
+// failure needs to carry its own remedy.
+let flagTablesIn;
+try {
+  ({ flagTablesIn } = await import('./check-no-hand-flag-tables.mjs'));
+} catch (err) {
+  console.error(
+    'FAIL could not load scripts/check-no-hand-flag-tables.mjs, which the last test below\n' +
+      '     measures this predicate against. If that guard was deliberately retired, delete the\n' +
+      '     "no-outer-pipe" test here and the paragraph in lib/description-has-table.mjs that\n' +
+      '     cites it as the reason for not importing it. Do not silence this by re-declaring the\n' +
+      '     regex locally — that is what it replaced.\n' +
+      `     underlying error: ${err.message}`,
+  );
+  process.exit(1);
+}
 
 let failures = 0;
 function check(name, fn) {
@@ -131,13 +152,36 @@ check('NEGATIVE CONTROL — the fixtures separate this predicate from the one it
 // leading-pipe test and so cannot see a no-outer-pipe table. An earlier comment
 // claimed the two agreed. Pin the disagreement so it stays a decision.
 check('the no-outer-pipe shape is exactly where the sibling predicate cannot reach', () => {
+  // 🔴 MEASURED AGAINST `flagTablesIn`, THE SIBLING'S WHOLE PIPELINE — not against
+  // `isDelimiterRow` alone, which is what an earlier version did. That helper is
+  // only ONE of three places the sibling applies its leading-pipe rule (the other
+  // two gate the header and body rows inside `scanMarkdown`), so a change that
+  // open-codes those two while leaving the helper alone makes the FILE reach this
+  // shape while the HELPER still says it does not. Measured: that mutant left this
+  // battery green while `flagTablesIn` returned a match — a false green, in a test
+  // whose message is a claim about the file. The end-to-end entry point cannot
+  // disagree with itself that way.
   const noOuter = 'a | b\n--- | ---\n1 | 2';
   assert(descriptionHasTable(noOuter) === true, 'this predicate must detect a no-outer-pipe table');
+
+  // A no-outer-pipe FLAG table: the shape the sibling exists to find, written the
+  // one way it cannot see. If it ever returns a match here, the two predicates
+  // have converged.
+  const noOuterFlagTable = 'Flag | Description\n--- | ---\n`--json` | print raw JSON';
   assert(
-    noOuter.split('\n').every((l) => !isDelimiterRow(l)),
+    flagTablesIn(noOuterFlagTable, '(fixture)').length === 0,
     'check-no-hand-flag-tables.mjs now DOES reach the no-outer-pipe shape. The two predicates no ' +
       'longer disagree, so the reason lib/description-has-table.mjs gives for not importing it is ' +
       'stale — re-check whether they can be unified, and update that comment either way.',
+  );
+  // POSITIVE CONTROL for the line above: prove `flagTablesIn` can return a match
+  // at all, so its zero is a reading rather than a function wired to nothing.
+  const withOuterPipes = '| Flag | Description |\n| --- | --- |\n| `--json` | print raw JSON |';
+  assert(
+    flagTablesIn(withOuterPipes, '(fixture)').length > 0,
+    'flagTablesIn found nothing in a CONVENTIONAL hand-written flag table, so its zero above ' +
+      'proves nothing about the no-outer-pipe shape. The sibling guard is not working — fix it ' +
+      'there, not here.',
   );
 });
 

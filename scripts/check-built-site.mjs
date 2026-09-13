@@ -623,8 +623,8 @@ function readHooksJson() {
   assert(hooks.length > 0, `${hooksArtifact} lists no hook with a description, so every assertion below is vacuous.`);
   // 🔴 POSITIVE CONTROL FOR THE SET-SIZE LEDGER BELOW, AND THE ONLY THING THAT
   // CATCHES THIS CLASS. The ledger is an equality: `pre.length === flagged`. If
-  // the generator stops stamping the flag — a rename, a typo at the one call
-  // site, a refactor — every hook arrives `undefined`, the template's
+  // the generator stops stamping the flag — a rename, a typo at either of the
+  // two call sites, a refactor — every hook arrives `undefined`, the template's
   // `v-if="h.description && h.descriptionHasTable"` falls EVERY description to
   // <p>, useCollectionFollow's error table collapses into the run of literal
   // pipes this whole PR exists to fix, and the ledger reads `0 === 0` and
