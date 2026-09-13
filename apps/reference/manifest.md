@@ -43,6 +43,7 @@ the server accepts.
 | `publicSettingsKeys` | `string[]` | optional | Allowlist of settings keys exposed to anonymous viewers. Default (omitted) = none exposed. `maxItems 32` |
 | `assetBundleUrl` | `string (uri)` | optional | Optional v2 surface — HTTPS URL to a hosted asset bundle. Must be a public https URL. `pattern: ^https://` |
 | `iframe` | `object` | optional | iframe envelope. NOTE: iframe.src is SERVER-OWNED — do NOT set it; the platform stamps the canonical bundle URL during build/approve. |
+| `bootSkeleton` | `boolean` | optional | The app's shipped index.html paints its own loading state inside #root. The full-page run host then stands down its own branded overlay and shows the iframe from mount, so the app's boot state is visible at first paint and its own render replaces it in place with no cross-fade and no reveal transform. Omit (or false) unless the app really ships one: with the overlay stood down, an empty #root is a blank iframe for the whole load. To paint in the HOST's theme rather than guessing from prefers-color-scheme, the app must also be enabled for the BLOCK_INIT URL fragment and read it before first paint; without that the theme is a guess that can disagree with the host and be corrected on BLOCK_INIT. `default: false` |
 | `page` | `object` | optional | Full-page surface descriptor (W10). Page apps mount at /apps/run/\<slug>. |
 | `targets` | `object[]` | optional | Model-page slot targets. Each target's slotId must be a known registered model slot (not the page slot). Optional for page-only apps. `maxItems 16` |
 

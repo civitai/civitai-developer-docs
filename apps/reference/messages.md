@@ -2,7 +2,7 @@
 title: Message bridge reference
 description: The full postMessage protocol between a Civitai App and its host — payloads, directions, request/reply pairing, and page-only messages.
 sources:
-  - npm:@civitai/app-sdk@0.37.0/blocks#messages.d.ts
+  - npm:@civitai/app-sdk@0.39.0/blocks#messages.d.ts
   - civitai:src/components/AppBlocks/hostHandlerParity.ts#INVENTORY
 ---
 
@@ -1010,6 +1010,30 @@ reply `SAVE_IMAGE_RESULT`:
 ```
 
 Model slot: download bridge is a page-only affordance today; the paid-output apps are page apps, the model slot has no such surface
+
+**`SET_COLLECTION_FOLLOW`** — block → host · request → reply
+
+payload:
+
+```ts
+{
+    requestId: string;
+    /** Positive integer. A numeric STRING is refused, never coerced. */
+    collectionId: number;
+    /** `true` ⇒ follow, `false` ⇒ unfollow. */
+    follow: boolean;
+}
+```
+
+reply `COLLECTION_FOLLOW_RESULT`:
+
+```ts
+{
+    requestId: string;
+    result?: BlockCollectionFollowResult;
+    error?: BlockCollectionFollowErrorCode | string;
+}
+```
 
 **`THEME_CHANGE`** — host → block
 

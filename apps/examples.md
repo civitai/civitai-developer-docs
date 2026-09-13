@@ -113,7 +113,7 @@ its block token as a Bearer, behind a single swappable `ApiClient` interface
 that the dev harness replaces with an in-memory fake. `src/lib/api.ts` is worth
 reading on its own for how it maps HTTP status to UI-actionable error kinds.
 
-- **Scopes** — `collections:read:self`, `collections:read:private`, `social:tip:self`, `buzz:read:self`, `apps:storage:shared:read`, `apps:storage:shared:write`
+- **Scopes** — `collections:read:self`, `collections:read:private`, `social:tip:self`, `buzz:read:self`, `apps:storage:read`, `apps:storage:write`, `apps:storage:shared:read`, `apps:storage:shared:write`
 - **Hooks** — `useSharedStorage`, `useBuzzBalance`, `useDomainMaturity`, `useHostOrigin`, `useRequestConsent`, `useRequestSignIn`, `useBlockContext`, `useBlockToken`, `useBlockResize`
 
 ### Custom Generators
