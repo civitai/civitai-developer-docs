@@ -133,7 +133,7 @@ if (host) {
 useBlockSettings(): BlockSettings
 ```
 
-Shorthand for `useBlockContext().settings`. Read-only from the iframe — settings are *written* on the platform `/apps/activity` page, not via a bridge message.
+Shorthand for `useBlockContext().settings`. Read-only from the iframe — settings are *written* on the platform `/apps/installed` page, not via a bridge message.
 
 ```tsx
 const { publisherSettings, userSettings } = useBlockSettings();

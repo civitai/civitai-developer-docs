@@ -1011,6 +1011,30 @@ reply `SAVE_IMAGE_RESULT`:
 
 Model slot: download bridge is a page-only affordance today; the paid-output apps are page apps, the model slot has no such surface
 
+**`SET_COLLECTION_FOLLOW`** — block → host · request → reply
+
+payload:
+
+```ts
+{
+    requestId: string;
+    /** Positive integer. A numeric STRING is refused, never coerced. */
+    collectionId: number;
+    /** `true` ⇒ follow, `false` ⇒ unfollow. */
+    follow: boolean;
+}
+```
+
+reply `COLLECTION_FOLLOW_RESULT`:
+
+```ts
+{
+    requestId: string;
+    result?: BlockCollectionFollowResult;
+    error?: BlockCollectionFollowErrorCode | string;
+}
+```
+
 **`THEME_CHANGE`** — host → block
 
 payload:
