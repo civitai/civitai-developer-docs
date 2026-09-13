@@ -464,7 +464,19 @@ export const PROSE_PINS = [
 
 // ---------------------------------------------------------------------------
 
-export function main() {
+export // Does the GENERATED region itself render a `bootSkeleton` row? From
+// @civitai/app-sdk@0.39.0 the bundled manifest schema carries the field, so the
+// region renders it without anyone writing it — which is the state the
+// inside-region rule below must not treat as a hand-written row. Keyed on the
+// table-row shape the generator emits (a leading `| \`bootSkeleton\`` cell), not
+// on the word appearing anywhere, so prose that merely mentions it does not count.
+function regionRendersBootSkeleton(text, beginMarker, endMarker) {
+  if (!(beginMarker >= 0 && endMarker > beginMarker)) return false;
+  const region = text.slice(beginMarker, endMarker);
+  return /^\s*\|\s*`bootSkeleton`\s*\|/m.test(region);
+}
+
+function main() {
   const problems = [];
   const guidePath = join(repoRoot, GUIDE);
   const refPath = join(repoRoot, REFERENCE);
@@ -609,7 +621,23 @@ export function main() {
     console.error(`  ✗ ${REFERENCE} does not mention bootSkeleton at all`);
     problems.push('reference-no-pointer');
   } else {
-    const inside = mentions.filter((i) => i > beginMarker && i < endMarker);
+    // 🔴 THIS RULE'S PREMISE EXPIRED WHEN THE PIN LEARNED THE FIELD, AND THE
+    // MESSAGE BELOW ALREADY SAID SO: "The row appears on its own once the pin
+    // carries the field." It was written when the pinned SDK's schema did NOT
+    // carry `bootSkeleton`, so any mention inside the generated region could only
+    // be hand-written — and a hand-written row there is silently overwritten by
+    // `gen:appblocks:md`. From @civitai/app-sdk@0.39.0 the schema DOES carry it,
+    // so the region renders the row itself and this rule fires on the correct
+    // state.
+    //
+    // It is not simply deleted: what it guards is still real for the NEXT field
+    // somebody hand-writes. It now fires only when the region is out of date with
+    // the schema — which is exactly `check:md-regions`' job, so we defer to it
+    // rather than duplicating a second, weaker copy of that comparison here.
+    const schemaCarriesIt = regionRendersBootSkeleton(reference, beginMarker, endMarker);
+    const inside = schemaCarriesIt
+      ? []
+      : mentions.filter((i) => i > beginMarker && i < endMarker);
     if (inside.length) {
       console.error(
         `  ✗ ${REFERENCE}: ${inside.length} bootSkeleton mention(s) sit INSIDE the generated region. ` +
