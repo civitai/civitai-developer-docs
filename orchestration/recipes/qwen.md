@@ -157,7 +157,7 @@ const qwenEditBody = {
     $type: 'imageGen',
     input: {
       engine: 'qwen',
-      model: 'edit-plus',
+      model: '2.0',
       operation: 'editImage',
       prompt: 'Make it daytime',
       images: [sampleImage],
@@ -176,7 +176,7 @@ Qwen is Alibaba's image-generation family. The orchestrator exposes three invoca
 | `qwen` | `3.0-pro` … `edit` | The full Alibaba-hosted catalog, including the newest releases | `createImage` / `editImage`. Explicit `width`/`height`. No LoRA support. |
 | `fal` | `qwen2` | The Qwen-Image-2 tier under a stable, FAL-shaped request | `createImage` / `proCreateImage` / `editImage` / `proEditImage`. `imageSize` enum instead of width/height. No LoRA support. |
 
-**Default choice for new integrations**: `engine: "sdcpp"`, `ecosystem: "qwen"`, `model: "20b"`. Reach for `engine: "qwen"` when you want a model Civitai doesn't host itself — Qwen-Image 3.0 Pro, Max, or the dedicated edit models.
+**Default choice for new integrations**: `engine: "sdcpp"`, `ecosystem: "qwen"`, `model: "20b"`. Reach for `engine: "qwen"` when you want a model Civitai doesn't host itself — Qwen-Image 3.0 Pro or 2.0 Pro.
 
 ## Prerequisites
 
@@ -373,12 +373,19 @@ land first. Two operations — `createImage` and `editImage` — with the model 
 |---------|-----------|--------|-----------|-------|
 | `3.0-pro` | create, edit | 512–2048 per side | 1–6 | Newest generation. Lowest throughput of the family — reserve it for hero shots. |
 | `2.0-pro` | create, edit | 512–2048 per side | 1–6 | Strongest generally-available tier: text rendering, realistic texture, prompt adherence. |
-| `2.0` | create, edit | 512–2048 per side | 1–6 | **Default for `createImage`.** Accelerated; balances quality and throughput. |
-| `max` | create | 5 fixed presets | 1 | Higher realism, fewer artifacts. Text-to-image only. |
-| `plus` | create | 5 fixed presets | 1 | Cheapest tier; leans artistic, strong at text-in-image. |
-| `edit-max` | edit | 512–2048 per side | 1–6 | Strongest editor — industrial design, geometric reasoning, character consistency. |
-| `edit-plus` | edit | 512–2048 per side | 1–6 | **Default for `editImage`.** Cheapest editor. |
-| `edit` | edit | not settable | 1 | Original edit model. Output matches the input image's shape. |
+| `2.0` | create, edit | 512–2048 per side | 1–6 | **Default for `createImage` and `editImage`.** Accelerated; balances quality and throughput. |
+| `max` | create | 5 fixed presets | 1 | **Deprecated** — use `2.0-pro`. Higher realism, fewer artifacts. Text-to-image only. |
+| `plus` | create | 5 fixed presets | 1 | **Deprecated** — use `2.0`. Leans artistic, strong at text-in-image. |
+| `edit-max` | edit | 512–2048 per side | 1–6 | **Deprecated** — use `2.0-pro`. Industrial design, geometric reasoning, character consistency. |
+| `edit-plus` | edit | 512–2048 per side | 1–6 | **Deprecated** — use `2.0`. |
+| `edit` | edit | not settable | 1 | **Deprecated** — use `2.0`. Output matches the input image's shape. |
+
+::: warning Legacy models retire on 2026-10-10
+Alibaba retires `max`, `plus`, `edit-max`, `edit-plus` and `edit` on **2026-10-10 00:00 UTC+8**
+(2026-10-09 16:00 UTC). Until then, workflows using them still run but carry a
+[`modelDeprecated` warning](/orchestration/guide/workflows#warnings) and `Deprecation` / `Sunset`
+response headers; from then on they are rejected with a `400`. `editImage` now defaults to `2.0`.
+:::
 
 `max` and `plus` accept only Alibaba's fixed presets — `1664×928`, `1472×1104`, `1328×1328`,
 `1104×1472`, `928×1664`. Any other `width`/`height` snaps to whichever preset is closest in aspect

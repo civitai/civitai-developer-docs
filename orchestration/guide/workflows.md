@@ -76,6 +76,29 @@ On a fetched workflow, each step also carries:
 | `estimatedProgressRate` | `0.0`–`1.0` estimate of how far along the step is — see [How `estimatedProgressRate` is calculated](#how-estimatedprogressrate-is-calculated) below. Null if the step hasn't started. |
 | `startedAt` / `completedAt` | Step-level timing. |
 | `metadata` | Step-scoped metadata you attached. |
+| `warnings` | Non-fatal notices about the step, such as a deprecated model. Omitted when there are none — see [Warnings](#warnings). |
+
+### Warnings
+
+A step that runs fine today but will stop working later carries a `warnings` array. Each entry has a
+machine-readable `code`, a human-readable `message`, and — for deprecations — `deprecatedAt`,
+`retiresAt` and a suggested `replacement`:
+
+```json
+"warnings": [{
+  "code": "modelDeprecated",
+  "message": "Model 'edit-plus' is deprecated and will be retired on 2026-10-09 16:00:00Z; requests using it will be rejected from then on. Use '2.0' instead.",
+  "deprecatedAt": "2026-07-10T00:00:00Z",
+  "retiresAt": "2026-10-09T16:00:00Z",
+  "replacement": "2.0"
+}]
+```
+
+Warnings are returned on `whatif` previews too, so you can catch them before spending Buzz. The same
+information is sent as [`Deprecation`](https://www.rfc-editor.org/rfc/rfc9745) and
+[`Sunset`](https://www.rfc-editor.org/rfc/rfc8594) response headers, which also reach recipe endpoints
+that return only a step's output. Once `retiresAt` passes, submitting the deprecated option fails with a
+`400` naming the replacement.
 
 You can amend a step before it starts running via [`UpdateWorkflowStep`](/orchestration/reference/operations/UpdateWorkflowStep) / [`PatchWorkflowStep`](/orchestration/reference/operations/PatchWorkflowStep) — useful for fixing an `input` mistake while the workflow is still `unassigned`.
 
