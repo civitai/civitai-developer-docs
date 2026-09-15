@@ -1,6 +1,6 @@
 civitai CLI help snapshot (the WHOLE command tree)
 Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
-Binary version: civitai v0.1.104
+Binary version: civitai v0.1.105
 Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
 else parses this committed snapshot. To refresh: run
 node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).
@@ -104,7 +104,8 @@ Exit codes:
        credential lacks the needed scope (HTTP 401/403).
     4  Not found — the requested resource does not exist.
     5  Network/transport failure or service unavailable — the code to retry on.
-    6  Rate limited — throttled by the API (HTTP 429).
+    6  Rate limited — throttled by the API (HTTP 429). Not every 429 lands
+       here: the deep-paging cap is a usage error and exits 2.
 
   Full ledger — which paths each code covers, the exit→stdout table, and the
   two documented residuals: see the Exit codes section of README.md.
@@ -502,11 +503,13 @@ Examples:
   civitai app submit --package-only     # just write the .zip (safe preview, never submits)
   civitai app submit --allow-downgrade  # deliberate rollback below the approved version
   civitai app submit --allow-dirty      # submit uncommitted working-tree changes on purpose
+  civitai app submit --allow-oversize   # submit past the vendored body-size ceiling
   civitai app submit -o my-block.zip ./my-block
 
 Flags:
       --allow-dirty       submit even when the packaged directory has uncommitted git changes
       --allow-downgrade   submit even when the version is not above the highest approved one (deliberate rollback)
+      --allow-oversize    submit even when the body exceeds the size the server is expected to accept
   -h, --help              help for submit
   -o, --out string        output .zip path (default: <blockId>-<version>.zip)
       --package-only      only write the .zip; do not attempt submission
@@ -1567,7 +1570,8 @@ takes precedence over --content.
 
 --json writes the API response to stdout and nothing else — notes and errors go
 to stderr, so `… --json | jq -e .` always parses. The document is the API's,
-the bytes are not: it is re-indented on the way out, so do not diff or hash it
+the bytes are not: it is re-indented on the way out, and a raw control byte the
+API emits inside a string is rewritten as its escape. Do not diff or hash it
 against the wire.
 
 Usage:
@@ -1726,7 +1730,8 @@ models or images inside.
 
 --json writes the API response to stdout and nothing else — notes and errors go
 to stderr, so `… --json | jq -e .` always parses. The document is the API's,
-the bytes are not: it is re-indented on the way out, so do not diff or hash it
+the bytes are not: it is re-indented on the way out, and a raw control byte the
+API emits inside a string is rewritten as its escape. Do not diff or hash it
 against the wire.
 
 Usage:
@@ -1847,7 +1852,8 @@ the user record (id, avatar) behind the name.
 
 --json writes the API response to stdout and nothing else — notes and errors go
 to stderr, so `… --json | jq -e .` always parses. The document is the API's,
-the bytes are not: it is re-indented on the way out, so do not diff or hash it
+the bytes are not: it is re-indented on the way out, and a raw control byte the
+API emits inside a string is rewritten as its escape. Do not diff or hash it
 against the wire.
 
 Usage:
@@ -2267,7 +2273,8 @@ An uploader can hide their generation data. Those images print
 
 --json writes the API response to stdout and nothing else — notes and errors go
 to stderr, so `… --json | jq -e .` always parses. The document is the API's,
-the bytes are not: it is re-indented on the way out, so do not diff or hash it
+the bytes are not: it is re-indented on the way out, and a raw control byte the
+API emits inside a string is rewritten as its escape. Do not diff or hash it
 against the wire.
 
 Usage:
@@ -2479,7 +2486,8 @@ on disk, which is how you put a name to an unlabelled .safetensors.
 
 --json writes the API response to stdout and nothing else — notes and errors go
 to stderr, so `… --json | jq -e .` always parses. The document is the API's,
-the bytes are not: it is re-indented on the way out, so do not diff or hash it
+the bytes are not: it is re-indented on the way out, and a raw control byte the
+API emits inside a string is rewritten as its escape. Do not diff or hash it
 against the wire.
 
 Usage:
@@ -2606,7 +2614,8 @@ both take a version id, which `models get` lists.
 
 --json writes the API response to stdout and nothing else — notes and errors go
 to stderr, so `… --json | jq -e .` always parses. The document is the API's,
-the bytes are not: it is re-indented on the way out, so do not diff or hash it
+the bytes are not: it is re-indented on the way out, and a raw control byte the
+API emits inside a string is rewritten as its escape. Do not diff or hash it
 against the wire.
 
 Usage:
@@ -2748,7 +2757,8 @@ tag IDS rather than these names — a different filter on a different endpoint.
 
 --json writes the API response to stdout and nothing else — notes and errors go
 to stderr, so `… --json | jq -e .` always parses. The document is the API's,
-the bytes are not: it is re-indented on the way out, so do not diff or hash it
+the bytes are not: it is re-indented on the way out, and a raw control byte the
+API emits inside a string is rewritten as its escape. Do not diff or hash it
 against the wire.
 
 Usage:
@@ -2864,7 +2874,8 @@ model COUNT use `civitai creators search --query <name>`.
 
 --json writes the API response to stdout and nothing else — notes and errors go
 to stderr, so `… --json | jq -e .` always parses. The document is the API's,
-the bytes are not: it is re-indented on the way out, so do not diff or hash it
+the bytes are not: it is re-indented on the way out, and a raw control byte the
+API emits inside a string is rewritten as its escape. Do not diff or hash it
 against the wire.
 
 Usage:
