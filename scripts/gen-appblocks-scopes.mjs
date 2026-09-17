@@ -41,6 +41,8 @@ const BINDING_NOTES = {
     'Self-bound: follow/bookmark on the viewer’s own behalf. Consent-exempt.',
   'collections:read:private':
     'Self-bound; CONSENT-GATED — the viewer must grant it via the host consent gate before a token carries it.',
+  'posts:write:self':
+    'Self-bound to the token subject; an anonymous subject is rejected — there is no anonymous profile to post to. CONSENT-GATED and SENSITIVE: a manifest declaring it must carry a scopeJustifications entry or submit is rejected. The grant alone is not the whole consent story — the host also opens a per-post confirm rendering the resolved title, tags and images, because the content differs every time and a blanket grant cannot inform.',
 };
 
 function parseScopeBits(ts) {

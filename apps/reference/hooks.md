@@ -2,9 +2,9 @@
 title: Hooks reference
 description: Every @civitai/blocks-react hook — signature and example, generated from the published package.
 sources:
-  - npm:@civitai/blocks-react@0.49.0/dist/index.d.ts
-  - npm:@civitai/blocks-react@0.49.0#README
-  - npm:@civitai/app-sdk@0.39.0/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.51.0/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.51.0#README
+  - npm:@civitai/app-sdk@0.42.0/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
 
@@ -378,6 +378,81 @@ async function toggle() {
 }
 ```
 
+**`useCreatePostFromApp`**
+
+```ts
+useCreatePostFromApp(): UseCreatePostFromApp
+```
+
+```md
+Publish a **real, published Post on the viewer's profile** from this app's own
+outputs, host-mediated over `CREATE_POST_FROM_APP`. Returns
+`{ createPost, pending, error }`.
+
+The strictly-more-consequential sibling of `usePublishGenerationOutputs()`: that
+one makes a bare `Image` row with no post, no feed presence, no reward and no
+notification; this one makes **public, feed-visible, reward-earning content under
+the viewer's byline**.
+
+🔴 **Requires the `posts:write:self` scope**, which is **sensitive** and
+**consent-gated**. Declare it in your manifest *with* a `scopeJustifications`
+entry — the server rejects the manifest at submit without one — and expect the
+viewer to be prompted to grant it before the first call succeeds.
+
+🔴 **The grant is not the consent.** Every call opens a host-chrome confirm, and
+what it shows is the **server's** resolution of your request, never your strings:
+the tag names that will *actually* be applied, host-fetched model and version
+names for a gallery attach, and real thumbnails. A block cannot show one post and
+publish another.
+
+🔴 **No arm of `sources` takes a URL.** Name a workflow from this app's own
+subqueue plus indexes into its outputs, or `Image` ids from a previous
+`usePublishGenerationOutputs()` publish. The server re-verifies both — ownership,
+this app's provenance marker, and that the image is not already in a post.
+
+⚠️ **Posting a published image removes it from this app's own grid.** The
+app-scoped read behind `useGatedImages()` is conjoined with `postId IS NULL`, so
+an image that joins a post stops resolving there. An app cannot both keep an
+image in its shared grid and let the viewer post it — design around it.
+
+Text is advisory: the server bounds `title`/`detail`, screens them, refuses a
+`detail` containing a link, and resolves `tags` against **existing** tags only (a
+name matching no tag is dropped, never minted, and is shown to the viewer on the
+confirm).
+
+`createPost` **rejects** with a `CreatePostError` on every non-success:
+
+| | meaning | what to do |
+|---|---|---|
+| `err.declined` | the viewer dismissed the confirm — **no post was created** | revert, say nothing |
+| `err.signInRequired` | no session | route into `useRequestSignIn()` |
+| `err.timedOut` | no reply arrived within the 10-min consent bound | 🔴 **check this BEFORE `.message`** — it also has no `.code`, and its message is an SDK-internal string. It does **not** mean nothing happened; tell the viewer to check their profile and never retry automatically |
+| `err.code` set otherwise | a host refusal (`review-mode` / `block is not ready` / `no images to post` / `no block token`) | show or ignore per case |
+| `err.code === undefined` **and** `!err.timedOut` | a **server** message the host forwarded verbatim (rate limit, blocked title, refused gallery attach) | show `err.message` |
+```
+
+```tsx
+const { createPost, pending } = useCreatePostFromApp();
+const { requestSignIn } = useRequestSignIn();
+
+async function share() {
+  try {
+    const post = await createPost({
+      sources: [{ kind: 'workflow', workflowId: w.workflowId, imageIndexes: [0, 2] }],
+      title: 'Made with Sticker Studio',
+    });
+    showToast(`Posted! ${post.url}`);
+  } catch (err) {
+    if (err instanceof CreatePostError) {
+      if (err.signInRequired) return requestSignIn();
+      if (err.declined) return; // the viewer said no — say nothing
+      if (err.timedOut) return showToast('Still working — check your profile.');
+      showToast(err.message); // a real server message, safe to render
+    }
+  }
+}
+```
+
 **`useAppWorkflows`**
 
 ```ts
@@ -694,12 +769,16 @@ const imageIds = await publish({ workflowId: w.workflowId, imageIndexes: [0, 2] 
 useGatedImages(): UseGatedImages
 ```
 
-Read per-viewer gated display data for a list of image ids via the host-mediated `GET_IMAGES_BY_IDS` → `IMAGES_RESULT` bridge — the read side of a cross-user image grid (e.g. ids stored via `useSharedStorage()`). The host applies the requesting viewer's browsing-level clamp server-side and returns each image as `visible` (moderated projection incl. url) or `hidden` (NO url — above ceiling / unscanned / flagged). This is the load-bearing cross-user moderation boundary: an unclamped edge URL never crosses to a viewer who can't see the image, and the block must render a placeholder for any `hidden` entry.
+Read per-viewer gated display data for a list of image ids via the host-mediated `GET_IMAGES_BY_IDS` → `IMAGES_RESULT` bridge — the read side of a cross-user image grid (e.g. ids stored via `useSharedStorage()`). The host applies the requesting viewer's browsing-level clamp server-side and returns each image as `visible` (url, plus a rating UNLESS it is the viewer's own not-yet-rated image) or `hidden` (NO url — above ceiling / flagged / scan-refused / someone else's unrated image). This is the load-bearing cross-user moderation boundary: an unclamped edge URL never crosses to a viewer who can't see the image, and the block must render a placeholder for any `hidden` entry. 🔴 `nsfwLevel` AND `contentRating` ARE OPTIONAL, AND A MISSING ONE IS NOT "G". They are absent exactly when `ratingPending` is present. Treating absent as a safe default is the bug this state exists to stop: an image published seconds earlier came back `hidden` under the old two-state contract and a grid rendered it as *"Hidden — rated mature"*, a maturity claim about an image nothing had rated, which a page reload then contradicted.
 
 ```tsx
 const { getImages } = useGatedImages();
 const images = await getImages([101, 102, 103]);
-// …render `visible` cells with their url; `hidden` cells as a blurred placeholder.
+for (const image of images) {
+  if (image.status === 'hidden') renderPlaceholder(image.imageId);
+  else if (image.ratingPending) renderStillProcessing(image.url); // NO rating to show
+  else renderRated(image.url, image.contentRating);
+}
 ```
 
 **`useSaveImage`**
@@ -736,7 +815,7 @@ union keyed by `kind`. The hook forwards the body to the host verbatim and never
 reads member-specific fields, so every member flows through the same
 `estimate → submit → watch` lifecycle shown above.
 
-As of the pinned `@civitai/app-sdk@0.39.0` the union has three members:
+As of the pinned `@civitai/app-sdk@0.42.0` the union has three members:
 
 | `kind` | what it runs | what your block sends |
 |---|---|---|
@@ -800,7 +879,7 @@ Three things trip up a first attempt, all covered in the guide:
   seconds.
 
 ::: tip The published SDK now types BOTH arms
-As of `@civitai/app-sdk@0.39.0`, `WorkflowBodyCustomComfy` is itself a union on
+As of `@civitai/app-sdk@0.42.0`, `WorkflowBodyCustomComfy` is itself a union on
 `mode`, and both arms are importable from `@civitai/app-sdk/blocks`:
 `WorkflowBodyCustomComfyRecipe` and `WorkflowBodyCustomComfyInline` (plus
 `InlineComfyNode` for the graph nodes). Earlier versions typed the recipe arm
