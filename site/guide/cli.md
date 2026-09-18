@@ -231,8 +231,9 @@ The positional id is normally a model-**version** id, but `models search` and
 recognises a model id and downloads that model's default (first published)
 version, printing a note that it did.
 
-::: warning An id that is both a model id and a version id stops the download
-Low and mid-range numbers are frequently valid as **both**. Rather than silently
+::: warning "is ambiguous — it's both model … and version …"
+That error means the id you passed is valid as **both** a model id and a version
+id, which is common for low and mid-range numbers. Rather than silently
 downloading an unrelated model's version, the CLI **stops and asks you to
 disambiguate**: re-run with `--model <id>` for that model's default version, or
 `--version <id>` for that version id as-is. `--version` skips the stop entirely,
