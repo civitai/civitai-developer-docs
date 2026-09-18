@@ -307,8 +307,11 @@ carries no `kind` and no `maxBuzz`, so it fails the wire schema before the host
 does anything else, and none of `ecosystem` / `model` / `operation` / `engine`
 is how a block names a Civitai model.
 
-What *is* new: since `@civitai/app-sdk@0.43.0` the `kind: 'step'` member has a
-second, **pass-through** arm that does carry a `$type`. A body of
+What *is* new: the `kind: 'step'` member has a second, **pass-through** arm that
+does carry a `$type`. It is a host capability and is already live;
+`@civitai/app-sdk@0.43.0` is the release that gives it a type
+(`WorkflowBodyPassThroughStep`), so that is the floor for expressing one in
+typed code. A body of
 `{ kind: 'step', $type, input, maxBuzz }` — with the `step` key **omitted** —
 has the host forward `input` unmodified. The two arms are discriminated on
 whether `step` is present, so a body carrying both is rejected by both. The
@@ -322,10 +325,14 @@ that set is not a promise that it will run — only that the host will forward i
 the orchestrator's own per-`$type` validation is what decides, and it runs after
 the spend reservation rather than at the wire.
 
-On any SDK below `0.43.0` there is no pass-through arm at all, and the symptom is
+Below `0.43.0` the SDK has no type for this arm, so a pass-through body cannot be
+expressed without casting — that is a typing floor, not a host one.
+
+If you send a body the wire schema rejects — the raw orchestrator step above, or
+a `kind: 'step'` body carrying both `step` and `$type` — the symptom is
 distinctive: **every generation fails identically, on every model**, with no
 per-model variation, because nothing model-specific ever ran. If you are seeing
-"it fails on anything", check the body shape and your SDK pin first.
+"it fails on anything", check the body shape first.
 
 Either way, a block never holds an orchestrator Bearer token. The full
 orchestrator contract, with *you* as the principal, is the
