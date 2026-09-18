@@ -248,9 +248,15 @@ The bridge is what you get when you want the **viewer** to be the principal
 instead. A block spends *someone else's* Buzz, inside Civitai's brand, from code
 Civitai did not write, so the host has to be able to (a) render an honest
 confirmation of what is about to be spent, and (b) enforce policy on the values —
-sources, destinations, priority — rather than trust the caller. Both require the
-host to *understand* the body semantically, which is exactly what a narrow,
-enumerable union buys and an arbitrary passthrough does not.
+sources, destinations, priority — rather than trust the caller. Both are
+strongest when the host *understands* the body semantically, which is what a
+narrow, enumerable union buys.
+
+The pass-through arm deliberately trades (b) away: `input` is forwarded
+unmodified, so the host applies no policy to the values inside it. What still
+binds is spend — the declared `maxBuzz`, the viewer's consent budget, and the
+refusal of platform-internal `$type`s. That is the trade, and it is why the
+registry arm still exists and is still the narrower choice.
 
 If your app genuinely needs the whole orchestrator surface, the supported answer
 is to ship your own backend as an ordinary API consumer and use the block purely
