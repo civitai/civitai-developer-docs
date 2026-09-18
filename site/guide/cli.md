@@ -383,7 +383,7 @@ civitai models search --type LORA --base-model Illustrious \
     --sort "Most Downloaded" --limit 3 --json |
   jq -r '.items[].modelVersions[0].id' |
   while read -r vid; do
-    civitai download "$vid" --layout comfyui --root ~/ComfyUI --dry-run
+    civitai download --version "$vid" --layout comfyui --root ~/ComfyUI --dry-run
   done
 ```
 

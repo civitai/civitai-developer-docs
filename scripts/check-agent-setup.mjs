@@ -313,27 +313,37 @@ const NGINX_CONF = 'nginx.conf';
  * The budget. Derived from a property of the file, not a round percentage, so
  * the next author can re-derive it instead of nudging it.
  *
- * At the time this landed the file was 6,949 bytes in 9 sections, the SMALLEST
- * of which was 321 bytes ("## 2. Install the CLI"). 7,200 leaves 251 bytes of
- * headroom — deliberately LESS than that smallest section, so **no new section
- * fits without a deliberate, reviewable edit to this constant.** Ordinary
- * wording fixes (a clause, a corrected sentence) still fit; a new step does not.
+ * RE-DERIVED 2026-09-18. The file is 7,187 bytes in 9 sections, the SMALLEST of
+ * which is 333 bytes ("## Resources"). 7,437 leaves 250 bytes of headroom —
+ * deliberately LESS than that smallest section, so **no new section fits without
+ * a deliberate, reviewable edit to this constant.** Ordinary wording fixes (a
+ * clause, a corrected sentence) still fit; a new step does not.
+ *
+ * Previously 7,200, derived the same way against 6,949 bytes / smallest 321.
+ * The Linux-Homebrew correction added 238 bytes to "## 2. Install the CLI",
+ * which left 13 bytes of headroom — the ratchet had stopped admitting the
+ * ordinary wording fix its own derivation promises. That is the condition the
+ * 🔴 note below names, so both constants move together here.
  */
-const PROMPT_MAX_BYTES = 7_200;
+const PROMPT_MAX_BYTES = 7_437;
 
 /**
  * Bounds PROMPT_MAX_BYTES itself, so the budget above cannot be turned into
  * unlimited slack by editing one number — the same failure one level up.
  *
- * Derived against the MEDIAN section (890 bytes) rather than the smallest:
- * raising PROMPT_MAX_BYTES all the way to this ceiling yields 851 bytes of
- * headroom over the 6,949 achieved, still under that median. So even a maximal
+ * Derived against the MEDIAN section (891 bytes) rather than the smallest:
+ * raising PROMPT_MAX_BYTES all the way to this ceiling yields 850 bytes of
+ * headroom over the 7,187 achieved, still under that median. So even a maximal
  * raise cannot quietly absorb a typical new section.
+ *
+ * RE-DERIVED 2026-09-18 alongside PROMPT_MAX_BYTES. Previously 7,800 against
+ * 6,949 achieved / median 890. The median is unchanged by that edit (891 both
+ * before and after); what moved is the achieved size this ceiling offsets from.
  *
  * 🔴 IT MOVES WITH THE ACHIEVED SIZE, OR IT STOPS BOUNDING ANYTHING. Whoever
  * changes the shape of this file re-derives both numbers in the same commit.
  */
-const PROMPT_MAX_BYTES_CEILING = 7_800;
+const PROMPT_MAX_BYTES_CEILING = 8_037;
 
 /**
  * The POSITIVE CONTROL. A truncated, half-written or empty prompt is comfortably
