@@ -303,9 +303,11 @@ const NGINX_CONF = 'nginx.conf';
 // summarising fetcher will do with it. Lossy summarisation is a property of the
 // CONSUMER; nothing in this repository can assert it away.
 //
-// That sentence deliberately does NOT restate the budget. It used to, and the
-// copy went stale the moment the constant was re-derived — read the value at its
-// definition below, which is the only place it is stated.
+// The sentence above deliberately does NOT restate the budget. It used to, and
+// that copy went stale the moment the constant was re-derived, 27 lines away
+// from it. The value lives in PROMPT_MAX_BYTES below and in the derivation in
+// its own docstring — those two are adjacent and move together; a third copy up
+// here does not, which is the whole reason this one was removed.
 //
 // What it does buy is the thing that was actually missing: the file went
 // 2,798 → 6,232 → 6,949 bytes in three commits on a single day (a94fee3,
