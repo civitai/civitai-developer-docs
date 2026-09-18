@@ -2,7 +2,7 @@
 title: Message bridge reference
 description: The full postMessage protocol between a Civitai App and its host — payloads, directions, request/reply pairing, and page-only messages.
 sources:
-  - npm:@civitai/app-sdk@0.39.0/blocks#messages.d.ts
+  - npm:@civitai/app-sdk@0.42.0/blocks#messages.d.ts
   - civitai:src/components/AppBlocks/hostHandlerParity.ts#INVENTORY
 ---
 
@@ -930,6 +930,36 @@ Model slot: model slot has no wildcard-pack import surface; the resolve+parse br
 **`BLOCK_HELLO`** — block → host · fire-and-forget
 
 payload: (none)
+
+**`CREATE_POST_FROM_APP`** — block → host · request → reply · page-only
+
+payload:
+
+```ts
+{
+    requestId: string;
+    /** Image sources, in POST ORDER. At least one; the host caps the total. */
+    sources: BlockPostSource[];
+    title?: string;
+    detail?: string;
+    /** Requested tag NAMES. Resolved against EXISTING tags only. */
+    tags?: string[];
+    /** Optional model-version gallery attach. Gated hard server-side. */
+    modelVersionId?: number;
+}
+```
+
+reply `CREATE_POST_RESULT`:
+
+```ts
+{
+    requestId: string;
+    result?: BlockCreatePostResult;
+    error?: string;
+}
+```
+
+Model slot: every eligible image comes from the app subqueue, which is a page-only affordance; a model-slot block has no source images to post
 
 **`GET_IMAGES_BY_IDS`** — block → host · request → reply · page-only
 

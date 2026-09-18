@@ -24,7 +24,7 @@ source the manifest validator and the token minter read.
 |---|---|---|---|
 | `models:read:self` | Read the model on the page where the block is mounted | `ModelsRead` | Bound to the model on the page where the block is mounted (a model-slot install supplies the modelId context). |
 | `user:read:self` | Read the viewer's username and account status | `UserRead` | Self-bound to the token subject; rejected for an anonymous subject. |
-| `ai:write:budgeted` | Submit generations with a per-call Buzz cap | `AIServicesWrite` | Host-enforced per-call Buzz cap; the token carries a buzzBudget claim the host clamps against. |
+| `ai:write:budgeted` | Run AI work that spends the viewer's Buzz, with a per-call cap | `AIServicesWrite` | Host-enforced per-call Buzz cap; the token carries a buzzBudget claim the host clamps against. |
 | `buzz:read:self` | Read the viewer's Buzz balance | `BuzzRead` | Self-bound to the token subject (the signed-in viewer). |
 | `social:tip:self` | Post tips on behalf of the viewer | `SocialTip` | Self-bound: tips are posted as the token subject. |
 | `apps:storage:read` | Read this app's private per-install data store | — | Scoped to this app's private per-install store; asserted per read op. |
@@ -34,6 +34,7 @@ source the manifest validator and the token minter read.
 | `collections:read:self` | Browse and read public Civitai collections, and your own public collections | — | Self-bound; public collections + the viewer's own public collections. Consent-exempt (server visibility/ownership is the gate). |
 | `collections:write:self` | Bookmark (follow) collections on your behalf | — | Self-bound: follow/bookmark on the viewer’s own behalf. Consent-exempt. |
 | `collections:read:private` | Read your private collections | — | Self-bound; CONSENT-GATED — the viewer must grant it via the host consent gate before a token carries it. |
+| `posts:write:self` | Publish posts to your profile from this app's own results — you approve each one | `MediaWrite` | Self-bound to the token subject; an anonymous subject is rejected — there is no anonymous profile to post to. CONSENT-GATED and SENSITIVE: a manifest declaring it must carry a scopeJustifications entry or submit is rejected. The grant alone is not the whole consent story — the host also opens a per-post confirm rendering the resolved title, tags and images, because the content differs every time and a blanket grant cannot inform. |
 
 <!-- END GENERATED: scopes -->
 </ScopesTable>
