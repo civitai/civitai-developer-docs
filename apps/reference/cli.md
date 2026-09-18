@@ -43,7 +43,7 @@ npm install -g @civitai/cli
 # or, without installing:
 npx @civitai/cli --help
 
-# Homebrew (macOS / Linux)
+# Homebrew (macOS only — see the note below)
 brew install civitai/tap/civitai
 
 # Go install (from source, Go 1.25+)
@@ -54,6 +54,13 @@ nix run github:civitai/cli -- --help
 # …or install into your profile:
 nix profile install github:civitai/cli
 ```
+
+::: warning Homebrew is macOS-only
+The tap publishes a **cask**, not a formula — the CLI's release config carries
+`homebrew_casks:` and no `brews:` stanza — and a cask is a macOS-only concept.
+On Linux (Linuxbrew included) `brew install civitai/tap/civitai` has nothing to
+install; use npm, the Nix flake, `go install`, or a prebuilt binary instead.
+:::
 
 The repo is a [Nix flake](https://nixos.org/manual/nix/stable/command-ref/new-cli/nix3-flake.html),
 so `nix run` / `nix profile install` need no Go toolchain (`x86_64`/`aarch64`

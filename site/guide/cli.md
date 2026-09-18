@@ -27,7 +27,7 @@ npm install -g @civitai/cli
 # or, without installing:
 npx @civitai/cli --help
 
-# Homebrew (macOS / Linux)
+# Homebrew (macOS only — see the note below)
 brew install civitai/tap/civitai
 
 # Go install (from source, Go 1.25+)
@@ -38,6 +38,13 @@ nix run github:civitai/cli -- --help
 # …or install into your profile:
 nix profile install github:civitai/cli
 ```
+
+::: warning Homebrew is macOS-only
+The tap publishes a **cask**, not a formula — the CLI's release config carries
+`homebrew_casks:` and no `brews:` stanza — and a cask is a macOS-only concept.
+On Linux (Linuxbrew included) `brew install civitai/tap/civitai` has nothing to
+install; use npm, the Nix flake, `go install`, or a prebuilt binary instead.
+:::
 
 To pin the CLI as a flake input (reproducible builds/CI), reference it in your
 `flake.nix`:
@@ -209,10 +216,31 @@ for downloads (they still `401` without a token).
 By default the version's **primary** file is written into the current directory
 under its server-provided name. Downloads stream to `<target>.part` and are
 renamed into place only on success, so an interrupted run never leaves a
-truncated final file.
+truncated final file. A target that is **already present** is skipped with an
+`already present` line rather than re-fetched — pass `--force` to download over
+it. (When verifying, the skip requires a confirmed SHA256 match; a present file
+whose hash does not match is re-downloaded without `--force`.)
 
 **Any file type downloads** — model weights, but also non-weights deliverables
 like a `Workflows` model's Archive, training data, or other artifacts.
+
+### Which id to pass
+
+The positional id is normally a model-**version** id, but `models search` and
+`models get` list **model** ids — so `civitai download 4384` works too: the CLI
+recognises a model id and downloads that model's default (first published)
+version, printing a note that it did.
+
+::: warning An id that is both a model id and a version id stops the download
+Low and mid-range numbers are frequently valid as **both**. Rather than silently
+downloading an unrelated model's version, the CLI **stops and asks you to
+disambiguate**: re-run with `--model <id>` for that model's default version, or
+`--version <id>` for that version id as-is. `--version` skips the stop entirely,
+and `--yes` proceeds on the **version** interpretation, echoing exactly which
+version it is downloading. See the
+[generated CLI reference](/apps/reference/cli#cli-download) for the full flag
+list.
+:::
 
 ### Selecting files
 
@@ -293,8 +321,13 @@ The output is pipe-safe by contract:
 - **stdout is pure JSON** — `civitai … --json | jq -e .` always parses.
 - **errors go to stderr with a non-zero exit** and **nothing on stdout**, so
   `jq` never sees error prose. `civitai model-versions get 999999999 --json`
-  exits `1`, prints `Error: not found (404): Model not found` to stderr, and
-  emits an empty stdout.
+  exits `4` (not found), prints `Error: not found (404): Model not found` to
+  stderr, and emits an empty stdout.
+- **the exit code is the contract, not the stderr text** — failures are
+  classified into distinct codes (`4` is "not found"), so a script can tell a
+  missing resource from an auth failure or a network error without parsing
+  prose. The full table is in the
+  [CLI README](https://github.com/civitai/cli#exit-codes).
 
 ### Cursor-pagination loop
 
