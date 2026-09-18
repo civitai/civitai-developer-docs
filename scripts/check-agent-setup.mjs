@@ -298,10 +298,14 @@ const NGINX_CONF = 'nginx.conf';
 // agent receives the whole file, and it must never be described as one. The
 // measured loss happened AT 6,949 bytes — a real agent's `WebFetch` returned an
 // LLM summary that dropped the install-failure section, BOTH MCP URLs and all of
-// step 5 — and PROMPT_MAX_BYTES below permits 7,200. So a green check 5 says
-// "this file did not grow", and says nothing whatsoever about what a summarising
-// fetcher will do with it. Lossy summarisation is a property of the CONSUMER;
-// nothing in this repository can assert it away.
+// step 5 — and PROMPT_MAX_BYTES below permits MORE than that. So a green check 5
+// says "this file did not grow", and says nothing whatsoever about what a
+// summarising fetcher will do with it. Lossy summarisation is a property of the
+// CONSUMER; nothing in this repository can assert it away.
+//
+// That sentence deliberately does NOT restate the budget. It used to, and the
+// copy went stale the moment the constant was re-derived — read the value at its
+// definition below, which is the only place it is stated.
 //
 // What it does buy is the thing that was actually missing: the file went
 // 2,798 → 6,232 → 6,949 bytes in three commits on a single day (a94fee3,
