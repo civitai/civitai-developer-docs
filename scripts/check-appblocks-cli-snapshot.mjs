@@ -241,7 +241,7 @@ async function main() {
   console.error('MISSING from developer.civitai.com until it is re-captured. Re-capture with a');
   console.error(`civitai ${remote.tag} binary and commit the result:`);
   console.error('');
-  console.error('  go install github.com/civitai/cli/cmd/civitai@latest   # or: brew install civitai/tap/civitai');
+  console.error('  go install github.com/civitai/cli/cmd/civitai@latest   # or, on macOS: brew install civitai/tap/civitai');
   console.error('  node scripts/gen-appblocks-cli.mjs --write-snapshot');
   console.error('  npm run gen:appblocks && git diff appblocks-snapshots/civitai-cli-help.txt');
   console.error('');

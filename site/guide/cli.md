@@ -27,7 +27,7 @@ npm install -g @civitai/cli
 # or, without installing:
 npx @civitai/cli --help
 
-# Homebrew (macOS / Linux)
+# Homebrew (macOS only — see the note below)
 brew install civitai/tap/civitai
 
 # Go install (from source, Go 1.25+)
@@ -38,6 +38,13 @@ nix run github:civitai/cli -- --help
 # …or install into your profile:
 nix profile install github:civitai/cli
 ```
+
+::: warning Homebrew is macOS-only
+The tap publishes a **cask**, not a formula — the CLI's release config carries
+`homebrew_casks:` and no `brews:` stanza — and a cask is a macOS-only concept.
+On Linux (Linuxbrew included) `brew install civitai/tap/civitai` has nothing to
+install; use npm, the Nix flake, `go install`, or a prebuilt binary instead.
+:::
 
 To pin the CLI as a flake input (reproducible builds/CI), reference it in your
 `flake.nix`:
@@ -189,13 +196,13 @@ Download the file(s) of a model **version** from Civitai.
 
 ```bash
 # by version id
-civitai download 128713
+civitai download 691639
 
 # resolve a MODEL's default (first published) version instead
 civitai download --model 4384 --out ./dreamshaper.safetensors
 
 # preview the plan (files, sizes, SHA256, target paths, auth) without transferring
-civitai download 128713 --dry-run
+civitai download 691639 --dry-run
 ```
 
 ::: warning Downloads require authentication
@@ -209,16 +216,38 @@ for downloads (they still `401` without a token).
 By default the version's **primary** file is written into the current directory
 under its server-provided name. Downloads stream to `<target>.part` and are
 renamed into place only on success, so an interrupted run never leaves a
-truncated final file.
+truncated final file. A target that is **already present** is skipped with an
+`already present` line rather than re-fetched — pass `--force` to download over
+it. (When verifying, the skip requires a confirmed SHA256 match; a present file
+whose hash does not match is re-downloaded without `--force`.)
 
 **Any file type downloads** — model weights, but also non-weights deliverables
 like a `Workflows` model's Archive, training data, or other artifacts.
 
+### Which id to pass
+
+The positional id is normally a model-**version** id, but `models search` and
+`models get` list **model** ids — so `civitai download 4384` works too: the CLI
+recognises a model id and downloads that model's default (first published)
+version, printing a note that it did.
+
+::: warning "is ambiguous — it's both model … and version …"
+That error means the id you passed is valid as **both** a model id and a version
+id, which is common for low and mid-range numbers. Rather than silently
+downloading an unrelated model's version, the CLI **stops and asks you to
+disambiguate**: re-run with `--model <id>` for that model's default version, or
+`--version <id>` for that version id as-is. `--version` skips the stop entirely,
+and `--yes` proceeds on the **version** interpretation, echoing exactly which
+version it is downloading. See the
+[generated CLI reference](/apps/reference/cli#cli-download) for the full flag
+list.
+:::
+
 ### Selecting files
 
 ```bash
-civitai download 128713 --file vae --out-dir ./models
-civitai download 128713 --all --out-dir ./models
+civitai download 290640 --file vae --out-dir ./models
+civitai download 290640 --all --out-dir ./models
 ```
 
 Use `--file` to pick a specific file (exact match, else a unique
@@ -227,8 +256,8 @@ case-insensitive substring) or `--all` to download every file in the version.
 ### Folder routing for apps
 
 ```bash
-civitai download 128713 --all --layout comfyui --root ~/ComfyUI
-civitai download 128713 --layout a1111 --root ~/stable-diffusion-webui
+civitai download 290640 --all --layout comfyui --root ~/ComfyUI
+civitai download 691639 --layout a1111 --root ~/stable-diffusion-webui
 ```
 
 `--layout <a1111|comfyui>` routes each file into the correct subfolder for that
@@ -240,7 +269,7 @@ own directories. `--root <dir>` (default `.`) is the base directory for routing.
 ### Base-model compatibility check
 
 ```bash
-civitai download 128713 --layout a1111 --for-base "SDXL 1.0"
+civitai download 691639 --layout a1111 --for-base "SDXL 1.0"
 ```
 
 `--for-base "<baseModel>"` warns on stderr when the version's base model is in a
@@ -293,8 +322,13 @@ The output is pipe-safe by contract:
 - **stdout is pure JSON** — `civitai … --json | jq -e .` always parses.
 - **errors go to stderr with a non-zero exit** and **nothing on stdout**, so
   `jq` never sees error prose. `civitai model-versions get 999999999 --json`
-  exits `1`, prints `Error: not found (404): Model not found` to stderr, and
-  emits an empty stdout.
+  exits `4` (not found), prints `Error: not found (404): Model not found` to
+  stderr, and emits an empty stdout.
+- **the exit code is the contract, not the stderr text** — failures are
+  classified into distinct codes (`4` is "not found"), so a script can tell a
+  missing resource from an auth failure or a network error without parsing
+  prose. The full table is in the
+  [CLI README](https://github.com/civitai/cli#exit-codes).
 
 ### Cursor-pagination loop
 
@@ -349,7 +383,7 @@ civitai models search --type LORA --base-model Illustrious \
     --sort "Most Downloaded" --limit 3 --json |
   jq -r '.items[].modelVersions[0].id' |
   while read -r vid; do
-    civitai download "$vid" --layout comfyui --root ~/ComfyUI --dry-run
+    civitai download --version "$vid" --layout comfyui --root ~/ComfyUI --dry-run
   done
 ```
 
