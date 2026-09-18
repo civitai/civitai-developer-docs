@@ -196,13 +196,13 @@ Download the file(s) of a model **version** from Civitai.
 
 ```bash
 # by version id
-civitai download 128713
+civitai download 691639
 
 # resolve a MODEL's default (first published) version instead
 civitai download --model 4384 --out ./dreamshaper.safetensors
 
 # preview the plan (files, sizes, SHA256, target paths, auth) without transferring
-civitai download 128713 --dry-run
+civitai download 691639 --dry-run
 ```
 
 ::: warning Downloads require authentication
@@ -245,8 +245,8 @@ list.
 ### Selecting files
 
 ```bash
-civitai download 128713 --file vae --out-dir ./models
-civitai download 128713 --all --out-dir ./models
+civitai download 290640 --file vae --out-dir ./models
+civitai download 290640 --all --out-dir ./models
 ```
 
 Use `--file` to pick a specific file (exact match, else a unique
@@ -255,8 +255,8 @@ case-insensitive substring) or `--all` to download every file in the version.
 ### Folder routing for apps
 
 ```bash
-civitai download 128713 --all --layout comfyui --root ~/ComfyUI
-civitai download 128713 --layout a1111 --root ~/stable-diffusion-webui
+civitai download 290640 --all --layout comfyui --root ~/ComfyUI
+civitai download 691639 --layout a1111 --root ~/stable-diffusion-webui
 ```
 
 `--layout <a1111|comfyui>` routes each file into the correct subfolder for that
@@ -268,7 +268,7 @@ own directories. `--root <dir>` (default `.`) is the base directory for routing.
 ### Base-model compatibility check
 
 ```bash
-civitai download 128713 --layout a1111 --for-base "SDXL 1.0"
+civitai download 691639 --layout a1111 --for-base "SDXL 1.0"
 ```
 
 `--for-base "<baseModel>"` warns on stderr when the version's base model is in a
