@@ -64,8 +64,8 @@ copy, not the live source.
 
 The SDK-derived pages are generated from these published, pinned packages:
 
-- `@civitai/app-sdk@0.39.0` — the framework-agnostic contract (messages, scopes, manifest schema).
-- `@civitai/blocks-react@0.49.0` — the React hooks.
+- `@civitai/app-sdk@0.42.0` — the framework-agnostic contract (messages, scopes, manifest schema).
+- `@civitai/blocks-react@0.51.0` — the React hooks.
 
 When the SDK publishes a new version, bumping the pin in `package.json` is a
 one-line, reviewable change that flows through to every generated page.
