@@ -49,6 +49,16 @@ const SDK_TYPES = [
   'WorkflowBodyCustomComfyRecipe',
   'WorkflowBodyCustomComfyInline',
   'WorkflowBodyStep',
+  // `kind: 'step'` became TWO arms in @civitai/app-sdk 0.43.0, discriminated on the
+  // PRESENCE of `step`: the registry arm above, and this pass-through arm, which omits
+  // `step`, names an orchestrator `$type` directly and has the host forward `input`
+  // unmodified. It is a NEW top-level member of the `WorkflowBody` union — not a nested
+  // one like the customComfy arms — so without this entry the union table names a member
+  // the page never defines: the same "announced with no field table" gap. The two arms'
+  // trust models differ materially (this one has no per-step schema, no moderation
+  // posture, no AIR scan, and `maxBuzz` in place of a billing mode), so a reader who only
+  // gets the registry arm's table is reading the wrong contract, not merely a short one.
+  'WorkflowBodyPassThroughStep',
   'BlockWorkflowSnapshot',
   'AppWorkflow',
   'AppWorkflowImage',

@@ -2,7 +2,7 @@
 title: Generation bridge reference
 description: The field-level generation contract — the WorkflowBody union, the useBuzzWorkflow lifecycle (incl. cancel), and the BlockWorkflowSnapshot result — generated from the published SDK type JSDoc.
 sources:
-  - npm:@civitai/app-sdk@0.42.0/blocks#WorkflowBody
+  - npm:@civitai/app-sdk@0.43.0/blocks#WorkflowBody
   - npm:@civitai/blocks-react@0.51.0#useBuzzWorkflow
 ---
 
@@ -67,11 +67,12 @@ Orchestrates the estimate → confirm → submit → poll dance through the host
 
 **`WorkflowBody`** — union
 
-Body the block sends to `useBuzzWorkflow().{submit,estimate}`. A real discriminated union keyed by `kind`: - {@link WorkflowBodyTextToImage} (`kind: 'textToImage'`) — the original checkpoint/LoRA/img2img generation body (unchanged, back-compatible). - {@link WorkflowBodyCustomComfy} (`kind: 'customComfy'`) — post-paid ComfyUI, itself a union on `mode`: a bounded, server-registered {@link WorkflowBodyCustomComfyRecipe} (the default), or a {@link WorkflowBodyCustomComfyInline} graph the block ships itself (`mode: 'inline'`; developer-only). - {@link WorkflowBodyStep} (`kind: 'step'`) — a bounded, server-registered orchestrator step (the host's step registry; billing mode and moderation posture are declared per entry). New kinds extend this union as the host gains support for them. Narrow on `body.kind` before touching member-specific fields (e.g. `modelId`/`params` live only on the `textToImage` member). ⚠️ Adding a member is additive for PRODUCERS (every existing body still satisfies the union) but narrowing for CONSUMERS that `switch` exhaustively over `kind`. Host code that must handle every member gets a compile error pointing at the new one, which is the intended behaviour.
+Body the block sends to `useBuzzWorkflow().{submit,estimate}`. A real discriminated union keyed by `kind`: - {@link WorkflowBodyTextToImage} (`kind: 'textToImage'`) — the original checkpoint/LoRA/img2img generation body (unchanged, back-compatible). - {@link WorkflowBodyCustomComfy} (`kind: 'customComfy'`) — post-paid ComfyUI, itself a union on `mode`: a bounded, server-registered {@link WorkflowBodyCustomComfyRecipe} (the default), or a {@link WorkflowBodyCustomComfyInline} graph the block ships itself (`mode: 'inline'`; developer-only). - {@link WorkflowBodyStep} (`kind: 'step'`, `step` PRESENT) — a bounded, server-registered orchestrator step (the host's step registry; billing mode and moderation posture are declared per entry). - {@link WorkflowBodyPassThroughStep} (`kind: 'step'`, `step` ABSENT) — names an orchestrator `$type` directly and has the host forward `input` unmodified. Bounded by a platform-internal denylist and by `maxBuzz`, not by a registry. `kind: 'step'` is therefore itself a union, discriminated on the PRESENCE of `step` — the same nesting {@link WorkflowBodyCustomComfy} has on `mode`. Narrowing on `kind === 'step'` alone leaves both arms in play; narrow further with `'$type' in body` (or `body.step === undefined`) before touching arm-specific fields. New kinds extend this union as the host gains support for them. Narrow on `body.kind` before touching member-specific fields (e.g. `modelId`/`params` live only on the `textToImage` member). ⚠️ Adding a member is additive for PRODUCERS (every existing body still satisfies the union) but narrowing for CONSUMERS that `switch` exhaustively over `kind`. Host code that must handle every member gets a compile error pointing at the new one, which is the intended behaviour.
 
 - `WorkflowBodyTextToImage`
 - `WorkflowBodyCustomComfy`
 - `WorkflowBodyStep`
+- `WorkflowBodyPassThroughStep`
 
 **`WorkflowBodyTextToImage`** — object
 
@@ -150,13 +151,25 @@ The INLINE-GRAPH arm of {@link WorkflowBodyCustomComfy} (`kind: 'customComfy'`, 
 
 **`WorkflowBodyStep`** — object
 
-A **registered orchestrator step**, submitted through the host's step registry — the uniform bridge for step types that are not full generation recipes (image conversion, chat completion, captioning, …). Mirrors the host's `blockStepBodySchema` element-for-element. That schema is `.strict()` with exactly these three fields, so anything else on this object is REJECTED server-side rather than dropped. Trust / safety model (all SERVER-ENFORCED, same posture as {@link WorkflowBodyCustomComfy}): - `step` is a **registered step id** resolved against a code-reviewed, non-DB-editable registry. The wire enum is DERIVED from the registry keys, so an unregistered id is rejected **fail-closed at the schema**, before any translator, any spend reservation, or any orchestrator call. - `params` are **bounded and validated per-step** by that step's own `.strict()` Zod schema. They are deliberately opaque on the wire (the host keeps the transport step-agnostic), so this field is `Record\<string, unknown>` here and the host's per-step schema is the authority for what a given step accepts. An unknown param is a `BAD_REQUEST`, never a silent drop. - Each entry declares its own billing mode and moderation posture in that registry; a step that produces free text has its output scanned before it can reach the block. Registered ids at the time of writing: `'convert-image'` (fixed-price image format conversion + resize) and `'chat-completion'` (fixed-price LLM chat completion over a server-pinned model allowlist). The set grows additively — `step` is typed `string` rather than a literal union on purpose, because the registry lives on the host and a pinned union here would go stale against any host deploy that adds one.
+The REGISTRY ARM of the `kind: 'step'` member — a **registered orchestrator step**, submitted through the host's step registry, the uniform bridge for step types that are not full generation recipes (image conversion, chat completion, captioning, …). 🔴 `kind: 'step'` HAS TWO ARMS, discriminated by whether `step` is present. This one names a REGISTERED id and the host translates it; the other is {@link WorkflowBodyPassThroughStep}, which omits `step`, names an orchestrator `$type` directly and has the host forward `input` unmodified. The trust model below describes THIS arm only — the pass-through arm deliberately drops four of these controls, and its own doc comment enumerates which. Mirrors the host's `blockStepBodySchema` element-for-element. That schema is `.strict()` with exactly these three fields, so anything else on this object is REJECTED server-side rather than dropped. Trust / safety model (all SERVER-ENFORCED, same posture as {@link WorkflowBodyCustomComfy}): - `step` is a **registered step id** resolved against a code-reviewed, non-DB-editable registry. THIS ARM's wire enum is DERIVED from the registry keys, so an unregistered id is rejected **fail-closed at the schema**, before any translator, any spend reservation, or any orchestrator call. 🔴 That is a statement about the REGISTRY ARM, not about `kind: 'step'` as a whole: a body that omits `step` lands on {@link WorkflowBodyPassThroughStep} instead, where an id the registry has never heard of is exactly the supported case. - `params` are **bounded and validated per-step** by that step's own `.strict()` Zod schema. They are deliberately opaque on the wire (the host keeps the transport step-agnostic), so this field is `Record\<string, unknown>` here and the host's per-step schema is the authority for what a given step accepts. An unknown param is a `BAD_REQUEST`, never a silent drop. - Each entry declares its own billing mode and moderation posture in that registry; a step that produces free text has its output scanned before it can reach the block. Registered ids at the time of writing: `'convert-image'` (fixed-price image format conversion + resize) and `'chat-completion'` (fixed-price LLM chat completion over a server-pinned model allowlist). The set grows additively — `step` is typed `string` rather than a literal union on purpose, because the registry lives on the host and a pinned union here would go stale against any host deploy that adds one.
 
 | Field | Type | Notes |
 |---|---|---|
 | `kind` | `'step'` |  |
-| `step` | `string` | A **registered step id** (e.g. `'chat-completion'`). Resolved server-side against the code-reviewed step registry; an unregistered id is rejected fail-closed at the wire schema. |
+| `step` | `string` | A **registered step id** (e.g. `'chat-completion'`). Resolved server-side against the code-reviewed step registry; on THIS arm an unregistered id is rejected fail-closed at the wire schema. Its presence is also the ARM DISCRIMINATOR. Omit it and the body is read as a {@link WorkflowBodyPassThroughStep} instead, where an unregistered id is not rejected because there is no registry lookup at all. |
 | `params` | `Record<string, unknown>` | Bounded, per-step-validated parameters. Only the fields that step's `.strict()` schema accepts are honored; anything else is rejected. For `'chat-completion'` the accepted shape is `{ model: string; messages: Array\<{ role: 'system' \| 'user' \| 'assistant'; content: string }>; maxTokens: number; temperature?: number }`, where `model` must be one of the host's allowlisted models and `maxTokens` is REQUIRED and bounded. Documented rather than typed here: the host's schema is the single source of truth, and a hand-mirrored param type in this package would drift against it silently. |
+
+**`WorkflowBodyPassThroughStep`** — object
+
+The PASS-THROUGH ARM of the `kind: 'step'` member — the block names an ORCHESTRATOR `$type` directly and the host forwards `input` **unmodified**. No registry entry, no server-side translator, no per-step param schema. Mirrors the host's `blockPassThroughStepBodySchema`. That schema is `.strict()` with exactly these fields, so anything else on this object is REJECTED server-side rather than dropped. 🔴 **`step` IS THE ARM DISCRIMINATOR AND IT MUST BE ABSENT.** Send `{ kind: 'step', $type, input, maxBuzz }` with no `step` key at all. It is typed `step?: undefined` here so that omitting it satisfies the type while setting it to anything is a compile error — the host's discriminated union uses `z.undefined()` for the same job, and a body carrying both `step` and `$type` is rejected by BOTH arms (each is `.strict()`) rather than resolved to a winner. WHAT THIS ARM GIVES UP relative to {@link WorkflowBodyStep}. Four of the registry's controls are deliberately absent, by operator decision — this is documented so it reads as a decision rather than an oversight: 1. **No per-step `.strict()` param schema.** `input` is opaque; the orchestrator's own per-`$type` validation is the only shape gate, and it runs AFTER the spend reservation rather than at the wire. 2. **No moderation posture and no prompt audit.** Nothing audits `input`. Moderation moved to the PUBLISH boundary — nothing a block generates is public until published, and that path is moderated. 3. **No resource policy / `urn:air:` scan.** AIR resources are ALLOWED here. Spend, not entitlement, is the binding control. 4. **No `billingMode` and no load-time price invariant.** {@link maxBuzz} replaces them, exactly as on {@link WorkflowBodyCustomComfyInline}. WHAT STILL BOUNDS IT, all server-side: - A **denylist** of platform-internal `$type`s (scanners, moderation classifiers, hashing/model-ingestion, web egress) is refused by the host router before any spend reservation or orchestrator call. It is a DENYLIST, not an allowlist: a `$type` the host has never heard of is allowed through by construction, which is the point of this arm. - `$type` is bounded to **1…64 characters** and `input` to **262144 bytes** (256 KB) serialized. Both REJECT; neither truncates. - `maxBuzz` is the single spend knob — see its own note below.
+
+| Field | Type | Notes |
+|---|---|---|
+| `kind` | `'step'` |  |
+| `step?` | `undefined` | 🔴 THE ARM DISCRIMINATOR — **omit this key**. It exists in the type only so that a body which sets it cannot be mistaken for a pass-through body: the only assignable value is `undefined`, and the wire payload carries no `step` key at all (JSON cannot express `undefined`). To name a REGISTERED step id instead, you want {@link WorkflowBodyStep}. |
+| `$type` | `string` | The ORCHESTRATOR step type to run, verbatim — e.g. `'imageBackgroundRemoval'`. Required, 1…64 characters. This is the orchestrator's own `$type` discriminator, NOT a Civitai step- registry id, and it is not resolved against any allowlist. It is refused only if it names a platform-internal type (the denylist above; the match is case-insensitive). The host records the submitted value as the subtype of the generation it stamps, so a `$type` longer than the cap is rejected rather than silently degraded. |
+| `input` | `Record<string, unknown>` | The orchestrator step's own input object, **forwarded unmodified**. The host does not read, rewrite, merge or default any field in here — that is the whole point of this arm, and the step the orchestrator receives carries an `input` byte-identical to this value. Consequently the orchestrator's per-`$type` schema is the ONLY authority for what a given `$type` accepts; nothing in this package or on the host mirrors it. Bounded only by size: at most **262144 bytes** (256 KB) serialized, which is a payload-DoS bound and not a shape gate. |
+| `maxBuzz` | `number` | The per-job Buzz ceiling. Required, an integer in **1…250**. 🔴 **IT IS ALSO THE STEP TIMEOUT, IN SECONDS** — identical mechanism to {@link WorkflowBodyCustomComfyInline.maxBuzz}. The host stamps `stepTimeoutSeconds = maxBuzz`; there is only one number, which is what makes the ceiling physically enforceable rather than merely asserted. So `maxBuzz: 10` does not buy a cheap job; it buys one that is KILLED after 10 seconds and comes back `expired`. Size it to the wall-clock time the step actually needs. You are billed the REAL cost: post-paid against measured GPU seconds, refunding the unused remainder of the ceiling, so a generous `maxBuzz` costs nothing extra when the job finishes early. `estimate` on a pass-through body echoes this number back as `cost.total` — an upper bound, not a price; surface it as "up to N Buzz". The host additionally requires `maxBuzz \<= token.buzzBudget` before submit. |
 
 **`BlockWorkflowSnapshot`** — object
 
@@ -223,9 +236,9 @@ Optional controls for {@link UseBuzzWorkflowReturn.watch}.
 
 The generation bridge is a **deliberately narrower surface than the
 orchestrator**, not a thin proxy in front of it. The body your block sends is a
-**three-member discriminated union** keyed by `kind`, and anything outside those
-three shapes is rejected at the wire schema — in the host, **before** any
-orchestrator call is made.
+**discriminated union** keyed by `kind`, and anything outside those shapes is
+rejected at the wire schema — in the host, **before** any orchestrator call is
+made.
 
 ::: tip Why the bridge isn't just the orchestrator API
 The full orchestrator contract is not hidden — it is documented as the
@@ -244,30 +257,36 @@ is to ship your own backend as an ordinary API consumer and use the block purely
 as its UI.
 :::
 
-The three members are the whole surface:
+There are three `kind` values, and `kind: 'step'` is itself two arms — four
+members, and they are the whole surface:
 
 | `kind` | what it addresses | how you name the model |
 |---|---|---|
 | `textToImage` | a Civitai **checkpoint** | numeric `modelId` + `modelVersionId` |
 | `customComfy` | a **server-registered** ComfyUI recipe, **or your own graph** | a registered `recipe` id — or, with `mode: 'inline'`, the graph itself plus a declared `resources` manifest |
-| `step` | a **server-registered** orchestrator step (`convert-image`, `chat-completion`) | a registered `step` id |
+| `step` (`step` present) | a **server-registered** orchestrator step (`convert-image`, `chat-completion`) | a registered `step` id |
+| `step` (`step` omitted) | an orchestrator step type **named directly**, with `input` forwarded unmodified | the orchestrator's own `$type` — not a Civitai id |
 
-The `step` member (added in `@civitai/app-sdk@0.30.0`) carries a registered
-**step id** plus bounded `params` validated per-step by the host's own `.strict()`
-schema — it is *not* a way to send orchestrator step JSON (see the next note).
-Like recipes, the step registry is server-side and code-reviewed: an unregistered
-id is rejected fail-closed at the wire schema.
+The **registry arm** of `step` (added in `@civitai/app-sdk@0.30.0`) carries a
+registered **step id** plus bounded `params` validated per-step by the host's own
+`.strict()` schema. Like recipes, the step registry is server-side and
+code-reviewed: an unregistered id is rejected fail-closed at the wire schema.
+The **pass-through arm** (added in `@civitai/app-sdk@0.43.0`) omits `step`
+entirely and works the other way round — see the note below.
 
-Registered ids as of the pinned SDK: **`convert-image`** (fixed-price image
+Registered ids as of the pinned SDK (the registry arm only — the pass-through arm
+has no registry): **`convert-image`** (fixed-price image
 format conversion + resize) and **`chat-completion`** (fixed-price LLM chat
 completion over a server-pinned model allowlist). So `step` is **not** the
 "non-image" arm — one of the two entries today is an image operation. The set
 grows additively on the host, which is why `step` is typed `string` rather than a
 literal union: a union pinned in the SDK would go stale against any host deploy
 that adds one, so treat the host's registry, not this list, as authoritative.
-The full field table is at [`WorkflowBodyStep`](#bridge-WorkflowBodyStep).
+The full field table for this arm is at
+[`WorkflowBodyStep`](#bridge-WorkflowBodyStep); the other arm's is at
+[`WorkflowBodyPassThroughStep`](#bridge-WorkflowBodyPassThroughStep).
 
-::: danger Orchestrator step JSON cannot be sent from a block
+::: warning Orchestrator step JSON is not a bridge body as it stands
 If you have been handed an orchestrator **step** — a `$type` object shaped like
 this:
 
@@ -283,23 +302,34 @@ this:
 }
 ```
 
-— that is correct **for the orchestrator** and **unusable from a block**. The
-bridge body has no `$type` field and no `imageGen` kind, and none of
-`ecosystem` / `model` / `operation` / `engine` is how a block names a model.
-Such a body fails the `kind` union before the host does anything else.
+— that is correct **for the orchestrator** and is still not a bridge body. It
+carries no `kind` and no `maxBuzz`, so it fails the wire schema before the host
+does anything else, and none of `ecosystem` / `model` / `operation` / `engine`
+is how a block names a Civitai model.
 
-The `step` member is **not** the loophole: it takes a *registered step id* (a
-string the host resolves against its code-reviewed registry) plus per-step
-validated `params` — never a caller-supplied `$type` step object. Passing
-orchestrator step JSON as `params` fails that step's `.strict()` schema.
+What *is* new: since `@civitai/app-sdk@0.43.0` the `kind: 'step'` member has a
+second, **pass-through** arm that does carry a `$type`. A body of
+`{ kind: 'step', $type, input, maxBuzz }` — with the `step` key **omitted** —
+has the host forward `input` unmodified. The two arms are discriminated on
+whether `step` is present, so a body carrying both is rejected by both. The
+registry arm described above is unchanged. Field-by-field bounds are in
+[`WorkflowBodyPassThroughStep`](#bridge-WorkflowBodyPassThroughStep).
 
-The symptom is distinctive: **every generation fails identically, on every
-model**, with no per-model variation — because nothing model-specific ever ran.
-If you are seeing "it fails on anything", check the body shape first.
+That arm is deliberately *less* bounded than the registry, not unbounded.
+`$type`s the platform reserves for its own internal use are refused server-side,
+with their own error and a case-insensitive match. A `$type` being absent from
+that set is not a promise that it will run — only that the host will forward it;
+the orchestrator's own per-`$type` validation is what decides, and it runs after
+the spend reservation rather than at the wire.
 
-Orchestrator step JSON belongs to the
-[Orchestration REST API](/orchestration/), where *you* hold a Bearer token.
-Blocks never hold one — see
+On any SDK below `0.43.0` there is no pass-through arm at all, and the symptom is
+distinctive: **every generation fails identically, on every model**, with no
+per-model variation, because nothing model-specific ever ran. If you are seeing
+"it fails on anything", check the body shape and your SDK pin first.
+
+Either way, a block never holds an orchestrator Bearer token. The full
+orchestrator contract, with *you* as the principal, is the
+[Orchestration REST API](/orchestration/) — see
 [not to be confused with orchestration recipes](../guide/comfy-cloud#not-to-be-confused-with-orchestration-recipes).
 :::
 
@@ -317,8 +347,8 @@ Most of the time it **is** reachable, and the fix is naming the right
    [worked example](#worked-example-qwen-single-image-edit)). The variant is
    chosen by the *presence of a source image*, not by the version id — this is
    the single most common mistake on the bridge.
-3. **Is it genuinely outside the union?** — before you conclude that, check all
-   three arms. Each of them reaches work this page used to rule out:
+3. **Is it genuinely outside the union?** — before you conclude that, check
+   every arm. Each of them reaches work this page used to rule out:
    - `textToImage` covers **multi-image** editing too, via `sourceImages`, on
      any checkpoint whose ecosystem allows more than one image — see
      [what the source-image fields can and cannot do](#what-sourceimage-can-and-cannot-do).
@@ -329,13 +359,18 @@ Most of the time it **is** reachable, and the fix is naming the right
      [inline arm](../guide/comfy-cloud#the-inline-arm-ship-your-own-graph)
      (`mode: 'inline'`), a ComfyUI graph your block ships itself.
 
-   What is left over today is **background removal** — no union member reaches
-   it, inline graphs included: it is a first-class orchestrator step rather than
-   a Comfy graph, so it has to be registered on the platform side before any arm
-   can name it. That makes it a **platform request**. Say so explicitly when you
-   ask, and note that both `customComfy` recipes today are prompt-only txt2img,
-   so anything taking an **image input** is new ground rather than a variation
-   on an existing one.
+   - `step` also has the **pass-through arm** (`@civitai/app-sdk@0.43.0` and
+     above), which names an orchestrator step type directly and needs no
+     registry entry — so a first-class orchestrator step such as **background
+     removal**, long the standing example of work no arm could reach, is no
+     longer out of reach on that ground. Read the note above before you rely on
+     it: that arm trades the registry's per-step schema, moderation posture and
+     billing mode for a `maxBuzz` ceiling.
+
+   Asking for a **platform request** is still the route to the bounded,
+   registered treatment — say so explicitly when you ask, and note that both
+   `customComfy` recipes today are prompt-only txt2img, so anything taking an
+   **image input** is new ground rather than a variation on an existing one.
 4. **Recipes are not self-serve, but an inline graph is.** The recipe registry is
    server-side and code-reviewed; there is no runtime, manifest, or dashboard way
    to add one, so adding a recipe is a **platform request** — see
