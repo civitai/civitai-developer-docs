@@ -359,6 +359,78 @@ export default withMermaid({
     }
   },
 
+  // 🔴 Cloudflare's Email Address Obfuscation eats our VERSION STRINGS.
+  //
+  // The edge rewrites anything shaped like `user@domain` into
+  // `<a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="…">`
+  // before the HTML reaches the reader. `@civitai/theme@0.3.1` matches that
+  // shape — local part `theme`, "domain" `0.3.1` — so the version half of every
+  // first-party package literal is replaced by an obfuscated stub.
+  //
+  // MEASURED 2026-09-19 by fetching ALL 194 published pages (not a sample) and
+  // decoding every `data-cfemail` blob (hex -> bytes, first byte is the XOR key,
+  // XOR the rest): 26 rewrites on 9 pages. 24 are identifiers — @civitai package
+  // versions, plus `spine-comfy@v1.0.0` (an AIR URN) and `python@3.12-slim` (a
+  // Docker tag) on site/guide/air. The other 2 are the `ada@example.com`
+  // placeholder in the OAuth response samples, an RFC 2606 reserved name that is
+  // itself being corrupted. NOT ONE was a real address.
+  // Worst case is apps/guide/theming.html (12 of the 26), where the rewrite
+  // lands INSIDE the fenced
+  // `<link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.3.1/styles.css">`
+  // snippets, truncating the copy-pasteable CDN URL to `https://unpkg.com/@civitai/`
+  // — on the page whose entire purpose is those URLs. A reader with JS gets the
+  // text back from Cloudflare's decoder script; a reader without JS, a scraper,
+  // an LLM fetching the page, and anyone copy-pasting the URL do not.
+  //
+  // WHY HERE AND NOT IN THE MARKDOWN. Cloudflare's documented opt-out is a
+  // comment pair, `<!--email_off-->…<!--/email_off-->`. Per-literal wrappers in
+  // the `.md` sources cannot work, for two independent reasons, both measured on
+  // this tree:
+  //   1. HTML comments authored in markdown do NOT survive the build. The
+  //      `<!-- BEGIN GENERATED: … -->` markers in apps/reference/generation.md
+  //      appear 0 times in .vitepress/dist/apps/reference/generation.html; an
+  //      inline `<!--email_off-->` around a backticked literal came out 0 times
+  //      too, and additionally broke the paragraph — the `<code>` element was
+  //      lost and the literal rendered as raw backticked text.
+  //   2. Most of the affected literals are inside fenced code blocks, where an
+  //      HTML comment is content, not markup — there is nowhere to put one.
+  // A single wrapper around the rendered body also covers the GENERATED regions
+  // (`npm run gen:appblocks:md`), which a hand edit cannot touch without also
+  // changing the generator, and covers future content for free.
+  //
+  // 🔴 WHAT THIS DOES *NOT* ESTABLISH. That Cloudflare honours it. The comment
+  // pair is documented behaviour, but the rewrite happens at the edge, so it is
+  // unobservable from a local build or a `docker run` of this image. What IS
+  // checked locally is that the markers reach the built HTML in the right place
+  // on every page — `npm run check:built-site` asserts exactly that, so this
+  // cannot silently stop being emitted. Confirmation that the obfuscation is
+  // gone can only come from curling the deployed site.
+  //
+  // Scope is deliberately the whole body rather than the `.vp-doc` container:
+  // the docs contain no real email address. Measured over the built site —
+  // strip tags, unescape entities, match `<local>@<domain>.<tld>` across all 194
+  // pages — the ONLY hit is `ada@example.com` x2, and `mailto:` appears zero
+  // times in both the sources and the build. There is nothing on this host that
+  // the obfuscation is protecting.
+  transformHtml(code) {
+    // Idempotent, and a no-op on any output that is not a whole document — an
+    // unbalanced marker would be worse than no marker at all.
+    if (code.includes('<!--email_off-->')) return;
+    const open = /<body[^>]*>/.exec(code);
+    // The LAST `</body>`, not the first: a literal one inside a code fence is
+    // entity-escaped and cannot match, but anchoring at the end is free.
+    const close = code.lastIndexOf('</body>');
+    if (!open || close === -1 || close < open.index) return;
+    const openEnd = open.index + open[0].length;
+    return (
+      code.slice(0, openEnd) +
+      '<!--email_off-->' +
+      code.slice(openEnd, close) +
+      '<!--/email_off-->' +
+      code.slice(close)
+    );
+  },
+
   themeConfig: {
     nav: [
       { text: 'Orchestration', link: '/orchestration/', activeMatch: '/orchestration/' },

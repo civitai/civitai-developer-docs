@@ -54,7 +54,7 @@
 // that rendered an empty component, an artifact with no commands, or a selector
 // that stopped matching fails loudly instead of reporting a serene pass over
 // nothing.
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { repoRoot } from './appblocks-util.mjs';
 import { cliLongBody } from '../.vitepress/theme/components/cliReference.shared.mjs';
@@ -783,6 +783,84 @@ check('no sidebar group is emitted twice in dist/llms.txt', () => {
   llmsGroupCount = groups.length;
 });
 if (llmsGroupCount !== null) console.log(`       ${llmsGroupCount} groups parsed, 0 duplicated`);
+
+// MEASURED on the build at 9c1ba1a: 194 html files in dist. The floor carries
+// slack because adding or removing a page legitimately moves the count; its only
+// job is to reject the ZERO a broken walk would otherwise report as clean.
+const HTML_PAGE_FLOOR = 150;
+
+/** Every `.html` under dist, recursively, in a stable order. */
+function distHtmlFiles(dir) {
+  const out = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+    const p = join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...distHtmlFiles(p));
+    else if (entry.name.endsWith('.html')) out.push(p);
+  }
+  return out;
+}
+
+check('every built page wraps its <body> in Cloudflare email_off markers', () => {
+  // WHY: Cloudflare's Email Address Obfuscation rewrites `@civitai/theme@0.3.1`
+  // into an obfuscated `__cf_email__` stub, because the version literal is
+  // shaped like an address. `transformHtml` in .vitepress/config.mts wraps the
+  // rendered body in Cloudflare's documented opt-out pair so the edge leaves it
+  // alone. This asserts the markers actually reach the HTML, on every page, in
+  // the right position — the half that IS observable without deploying.
+  //
+  // An HTML comment authored in markdown does NOT survive the build (measured:
+  // the `<!-- BEGIN GENERATED: … -->` markers in apps/reference/generation.md
+  // appear 0 times in the built page), so this can only ever be satisfied by
+  // the config hook. If someone removes the hook, this goes red.
+  const files = distHtmlFiles(distDir);
+
+  // POSITIVE CONTROL: an empty or mis-rooted walk must not read as a pass.
+  assert(
+    files.length >= HTML_PAGE_FLOOR,
+    `only ${files.length} .html file(s) found under ${distDir} (floor ${HTML_PAGE_FLOOR}). ` +
+      `Either the build emitted almost nothing, or this walk is pointed at the wrong directory — ` +
+      `in which case the assertion below proved nothing.`,
+  );
+
+  const bad = [];
+  for (const file of files) {
+    const page = readFileSync(file, 'utf8');
+    const rel = file.slice(distDir.length + 1);
+    const open = /<body[^>]*>/.exec(page);
+    if (!open) {
+      bad.push(`${rel}: no <body> tag`);
+      continue;
+    }
+    const opens = [...page.matchAll(/<!--email_off-->/g)].length;
+    const closes = [...page.matchAll(/<!--\/email_off-->/g)].length;
+    if (opens !== 1 || closes !== 1) {
+      bad.push(`${rel}: ${opens} opening and ${closes} closing marker(s), expected 1 and 1`);
+      continue;
+    }
+    // Position, not just presence: the pair must BRACKET the body, or content
+    // outside it is still rewritten at the edge.
+    const openEnd = open.index + open[0].length;
+    if (page.slice(openEnd, openEnd + '<!--email_off-->'.length) !== '<!--email_off-->') {
+      bad.push(`${rel}: <!--email_off--> does not immediately follow the <body> tag`);
+      continue;
+    }
+    const closeIdx = page.lastIndexOf('</body>');
+    if (page.slice(closeIdx - '<!--/email_off-->'.length, closeIdx) !== '<!--/email_off-->') {
+      bad.push(`${rel}: <!--/email_off--> does not immediately precede </body>`);
+    }
+  }
+
+  assert(
+    bad.length === 0,
+    `${bad.length} of ${files.length} built page(s) are not wrapped:\n` +
+      bad.slice(0, 10).map((b) => `         - ${b}`).join('\n') +
+      (bad.length > 10 ? `\n         … and ${bad.length - 10} more` : '') +
+      `\n       The wrapper is emitted by \`transformHtml\` in .vitepress/config.mts. Without it,\n` +
+      `       Cloudflare rewrites every \`@civitai/<pkg>@<semver>\` literal on the page into an\n` +
+      `       obfuscated mailto stub — including the unpkg.com URLs on apps/guide/theming.`,
+  );
+  console.log(`       ${files.length} built pages, all wrapped`);
+});
 
 console.log(failures ? `\n${failures} check(s) FAILED` : '\nall built-site checks passed');
 process.exit(failures ? 1 : 0);
