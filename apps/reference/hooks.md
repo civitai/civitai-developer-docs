@@ -881,13 +881,12 @@ Three things trip up a first attempt, all covered in the guide:
 - **`maxBuzz` is the only spend knob**, and doubles as the step timeout in
   seconds.
 
-::: tip The published SDK now types BOTH arms
-As of `@civitai/app-sdk@0.45.0`, `WorkflowBodyCustomComfy` is itself a union on
-`mode`, and both arms are importable from `@civitai/app-sdk/blocks`:
-`WorkflowBodyCustomComfyRecipe` and `WorkflowBodyCustomComfyInline` (plus
-`InlineComfyNode` for the graph nodes). Earlier versions typed the recipe arm
-only and this page told you to declare the inline shape locally — that is no
-longer necessary, and a locally-declared copy will now drift from the SDK.
+::: tip The published SDK types BOTH arms
+`WorkflowBodyCustomComfy` is itself a union on `mode`, and both arms are
+importable from `@civitai/app-sdk/blocks`: `WorkflowBodyCustomComfyRecipe` and
+`WorkflowBodyCustomComfyInline` (plus `InlineComfyNode` for the graph nodes).
+Import them rather than declaring the inline shape locally — a hand-declared
+copy will drift from the SDK.
 
 **Annotate the ARM, not the union**, as both examples above do. When the `mode`
 discriminant is **omitted** — which is the shape this page recommends —
