@@ -2,9 +2,9 @@
 title: Hooks reference
 description: Every @civitai/blocks-react hook — signature and example, generated from the published package.
 sources:
-  - npm:@civitai/blocks-react@0.51.0/dist/index.d.ts
-  - npm:@civitai/blocks-react@0.51.0#README
-  - npm:@civitai/app-sdk@0.43.0/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.53.0/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.53.0#README
+  - npm:@civitai/app-sdk@0.45.0/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
 
@@ -815,7 +815,7 @@ union keyed by `kind`. The hook forwards the body to the host verbatim and never
 reads member-specific fields, so every member flows through the same
 `estimate → submit → watch` lifecycle shown above.
 
-As of the pinned `@civitai/app-sdk@0.43.0` the union has three `kind` values, and
+As of the pinned `@civitai/app-sdk@0.45.0` the union has three `kind` values, and
 `kind: 'step'` is itself two arms — four members in all:
 
 | `kind` | what it runs | what your block sends |
@@ -882,7 +882,7 @@ Three things trip up a first attempt, all covered in the guide:
   seconds.
 
 ::: tip The published SDK now types BOTH arms
-As of `@civitai/app-sdk@0.43.0`, `WorkflowBodyCustomComfy` is itself a union on
+As of `@civitai/app-sdk@0.45.0`, `WorkflowBodyCustomComfy` is itself a union on
 `mode`, and both arms are importable from `@civitai/app-sdk/blocks`:
 `WorkflowBodyCustomComfyRecipe` and `WorkflowBodyCustomComfyInline` (plus
 `InlineComfyNode` for the graph nodes). Earlier versions typed the recipe arm

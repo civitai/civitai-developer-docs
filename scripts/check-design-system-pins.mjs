@@ -245,6 +245,28 @@ export const HISTORICAL_LITERALS = [
     why: 'the `step` WorkflowBody member was ADDED in 0.30.0 — a changelog fact. Bumping it to the current pin would state a false arrival version.',
   },
   {
+    file: 'apps/reference/generation.md',
+    pkg: '@civitai/app-sdk',
+    version: '0.43.0',
+    // EXACT count 3 — the SAME changelog fact stated three ways, all of them
+    // arrival/floor claims about the `kind: 'step'` PASS-THROUGH arm:
+    //   1. "The pass-through arm (added in @civitai/app-sdk@0.43.0) omits `step`"
+    //   2. "@civitai/app-sdk@0.43.0 is the release that gives it a type
+    //      (`WorkflowBodyPassThroughStep`), so that is the floor"
+    //   3. "`step` also has the pass-through arm (@civitai/app-sdk@0.43.0 and above)"
+    // None is a `sources:` stamp — this file's stamp tracks the pin and sits on
+    // line 5, so a stamp regressed to 0.43.0 makes the count FOUR and this row
+    // fails, which is the count doing its job.
+    //
+    // Measured, not assumed (npm pack + grep of the published tarballs):
+    // `WorkflowBodyPassThroughStep` appears in 0 files at 0.41.0 and 0.42.0, and
+    // in 3 files at 0.43.0 and 0.45.0. 0.43.0 really is the arrival release, so
+    // bumping these to the pin would state a false arrival version and move a
+    // documented TypeScript floor to a release that did not set it.
+    count: 3,
+    why: 'the `kind: \'step\'` PASS-THROUGH arm and its `WorkflowBodyPassThroughStep` type ARRIVED in app-sdk 0.43.0 — a changelog fact, and the stated TS floor. Bumping these to the current pin would name a release in which nothing about this arm changed.',
+  },
+  {
     file: 'apps/guide/responsive.md',
     pkg: '@civitai/components',
     version: '0.4.0',
