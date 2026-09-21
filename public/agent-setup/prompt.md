@@ -44,9 +44,9 @@ or, **on macOS only**, with Homebrew:
 brew install civitai/tap/civitai
 ```
 
-The tap publishes a **cask**, and a cask is a macOS-only concept — on Linux
-(Linuxbrew included) that command has nothing to install. If you are on Linux,
-use the npm command above; do not report the Homebrew failure as a problem.
+The tap publishes a **cask**, which is macOS-only — on Linux (Linuxbrew
+included) it has nothing to install. If you are on Linux, use the npm command
+above; do not report the Homebrew failure as a problem.
 
 ### If the install fails
 
@@ -100,13 +100,15 @@ The two MCP servers are remote:
   server
 
 **The command prints the full path of every file it writes, that list is the
-complete footprint of this setup, and you must report it.** How much lands
-outside the project directory depends on which agent was detected: some keep MCP
-config in the repo, others in your home directory, and the command names the
-path it actually used rather than guessing.
+complete footprint of this setup, and you must report it.** Some of it lands
+outside the project directory, and the command names the path it actually used.
 
 Do not hand-write MCP config yourself — the config path and key name differ per
 agent and the command already knows them.
+
+Wrong agent? Re-run with `--agent <name>` — **only if yours is a name
+`civitai agent-setup --help` lists**; forcing a wrong one makes `--check` go
+green on config that agent never reads.
 
 ## 4. Verify
 
@@ -129,8 +131,12 @@ Read the output, not just the exit code:
   PATH — possible only if you used the `--prefix` install in step 2. Fix it
   there, and report that PATH line in step 5.
 
-Do not report success if any check fails. State any command that could not run
-and why.
+`"ok"` is the verdict — read that, not the individual rows. A `false` row beside
+`"ok": true` is deliberate: work only the user can finish, which the command
+prints. Relay it in step 5.
+
+Do not report success if `"ok"` is `false`, or if a command could not run — state
+which, and why.
 
 ## 5. Hand back to the user
 

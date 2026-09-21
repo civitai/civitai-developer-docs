@@ -2,8 +2,8 @@
 title: Comfy on Civitai (customComfy)
 description: Drive ComfyUI from an App Block — either by naming a server-registered recipe, or by shipping your own graph inline. The two arms, the gates on each, the budget rules, and how to try it in the local harness.
 sources:
-  - npm:@civitai/app-sdk@0.42.0/blocks#WorkflowBodyCustomComfy
-  - npm:@civitai/blocks-react@0.51.0#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.45.0/blocks#WorkflowBodyCustomComfy
+  - npm:@civitai/blocks-react@0.53.0#useBuzzWorkflow
   - go:github.com/civitai/cli#app-create (page-money scaffold: src/comfy.ts)
   - civitai:public/schemas/app-block/v1.json#page.buzzBudgetPerGen
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
@@ -164,13 +164,12 @@ const body: WorkflowBodyCustomComfyInline = {
 };
 ```
 
-::: tip The published SDK now types the inline arm
-In the pinned `@civitai/app-sdk@0.42.0` — also the newest published version —
+::: tip The published SDK types the inline arm
 `WorkflowBodyCustomComfy` is a **union on `mode`**, and the inline arm ships as
 `WorkflowBodyCustomComfyInline` (with `InlineComfyNode` for the graph nodes) and
-`WorkflowBodyCustomComfyRecipe` for the recipe arm. Import them, as above.
-Earlier versions typed the recipe arm only, which is why this guide used to
-write the shape out by hand; a hand-declared copy will now drift from the SDK.
+`WorkflowBodyCustomComfyRecipe` for the recipe arm. Import them, as above,
+rather than writing the shape out by hand — a hand-declared copy will drift from
+the SDK.
 
 One thing the types still cannot enforce for you: when you narrow, narrow on the
 **value** of `body.mode === 'inline'` — never on whether the `mode` key is

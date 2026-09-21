@@ -40,11 +40,12 @@ layer 1 for tokens, layers 1–2 for framework-agnostic components, or all three
 for the React ergonomics.
 
 ::: tip Pin the version in the CDN URL — and pin each package separately
-The three packages version **independently**: `@civitai/theme` is at `0.2.0`
-while `@civitai/components` and `@civitai/components-react` are at `0.3.0`. There
-is no single shared version number, so copy each URL as written rather than
-sed-ing one version across all three — a URL naming a version a package never
-published 404s, and a missing stylesheet fails **silently** as an unstyled page.
+The three packages version **independently** — this page is written against
+`@civitai/theme@0.3.1`, `@civitai/components@0.4.1` and
+`@civitai/components-react@0.4.1`, each on its own release schedule. There is no
+single shared version number, so copy each URL as written rather than sed-ing
+one version across all three — a URL naming a version a package never published
+404s, and a missing stylesheet fails **silently** as an unstyled page.
 
 Copying an **older** pin from somewhere else fails just as quietly, in a way a
 quick check won't catch: a published version stays served indefinitely, so a

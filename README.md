@@ -110,11 +110,44 @@ locally always returned 200 to the blocked UAs. It was fixed with a
 `http.host eq "developer.civitai.com"`, setting `bic: false`; `browser_check`
 stays `on` zone-wide, so `civitai.com` and `image.civitai.com` keep it.
 
-🔴 **If this ever regresses, re-probe rather than re-reading Cloudflare's docs.**
-No Cloudflare documentation states that a Configuration Rule overrides the
-zone-level `browser_check` — that precedence was established empirically, by
-reading `browser_check: "on"` while the exempted host served 200 to a UA that
-setting blocks.
+**✅ RESOLVED — Cloudflare used to eat version numbers out of the published HTML.**
+Email Address Obfuscation rewrites anything matching `user@domain` into an
+obfuscated `[email protected]` link, and a version literal such as
+`@civitai/theme@0.3.1` matches that shape. Measured 2026-09-19 over all 194
+published pages: **26 rewrites on 9 pages**, and every decoded blob was an
+identifier, not an address — 24 `@civitai/*` pins plus an AIR URN
+(`spine-comfy@v1.0.0`) and a Docker tag (`python@3.12-slim`). Worst case was
+`apps/guide/theming`, where it truncated the copy-pasteable CDN URLs to
+`unpkg.com/@civitai/` — that page's whole purpose. Readers with JS got the text
+back; no-JS readers, scrapers and anyone copy-pasting a URL did not.
+
+It was fixed on the **same Configuration Rule** as `bic` above, by adding
+`email_obfuscation: false`. `email_obfuscation` stays `on` zone-wide, so
+`civitai.com` keeps it. Verified after the change with an HTTP-200 + closing-tag
+control, so a zero could not be a failed fetch: rewrites across those 9 pages
+went **26 → 0**, and `theming` went from 0 to 6 occurrences of `theme@0.3.1`
+with the `unpkg` URLs intact.
+
+🔴 **The tell that this has regressed is a version number rendering as
+`[email protected]`** — in view-source or with JS off; with JS on, Cloudflare's
+own script decodes it and the page looks fine. Check with
+`curl -s <page> | grep -c __cf_email__` and a positive control that the page
+actually loaded, because a bare `0` is indistinguishable from a failed fetch.
+
+⚠ **Do not "fix" this in the repo.** A build-time wrapper using Cloudflare's
+`<!--email_off-->` markers was written, proven to work locally, and then closed
+unmerged (#93) in favour of the rule: the markers cannot be placed from markdown
+at all (HTML comments do not survive the build, and most affected literals sit
+inside fenced code blocks), a `transformHtml` hook reaches only `<body>` so
+`<head>` stays exposed, and whether Cloudflare honours or strips the markers is
+not observable before deploying.
+
+🔴 **If either of these ever regresses, re-probe rather than re-reading
+Cloudflare's docs.** No Cloudflare documentation states that a Configuration Rule
+overrides the zone-level `browser_check` — that precedence was established
+empirically, by reading `browser_check: "on"` while the exempted host served 200
+to a UA that setting blocks. The same holds for `email_obfuscation`, which also
+reads `on` at the zone while this host is exempt.
 
 **This site ships a machine-discovery catalog, and also advertises it.** The
 artifacts are `/llms.txt`, `/llms-full.txt` and `/agent-setup/prompt.md`;

@@ -2,7 +2,7 @@
 title: Message bridge reference
 description: The full postMessage protocol between a Civitai App and its host — payloads, directions, request/reply pairing, and page-only messages.
 sources:
-  - npm:@civitai/app-sdk@0.42.0/blocks#messages.d.ts
+  - npm:@civitai/app-sdk@0.45.0/blocks#messages.d.ts
   - civitai:src/components/AppBlocks/hostHandlerParity.ts#INVENTORY
 ---
 
@@ -930,6 +930,16 @@ Model slot: model slot has no wildcard-pack import surface; the resolve+parse br
 **`BLOCK_HELLO`** — block → host · fire-and-forget
 
 payload: (none)
+
+**`BLOCK_MESSAGE_REJECTED`** — block → host · fire-and-forget
+
+payload:
+
+```ts
+{
+    type: string;
+}
+```
 
 **`CREATE_POST_FROM_APP`** — block → host · request → reply · page-only
 

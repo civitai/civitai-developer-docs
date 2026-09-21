@@ -106,6 +106,32 @@
  * in this file EXACTLY ONCE, as the changelog reference", so a second occurrence
  * is a mismatch again. A count wrong in EITHER direction fails.
  *
+ * 🔴 BUT A COUNT CATCHES AN ADDITION OR A REMOVAL, NOT A SUBSTITUTION — WHICH IS
+ * WHY A `sources:` STAMP IS NOW STRUCTURALLY INELIGIBLE FOR AN EXEMPTION.
+ * The count pins a TOTAL per (file, pkg, version), so two offsetting changes net
+ * to zero: reword ONE genuine arrival sentence so it stops matching (dropping the
+ * `@civitai/` prefix is enough — `LITERAL_RE` requires it), regress the
+ * frontmatter `sources:` stamp to that same version, and the file still holds N
+ * occurrences. The guard exits 0 under a green banner while printing the row's
+ * `why` — a changelog fact — against the provenance stamp it just excused. That
+ * was reproduced against this file: `generation.md`'s stamp regressed to
+ * `0.43.0` plus one de-prefixed arrival sentence gave `count: 3` and rc=0.
+ *
+ * The fix is structural rather than arithmetic, because it cannot be wrong: a
+ * literal inside the leading frontmatter's `sources:` block is a PROVENANCE STAMP
+ * BY CONSTRUCTION — it declares which published version the page was written
+ * against — so it can never be a changelog/arrival claim, and therefore can never
+ * legitimately want a historical exemption. `findLiterals` marks those literals
+ * `sourcesStamp: true` and `findMismatches` refuses to look them up in the
+ * registry at all. A stale stamp is now a hard mismatch naming its own line,
+ * whatever else the file happens to say, and the protection no longer depends on
+ * every other occurrence of that version continuing to match.
+ *
+ * This covers all three registry rows: both `generation.md` rows (whose comments
+ * reason about the stamp inflating the count) and the `responsive.md` row (same
+ * argument, `@civitai/components`). The count stays — it still catches a genuine
+ * ADD or REMOVE in prose, which this does not.
+ *
  * Note that (1) and (2) compose: bumping the pin without updating the prose
  * fails (1); updating the prose without bumping the pin fails (1) too; bumping
  * both but trailing npm fails (2). There is no green state that leaves a reader
@@ -236,8 +262,12 @@ export const HISTORICAL_LITERALS = [
     //      scripts/appblocks-md.mjs), which mirrors <BridgeReference>'s
     //      `useBuzzWorkflow` docstring, and that docstring itself says "THREE
     //      members as of @civitai/app-sdk@0.30.0".
-    // Both are arrival-version statements, neither is a `sources:` stamp — and a
-    // regressed stamp would make it THREE, so the count still catches it.
+    // Both are arrival-version statements, neither is a `sources:` stamp. A
+    // regressed stamp is caught by the stamp rule (see the header), NOT by this
+    // count — it never enters the exempted set, so it cannot inflate `seen`.
+    // (This comment used to say a regressed stamp "would make it THREE, so the
+    // count still catches it". That was true only while the stamp was
+    // exemptible, and a SUBSTITUTION defeated it anyway.)
     // If the upstream docstring stops naming 0.30.0 this drops to 1 and fails,
     // which is the bidirectional strictness working: refresh the region and
     // correct this row in the same change.
@@ -245,14 +275,43 @@ export const HISTORICAL_LITERALS = [
     why: 'the `step` WorkflowBody member was ADDED in 0.30.0 — a changelog fact. Bumping it to the current pin would state a false arrival version.',
   },
   {
+    file: 'apps/reference/generation.md',
+    pkg: '@civitai/app-sdk',
+    version: '0.43.0',
+    // EXACT count 3 — the SAME changelog fact stated three ways, all of them
+    // arrival/floor claims about the `kind: 'step'` PASS-THROUGH arm:
+    //   1. "The pass-through arm (added in @civitai/app-sdk@0.43.0) omits `step`"
+    //   2. "@civitai/app-sdk@0.43.0 is the release that gives it a type
+    //      (`WorkflowBodyPassThroughStep`), so that is the floor"
+    //   3. "`step` also has the pass-through arm (@civitai/app-sdk@0.43.0 and above)"
+    // None is a `sources:` stamp — this file's stamp tracks the pin and sits in
+    // the frontmatter, where the stamp rule (see the header) makes it ineligible
+    // for this exemption outright. A stamp regressed to 0.43.0 therefore fails as
+    // a plain mismatch naming its own line; it does NOT reach this count.
+    // (This comment used to say such a stamp "makes the count FOUR and this row
+    // fails". That held only until someone also reworded one of the three
+    // sentences below — the substitution this row's own header now describes.)
+    //
+    // Measured, not assumed (npm pack + grep of the published tarballs):
+    // `WorkflowBodyPassThroughStep` appears in 0 files at 0.41.0 and 0.42.0, and
+    // in 3 files at 0.43.0 and 0.45.0. 0.43.0 really is the arrival release, so
+    // bumping these to the pin would state a false arrival version and move a
+    // documented TypeScript floor to a release that did not set it.
+    count: 3,
+    why: 'the `kind: \'step\'` PASS-THROUGH arm and its `WorkflowBodyPassThroughStep` type ARRIVED in app-sdk 0.43.0 — a changelog fact, and the stated TS floor. Bumping these to the current pin would name a release in which nothing about this arm changed.',
+  },
+  {
     file: 'apps/guide/responsive.md',
     pkg: '@civitai/components',
     version: '0.4.0',
     // EXACT count 1: the "Since @civitai/components@0.4.0 you get some of this
     // without writing anything" sentence. This file ALSO carries a `sources:`
-    // stamp for the same package, which must stay at the pin — if that stamp
-    // ever regresses to 0.4.0 the count becomes 2 and this row fails, which is
-    // the whole point of pinning the count rather than the (file, pkg, version).
+    // stamp for the same package, which must stay at the pin — a stamp regressed
+    // to 0.4.0 fails as a plain mismatch naming its own line, because the stamp
+    // rule (see the header) makes a frontmatter literal ineligible for any
+    // exemption. It does NOT reach this count. (This comment used to say the
+    // count "becomes 2 and this row fails"; that held only while the stamp was
+    // exemptible, and only until the arrival sentence was also reworded.)
     count: 1,
     // Measured, not assumed: `styles.css` is BYTE-IDENTICAL between 0.4.0 and
     // 0.4.1 (`cmp` rc=0), and differs from 0.3.0 — 0.4.1 changed only MARKUP.md,
@@ -323,20 +382,73 @@ export function historicalEntryFor(file, pkg, version) {
 }
 
 /**
+ * 1-based line numbers that sit inside the leading frontmatter's `sources:`
+ * block — the `sources:` key line itself plus its indented list entries.
+ *
+ * `findLiterals` is otherwise line-based over the whole file and has no
+ * structural notion of frontmatter; this is the minimum structure needed to tell
+ * a PROVENANCE STAMP from prose, which is what makes the exemption refusal above
+ * safe to state unconditionally.
+ *
+ * Deliberately narrower than "anywhere in the frontmatter": `sources:` is the one
+ * key whose entries are provenance by construction, so excluding it cannot ever
+ * suppress a legitimate historical claim. A column-0 line ends the block (a
+ * following key, or the `#` comments `cli.md` carries between keys); blank lines
+ * do not. An unterminated fence is not frontmatter and yields nothing.
+ *
+ * @param {string[]} lines the file split on '\n'
+ * @returns {Set<number>}
+ */
+function sourcesStampLines(lines) {
+  const inside = new Set();
+  if (lines[0]?.trim() !== '---') return inside;
+  let end = -1;
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i].trim() === '---') {
+      end = i;
+      break;
+    }
+  }
+  if (end === -1) return inside;
+  let inSources = false;
+  for (let i = 1; i < end; i++) {
+    const line = lines[i];
+    if (line.trim() === '') continue;
+    if (/^\s/.test(line)) {
+      if (inSources) inside.add(i + 1);
+      continue;
+    }
+    inSources = /^sources\s*:/.test(line);
+    if (inSources) inside.add(i + 1);
+  }
+  return inside;
+}
+
+/**
  * Scan markdown for design-system version literals.
  *
  * Pure + exported so the regression test can prove the guard FIRES on a planted
  * stale pin without touching the filesystem or the network.
  *
+ * `sourcesStamp` marks a literal inside the frontmatter `sources:` block. Such a
+ * literal is a provenance stamp and is NEVER eligible for a historical
+ * exemption — see the header.
+ *
  * @param {string} text markdown source
- * @returns {Array<{pkg: string, version: string, line: number}>}
+ * @returns {Array<{pkg: string, version: string, line: number, sourcesStamp: boolean}>}
  */
 export function findLiterals(text) {
   const found = [];
   const lines = text.split('\n');
+  const stampLines = sourcesStampLines(lines);
   for (let i = 0; i < lines.length; i++) {
     for (const m of lines[i].matchAll(LITERAL_RE)) {
-      found.push({ pkg: `@civitai/${m[1]}`, version: m[2], line: i + 1 });
+      found.push({
+        pkg: `@civitai/${m[1]}`,
+        version: m[2],
+        line: i + 1,
+        sourcesStamp: stampLines.has(i + 1),
+      });
     }
   }
   return found;
@@ -361,12 +473,23 @@ export function findMismatches(files, pins) {
     for (const lit of findLiterals(text)) {
       const expected = pins[lit.pkg];
       if (!expected || lit.version === expected) continue;
-      const hist = historicalEntryFor(file, lit.pkg, lit.version);
+      // A `sources:` stamp is provenance by construction, so it is never
+      // eligible for a historical exemption — without this, a regressed stamp
+      // can hide behind a changelog row whose count is held level by an
+      // unrelated reworded sentence. See the header.
+      const hist = lit.sourcesStamp ? null : historicalEntryFor(file, lit.pkg, lit.version);
       if (hist) {
         exempted.push({ file, line: lit.line, pkg: lit.pkg, version: lit.version, why: hist.why });
         continue;
       }
-      mismatches.push({ file, line: lit.line, pkg: lit.pkg, found: lit.version, expected });
+      mismatches.push({
+        file,
+        line: lit.line,
+        pkg: lit.pkg,
+        found: lit.version,
+        expected,
+        sourcesStamp: lit.sourcesStamp,
+      });
     }
   }
   return { mismatches, exempted };
@@ -480,7 +603,10 @@ async function main() {
 
   const { mismatches, exempted } = findMismatches(authored, pins);
   for (const m of mismatches) {
-    console.error(`  ✗ ${m.file}:${m.line} — ${m.pkg}@${m.found} (declared pin is ${m.expected})`);
+    const where = m.sourcesStamp ? ' [frontmatter `sources:` stamp — never exemptible]' : '';
+    console.error(
+      `  ✗ ${m.file}:${m.line} — ${m.pkg}@${m.found} (declared pin is ${m.expected})${where}`
+    );
   }
   if (!mismatches.length) console.log('  ✓ every literal matches its declared pin (or is a declared historical reference)');
 
@@ -554,6 +680,13 @@ async function main() {
       console.error('Update the prose to the pin (or bump the pin and the prose together).');
       console.error('If a literal is deliberately historical ("added in X"), add a reviewed row to');
       console.error('HISTORICAL_LITERALS in this file rather than bumping it to a false version.');
+      if (mismatches.some((m) => m.sourcesStamp)) {
+        console.error('\nA line marked [frontmatter `sources:` stamp] CANNOT be exempted — it declares');
+        console.error('which published version the page was written against, so it is provenance, not');
+        console.error('a changelog fact. Set it to the pin. Adding a HISTORICAL_LITERALS row will not');
+        console.error('silence it (that is deliberate: a stamp riding a changelog exemption is exactly');
+        console.error('the hole this rule closes).');
+      }
     }
     if (staleHistorical.length) {
       console.error(`\n${staleHistorical.length} HISTORICAL_LITERALS row(s) saw an unexpected occurrence count.`);

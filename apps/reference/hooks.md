@@ -2,9 +2,9 @@
 title: Hooks reference
 description: Every @civitai/blocks-react hook — signature and example, generated from the published package.
 sources:
-  - npm:@civitai/blocks-react@0.51.0/dist/index.d.ts
-  - npm:@civitai/blocks-react@0.51.0#README
-  - npm:@civitai/app-sdk@0.42.0/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.53.0/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.53.0#README
+  - npm:@civitai/app-sdk@0.45.0/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
 
@@ -815,16 +815,19 @@ union keyed by `kind`. The hook forwards the body to the host verbatim and never
 reads member-specific fields, so every member flows through the same
 `estimate → submit → watch` lifecycle shown above.
 
-As of the pinned `@civitai/app-sdk@0.42.0` the union has three members:
+As of the pinned `@civitai/app-sdk@0.45.0` the union has three `kind` values, and
+`kind: 'step'` is itself two arms — four members in all:
 
 | `kind` | what it runs | what your block sends |
 |---|---|---|
 | `textToImage` | a Civitai **checkpoint** (plus optional LoRAs / img2img) | `modelId` + `modelVersionId` + `params` |
 | `customComfy` | a **ComfyUI workflow** — a server-registered recipe, **or your own graph** | a registered `recipe` id, or `mode: 'inline'` plus the graph itself |
-| `step` | a **server-registered orchestrator step** (`convert-image`, `chat-completion`) | a registered `step` id + bounded `params` |
+| `step` (`step` present) | a **server-registered orchestrator step** (`convert-image`, `chat-completion`) | a registered `step` id + bounded `params` |
+| `step` (`step` omitted) | an orchestrator step type **named directly**, `input` forwarded unmodified | a `$type` + `input` + a `maxBuzz` ceiling |
 
-Narrow on `body.kind` before touching member-specific fields. The full field
-tables for all three are in the
+Narrow on `body.kind` before touching member-specific fields — and note that
+`kind === 'step'` alone leaves both step arms in play, so narrow further on
+whether `step` is present. The full field tables are in the
 [generation bridge reference](./generation#what-the-bridge-can-and-cannot-do).
 
 ### `kind: 'customComfy'` — ComfyUI from a block
@@ -878,13 +881,12 @@ Three things trip up a first attempt, all covered in the guide:
 - **`maxBuzz` is the only spend knob**, and doubles as the step timeout in
   seconds.
 
-::: tip The published SDK now types BOTH arms
-As of `@civitai/app-sdk@0.42.0`, `WorkflowBodyCustomComfy` is itself a union on
-`mode`, and both arms are importable from `@civitai/app-sdk/blocks`:
-`WorkflowBodyCustomComfyRecipe` and `WorkflowBodyCustomComfyInline` (plus
-`InlineComfyNode` for the graph nodes). Earlier versions typed the recipe arm
-only and this page told you to declare the inline shape locally — that is no
-longer necessary, and a locally-declared copy will now drift from the SDK.
+::: tip The published SDK types BOTH arms
+`WorkflowBodyCustomComfy` is itself a union on `mode`, and both arms are
+importable from `@civitai/app-sdk/blocks`: `WorkflowBodyCustomComfyRecipe` and
+`WorkflowBodyCustomComfyInline` (plus `InlineComfyNode` for the graph nodes).
+Import them rather than declaring the inline shape locally — a hand-declared
+copy will drift from the SDK.
 
 **Annotate the ARM, not the union**, as both examples above do. When the `mode`
 discriminant is **omitted** — which is the shape this page recommends —

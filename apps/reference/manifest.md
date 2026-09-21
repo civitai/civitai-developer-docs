@@ -88,10 +88,18 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
   markup shape, the dark-by-default theme rule and the per-framework removal
   step are in
   [Running embedded → the boot skeleton](../guide/embedding#boot-skeleton).
-  *(Not in the generated table above yet: the table renders from the canonical
-  schema copy bundled with the pinned `@civitai/app-sdk` devDep, which does not
-  carry this field at the current pin. The row appears on its own once the pin
-  catches up — do not hand-write it into the generated region.)*
+- **`scopeJustifications`** (enforced) — a map of scope id → free-text rationale
+  shown to the moderator. It is **not** optional across the board: any declared
+  scope the platform treats as **sensitive** — one that can spend or read the
+  viewer's Buzz, read their private data, or write data other users see — must
+  carry a non-empty justification here, or the manifest is **rejected at submit
+  time**. Every key must also be a scope you actually declared in `scopes`. See
+  the row in the table above for the current list and the length bound.
+- **`tagline`** (enforced) — the one-line pitch under your app's name on its
+  `/apps` store card. It is **manifest-governed**, not a listing field you edit
+  separately: it flows to the listing on moderator-approve and is **re-synced
+  from the manifest on every subsequent approved version**, so an edit made
+  anywhere else is overwritten by your next release.
 
 ### Sizing `page.buzzBudgetPerGen`
 
