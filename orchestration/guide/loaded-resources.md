@@ -96,6 +96,13 @@ Filtering by type instead? The non-model artifacts are `other`, `torchcompilecac
 ?view=Loaded&excludeType=other&excludeType=torchcompilecache&excludeType=nodepacklayer
 ```
 
+## A complete list, or an error
+
+`view=Loaded` never returns a partial list. If any part of the fleet is unreachable, or is still
+re-registering its workers after an orchestrator restart, the response is `503` with a
+`Retry-After` header instead of a shorter list. Treat anything other than a `200` as "no answer this
+time", never as "these resources were unloaded".
+
 ## Paging
 
 Pass the `next` value from each response as `cursor`. `take` defaults to 100, which is also the maximum: every item is a full `ResourceInfo`, so pages stay small and you follow `next`.
