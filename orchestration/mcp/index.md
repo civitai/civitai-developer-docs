@@ -26,7 +26,7 @@ The MCP server uses the **same Civitai API key** as the [REST API](/orchestratio
 
 If you've set your Civitai token in the navbar (top-right), the snippets on this page are pre-filled with it — copy and paste into your MCP client config. Otherwise they show a `YOUR_CIVITAI_API_KEY` placeholder.
 
-Most tools (`generate_image`, `generate_video`, `transcribe_audio`, …) accept anonymous calls, but tools that read or list per-user state — most notably `list_workflows` — require a token. Authenticated calls are also tracked against your account for usage and Buzz accounting, so you'll generally want one configured.
+Every tool requires a token — requests without a valid `Authorization` header are rejected with `401`. Calls run as your account, so Buzz is charged to it and workflows show up in `list_workflows`.
 
 ## Connecting
 
@@ -73,6 +73,32 @@ Any MCP client that speaks Streamable HTTP can connect — point it at `/mcp` an
 - **Resources** — `spine://blobs/{blobId}` for inline retrieval of generated media
 
 See the [tools reference](/orchestration/mcp/tools) for the full catalog.
+
+## Pricing, async submission, and tagging
+
+The generation and transform tools (`generate_image`, `generate_video`, `generate_music`, `text_to_speech`, `upscale_image`, `convert_image`, `upscale_video`, `extract_video_frames`) accept four optional parameters on top of their own:
+
+| Parameter | Type | Behavior |
+|---|---|---|
+| `whatif` | boolean | Price the request without running it. Nothing is executed and no Buzz is spent — the same as `?whatif=true` on [`POST /v2/consumer/workflows`](/orchestration/reference/operations/SubmitWorkflow). |
+| `waitForCompletion` | boolean | Default `true`: the call blocks until the workflow finishes. Set `false` to get the workflow ID back immediately and poll with `get_workflow`. |
+| `tags` | string[] | Up to 10 tags, 1–200 characters each, stored on the workflow. Filter by them later with `list_workflows`. |
+| `metadataJson` | string | A JSON object (as a string) stored as the workflow's `metadata`. |
+
+Results carry `structuredContent` alongside the text, so clients don't have to parse prose:
+
+```jsonc
+// whatif: true
+{ "workflowId": "…", "cost": { "base": 12, "total": 12, "variable": false }, "insufficientBuzz": false, "currencies": ["blue"] }
+
+// waitForCompletion: false
+{ "workflowId": "…", "status": "submitted" }
+
+// default (blocking)
+{ "workflowId": "…" }
+```
+
+`cost.variable` is `true` when the price is a cap that may settle lower. `currencies` lists the Buzz accounts the charge would draw from.
 
 ## Related
 

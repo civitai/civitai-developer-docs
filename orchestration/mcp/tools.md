@@ -77,12 +77,12 @@ See [Prompt enhancement](/orchestration/recipes/prompt-enhancement).
 
 ### Workflow management
 
-| Tool | Purpose | Auth |
-|---|---|---|
-| `submit_workflow` | Submit raw workflow JSON — same shape as [`POST /v2/consumer/workflows`](/orchestration/reference/operations/SubmitWorkflow). Use when a specific tool doesn't cover your case. | optional |
-| `get_workflow` | Status and output by workflow ID. | optional |
-| `cancel_workflow` | Cancel a running workflow. | optional |
-| `list_workflows` | Recent workflows for the authenticated user. Supports `take`, `tags`, `excludeFailed`. | **required** |
+| Tool | Purpose |
+|---|---|
+| `submit_workflow` | Submit raw workflow JSON — same shape as [`POST /v2/consumer/workflows`](/orchestration/reference/operations/SubmitWorkflow). Use when a specific tool doesn't cover your case. |
+| `get_workflow` | Status and output by workflow ID. |
+| `cancel_workflow` | Cancel a running workflow. |
+| `list_workflows` | Recent workflows for the authenticated user. Supports `take`, `tags`, `excludeFailed`. |
 
 ## Prompts
 
