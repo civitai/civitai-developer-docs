@@ -211,13 +211,15 @@ beyond the token's format:
 
 | `auth` | What the host hands you | Reaches |
 |---|---|---|
-| `"block-token"` *(default when omitted)* | the block-scoped JWT | every `/api/v1/blocks/*` route, plus `/api/v1/me` and `/api/v1/models/{id}` |
+| `"block-token"` *(default when omitted)* | the block-scoped JWT | the `/api/v1/blocks/*` routes, plus `/api/v1/models/{id}` |
 | `"oauth"` | a real OAuth access token for the block's own client | `/api/v1`, the orchestrator and the MCP, unchanged |
 
 Omitting `auth` keeps today's behaviour, so an existing manifest needs no edit.
 
 A block token is not confined to `/api/v1/blocks/` by any claim check — it works
-on any route wired to accept it, which today is those two general routes as well.
+on any route wired to accept it, which today means one general route,
+`/api/v1/models/{id}`. It does **not** reach `/api/v1/me`; blocks read the viewer
+from `/api/v1/blocks/me`.
 
 ::: danger `auth: "oauth"` is accepted but not yet live
 Minting the OAuth token is behind a server flag that is **off in production**.
@@ -225,10 +227,11 @@ While it is off the host falls back to the **block token**, so a manifest
 declaring `auth: "oauth"` silently gets `block-token` behaviour. **Do not build
 against it yet** (verified 2026-09-24).
 
-It also trades away per-viewer app storage when it does go live. Both caveats,
-and the field's full reference, are on the
-[manifest reference](../reference/manifest) — that page is `auth`'s home, and
-this one deliberately does not repeat it.
+It also gives up most of the block REST surface when it does go live — app
+storage, shared storage and the workflow routes all re-verify the raw bearer as
+a block JWS, which an OAuth token is not. Both caveats, and the field's full
+reference, are on the [manifest reference](../reference/manifest) — that page is
+`auth`'s home, and this one deliberately does not repeat it.
 :::
 
 ## Next

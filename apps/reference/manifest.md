@@ -34,6 +34,7 @@ the server accepts.
 | `contentRating` | `"g" \| "pg" \| "pg13" \| "r" \| "x"` | required | Content rating of the app surface. |
 | `category` | `"generation" \| "games" \| "utility" \| "discovery" \| "moderation" \| "analytics" \| "other"` | optional | Optional marketplace category for the app's `/apps` store listing. When present it flows to the listing automatically on moderator-approve (only when a moderator has not already curated a category). Omit to let a moderator categorise the app. Must be one of the known marketplace categories — this enum is kept in lockstep with MARKETPLACE_CATEGORIES in src/server/services/blocks/marketplace-categories.constants.ts (a drift-guard test enforces equality). |
 | `renderMode` | `"iframe" \| "inline" \| "hybrid"` | optional | How the block renders. Defaults to "iframe". "inline"/"hybrid" require a verified/internal trust tier (server-assigned), so authors should leave this as iframe. |
+| `auth` | `"block-token" \| "oauth"` | optional | Which credential the host hands the block: "block-token" (default when omitted) is the block-scoped JWT; "oauth" opts the block into a real OAuth access token for its own OauthClient, accepted unchanged by /api/v1, the orchestrator and the MCP. |
 | `trustTier` | `"unverified" \| "verified" \| "internal"` | optional | SERVER-OWNED. Do NOT set this in your manifest — the platform assigns the trust tier during review. Present here only to reject dev-set values. |
 | `scopes` | `string[]` | required | Capabilities the block requests. Must be a strict subset of what review grants. Each scope is lowercase colon-separated. |
 | `scopeJustifications` | `object` | optional | Per-scope justification: a map of scope-id → free-text rationale explaining WHY the app needs that permission, shown to the moderator during review. REQUIRED for SENSITIVE scopes — any declared scope that can spend or read the viewer's Buzz, read the viewer's private data, or write data other users see (e.g. `ai:write:budgeted`, `social:tip:self`, `buzz:read:self`, `collections:read:private`, `apps:storage:shared:write`, `posts:write:self`) MUST carry a non-empty justification here, or the manifest is rejected at submit time. OPTIONAL for non-sensitive scopes — omit those and the manifest stays valid. Every key MUST be a scope also present in `scopes` (justifications for scopes you don't request are rejected). Each value is a non-empty string of at most 500 characters. The requirement is enforced imperatively by the manifest validator (not expressed as JSON-Schema conditionals here). NOTE: the justification captures the developer's STATED rationale only; the platform does not verify the truth of the claims. |
@@ -104,7 +105,8 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
   `"oauth"`. This is the only field that changes **which credential the host
   hands your block**, so it belongs to a decision rather than a preference:
   - `"block-token"` is the block-scoped JWT. It reaches every
-    `/api/v1/blocks/*` route, plus `/api/v1/me` and `/api/v1/models/{id}`.
+    `/api/v1/blocks/*` routes, plus `/api/v1/models/{id}`. It does **not** reach
+    `/api/v1/me` — blocks read the viewer from `/api/v1/blocks/me`.
   - `"oauth"` is a real OAuth access token for the block's own client, accepted
     unchanged by `/api/v1`, the orchestrator and the MCP.
 
@@ -113,10 +115,15 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
   back to the block token, so declaring `"oauth"` silently gets you
   `block-token` behaviour. Do not build against it yet (verified 2026-09-24).
 
-  🔴 **And when it is live, `"oauth"` gives up per-viewer app storage.** App
-  storage is keyed to the block token's `(app, viewer)` identity, which an OAuth
-  token does not carry, so in `oauth` mode every `/api/v1/blocks/app-storage/*`
-  call is refused. Shared storage is unaffected. See
+  🔴 **And when it is live, `"oauth"` gives up most of the block REST surface.**
+  Not for want of identity — an OAuth token resolves to the same
+  `(app, viewer)` claims. The reason is that several block routes **re-verify
+  the raw bearer as a block JWS** in their service layer, and an OAuth access
+  token is not one. That covers app storage (5 routes), shared storage (11), the
+  workflow routes (`estimate`/`submit`/`poll`/`cancel`) and `user-checkpoint/set`
+  — including the routes that carry the Buzz budget, the per-viewer and per-app
+  caps, the maturity clamp and the attribution tag. A block that generates should
+  stay on `block-token`. See
   [Porting → choose your credential](../guide/porting#auth-field).
 
 ### Sizing `page.buzzBudgetPerGen`

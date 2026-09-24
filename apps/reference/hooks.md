@@ -26,7 +26,7 @@ for anything that has to raise Civitai's own UI.
 It is no longer the only model. A block can also hold a token and call `/api/v1`
 itself with [`@civitai/sdk`](../guide/porting), which is the default for reading
 and writing data. Most hooks below have a direct-API replacement — the
-[porting guide](../guide/porting#hook-replacements) maps all 38 of them.
+[porting guide](../guide/porting#hook-replacements) maps all 37 of them.
 
 This page is generated from `@civitai/blocks-react`'s own type definitions, so it
 can only ever describe the bridge. That is a property of the generator, not a
@@ -59,7 +59,7 @@ below before concluding a capability is missing.
 **`useBlockContext`**
 
 ```ts
-useBlockContext(): Pick<BlockSnapshot, 'ready' | 'renderMode' | 'context' | 'token' | 'settings' | 'viewer' | 'theme' | 'blockId' | 'blockInstanceId' | 'appId'>
+useBlockContext(): UseBlockContext
 ```
 
 The primary hook. Returns everything the host delivered in `BLOCK_INIT` plus a `ready` gate — fields are sentinel-empty before init, so gate your UI on `ready`.
@@ -72,7 +72,7 @@ const { ready, context, viewer, theme, settings, blockId, blockInstanceId, appId
 **`useBlockTheme`**
 
 ```ts
-useBlockTheme(): Theme
+useBlockTheme(): UseBlockTheme
 ```
 
 The host's CURRENT site theme, and nothing else. Same value as `useBlockContext().theme` — reach for this when theme is all you need.
@@ -87,7 +87,7 @@ function ThemedRoot() {
 **`useBlockResize`**
 
 ```ts
-useBlockResize(ref: RefObject<HTMLElement | null>): void
+useBlockResize(ref: RefObject<HTMLElement | null>): UseBlockResize
 ```
 
 Attach to your root element. Observes its height and posts `RESIZE_IFRAME` so the host sizes the iframe to fit. No-op on the inline transport (host DOM reflows naturally).
@@ -100,7 +100,7 @@ useBlockResize(rootRef);
 **`useBlockBreakpoint`**
 
 ```ts
-useBlockBreakpoint(ref?: RefObject<HTMLElement | null>): BlockBreakpoint
+useBlockBreakpoint(ref?: RefObject<HTMLElement | null>): UseBlockBreakpoint
 ```
 
 Reports the block's **own** width tier, so you can branch on "am I narrow?" without hand-rolling a `ResizeObserver` or hard-coding pixel numbers.
@@ -115,9 +115,7 @@ const bp = useBlockBreakpoint();
 **`useBlockToken`**
 
 ```ts
-useBlockToken(): BlockToken & {
-    refresh: () => Promise<void>;
-}
+useBlockToken(): UseBlockToken
 ```
 
 Current block-scoped JWT, auto-refreshing ~2 min before expiry. Returns the token fields plus a `refresh()` for the 401-retry path.
@@ -130,7 +128,7 @@ const { raw, scopes, expiresAt, buzzBudget, refresh } = useBlockToken();
 **`useHostOrigin`**
 
 ```ts
-useHostOrigin(): string | undefined
+useHostOrigin(): UseHostOrigin
 ```
 
 The validated host origin to direct-fetch the App Blocks HTTP API against — `undefined` until init. Use it as the base URL when you need to bypass the host bridge, always paired with the bearer token from `useBlockToken()`.
@@ -149,7 +147,7 @@ if (host) {
 **`useBlockSettings`**
 
 ```ts
-useBlockSettings(): BlockSettings
+useBlockSettings(): UseBlockSettings
 ```
 
 Shorthand for `useBlockContext().settings`. Read-only from the iframe — settings are *written* on the platform `/apps/installed` page, not via a bridge message.
@@ -161,7 +159,7 @@ const { publisherSettings, userSettings } = useBlockSettings();
 **`useBuzzWorkflow`**
 
 ```ts
-useBuzzWorkflow(): UseBuzzWorkflowReturn
+useBuzzWorkflow(): UseBuzzWorkflow
 ```
 
 The generation flow: `estimate` → `submit` → `poll`, host-mediated. Returns `{ estimate, submit, poll, status, result, error }`.
@@ -243,12 +241,7 @@ if (priced) {
 **`useBuzzPurchase`**
 
 ```ts
-useBuzzPurchase(): {
-    openPurchaseModal: (suggestedAmount?: number) => Promise<{
-        purchased: boolean;
-        newBalance?: number;
-    }>;
-}
+useBuzzPurchase(): UseBuzzPurchase
 ```
 
 Open the Buzz purchase modal — the insufficient-budget recovery path.
@@ -500,11 +493,17 @@ async function onCancel(id: string) {
 useAppStorage(): UseAppStorage
 ```
 
-Per-(block instance, viewer) KV datastore, host-mediated. 64 KB per value, 50 MB + ~1M rows per app.
+KV datastore, host-mediated. Keys are **namespaced** per (block instance, viewer); the byte and row **budgets** are enforced per (**app**, viewer), so every instance of one app shares one budget for that viewer.
 
 ```tsx
+import {
+  APP_STORAGE_MAX_VALUE_BYTES, // largest single value, in wire bytes
+  APP_STORAGE_MAX_BYTES,       // total stored bytes per (app, viewer)
+  APP_STORAGE_MAX_ROWS,        // total rows per (app, viewer)
+} from '@civitai/app-sdk/blocks';
+
 const storage = useAppStorage();
-await storage.set('key', { any: 'json' });   // throws "PAYLOAD_TOO_LARGE" over a limit
+await storage.set('key', { any: 'json' });   // rejects over ANY of the three — and on a >200-char key
 const v = await storage.get<MyShape>('key'); // null if unset / anon
 await storage.delete('key');                  // idempotent
 const { keys } = await storage.list({ prefix: 'note-' });
@@ -531,22 +530,7 @@ await shared.withdraw(key);                            // remove my own entry
 **`useCheckpointPicker`**
 
 ```ts
-useCheckpointPicker(): {
-    open: (opts: {
-        /**
-         * Ecosystem key (e.g. 'Flux1', 'SDXL'). Get it from
-         * `useBlockContext().context.checkpoint?.baseModel` — but for the
-         * picker filter the host will collapse to the ecosystem family, so
-         * any baseModel in the family works as a hint.
-         */
-        baseModelGroup: string;
-        /** Currently-selected versionId so the picker can pre-highlight it. */
-        currentVersionId?: number;
-    }) => Promise<{
-        selected?: BlockCheckpointInfo;
-    }>;
-    persist: (versionId: number | null) => Promise<void>;
-}
+useCheckpointPicker(): UseCheckpointPicker
 ```
 
 Drive the platform Checkpoint picker + persist a viewer override.
@@ -560,20 +544,7 @@ if (selected) await persist(selected.versionId);   // null clears the override
 **`useResourcePicker`**
 
 ```ts
-useResourcePicker(): {
-    open: (opts: {
-        /** Which resource type to pick. v1: `'Checkpoint' | 'LORA'` only — the
-         * host rejects any other type (the modal never opens). */
-        resourceType: BlockResourcePickerType;
-        /**
-         * Optional base-model family hint — an ecosystem key (e.g. 'Flux1', 'SDXL')
-         * OR a baseModel name (e.g. 'Flux.1 D'); the host collapses it to the
-         * ecosystem family. Use the chosen checkpoint's `baseModel` to constrain a
-         * LoRA pick to the same family. Omit for an unconstrained pick of the type.
-         */
-        baseModelGroup?: string;
-    }) => Promise<BlockResourceInfo | null>;
-}
+useResourcePicker(): UseResourcePicker
 ```
 
 Drive the platform resource picker for page blocks — `'Checkpoint' | 'LORA'`. The viewer searches in host chrome; the block only ever sees the one resource it picked. DISCOVERY ONLY — the returned `versionId` is re-validated + re-priced server-side at estimate/submit.
@@ -592,9 +563,7 @@ if (picked) {
 ```ts
 useImageUpload(options: {
     purpose: 'generationSource';
-}): {
-    open: () => Promise<BlockGenerationSourceImageInfo | null>;
-}
+}): UseImageUploadGenerationSource
 ```
 
 Host-mediated image upload — the host opens its native upload modal and the iframe never handles the bytes. Resolves with a moderated image (or `null` on dismiss); pass `{ purpose: 'generationSource' }` for an unscanned img2img source or `{ asyncScan: true }` for the early-resolve + `scanStatus()` flow.
@@ -616,9 +585,7 @@ if (img) {
 **`useGenerationResources`**
 
 ```ts
-useGenerationResources(): {
-    fetch: (versionIds: number[]) => Promise<BlockResourceInfo[]>;
-}
+useGenerationResources(): UseGenerationResources
 ```
 
 Rehydrate a saved set of generation resources by version id — WITHOUT re-opening the picker. Returns the same widened projection `useResourcePicker` yields (recommended weights, trigger words, clipSkip). DISCOVERY ONLY.
@@ -632,9 +599,7 @@ const first = resources[0];             // .versionId / .strength / .trainedWord
 **`useCivitaiNavigate`**
 
 ```ts
-useCivitaiNavigate(): {
-    navigate: (path: string, target?: 'current' | 'new_tab') => void;
-}
+useCivitaiNavigate(): UseCivitaiNavigate
 ```
 
 Request a navigation within civitai.com (host-mediated; fire-and-forget).
@@ -647,9 +612,7 @@ navigate('/models/12345', 'new_tab');   // 'new_tab' needs allow-popups* in the 
 **`useBlockAnalytics`**
 
 ```ts
-useBlockAnalytics(): {
-    track: (eventName: string, properties?: Record<string, unknown>) => void;
-}
+useBlockAnalytics(): UseBlockAnalytics
 ```
 
 Fire-and-forget event tracking into the host's analytics pipeline.
@@ -662,11 +625,7 @@ track('generate_clicked', { modelId });
 **`useRequestSignIn`**
 
 ```ts
-useRequestSignIn(): {
-    requestSignIn: (payload?: {
-        returnUrl?: string;
-    }) => void;
-}
+useRequestSignIn(): UseRequestSignIn
 ```
 
 Ask the host to open its sign-in flow for an ANONYMOUS viewer (fire-and-forget). On sign-in the host re-inits the block with the now-authenticated viewer.
@@ -680,11 +639,7 @@ requestSignIn();
 **`useRequestConsent`**
 
 ```ts
-useRequestConsent(): {
-    requestConsent: (payload?: {
-        scopes?: string[];
-    }) => void;
-}
+useRequestConsent(): UseRequestConsent
 ```
 
 Lazy consent: ask the host to open its consent UI when a LOGGED-IN viewer takes an action whose consent-gated scope the block token is missing (e.g. Generate needs `ai:write:budgeted` but the viewer hasn't granted it). Fire-and-forget — on grant the host pushes a new token; observe `useBlockToken().scopes` and retry.
@@ -731,7 +686,7 @@ function ConsentAwareGenerate() {
 **`useDomainMaturity`**
 
 ```ts
-useDomainMaturity(): DomainMaturity
+useDomainMaturity(): UseDomainMaturity
 ```
 
 Read the maturity ceiling in force for the current viewer, so a block can hide/blur mature affordances. **Fail-closed SFW** until `BLOCK_INIT` lands or against a host that projects no ceiling.
@@ -761,7 +716,7 @@ await tip({ toUserId: 123, amount: 50, entityType: 'Image', entityId: 99 }, { id
 useTipAllowance(): UseTipAllowance
 ```
 
-Read the viewer's REAL remaining daily tip allowance `{ cap, spent, remaining }` through the block-token-gated `GET /api/v1/blocks/tip-allowance` REST endpoint (scope `social:tip:self` — the SAME scope the app already holds to tip, so no manifest change). Direct-fetch against the validated host origin with the block bearer token, the same pattern as {@link useGenerationResources}. Lets a block show a genuinely-tracked remaining allowance and disable the tip button at the true ceiling — instead of a dead client-side full-cap guess (`localStorage` is inert in the opaque-origin sandbox). Fetches once on mount and exposes `refetch` (call it after a successful `useTip().tip(...)`).
+Read the viewer's REAL remaining daily tip allowance `{ cap, spent, remaining }` through the block-token-gated `GET /api/v1/blocks/tip-allowance` REST endpoint (scope `social:tip:self` — the SAME scope the app already holds to tip, so no manifest change). Direct-fetch against the validated host origin with the block bearer token, the same pattern as {@link useGenerationResources}. Lets a block show a genuinely-tracked remaining allowance and disable the tip button at the true ceiling — instead of a dead client-side full-cap guess (`localStorage` is inert in the opaque-origin sandbox). Fetches once on mount and exposes `refetch` (call it after a successful `useTip().tip(...)`). Only the LATEST request may write state: a reply superseded by a newer `refetch` — or one that lands after unmount — is dropped (#392). If the host origin never arrives the hook reaches a TERMINAL state rather than spinning: see `error` above (#398).
 
 ```tsx
 const { allowance, refetch } = useTipAllowance();
@@ -788,7 +743,7 @@ const imageIds = await publish({ workflowId: w.workflowId, imageIndexes: [0, 2] 
 useGatedImages(): UseGatedImages
 ```
 
-Read per-viewer gated display data for a list of image ids via the host-mediated `GET_IMAGES_BY_IDS` → `IMAGES_RESULT` bridge — the read side of a cross-user image grid (e.g. ids stored via `useSharedStorage()`). The host applies the requesting viewer's browsing-level clamp server-side and returns each image as `visible` (url, plus a rating UNLESS it is the viewer's own not-yet-rated image) or `hidden` (NO url — above ceiling / flagged / scan-refused / someone else's unrated image). This is the load-bearing cross-user moderation boundary: an unclamped edge URL never crosses to a viewer who can't see the image, and the block must render a placeholder for any `hidden` entry. 🔴 `nsfwLevel` AND `contentRating` ARE OPTIONAL, AND A MISSING ONE IS NOT "G". They are absent exactly when `ratingPending` is present. Treating absent as a safe default is the bug this state exists to stop: an image published seconds earlier came back `hidden` under the old two-state contract and a grid rendered it as *"Hidden — rated mature"*, a maturity claim about an image nothing had rated, which a page reload then contradicted.
+Read per-viewer gated display data for a list of image ids via the host-mediated `GET_IMAGES_BY_IDS` → `IMAGES_RESULT` bridge — the read side of a cross-user image grid (e.g. ids stored via `useSharedStorage()`). The host applies the requesting viewer's browsing-level clamp server-side and returns each image as `visible` (url, plus a rating UNLESS it is the viewer's own not-yet-rated image) or `hidden` (NO url — above ceiling / flagged / scan-refused / someone else's unrated image). This is the load-bearing cross-user moderation boundary: an unclamped edge URL never crosses to a viewer who can't see the image, and the block must render a placeholder for any `hidden` entry. 🔴 A `hidden` ENTRY IS NARROWED TO `{ imageId, status }` BEFORE IT REACHES HERE, and that is enforced in code rather than asserted in prose: the transport runs `projectInboundPayload` on every `IMAGES_RESULT` before delivery (`src/transport/validate.ts`), so a `previewUrl`, `src`, `imageUrl` or any other key a host attaches to a withheld image is DROPPED, not forwarded. Fields are dropped rather than the reply rejected so a future host-side field addition cannot hang this call — see `projectGatedImage`'s docblock. 🔴 `nsfwLevel` AND `contentRating` ARE OPTIONAL, AND A MISSING ONE IS NOT "G". They are absent exactly when `ratingPending` is present. Treating absent as a safe default is the bug this state exists to stop: an image published seconds earlier came back `hidden` under the old two-state contract and a grid rendered it as *"Hidden — rated mature"*, a maturity claim about an image nothing had rated, which a page reload then contradicted.
 
 ```tsx
 const { getImages } = useGatedImages();
@@ -819,7 +774,7 @@ await saveImage({ imageId: cell.imageId });
 **`useDirectLoad`**
 
 ```ts
-useDirectLoad(options?: UseDirectLoadOptions): boolean
+useDirectLoad(options?: UseDirectLoadOptions): UseDirectLoad
 ```
 
 Detect a DIRECT (unembedded) top-level load of a block and, after a short grace period, report it so the SDK can show an "Open on Civitai" fallback instead of hanging on the perpetual loading state. Returns `true` ONLY when BOTH hold: 1. The block is TOP-LEVEL (`window.self === window.top` — not in the host iframe), AND 2. No `BLOCK_INIT` has landed (`ready` is still `false`) within `timeoutMs`. This is precise by construction: - An EMBEDDED block (framed) is never top-level → always `false`, even before `ready`. The embedded happy path is untouched. - The dev harness / `createMockHost` runs the block top-level BUT posts `BLOCK_INIT` immediately (a `setTimeout(0)` macrotask), so `ready` flips long before `timeoutMs` and the timer is cleared → always `false`. The dev flow is untouched. - A real direct load (nobody sends `BLOCK_INIT`) stays top-level + not-ready past `timeoutMs` → `true`. Once `ready` flips it stays authoritative: this can never return `true` while `ready` is `true`, so a late init can't leave a stuck fallback.

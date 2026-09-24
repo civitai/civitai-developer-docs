@@ -29,15 +29,19 @@ publishing a post. A ported block uses both — fewer messages, not zero.
 
 ### Scope binding is per-route — declare only what you use
 
-Each block REST route binds **its own** required scope against your block
-context. `GET /api/v1/blocks/models` checks that `models:read:self` matches the
-model your block is rendering beside; `GET /api/v1/blocks/buzz` checks
-`buzz:read:self` and does not look at your other scopes.
+A route that declares a required scope binds **that scope, and only that
+scope**, against your block context. `GET /api/v1/models/{id}` declares
+`models:read:self` and 403s unless `?id` equals the model your block is
+rendering beside. `GET /api/v1/blocks/buzz` declares `buzz:read:self` and does
+not look at your other scopes.
 
-One thing is still token-wide, and it is deny-by-default: a token carrying a
-scope the platform does not recognise is rejected outright. That is a
-registration-time mistake rather than a call-site one — the manifest validator
-catches it first.
+A route that declares no required scope binds nothing: `GET /api/v1/blocks/models`
+accepts any valid block token, clamped only by the token's maturity ceiling.
+Declaring `models:read:self` is not what gates it.
+
+A token carrying a scope the platform does not recognise is rejected outright,
+but that is a registration-time mistake rather than a call-site one — the
+manifest validator catches it first.
 
 So the only rule at the call site is the ordinary one: **declare the scopes your
 app actually uses**, and pass each route the parameters its own scope binds on.
@@ -63,7 +67,7 @@ See [Testing](#testing) below.
 
 | `auth` | Credential | Reaches |
 |---|---|---|
-| `"block-token"` *(default when omitted)* | the block-scoped JWT | every `/api/v1/blocks/*` route, plus `/api/v1/me` and `/api/v1/models/{id}` |
+| `"block-token"` *(default when omitted)* | the block-scoped JWT | the `/api/v1/blocks/*` routes, plus `/api/v1/models/{id}` |
 | `"oauth"` | a real OAuth access token for the block's own client | `/api/v1`, the orchestrator and the MCP, unchanged |
 
 Omitting `auth` keeps today's behaviour, so an existing manifest needs no edit to
@@ -80,13 +84,23 @@ rather than explaining itself.
 spend caps and attribution live anyway. Verified 2026-09-24.
 :::
 
-::: warning `auth: "oauth"` gives up per-viewer app storage
-App storage is keyed to the block token's `(app, viewer)` identity, which an
-OAuth access token does not carry. In `oauth` mode every
-`/api/v1/blocks/app-storage/*` call is **refused**. Shared storage is unaffected.
+::: danger `auth: "oauth"` gives up most of the block REST surface
+This is wider than it looks, and it is not an identity gap — an OAuth token does
+resolve to the same `(app, viewer)` claims. The reason is that several block
+routes **re-verify the raw bearer as a block JWS** inside their service layer,
+and an OAuth access token is not one. Those calls fail.
 
-Pick `oauth` when you need the general `/api/v1` surface or the orchestrator.
-Stay on `block-token` when per-viewer storage matters.
+That covers **app storage** (5 routes), **shared storage** (11 routes), the
+**workflow routes** (`estimate`/`submit`/`poll`/`cancel`) and
+`user-checkpoint/set`.
+
+🔴 **So `oauth` mode gives up exactly the routes this guide tells you to submit
+generations through** — the ones carrying the Buzz budget, the per-viewer and
+per-app caps, the maturity clamp and the attribution tag. If your block
+generates, stay on `block-token`.
+
+`oauth` is for a block that needs the general `/api/v1` surface or the
+orchestrator directly, and does not need the block routes.
 :::
 
 ## The adapter shape
@@ -129,7 +143,8 @@ Components then import `fetchBuzzBalance`, never `app.site`.
 
 ## Hook replacements
 
-All 38 exported `@civitai/blocks-react` hooks. "Local" means the hook never
+All 37 hooks `@civitai/blocks-react` exports — 36 from the package root, plus
+`useBlocksStyles` from `@civitai/blocks-react/ui`. "Local" means the hook never
 talked to the platform — it is your own code now, with nothing to replace.
 
 | Bridge hook | Replacement |
@@ -156,14 +171,13 @@ talked to the platform — it is your own code now, with nothing to replace.
 | `useCreatePostFromApp` | **Stays on the bridge, by design** |
 | `useDailyCompensation` | **Not carried** |
 | `useDirectLoad` | `initialize()` rejects when no host answers; see [Embedding](./embedding) |
-| `useDomainMaturity` | `app.context` carries `maxBrowsingLevel` |
+| `useDomainMaturity` | No direct equivalent. 🔴 Do **not** gate on `maxBrowsingLevel` — it is a property of the domain, identical for every viewer on it, including one whose own NSFW setting is off. The per-viewer value is `effectiveBrowsingLevel`; keep the hook until the SDK carries it |
 | `useGatedImages` | `GET /api/v1/blocks/gated-images` |
 | `useGenerationResources` | `GET /api/v1/blocks/generation-resources?ids=` |
 | `useHostOrigin` | Internal to the SDK now |
-| `useImageUpload` | **No replacement yet** — in flight |
+| `useImageUpload` | `app.host.openImageUpload(...)` — on `@civitai/sdk` `main` via app-starters#446, **not in the published `0.2.0`**. Stay on the hook until it ships |
 | `usePublishGenerationOutputs` | **Stays on the bridge, by design** |
 | `useRequestConsent` | `app.requestGrants(scopes)` — returns an awaited `boolean` |
-| `useRequestSequencer` | Local — the SDK sequences its own requests |
 | `useRequestSignIn` | `app.host.requestSignIn({ returnUrl })` |
 | `useResourcePicker` | `app.host.openResourcePicker({ resourceType, baseModelGroup })` |
 | `useSaveImage` | `app.host.download({ url, filename })` |
@@ -196,7 +210,9 @@ const items = await app.site.get<{ items: unknown[] }>('blocks/shared-storage/li
 });
 
 // Write
-await app.site.post('blocks/shared-storage/append', { value: { hello: 'world' } });
+await app.site.post('blocks/shared-storage/append', {
+  value: { title: 'My entry', body: 'optional', data: { anything: true } },
+});
 ```
 
 Two behaviours worth knowing before you write a caller:
@@ -274,8 +290,8 @@ Document these as gaps; do not design around them yet.
 
 | Gap | State |
 |---|---|
-| `useImageUpload` / `OPEN_IMAGE_UPLOAD` | No REST twin and no SDK host request. In flight. |
-| `usePublishGenerationOutputs` | Same, and staying on the bridge by design. |
+| `useImageUpload` / `OPEN_IMAGE_UPLOAD` | No REST twin, and deliberately so — it raises host UI. An SDK host request exists on `main` (app-starters#446) but is not in the published `0.2.0`. |
+| `usePublishGenerationOutputs` | Same shape: `app.host.publishGenerationOutputs` on `main`, not in `0.2.0`. Staying on the bridge by design. |
 | `useBlockAnalytics` | No sink anywhere; already a no-op. |
 | Anonymous app-storage reads | REST returns 403 where the bridge resolved a read to `null`. Whether that is the intended policy per operation is open as [#5089](https://github.com/civitai/civitai/issues/5089). |
 | `useBuzzAccounts`, `useBuzzTransactions`, `useDailyCompensation`, `useWildcardPack` | Not carried. |

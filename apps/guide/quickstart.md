@@ -166,16 +166,28 @@ same params as your submit.
 
 ## 4. Validate the manifest
 
-`block.manifest.json` is the contract the platform validates. You can check it any
-time against the same rules the platform uses by calling `defineBlock` at module
-scope, so mistakes throw at startup instead of at submit:
+`block.manifest.json` is the contract the platform validates. The scaffold wires
+the SDK's Vite plugin, which validates it against the same rules on every build
+and dev start — so mistakes fail the build instead of surfacing at submit:
 
 ```ts
-import { defineBlock } from '@civitai/app-sdk/blocks';
-import manifest from './block.manifest.json' with { type: 'json' };
+// vite.config.ts — add the plugin to the config the scaffold generated
+import { blockManifestPlugin } from '@civitai/app-sdk/vite';
 
-defineBlock({ manifest });   // throws BlockManifestError with a .field path
+const plugins = [blockManifestPlugin()];
 ```
+
+It throws `BlockManifestError` with a `.field` path pointing at the offending key.
+You can also check a manifest from the command line at any time with
+[`civitai app validate`](../reference/cli).
+
+::: tip Validating outside Vite
+`defineBlock` used to live on `@civitai/app-sdk/blocks`. It moved to
+`@civitai/app-sdk/manifest`, a **Node-only** subpath — it compiles the vendored
+canonical schema with Ajv, which needs `node:fs` and so cannot sit on the
+browser-facing surface. Reach for it in a Node script; in a Vite app use the
+plugin above.
+:::
 
 The manifest declares your `blockId` (which becomes your `<slug>.civit.ai`
 subdomain), `version`, `name`, `contentRating`, and the **scopes** your app
