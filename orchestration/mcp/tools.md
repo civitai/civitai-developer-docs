@@ -4,125 +4,65 @@ title: Tools, prompts, and resources
 
 # Tools, prompts, and resources
 
-The MCP server advertises live schemas via `tools/list`, `prompts/list`, and `resources/list` on connect, so your client always sees authoritative parameter shapes. The tables below summarize what's exposed so you know what to look for and which REST recipe each tool maps to.
+The server publishes live schemas through `tools/list`, `prompts/list` and `resources/templates/list`, so your client always sees the current parameters. This page summarizes what's there.
 
 ## Tools
 
-### Image generation
+### Finding and running services
 
 | Tool | Purpose |
 |---|---|
-| `generate_image` | Text-to-image and image-edit. Engines: `sdcpp`, `seedream`, `flux1-kontext`, `openai`, `gemini`, `grok`, `google`, `wan`. Returns a resource link to each generated blob. |
-| `upscale_image` | Repeated 2× upscale (1–3 passes → up to 8×). |
-| `convert_image` | Format conversion (jpeg / png / webp / gif) with optional resize. |
+| `find_services` | Ranks services by speed, cost and success rate. Takes a natural-language `query` ("fast cheap anime image", "best video") or an exact service id, an optional `category` (`image`, `video`, `audio`, `chat`) and `limit`. Also lists OpenRouter chat models, which run as the `chatCompletion` step. |
+| `get_input_schema` | The JSON Schema and an example input for a service. Pass a `service` id from `find_services`; or browse with `stepType` and `parameters` (open choices come back as options, with the services under them); or, for `imageGen`, pass Civitai checkpoint and LoRA AIRs as `resources` to get the matching input with them filled in. With no arguments it lists the step types. |
+| `run_step` | Runs one step: `stepType` and `input` as `get_input_schema` returns them. Returns each step's status and output, with resource links to any files it produced. |
+| `run_workflow` | Runs several steps in the format of [`POST /v2/consumer/workflows`](/orchestration/reference/operations/SubmitWorkflow): `{"$type", "input", "name"}`, where `$type` is the `stepType`. A later step can take an earlier one's output with `{"$ref": "<step name>", "path": "output.images[0].url"}` in place of a value. |
+| `get_guide` | The plan for a multi-step job. Topics: `civitai_models`, `image_to_video`, `edit_image`, `compare_services`, `understand_media`. |
 
-Behavior maps directly to the [image recipes](/orchestration/recipes/) — see [Flux 2](/orchestration/recipes/flux2), [SDXL](/orchestration/recipes/sdxl), [Image upscaling](/orchestration/recipes/image-upscaler), and [Image conversion](/orchestration/recipes/convert-image) for parameter and output details.
+The [recipes](/orchestration/recipes/) describe each step's inputs and outputs in more detail; `get_input_schema` returns the same shapes.
 
-### Video generation
+### Understanding media
 
-| Tool | Purpose |
-|---|---|
-| `generate_video` | Text-to-video and image-to-video. Engines: `kling-v3`, `kling`, `haiper`, `veo3`, `wan`, `minimax`, `vidu`, `sora`, `grok`, `lightricks`. |
-| `extract_video_frames` | Sample frames at a configurable rate; perceptual-hash deduplication filters near-identical frames. |
-| `upscale_video` | FlashVSR 2–4× upscaling. |
-
-See [WAN](/orchestration/recipes/wan), [Kling](/orchestration/recipes/kling), [Veo 3](/orchestration/recipes/veo3), and [Video upscaling](/orchestration/recipes/video-upscaler) for matching REST recipes.
-
-### Audio
+For agents that can't see or hear files themselves.
 
 | Tool | Purpose |
 |---|---|
-| `transcribe_audio` | Speech-to-text with optional word-level timestamps. |
-| `text_to_speech` | TTS with selectable speakers (`aiden`, `dylan`, `eric`, `ryan`, `serena`, `sohee`, `vivian`). |
+| `caption_media` | Describes an image or video. |
+| `transcribe_audio` | Transcribes audio or video to text, with optional word-level timestamps. |
 
-See [Transcription](/orchestration/recipes/transcription) and [Text-to-speech](/orchestration/recipes/text-to-speech).
+Tagging (`wdTagging`) and content rating (`mediaRating`) run through `run_step` like any other step.
 
-### Music
-
-| Tool | Purpose |
-|---|---|
-| `generate_music` | ACE Step 1.5. Supports structured lyrics with section markers like `[Verse]`, `[Chorus]`, `[Bridge]`. Returns MP3 audio or WebM with cover image. |
-
-See [ACE-Step music generation](/orchestration/recipes/ace-step-audio).
-
-### Media analysis
+### Workflows
 
 | Tool | Purpose |
 |---|---|
-| `caption_media` | Generate a descriptive caption for an image or video. |
-| `rate_media` | NSFW level, blocked status, content labels. Optional sub-analyses for age classification, face recognition, AI detection, and anime recognition. |
-| `tag_media` | WD-style tagging with confidence scores and content-rating distribution. |
+| `get_workflow` | A workflow's status and each step's output, with resource links to files. |
+| `list_workflows` | Your recent workflows. Supports `take`, `tags` and `excludeFailed`. |
+| `cancel_workflow` | Cancels a running workflow. |
 
-### Language models
-
-| Tool | Purpose |
-|---|---|
-| `chat_completion` | OpenRouter passthrough — any model from OpenAI, Anthropic, Google, Meta, Mistral, DeepSeek, Qwen, etc. Supports multi-turn `system` / `user` / `assistant` messages. |
-
-See [Chat completion](/orchestration/recipes/chat-completion) for the model ID format.
-
-### Prompt utilities
-
-| Tool | Purpose |
-|---|---|
-| `enhance_prompt` | Analyze and rewrite a generation prompt for a target ecosystem (`sd1`, `sdxl`, `flux`, `ltx2`). Returns the improved prompt with issues and recommendations. |
-
-See [Prompt enhancement](/orchestration/recipes/prompt-enhancement).
-
-### Discovery
-
-| Tool | Purpose |
-|---|---|
-| `find_models` | Natural-language model search across image, video, audio, and chat catalogs. Accepts queries like `"fast cheap chat model"` or a metrics ID like `image/flux1-kontext/pro`. |
-
-### Workflow management
-
-| Tool | Purpose |
-|---|---|
-| `submit_workflow` | Submit raw workflow JSON — same shape as [`POST /v2/consumer/workflows`](/orchestration/reference/operations/SubmitWorkflow). Use when a specific tool doesn't cover your case. |
-| `get_workflow` | Status and output by workflow ID. |
-| `cancel_workflow` | Cancel a running workflow. |
-| `list_workflows` | Recent workflows for the authenticated user. Supports `take`, `tags`, `excludeFailed`. |
+You can only see and cancel your own workflows.
 
 ## Prompts
 
-The server ships three built-in MCP prompts that return ready-to-use guidance for multi-step pipelines. Clients can list and invoke them like any MCP prompt.
+Prompts are plans your MCP client can offer you, usually as slash commands. Each returns the same plan as the matching `get_guide` topic, with your request filled in.
 
-| Prompt | Input | What it returns |
+| Prompt | Arguments | Plan |
 |---|---|---|
-| `image_generation_guide` | `intent` (e.g. `"photorealistic product photo"`, `"anime character"`, `"fast draft"`) | Engine comparison table, quick recommendations, parameter tips. |
-| `video_creation_pipeline` | `intent` (e.g. `"product showcase"`, `"music video clip"`, `"talking head"`) | Recommended pipeline (image → video → upscale), engine selection matrix, example tool sequence. |
-| `content_analysis_pipeline` | `mediaUrl` | Stepwise plan: caption → tag → rate, with notes on when to use each. |
+| `generate_with_civitai_models` | `prompt`, `resources` (AIRs, comma-separated) | Get the input for exactly these models, add the prompt, run it. If the models can't run together, say why instead of swapping one. |
+| `image_to_video` | `idea`, optional `image` | Pick a video service that takes a source image; generate the first frame if none is given, and chain frame and video in one workflow. |
+| `edit_image` | `image`, `instruction` | Find a service that edits and describe the change plus what must stay the same. |
+| `compare_services` | `prompt`, optional `category` | Run one prompt on three different services in one workflow and compare cost, time and result. |
+| `understand_media` | `mediaUrl`, optional `question` | Caption or transcribe first, and add tagging or rating only when the question needs them. |
 
 ## Resources
 
-| URI template | MIME | Behavior |
-|---|---|---|
-| `spine://blobs/{blobId}` | `application/octet-stream` | Images are inlined as base64 content. Videos and audio return a 5-minute signed download URL. Returns an error if the blob does not exist. |
+| URI template | Behavior |
+|---|---|
+| `spine://blobs/{blobId}` | Images come back inline as base64. Videos and audio return a signed download URL valid for 5 minutes. Returns an error if the blob doesn't exist. |
 
-Tools that produce media include resource links pointing at this URI template, so MCP clients can render outputs inline without a separate download step.
-
-## Capabilities advertised on `initialize`
-
-```json
-{
-  "protocolVersion": "2024-11-05",
-  "capabilities": {
-    "logging": {},
-    "prompts": { "listChanged": true },
-    "resources": { "listChanged": true },
-    "tools": { "listChanged": true }
-  },
-  "serverInfo": {
-    "name": "civitai-orchestration",
-    "title": "Civitai Orchestration MCP Server",
-    "description": "Generate images, videos, audio, and more via the Civitai Orchestration platform"
-  }
-}
-```
+Tools that produce media include resource links to this template, so MCP clients can show outputs inline without a separate download.
 
 ## Related
 
-- [MCP Server overview](/orchestration/mcp/) — endpoint, auth, and client setup
-- [Recipes](/orchestration/recipes/) — REST equivalents with runnable examples
-- [API Reference](/orchestration/reference/) — generated from the OpenAPI spec
+- [MCP Server overview](/orchestration/mcp/): endpoint, authentication and client setup
+- [Recipes](/orchestration/recipes/): REST equivalents with runnable examples
+- [API Reference](/orchestration/reference/): generated from the OpenAPI spec

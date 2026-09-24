@@ -29,5 +29,5 @@ features:
   - title: Sync or async
     details: Poll, subscribe, or wait inline with the `wait=` parameter. Webhooks supported for production integrations.
   - title: MCP-native
-    details: Connect Claude Desktop, claude.ai, or any MCP-aware client to the same orchestrator. 20 tools, 3 prompts, and a blob resource — over HTTP at /mcp.
+    details: Connect Claude Desktop, claude.ai, or any MCP-aware client to the same orchestrator. Find a service, get its exact input schema and run it, over HTTP at /mcp/v2.
 ---
