@@ -218,28 +218,17 @@ Omitting `auth` keeps today's behaviour, so an existing manifest needs no edit.
 
 A block token is not confined to `/api/v1/blocks/` by any claim check — it works
 on any route wired to accept it, which today is those two general routes as well.
-It is still the narrower credential: reach `oauth` for when you need the rest of
-`/api/v1`, or the orchestrator.
 
 ::: danger `auth: "oauth"` is accepted but not yet live
-The manifest validator accepts `"oauth"` today, but minting the OAuth token is
-behind a server flag that is **off in production**. While it is off the host
-falls back to handing your block the **block token** — so a manifest declaring
-`auth: "oauth"` silently gets `block-token` behaviour, and a call to a general
-`/api/v1` route fails as unauthorised rather than telling you why.
+Minting the OAuth token is behind a server flag that is **off in production**.
+While it is off the host falls back to the **block token**, so a manifest
+declaring `auth: "oauth"` silently gets `block-token` behaviour. **Do not build
+against it yet** (verified 2026-09-24).
 
-**Do not build against `oauth` mode yet.** Verified 2026-09-24; check with the
-platform team before relying on it.
-:::
-
-::: warning `auth: "oauth"` trades away per-viewer app storage
-Per-viewer app storage is keyed to the block token's `(app, viewer)` identity. An
-OAuth access token does not carry it, so a block in `oauth` mode has **no app
-storage** — `/api/v1/blocks/app-storage/*` is not available to it. Shared storage
-is unaffected.
-
-Choose `oauth` when your block needs the general `/api/v1` surface or the
-orchestrator directly. Stay on `block-token` when per-viewer storage matters.
+It also trades away per-viewer app storage when it does go live. Both caveats,
+and the field's full reference, are on the
+[manifest reference](../reference/manifest) — that page is `auth`'s home, and
+this one deliberately does not repeat it.
 :::
 
 ## Next

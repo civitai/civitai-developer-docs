@@ -28,8 +28,10 @@ The runtime unit is a **block**: a static web app, served from its own
 platform-owned subdomain (`https://<slug>.civit.ai/`), declared by a small
 `block.manifest.json`. The host page (civitai.com) draws a trust frame around
 your iframe, hands it a short-lived, scoped token plus the current page context
-over `postMessage`, and brokers anything privileged — so your app never holds a
-long-lived credential and never talks to Civitai's privileged APIs directly.
+over `postMessage`, and brokers whatever has to raise Civitai's own UI — so your
+app never holds a long-lived credential. What your block does with that token
+depends on which transport it uses: the `postMessage` bridge, or a direct call
+to `/api/v1`. See [Transport models](./concepts#transport-models).
 
 > **Naming:** the product is **Civitai Apps**; the code, manifest, scopes, and
 > messages still use the `block` / `app_block` vocabulary. You'll see both in

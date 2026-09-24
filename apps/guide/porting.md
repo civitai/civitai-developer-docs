@@ -25,51 +25,24 @@ needs host chrome.
 The bridge is **not deprecated**. Host UI stays on it by design, and so does
 publishing a post. A ported block uses both — fewer messages, not zero.
 
-## Before you write any code: three things that will bite
+## Before you write any code
 
-### 1. A scope you never invoked can 403 your call
+### Scope binding is per-route — declare only what you use
 
-The request-time scope-binding check runs over **every scope on your block
-token**, not just the one the route needs. So an unrelated scope can reject a
-call, with an error naming a scope you did not invoke.
+Each block REST route binds **its own** required scope against your block
+context. `GET /api/v1/blocks/models` checks that `models:read:self` matches the
+model your block is rendering beside; `GET /api/v1/blocks/buzz` checks
+`buzz:read:self` and does not look at your other scopes.
 
-The common case: an app declaring `models:read:self` calls
-`GET /api/v1/blocks/buzz`. That scope's binding wants `query.id` to match the
-model in your block context. A buzz request carries neither, so it **403s** with
-`models:read:self bound to different modelId`.
+One thing is still token-wide, and it is deny-by-default: a token carrying a
+scope the platform does not recognise is rejected outright. That is a
+registration-time mistake rather than a call-site one — the manifest validator
+catches it first.
 
-The workaround is to pass a parameter the handler ignores:
+So the only rule at the call site is the ordinary one: **declare the scopes your
+app actually uses**, and pass each route the parameters its own scope binds on.
 
-```ts
-import { initialize } from '@civitai/sdk';
-
-const app = await initialize();
-
-// `BlockContext` is a union — only a model slot carries `modelId`, so narrow
-// rather than reaching for it. On a page slot there is nothing to bind to.
-const modelId = 'modelId' in app.context ? app.context.modelId : undefined;
-
-const balance = await app.site.get<{ blue: number; green: number; yellow: number }>(
-  'blocks/buzz',
-  { query: { id: modelId } },
-);
-```
-
-This applies to every block REST route. Tracked as
-[civitai/civitai#5063](https://github.com/civitai/civitai/issues/5063).
-
-### 2. Anonymous viewers behave differently on REST
-
-The bridge gated anonymity **per operation** — an anonymous shared-storage read
-passed. On REST it currently does not, if your app also declares
-`apps:storage:shared:write`: the anon token still carries that scope, the binding
-check reaches its "requires authenticated subject" rule, and the read **403s**.
-
-There is no call-site workaround — an app cannot un-declare a write scope it
-needs in order to make its read path work. **If your app's premise is signed-out
-browsing, check this before porting.** Same issue, #5063.
-
-### 3. Your tests will pass while exercising nothing
+### Your tests will pass while exercising nothing
 
 This is the one people get wrong. After the port your block sends no
 `postMessage` operations — so a mock host is answering a conversation nobody is
@@ -148,8 +121,7 @@ export interface BuzzBalance {
 
 export async function fetchBuzzBalance(): Promise<BuzzBalance> {
   const app = await getClient();
-  const modelId = 'modelId' in app.context ? app.context.modelId : undefined;
-  return app.site.get<BuzzBalance>('blocks/buzz', { query: { id: modelId } });
+  return app.site.get<BuzzBalance>('blocks/buzz');
 }
 ```
 
@@ -177,7 +149,7 @@ talked to the platform — it is your own code now, with nothing to replace.
 | `useBuzzPurchase` | `app.host.openBuzzPurchase({ suggestedAmount })` |
 | `useBuzzTransactions` | **No route yet** |
 | `useBuzzWorkflow` | `/api/v1/blocks/workflows/{estimate,submit,poll,cancel}` |
-| `useCheckpointPicker` | `app.host.openResourcePicker({ resourceType: 'Checkpoint' })`; `.persist` is [#5093](https://github.com/civitai/civitai/issues/5093) and developer-gated |
+| `useCheckpointPicker` | `app.host.openResourcePicker({ resourceType: 'Checkpoint' })`; `.persist` → `POST /api/v1/blocks/user-checkpoint/set` |
 | `useCivitaiNavigate` | `app.host.navigate(path, { target })` |
 | `useCollectionFollow` | `POST /api/v1/blocks/collections/{id}/follow` |
 | `useConsentUnavailable` | `app.requestGrants(scopes)` resolves `false` — a refusal is an answer |
@@ -305,8 +277,7 @@ Document these as gaps; do not design around them yet.
 | `useImageUpload` / `OPEN_IMAGE_UPLOAD` | No REST twin and no SDK host request. In flight. |
 | `usePublishGenerationOutputs` | Same, and staying on the bridge by design. |
 | `useBlockAnalytics` | No sink anywhere; already a no-op. |
-| `SET_USER_CHECKPOINT` | [#5093](https://github.com/civitai/civitai/issues/5093), developer-gated — ordinary viewers cannot persist. |
-| Anonymous reads | REST 403s where the bridge returned `null`. [#5063](https://github.com/civitai/civitai/issues/5063). |
+| Anonymous app-storage reads | REST returns 403 where the bridge resolved a read to `null`. Whether that is the intended policy per operation is open as [#5089](https://github.com/civitai/civitai/issues/5089). |
 | `useBuzzAccounts`, `useBuzzTransactions`, `useDailyCompensation`, `useWildcardPack` | Not carried. |
 
 Because of the first two, a block that uploads images or publishes generation
