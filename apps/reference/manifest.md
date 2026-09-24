@@ -108,10 +108,15 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
   - `"oauth"` is a real OAuth access token for the block's own client, accepted
     unchanged by `/api/v1`, the orchestrator and the MCP.
 
-  🔴 **`"oauth"` gives up per-viewer app storage.** App storage is keyed to the
-  block token's `(app, viewer)` identity, which an OAuth token does not carry, so
-  in `oauth` mode every `/api/v1/blocks/app-storage/*` call is refused. Shared
-  storage is unaffected. See
+  🔴 **`"oauth"` is accepted but not yet live.** Minting the OAuth token is
+  behind a server flag that is off in production; while it is off the host falls
+  back to the block token, so declaring `"oauth"` silently gets you
+  `block-token` behaviour. Do not build against it yet (verified 2026-09-24).
+
+  🔴 **And when it is live, `"oauth"` gives up per-viewer app storage.** App
+  storage is keyed to the block token's `(app, viewer)` identity, which an OAuth
+  token does not carry, so in `oauth` mode every `/api/v1/blocks/app-storage/*`
+  call is refused. Shared storage is unaffected. See
   [Porting → choose your credential](../guide/porting#auth-field).
 
 ### Sizing `page.buzzBudgetPerGen`

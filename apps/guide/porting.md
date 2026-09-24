@@ -96,6 +96,17 @@ See [Testing](#testing) below.
 Omitting `auth` keeps today's behaviour, so an existing manifest needs no edit to
 start calling the block routes.
 
+::: danger `auth: "oauth"` is accepted but not yet live
+The validator accepts `"oauth"`, but minting the OAuth token is behind a server
+flag that is **off in production**. While it is off the host falls back to the
+**block token**, so a manifest declaring `auth: "oauth"` silently gets
+`block-token` behaviour and a general `/api/v1` call fails as unauthorised
+rather than explaining itself.
+
+**Port onto the block routes first.** They work today, and they are where the
+spend caps and attribution live anyway. Verified 2026-09-24.
+:::
+
 ::: warning `auth: "oauth"` gives up per-viewer app storage
 App storage is keyed to the block token's `(app, viewer)` identity, which an
 OAuth access token does not carry. In `oauth` mode every

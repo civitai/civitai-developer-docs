@@ -221,6 +221,17 @@ on any route wired to accept it, which today is those two general routes as well
 It is still the narrower credential: reach `oauth` for when you need the rest of
 `/api/v1`, or the orchestrator.
 
+::: danger `auth: "oauth"` is accepted but not yet live
+The manifest validator accepts `"oauth"` today, but minting the OAuth token is
+behind a server flag that is **off in production**. While it is off the host
+falls back to handing your block the **block token** — so a manifest declaring
+`auth: "oauth"` silently gets `block-token` behaviour, and a call to a general
+`/api/v1` route fails as unauthorised rather than telling you why.
+
+**Do not build against `oauth` mode yet.** Verified 2026-09-24; check with the
+platform team before relying on it.
+:::
+
 ::: warning `auth: "oauth"` trades away per-viewer app storage
 Per-viewer app storage is keyed to the block token's `(app, viewer)` identity. An
 OAuth access token does not carry it, so a block in `oauth` mode has **no app
