@@ -3,7 +3,6 @@ title: Moving a block off the bridge
 description: Replace a block's postMessage data calls with /api/v1/blocks/* REST calls — what is available today, what waits on the OAuth mint, and a hook-by-hook replacement table.
 sources:
   - npm:@civitai/blocks-react@0.57.1/dist/index.d.ts
-  - npm:@civitai/sdk@0.2.0/dist/index.d.ts
   - civitai-app-starters:packages/civitai-sdk/BREAKING.md
   - civitai:public/schemas/app-block/v1.json#auth
   - civitai:src/pages/api/v1/blocks
@@ -35,10 +34,11 @@ an `auth: "oauth"` field to opt into a real OAuth token — but **minting it is
 behind a server flag that is off in production**, so a block that declares it
 silently receives the block token anyway.
 
-🔴 **From `@civitai/sdk@0.3.0` that combination throws.** `initialize()` refuses a
-block-scoped token for a signed-in viewer with a `CivitaiError` telling you to
-declare `auth: "oauth"` — which, while the flag is off, you cannot satisfy. Until
-the mint is live, a block calling `@civitai/sdk` has no working path.
+🔴 **The published `@civitai/sdk` now throws on that combination.** `initialize()`
+refuses a block-scoped token for a signed-in viewer with a `CivitaiError` telling
+you to declare `auth: "oauth"` — which, while the flag is off, you cannot
+satisfy. Until the mint is live, a block calling `@civitai/sdk` has no working
+path.
 
 **What you can do today is everything else on this page:** the
 `/api/v1/blocks/*` routes accept your block token right now, and the replacement
@@ -140,27 +140,34 @@ bearer — and this is the same direct-fetch pattern `useTip` and
 
 ```tsx
 // src/platform/useApi.ts
+import { useCallback } from 'react';
 import { useHostOrigin, useBlockToken } from '@civitai/blocks-react';
 
-/** A fetcher bound to this block's own credential. `null` until BLOCK_INIT. */
+/** A fetcher bound to this block's own credential. Throws until BLOCK_INIT. */
 export function useApi() {
   const host = useHostOrigin();
   const { raw } = useBlockToken();
-  if (!host) return null;
 
-  return async function call<T>(path: string, init?: RequestInit): Promise<T> {
-    const res = await fetch(`${host}/api/v1/blocks/${path}`, {
-      ...init,
-      headers: { ...init?.headers, authorization: `Bearer ${raw}` },
-    });
-    if (!res.ok) throw new Error(`${path}: ${res.status}`);
-    return (await res.json()) as T;
-  };
+  // 🔴 useCallback is load-bearing, not tidiness. A fresh function identity every
+  // render turns the usual `useEffect(..., [call])` into an unbounded request
+  // loop — against money-scoped routes. The SDK's own useTip does the same.
+  return useCallback(
+    async function call<T>(path: string, init?: RequestInit): Promise<T> {
+      if (!host) throw new Error('not ready: BLOCK_INIT has not landed');
+      const headers = new Headers(init?.headers);
+      headers.set('authorization', `Bearer ${raw}`);
+      const res = await fetch(`${host}/api/v1/blocks/${path}`, { ...init, headers });
+      if (!res.ok) throw new Error(`${path}: ${res.status}`);
+      return (await res.json()) as T;
+    },
+    [host, raw],
+  );
 }
 ```
 
 ```tsx
 // src/platform/buzz.ts — a capability, named the way your app thinks about it
+import { useCallback } from 'react';
 import { useApi } from './useApi';
 
 export interface BuzzBalance {
@@ -171,7 +178,7 @@ export interface BuzzBalance {
 
 export function useBuzzBalanceFetcher() {
   const call = useApi();
-  return call ? () => call<BuzzBalance>('buzz') : null;
+  return useCallback(() => call<BuzzBalance>('buzz'), [call]);
 }
 ```
 
@@ -199,38 +206,38 @@ talked to the platform — it is your own code now, with nothing to replace.
 | `useAppWorkflows` | `POST /api/v1/blocks/workflows/query` |
 | `useBlockAnalytics` | **Nothing to replace** — see the note below |
 | `useBlockBreakpoint` | Local — element measurement, keep as is |
-| `useBlockContext` | `initialize()` → `app.{viewer,context,settings,theme}` + `app.onChange()` |
-| `useBlockResize` | `app.host.resize(h)` / `app.host.autoResize(el)` |
-| `useBlockSettings` | `app.settings` |
-| `useBlockTheme` | `app.theme`, with `app.onChange()` to react |
-| `useBlockToken` | `app.getToken()` |
+| `useBlockContext` | **Keep** — the handshake payload arrives over the bridge and has no route |
+| `useBlockResize` | **Keep** — host UI; only the host can size your frame |
+| `useBlockSettings` | **Keep** — part of the handshake payload |
+| `useBlockTheme` | **Keep** — part of the handshake payload |
+| `useBlockToken` | **Keep** — this is where the bearer for a direct fetch comes from, and its `refresh()` covers the 401 race |
 | `useBlocksStyles` | Local — stylesheet injection |
 | `useBuzzAccounts` | **No route yet** |
 | `useBuzzBalance` | `GET /api/v1/blocks/buzz` |
-| `useBuzzPurchase` | `app.host.openBuzzPurchase({ suggestedAmount })` |
+| `useBuzzPurchase` | **Keep** — host UI |
 | `useBuzzTransactions` | **No route yet** |
 | `useBuzzWorkflow` | `/api/v1/blocks/workflows/{estimate,submit,poll,cancel}` |
-| `useCheckpointPicker` | `app.host.openResourcePicker({ resourceType: 'Checkpoint' })`; `.persist` → `POST /api/v1/blocks/user-checkpoint/set` |
-| `useCivitaiNavigate` | `app.host.navigate(path, { target })` |
+| `useCheckpointPicker` | **Keep** the picker (host UI); `.persist` → `POST /api/v1/blocks/user-checkpoint/set` |
+| `useCivitaiNavigate` | **Keep** — host UI |
 | `useCollectionFollow` | `POST /api/v1/blocks/collections/{id}/follow` |
-| `useConsentUnavailable` | `app.requestGrants(scopes)` resolves `false` — a refusal is an answer |
+| `useConsentUnavailable` | **Keep** — consent is host UI |
 | `useCreatePostFromApp` | **Stays on the bridge, by design** |
 | `useDailyCompensation` | **Not carried** |
-| `useDirectLoad` | `initialize()` rejects when no host answers; see [Embedding](./embedding) |
+| `useDirectLoad` | **Keep** — see [Embedding](./embedding) |
 | `useDomainMaturity` | No direct equivalent — keep the hook. 🔴 Gate through its derived `isSfw` / `isLevelAllowed`, never on a raw bitmask: `maxBrowsingLevel` is the *domain's* ceiling (identical for every viewer on it, including one whose NSFW setting is off) |
 | `useGatedImages` | `GET /api/v1/blocks/gated-images` |
 | `useGenerationResources` | `GET /api/v1/blocks/generation-resources?ids=` |
-| `useHostOrigin` | Internal to the SDK now |
-| `useImageUpload` | `app.host.openImageUpload(...)` — on `@civitai/sdk` `main` via app-starters#446, **not in the published `0.2.0`**. Stay on the hook until it ships |
+| `useHostOrigin` | **Keep** — it is the validated base URL every direct fetch needs |
+| `useImageUpload` | **Keep** — host UI. (`@civitai/sdk` has `host.openImageUpload`, but a block cannot use that package yet.) |
 | `usePublishGenerationOutputs` | **Stays on the bridge, by design** |
-| `useRequestConsent` | `app.requestGrants(scopes)` — returns an awaited `boolean` |
-| `useRequestSignIn` | `app.host.requestSignIn({ returnUrl })` |
-| `useResourcePicker` | `app.host.openResourcePicker({ resourceType, baseModelGroup })` |
-| `useSaveImage` | `app.host.download({ url, filename })` |
+| `useRequestConsent` | **Keep** — consent is host UI |
+| `useRequestSignIn` | **Keep** — host UI |
+| `useResourcePicker` | **Keep** — host UI; a sandboxed frame cannot draw the picker |
+| `useSaveImage` | **Keep** — host UI; the host fetches from origins it allowlists |
 | `useSharedStorage` | `/api/v1/blocks/shared-storage/*` — 11 routes |
 | `useTip` | `POST /api/v1/blocks/tip` |
 | `useTipAllowance` | `GET /api/v1/blocks/tip-allowance` |
-| `useViewer` | `app.viewer`, or `GET /api/v1/blocks/me` |
+| `useViewer` | `GET /api/v1/blocks/me`, or keep the hook — it reads the handshake payload |
 | `useWildcardPack` | **Not carried** |
 
 ::: info `useBlockAnalytics` loses nothing
@@ -249,8 +256,9 @@ import { useApi } from './platform/useApi';
 
 declare const call: NonNullable<ReturnType<typeof useApi>>;
 
-// Read
-const page = await call<{ items: unknown[]; nextCursor?: string }>(
+// Read. 🔴 Paging differs per route — shared-storage nests its cursor under
+// `metadata`, while app-storage returns a top-level one. Check the route.
+const page = await call<{ items: unknown[]; metadata: { nextCursor?: string } }>(
   'shared-storage/list?limit=50',
 );
 
@@ -268,8 +276,9 @@ Two behaviours worth knowing before you write a caller:
 
 - **Treat every refusal as a refusal.** No route has a success shape that means
   "could not read". If your code must not act on a partial view, branch on the
-  error — never on an empty result. The absence of `nextCursor` is your proof a
-  scan completed.
+  error — never on an empty result. Once you are reading the cursor from the
+  right place, its absence is your proof a scan completed — read it from the
+  wrong place and you get a silent one-page truncation instead.
 - **Read `message ?? error`.** Which key carries the reason depends on where the
   request died: rejections from the block-scope middleware carry `error` only,
   while service-layer refusals carry `message`. Branch on the HTTP status.
@@ -342,8 +351,8 @@ Document these as gaps; do not design around them yet.
 
 | Gap | State |
 |---|---|
-| `useImageUpload` / `OPEN_IMAGE_UPLOAD` | No REST twin, and deliberately so — it raises host UI. An SDK host request exists on `main` (app-starters#446) but is not in the published `0.2.0`. |
-| `usePublishGenerationOutputs` | Same shape: `app.host.publishGenerationOutputs` on `main`, not in `0.2.0`. Staying on the bridge by design. |
+| `useImageUpload` / `OPEN_IMAGE_UPLOAD` | No REST twin, and deliberately so — it raises host UI. `@civitai/sdk` exposes `host.openImageUpload`, but a block cannot use that package yet. |
+| `usePublishGenerationOutputs` | Same shape, and staying on the bridge by design — host chrome is the consent control. |
 | `useBlockAnalytics` | No sink anywhere; already a no-op. |
 | Anonymous app-storage reads | REST returns 403 where the bridge resolved a read to `null`. Whether that is the intended policy per operation is open as [#5089](https://github.com/civitai/civitai/issues/5089). |
 | `useBuzzAccounts`, `useBuzzTransactions`, `useDailyCompensation`, `useWildcardPack` | Not carried. |

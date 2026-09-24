@@ -139,7 +139,7 @@ both at once. **Neither is deprecated** — they answer different questions.
 |---|---|---|
 | Package | `@civitai/blocks-react` | `@civitai/blocks-react` today; `@civitai/sdk` once a block can hold an OAuth token |
 | Mechanism | typed `postMessage` to the host | your block calls `/api/v1` itself |
-| Credential | the block token, held by the host | the token the SDK hands you |
+| Credential | the block token, held by the host | the same block token, read from `useBlockToken()` |
 | Good for | anything that must raise Civitai's own UI | reading and writing data |
 
 **The rule to build by: default to the API, and use messaging only for the things
