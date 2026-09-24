@@ -119,8 +119,9 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
   Not for want of identity — an OAuth token resolves to the same
   `(app, viewer)` claims. The reason is that several block routes **re-verify
   the raw bearer as a block JWS** in their service layer, and an OAuth access
-  token is not one. That covers app storage (5 routes), shared storage (11), the
-  workflow routes (`estimate`/`submit`/`poll`/`cancel`) and `user-checkpoint/set`
+  token is not one. That covers app storage (5 routes), shared storage (11), all
+  five workflow routes (`estimate`/`submit`/`poll`/`cancel` and `query`) and
+  `user-checkpoint/set` — 22 in all
   — including the routes that carry the Buzz budget, the per-viewer and per-app
   caps, the maturity clamp and the attribution tag. A block that generates should
   stay on `block-token`. See

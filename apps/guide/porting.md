@@ -90,9 +90,9 @@ resolve to the same `(app, viewer)` claims. The reason is that several block
 routes **re-verify the raw bearer as a block JWS** inside their service layer,
 and an OAuth access token is not one. Those calls fail.
 
-That covers **app storage** (5 routes), **shared storage** (11 routes), the
-**workflow routes** (`estimate`/`submit`/`poll`/`cancel`) and
-`user-checkpoint/set`.
+That covers **app storage** (5 routes), **shared storage** (11 routes), all
+**five workflow routes** (`estimate`/`submit`/`poll`/`cancel` **and `query`**) and
+`user-checkpoint/set` — 22 in all.
 
 🔴 **So `oauth` mode gives up exactly the routes this guide tells you to submit
 generations through** — the ones carrying the Buzz budget, the per-viewer and
@@ -171,7 +171,7 @@ talked to the platform — it is your own code now, with nothing to replace.
 | `useCreatePostFromApp` | **Stays on the bridge, by design** |
 | `useDailyCompensation` | **Not carried** |
 | `useDirectLoad` | `initialize()` rejects when no host answers; see [Embedding](./embedding) |
-| `useDomainMaturity` | No direct equivalent. 🔴 Do **not** gate on `maxBrowsingLevel` — it is a property of the domain, identical for every viewer on it, including one whose own NSFW setting is off. The per-viewer value is `effectiveBrowsingLevel`; keep the hook until the SDK carries it |
+| `useDomainMaturity` | No direct equivalent — keep the hook. 🔴 Gate through its derived `isSfw` / `isLevelAllowed`, never on a raw bitmask: `maxBrowsingLevel` is the *domain's* ceiling (identical for every viewer on it, including one whose NSFW setting is off), and both bitmasks are `undefined` before `BLOCK_INIT`, where the derived gates fail closed to SFW and a raw read fails open |
 | `useGatedImages` | `GET /api/v1/blocks/gated-images` |
 | `useGenerationResources` | `GET /api/v1/blocks/generation-resources?ids=` |
 | `useHostOrigin` | Internal to the SDK now |

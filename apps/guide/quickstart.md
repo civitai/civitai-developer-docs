@@ -4,7 +4,7 @@ description: Scaffold a Civitai App with the civitai CLI, run it in the local ha
 sources:
   - go:github.com/civitai/cli#app
   - npm:@civitai/blocks-react@0.57.1#README
-  - npm:@civitai/app-sdk@0.51.0/blocks#defineBlock
+  - npm:@civitai/app-sdk@0.51.0/vite#blockManifestPlugin
   - civitai-app-starters:docs/build-your-first-app-block.md
 ---
 
@@ -177,16 +177,26 @@ That is the path the scaffold gives you out of the box — see the
 [CLI reference](../reference/cli).
 
 If you would rather fail the **build** than run a command, the SDK ships a Vite
-plugin you can add yourself. The scaffold does not wire it for you:
+plugin you can add yourself. The scaffold does not wire it for you, and it needs
+`ajv` — an *optional* peer of `@civitai/app-sdk` that the scaffold does not
+install either:
 
-```ts
-// vite.config.ts — add to the `plugins` array the scaffold generated
-import { blockManifestPlugin } from '@civitai/app-sdk/vite';
-
-const plugins = [blockManifestPlugin()];
+```bash
+npm install -D ajv
 ```
 
-It throws `BlockManifestError` with a `.field` path pointing at the offending key.
+```ts
+// vite.config.ts — append to the scaffold's existing `plugins`, don't replace it
+import { blockManifestPlugin } from '@civitai/app-sdk/vite';
+
+const extraPlugins = [blockManifestPlugin()];
+```
+
+It fails the build with a plain `Error` whose message leads with the offending
+field — `block.manifest.json is invalid [scopes]: …`. The plugin catches
+`BlockManifestError` and re-throws deliberately, because Vite prints the message
+and not the error's own properties, so a `.field` you branched on would be
+invisible.
 
 ::: tip Validating outside Vite
 `defineBlock` used to live on `@civitai/app-sdk/blocks`. It moved to
