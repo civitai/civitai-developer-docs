@@ -1,18 +1,20 @@
 ---
-title: Porting a block onto @civitai/sdk
-description: Move a block off the postMessage bridge and onto the direct /api/v1 transport — the decision rule, the traps that bite first, the adapter shape, and a hook-by-hook replacement table.
+title: Moving a block off the bridge
+description: Replace a block's postMessage data calls with /api/v1/blocks/* REST calls — what is available today, what waits on the OAuth mint, and a hook-by-hook replacement table.
 sources:
+  - npm:@civitai/blocks-react@0.57.1/dist/index.d.ts
   - npm:@civitai/sdk@0.2.0/dist/index.d.ts
   - civitai-app-starters:packages/civitai-sdk/BREAKING.md
   - civitai:public/schemas/app-block/v1.json#auth
   - civitai:src/pages/api/v1/blocks
 ---
 
-# Porting a block onto `@civitai/sdk`
+# Moving a block off the bridge
 
 A block used to reach every Civitai capability by posting a message to its host.
-It can now hold a token and call `/api/v1` itself. This page is the recipe for
-moving an existing block across, and the list of things that will bite you.
+Most of that data now has a REST route, and **a block can call those routes today
+with the token it already has.** This page maps each bridge hook to its route,
+and is honest about the part that is not ready.
 
 ::: tip The rule to build by
 **Default to the API. Use messaging only for the things that must go through it.**
@@ -22,8 +24,30 @@ Civitai's picker. Reading a Buzz balance is a request, because nothing about it
 needs host chrome.
 :::
 
+::: danger Blocks do not adopt `@civitai/sdk` yet — and nothing is asking you to move
+`@civitai/sdk` is the client for an app that holds **its own** OAuth token. For a
+block, the platform's position is explicit: **no app has to move**, and
+`@civitai/app-sdk` + `@civitai/blocks-react` continue.
+
+The blocker is the credential. A block's token is a block-scoped JWT, which the
+general `/api/v1` surface and the orchestrator do not accept. The manifest gained
+an `auth: "oauth"` field to opt into a real OAuth token — but **minting it is
+behind a server flag that is off in production**, so a block that declares it
+silently receives the block token anyway.
+
+🔴 **From `@civitai/sdk@0.3.0` that combination throws.** `initialize()` refuses a
+block-scoped token for a signed-in viewer with a `CivitaiError` telling you to
+declare `auth: "oauth"` — which, while the flag is off, you cannot satisfy. Until
+the mint is live, a block calling `@civitai/sdk` has no working path.
+
+**What you can do today is everything else on this page:** the
+`/api/v1/blocks/*` routes accept your block token right now, and the replacement
+table below is a map of routes, not of packages.
+:::
+
 The bridge is **not deprecated**. Host UI stays on it by design, and so does
-publishing a post. A ported block uses both — fewer messages, not zero.
+publishing a post. A block that moves its data calls uses both — fewer messages,
+not zero.
 
 ## Before you write any code
 
@@ -106,26 +130,38 @@ orchestrator directly, and does not need the block routes.
 ## The adapter shape
 
 Both ported blocks put a thin per-app layer in `src/platform/` rather than
-calling the SDK from components. It is worth copying: it gives you one place to
-own the token lifecycle, one place to fake in tests, and it keeps the SDK's
-shapes from leaking into your UI.
+calling the API from components. It is worth copying whichever transport you are
+on: it gives you one place to own the token, one place to fake in tests, and it
+keeps wire shapes out of your UI.
 
-```ts
-// src/platform/client.ts
-import { initialize, type BlockAppClient } from '@civitai/sdk';
+A block already holds everything it needs — the validated host origin and the
+bearer — and this is the same direct-fetch pattern `useTip` and
+`useGenerationResources` use internally:
 
-let client: Promise<BlockAppClient> | null = null;
+```tsx
+// src/platform/useApi.ts
+import { useHostOrigin, useBlockToken } from '@civitai/blocks-react';
 
-/** One client per page. Every module awaits this rather than initialising again. */
-export function getClient(): Promise<BlockAppClient> {
-  client ??= initialize();
-  return client;
+/** A fetcher bound to this block's own credential. `null` until BLOCK_INIT. */
+export function useApi() {
+  const host = useHostOrigin();
+  const { raw } = useBlockToken();
+  if (!host) return null;
+
+  return async function call<T>(path: string, init?: RequestInit): Promise<T> {
+    const res = await fetch(`${host}/api/v1/blocks/${path}`, {
+      ...init,
+      headers: { ...init?.headers, authorization: `Bearer ${raw}` },
+    });
+    if (!res.ok) throw new Error(`${path}: ${res.status}`);
+    return (await res.json()) as T;
+  };
 }
 ```
 
-```ts
+```tsx
 // src/platform/buzz.ts — a capability, named the way your app thinks about it
-import { getClient } from './client';
+import { useApi } from './useApi';
 
 export interface BuzzBalance {
   blue: number;
@@ -133,13 +169,23 @@ export interface BuzzBalance {
   yellow: number;
 }
 
-export async function fetchBuzzBalance(): Promise<BuzzBalance> {
-  const app = await getClient();
-  return app.site.get<BuzzBalance>('blocks/buzz');
+export function useBuzzBalanceFetcher() {
+  const call = useApi();
+  return call ? () => call<BuzzBalance>('buzz') : null;
 }
 ```
 
-Components then import `fetchBuzzBalance`, never `app.site`.
+Components import the capability, never the fetcher.
+
+::: tip Why a `refresh()` is worth wiring
+`useBlockToken()` exposes `refresh()` for the 401 race — a request that outlived
+the token it was issued against. Retry once through it rather than failing the
+call. `@civitai/sdk` does this for you; on this path you write it.
+:::
+
+The same layer is what you swap later: when `@civitai/sdk` becomes available to
+blocks, `useApi` becomes `initialize()` and nothing above it changes. That is the
+point of having it.
 
 ## Hook replacements
 
@@ -196,50 +242,54 @@ every call site at once.
 
 ### Reading and writing
 
-`app.site` addresses routes by path, so a route the API gains needs no SDK
-release:
+Routes are addressed by path, so a route the API gains needs no package release:
 
-```ts
-import { initialize } from '@civitai/sdk';
+```tsx
+import { useApi } from './platform/useApi';
 
-const app = await initialize();
+declare const call: NonNullable<ReturnType<typeof useApi>>;
 
 // Read
-const items = await app.site.get<{ items: unknown[] }>('blocks/shared-storage/list', {
-  query: { limit: 50 },
-});
+const page = await call<{ items: unknown[]; nextCursor?: string }>(
+  'shared-storage/list?limit=50',
+);
 
 // Write
-await app.site.post('blocks/shared-storage/append', {
-  value: { title: 'My entry', body: 'optional', data: { anything: true } },
+await call('shared-storage/append', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({
+    value: { title: 'My entry', body: 'optional', data: { anything: true } },
+  }),
 });
 ```
 
 Two behaviours worth knowing before you write a caller:
 
-- **Every refusal throws.** There is no path that resolves to mean "could not
-  read". If your code must not act on a partial view, branch on the rejection —
-  never on an empty result.
-- **An expired token is retried once**, with a fresh one, before the error
-  surfaces. You do not write that retry.
+- **Treat every refusal as a refusal.** No route has a success shape that means
+  "could not read". If your code must not act on a partial view, branch on the
+  error — never on an empty result. The absence of `nextCursor` is your proof a
+  scan completed.
+- **Read `message ?? error`.** Which key carries the reason depends on where the
+  request died: rejections from the block-scope middleware carry `error` only,
+  while service-layer refusals carry `message`. Branch on the HTTP status.
 
-### Host UI
+### Host UI stays on the bridge
 
-```ts
-import { initialize } from '@civitai/sdk';
+Nothing changes here — `@civitai/blocks-react`'s hooks are the path, on either
+transport, because only the host can draw this UI:
 
-const app = await initialize();
+```tsx
+import { useResourcePicker } from '@civitai/blocks-react';
 
-const picked = await app.host.openResourcePicker({ resourceType: 'Checkpoint' });
+const { open } = useResourcePicker();
+const picked = await open({ resourceType: 'Checkpoint' });
 if (picked) {
   console.log(picked.modelName, picked.versionId);
 }
-
-const stop = app.host.autoResize(document.body);
 ```
 
-`openResourcePicker` resolves `null` when the viewer dismisses it — a dismissal
-is an answer, not an error.
+A dismissal resolves to nothing chosen — that is an answer, not an error.
 
 ## Do not do this
 
@@ -263,26 +313,28 @@ boundary inside the iframe.
 After the port your block makes HTTP requests, not `postMessage` calls. A mock
 host will therefore sit idle while your suite passes.
 
-Move the fake to `fetch`. `initialize()` accepts one, so the client under test
-never touches the network:
+Move the fake to `fetch` — and keep a record of what was requested, not only
+what came back:
 
 ```ts
-import { initialize } from '@civitai/sdk';
+const calls: string[] = [];
 
-const fakeFetch: typeof fetch = async (input) =>
-  new Response(JSON.stringify({ items: [], nextCursor: null }), {
+globalThis.fetch = (async (input: RequestInfo | URL) => {
+  calls.push(String(input));
+  return new Response(JSON.stringify({ items: [], nextCursor: null }), {
     status: 200,
     headers: { 'content-type': 'application/json' },
   });
-
-const app = await initialize({ token: 'test-token', fetch: fakeFetch });
+}) as typeof fetch;
 ```
 
-Then assert on the **requests your app made**, not just the values it rendered —
-a fixture that fits on one page cannot see a dropped `cursor` parameter.
+Then assert on `calls` — the **requests your app made**, not just the values it
+rendered. A fixture that fits on one page cannot see a dropped `cursor`
+parameter, which is exactly how that bug survived a full green suite.
 
-`@civitai/sdk/testing` also ships an in-memory `BlockTransport` for the host-UI
-calls that genuinely remain on the bridge.
+Keep your existing mock host for the calls that genuinely remain on the bridge —
+the resource picker, Buzz purchase, sign-in, publishing. Those are still
+`postMessage`, so the old fake is still the right one for them.
 
 ## Known gaps
 

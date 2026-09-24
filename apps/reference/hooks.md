@@ -23,10 +23,13 @@ Everything below is the **`postMessage` bridge** model: your block asks, the hos
 performs the call. That model is fully supported and is still the right answer
 for anything that has to raise Civitai's own UI.
 
-It is no longer the only model. A block can also hold a token and call `/api/v1`
-itself with [`@civitai/sdk`](../guide/porting), which is the default for reading
-and writing data. Most hooks below have a direct-API replacement — the
+It is no longer the only model. Most of the data these hooks carry now has a
+REST route, and **a block can call those routes today with the token it already
+holds**. Most hooks below therefore have a direct-API replacement — the
 [porting guide](../guide/porting#hook-replacements) maps all 37 of them.
+
+(`@civitai/sdk` is the client for an app holding its own OAuth token. A block
+cannot adopt it yet; the porting guide explains why.)
 
 This page is generated from `@civitai/blocks-react`'s own type definitions, so it
 can only ever describe the bridge. That is a property of the generator, not a

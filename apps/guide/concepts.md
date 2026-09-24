@@ -137,7 +137,7 @@ both at once. **Neither is deprecated** — they answer different questions.
 
 | | **Bridge** | **Direct API** |
 |---|---|---|
-| Package | `@civitai/blocks-react` | `@civitai/sdk` |
+| Package | `@civitai/blocks-react` | `@civitai/blocks-react` today; `@civitai/sdk` once a block can hold an OAuth token |
 | Mechanism | typed `postMessage` to the host | your block calls `/api/v1` itself |
 | Credential | the block token, held by the host | the token the SDK hands you |
 | Good for | anything that must raise Civitai's own UI | reading and writing data |
@@ -194,9 +194,9 @@ knowing, because the refresh is lazier than it looks:
   carry your copy of the token. When the host performs a request on your behalf
   it authenticates server-side; your token's freshness is irrelevant to it.
 - **On the direct-API path it is not harmless, and the SDK handles it for you.**
-  Your request carries the token, so an expired one is a 401. `@civitai/sdk`
-  retries once with a fresh token before surfacing the error — you do not write
-  that retry yourself.
+  Your request carries the token, so an expired one is a 401. Retry once through
+  `useBlockToken().refresh()` and reissue. (`@civitai/sdk` does this for you, but
+  a block cannot use it yet — see the [porting guide](./porting).)
 
 The host also *pushes* a new token when it re-mints one mid-session (chiefly after
 a consent grant); apply pushed tokens unconditionally. You never mint, store, or
