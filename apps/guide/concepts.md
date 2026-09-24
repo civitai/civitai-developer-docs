@@ -55,11 +55,22 @@ sandbox so your code can't reach the parent page, cookies, or same-origin
 storage. This isolation is the primary security boundary of the platform, and
 it's why the relationship between your block and the host is deliberately narrow:
 
-- The host **hands your block** a short-lived, scoped JWT and the page context.
-- The host **brokers** anything privileged — your block asks, the host performs
-  the action server-side (re-checking the token and scopes) and answers.
-- Your block **holds no long-lived secret** and calls **no** privileged Civitai
-  API directly.
+- The host **hands your block** a short-lived, scoped credential and the page
+  context.
+- Your block **spends that credential itself** against Civitai's API, and the
+  server re-checks the token and its scopes on every request. The credential is
+  the boundary — not the fact that the host made the call.
+- The host **brokers what only it can**: anything that has to raise Civitai's own
+  UI (sign-in, the resource picker, a Buzz purchase), and anything where host
+  chrome *is* the consent control (publishing a post).
+- Your block **holds no long-lived secret**. The credential is short-lived and
+  scoped, and the sandbox keeps it out of reach of the parent page.
+
+::: info Two transport models
+The bullets above hold for both. Which one your block uses decides *how* it
+spends the credential — over the `postMessage` bridge, or by calling `/api/v1`
+directly. See [Transport models](#transport-models) below.
+:::
 
 <!-- The auto-slug for this heading is `the-host-↔-block-bridge` (the `↔`
      survives slugification), which nothing links to and nobody types. Three
@@ -119,56 +130,106 @@ bridge remains authoritative: treat the fragment as a hint and let `BLOCK_INIT`
 confirm it.
 :::
 
-### Bridge-first: the host brokers, you don't fetch
+## Transport models
 
-The platform's transport model is **bridge-first**. The default — and for most
-apps, the only — way to reach a Civitai capability is to send the host a typed
-message and await its reply:
+There are two ways your block reaches a Civitai capability, and a block may use
+both at once. **Neither is deprecated** — they answer different questions.
 
-- **Generation** — `useBuzzWorkflow()` estimates, submits, and polls orchestrator
-  workflows. Your block never calls the orchestrator; the host does, on the
-  platform side, against the block token.
-- **Buzz** — `useBuzzBalance()` / `useViewer()` read the signed-in viewer and
-  their per-pool balance through the host.
-- **Storage** — `useAppStorage()` is a per-(app, viewer) key/value store the host
-  brokers.
+| | **Bridge** | **Direct API** |
+|---|---|---|
+| Package | `@civitai/blocks-react` | `@civitai/sdk` |
+| Mechanism | typed `postMessage` to the host | your block calls `/api/v1` itself |
+| Credential | the block token, held by the host | the token the SDK hands you |
+| Good for | anything that must raise Civitai's own UI | reading and writing data |
 
-Because the host performs each call, it re-verifies your token and re-checks
-scopes and content-rating on every request — policy stays on Civitai's side of
-the iframe, not in code you control.
+**The rule to build by: default to the API, and use messaging only for the things
+that must go through it.** Opening the resource picker is a message, because a
+sandboxed iframe cannot draw Civitai's picker. Reading the viewer's Buzz balance
+is a request, because nothing about it needs host chrome.
 
-This is also why the bridge exposes a narrower surface than Civitai's public APIs
-rather than proxying them: the full contract is available to anyone willing to be
-their **own principal** (own token, own backend, own Buzz), while the bridge is
-what you get when you want the **viewer** to be the principal. Spending someone
-else's Buzz requires the host to understand each request well enough to confirm
-it honestly and enforce policy on it — see
+### What stays on the bridge, by design
+
+- **Host UI** — `requestSignIn`, `openResourcePicker`, `openBuzzPurchase`,
+  `download`, `resize`/`autoResize`, `navigate`, `reportError`. A sandboxed frame
+  at an opaque origin cannot draw these, and should not.
+- **Publishing a post** (`CREATE_POST_FROM_APP`, `PUBLISH_GENERATION_OUTPUTS`).
+  This one is a *policy* decision, not a backlog item: the server returns a
+  preview, the write echoes the count from that preview, and the host refuses on
+  mismatch. A plain REST equivalent would let a block draw its own confirmation
+  inside an iframe, with nothing binding what the viewer saw to what gets
+  written. That removes a consent control rather than relocating it.
+
+### What the API answers
+
+The viewer, Buzz balance, shared storage, per-viewer app storage, workflows
+(estimate / submit / poll / cancel / query), gated images, generation resources
+and collections all have routes under `/api/v1`. The
+[porting guide](./porting) maps each bridge hook to its replacement.
+
+::: danger Generation goes through the block routes, not the raw orchestrator
+`app.orchestration` reaches the orchestrator directly, and that path carries
+**none** of the controls the block routes apply: the per-call Buzz budget, the
+per-viewer and per-app daily caps, the maturity clamp, and the
+`app-block:<appId>` attribution tag. The substitution **type-checks and passes
+tests** — which is exactly why it is worth stating. Submit through
+`/api/v1/blocks/workflows/*`.
+:::
+
+Because every call re-presents a scoped token that the server re-checks, policy
+stays on Civitai's side either way. The bridge is what you get when you want the
+**viewer** to be the principal; the full public contract is available to anyone
+willing to be their **own principal** (own token, own backend, own Buzz). See
 [what the bridge can and cannot do](../reference/generation#what-the-bridge-can-and-cannot-do).
-
-Direct REST calls with the block token (via `useHostOrigin()` + `useBlockToken()`)
-are reserved for narrow cases — high-volume public catalog reads and headless
-tooling — not the default path. When in doubt, use a hook and let the host broker
-the call.
 
 ## Tokens, briefly
 
 The token arrives in `BLOCK_INIT` and is short-lived. Three things are worth
 knowing, because the refresh is lazier than it looks:
 
-- **It is kept fresh only while it is consumed.** `useBlockToken()` schedules a
-  refresh shortly before expiry, but only while a component using the hook is
-  mounted. A block that never touches the raw token never rotates it.
-- **That staleness is harmless**, because brokered calls don't carry your copy of
-  the token. When the host performs a request on your behalf it authenticates
-  server-side; your token's freshness is irrelevant to it.
-- **`refresh()` covers the 401 race** — the case where a request you made directly
-  outlived the token it was issued against. Retry once through `refresh()`.
+- **On the bridge, it is kept fresh only while it is consumed.**
+  `useBlockToken()` schedules a refresh shortly before expiry, but only while a
+  component using the hook is mounted. A block that never touches the raw token
+  never rotates it.
+- **On the bridge, that staleness is harmless**, because brokered calls don't
+  carry your copy of the token. When the host performs a request on your behalf
+  it authenticates server-side; your token's freshness is irrelevant to it.
+- **On the direct-API path it is not harmless, and the SDK handles it for you.**
+  Your request carries the token, so an expired one is a 401. `@civitai/sdk`
+  retries once with a fresh token before surfacing the error — you do not write
+  that retry yourself.
 
 The host also *pushes* a new token when it re-mints one mid-session (chiefly after
 a consent grant); apply pushed tokens unconditionally. You never mint, store, or
 long-hold a credential yourself. The full authentication model (claims,
 self-binding, scope enforcement) is a later reference page; for building, `ready`
 + the hooks are all you need.
+
+### Which credential you get: the manifest's `auth` field
+
+Your manifest chooses between two credentials, and the choice has consequences
+beyond the token's format:
+
+| `auth` | What the host hands you | Reaches |
+|---|---|---|
+| `"block-token"` *(default when omitted)* | the block-scoped JWT | every `/api/v1/blocks/*` route, plus `/api/v1/me` and `/api/v1/models/{id}` |
+| `"oauth"` | a real OAuth access token for the block's own client | `/api/v1`, the orchestrator and the MCP, unchanged |
+
+Omitting `auth` keeps today's behaviour, so an existing manifest needs no edit.
+
+A block token is not confined to `/api/v1/blocks/` by any claim check — it works
+on any route wired to accept it, which today is those two general routes as well.
+It is still the narrower credential: reach `oauth` for when you need the rest of
+`/api/v1`, or the orchestrator.
+
+::: warning `auth: "oauth"` trades away per-viewer app storage
+Per-viewer app storage is keyed to the block token's `(app, viewer)` identity. An
+OAuth access token does not carry it, so a block in `oauth` mode has **no app
+storage** — `/api/v1/blocks/app-storage/*` is not available to it. Shared storage
+is unaffected.
+
+Choose `oauth` when your block needs the general `/api/v1` surface or the
+orchestrator directly. Stay on `block-token` when per-viewer storage matters.
+:::
 
 ## Next
 

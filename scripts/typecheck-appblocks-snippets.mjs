@@ -72,12 +72,16 @@ const require = createRequire(import.meta.url);
 
 const SDK_ROOT = resolvePackageRoot('@civitai/app-sdk');
 const BLOCKS_ROOT = resolvePackageRoot('@civitai/blocks-react');
+// The direct-API transport. Successor to app-sdk 0.x for data access; both are
+// pinned because the docs describe both models side by side.
+const CIVITAI_SDK_ROOT = resolvePackageRoot('@civitai/sdk');
 // Design system (dual-consumption): tokens, framework-agnostic CSS, React bindings.
 const COMPONENTS_REACT_ROOT = resolvePackageRoot('@civitai/components-react');
 const COMPONENTS_ROOT = resolvePackageRoot('@civitai/components');
 const THEME_ROOT = resolvePackageRoot('@civitai/theme');
 const SDK_DIST = join(SDK_ROOT, 'dist');
 const BLOCKS_DIST = join(BLOCKS_ROOT, 'dist');
+const CIVITAI_SDK_DIST = join(CIVITAI_SDK_ROOT, 'dist');
 const COMPONENTS_REACT_DIST = join(COMPONENTS_REACT_ROOT, 'dist');
 const COMPONENTS_DIST = join(COMPONENTS_ROOT, 'dist');
 const THEME_DIST = join(THEME_ROOT, 'dist');
@@ -95,6 +99,8 @@ const ENTRYPOINTS = [
   { module: '@civitai/app-sdk/blocks', dts: join(SDK_DIST, 'blocks/index.d.ts') },
   { module: '@civitai/blocks-react', dts: join(BLOCKS_DIST, 'index.d.ts') },
   { module: '@civitai/blocks-react/ui', dts: join(BLOCKS_DIST, 'ui/index.d.ts') },
+  { module: '@civitai/sdk', dts: join(CIVITAI_SDK_DIST, 'index.d.ts') },
+  { module: '@civitai/sdk/testing', dts: join(CIVITAI_SDK_DIST, 'testing.d.ts') },
   { module: '@civitai/components-react', dts: join(COMPONENTS_REACT_DIST, 'index.d.ts') },
   { module: '@civitai/components', dts: join(COMPONENTS_DIST, 'index.d.ts') },
   { module: '@civitai/theme', dts: join(THEME_DIST, 'index.d.ts') },
@@ -107,6 +113,8 @@ const TSCONFIG_PATHS = {
   '@civitai/app-sdk/*': [join(SDK_DIST, '*')],
   '@civitai/blocks-react': [join(BLOCKS_DIST, 'index.d.ts')],
   '@civitai/blocks-react/*': [join(BLOCKS_DIST, '*')],
+  '@civitai/sdk': [join(CIVITAI_SDK_DIST, 'index.d.ts')],
+  '@civitai/sdk/*': [join(CIVITAI_SDK_DIST, '*')],
   '@civitai/components-react': [join(COMPONENTS_REACT_DIST, 'index.d.ts')],
   '@civitai/components-react/*': [join(COMPONENTS_REACT_DIST, '*')],
   '@civitai/components': [join(COMPONENTS_DIST, 'index.d.ts')],

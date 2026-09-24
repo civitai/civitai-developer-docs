@@ -44,6 +44,7 @@ const appsGuideSidebar: DefaultTheme.SidebarItem[] = [
       { text: 'Introduction', link: '/apps/guide/' },
       { text: 'Concepts', link: '/apps/guide/concepts' },
       { text: 'Quickstart', link: '/apps/guide/quickstart' },
+      { text: 'Porting onto @civitai/sdk', link: '/apps/guide/porting' },
       { text: 'Generating images (text-to-image)', link: '/apps/guide/text-to-image' },
       { text: 'Comfy on Civitai (customComfy)', link: '/apps/guide/comfy-cloud' },
       { text: 'Running embedded & direct traffic', link: '/apps/guide/embedding' },

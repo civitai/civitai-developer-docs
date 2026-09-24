@@ -18,11 +18,30 @@ brokers the privileged work.
 The signatures below are generated from the published package's type
 definitions; the examples come from its README.
 
+::: info This page documents the bridge transport
+Everything below is the **`postMessage` bridge** model: your block asks, the host
+performs the call. That model is fully supported and is still the right answer
+for anything that has to raise Civitai's own UI.
+
+It is no longer the only model. A block can also hold a token and call `/api/v1`
+itself with [`@civitai/sdk`](../guide/porting), which is the default for reading
+and writing data. Most hooks below have a direct-API replacement — the
+[porting guide](../guide/porting#hook-replacements) maps all 38 of them.
+
+This page is generated from `@civitai/blocks-react`'s own type definitions, so it
+can only ever describe the bridge. That is a property of the generator, not a
+judgement about the model.
+:::
+
 ::: tip Trust model
-Every hook that reads private data or submits work is **host-mediated**: the host
-resolves the viewer from the block token and performs the privileged call on
-Civitai's side of the iframe boundary. Your app never holds a credential or calls
-a privileged API directly.
+Every hook below is **host-mediated**: the host resolves the viewer from the
+block token and performs the privileged call on Civitai's side of the iframe
+boundary, re-checking scopes each time.
+
+On the direct-API path your block *does* hold a short-lived scoped credential and
+*does* call the API itself — the server re-checks that token and its scopes on
+every request. The credential is the boundary in both models; what differs is who
+makes the call.
 :::
 
 ::: warning `useBuzzWorkflow`'s generated example is one `kind` of several

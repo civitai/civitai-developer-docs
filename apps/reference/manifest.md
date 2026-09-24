@@ -100,6 +100,19 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
   separately: it flows to the listing on moderator-approve and is **re-synced
   from the manifest on every subsequent approved version**, so an edit made
   anywhere else is overwritten by your next release.
+- **`auth`** (enforced) — `"block-token"` (the default when omitted) or
+  `"oauth"`. This is the only field that changes **which credential the host
+  hands your block**, so it belongs to a decision rather than a preference:
+  - `"block-token"` is the block-scoped JWT. It reaches every
+    `/api/v1/blocks/*` route, plus `/api/v1/me` and `/api/v1/models/{id}`.
+  - `"oauth"` is a real OAuth access token for the block's own client, accepted
+    unchanged by `/api/v1`, the orchestrator and the MCP.
+
+  🔴 **`"oauth"` gives up per-viewer app storage.** App storage is keyed to the
+  block token's `(app, viewer)` identity, which an OAuth token does not carry, so
+  in `oauth` mode every `/api/v1/blocks/app-storage/*` call is refused. Shared
+  storage is unaffected. See
+  [Porting → choose your credential](../guide/porting#auth-field).
 
 ### Sizing `page.buzzBudgetPerGen`
 
