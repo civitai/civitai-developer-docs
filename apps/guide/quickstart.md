@@ -186,10 +186,16 @@ npm install -D ajv
 ```
 
 ```ts
-// vite.config.ts — append to the scaffold's existing `plugins`, don't replace it
+// vite.config.ts
 import { blockManifestPlugin } from '@civitai/app-sdk/vite';
+```
 
-const extraPlugins = [blockManifestPlugin()];
+Then add it to the `plugins` array the scaffold already wrote. **Append — do not
+replace the array**, or you drop the plugins your app needs to build at all:
+
+```diff
+-  plugins: [react(), civitaiSetupPlugin()],
++  plugins: [react(), civitaiSetupPlugin(), blockManifestPlugin()],
 ```
 
 It fails the build with a plain `Error` whose message leads with the offending

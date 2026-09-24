@@ -105,7 +105,9 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
   `"oauth"`. This is the only field that changes **which credential the host
   hands your block**, so it belongs to a decision rather than a preference:
   - `"block-token"` is the block-scoped JWT. It reaches every
-    `/api/v1/blocks/*` routes, plus `/api/v1/models/{id}`. It does **not** reach
+    block-token routes under `/api/v1/blocks/*`, plus `/api/v1/models/{id}`. A
+    few routes under `blocks/` are publisher tooling that takes a personal API
+    key instead, and reject a block token. It does **not** reach
     `/api/v1/me` — blocks read the viewer from `/api/v1/blocks/me`.
   - `"oauth"` is a real OAuth access token for the block's own client, accepted
     unchanged by `/api/v1`, the orchestrator and the MCP.

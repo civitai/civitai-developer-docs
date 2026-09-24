@@ -211,7 +211,7 @@ beyond the token's format:
 
 | `auth` | What the host hands you | Reaches |
 |---|---|---|
-| `"block-token"` *(default when omitted)* | the block-scoped JWT | the `/api/v1/blocks/*` routes, plus `/api/v1/models/{id}` |
+| `"block-token"` *(default when omitted)* | the block-scoped JWT | the block-token routes under `/api/v1/blocks/*`, plus `/api/v1/models/{id}` |
 | `"oauth"` | a real OAuth access token for the block's own client | `/api/v1`, the orchestrator and the MCP, unchanged |
 
 Omitting `auth` keeps today's behaviour, so an existing manifest needs no edit.

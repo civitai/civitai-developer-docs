@@ -67,7 +67,7 @@ See [Testing](#testing) below.
 
 | `auth` | Credential | Reaches |
 |---|---|---|
-| `"block-token"` *(default when omitted)* | the block-scoped JWT | the `/api/v1/blocks/*` routes, plus `/api/v1/models/{id}` |
+| `"block-token"` *(default when omitted)* | the block-scoped JWT | the block-token routes under `/api/v1/blocks/*`, plus `/api/v1/models/{id}` |
 | `"oauth"` | a real OAuth access token for the block's own client | `/api/v1`, the orchestrator and the MCP, unchanged |
 
 Omitting `auth` keeps today's behaviour, so an existing manifest needs no edit to
@@ -171,7 +171,7 @@ talked to the platform — it is your own code now, with nothing to replace.
 | `useCreatePostFromApp` | **Stays on the bridge, by design** |
 | `useDailyCompensation` | **Not carried** |
 | `useDirectLoad` | `initialize()` rejects when no host answers; see [Embedding](./embedding) |
-| `useDomainMaturity` | No direct equivalent — keep the hook. 🔴 Gate through its derived `isSfw` / `isLevelAllowed`, never on a raw bitmask: `maxBrowsingLevel` is the *domain's* ceiling (identical for every viewer on it, including one whose NSFW setting is off), and both bitmasks are `undefined` before `BLOCK_INIT`, where the derived gates fail closed to SFW and a raw read fails open |
+| `useDomainMaturity` | No direct equivalent — keep the hook. 🔴 Gate through its derived `isSfw` / `isLevelAllowed`, never on a raw bitmask: `maxBrowsingLevel` is the *domain's* ceiling (identical for every viewer on it, including one whose NSFW setting is off) |
 | `useGatedImages` | `GET /api/v1/blocks/gated-images` |
 | `useGenerationResources` | `GET /api/v1/blocks/generation-resources?ids=` |
 | `useHostOrigin` | Internal to the SDK now |
