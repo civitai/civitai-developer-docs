@@ -166,20 +166,27 @@ same params as your submit.
 
 ## 4. Validate the manifest
 
-`block.manifest.json` is the contract the platform validates. The scaffold wires
-the SDK's Vite plugin, which validates it against the same rules on every build
-and dev start — so mistakes fail the build instead of surfacing at submit:
+`block.manifest.json` is the contract the platform validates. Check it against the
+same rules the platform uses, any time, with the CLI:
+
+```bash
+civitai app validate
+```
+
+That is the path the scaffold gives you out of the box — see the
+[CLI reference](../reference/cli).
+
+If you would rather fail the **build** than run a command, the SDK ships a Vite
+plugin you can add yourself. The scaffold does not wire it for you:
 
 ```ts
-// vite.config.ts — add the plugin to the config the scaffold generated
+// vite.config.ts — add to the `plugins` array the scaffold generated
 import { blockManifestPlugin } from '@civitai/app-sdk/vite';
 
 const plugins = [blockManifestPlugin()];
 ```
 
 It throws `BlockManifestError` with a `.field` path pointing at the offending key.
-You can also check a manifest from the command line at any time with
-[`civitai app validate`](../reference/cli).
 
 ::: tip Validating outside Vite
 `defineBlock` used to live on `@civitai/app-sdk/blocks`. It moved to
