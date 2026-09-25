@@ -467,6 +467,7 @@ Defaults to the current directory.
   civitai app submit --package-only     # just write the .zip (safe preview, never submits)
   civitai app submit --allow-downgrade  # deliberate rollback below the approved version
   civitai app submit --allow-dirty      # submit uncommitted working-tree changes on purpose
+  civitai app submit --allow-oversize   # submit past the vendored body-size ceiling
   civitai app submit -o my-block.zip ./my-block
 ```
 
@@ -474,6 +475,7 @@ Defaults to the current directory.
 |---|---|---|
 | `--allow-dirty` | submit even when the packaged directory has uncommitted git changes | — |
 | `--allow-downgrade` | submit even when the version is not above the highest approved one (deliberate rollback) | — |
+| `--allow-oversize` | submit even when the body exceeds the size the server is expected to accept | — |
 | `-o, --out string` | output .zip path (default: \<blockId>-\<version>.zip) | — |
 | `--package-only` | only write the .zip; do not attempt submission | — |
 | `--skip-validate` | skip manifest validation before packaging | — |
@@ -1444,7 +1446,8 @@ takes precedence over --content.
 
 --json writes the API response to stdout and nothing else — notes and errors go
 to stderr, so `… --json | jq -e .` always parses. The document is the API's,
-the bytes are not: it is re-indented on the way out, so do not diff or hash it
+the bytes are not: it is re-indented on the way out, and a raw control byte the
+API emits inside a string is rewritten as its escape. Do not diff or hash it
 against the wire.
 ```
 
@@ -1579,7 +1582,8 @@ models or images inside.
 
 --json writes the API response to stdout and nothing else — notes and errors go
 to stderr, so `… --json | jq -e .` always parses. The document is the API's,
-the bytes are not: it is re-indented on the way out, so do not diff or hash it
+the bytes are not: it is re-indented on the way out, and a raw control byte the
+API emits inside a string is rewritten as its escape. Do not diff or hash it
 against the wire.
 ```
 
@@ -1679,7 +1683,8 @@ the user record (id, avatar) behind the name.
 
 --json writes the API response to stdout and nothing else — notes and errors go
 to stderr, so `… --json | jq -e .` always parses. The document is the API's,
-the bytes are not: it is re-indented on the way out, so do not diff or hash it
+the bytes are not: it is re-indented on the way out, and a raw control byte the
+API emits inside a string is rewritten as its escape. Do not diff or hash it
 against the wire.
 ```
 
@@ -2077,7 +2082,8 @@ An uploader can hide their generation data. Those images print
 
 --json writes the API response to stdout and nothing else — notes and errors go
 to stderr, so `… --json | jq -e .` always parses. The document is the API's,
-the bytes are not: it is re-indented on the way out, so do not diff or hash it
+the bytes are not: it is re-indented on the way out, and a raw control byte the
+API emits inside a string is rewritten as its escape. Do not diff or hash it
 against the wire.
 ```
 
@@ -2265,7 +2271,8 @@ on disk, which is how you put a name to an unlabelled .safetensors.
 
 --json writes the API response to stdout and nothing else — notes and errors go
 to stderr, so `… --json | jq -e .` always parses. The document is the API's,
-the bytes are not: it is re-indented on the way out, so do not diff or hash it
+the bytes are not: it is re-indented on the way out, and a raw control byte the
+API emits inside a string is rewritten as its escape. Do not diff or hash it
 against the wire.
 ```
 
@@ -2368,7 +2375,8 @@ both take a version id, which `models get` lists.
 
 --json writes the API response to stdout and nothing else — notes and errors go
 to stderr, so `… --json | jq -e .` always parses. The document is the API's,
-the bytes are not: it is re-indented on the way out, so do not diff or hash it
+the bytes are not: it is re-indented on the way out, and a raw control byte the
+API emits inside a string is rewritten as its escape. Do not diff or hash it
 against the wire.
 ```
 
@@ -2489,7 +2497,8 @@ tag IDS rather than these names — a different filter on a different endpoint.
 
 --json writes the API response to stdout and nothing else — notes and errors go
 to stderr, so `… --json | jq -e .` always parses. The document is the API's,
-the bytes are not: it is re-indented on the way out, so do not diff or hash it
+the bytes are not: it is re-indented on the way out, and a raw control byte the
+API emits inside a string is rewritten as its escape. Do not diff or hash it
 against the wire.
 ```
 
@@ -2542,13 +2551,14 @@ Update the civitai CLI to the latest release
 Download and install the latest civitai release, replacing this binary.
 
 The latest release is resolved from the public GitHub releases API (no token is
-ever sent). The downloaded tarball is verified against its SHA-256 checksum
-before anything is replaced — a mismatch aborts the upgrade and leaves the
-current binary untouched.
+ever sent). The downloaded archive — a .zip on Windows, a .tar.gz everywhere
+else — is verified against its SHA-256 checksum before anything is replaced; a
+mismatch aborts the upgrade and leaves the current binary untouched.
 
 If this binary was installed via Homebrew, upgrade delegates to:
     brew upgrade civitai/tap/civitai
-(use --force to self-replace anyway).
+(use --force to self-replace anyway). The release publishes a Homebrew CASK,
+which is macOS-only, so that delegation only leads anywhere on macOS.
 ```
 
 ```bash
@@ -2586,7 +2596,8 @@ model COUNT use `civitai creators search --query <name>`.
 
 --json writes the API response to stdout and nothing else — notes and errors go
 to stderr, so `… --json | jq -e .` always parses. The document is the API's,
-the bytes are not: it is re-indented on the way out, so do not diff or hash it
+the bytes are not: it is re-indented on the way out, and a raw control byte the
+API emits inside a string is rewritten as its escape. Do not diff or hash it
 against the wire.
 ```
 
