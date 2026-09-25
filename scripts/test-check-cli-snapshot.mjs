@@ -39,6 +39,7 @@ import {
   classifySnapshot,
   countCommandBlocks,
   describeContentDrift,
+  isPlainVersionTag,
   parseChecksums,
   parseSnapshotVersion,
   releaseAssetName,
@@ -239,6 +240,38 @@ check('an unpublished platform yields null (which SKIPs, never fails)', () => {
   eq(releaseAssetName('v0.1.108', 'linux', 'ppc64'), null, 'ppc64');
 });
 
+check('isPlainVersionTag accepts the shapes civitai/cli actually publishes', () => {
+  assert(isPlainVersionTag('v0.1.108'), 'v-prefixed');
+  assert(isPlainVersionTag('0.1.108'), 'bare');
+  assert(isPlainVersionTag('v1.0.0-rc.1'), 'prerelease');
+});
+
+check('isPlainVersionTag refuses a tag that could steer a filesystem path', () => {
+  // 🔴 The remote `tag_name` reaches an asset name and, before this gate, a
+  // cache path of a file the process then EXECUTES. CodeQL
+  // js/command-line-injection flagged it on the first push of docs#101.
+  // The first two are the SEMVER-PARSEABLE ones — `compareSemver` accepts both
+  // (measured), so they are the shapes that genuinely escaped the cache dir.
+  // The rest are the obvious cases, kept so the gate is not narrowed to them.
+  for (const bad of [
+    '0.1.108-x/../../../../tmp/pwn',
+    '0.1.108+../../x',
+    '../../../../etc/cron.d/x',
+    'v0.1.108/../../evil',
+    'v0.1.108 ',
+    'v0.1.108 ; rm -rf /',
+    '/abs/path',
+    'v0.1.108\n0.0.0',
+    'latest',
+    '',
+    null,
+    123,
+    'v0.1.' + '9'.repeat(70),
+  ]) {
+    assert(!isPlainVersionTag(bad), `must refuse ${JSON.stringify(bad)}`);
+  }
+});
+
 check('parseChecksums reads goreleaser checksums.txt, including the binary-mode star', () => {
   const sum = 'c30323319d7d7eebbaf18b4bb4a3b2a0e21818f205c71ca8b5f8da32f2e5c350';
   const other = '972033be034e9a1f0cd21d91ca7fc10d5e3bc8d49252d1e23ee7285b42d873cd';
@@ -289,6 +322,39 @@ await checkAsync('an unreachable release endpoint SKIPs (exit 0) rather than fal
   const r = await runChecker({ APPBLOCKS_CLI_RELEASES_URL: 'http://127.0.0.1:1/releases/latest' });
   eq(r.status, 0, `expected a skip, got exit ${r.status}\n${r.stdout}${r.stderr}`);
   assert(/skip, no false-fail/.test(r.stdout), `expected the skip wording:\n${r.stdout}`);
+});
+
+await checkAsync('a path-traversal tag_name FAILS before anything is downloaded or executed', async () => {
+  // 🔴 THE FIXTURE TAG IS SEMVER-PARSEABLE ON PURPOSE. A bare
+  // `../../../../tmp/pwned` is refused by `compareSemver` before it reaches a
+  // path — an ACCIDENTAL barrier, and testing against it would prove the gate
+  // works on the one input that never needed it. `0.1.108-x/../../../../tmp/pwn`
+  // parses as semver (prerelease `x/../../../../tmp/pwn`), so under the first
+  // push of docs#101 it flowed into the asset name and then into the cache
+  // filename of a file this process writes, chmod +x es and EXECUTES.
+  let assetHits = 0;
+  const server = createServer((req, res) => {
+    if (req.url === '/releases/latest') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ tag_name: '0.1.108-x/../../../../tmp/pwn', assets: [] }));
+    }
+    assetHits++;
+    res.writeHead(404);
+    res.end('no');
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  try {
+    const r = await runChecker({
+      APPBLOCKS_CLI_RELEASES_URL: `http://127.0.0.1:${server.address().port}/releases/latest`,
+    });
+    const all = `${r.stdout}${r.stderr}`;
+    eq(r.status, 1, `expected a hard failure, got exit ${r.status}\n${all}`);
+    assert(/not a plain version/.test(all), `expected the tag gate's own message:\n${all}`);
+    assert(!/skip, no false-fail/.test(all), `a malformed tag must not degrade to a skip:\n${all}`);
+    eq(assetHits, 0, 'nothing beyond the release metadata should have been requested');
+  } finally {
+    await new Promise((r) => server.close(r));
+  }
 });
 
 await checkAsync('a MATCHING tag does NOT end the run — the content comparison is attempted', async () => {
@@ -373,7 +439,7 @@ console.log('');
 // lives inside a `check(...)` callback, so a suite that never RUNS them (an early
 // return, a rename that orphans a section, a botched merge) would print a serene
 // "all passed" over zero work. Measured when this line was written.
-const MIN_CHECKS = 20;
+const MIN_CHECKS = 24;
 if (executed < MIN_CHECKS) {
   console.error(
     `check-cli-snapshot tests: only ${executed} checks RAN, expected at least ${MIN_CHECKS} — ` +

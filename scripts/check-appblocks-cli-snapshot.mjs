@@ -289,6 +289,23 @@ async function fetchLatestRelease() {
     const body = await res.json();
     const tag = body?.tag_name;
     if (!tag) return { ok: false, reason: 'no tag_name in the releases response' };
+    // 🔴 THE TAG IS REMOTE INPUT AND IT REACHES A FILESYSTEM PATH. It is
+    // interpolated into the release asset name, which used to be interpolated
+    // into the cache filename of a file this process then EXECUTES — so a tag
+    // containing `/` or `..` was a path-traversal write-and-run, no shell
+    // required. The cache path no longer carries the tag at all (see
+    // resolveReleaseBinary), and this is the second barrier: refuse anything
+    // that is not a plain version tag before it is used for ANYTHING. Flagged
+    // by CodeQL js/command-line-injection on the first push of docs#101.
+    // FAIL, not SKIP: this is not a connectivity problem, and a skip would hide
+    // exactly the input worth shouting about.
+    if (!isPlainVersionTag(tag)) {
+      return {
+        ok: false,
+        malformed: true,
+        reason: `the releases endpoint returned a tag_name that is not a plain version: ${JSON.stringify(String(tag).slice(0, 80))}`,
+      };
+    }
     const assets = Array.isArray(body?.assets)
       ? body.assets.map((a) => ({ name: a?.name, url: a?.browser_download_url }))
       : [];
@@ -312,6 +329,18 @@ export function releaseAssetName(tag, platform = process.platform, arch = proces
   return `civitai_${bare(tag)}_${os}_${cpu}${os === 'windows' ? '.exe' : ''}`;
 }
 
+/**
+ * Is this a plain `[v]MAJOR.MINOR.PATCH[-prerelease]` tag and nothing else?
+ *
+ * The allowlist is deliberately tighter than semver: no path separators, no
+ * `..`, no whitespace, no shell metacharacters, bounded length. Everything
+ * downstream — the asset name, the error messages, and formerly the cache path
+ * — interpolates this string, so the gate is here rather than at each use.
+ */
+export function isPlainVersionTag(tag) {
+  return typeof tag === 'string' && tag.length <= 64 && /^v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(tag);
+}
+
 /** Parse a goreleaser `checksums.txt` into { filename: sha256 }. */
 export function parseChecksums(text) {
   const out = {};
@@ -324,7 +353,21 @@ export function parseChecksums(text) {
 
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 
-/** `civitai --version` -> `civitai 0.1.108`. Returns the version token or null. */
+/**
+ * `civitai --version` -> `civitai 0.1.108`. Returns the version token or null.
+ *
+ * 🔴 THE TRUST BOUNDARY, STATED. This runs a program, so `bin` must never be a
+ * path an attacker can steer. Two callers, two different answers:
+ *   - CIVITAI_CLI_BIN — an operator-set path to a program to run, which is the
+ *     FEATURE (cli-snapshot-refresh.yml passes its build artifact this way, and
+ *     gen-appblocks-cli.mjs has always taken the same variable). Anyone who can
+ *     set it can already run anything as this process.
+ *   - the release-asset cache path — which is `join(BIN_CACHE, 'civitai-' +
+ *     <64 hex>)` and carries NO remote string, after CodeQL flagged the version
+ *     that did. See resolveReleaseBinary.
+ * `execFileSync` with an argv array, never a shell string, so there is no
+ * metacharacter surface on top of that.
+ */
 function binaryVersion(bin) {
   try {
     const out = execFileSync(bin, ['--version'], {
@@ -429,8 +472,21 @@ async function resolveReleaseBinary(release) {
     };
   }
 
+  // 🔴 THE CACHE FILENAME IS THE HASH, AND NOTHING ELSE. It used to be
+  // `${assetName}-${expected}`, and `assetName` interpolates the remote
+  // `tag_name` — so a tag containing `/` or `..` wrote (and then EXECUTED) a
+  // file outside BIN_CACHE. `expected` came out of `parseChecksums`, whose
+  // capture group is `[0-9a-f]{64}`, but relying on a regex three functions
+  // away is exactly the reasoning that does not survive an edit. Re-assert it
+  // here, at the use, and assert containment after joining.
+  if (!/^[0-9a-f]{64}$/.test(expected)) {
+    return { ok: false, reason: `checksums.txt gave a non-sha256 digest for ${assetName}` };
+  }
   mkdirSync(BIN_CACHE, { recursive: true });
-  const dest = join(BIN_CACHE, `${assetName}-${expected}`);
+  const dest = join(BIN_CACHE, `civitai-${expected}`);
+  if (dirname(resolve(dest)) !== resolve(BIN_CACHE)) {
+    return { ok: false, reason: `refusing to cache the release binary outside ${BIN_CACHE}` };
+  }
   // Re-verify a cache HIT rather than trusting its filename.
   if (!existsSync(dest) || sha256(readFileSync(dest)) !== expected) writeFileSync(dest, bytes);
   chmodSync(dest, 0o755);
@@ -506,6 +562,12 @@ async function main() {
     if (remote.gone) {
       console.error(`  ✗ releases endpoint returned ${remote.reason} — civitai/cli or its releases moved`);
       console.error(`    update RELEASES_URL in scripts/check-appblocks-cli-snapshot.mjs to the new location.`);
+      process.exit(1);
+    }
+    if (remote.malformed) {
+      console.error(`  ✗ ${remote.reason}`);
+      console.error(`    ${RELEASES_URL} is not answering with a civitai/cli release. Nothing was downloaded and`);
+      console.error('    nothing was executed. This is not a connectivity failure, so it does not skip.');
       process.exit(1);
     }
     console.log(`  ⊘ ${remote.reason} — could not reach ${RELEASES_URL} (skip, no false-fail)`);
