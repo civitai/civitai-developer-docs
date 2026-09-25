@@ -38,8 +38,14 @@ you pass into your `blockId`:
 civitai app create my-app
 ```
 
-Use `--template static` for a no-build page app, or `--dir ./path` to control the
-output directory. The scaffold is immediately runnable and validates clean.
+The default template is `page-money`, a working generation app, and **the rest of
+this page assumes it** — the other templates are deliberately SDK-free, so they
+have no `.env.example`, no `dev:harness` script and none of the SDK imports below.
+Use `--template page-vite` for a React **JavaScript** start (Vite plus
+`react`/`react-dom`, no SDK) or `--template static` for no build at all, and
+`--dir ./path` to control the output directory. `static` validates and runs with
+no install; `page-vite` and `page-money` need an `npm install` first — until you
+have run it, `civitai app validate` fails on the missing `package-lock.json`.
 
 Then install dependencies:
 
@@ -86,11 +92,14 @@ does `.env`. They **must match**, or the transport's origin allowlist drops
 loading state, check that the two agree.
 :::
 
-## 3. Write the block
+## 3. Read the block
 
-Read everything the host delivered with `useBlockContext()`, and gate your UI on
-`ready` — the context fields are sentinel-empty until `BLOCK_INIT` lands.
-Replace `src/App.tsx` with:
+`civitai app create` defaults to the `page-money` template, so the `src/App.tsx`
+you already have is a working estimate → consent → submit → poll app **with tests
+that import it** — don't overwrite it. What every block does first is read what
+the host delivered with `useBlockContext()` and gate its UI on `ready`, because
+the context fields are sentinel-empty until `BLOCK_INIT` lands. That shape,
+minimally:
 
 ```tsx
 import { useBlockContext } from '@civitai/blocks-react';
@@ -98,8 +107,10 @@ import type { BlockContext } from '@civitai/app-sdk/blocks';
 
 // A PAGE app's context. The host's PageBlockHost sends
 // { slotId: 'app.page', entityType: 'none', slug, subPath, viewerUserId,
-//   viewerUsername, theme }. The published SDK exports the base BlockContext
-// and the model-slot narrowing, but no page type yet — so narrow locally.
+//   viewerUsername, theme }. The SDK also exports `PageSlotContext` and the
+// runtime guard `isPageSlotContext()` — prefer the guard in real code, which
+// checks the shape rather than asserting it. Narrowed inline here so the fields
+// are visible in one place.
 type PageContext = BlockContext & {
   slotId: 'app.page';
   slug: string;

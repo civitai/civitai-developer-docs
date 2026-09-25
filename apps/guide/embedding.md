@@ -205,14 +205,12 @@ before a single rule of yours applies:
   inline `<style>`. This is the strong guarantee, and unlike the meta tag it
   does not depend on `color-scheme` support at all.
 
-::: warning Reading the host's real theme is not yet available
+::: warning The host's theme arrives after your first paint
 The host does have a real theme, and it does send it — at `BLOCK_INIT`, which
-arrives after your document has already painted. There is a mechanism for
-handing a block its theme *before* first paint (a URL fragment on the frame
-src), but its allowlist is empty: **no block receives one today.** So every app
-adopting `bootSkeleton` right now paints from `prefers-color-scheme` and is
-corrected at `BLOCK_INIT`. This is stated so you know why the default matters —
-it is not a step you can take, and there is nothing to configure.
+arrives after your document has already painted. A first-party allowlist can
+receive the theme in a URL fragment before first paint, but admission is a
+Civitai-side decision, so design your skeleton to guess: paint from
+`prefers-color-scheme` and be corrected at `BLOCK_INIT`.
 :::
 
 ### Removing it — this is per-framework, and React is the exception
