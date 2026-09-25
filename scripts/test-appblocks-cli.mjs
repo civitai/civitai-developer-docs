@@ -205,6 +205,30 @@ check(`the walk yields at least ${COMMAND_COUNT_FLOOR} commands (a truncated art
   }
 });
 
+check('the artifact records the binary version the snapshot header names, in EITHER shape', () => {
+  // 🔴 A RELEASE ASSET STAMPS THE BARE VERSION AND A `make build` DOES NOT. The
+  // header carries `civitai 0.1.109` when captured from the published asset and
+  // `civitai v0.1.109` when captured from a source build at a tag, and the
+  // snapshot is now captured from the asset — because that is the artifact
+  // check:cli-snapshot verdicts it against. A `v`-requiring pattern read the
+  // asset header as NO VERSION AT ALL and emitted `version: ''`, silently: no
+  // renderer reads the field, so nothing anywhere went red.
+  const header = /^Binary version:\s*civitai\s+(\S+)\s*$/m.exec(bundle);
+  assert(header, 'the committed snapshot carries no `Binary version:` header line');
+  assert(
+    artifact.program.version,
+    `the artifact records NO binary version, though the header says "${header[1]}" — the pattern stopped matching`,
+  );
+  // Containment rather than equality: the captured group stops at the first `-`,
+  // so a git-describe header (`v0.1.90-13-g569f5dc`) legitimately yields only
+  // its tag. What must never happen is the version coming back empty or from
+  // somewhere other than this line.
+  assert(
+    header[1].includes(artifact.program.version),
+    `the artifact version "${artifact.program.version}" is not part of the header's "${header[1]}"`,
+  );
+});
+
 check('a ZERO-node or truncated bundle is REFUSED, not written', () => {
   // The floor has to be reachable, or it is decoration. Drive the real
   // buildArtifact with a bundle whose root advertises nothing to descend into.

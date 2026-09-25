@@ -4,8 +4,18 @@
  * ------------------------
  * SELF-HEALING for the `civitai` CLI help snapshot: when
  * `npm run check:cli-snapshot` would go RED, re-capture
- * `appblocks-snapshots/civitai-cli-help.txt` from a binary built at the latest
- * civitai/cli release and OPEN A PULL REQUEST carrying the new bytes.
+ * `appblocks-snapshots/civitai-cli-help.txt` from the latest civitai/cli
+ * RELEASE ASSET and OPEN A PULL REQUEST carrying the new bytes.
+ *
+ * 🔴 THE RELEASE ASSET, NOT A SOURCE BUILD, AND THAT IS WHAT MAKES THE GATE
+ * REACHABLE. `check:cli-snapshot` verdicts the committed snapshot against a
+ * capture from the PUBLISHED asset; the workflow behind this script used to
+ * produce that snapshot with `make build` at the tag. The two stamp the header
+ * differently and always will — `git describe` gives `civitai v0.1.109`,
+ * goreleaser's release ldflags give `civitai 0.1.109` — so line 3 could never
+ * agree and the daily sweep was red forever. Both halves now read the SAME
+ * artifact. See .github/workflows/cli-snapshot-refresh.yml's `fetch-cli` job,
+ * and `bareTag` below for the comparison this made necessary.
  *
  * WHY THIS EXISTS
  * ---------------
@@ -107,8 +117,8 @@
  * -----------------------------------------------------------------
  * This is the failure this whole path is most likely to produce, and it is
  * SILENT. `gen-appblocks-cli.mjs` prefers a live `civitai` on PATH; a CI runner
- * has none, so the job must build one itself and point CIVITAI_CLI_BIN at it.
- * Get that wrong — an older binary, a partial build, a walk that died halfway —
+ * has none, so the job must obtain one itself and point CIVITAI_CLI_BIN at it.
+ * Get that wrong — an older binary, a truncated download, a walk that died halfway —
  * and the capture is SHORT. Measured in this repo before the generator defaulted
  * to the snapshot: a `civitai v0.1.89-20-g4018e2c` on PATH wrote **47** commands
  * instead of 52, silently dropping `generate` and the whole `workflows` subtree,
@@ -179,7 +189,7 @@
  *   node scripts/refresh-cli-snapshot.mjs --no-pr        # branch/commit/push; print the PR instead of opening it
  *
  * `--decide` exists so the WORKFLOW can ask the question once, cheaply, before
- * paying for a Go toolchain and a full upstream build — and so the answer the
+ * paying for a ~20 MB release download — and so the answer the
  * expensive jobs act on is the SAME answer, rather than a second resolution
  * that can disagree with the first. It writes `action` / `tag` / `latest` to
  * $GITHUB_OUTPUT when that is set.
@@ -241,6 +251,24 @@ export function countSnapshotBlocks(text) {
   return (String(text).match(/^===CMD .+===$/gm) || []).length;
 }
 
+/**
+ * A version tag with any leading `v` removed, for COMPARISON only.
+ *
+ * 🔴 THE TWO SIDES SPELL THE SAME VERSION DIFFERENTLY, AND BOTH ARE RIGHT. The
+ * releases API answers `tag_name: "v0.1.109"`; the binary that release ships
+ * stamps `civitai 0.1.109`, because goreleaser's ldflags carry the bare version
+ * while a `make build` carries `git describe`. `parseSnapshotVersion` accepts
+ * both shapes on purpose (see its header in check-appblocks-cli-snapshot.mjs) —
+ * so a string comparison between the target tag and the captured header refuses
+ * every capture taken from the release asset, i.e. from the exact artifact
+ * `check:cli-snapshot` measures the committed snapshot against. Compare the
+ * versions, not their spellings.
+ *
+ * It is deliberately NOT a general semver normaliser: it strips one `v` and
+ * nothing else, so `0.1.109` and `0.1.110` still disagree.
+ */
+const bareTag = (tag) => String(tag).replace(/^v/, '');
+
 /** NUL bytes. Non-zero means the committed snapshot would be a BINARY file to git. */
 export function countNulBytes(text) {
   let n = 0;
@@ -272,7 +300,7 @@ export function validateCapture({ next, prev, expectedTag }) {
         `${prevBlocks}. Every command contributes two blocks, so this capture is missing ` +
         `${(prevBlocks - nextBlocks) / 2} command(s). The usual cause is capturing from the WRONG BINARY — ` +
         `gen-appblocks-cli.mjs prefers a live \`civitai\` on PATH, and an older or partially-built one walks a ` +
-        `smaller tree and still exits 0. Check CIVITAI_CLI_BIN points at a binary built at ${expectedTag}. ` +
+        `smaller tree and still exits 0. Check CIVITAI_CLI_BIN points at the ${expectedTag} release asset. ` +
         `If the CLI genuinely REMOVED a command, this floor is doing its job and needs a human: re-capture by ` +
         `hand and open the PR yourself.`,
     );
@@ -286,7 +314,7 @@ export function validateCapture({ next, prev, expectedTag }) {
   }
   if (!parsed.ok) {
     problems.push(`UNREADABLE HEADER: ${parsed.reason} — the capture did not write a well-formed header.`);
-  } else if (expectedTag && parsed.tag !== expectedTag) {
+  } else if (expectedTag && bareTag(parsed.tag) !== bareTag(expectedTag)) {
     problems.push(
       `WRONG BINARY: the capture's header records civitai ${parsed.raw} (tag ${parsed.tag}) but this refresh ` +
         `targeted ${expectedTag}. Committing it would publish a snapshot whose own header lies about its ` +
@@ -382,8 +410,9 @@ reference is generated from — the production image has no \`civitai\` binary, 
 \`gen-appblocks-cli.mjs\` always takes the snapshot path. When the snapshot goes
 stale, developer.civitai.com silently serves wrong content.
 
-${run} found: **${reason}**, and re-captured the snapshot from a \`civitai\`
-binary built at \`${targetTag}\`.
+${run} found: **${reason}**, and re-captured the snapshot from the published
+\`civitai\` \`${targetTag}\` release asset — the same artifact
+\`check:cli-snapshot\` verdicts this file against.
 
 | | |
 |---|---|
@@ -837,7 +866,7 @@ async function main() {
   const bin = process.env.CIVITAI_CLI_BIN;
   if (!bin) {
     console.error(
-      '  ✗ CIVITAI_CLI_BIN is unset. A refresh needs a `civitai` binary built at the target tag; the runner\n' +
+      '  ✗ CIVITAI_CLI_BIN is unset. A refresh needs the `civitai` release asset for the target tag; the runner\n' +
         '    has none, and leaving the generator to find one on PATH is exactly how a SHORT capture happens.',
     );
     process.exit(1);
@@ -986,7 +1015,7 @@ async function main() {
       '-m',
       title,
       '-m',
-      `${decision.reason}.\n\nCaptured from a civitai binary built at ${decision.targetTag}. ` +
+      `${decision.reason}.\n\nCaptured from the published civitai ${decision.targetTag} release asset. ` +
         `${verdict.stats.nextBlocks} ===CMD blocks (floor ${verdict.stats.prevBlocks}), ${verdict.stats.nuls} NUL bytes.\n\n` +
         `Opened automatically by .github/workflows/cli-snapshot-refresh.yml.`,
     ]);

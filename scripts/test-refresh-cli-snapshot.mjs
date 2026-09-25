@@ -199,6 +199,36 @@ check('a capture from the WRONG binary is refused even when it is long enough', 
   assert(joined.includes(NEWER) && joined.includes(SNAP_TAG), 'the refusal names neither the target nor the actual tag');
 });
 
+check('the `v` on a release TAG is not read as a different version from the asset it stamps', () => {
+  // 🔴 THE DEFECT THAT MADE THE GATE UNREACHABLE, AT THIS END. The releases API
+  // answers `tag_name: "v0.1.109"`; the binary that release ships stamps
+  // `civitai 0.1.109`, because goreleaser's ldflags carry the bare version while
+  // a `make build` carries `git describe`. check:cli-snapshot measures the
+  // committed snapshot against the RELEASE ASSET, so the refresher must capture
+  // from it too — and a string comparison between the target tag and the
+  // captured header refuses every such capture as a WRONG BINARY.
+  const bareOf = (t) => String(t).replace(/^v/, '');
+  const header = (v) => committed.replace(/^Binary version: civitai .*$/m, `Binary version: civitai ${v}`);
+  // Positive control on the fixture: the two spellings must actually differ, or
+  // this whole case is one comparison written twice.
+  assert(`v${bareOf(SNAP_TAG)}` !== bareOf(SNAP_TAG), 'the two spellings are identical — this fixture proves nothing');
+  for (const [what, text] of [
+    ['a git-describe header', header(`v${bareOf(SNAP_TAG)}`)],
+    ['a release-asset header', header(bareOf(SNAP_TAG))],
+  ]) {
+    for (const [how, tag] of [['a v-prefixed target', `v${bareOf(SNAP_TAG)}`], ['a bare target', bareOf(SNAP_TAG)]]) {
+      const v = validateCapture({ next: text, prev: committed, expectedTag: tag });
+      assert(v.ok, `${what} against ${how} was refused: ${v.problems.join(' | ')}`);
+    }
+  }
+  // 🔴 NEGATIVE CONTROL. Stripping one `v` must not swallow a REAL
+  // disagreement — the WRONG BINARY refusal is the only thing standing between a
+  // capture from the wrong release and a PR whose own header lies about it.
+  const wrong = validateCapture({ next: header(bareOf(SNAP_TAG)), prev: committed, expectedTag: NEWER });
+  assert(!wrong.ok, 'normalising the leading `v` also stopped a genuinely wrong version being refused');
+  assert(/WRONG BINARY/.test(wrong.problems.join('\n')), `the refusal changed shape:\n${wrong.problems.join('\n')}`);
+});
+
 check('a capture with no parseable header is refused', () => {
   const headerless = committed.replace(/^Binary version:.*$/m, 'Binary version: (unknown)');
   const v = validateCapture({ next: headerless, prev: committed, expectedTag: SNAP_TAG });
@@ -1268,12 +1298,26 @@ check('EXACTLY ONE job holds write, and it is not the one that runs upstream cod
   assertEqual(writers.length, 1, `${writers.length} jobs hold write: ${writers.map(([n]) => n).join(', ')}`);
   const [writerName, writerBody] = writers[0];
 
-  // The writer must not be the job that builds upstream code. Identify that job
-  // STRUCTURALLY — it is whichever one clones civitai/cli — never by name, or a
-  // rename moves the hazard past this guard.
-  const upstream = Object.entries(jobs).filter(([, body]) => /git clone .*github\.com\/civitai\/cli/.test(body));
-  assertEqual(upstream.length, 1, `expected exactly one job to build upstream, found ${upstream.length}`);
-  assert(upstream[0][0] !== writerName, `the job that builds civitai/cli ("${writerName}") also holds write scopes`);
+  // The writer must not be the job that obtains upstream code. Identify that
+  // job STRUCTURALLY — it is whichever one hands a `civitai` binary over as an
+  // artifact — never by name, or a rename moves the hazard past this guard.
+  //
+  // 🔴 THE LOCATOR MOVED WITH THE MECHANISM, AND THE PROPERTY DID NOT. It used
+  // to be "whichever job runs `git clone …/civitai/cli`", which was exact while
+  // that job BUILT the CLI from source. It no longer builds anything: the source
+  // build stamped `git describe` into the snapshot header where the gate's
+  // reference (the published release asset) stamps the bare version, so the two
+  // could never agree and check:cli-snapshot was red forever. The job now
+  // downloads and sha256-verifies the release asset, so the clone is gone and
+  // the hand-off is what remains to point at. Anchored to a real `uses:` step so
+  // a comment cannot satisfy it.
+  const upstream = Object.entries(jobs).filter(([, body]) => /^\s+- uses: actions\/upload-artifact/m.test(body));
+  assertEqual(upstream.length, 1, `expected exactly one job to supply the upstream binary, found ${upstream.length}`);
+  assert(
+    /civitai\/cli/.test(upstream[0][1]),
+    'the binary-supplying job never names civitai/cli — it is not obtaining the upstream binary at all',
+  );
+  assert(upstream[0][0] !== writerName, `the job that obtains civitai/cli ("${writerName}") also holds write scopes`);
 
   // Positive control: the upstream job must declare read explicitly rather than
   // inherit it, so a later edit to the file-level default cannot silently
@@ -1319,6 +1363,42 @@ check('THE DISCLOSED RESIDUAL: the privileged job still EXECUTES the upstream bi
     'the privileged checkout now drops its credential — that is the residual being closed, so update the ' +
       'workflow header, which still discloses it as open.',
   );
+});
+
+check('the binary comes from the PUBLISHED RELEASE ASSET, verified before it is made executable', () => {
+  // 🔴 THE DEFECT THIS WHOLE CHANGE CLOSES, PINNED SO IT CANNOT COME BACK ON A
+  // SCHEDULE NOBODY WATCHES. check:cli-snapshot verdicts the committed snapshot
+  // against a capture from the published release asset. While this workflow
+  // produced that snapshot with `make build` at the tag, line 3 could never
+  // match — `git describe` stamps `civitai v0.1.109`, goreleaser's release
+  // ldflags stamp `civitai 0.1.109`. Measured on `main` 2026-09-25: 163282 vs
+  // 163281 bytes, 116 `===CMD` blocks on BOTH sides, ONE differing line, ONE
+  // differing character. Each half was right alone; together they were a
+  // permanently red gate, which is the thing that trains everyone to click
+  // through. Restoring a source build here restores that.
+  const jobs = jobsOf(WORKFLOW);
+  const supplier = Object.entries(jobs).filter(([, b]) => /^\s+- uses: actions\/upload-artifact/m.test(b));
+  assertEqual(supplier.length, 1, `expected exactly one job to supply the binary, found ${supplier.length}`);
+  // Read the RUNNABLE lines: the job's comments explain the source build it
+  // replaced, and a whole-body search would fail on the documentation of the
+  // rule it enforces.
+  const body = supplier[0][1]
+    .split('\n')
+    .filter((l) => !/^\s*#/.test(l))
+    .join('\n');
+  assert(/gh release download/.test(body), `the binary is not obtained from a published release:\n${body}`);
+  assert(
+    !/(make .*\bbuild\b|go build|uses: actions\/setup-go)/.test(body),
+    `the binary is built from source again — its header will never match the gate's reference:\n${body}`,
+  );
+  // 🔴 AND NOTHING BECOMES EXECUTABLE BEFORE ITS DIGEST IS CHECKED. Verification
+  // that happens after the `install` is verification of a file already sitting
+  // at the path the next job runs.
+  const verify = body.indexOf('sha256sum -c');
+  const makeExec = body.search(/install -m 0755|chmod \+x/);
+  assert(verify >= 0, `the downloaded asset is never sha256-verified:\n${body}`);
+  assert(makeExec >= 0, `nothing in the job makes the asset executable — it cannot be run:\n${body}`);
+  assert(verify < makeExec, 'the asset is made executable BEFORE its checksum is verified');
 });
 
 check('the expensive jobs are GATED on the freshness decision', () => {
@@ -1536,7 +1616,7 @@ console.log('');
 // section, a botched merge — prints a serene "all passed" over zero work. The
 // floor is the positive control on the harness itself: it must have executed at
 // least as many checks as it did when this line was written.
-const MIN_CHECKS = 61;
+const MIN_CHECKS = 63;
 if (executed < MIN_CHECKS) {
   console.error(
     `refresh-cli-snapshot tests: only ${executed} checks RAN, expected at least ${MIN_CHECKS} — ` +

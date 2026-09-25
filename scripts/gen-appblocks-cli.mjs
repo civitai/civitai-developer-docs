@@ -841,7 +841,18 @@ export function buildArtifact(bundle, source = 'test') {
     paths.map((p) => p.join(' ')),
   );
 
-  const versionMatch = bundle.match(/Binary version:\s*civitai\s+(v[\w.]+)/i);
+  // 🔴 BOTH HEADER SHAPES PARSE, AND `-` IS IN THE CLASS ON PURPOSE. This used
+  // to REQUIRE the `v` (`(v[\w.]+)`), which matched a source build's `git
+  // describe` header (`civitai v0.1.109`) and nothing else — so against a
+  // release asset's bare header (`civitai 0.1.109`), which is what the snapshot
+  // is now captured from so check:cli-snapshot can compare like with like, it
+  // matched NOTHING and `program.version` shipped as the EMPTY STRING. Silently:
+  // no renderer reads the field, so nothing went red. Snapshots already in git
+  // history carry the `v`, so both shapes must parse (`\w` already admits it).
+  // `-` covers the `git describe` suffix (`0.1.90-13-g569f5dc`), which `[\w.]`
+  // stopped at the first hyphen. `test-appblocks-cli.mjs` pins the result
+  // against the header line it was read from.
+  const versionMatch = bundle.match(/Binary version:\s*civitai\s+([\w.-]+)/i);
   const program = {
     name: 'civitai',
     description: 'Author and ship Civitai Apps.',
