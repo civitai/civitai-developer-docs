@@ -86,9 +86,12 @@ name: cli-snapshot-refresh
 #
 # 🔴 SO THE RED IS CURRENTLY PERMANENT AND NOBODY CAN ACT ON IT — 11 consecutive
 # failed scheduled runs, 2026-09-15 .. 2026-09-25, last green 2026-09-14. `decide`
-# and `build-cli` succeed every time; `refresh` captures cleanly, pushes
-# `bot/cli-snapshot-refresh` (currently carrying v0.1.106), and then exits 1 on
-# the refusal. The snapshot is never lost — only the announcement is.
+# and the binary-supplying job succeed every time; `refresh` captures cleanly, pushes
+# `bot/cli-snapshot-refresh`, and then exits 1 on the refusal. The snapshot is
+# never lost — only the announcement is. (This used to add "currently carrying
+# v0.1.106". Re-measured 2026-09-25: `git ls-remote --heads origin` lists 20
+# branches and NONE of them is `bot/cli-snapshot-refresh`, so the next run
+# CREATES it rather than continuing one.)
 #
 # That was correct reasoning from a premise that turned out to be false: "exit
 # red until somebody ticks the box" assumed a box somebody could tick. A
@@ -197,9 +200,11 @@ jobs:
   # ---------------------------------------------------------------------------
   # 1. ASK THE QUESTION FIRST, CHEAPLY.
   #
-  # The Go toolchain and a full upstream `make build` used to run
+  # A Go toolchain and a full upstream `make build` used to run
   # UNCONDITIONALLY, including on the ~364 days a year when the answer is
   # "nothing to do" — the freshness decision was not made until the last step.
+  # (The build is gone; the ~20 MB release download that replaced it is gated the
+  # same way, and the gating is what this job is for.)
   # appblocks-drift.yml's header reasons explicitly about exactly this cost for
   # its own checks; this job is that reasoning applied here.
   #
@@ -253,35 +258,73 @@ jobs:
         run: node scripts/refresh-cli-snapshot.mjs --decide
 
   # ---------------------------------------------------------------------------
-  # 2. BUILD THE UPSTREAM BINARY IN A JOB THAT HOLDS NOTHING WORTH STEALING.
+  # 2. OBTAIN THE BINARY THE DOCS DESCRIBE — THE PUBLISHED RELEASE ASSET — IN A
+  # JOB THAT HOLDS NOTHING WORTH STEALING.
   #
-  # 🔴 THIS SEPARATION NARROWS A REAL EXPOSURE — AND IT DOES NOT CLOSE IT. STATE
-  # BOTH, because the first version of this comment claimed the boundary was
+  # 🔴 THIS JOB USED TO BUILD civitai/cli FROM SOURCE, AND THAT MADE THE GATE
+  # PERMANENTLY RED. `check:cli-snapshot` compares the committed snapshot
+  # byte-for-byte against a capture from the PUBLISHED RELEASE ASSET; this job
+  # produced the committed snapshot with `make build` at the tag. The two stamp
+  # the header's version line differently and always will — `make build` derives
+  # it from `git describe` (`Binary version: civitai v0.1.109`), goreleaser's
+  # release ldflags stamp the bare version (`Binary version: civitai 0.1.109`).
+  # Measured 2026-09-25 on `main`: 163282 vs 163281 bytes, 116 `===CMD` blocks on
+  # BOTH sides, ONE differing line — line 3 — by ONE character. Each half was
+  # correct alone and together they could never agree, so the daily sweep was red
+  # forever, which is the state that trains everyone to click through a gate.
+  #
+  # THE FIX IS ONE SOURCE OF TRUTH: both halves now read the SAME artifact, so
+  # the committed snapshot literally IS "what the release emits", which is what
+  # the gate claims. Do NOT close it the other way round — normalising the
+  # version line inside the gate, or overriding upstream's ldflags here — both of
+  # those re-introduce a snapshot describing a binary nobody can install, and
+  # they put the rule in two places again.
+  #
+  # `go install` had been ruled out here because it sets no ldflags and stamps
+  # "dev"; that reasoning is superseded rather than forgotten — nothing is built
+  # at all now, and the version in the header is the one the RELEASE stamped.
+  #
+  # 🔴 NOTHING REMOTE REACHES A PATH THIS JOB MAKES EXECUTABLE. The asset name is
+  # derived from `$TAG` AFTER a plain-version shape gate, never from the name the
+  # releases API hands back, and the verified bytes are installed at a CONSTANT
+  # path before the executable bit is set. sha256 verification does NOT close
+  # that hole by itself — the same endpoint serves the tag and the checksums —
+  # and getting it wrong shipped a critical `js/command-line-injection` alert on
+  # docs#101. The same discipline, at length and with the incident, is in
+  # scripts/check-appblocks-cli-snapshot.mjs (`resolveReleaseBinary`,
+  # `isPlainVersionTag`): read it before editing the block below.
+  #
+  # 🔴 THE JOB SPLIT NARROWS A REAL EXPOSURE — AND IT DOES NOT CLOSE IT. STATE
+  # BOTH, because an earlier version of this comment claimed the boundary was
   # complete and it is not.
   #
-  # This step clones civitai/cli at a MUTABLE tag and executes its Makefile.
-  # When that ran inside the job holding `contents: write` + `pull-requests:
-  # write`, with actions/checkout's default `persist-credentials: true` having
-  # written this repo's token into `.git/config`, anyone able to move a tag in
-  # civitai/cli could read that credential directly out of the checkout. Two
-  # things changed:
+  # When upstream code ran inside the job holding `contents: write` +
+  # `pull-requests: write`, with actions/checkout's default
+  # `persist-credentials: true` having written this repo's token into
+  # `.git/config`, anyone able to move a tag in civitai/cli could read that
+  # credential directly out of the checkout. Two things hold that shut:
   #   - this job declares `contents: read`, so the token IT can reach is
   #     read-only for this repo;
   #   - it does not check this repository out AT ALL, so there is no
-  #     `.git/config` holding a credential for the upstream BUILD to read.
-  # Keep both. Adding a checkout of this repo here re-opens that directly.
+  #     `.git/config` holding a credential for upstream code to read. That is
+  #     also why the download below is plain `gh` + `sha256sum` rather than a
+  #     node script sharing the guard's helpers: reusing them would mean
+  #     checking this repo out here, which re-opens exactly that.
+  # Keep both.
   #
   # 🔴 WHAT IT DOES NOT BUY: THE UPSTREAM *BINARY* STILL RUNS WITH WRITE. The
   # `refresh` job below downloads this job's artifact, `chmod +x`es it and
   # EXECUTES it (the capture shells out to it per command) while holding
   # `contents: write` + `pull-requests: write` and a `persist-credentials: true`
-  # checkout of this repo. So a tag-mover upstream can still reach this repo's
-  # write token — they just have to move the payload out of the Makefile and
-  # into the Go source, which the split does nothing to prevent. What the split
-  # removes is upstream's BUILD-TIME code (Makefile recipes, go generate,
-  # dependency resolution) from the privileged job; what remains is the one
-  # artifact that job exists to produce. Do not describe this as "the token is
-  # no longer reachable from upstream code" — it is reachable, by a longer
+  # checkout of this repo. Moving from a source build to a release asset narrows
+  # WHO can put code there — it takes publishing a release rather than moving a
+  # tag — and removes upstream's BUILD-TIME code (Makefile recipes, go generate,
+  # dependency resolution) from this job entirely. It does not stop the resulting
+  # binary reaching this repo's write token. Nor is the asset SIGNED: the sha256
+  # below proves the bytes match what that release's own checksums.txt says, and
+  # the same endpoint serves both, so it is an integrity check on the download
+  # and not a statement about who produced it. Do not describe this as "the token
+  # is no longer reachable from upstream code" — it is reachable, by a longer
   # route.
   #
   # Closing it properly is a separate, deliberate change, not a tightening to
@@ -290,53 +333,78 @@ jobs:
   # that runs the binary and uploads the captured bytes, leaving the privileged
   # job to commit an artifact it never executed. Both are real designs with
   # their own failure modes; neither is in this PR.
-  #
-  # `go install` is deliberately NOT used: it sets no ldflags, so the binary
-  # reports version "dev" and the snapshot header — the thing every future
-  # freshness check reads — would record a version that is not a version.
-  # Cloning the tag and running `make build` derives the version from
-  # `git describe`, which at a tag is exactly the tag.
-  build-cli:
+  fetch-cli:
     needs: decide
     if: needs.decide.outputs.action == 'refresh'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.25'
-
       # 🔴 THE TAG RIDES IN `env:`, NEVER INTERPOLATED INTO THE SHELL. A
       # `${{ … }}` expansion is substituted into the script TEXT before bash sees
       # it, so a tag containing shell metacharacters would be executed rather
       # than compared. `"$TAG"` is a value; `${{ … }}` is code.
-      - name: Build the civitai CLI at the target tag
+      - name: Download and verify the civitai CLI release asset
         env:
           TAG: ${{ needs.decide.outputs.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           if [ -z "${TAG}" ]; then
-            echo "the decide job named no tag — refusing to build an unspecified version" >&2; exit 1
+            echo "the decide job named no tag — refusing to fetch an unspecified version" >&2; exit 1
           fi
-          git clone --depth 1 --branch "${TAG}" https://github.com/civitai/cli.git "${RUNNER_TEMP}/civitai-cli"
-          make -C "${RUNNER_TEMP}/civitai-cli" build
-          # Positive control on the build itself: a binary whose --version does
+          # The shape gate, mirroring isPlainVersionTag() in
+          # scripts/check-appblocks-cli-snapshot.mjs: no path separators, no
+          # `..`, no whitespace, no shell metacharacters, bounded length. It runs
+          # BEFORE the tag is used for anything, because everything below
+          # interpolates it.
+          #
+          # 🔴 `-z` IS LOAD-BEARING, NOT DECORATION. Without it grep anchors
+          # per LINE, so a tag_name of "v0.1.109\nv0.1.108" matches on its first
+          # line and walks straight through a gate whose whole job is to reject
+          # anything that is not one plain version. Measured 2026-09-25: plain
+          # `grep -qE` accepted it, `grep -qzE` (one NUL-terminated record, so
+          # the newline is ordinary data and `$` is the end of the STRING)
+          # rejects it — which is also what the JavaScript regex it mirrors does,
+          # since JS `$` without the `m` flag anchors at end-of-input.
+          if [ "${#TAG}" -gt 64 ] || ! printf '%s' "${TAG}" | grep -qzE '^v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "refusing a tag_name that is not a plain version: ${TAG}" >&2; exit 1
+          fi
+          BARE="${TAG#v}"
+          ASSET="civitai_${BARE}_linux_amd64"
+          DL="${RUNNER_TEMP}/cli-release"
+          OUT="${RUNNER_TEMP}/cli-bin"
+          mkdir -p "${DL}" "${OUT}"
+          gh release download "${TAG}" --repo civitai/cli --dir "${DL}" \
+            --pattern "${ASSET}" --pattern checksums.txt
+          # The digest is re-validated AT THE USE SITE as 64 hex and nothing
+          # else. An empty or malformed line here means the release layout moved;
+          # refuse rather than run an unverified binary.
+          EXPECTED="$(awk -v f="${ASSET}" '$2 == f || $2 == "*" f { print $1 }' "${DL}/checksums.txt")"
+          if ! printf '%s' "${EXPECTED}" | grep -qE '^[0-9a-f]{64}$'; then
+            echo "checksums.txt for ${TAG} carries no sha256 line for ${ASSET}" >&2; exit 1
+          fi
+          echo "${EXPECTED}  ${DL}/${ASSET}" | sha256sum -c -
+          # Only NOW does anything become executable, and at a constant path
+          # built from no remote string at all.
+          install -m 0755 "${DL}/${ASSET}" "${OUT}/civitai"
+          # Positive control on the asset itself: a binary whose --version does
           # not name the tag would poison the snapshot header, and the refresher
           # would (correctly) refuse it later — fail here instead, where the
-          # message is about the build rather than about the capture.
-          "${RUNNER_TEMP}/civitai-cli/bin/civitai" --version
-          "${RUNNER_TEMP}/civitai-cli/bin/civitai" --version | grep -qxF "civitai ${TAG}"
+          # message is about the download rather than about the capture. It is
+          # compared BARE, because that is what the release ldflags stamp.
+          "${OUT}/civitai" --version
+          "${OUT}/civitai" --version | grep -qxF "civitai ${BARE}"
 
       - uses: actions/upload-artifact@v4
         with:
           name: civitai-cli-bin
-          path: ${{ runner.temp }}/civitai-cli/bin/civitai
+          path: ${{ runner.temp }}/cli-bin/civitai
           retention-days: 1
           # A silently absent artifact would reach the next job as "no binary",
           # which the refresher refuses anyway — but it refuses with a message
-          # about CIVITAI_CLI_BIN rather than about a build that produced
+          # about CIVITAI_CLI_BIN rather than about a download that produced
           # nothing. Fail where the cause is.
           if-no-files-found: error
 
@@ -348,7 +416,7 @@ jobs:
   # all; exits NON-ZERO with no branch and no PR when the capture is short,
   # carries NUL bytes, or came from the wrong binary.
   refresh:
-    needs: [decide, build-cli]
+    needs: [decide, fetch-cli]
     if: needs.decide.outputs.action == 'refresh'
     runs-on: ubuntu-latest
     timeout-minutes: 15

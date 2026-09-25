@@ -4,8 +4,21 @@
  * ------------------------
  * SELF-HEALING for the `civitai` CLI help snapshot: when
  * `npm run check:cli-snapshot` would go RED, re-capture
- * `appblocks-snapshots/civitai-cli-help.txt` from a binary built at the latest
- * civitai/cli release and OPEN A PULL REQUEST carrying the new bytes.
+ * `appblocks-snapshots/civitai-cli-help.txt` from the latest civitai/cli RELEASE
+ * ASSET and OPEN A PULL REQUEST carrying the new bytes.
+ *
+ * 🔴 THE RELEASE ASSET, NOT A SOURCE BUILD — BOTH HALVES READ THE SAME
+ * ARTIFACT. `check:cli-snapshot` verdicts the committed snapshot against a
+ * capture from the PUBLISHED asset; the workflow behind this script used to
+ * produce that snapshot with `make build` at the tag, and the two stamp the
+ * header differently — `git describe` gives `civitai v0.1.109`, goreleaser's
+ * release ldflags give `civitai 0.1.109`. Measured on `main` 2026-09-25:
+ * 163282 vs 163281 bytes, 116 `===CMD` blocks on both sides, ONE line, ONE
+ * character; the daily sweep was red forever. `canonicalVersionLine` in
+ * gen-appblocks-cli.mjs also strips a leading `v` at the capture, which covers
+ * a HAND re-capture from a source build; the workflow's own capture no longer
+ * needs it, because there is no source build left. See
+ * .github/workflows/cli-snapshot-refresh.yml's `fetch-cli` job.
  *
  * WHY THIS EXISTS
  * ---------------
@@ -179,7 +192,7 @@
  *   node scripts/refresh-cli-snapshot.mjs --no-pr        # branch/commit/push; print the PR instead of opening it
  *
  * `--decide` exists so the WORKFLOW can ask the question once, cheaply, before
- * paying for a Go toolchain and a full upstream build — and so the answer the
+ * paying for a ~20 MB release download — and so the answer the
  * expensive jobs act on is the SAME answer, rather than a second resolution
  * that can disagree with the first. It writes `action` / `tag` / `latest` to
  * $GITHUB_OUTPUT when that is set.
@@ -272,7 +285,7 @@ export function validateCapture({ next, prev, expectedTag }) {
         `${prevBlocks}. Every command contributes two blocks, so this capture is missing ` +
         `${(prevBlocks - nextBlocks) / 2} command(s). The usual cause is capturing from the WRONG BINARY — ` +
         `gen-appblocks-cli.mjs prefers a live \`civitai\` on PATH, and an older or partially-built one walks a ` +
-        `smaller tree and still exits 0. Check CIVITAI_CLI_BIN points at a binary built at ${expectedTag}. ` +
+        `smaller tree and still exits 0. Check CIVITAI_CLI_BIN points at the ${expectedTag} release asset. ` +
         `If the CLI genuinely REMOVED a command, this floor is doing its job and needs a human: re-capture by ` +
         `hand and open the PR yourself.`,
     );
@@ -388,8 +401,9 @@ reference is generated from — the production image has no \`civitai\` binary, 
 \`gen-appblocks-cli.mjs\` always takes the snapshot path. When the snapshot goes
 stale, developer.civitai.com silently serves wrong content.
 
-${run} found: **${reason}**, and re-captured the snapshot from a \`civitai\`
-binary built at \`${targetTag}\`.
+${run} found: **${reason}**, and re-captured the snapshot from the published \`civitai\`
+\`${targetTag}\` release asset — the same artifact \`check:cli-snapshot\`
+verdicts this file against.
 
 | | |
 |---|---|
@@ -843,7 +857,7 @@ async function main() {
   const bin = process.env.CIVITAI_CLI_BIN;
   if (!bin) {
     console.error(
-      '  ✗ CIVITAI_CLI_BIN is unset. A refresh needs a `civitai` binary built at the target tag; the runner\n' +
+      '  ✗ CIVITAI_CLI_BIN is unset. A refresh needs the `civitai` release asset for the target tag; the runner\n' +
         '    has none, and leaving the generator to find one on PATH is exactly how a SHORT capture happens.',
     );
     process.exit(1);
@@ -992,7 +1006,7 @@ async function main() {
       '-m',
       title,
       '-m',
-      `${decision.reason}.\n\nCaptured from a civitai binary built at ${decision.targetTag}. ` +
+      `${decision.reason}.\n\nCaptured from the published civitai ${decision.targetTag} release asset. ` +
         `${verdict.stats.nextBlocks} ===CMD blocks (floor ${verdict.stats.prevBlocks}), ${verdict.stats.nuls} NUL bytes.\n\n` +
         `Opened automatically by .github/workflows/cli-snapshot-refresh.yml.`,
     ]);

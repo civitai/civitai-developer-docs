@@ -534,7 +534,7 @@ check('CLI_SNAPSHOT_REFRESH_LATEST_TAG answers the upstream question without ask
 });
 
 check('--decide EMITS the verdict, and captures nothing', () => {
-  // The workflow gates a Go toolchain and a full upstream build on this output
+  // The workflow gates a ~20 MB release download on this output
   // (F9), so a `--decide` that disagreed with the real run — or that did work
   // of its own — would either waste the build or, worse, skip a needed one.
   const { work, origin, root } = scratchRepo();
@@ -1298,25 +1298,40 @@ check('EXACTLY ONE job holds write, and it is not the one that runs upstream cod
   assertEqual(writers.length, 1, `${writers.length} jobs hold write: ${writers.map(([n]) => n).join(', ')}`);
   const [writerName, writerBody] = writers[0];
 
-  // The writer must not be the job that builds upstream code. Identify that job
-  // STRUCTURALLY — it is whichever one clones civitai/cli — never by name, or a
-  // rename moves the hazard past this guard.
-  const upstream = Object.entries(jobs).filter(([, body]) => /git clone .*github\.com\/civitai\/cli/.test(body));
-  assertEqual(upstream.length, 1, `expected exactly one job to build upstream, found ${upstream.length}`);
-  assert(upstream[0][0] !== writerName, `the job that builds civitai/cli ("${writerName}") also holds write scopes`);
+  // The writer must not be the job that obtains upstream code. Identify that
+  // job STRUCTURALLY — it is whichever one hands a `civitai` binary over as an
+  // artifact — never by name, or a rename moves the hazard past this guard.
+  //
+  // 🔴 THE LOCATOR MOVED WITH THE MECHANISM; THE PROPERTY DID NOT. It used to be
+  // "whichever job runs `git clone …/civitai/cli`", exact while that job BUILT
+  // the CLI from source. It no longer builds anything: a source build stamped
+  // `git describe` into the snapshot header where the gate's reference (the
+  // published release asset) stamps the bare version, so the two could never
+  // agree byte-for-byte and check:cli-snapshot was red forever. The job now
+  // downloads and sha256-verifies the release asset, so there is no clone left
+  // to point at and the artifact hand-off is what remains. Anchored to a real
+  // `uses:` step so a comment cannot satisfy it, with the civitai/cli link
+  // asserted separately rather than folded into the locator.
+  const upstream = Object.entries(jobs).filter(([, body]) => /^\s+- uses: actions\/upload-artifact/m.test(body));
+  assertEqual(upstream.length, 1, `expected exactly one job to supply the upstream binary, found ${upstream.length}`);
+  assert(
+    /civitai\/cli/.test(upstream[0][1]),
+    'the binary-supplying job never names civitai/cli — it is not obtaining the upstream binary at all',
+  );
+  assert(upstream[0][0] !== writerName, `the job that obtains civitai/cli ("${writerName}") also holds write scopes`);
 
   // Positive control: the upstream job must declare read explicitly rather than
   // inherit it, so a later edit to the file-level default cannot silently
   // elevate it.
   assert(
     /^\s+permissions:\n\s+contents: read$/m.test(upstream[0][1]),
-    `the upstream-build job does not pin \`contents: read\`:\n${upstream[0][1]}`,
+    `the binary-supplying job does not pin \`contents: read\`:\n${upstream[0][1]}`,
   );
   // …and it must not check THIS repository out, because that is what writes a
-  // credential into a .git/config the upstream Makefile can read.
+  // credential into a .git/config upstream code could read.
   assert(
     !/uses: actions\/checkout/.test(upstream[0][1]),
-    'the upstream-build job checks this repository out — that re-exposes the token to code it does not own',
+    'the binary-supplying job checks this repository out — that re-exposes the token to code it does not own',
   );
   assert(/pull-requests:\s*write/.test(writerBody), 'the writer job cannot open a PR');
 });
@@ -1349,6 +1364,44 @@ check('THE DISCLOSED RESIDUAL: the privileged job still EXECUTES the upstream bi
     'the privileged checkout now drops its credential — that is the residual being closed, so update the ' +
       'workflow header, which still discloses it as open.',
   );
+});
+
+check('the binary comes from the PUBLISHED RELEASE ASSET, verified before it is made executable', () => {
+  // 🔴 THE DEFECT THIS PINS SHUT, ON A SCHEDULE NOBODY WATCHES.
+  // check:cli-snapshot verdicts the committed snapshot against a capture from
+  // the published release asset. While this workflow produced that snapshot with
+  // `make build` at the tag, line 3 could never match — `git describe` stamps
+  // `civitai v0.1.109`, goreleaser's release ldflags stamp `civitai 0.1.109`.
+  // Measured on `main` 2026-09-25: 163282 vs 163281 bytes, 116 `===CMD` blocks on
+  // BOTH sides, ONE differing line, ONE differing character. Each half was right
+  // alone; together they were a permanently red gate, which is the thing that
+  // trains everyone to click through. Restoring a source build restores that —
+  // `canonicalVersionLine` in gen-appblocks-cli.mjs would paper over THIS
+  // symptom, but it is a second rule in a second place and it makes the header
+  // claim a spelling the binary did not print.
+  const jobs = jobsOf(WORKFLOW);
+  const supplier = Object.entries(jobs).filter(([, b]) => /^\s+- uses: actions\/upload-artifact/m.test(b));
+  assertEqual(supplier.length, 1, `expected exactly one job to supply the binary, found ${supplier.length}`);
+  // Read the RUNNABLE lines: the job's comments explain the source build it
+  // replaced, and a whole-body search would fail on the documentation of the
+  // rule it enforces.
+  const body = supplier[0][1]
+    .split('\n')
+    .filter((l) => !/^\s*#/.test(l))
+    .join('\n');
+  assert(/gh release download/.test(body), `the binary is not obtained from a published release:\n${body}`);
+  assert(
+    !/(make .*\bbuild\b|go build|uses: actions\/setup-go)/.test(body),
+    `the binary is built from source again — its header will never match the gate's reference:\n${body}`,
+  );
+  // 🔴 AND NOTHING BECOMES EXECUTABLE BEFORE ITS DIGEST IS CHECKED. Verification
+  // that happens after the `install` is verification of a file already sitting
+  // at the path the next job runs.
+  const verify = body.indexOf('sha256sum -c');
+  const makeExec = body.search(/install -m 0755|chmod \+x/);
+  assert(verify >= 0, `the downloaded asset is never sha256-verified:\n${body}`);
+  assert(makeExec >= 0, `nothing in the job makes the asset executable — it cannot be run:\n${body}`);
+  assert(verify < makeExec, 'the asset is made executable BEFORE its checksum is verified');
 });
 
 check('the expensive jobs are GATED on the freshness decision', () => {
@@ -1566,7 +1619,7 @@ console.log('');
 // section, a botched merge — prints a serene "all passed" over zero work. The
 // floor is the positive control on the harness itself: it must have executed at
 // least as many checks as it did when this line was written.
-const MIN_CHECKS = 61;
+const MIN_CHECKS = 63;
 if (executed < MIN_CHECKS) {
   console.error(
     `refresh-cli-snapshot tests: only ${executed} checks RAN, expected at least ${MIN_CHECKS} — ` +
