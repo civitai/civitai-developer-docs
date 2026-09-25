@@ -275,7 +275,11 @@ change that, because the guard fires before any recipe lookup.
      If you are tempted to characterise WHO can submit, don't: enumerate the
      refusals from `blocks.router.ts` instead, or say nothing. Every draft above
      was written while fixing the one before it — the failure mode is supplying a
-     reason under pressure, so prefer deleting a claim to rewording it. -->
+     reason under pressure, so prefer deleting a claim to rewording it.
+     🔴 SEPARATE TRAP in the budget sentence below: `maxBuzz` is an INLINE-ARM
+     body field, so any sentence naming it must say which arm it means. This
+     section covers BOTH arms, and on the recipe arm the ceiling comes from the
+     registry (`recipe.budgetFor(params)`), not from a `maxBuzz` the app wrote. -->
 
 Beyond the surface, the gates are the platform's rather than this arm's. Several
 run **before** either arm is inspected, and each is a refusal your app has to
@@ -285,9 +289,11 @@ consent scope. Resource entitlement is checked against the **viewer**, not the
 app. So do not assume any viewer of your published block can submit — build the
 refusal paths.
 
-A submit can also be refused for a reason that is **not** about the viewer: your
-`maxBuzz` has to fit the per-call ceiling **your own manifest declared**
-(`page.buzzBudgetPerGen`) — see **Requirements** below, which covers how to size it.
+A submit can also be refused for a reason that is **not** about the viewer: the
+per-generation ceiling — the `maxBuzz` you declare on the inline arm, the
+registry's on the recipe arm — has to fit the per-call budget **your own manifest
+declared** (`page.buzzBudgetPerGen`). See **Requirements** below, which covers
+both arms and how to size it.
 
 Ask for a recipe when you want a reviewed graph you do not have to ship in the
 body, not as a way onto another surface.

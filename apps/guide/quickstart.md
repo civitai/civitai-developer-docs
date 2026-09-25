@@ -43,9 +43,9 @@ this page assumes it** — the other templates are deliberately SDK-free, so the
 have no `.env.example`, no `dev:harness` script and none of the SDK imports below.
 Use `--template page-vite` for a React **JavaScript** start (Vite plus
 `react`/`react-dom`, no SDK) or `--template static` for no build at all, and
-`--dir ./path` to control the output directory. All three validate clean;
-`static` runs with no install, while `page-vite` and `page-money` need an
-`npm install` first.
+`--dir ./path` to control the output directory. `static` validates and runs with
+no install; `page-vite` and `page-money` need an `npm install` first — until you
+have run it, `civitai app validate` fails on the missing `package-lock.json`.
 
 Then install dependencies:
 
