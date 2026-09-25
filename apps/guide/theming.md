@@ -160,26 +160,21 @@ Paint the page from the surface/text tokens as shown.
 
     <!-- Pinned CDN URLs — each package at ITS OWN version. Both jsDelivr and
          unpkg serve `@civitai/<pkg>@<version>/styles.css`; either host works.
-         `integrity` pins the bytes: a version-pinned npm URL is immutable, so
-         the hash can never drift. It requires `crossorigin` — without it the
-         browser makes a non-CORS request and SRI blocks the stylesheet. -->
+         A version-pinned npm URL is already immutable, so the bytes cannot
+         change under you. -->
     <link
       rel="stylesheet"
       href="https://unpkg.com/@civitai/theme@0.3.1/styles.css"
-      integrity="sha384-zfUASaBKsRV4E/IRbABFG1g+7KnLsCA7sFJ2AcUAVdrkvCuEuurJMge+7SNmfUbT"
-      crossorigin="anonymous"
     />
     <link
       rel="stylesheet"
       href="https://unpkg.com/@civitai/components@0.4.1/styles.css"
-      integrity="sha384-qSDIaPUrd4O2bGSp5VlX5Bn4xUCyEGvjhjqN4LaeOgq1bEyL4rBER/7YrnEj0VPn"
-      crossorigin="anonymous"
     />
 
     <style>
-      /* The tokens don't paint the page — do it from the surface/text tokens. */
+      /* The tokens don't paint the page — do it from the body/text tokens. */
       body {
-        background: var(--civitai-color-surface);
+        background: var(--civitai-color-body);
         color: var(--civitai-color-text);
         font-family: system-ui, sans-serif;
         margin: 0;
@@ -232,9 +227,9 @@ In the light theme `--civitai-color-body`, `--civitai-color-surface`, **and**
 `--civitai-color-surface-2` are all the **same** color (`#fefefe`), so a
 borderless `card` sits invisibly on a token-painted page background — nothing
 separates the surface from the body. Add `data-with-border="true"` (as above) — or
-your own border or box-shadow — to give a light-mode card a visible edge. In dark
-mode the surfaces differ (body/surface `#1A1B1E` vs surface-2 `#25262B`), so a
-card reads even without a border.
+your own border or box-shadow — to give a light-mode card a visible edge. Do not
+assume dark mode saves you: which surface tokens collapse has changed between
+theme releases, so give a card an edge in both themes.
 
 **Why they collapse:** these tokens are *generated* from Civitai's Mantine v7
 theme, not hand-picked. `--civitai-color-surface` derives from

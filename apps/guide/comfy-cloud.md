@@ -47,9 +47,9 @@ testing, and concluded the capability did not exist. It does.
 
 ::: warning Closed beta — access is limited
 Comfy on Civitai is part of the [closed-beta](./) Apps platform and is
-**mod-gated**, and the inline arm additionally requires an **app-developer**
-account. You can scaffold and run the recipe sample against the local mock host
-today (see [Try it locally](#try-it-locally)).
+**mod-gated**, and the inline arm is **page-token-only**. You can scaffold and
+run the recipe sample against the local mock host today (see
+[Try it locally](#try-it-locally)).
 :::
 
 ## The recipe arm
@@ -97,8 +97,9 @@ not your block — owns:
 
 Your block influences none of that beyond **choosing the recipe id and its
 `params`**. An unknown or unregistered `recipe` is rejected **fail-closed** at
-the server boundary, and any `params` field the recipe's schema doesn't accept
-is stripped.
+the server boundary, and so is any `params` field the recipe's schema doesn't
+accept — both schemas are strict, so a stray key aborts the submit rather than
+being dropped.
 
 ::: tip Why the recipe arm works this way — the security model
 A block runs in an untrusted sandboxed iframe. Code review is what makes a recipe
@@ -256,11 +257,11 @@ so naming one of them is a rejection rather than a silently ignored key.
 
 ### Access
 
-The inline arm is **app-developer-only** and **page-token-only**. The host runs a
-developer check on every `customComfy` estimate *and* submit, so a non-developer
-viewing your published block cannot submit one. Treat inline as a build-and-
-iterate primitive; to serve a graph to every viewer, get it registered as a
-recipe.
+The inline arm is **page-token-only** — a model-bound token is rejected on both
+estimate and submit. Nothing else stands between a viewer of your page app and an
+inline submit except your own app's code, so treat the graph rules, the
+entitlement check and the budget as the whole of the gate. To serve a graph from
+a model-slot block, get it registered as a recipe.
 
 An inline body also carries **no account preference** — its schema has no
 `accountType` field anywhere, so the host funds it from the default order.
@@ -432,8 +433,8 @@ and an inline body has no `params`, so driving it through the harness throws.
 That is a mock-host bug being fixed, and it does **not** affect live
 civitai.com — the scaffold's README tracks the state and spells out the wiring.
 
-Real generation needs closed-beta access (plus an app-developer account for the
-inline arm) and `npm run dev:live` / a submitted app; see the
+Real generation needs closed-beta access (and a page app for the inline arm) and
+`npm run dev:live` / a submitted app; see the
 [Quickstart](./quickstart#submitting-closed-beta).
 
 ## Not to be confused with orchestration recipes

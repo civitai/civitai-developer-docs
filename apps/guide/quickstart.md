@@ -86,11 +86,14 @@ does `.env`. They **must match**, or the transport's origin allowlist drops
 loading state, check that the two agree.
 :::
 
-## 3. Write the block
+## 3. Read the block
 
-Read everything the host delivered with `useBlockContext()`, and gate your UI on
-`ready` — the context fields are sentinel-empty until `BLOCK_INIT` lands.
-Replace `src/App.tsx` with:
+`civitai app create` defaults to the `page-money` template, so the `src/App.tsx`
+you already have is a working estimate → consent → submit → poll app **with tests
+that import it** — don't overwrite it. What every block does first is read what
+the host delivered with `useBlockContext()` and gate its UI on `ready`, because
+the context fields are sentinel-empty until `BLOCK_INIT` lands. That shape,
+minimally:
 
 ```tsx
 import { useBlockContext } from '@civitai/blocks-react';

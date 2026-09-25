@@ -882,8 +882,8 @@ carries a `workflow` key routes to the recipe arm and is rejected for a missing
 `recipe`.
 :::
 
-The recipe arm is **mod-gated**; the inline arm additionally requires an
-**app-developer** account. For the graph rules, the entitlement and moderation
+The recipe arm is **mod-gated**; the inline arm is additionally
+**page-token-only**. For the graph rules, the entitlement and moderation
 gates, the budget model, and a runnable local example, read
 **[Comfy on Civitai (`customComfy`)](../guide/comfy-cloud)** — this section is a
 pointer, not a replacement.

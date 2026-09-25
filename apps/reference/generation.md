@@ -33,16 +33,6 @@ boundary, re-checking scope + budget every time. Your block never holds an
 orchestrator credential.
 :::
 
-::: warning The generated `customComfy` entry below is recipe-arm only
-The field tables in this section are generated from the **published** SDK's type
-JSDoc, and the published SDK has not caught up to `customComfy`'s **inline** arm.
-Its `WorkflowBodyCustomComfy` entry therefore describes the recipe shape alone,
-and still states that a block never sends a ComfyUI graph. That is true of the
-recipe arm; it is **not** true of the bridge as a whole — see
-[the inline arm](../guide/comfy-cloud#the-inline-arm-ship-your-own-graph), which
-carries the graph in the body and is gated on an app-developer account.
-:::
-
 <BridgeReference>
 <!-- BEGIN GENERATED: bridge — markdown fallback for the .md/LLM channel. Do not edit by hand; run `npm run gen:appblocks:md`. -->
 
@@ -390,9 +380,9 @@ Most of the time it **is** reachable, and the fix is naming the right
    [requesting a new recipe](../guide/comfy-cloud#requesting-a-new-recipe).
    You do **not** have to wait for one to run a graph, though: the
    [inline arm](../guide/comfy-cloud#the-inline-arm-ship-your-own-graph)
-   (`mode: 'inline'`) lets an app-developer account ship the ComfyUI graph in the
-   body today. Ask for a recipe when you need the graph available to **every**
-   viewer of your block.
+   (`mode: 'inline'`) lets a page app ship the ComfyUI graph in the body today.
+   Ask for a recipe when you need the graph available from a **model-slot**
+   block, which cannot use the inline arm.
 
 #### The ids you probably want
 
@@ -594,8 +584,8 @@ Shipping your own ComfyUI graph **used to be on that list too, and no longer
 is**: `customComfy`'s
 [inline arm](../guide/comfy-cloud#the-inline-arm-ship-your-own-graph)
 (`mode: 'inline'`) carries the graph in the body. It is gated rather than
-unrestricted — **app-developer accounts only, page tokens only** — so a
-registered recipe is still how a graph reaches **every** viewer of your block.
+unrestricted — **page tokens only** — so a registered recipe is how a graph
+reaches viewers of a **model-slot** block, which cannot use the inline arm.
 
 Note what is **not** on these lists: single-image editing, multi-image editing
 on a capable ecosystem, and Z-Image all work through `textToImage` today — see
