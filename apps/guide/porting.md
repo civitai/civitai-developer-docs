@@ -3,6 +3,7 @@ title: Moving a block off the bridge
 description: Replace a block's postMessage data calls with /api/v1/blocks/* REST calls — what is available today, what waits on the OAuth mint, and a hook-by-hook replacement table.
 sources:
   - npm:@civitai/blocks-react@0.57.1/dist/index.d.ts
+  - npm:@civitai/sdk@0.4.0/dist/index.d.ts
   - civitai-app-starters:packages/civitai-sdk/BREAKING.md
   - civitai:public/schemas/app-block/v1.json#auth
   - civitai:src/pages/api/v1/blocks
@@ -34,7 +35,7 @@ an `auth: "oauth"` field to opt into a real OAuth token — but **minting it is
 behind a server flag that is off in production**, so a block that declares it
 silently receives the block token anyway.
 
-🔴 **The published `@civitai/sdk` now throws on that combination.** `initialize()`
+🔴 **Since `@civitai/sdk@0.4.0`, that combination throws.** `initialize()`
 refuses a block-scoped token for a signed-in viewer with a `CivitaiError` telling
 you to declare `auth: "oauth"` — which, while the flag is off, you cannot
 satisfy. Until the mint is live, a block calling `@civitai/sdk` has no working
@@ -150,7 +151,7 @@ export function useApi() {
 
   // 🔴 useCallback is load-bearing, not tidiness. A fresh function identity every
   // render turns the usual `useEffect(..., [call])` into an unbounded request
-  // loop — against money-scoped routes. The SDK's own useTip does the same.
+  // loop — against money-scoped routes. blocks-react's own useTip does the same.
   return useCallback(
     async function call<T>(path: string, init?: RequestInit): Promise<T> {
       if (!host) throw new Error('not ready: BLOCK_INIT has not landed');
@@ -184,10 +185,15 @@ export function useBuzzBalanceFetcher() {
 
 Components import the capability, never the fetcher.
 
-::: tip Why a `refresh()` is worth wiring
-`useBlockToken()` exposes `refresh()` for the 401 race — a request that outlived
-the token it was issued against. Retry once through it rather than failing the
-call. `@civitai/sdk` does this for you; on this path you write it.
+::: tip Two things this layer does not do for you
+**Gate on readiness.** The returned function throws until `BLOCK_INIT` lands, so a
+mount-time read fires before `useHostOrigin()` resolves. Gate the call site on
+`useBlockContext().ready` — it self-heals when `host` arrives and the identity
+changes, but without a gate you get an unhandled rejection first.
+
+**Retry the 401 race.** `useBlockToken()` exposes `refresh()` for a request that
+outlived the token it was issued against. Retry once through it rather than
+failing the call.
 :::
 
 The same layer is what you swap later: when `@civitai/sdk` becomes available to
@@ -237,7 +243,7 @@ talked to the platform — it is your own code now, with nothing to replace.
 | `useSharedStorage` | `/api/v1/blocks/shared-storage/*` — 11 routes |
 | `useTip` | `POST /api/v1/blocks/tip` |
 | `useTipAllowance` | `GET /api/v1/blocks/tip-allowance` |
-| `useViewer` | `GET /api/v1/blocks/me`, or keep the hook — it reads the handshake payload |
+| `useViewer` | `GET /api/v1/blocks/me`. Keeping the hook is not free: it is a `GET_VIEWER` bridge round trip on mount, not a snapshot read — but it is the authoritative self-read, where `useBlockContext().viewer` is the coarser `BLOCK_INIT` snapshot |
 | `useWildcardPack` | **Not carried** |
 
 ::: info `useBlockAnalytics` loses nothing
@@ -254,7 +260,7 @@ Routes are addressed by path, so a route the API gains needs no package release:
 ```tsx
 import { useApi } from './platform/useApi';
 
-declare const call: NonNullable<ReturnType<typeof useApi>>;
+declare const call: ReturnType<typeof useApi>;
 
 // Read. 🔴 Paging differs per route — shared-storage nests its cursor under
 // `metadata`, while app-storage returns a top-level one. Check the route.
@@ -330,7 +336,7 @@ const calls: string[] = [];
 
 globalThis.fetch = (async (input: RequestInfo | URL) => {
   calls.push(String(input));
-  return new Response(JSON.stringify({ items: [], nextCursor: null }), {
+  return new Response(JSON.stringify({ items: [], metadata: { nextCursor: null } }), {
     status: 200,
     headers: { 'content-type': 'application/json' },
   });
