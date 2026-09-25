@@ -147,7 +147,7 @@ components straight from the [attribute contract](../reference/components).
 The tokens don't style `<body>` — they only expose the `--civitai-*` custom
 properties. Without the `body { background/color }` rule below, the components
 are themed but the page around them is not (e.g. a white page in dark mode).
-Paint the page from the surface/text tokens as shown.
+Paint the page from the body/text tokens as shown.
 :::
 
 ```html

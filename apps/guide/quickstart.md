@@ -38,8 +38,10 @@ you pass into your `blockId`:
 civitai app create my-app
 ```
 
-Use `--template static` for a no-build page app, or `--dir ./path` to control the
-output directory. The scaffold is immediately runnable and validates clean.
+The default template is `page-money`, a working generation app. Use
+`--template page-vite` for an empty React start, `--template static` for a
+no-build page app, or `--dir ./path` to control the output directory. The
+scaffold is immediately runnable and validates clean.
 
 Then install dependencies:
 
@@ -101,8 +103,10 @@ import type { BlockContext } from '@civitai/app-sdk/blocks';
 
 // A PAGE app's context. The host's PageBlockHost sends
 // { slotId: 'app.page', entityType: 'none', slug, subPath, viewerUserId,
-//   viewerUsername, theme }. The published SDK exports the base BlockContext
-// and the model-slot narrowing, but no page type yet — so narrow locally.
+//   viewerUsername, theme }. The SDK also exports `PageSlotContext` and the
+// runtime guard `isPageSlotContext()` — prefer the guard in real code, which
+// checks the shape rather than asserting it. Narrowed inline here so the fields
+// are visible in one place.
 type PageContext = BlockContext & {
   slotId: 'app.page';
   slug: string;

@@ -262,10 +262,12 @@ token is rejected on estimate and on submit, before either arm is inspected, so 
 model-slot block cannot run a custom graph at all; asking for a recipe does not
 change that, because the guard fires before any recipe lookup.
 
-Within a page app, nothing else stands between a viewer and an inline submit
-except your own app's code — so treat the graph rules, the entitlement check and
-the budget as the whole of the gate. Ask for a recipe when you want a reviewed
-graph you do not have to ship in the body, not as a way onto another surface.
+Within a page app there is **no per-viewer gate**: any viewer of your published
+block can submit an inline graph. What stands in the way is not who they are but
+the three server-side gates above — AIR containment, entitlement, and the
+moderation sweep — plus the `maxBuzz` bound and your own app's code. Ask for a
+recipe when you want a reviewed graph you do not have to ship in the body, not as
+a way onto another surface.
 
 An inline body also carries **no account preference** — its schema has no
 `accountType` field anywhere, so the host funds it from the default order.

@@ -205,7 +205,7 @@ before a single rule of yours applies:
   inline `<style>`. This is the strong guarantee, and unlike the meta tag it
   does not depend on `color-scheme` support at all.
 
-::: warning Reading the host's real theme is not yet available
+::: warning The host's theme arrives after your first paint
 The host does have a real theme, and it does send it — at `BLOCK_INIT`, which
 arrives after your document has already painted. A first-party allowlist can
 receive the theme in a URL fragment before first paint, but admission is a
