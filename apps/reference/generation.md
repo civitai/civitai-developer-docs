@@ -381,8 +381,9 @@ Most of the time it **is** reachable, and the fix is naming the right
    You do **not** have to wait for one to run a graph, though: the
    [inline arm](../guide/comfy-cloud#the-inline-arm-ship-your-own-graph)
    (`mode: 'inline'`) lets a page app ship the ComfyUI graph in the body today.
-   Ask for a recipe when you need the graph available from a **model-slot**
-   block, which cannot use the inline arm.
+   Ask for a recipe when you want a **reviewed** graph you do not have to ship in
+   the body. Neither arm reaches a model-slot block: `customComfy` is
+   page-token-only on both.
 
 #### The ids you probably want
 
@@ -584,8 +585,8 @@ Shipping your own ComfyUI graph **used to be on that list too, and no longer
 is**: `customComfy`'s
 [inline arm](../guide/comfy-cloud#the-inline-arm-ship-your-own-graph)
 (`mode: 'inline'`) carries the graph in the body. It is gated rather than
-unrestricted — **page tokens only** — so a registered recipe is how a graph
-reaches viewers of a **model-slot** block, which cannot use the inline arm.
+unrestricted — **page tokens only, and so is the recipe arm** — so a model-slot
+block cannot run a custom graph by either route.
 
 Note what is **not** on these lists: single-image editing, multi-image editing
 on a capable ecosystem, and Z-Image all work through `textToImage` today — see

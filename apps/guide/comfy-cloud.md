@@ -34,8 +34,8 @@ custom-node graph).
 
 | Arm | `mode` | Your block sends | Who can run it |
 | --- | --- | --- | --- |
-| **[recipe](#the-recipe-arm)** | omitted, or `'recipe'` | a registered recipe id + bounded `params` | closed-beta builders |
-| **[inline](#the-inline-arm-ship-your-own-graph)** | `'inline'` (required) | **the ComfyUI graph itself**, a declared resource manifest, and a `maxBuzz` ceiling | app developers |
+| **[recipe](#the-recipe-arm)** | omitted, or `'recipe'` | a registered recipe id + bounded `params` | page apps (closed beta) |
+| **[inline](#the-inline-arm-ship-your-own-graph)** | `'inline'` (required) | **the ComfyUI graph itself**, a declared resource manifest, and a `maxBuzz` ceiling | page apps (closed beta) |
 
 ::: danger This page used to say you could not do the second one
 Earlier revisions stated flatly that a block never ships a ComfyUI graph and
@@ -47,7 +47,7 @@ testing, and concluded the capability did not exist. It does.
 
 ::: warning Closed beta — access is limited
 Comfy on Civitai is part of the [closed-beta](./) Apps platform and is
-**mod-gated**, and the inline arm is **page-token-only**. You can scaffold and
+**mod-gated**, and both arms are **page-token-only**. You can scaffold and
 run the recipe sample against the local mock host today (see
 [Try it locally](#try-it-locally)).
 :::
@@ -257,11 +257,15 @@ so naming one of them is a rejection rather than a silently ignored key.
 
 ### Access
 
-The inline arm is **page-token-only** — a model-bound token is rejected on both
-estimate and submit. Nothing else stands between a viewer of your page app and an
-inline submit except your own app's code, so treat the graph rules, the
-entitlement check and the budget as the whole of the gate. To serve a graph from
-a model-slot block, get it registered as a recipe.
+**The whole `customComfy` path is page-token-only — both arms.** A model-bound
+token is rejected on estimate and on submit, before either arm is inspected, so a
+model-slot block cannot run a custom graph at all; asking for a recipe does not
+change that, because the guard fires before any recipe lookup.
+
+Within a page app, nothing else stands between a viewer and an inline submit
+except your own app's code — so treat the graph rules, the entitlement check and
+the budget as the whole of the gate. Ask for a recipe when you want a reviewed
+graph you do not have to ship in the body, not as a way onto another surface.
 
 An inline body also carries **no account preference** — its schema has no
 `accountType` field anywhere, so the host funds it from the default order.
@@ -433,8 +437,8 @@ and an inline body has no `params`, so driving it through the harness throws.
 That is a mock-host bug being fixed, and it does **not** affect live
 civitai.com — the scaffold's README tracks the state and spells out the wiring.
 
-Real generation needs closed-beta access (and a page app for the inline arm) and
-`npm run dev:live` / a submitted app; see the
+Real generation needs closed-beta access (and a page app — `customComfy` is
+page-only on both arms) and `npm run dev:live` / a submitted app; see the
 [Quickstart](./quickstart#submitting-closed-beta).
 
 ## Not to be confused with orchestration recipes
