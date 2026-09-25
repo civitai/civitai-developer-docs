@@ -245,6 +245,108 @@
               }
             }
           }
+        }
+      }
+    },
+    "/v2/consumer/blobs/ingest": {
+      "post": {
+        "tags": [
+          "Blobs"
+        ],
+        "summary": "Copy a trusted url into a blob named after that source, so the caller can ask for it again\nwithout holding the bytes. 200 when it already existed, 201 when copied.",
+        "operationId": "IngestConsumerBlob",
+        "parameters": [
+          {
+            "name": "sourceUrl",
+            "in": "query",
+            "description": "Object to copy; must resolve to a configured trusted source.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "public",
+            "in": "query",
+            "description": "Store in the public tier and return a durable, unsigned URL.",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blob"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blob"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway"
+          }
         },
         "security": [ ]
       }
@@ -594,6 +696,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -685,6 +797,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -776,6 +898,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -865,6 +997,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -955,6 +1097,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1046,6 +1198,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1137,6 +1299,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1226,6 +1398,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1317,6 +1499,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1407,6 +1599,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1498,6 +1700,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1589,6 +1801,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1678,6 +1900,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1768,6 +2000,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1859,6 +2101,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1950,6 +2202,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1966,6 +2228,107 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ImageResourceTrainingOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/consumer/recipes/imageScanning": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Image scanning",
+        "description": "Classifies one image for safety, origin, tags, human presence, and apparent age.",
+        "operationId": "InvokeImageScanningStepTemplate",
+        "parameters": [
+          {
+            "name": "experimental",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "allowMatureContent",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "whatif",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ephemeral",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageScanningInput"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageScanningInput"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageScanningInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageScanningOutput"
                 }
               }
             }
@@ -2040,6 +2403,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -2131,6 +2504,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -2220,6 +2603,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -2311,6 +2704,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -2402,6 +2805,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -2493,6 +2906,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -2583,6 +3006,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -2674,6 +3107,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -2765,6 +3208,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -2856,6 +3309,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -2947,6 +3410,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -3038,6 +3511,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -3129,6 +3612,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -3220,6 +3713,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -3309,6 +3812,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -3398,6 +3911,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -3489,6 +4012,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -3580,6 +4113,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -3670,6 +4213,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -3761,6 +4314,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -3852,6 +4415,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -3943,6 +4516,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -4034,6 +4617,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -4124,6 +4717,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -4215,6 +4818,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -4304,6 +4917,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -4394,6 +5017,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -4484,6 +5117,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -4575,6 +5218,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -4666,6 +5319,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -4756,6 +5419,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -4846,6 +5519,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -4936,6 +5619,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -5027,6 +5720,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -5118,6 +5821,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -5209,6 +5922,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -5300,6 +6023,16 @@
           }
         },
         "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -5333,11 +6066,112 @@
         }
       }
     },
+    "/v2/consumer/recipes/yuE2": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Generate a song from style and lyrics with YuE2.",
+        "operationId": "InvokeYuE2StepTemplate",
+        "parameters": [
+          {
+            "name": "experimental",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "allowMatureContent",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "whatif",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ephemeral",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/YuE2Input"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/YuE2Input"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/YuE2Input"
+              }
+            }
+          }
+        },
+        "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/YuE2Output"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/resources": {
       "get": {
         "tags": [
           "Resources"
         ],
+        "summary": "List resources: `view=Queue` is what the orchestrator is loading now, `view=Loaded`\nwhat at least one worker holds and can use now. Each page is a fresh snapshot.",
         "operationId": "QueryResources",
         "parameters": [
           {
@@ -5364,6 +6198,57 @@
               "format": "int32",
               "default": 100
             }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Repeatable, OR'd. Matches the AIR's type segment literally, with no alias expansion: that\nsegment names the model's type rather than the file's, so `checkpoint` does not cover\nbase weights arriving as `diffusion_model`, `diffusionmodel` or `unet`.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "excludeType",
+            "in": "query",
+            "description": "Repeatable, OR'd, and wins over `type`. `other`, `torchcompilecache` and\n`nodepacklayer` are the generated artifacts rather than models.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "description": "Repeatable, OR'd, matched against the AIR's source segment. `civitai` is the cheapest\nway to drop everything the orchestrator generated itself.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "minSizeBytes",
+            "in": "query",
+            "description": "Inclusive. 1073741824 (1 GiB) is where a resource starts taking the large download lane. A\nresource whose provider never reported a byte count has size 0 and is excluded by any value.",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "maxSizeBytes",
+            "in": "query",
+            "description": "Inclusive.",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
           }
         ],
         "responses": {
@@ -5386,6 +6271,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Service Unavailable"
           }
         }
       }
@@ -5506,6 +6394,7 @@
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of services to return.",
             "schema": {
               "type": "integer",
               "format": "int32",
@@ -5515,6 +6404,7 @@
           {
             "name": "offset",
             "in": "query",
+            "description": "Number of services to skip.",
             "schema": {
               "type": "integer",
               "format": "int32",
@@ -6555,6 +7445,14 @@
             }
           },
           {
+            "name": "until",
+            "in": "query",
+            "description": "What wait waits for: `completion` (the default) returns once the workflow reaches a\nfinal status, `change` as soon as its status or any of its steps changes.",
+            "schema": {
+              "$ref": "#/components/schemas/WorkflowWaitUntil"
+            }
+          },
+          {
             "name": "hideMatureContent",
             "in": "query",
             "description": "When set to true, any blob that has mature won't be available and won't have a URL",
@@ -6694,6 +7592,16 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       },
@@ -6751,6 +7659,16 @@
           },
           "400": {
             "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": {
@@ -10013,6 +10931,14 @@
             "description": "Optional vLLM reasoning-token limit per completion, including each server-tool round.\nUse 0 to end thinking immediately, or -1/null for no separate thinking limit.\nMaxTokens still limits the total generated thinking and answer tokens.",
             "format": "int32"
           },
+          "reasoningEffort": {
+            "pattern": "^(none|minimal|low|medium|high|xhigh)$",
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "OpenAI reasoning_effort: none, minimal, low, medium, high or xhigh. Portable across vLLM\nand hosted providers; the worker translates it to each provider's native reasoning control."
+          },
           "n": {
             "maximum": 128,
             "minimum": 1,
@@ -10085,7 +11011,7 @@
               "object"
             ],
             "additionalProperties": { },
-            "description": "Model-specific chat template options, forwarded unchanged to vLLM as chat_template_kwargs.\nFor Qwen3.8, use enable_thinking (boolean) and reasoning_effort (low, medium, or xhigh).\nReasoning effort is guidance, not a token limit; use ThinkingTokenBudget for a numeric cap."
+            "description": "Model-specific chat template options, forwarded unchanged to vLLM as chat_template_kwargs.\nPrefer reasoningEffort and thinkingTokenBudget for reasoning control."
           },
           "tools": {
             "type": [
@@ -10298,6 +11224,20 @@
         ],
         "description": "ChatCompletion"
       },
+      "ChatCompletionTokensDetails": {
+        "type": "object",
+        "properties": {
+          "reasoningTokens": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "description": "Reasoning tokens generated before the answer; billed as completion tokens.",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
       "ChatCompletionTool": {
         "required": [
           "type"
@@ -10361,6 +11301,9 @@
             "type": "integer",
             "description": "Total number of tokens (prompt + completion).",
             "format": "int32"
+          },
+          "completionTokensDetails": {
+            "$ref": "#/components/schemas/ChatCompletionTokensDetails"
           }
         },
         "additionalProperties": false,
@@ -11356,6 +12299,152 @@
               "propertyName": "operation",
               "mapping": {
                 "createImage": "#/components/schemas/ComfyBooguTurboCreateImageGenInput"
+              }
+            }
+          }
+        ]
+      },
+      "ComfyChromaCreateImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyChromaImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "width": {
+                "maximum": 2048,
+                "minimum": 64,
+                "type": "integer",
+                "format": "int32",
+                "default": 1024
+              },
+              "height": {
+                "maximum": 2048,
+                "minimum": 64,
+                "type": "integer",
+                "format": "int32",
+                "default": 1024
+              },
+              "operation": {
+                "enum": [
+                  "createImage"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "chroma"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "ComfyChromaImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "model",
+              "operation",
+              "prompt"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "type": "string"
+              },
+              "prompt": {
+                "maxLength": 10000,
+                "minLength": 0,
+                "type": "string"
+              },
+              "negativePrompt": {
+                "maxLength": 10000,
+                "minLength": 0,
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "sampler": {
+                "$ref": "#/components/schemas/ComfySampler"
+              },
+              "steps": {
+                "maximum": 150,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 28
+              },
+              "cfgScale": {
+                "maximum": 30,
+                "minimum": 0,
+                "type": "number",
+                "format": "double",
+                "default": 3.5
+              },
+              "seed": {
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int64"
+              },
+              "quantity": {
+                "maximum": 12,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 1
+              },
+              "model": {
+                "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
+                "type": "string"
+              },
+              "loras": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number",
+                  "format": "double"
+                }
+              },
+              "ecosystem": {
+                "enum": [
+                  "chroma"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "operation",
+              "mapping": {
+                "createImage": "#/components/schemas/ComfyChromaCreateImageGenInput"
               }
             }
           }
@@ -12508,6 +13597,159 @@
           }
         ]
       },
+      "ComfyHiDreamI1CreateImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyHiDreamI1ImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "width": {
+                "maximum": 2048,
+                "minimum": 64,
+                "type": "integer",
+                "format": "int32",
+                "default": 1024
+              },
+              "height": {
+                "maximum": 2048,
+                "minimum": 64,
+                "type": "integer",
+                "format": "int32",
+                "default": 1024
+              },
+              "operation": {
+                "enum": [
+                  "createImage"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "hidream"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "ComfyHiDreamI1ImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "operation",
+              "prompt"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "type": "string"
+              },
+              "prompt": {
+                "maxLength": 10000,
+                "minLength": 0,
+                "type": "string"
+              },
+              "negativePrompt": {
+                "maxLength": 10000,
+                "minLength": 0,
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "variant": {
+                "$ref": "#/components/schemas/HiDreamI1Variant"
+              },
+              "precision": {
+                "$ref": "#/components/schemas/HiDreamI1Precision"
+              },
+              "sampler": {
+                "$ref": "#/components/schemas/ComfySampler"
+              },
+              "steps": {
+                "maximum": 150,
+                "minimum": 1,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "description": "Defaults to 16 for fast, 28 for dev and 50 for full.",
+                "format": "int32"
+              },
+              "cfgScale": {
+                "maximum": 30,
+                "minimum": 0,
+                "type": [
+                  "null",
+                  "number"
+                ],
+                "description": "Defaults to 1 for fast and dev, 5 for full.",
+                "format": "double"
+              },
+              "seed": {
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int64"
+              },
+              "quantity": {
+                "maximum": 12,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 1
+              },
+              "loras": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number",
+                  "format": "double"
+                }
+              },
+              "ecosystem": {
+                "enum": [
+                  "hidream"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "operation",
+              "mapping": {
+                "createImage": "#/components/schemas/ComfyHiDreamI1CreateImageGenInput"
+              }
+            }
+          }
+        ]
+      },
       "ComfyHiDreamImageGenInput": {
         "allOf": [
           {
@@ -13147,8 +14389,12 @@
                 "flux2Dev": "#/components/schemas/ComfyFlux2DevImageGenInput",
                 "ernie": "#/components/schemas/ComfyErnieImageGenInput",
                 "hidream-o1": "#/components/schemas/ComfyHiDreamImageGenInput",
+                "hidream": "#/components/schemas/ComfyHiDreamI1ImageGenInput",
+                "chroma": "#/components/schemas/ComfyChromaImageGenInput",
+                "ponyV7": "#/components/schemas/ComfyPonyV7ImageGenInput",
                 "anima": "#/components/schemas/ComfyAnimaImageGenInput",
                 "lens": "#/components/schemas/ComfyLensImageGenInput",
+                "ming": "#/components/schemas/ComfyMingImageGenInput",
                 "ideogram4": "#/components/schemas/ComfyIdeogram4ImageGenInput",
                 "boogu": "#/components/schemas/ComfyBooguImageGenInput",
                 "krea2": "#/components/schemas/ComfyKrea2ImageGenInput",
@@ -15919,6 +17165,293 @@
           }
         ]
       },
+      "ComfyMingDesignCreateImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyMingDesignImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "model",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "width": {
+                "maximum": 2048,
+                "minimum": 256,
+                "type": "integer",
+                "format": "int32",
+                "default": 1024
+              },
+              "height": {
+                "maximum": 2048,
+                "minimum": 256,
+                "type": "integer",
+                "format": "int32",
+                "default": 1024
+              },
+              "operation": {
+                "enum": [
+                  "createImage"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "design"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "ming"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "ComfyMingDesignEditImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyMingDesignImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "height",
+              "images",
+              "model",
+              "operation",
+              "width"
+            ],
+            "type": "object",
+            "properties": {
+              "images": {
+                "maxItems": 3,
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
+                }
+              },
+              "resolution": {
+                "maximum": 2048,
+                "minimum": 256,
+                "type": "integer",
+                "description": "Reference pixel budget as resolution squared, preserving the first image's aspect ratio.",
+                "format": "int32",
+                "default": 1024
+              },
+              "width": {
+                "type": "integer",
+                "format": "int32",
+                "readOnly": true
+              },
+              "height": {
+                "type": "integer",
+                "format": "int32",
+                "readOnly": true
+              },
+              "operation": {
+                "enum": [
+                  "editImage"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "design"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "ming"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "ComfyMingDesignImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyMingImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "model",
+              "operation",
+              "prompt"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": "createImage"
+              },
+              "prompt": {
+                "maxLength": 20000,
+                "minLength": 0,
+                "type": "string"
+              },
+              "negativePrompt": {
+                "maxLength": 20000,
+                "minLength": 0,
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "sampler": {
+                "$ref": "#/components/schemas/ComfySampler"
+              },
+              "scheduler": {
+                "$ref": "#/components/schemas/ComfyScheduler"
+              },
+              "steps": {
+                "maximum": 150,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 12
+              },
+              "cfgScale": {
+                "maximum": 30,
+                "minimum": 0,
+                "type": "number",
+                "format": "double",
+                "default": 1
+              },
+              "seed": {
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int64"
+              },
+              "quantity": {
+                "maximum": 12,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 1
+              },
+              "loras": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number",
+                  "format": "double"
+                }
+              },
+              "diffusionModel": {
+                "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "model": {
+                "enum": [
+                  "design"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "ming"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "operation",
+              "mapping": {
+                "createImage": "#/components/schemas/ComfyMingDesignCreateImageGenInput",
+                "editImage": "#/components/schemas/ComfyMingDesignEditImageGenInput"
+              }
+            }
+          }
+        ]
+      },
+      "ComfyMingImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "model"
+            ],
+            "type": "object",
+            "properties": {
+              "model": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": "design"
+              },
+              "ecosystem": {
+                "enum": [
+                  "ming"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "model",
+              "mapping": {
+                "design": "#/components/schemas/ComfyMingDesignImageGenInput"
+              }
+            }
+          }
+        ]
+      },
       "ComfyMiniMaxH3ControlVideoInput": {
         "allOf": [
           {
@@ -16223,7 +17756,7 @@
               "null",
               "string"
             ],
-            "description": "The comfy container image to install against, as an `oci:image` AIR\n(e.g. `urn:air:oci:image:ghcr:civitai/civitai-spine-comfy-cloud@v2.7.0`).\nThe captured layer is only valid for this exact image, so it is part of\nthe artifact's identity (hashed into the blob key). Optional: when omitted\n(e.g. a caller with no managed image of its own, like civitai-comfy-nodes\noffload) the handler resolves the configured default/\"latest\" comfy image\n(!:CustomComfy.ComfyImageOptions.DefaultComfyImage)."
+            "description": "The comfy container image to install against, as an `oci:image` AIR\n(e.g. `urn:air:oci:image:ghcr:civitai/civitai-spine-comfy-cloud@v2.7.0`).\nThe captured layer is only valid for this exact image, so it is part of\nthe artifact's identity (hashed into the blob key). Optional: when omitted\n(e.g. a caller with no managed image of its own, like civitai-comfy-nodes\noffload) the handler resolves the configured default/\"latest\" comfy image\n(`ComfyImageOptions.DefaultComfyImage`)."
           },
           "nodepacks": {
             "minItems": 1,
@@ -16397,6 +17930,152 @@
               "mapping": {
                 "hunyuan3D": "#/components/schemas/Hunyuan3DComfyPolyGenInput",
                 "trellis2": "#/components/schemas/Trellis2ComfyPolyGenInput"
+              }
+            }
+          }
+        ]
+      },
+      "ComfyPonyV7CreateImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyPonyV7ImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "width": {
+                "maximum": 2048,
+                "minimum": 64,
+                "type": "integer",
+                "format": "int32",
+                "default": 1024
+              },
+              "height": {
+                "maximum": 2048,
+                "minimum": 64,
+                "type": "integer",
+                "format": "int32",
+                "default": 1024
+              },
+              "operation": {
+                "enum": [
+                  "createImage"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "ponyV7"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "ComfyPonyV7ImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "model",
+              "operation",
+              "prompt"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "type": "string"
+              },
+              "prompt": {
+                "maxLength": 10000,
+                "minLength": 0,
+                "type": "string"
+              },
+              "negativePrompt": {
+                "maxLength": 10000,
+                "minLength": 0,
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "sampler": {
+                "$ref": "#/components/schemas/ComfySampler"
+              },
+              "steps": {
+                "maximum": 150,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 25
+              },
+              "cfgScale": {
+                "maximum": 30,
+                "minimum": 0,
+                "type": "number",
+                "format": "double",
+                "default": 7
+              },
+              "seed": {
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int64"
+              },
+              "quantity": {
+                "maximum": 12,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 1
+              },
+              "model": {
+                "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
+                "type": "string"
+              },
+              "loras": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number",
+                  "format": "double"
+                }
+              },
+              "ecosystem": {
+                "enum": [
+                  "ponyV7"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "operation",
+              "mapping": {
+                "createImage": "#/components/schemas/ComfyPonyV7CreateImageGenInput"
               }
             }
           }
@@ -16731,6 +18410,246 @@
           }
         ]
       },
+      "ComfyQwen21CreateImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyQwen21ImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "model",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "width": {
+                "maximum": 2048,
+                "minimum": 64,
+                "type": "integer",
+                "format": "int32",
+                "default": 1024
+              },
+              "height": {
+                "maximum": 2048,
+                "minimum": 64,
+                "type": "integer",
+                "format": "int32",
+                "default": 1024
+              },
+              "operation": {
+                "enum": [
+                  "createImage"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "2.1"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "qwen"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "ComfyQwen21EditImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyQwen21ImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "height",
+              "images",
+              "model",
+              "operation",
+              "width"
+            ],
+            "type": "object",
+            "properties": {
+              "images": {
+                "maxItems": 10,
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
+                }
+              },
+              "resolution": {
+                "maximum": 2048,
+                "minimum": 64,
+                "type": "integer",
+                "description": "Reference pixel budget as resolution squared; preserves each image's aspect ratio.",
+                "format": "int32",
+                "default": 1024
+              },
+              "width": {
+                "type": "integer",
+                "format": "int32",
+                "readOnly": true
+              },
+              "height": {
+                "type": "integer",
+                "format": "int32",
+                "readOnly": true
+              },
+              "operation": {
+                "enum": [
+                  "editImage"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "2.1"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "qwen"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "ComfyQwen21ImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyQwenImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "model",
+              "operation",
+              "prompt"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "type": "string"
+              },
+              "prompt": {
+                "maxLength": 10000,
+                "minLength": 0,
+                "type": "string"
+              },
+              "negativePrompt": {
+                "maxLength": 10000,
+                "minLength": 0,
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "sampler": {
+                "$ref": "#/components/schemas/ComfySampler"
+              },
+              "scheduler": {
+                "$ref": "#/components/schemas/ComfyScheduler"
+              },
+              "steps": {
+                "maximum": 150,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 25
+              },
+              "cfgScale": {
+                "maximum": 30,
+                "minimum": 0,
+                "type": "number",
+                "format": "double",
+                "default": 1
+              },
+              "seed": {
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int64"
+              },
+              "quantity": {
+                "maximum": 12,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 1
+              },
+              "loras": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number",
+                  "format": "double"
+                }
+              },
+              "diffusionModel": {
+                "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "model": {
+                "enum": [
+                  "2.1"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "qwen"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "operation",
+              "mapping": {
+                "createImage": "#/components/schemas/ComfyQwen21CreateImageGenInput",
+                "editImage": "#/components/schemas/ComfyQwen21EditImageGenInput"
+              }
+            }
+          }
+        ]
+      },
       "ComfyQwenImageGenInput": {
         "allOf": [
           {
@@ -16768,7 +18687,8 @@
             "discriminator": {
               "propertyName": "model",
               "mapping": {
-                "20b": "#/components/schemas/ComfyQwen20bImageGenInput"
+                "20b": "#/components/schemas/ComfyQwen20bImageGenInput",
+                "2.1": "#/components/schemas/ComfyQwen21ImageGenInput"
               }
             }
           }
@@ -16953,6 +18873,13 @@
                 "additionalProperties": {
                   "type": "number",
                   "format": "double"
+                }
+              },
+              "embeddings": {
+                "type": "array",
+                "items": {
+                  "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
+                  "type": "string"
                 }
               },
               "clipSkip": {
@@ -17185,6 +19112,18 @@
                   "type": "number",
                   "format": "double"
                 }
+              },
+              "embeddings": {
+                "type": "array",
+                "items": {
+                  "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
+                  "type": "string"
+                }
+              },
+              "clipSkip": {
+                "type": "integer",
+                "format": "int32",
+                "default": 2
               },
               "controlNets": {
                 "type": "array",
@@ -19406,6 +21345,151 @@
             "additionalProperties": false
           }
         ]
+      },
+      "Flux1ProFamilyImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ImageGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "model",
+              "prompt"
+            ],
+            "type": "object",
+            "properties": {
+              "model": {
+                "type": "string"
+              },
+              "prompt": {
+                "maxLength": 10000,
+                "minLength": 0,
+                "type": "string"
+              },
+              "seed": {
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int64"
+              },
+              "quantity": {
+                "maximum": 4,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 1
+              },
+              "engine": {
+                "enum": [
+                  "flux1-pro"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "model",
+              "mapping": {
+                "pro": "#/components/schemas/Flux1ProImageGenInput",
+                "ultra": "#/components/schemas/Flux1ProUltraImageGenInput"
+              }
+            }
+          }
+        ]
+      },
+      "Flux1ProImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Flux1ProFamilyImageGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "model"
+            ],
+            "type": "object",
+            "properties": {
+              "width": {
+                "maximum": 1440,
+                "minimum": 256,
+                "type": "integer",
+                "format": "int32",
+                "default": 1024
+              },
+              "height": {
+                "maximum": 1440,
+                "minimum": 256,
+                "type": "integer",
+                "format": "int32",
+                "default": 1024
+              },
+              "model": {
+                "enum": [
+                  "pro"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "flux1-pro"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "FLUX1.1 [pro]"
+      },
+      "Flux1ProUltraImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Flux1ProFamilyImageGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "model"
+            ],
+            "type": "object",
+            "properties": {
+              "aspectRatio": {
+                "enum": [
+                  "21:9",
+                  "16:9",
+                  "4:3",
+                  "1:1",
+                  "3:4",
+                  "9:16",
+                  "9:21"
+                ],
+                "type": "string",
+                "default": "1:1"
+              },
+              "raw": {
+                "type": "boolean",
+                "description": "Generates less processed, more natural-looking images.",
+                "default": false
+              },
+              "model": {
+                "enum": [
+                  "ultra"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "flux1-pro"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "FLUX1.1 [pro] Ultra"
       },
       "Flux1SchnellAIToolkitTrainingInput": {
         "allOf": [
@@ -23646,6 +25730,21 @@
         ],
         "description": "Engine-level base for Alibaba Happy-Horse video generation (FAL).\nThe version derived type carries the operation-level discriminator."
       },
+      "HiDreamI1Precision": {
+        "enum": [
+          "fp8",
+          "fp16"
+        ],
+        "type": "string"
+      },
+      "HiDreamI1Variant": {
+        "enum": [
+          "fast",
+          "dev",
+          "full"
+        ],
+        "type": "string"
+      },
       "HiDreamO1AIToolkitTrainingInput": {
         "allOf": [
           {
@@ -24370,6 +26469,7 @@
           "mapping": {
             "openai": "#/components/schemas/OpenApiImageGenInput",
             "flux1-kontext": "#/components/schemas/Flux1KontextImageGenInput",
+            "flux1-pro": "#/components/schemas/Flux1ProFamilyImageGenInput",
             "flux2": "#/components/schemas/Flux2ImageGenInput",
             "google": "#/components/schemas/GoogleImageGenInput",
             "wan": "#/components/schemas/WanImageGenInput",
@@ -24777,6 +26877,488 @@
           }
         ],
         "description": "LORA Training"
+      },
+      "ImageScanningHumanEvidence": {
+        "required": [
+          "polarity",
+          "score",
+          "tag"
+        ],
+        "type": "object",
+        "properties": {
+          "tag": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number",
+            "format": "double"
+          },
+          "polarity": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ImageScanningHumanRecognition": {
+        "required": [
+          "evidence",
+          "humanScore",
+          "label",
+          "noHumanScore",
+          "ran",
+          "score",
+          "scores",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "ran": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number",
+            "format": "double"
+          },
+          "humanScore": {
+            "type": "number",
+            "format": "double"
+          },
+          "noHumanScore": {
+            "type": "number",
+            "format": "double"
+          },
+          "scores": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImageScanningHumanEvidence"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "ImageScanningInput": {
+        "required": [
+          "image"
+        ],
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Image to scan. URLs are imported into orchestrator blob storage before the job is queued.",
+            "format": "source-image"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Input for a unified image scan."
+      },
+      "ImageScanningJointAgeClassification": {
+        "required": [
+          "detections",
+          "ran",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "ran": {
+            "type": "boolean"
+          },
+          "skipReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "detections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImageScanningJointAgeDetection"
+            }
+          },
+          "childDetected": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "minorDetected": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "oodDetected": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "warning": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "error": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ImageScanningJointAgeDetection": {
+        "required": [
+          "animeProbability",
+          "boundingBox",
+          "domain",
+          "isChild",
+          "isMinor",
+          "isOod",
+          "ordinalCutpointProbabilities",
+          "personDetected"
+        ],
+        "type": "object",
+        "properties": {
+          "boundingBox": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          "personDetected": {
+            "type": "boolean"
+          },
+          "personDetectionConfidence": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "faceBoundingBox": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          "faceDetectionConfidence": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "animeProbability": {
+            "type": "number",
+            "format": "double"
+          },
+          "apparentAge": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "ageBand": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "under13Probability": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "under18Probability": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "oodProbability": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "ordinalCutpointProbabilities": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          "isChild": {
+            "type": "boolean"
+          },
+          "isMinor": {
+            "type": "boolean"
+          },
+          "isOod": {
+            "type": "boolean"
+          },
+          "warning": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ImageScanningLabelScore": {
+        "required": [
+          "label",
+          "score"
+        ],
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ImageScanningOutput": {
+        "required": [
+          "aiRecognition",
+          "animeRecognition",
+          "humanRecognition",
+          "jointAgeClassification",
+          "nsfwLevel",
+          "score",
+          "tagging",
+          "topK"
+        ],
+        "type": "object",
+        "properties": {
+          "nsfwLevel": {
+            "$ref": "#/components/schemas/NSFWLevel"
+          },
+          "score": {
+            "type": "number",
+            "format": "double"
+          },
+          "topK": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImageScanningLabelScore"
+            }
+          },
+          "aiRecognition": {
+            "$ref": "#/components/schemas/ImageScanningRecognition"
+          },
+          "animeRecognition": {
+            "$ref": "#/components/schemas/ImageScanningRecognition"
+          },
+          "tagging": {
+            "$ref": "#/components/schemas/ImageScanningTagging"
+          },
+          "humanRecognition": {
+            "$ref": "#/components/schemas/ImageScanningHumanRecognition"
+          },
+          "jointAgeClassification": {
+            "$ref": "#/components/schemas/ImageScanningJointAgeClassification"
+          },
+          "csam": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "description": "Complete result from the unified image scanner."
+      },
+      "ImageScanningRecognition": {
+        "required": [
+          "label",
+          "score"
+        ],
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number",
+            "format": "double"
+          },
+          "topK": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ImageScanningLabelScore"
+            }
+          },
+          "scores": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "additionalProperties": {
+              "type": "number",
+              "format": "double"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "ImageScanningStep": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStep"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/ImageScanningInput"
+              },
+              "output": {
+                "$ref": "#/components/schemas/ImageScanningOutput"
+              },
+              "$type": {
+                "enum": [
+                  "imageScanning"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Image scanning"
+      },
+      "ImageScanningStepTemplate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStepTemplate"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/ImageScanningInput"
+              },
+              "$type": {
+                "enum": [
+                  "imageScanning"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Image scanning"
+      },
+      "ImageScanningTag": {
+        "required": [
+          "category",
+          "score",
+          "tag"
+        ],
+        "type": "object",
+        "properties": {
+          "tag": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ImageScanningTagging": {
+        "required": [
+          "ran",
+          "status",
+          "tagCount",
+          "tags",
+          "threshold",
+          "totalAboveThreshold",
+          "truncated"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "ran": {
+            "type": "boolean"
+          },
+          "threshold": {
+            "type": "number",
+            "format": "double"
+          },
+          "tagCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalAboveThreshold": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImageScanningTag"
+            }
+          }
+        },
+        "additionalProperties": false
       },
       "ImageToSvgInput": {
         "required": [
@@ -26437,6 +29019,14 @@
                 ],
                 "description": "Inferred from reported progress over elapsed time; the worker's byte counters never leave it.",
                 "format": "double"
+              },
+              "rateLimitBytesPerSecond": {
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "description": "Per-stream ceiling the lane applies to this download. Null when uncapped; boosting to High lifts it.",
+                "format": "int64"
               },
               "status": {
                 "enum": [
@@ -30926,7 +33516,8 @@
           "propertyName": "engine",
           "mapping": {
             "comfy": "#/components/schemas/ComfyPolyGenInput",
-            "fal": "#/components/schemas/FalPolyGenInput"
+            "fal": "#/components/schemas/FalPolyGenInput",
+            "unirig": "#/components/schemas/UniRigPolyGenInput"
           }
         }
       },
@@ -32822,6 +35413,14 @@
                 "description": "What Civitai.Orchestration.Grains.Resources.QueuedResourceAvailability.EtaSeconds would become in the High lane. Null when already High.",
                 "format": "int32"
               },
+              "rateLimitBytesPerSecond": {
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "description": "Per-stream ceiling the lane applies to this download. Null when uncapped; boosting to High lifts it.",
+                "format": "int64"
+              },
               "status": {
                 "enum": [
                   "queued"
@@ -33734,7 +36333,7 @@
                   "edit"
                 ],
                 "type": "string",
-                "default": "edit-plus"
+                "default": "2.0"
               },
               "images": {
                 "maxItems": 3,
@@ -34425,7 +37024,8 @@
       },
       "ResourceView": {
         "enum": [
-          "queue"
+          "queue",
+          "loaded"
         ],
         "type": "string",
         "description": "A projection of the resource collection. There is no view that lists every known resource — resources\nare addressed by AIR and only materialise once something asks for them."
@@ -35209,6 +37809,11 @@
                   "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
                   "type": "string"
                 }
+              },
+              "clipSkip": {
+                "type": "integer",
+                "format": "int32",
+                "default": 2
               },
               "uCache": {
                 "$ref": "#/components/schemas/SdCppUCacheMode"
@@ -36086,7 +38691,7 @@
             }
           }
         ],
-        "description": "Base class for Sora 2 video generation (OpenAI's Sora-2 model via FAL)\nSince FAL has a one-to-one mapping with OpenAI's Sora API, we don't need a provider layer.\nDiscriminator: operation (text-to-video or image-to-video)"
+        "description": "Retired: OpenAI shut down the Sora 2 API on 2026-09-24 and new requests are rejected."
       },
       "StarVectorImageToSvgInput": {
         "allOf": [
@@ -36878,6 +39483,13 @@
               "boolean"
             ],
             "description": "Serves the result at a stable unsigned url. Privileged callers only: nothing gates a read of\nit, so a block decided after the fact cannot take it back."
+          },
+          "hideMetadata": {
+            "type": [
+              "null",
+              "boolean"
+            ],
+            "description": "Removes the source's container tags and chapters; the video and audio streams are untouched."
           }
         },
         "additionalProperties": false
@@ -37609,6 +40221,100 @@
           }
         ],
         "description": "Eligible, but nothing is pulling it. A resource waiting in a download lane reports\nCivitai.Orchestration.Grains.Resources.QueuedResourceAvailability instead."
+      },
+      "UniRigPolyGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PolyGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": "rig"
+              },
+              "seed": {
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int64"
+              },
+              "engine": {
+                "enum": [
+                  "unirig"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "operation",
+              "mapping": {
+                "rig": "#/components/schemas/UniRigRigPolyGenInput"
+              }
+            }
+          }
+        ]
+      },
+      "UniRigRigPolyGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/UniRigPolyGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "mesh",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "mesh": {
+                "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
+                "type": "string"
+              },
+              "heightMeters": {
+                "maximum": 100,
+                "minimum": 0.01,
+                "type": [
+                  "null",
+                  "number"
+                ],
+                "format": "double"
+              },
+              "skeleton": {
+                "enum": [
+                  "mixamo",
+                  "generic"
+                ],
+                "type": "string",
+                "default": "mixamo"
+              },
+              "operation": {
+                "enum": [
+                  "rig"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "unirig"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
       },
       "UnsupportedResourceAvailability": {
         "allOf": [
@@ -39124,11 +41830,11 @@
               "null",
               "string"
             ],
-            "description": "The model to use for tagging. Defaults to \"wd14-vit.v1\" and also supports \"cl-tagger.v2\"."
+            "description": "The model to use for tagging. Tagging always runs with \"cl-tagger.v2\"; any other model, including the\ndefault \"wd14-vit.v1\", is deprecated and produces a warning."
           },
           "mediaUrl": {
             "type": "string",
-            "description": "The URL of the media to tag (image or video).",
+            "description": "The URL of the image to tag.",
             "format": "uri"
           },
           "threshold": {
@@ -39136,7 +41842,7 @@
               "null",
               "number"
             ],
-            "description": "Optional threshold for tag confidence filtering. Tags below this threshold will be excluded.",
+            "description": "Optional threshold for tag confidence filtering. Tags below this threshold will be excluded.\nThe tagger never returns tags scoring below its own minimum, so lower values have no effect.",
             "format": "double"
           },
           "prompt": {
@@ -39144,7 +41850,7 @@
               "null",
               "string"
             ],
-            "description": "Optional prompt to guide the tagging process."
+            "description": "Ignored; kept for compatibility."
           }
         },
         "additionalProperties": false,
@@ -42702,10 +45408,27 @@
             "format": "double"
           },
           "preparation": {
-            "$ref": "#/components/schemas/WorkflowStepPreparation"
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStepPreparationResource"
+            },
+            "description": "Every resource download this step is waiting on, the one holding it back first. Only set while\nthe step is preparing."
           },
           "queuePosition": {
             "$ref": "#/components/schemas/WorkflowStepQueuePosition"
+          },
+          "warnings": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStepWarning"
+            },
+            "description": "Non-fatal warnings about this step, such as a requested model that is scheduled for retirement.\nOmitted when there are none."
           }
         },
         "additionalProperties": false,
@@ -42727,6 +45450,7 @@
             "imageBackgroundRemoval": "#/components/schemas/ImageBackgroundRemovalStep",
             "imageGen": "#/components/schemas/ImageGenStep",
             "imageResourceTraining": "#/components/schemas/ImageResourceTrainingStep",
+            "imageScanning": "#/components/schemas/ImageScanningStep",
             "imageToSvg": "#/components/schemas/ImageToSvgStep",
             "imageUpload": "#/components/schemas/ImageUploadStep",
             "imageUpscaler": "#/components/schemas/ImageUpscalerStep",
@@ -42760,7 +45484,8 @@
             "wdTagging": "#/components/schemas/WDTaggingStep",
             "webScrape": "#/components/schemas/WebScrapeStep",
             "webSearch": "#/components/schemas/WebSearchStep",
-            "xGuardModeration": "#/components/schemas/XGuardModerationStep"
+            "xGuardModeration": "#/components/schemas/XGuardModerationStep",
+            "yuE2": "#/components/schemas/YuE2Step"
           }
         }
       },
@@ -42792,7 +45517,14 @@
             "$ref": "#/components/schemas/WorkflowStepEventDetails"
           },
           "preparation": {
-            "$ref": "#/components/schemas/WorkflowStepPreparation"
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStepPreparationResource"
+            },
+            "description": "Every resource download this step is waiting on, gating resource first. Only set while preparing."
           }
         },
         "additionalProperties": false,
@@ -42852,7 +45584,14 @@
             "description": "The output result from the step"
           },
           "preparation": {
-            "$ref": "#/components/schemas/WorkflowStepPreparation"
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStepPreparationResource"
+            },
+            "description": "Every resource download this step is waiting on, gating resource first. Only set while preparing."
           }
         },
         "additionalProperties": false,
@@ -42916,63 +45655,6 @@
         "additionalProperties": false,
         "description": "Details of a workflow step job event."
       },
-      "WorkflowStepPreparation": {
-        "required": [
-          "lane",
-          "queuePosition",
-          "resource",
-          "resources"
-        ],
-        "type": "object",
-        "properties": {
-          "resource": {
-            "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
-            "type": "string",
-            "description": "The resource currently holding the step back."
-          },
-          "queuePosition": {
-            "type": "integer",
-            "description": "Downloads ahead of this one. Zero means it is transferring now.",
-            "format": "int32"
-          },
-          "progress": {
-            "type": [
-              "null",
-              "number"
-            ],
-            "description": "Download completion, 0.0 to 1.0. Null while the download is still queued.",
-            "format": "double"
-          },
-          "etaSeconds": {
-            "type": [
-              "null",
-              "integer"
-            ],
-            "description": "Estimated seconds until the download completes.",
-            "format": "int32"
-          },
-          "lane": {
-            "$ref": "#/components/schemas/Priority"
-          },
-          "boostedEtaSeconds": {
-            "type": [
-              "null",
-              "integer"
-            ],
-            "description": "What Civitai.Orchestration.Grains.Workflows.WorkflowStepPreparation.EtaSeconds would become in the High lane. Null when already High.",
-            "format": "int32"
-          },
-          "resources": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WorkflowStepPreparationResource"
-            },
-            "description": "Every resource this step is waiting on, gating resource first."
-          }
-        },
-        "additionalProperties": false,
-        "description": "The resource downloads a step is waiting on while its status is preparing. Absent rather than\npartially filled: without a resource and its place in the queue it says nothing the status doesn't."
-      },
       "WorkflowStepPreparationResource": {
         "required": [
           "lane",
@@ -43025,7 +45707,16 @@
               "null",
               "integer"
             ],
+            "description": "What Civitai.Orchestration.Grains.Workflows.WorkflowStepPreparationResource.EtaSeconds would become in the High lane. Null when already High.",
             "format": "int32"
+          },
+          "rateLimitBytesPerSecond": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "description": "Per-stream ceiling the lane applies to this download. Null when uncapped; boosting to High lifts it.",
+            "format": "int64"
           }
         },
         "additionalProperties": false,
@@ -43131,6 +45822,7 @@
             "imageBackgroundRemoval": "#/components/schemas/ImageBackgroundRemovalStepTemplate",
             "imageGen": "#/components/schemas/ImageGenStepTemplate",
             "imageResourceTraining": "#/components/schemas/ImageResourceTrainingStepTemplate",
+            "imageScanning": "#/components/schemas/ImageScanningStepTemplate",
             "imageToSvg": "#/components/schemas/ImageToSvgStepTemplate",
             "imageUpload": "#/components/schemas/ImageUploadStepTemplate",
             "imageUpscaler": "#/components/schemas/ImageUpscalerStepTemplate",
@@ -43164,9 +45856,57 @@
             "wdTagging": "#/components/schemas/WDTaggingStepTemplate",
             "webScrape": "#/components/schemas/WebScrapeStepTemplate",
             "webSearch": "#/components/schemas/WebSearchStepTemplate",
-            "xGuardModeration": "#/components/schemas/XGuardModerationStepTemplate"
+            "xGuardModeration": "#/components/schemas/XGuardModerationStepTemplate",
+            "yuE2": "#/components/schemas/YuE2StepTemplate"
           }
         }
+      },
+      "WorkflowStepWarning": {
+        "required": [
+          "code",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/WorkflowStepWarningCode"
+          },
+          "message": {
+            "type": "string",
+            "description": "A human-readable description of the warning."
+          },
+          "deprecatedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "When the deprecation was announced, if applicable.",
+            "format": "date-time"
+          },
+          "retiresAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "When requests relying on the deprecated behavior start being rejected, if applicable.",
+            "format": "date-time"
+          },
+          "replacement": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The suggested replacement, if applicable."
+          }
+        },
+        "additionalProperties": false,
+        "description": "A non-fatal notice about a workflow step, e.g. a requested model that is scheduled for retirement."
+      },
+      "WorkflowStepWarningCode": {
+        "enum": [
+          "modelDeprecated"
+        ],
+        "type": "string"
       },
       "WorkflowTemplate": {
         "required": [
@@ -43306,6 +46046,14 @@
         ],
         "type": "string",
         "description": "Specifies how a workflow should be upgraded when mature content is detected and green or blue buzz was used for payment."
+      },
+      "WorkflowWaitUntil": {
+        "enum": [
+          "completion",
+          "change"
+        ],
+        "type": "string",
+        "description": "What a held read of a workflow waits for before it returns."
       },
       "XGuardCustomSignalMetadata": {
         "required": [
@@ -43523,11 +46271,11 @@
           },
           "storeFullResponse": {
             "type": "boolean",
-            "description": "Debug opt-out. When true, the worker stores the full raw chat completion response\n(including the complete logprobs.content array) in the destination blob instead of\nthe trimmed version. Intended for one-off debugging of classification decisions\nwhere the full logprobs distribution or generated token stream needs inspection.\nLeaves blobs at ~200KB instead of ~2-3KB — do not enable in normal traffic.\nThis is NOT the reasoning switch — use IncludeReasoning for ModelReason. On its own it\nmerely raises the token budget from 1 to 128 (XGuardScoring.MaxTokensFor), which lets\n~600 chars of explanation slip out before a finishReason=length cutoff."
+            "description": "Debug opt-out. When true, the worker stores the full raw chat completion response\n(including the complete logprobs.content array) in the destination blob instead of\nthe trimmed version. Intended for one-off debugging of classification decisions\nwhere the full logprobs distribution or generated token stream needs inspection.\nLeaves blobs at ~200KB instead of ~2-3KB — do not enable in normal traffic.\nCivitai prompt Scan always emits one token, including with debugging enabled.\nThis is NOT the reasoning switch — use IncludeReasoning for ModelReason. On its own it\nmerely raises the token budget from 1 to 128 (XGuardScoring.MaxTokensFor), which lets\n~600 chars of explanation slip out before a finishReason=length cutoff."
           },
           "includeReasoning": {
             "type": "boolean",
-            "description": "When true, the model generates an explanation after its verdict token, populating\nXGuardLabelResult.ModelReason and MatchedTerms. Uses a larger token budget (256 —\nlong explanations can still end at finishReason=length) and a distinct blob-cache\nkey, so results never reuse cached verdict-only blobs."
+            "description": "For site-text moderation only; Civitai prompt Scan always emits one token.\nWhen true, the model generates an explanation after its verdict token, populating\nXGuardLabelResult.ModelReason and MatchedTerms. Uses a larger token budget (256 —\nlong explanations can still end at finishReason=length) and a distinct blob-cache\nkey, so results never reuse cached verdict-only blobs."
           }
         },
         "additionalProperties": false,
@@ -43654,7 +46402,7 @@
                   "null",
                   "string"
                 ],
-                "description": "Additional instructions or context for the moderation evaluation."
+                "description": "Additional instructions are unsupported by the fixed Civitai Scan contract."
               },
               "scope": {
                 "$ref": "#/components/schemas/XGuardPromptScope"
@@ -43806,6 +46554,141 @@
           }
         ],
         "description": "Input for evaluating site text content against XGuard moderation policies."
+      },
+      "YuE2Input": {
+        "required": [
+          "lyrics",
+          "mode",
+          "seed",
+          "style"
+        ],
+        "type": "object",
+        "properties": {
+          "style": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Musical style, instrumentation, mood, tempo, and vocal description."
+          },
+          "lyrics": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Lyrics with section markers such as [verse] and [chorus]."
+          },
+          "seed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "maxDuration": {
+            "maximum": 360,
+            "minimum": 0.03999999910593033,
+            "type": "number",
+            "description": "Maximum song duration in seconds; generation can stop earlier.",
+            "format": "float",
+            "default": 120
+          },
+          "steps": {
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer",
+            "description": "Diffusion steps using the upstream dpm_2 / sgm_uniform sampler.",
+            "format": "int32",
+            "default": 32
+          },
+          "mode": {
+            "minLength": 1,
+            "pattern": "^(full|melody|off)$",
+            "type": "string",
+            "description": "Score planning: full (melody and chords), melody, or off.",
+            "default": "full"
+          },
+          "abc": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Optional ABC score to use instead of generating a score. Ignored in off mode."
+          },
+          "model": {
+            "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Optional YuE2 checkpoint override containing the model, text encoder, and audio VAE."
+          }
+        },
+        "additionalProperties": false,
+        "description": "YuE2 text-to-music generation with optional ABC score planning."
+      },
+      "YuE2Output": {
+        "required": [
+          "blob"
+        ],
+        "type": "object",
+        "properties": {
+          "blob": {
+            "$ref": "#/components/schemas/AudioBlob"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Output from YuE2 generation."
+      },
+      "YuE2Step": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStep"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/YuE2Input"
+              },
+              "output": {
+                "$ref": "#/components/schemas/YuE2Output"
+              },
+              "$type": {
+                "enum": [
+                  "yuE2"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Generate a song from style and lyrics with YuE2."
+      },
+      "YuE2StepTemplate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStepTemplate"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/YuE2Input"
+              },
+              "$type": {
+                "enum": [
+                  "yuE2"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Generate a song from style and lyrics with YuE2."
       },
       "ZImageBaseAIToolkitTrainingInput": {
         "allOf": [

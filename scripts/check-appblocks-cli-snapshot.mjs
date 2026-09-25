@@ -183,10 +183,14 @@ export async function commitsSinceSnapshot(snapshotSha, fetchImpl = fetch) {
  * Parse the snapshot header's `Binary version:` line into its `git describe`
  * parts. Pure + exported so the regression test can drive it without network.
  *
- * 🔴 THE HEADER CARRIES TWO SHAPES AND BOTH ARE CORRECT. A `make build` stamps
- * `git describe` (`v0.1.104`, `v0.1.90-13-g569f5dc`); a goreleaser RELEASE ASSET
- * stamps the bare version with no `v` (`0.1.108`). The `v?` is load-bearing —
- * do not "fix" it.
+ * 🔴 A NEW CAPTURE IS ALWAYS BARE; A HISTORIC ONE MAY CARRY A `v`. `civitai
+ * --version` still stamps two shapes — a `make build` prints `git describe`
+ * (`v0.1.104`, `v0.1.90-13-g569f5dc`), a goreleaser RELEASE ASSET prints the bare
+ * version (`0.1.108`) — but `canonicalVersionLine` in scripts/gen-appblocks-cli.mjs
+ * now strips the leading `v` AT THE CAPTURE, so every snapshot written from here
+ * on carries the bare shape and the two builds no longer disagree on the header
+ * bytes. The `v?` is still load-bearing and must NOT be "fixed": snapshots
+ * already in git history carry the `v`, and this parser is driven over them.
  * @returns {{ ok: true, raw, tag, ahead, sha } | { ok: false, reason: string }}
  */
 export function parseSnapshotVersion(text) {
@@ -199,8 +203,17 @@ export function parseSnapshotVersion(text) {
   return { ok: true, raw, tag: d[1], ahead: d[2] ? Number(d[2]) : 0, sha: d[3] ?? null };
 }
 
-/** Strip a leading `v` so the tag can go through the shared semver comparator. */
-const bare = (tag) => String(tag).replace(/^v/, '');
+/**
+ * Strip a leading `v` so the tag can go through the shared semver comparator.
+ *
+ * 🔴 EXPORTED because it is the ONE normaliser for this comparison, and a second
+ * open-coded copy is how the shapes drifted apart in the first place. A release
+ * TAG is always `v`-prefixed (`v0.1.109`) while a snapshot HEADER token is bare
+ * (`0.1.109`) since gen-appblocks-cli.mjs canonicalises at the capture — so any
+ * site that compares one against the other must go through here.
+ * scripts/refresh-cli-snapshot.mjs's `validateCapture` is the other caller.
+ */
+export const bare = (tag) => String(tag).replace(/^v/, '');
 
 /**
  * Classify the snapshot's tag against the latest published release tag.
