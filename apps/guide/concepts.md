@@ -193,7 +193,7 @@ knowing, because the refresh is lazier than it looks:
 - **On the bridge, that staleness is harmless**, because brokered calls don't
   carry your copy of the token. When the host performs a request on your behalf
   it authenticates server-side; your token's freshness is irrelevant to it.
-- **On the direct-API path it is not harmless, and the SDK handles it for you.**
+- **On the direct-API path it is not harmless.**
   Your request carries the token, so an expired one is a 401. Retry once through
   `useBlockToken().refresh()` and reissue. (`@civitai/sdk` does this for you, but
   a block cannot use it yet — see the [porting guide](./porting).)
