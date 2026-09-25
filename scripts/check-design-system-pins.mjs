@@ -317,7 +317,14 @@ export const HISTORICAL_LITERALS = [
     // 0.4.1 (`cmp` rc=0), and differs from 0.3.0 — 0.4.1 changed only MARKUP.md,
     // README.md, demo/index.html and the version field. So group-wrap-by-default
     // and `data-nowrap` shipped in 0.4.0.
-    why: 'group wrapping by default + `data-nowrap` ARRIVED in components 0.4.0 — 0.4.1 is a docs-only release with a byte-identical styles.css. Bumping this to the pin would name a version in which nothing about this behaviour changed.',
+    //
+    // RE-MEASURED at the 0.6.0 pin bump: 0.4.1 -> 0.6.0 changes `styles.css`
+    // (31970 -> 31108 bytes), but NOT this behaviour. Diffing the two
+    // stylesheets rule-by-rule yields 42 changed rules and ZERO of them match
+    // /group|wrap/; the `[data-nowrap='true'] { flex-wrap: nowrap; }` rule is
+    // byte-identical in both. So the arrival version is still 0.4.0 and the
+    // exemption below still describes reality against the NEW pin.
+    why: 'group wrapping by default + `data-nowrap` ARRIVED in components 0.4.0 — no release since has touched the group/wrap rules (measured: 0 of the 42 rules that changed between 0.4.1 and 0.6.0 match group or wrap). Bumping this to the pin would name a version in which nothing about this behaviour changed.',
   },
 ];
 
