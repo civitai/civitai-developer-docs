@@ -38,10 +38,12 @@ you pass into your `blockId`:
 civitai app create my-app
 ```
 
-The default template is `page-money`, a working generation app. Use
-`--template page-vite` for an empty React start, `--template static` for a
-no-build page app, or `--dir ./path` to control the output directory. The
-scaffold is immediately runnable and validates clean.
+The default template is `page-money`, a working generation app, and **the rest of
+this page assumes it** — the other templates are deliberately SDK-free, so they
+have no `.env.example`, no `dev:harness` script and none of the SDK imports below.
+Use `--template page-vite` for a dependency-free React **JavaScript** start or
+`--template static` for no build at all, and `--dir ./path` to control the output
+directory. Every template is immediately runnable and validates clean.
 
 Then install dependencies:
 
