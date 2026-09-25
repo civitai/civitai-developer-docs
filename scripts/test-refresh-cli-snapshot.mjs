@@ -103,6 +103,14 @@ function shiftTag(tag, delta) {
 }
 const OLDER = shiftTag(SNAP_TAG, -1);
 const NEWER = shiftTag(SNAP_TAG, +1);
+// The shape a CAPTURE of a binary stamping `civitai <NEWER>` writes into the
+// header. `shiftTag` always returns a `v`-prefixed RELEASE tag, and
+// `canonicalVersionLine` in scripts/gen-appblocks-cli.mjs strips that `v` at the
+// capture so a source build and a release asset cannot disagree on the header
+// bytes — so a test asserting on captured HEADER text wants this, while a test
+// passing a target TAG to the refresh script wants `NEWER`. Spelled out rather
+// than imported: the expectation is pinned here, not derived from the code.
+const NEWER_IN_HEADER = NEWER.replace(/^v/, '');
 
 // ---------------------------------------------------------------------------
 console.log('BLOCK COUNTING — the quantity the anti-truncation floor is made of');
@@ -197,6 +205,28 @@ check('a capture from the WRONG binary is refused even when it is long enough', 
   const joined = v.problems.join('\n');
   assert(/WRONG BINARY/.test(joined), `the refusal does not identify the wrong binary:\n${joined}`);
   assert(joined.includes(NEWER) && joined.includes(SNAP_TAG), 'the refusal names neither the target nor the actual tag');
+});
+
+check('WRONG BINARY compares the two shapes BARE — a `v` alone is not a disagreement', () => {
+  // 🔴 THE TWO SIDES HAVE DIFFERENT SHAPES BY CONSTRUCTION. `expectedTag` is a
+  // RELEASE tag and carries the `v` git tags always carry; the header token is
+  // BARE, because canonicalVersionLine strips it at the capture. A raw `!==`
+  // therefore refused every CORRECT capture with a `WRONG BINARY` naming two
+  // identical versions — measured against this repo's own bot refresh.
+  const withHeader = (v) => committed.replace(/^Binary version: civitai .*$/m, `Binary version: civitai ${v}`);
+
+  const same = validateCapture({ next: withHeader('0.4.2'), prev: committed, expectedTag: 'v0.4.2' });
+  assert(same.ok, `a bare header was refused against its own \`v\`-prefixed tag: ${same.problems.join(' | ')}`);
+  // Symmetric — a historic `v`-form snapshot against a bare target is the same
+  // question and must answer the same way.
+  const flipped = validateCapture({ next: withHeader('v0.4.2'), prev: committed, expectedTag: '0.4.2' });
+  assert(flipped.ok, `a \`v\`-form header was refused against its own bare tag: ${flipped.problems.join(' | ')}`);
+
+  // …and the guard is NOT neutered: a real version disagreement still refuses.
+  // Patch-level, so this cannot pass by way of a coarse major/minor comparison.
+  const differs = validateCapture({ next: withHeader('0.4.2'), prev: committed, expectedTag: 'v0.4.3' });
+  assert(!differs.ok, 'a genuinely wrong binary was accepted once the `v` stopped mattering');
+  assert(/WRONG BINARY/.test(differs.problems.join('\n')), 'the real disagreement is no longer a WRONG BINARY refusal');
 });
 
 check('a capture with no parseable header is refused', () => {
@@ -895,7 +925,7 @@ check('AFTER THE BOT PR IS SQUASH-MERGED, THE NEXT RUN STILL PRODUCES A MERGEABL
     maxBuffer: 8 * 1024 * 1024,
   });
   assert(
-    onBranch.includes(`Binary version: civitai ${NEWER}\n`),
+    onBranch.includes(`Binary version: civitai ${NEWER_IN_HEADER}\n`),
     'the branch does not carry run 2\'s capture — a branch that skipped the work merges cleanly too',
   );
   const behind = spawnSync('git', ['-C', origin, 'merge-base', '--is-ancestor', DEFAULT_BRANCH, DEFAULT_BASE]);

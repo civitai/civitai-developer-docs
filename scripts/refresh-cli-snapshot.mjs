@@ -209,7 +209,7 @@ import { appendFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFil
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { classifySnapshot, parseSnapshotVersion } from './check-appblocks-cli-snapshot.mjs';
+import { bare, classifySnapshot, parseSnapshotVersion } from './check-appblocks-cli-snapshot.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -286,7 +286,13 @@ export function validateCapture({ next, prev, expectedTag }) {
   }
   if (!parsed.ok) {
     problems.push(`UNREADABLE HEADER: ${parsed.reason} — the capture did not write a well-formed header.`);
-  } else if (expectedTag && parsed.tag !== expectedTag) {
+  } else if (expectedTag && bare(parsed.tag) !== bare(expectedTag)) {
+    // 🔴 THE TWO SIDES ARE COMPARED BARE, NOT AS RAW STRINGS. `expectedTag` is a
+    // RELEASE tag and is always `v`-prefixed (`v0.1.110`); `parsed.tag` comes out
+    // of the capture's own header, which gen-appblocks-cli.mjs canonicalises to
+    // the BARE shape. A raw `!==` therefore refused every CORRECT capture with a
+    // `WRONG BINARY` naming two identical versions — which is exactly what it did,
+    // because the two shapes were never normalised to one.
     problems.push(
       `WRONG BINARY: the capture's header records civitai ${parsed.raw} (tag ${parsed.tag}) but this refresh ` +
         `targeted ${expectedTag}. Committing it would publish a snapshot whose own header lies about its ` +
