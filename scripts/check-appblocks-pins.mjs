@@ -53,10 +53,16 @@ const repoRoot = resolve(__dirname, '..');
 
 // The generation-bridge SDK packages whose pin freshness gates the generated
 // reference. (Design-system packages are guarded via MARKUP.md — see header.)
-// @civitai/sdk is tracked because apps/guide/porting.md makes a claim scoped to a
-// SPECIFIC release ("since @civitai/sdk@0.4.0, initialize() throws for a block
-// token"). Nothing else can notice if a later release relaxes that, so a lagging
-// pin here is the signal to re-read the claim — not just to bump a number.
+// @civitai/sdk is tracked because apps/guide/porting.md makes claims scoped to a
+// SPECIFIC release — currently that 0.5.0's initialize() ACCEPTS a block token and
+// the refusal sits on app.orchestration (eager) and app.site (a 401/403 outside
+// blocks/* carries the `auth: "oauth"` opt-in) instead. Nothing else can notice if
+// a later release moves that again, so a lagging pin here is the signal to re-read
+// the claim — not just to bump a number.
+// It has already earned its keep once: the pin lagged at 0.4.0, whose claim
+// ("initialize() throws for a block token") was true when written and false by
+// 0.5.0 — which also retired the "off in production" OAuth-mint claim on three
+// pages. Bumping the number alone would have left all of that in public docs.
 export const TRACKED_PACKAGES = ['@civitai/app-sdk', '@civitai/blocks-react', '@civitai/sdk'];
 
 const REGISTRY = process.env.APPBLOCKS_NPM_REGISTRY || 'https://registry.npmjs.org';

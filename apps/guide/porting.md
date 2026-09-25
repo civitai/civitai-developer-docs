@@ -1,12 +1,13 @@
 ---
 title: Moving a block off the bridge
-description: Replace a block's postMessage data calls with /api/v1/blocks/* REST calls — what is available today, what waits on the OAuth mint, and a hook-by-hook replacement table.
+description: Replace a block's postMessage data calls with /api/v1/blocks/* REST calls — what each credential reaches, which routes an OAuth token gives up, and a hook-by-hook replacement table.
 sources:
-  - npm:@civitai/blocks-react@0.57.1/dist/index.d.ts
-  - npm:@civitai/sdk@0.4.0/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.57.2/dist/index.d.ts
+  - npm:@civitai/sdk@0.5.0/dist/index.d.ts
   - civitai-app-starters:packages/civitai-sdk/BREAKING.md
   - civitai:public/schemas/app-block/v1.json#auth
   - civitai:src/pages/api/v1/blocks
+  - civitai:src/server/middleware/block-scope.middleware.ts#verifyBlockToken
 ---
 
 # Moving a block off the bridge
@@ -14,7 +15,7 @@ sources:
 A block used to reach every Civitai capability by posting a message to its host.
 Most of that data now has a REST route, and **a block can call those routes today
 with the token it already has.** This page maps each bridge hook to its route,
-and is honest about the part that is not ready.
+and is honest about what each credential does and does not reach.
 
 ::: tip The rule to build by
 **Default to the API. Use messaging only for the things that must go through it.**
@@ -24,26 +25,32 @@ Civitai's picker. Reading a Buzz balance is a request, because nothing about it
 needs host chrome.
 :::
 
-::: danger Blocks do not adopt `@civitai/sdk` yet — and nothing is asking you to move
-`@civitai/sdk` is the client for an app that holds **its own** OAuth token. For a
-block, the platform's position is explicit: **no app has to move**, and
-`@civitai/app-sdk` + `@civitai/blocks-react` continue.
+::: warning `@civitai/sdk` runs in a block now — and nothing is asking you to move
+`@civitai/app-sdk` + `@civitai/blocks-react` continue, and the platform's position
+is unchanged: **no app has to move.** What changed is that the choice is a real
+one rather than a blocked one.
 
-The blocker is the credential. A block's token is a block-scoped JWT, which the
-general `/api/v1` surface and the orchestrator do not accept. The manifest gained
-an `auth: "oauth"` field to opt into a real OAuth token — but **minting it is
-behind a server flag that is off in production**, so a block that declares it
-silently receives the block token anyway.
+**On the default block token,** `@civitai/sdk@0.5.0`'s `initialize()` succeeds.
+`app.storage`, `app.site` on `blocks/*` paths, `app.requestGrants` and the whole
+of `app.host` (host UI, which is still bridge messages underneath) all work.
+`app.orchestration` rejects **before it sends** — the orchestrator accepts a
+block-scoped token on no route — and `app.site` outside `blocks/*` returns the
+API's own 401/403 with the `auth: "oauth"` opt-in appended to the message.
 
-🔴 **Since `@civitai/sdk@0.4.0`, that combination throws.** `initialize()`
-refuses a block-scoped token for a signed-in viewer with a `CivitaiError` telling
-you to declare `auth: "oauth"` — which, while the flag is off, you cannot
-satisfy. Until the mint is live, a block calling `@civitai/sdk` has no working
-path.
+That is new in 0.5.0. `0.4.0` threw from `initialize()` instead, which refused the
+default configuration; the refusal moved to the two surfaces it is actually about.
 
-**What you can do today is everything else on this page:** the
-`/api/v1/blocks/*` routes accept your block token right now, and the replacement
-table below is a map of routes, not of packages.
+**With `auth: "oauth"`,** the host mints a real OAuth access token and the general
+`/api/v1` surface, the orchestrator and the MCP accept it unchanged. That mint is
+enabled in production.
+
+🔴 **But `auth: "oauth"` is a trade, not an upgrade** — it costs you 22 block
+routes, app storage among them, and nothing stops you shipping a manifest that
+needs both. Read [choosing your credential](#auth-field) before you declare it.
+
+**Either way the replacement table below still applies:** it is a map of routes,
+not of packages, and the `/api/v1/blocks/*` routes accept your block token right
+now.
 :::
 
 The bridge is **not deprecated**. Host UI stays on it by design, and so does
@@ -98,34 +105,50 @@ See [Testing](#testing) below.
 Omitting `auth` keeps today's behaviour, so an existing manifest needs no edit to
 start calling the block routes.
 
-::: danger `auth: "oauth"` is accepted but not yet live
-The validator accepts `"oauth"`, but minting the OAuth token is behind a server
-flag that is **off in production**. While it is off the host falls back to the
-**block token**, so a manifest declaring `auth: "oauth"` silently gets
-`block-token` behaviour and a general `/api/v1` call fails as unauthorised
-rather than explaining itself.
+::: tip The mint is live — and `block-token` is still the default for a reason
+The host mints a real OAuth access token for a manifest declaring `auth: "oauth"`,
+in production. Verified 2026-09-25.
 
-**Port onto the block routes first.** They work today, and they are where the
-spend caps and attribution live anyway. Verified 2026-09-24.
+Two things to weigh before you declare it:
+
+- **The block token reaches further than its name suggests.** It is accepted on 34
+  of the 38 `/api/v1/blocks/*` routes and on the general `/api/v1/models/{id}`. If
+  that is your whole surface, `auth: "oauth"` buys you nothing and costs you the
+  routes below.
+- **Nobody has run this in anger yet.** No app in Civitai's own fleet declares
+  `auth: "oauth"`, so the path is live but unexercised. Budget for finding the
+  first rough edge yourself.
+
+**Declare the narrowest scope set you can.** An `auth: "oauth"` block's consent
+surface is new, and the fewer scopes your manifest asks for, the less rides on it.
 :::
 
-::: danger `auth: "oauth"` gives up most of the block REST surface
+::: danger `auth: "oauth"` gives up 22 of the block REST routes
 This is wider than it looks, and it is not an identity gap — an OAuth token does
-resolve to the same `(app, viewer)` claims. The reason is that several block
-routes **re-verify the raw bearer as a block JWS** inside their service layer,
-and an OAuth access token is not one. Those calls fail.
+resolve to the same `(app, viewer)` claims. The reason is that those routes
+**re-verify the raw bearer as a block JWS** inside their service layer, and an
+OAuth access token is not one. Those calls fail with a 401 or 403.
 
 That covers **app storage** (5 routes), **shared storage** (11 routes), all
 **five workflow routes** (`estimate`/`submit`/`poll`/`cancel` **and `query`**) and
-`user-checkpoint/set` — 22 in all.
+`user-checkpoint/set` — 22 in all. The other 12 block routes are
+credential-agnostic and work on either token: `buzz`, `me`, `models`, `images`,
+`gated-images`, `generation-resources`, `tools`, `tip`, `tip-allowance` and the
+three `collections` routes.
 
-🔴 **So `oauth` mode gives up exactly the routes this guide tells you to submit
-generations through** — the ones carrying the Buzz budget, the per-viewer and
-per-app caps, the maturity clamp and the attribution tag. If your block
-generates, stay on `block-token`.
+🔴 **If your app uses app storage, it cannot use `auth: "oauth"` today** — and
+nothing stops you shipping the pair, because manifest validation does not yet
+refuse it. The failure arrives at runtime as an unexplained 401 on every read and
+write. `@civitai/sdk` will not annotate it either: its `auth: "oauth"` hint fires
+only for a block that *holds* a block token, which yours no longer does.
+
+🔴 **If your block generates, stay on the host-proxied workflow routes.** They
+carry the per-call Buzz budget, the per-viewer and per-app daily caps, the
+maturity clamp and the `app-block:<appId>` attribution tag. A direct orchestrator
+call keeps only the per-viewer consent budget; the rest have not moved across yet.
 
 `oauth` is for a block that needs the general `/api/v1` surface or the
-orchestrator directly, and does not need the block routes.
+orchestrator directly, and needs none of those 22.
 :::
 
 ## The adapter shape
@@ -196,9 +219,9 @@ outlived the token it was issued against. Retry once through it rather than
 failing the call.
 :::
 
-The same layer is what you swap later: when `@civitai/sdk` becomes available to
-blocks, `useApi` becomes `initialize()` and nothing above it changes. That is the
-point of having it.
+The same layer is what you swap: `@civitai/sdk`'s `initialize()` runs in a block
+today, on either credential, so `useApi` can become `app.site` with nothing above
+it changing. That is the point of having it.
 
 ## Hook replacements
 
@@ -234,7 +257,7 @@ talked to the platform — it is your own code now, with nothing to replace.
 | `useGatedImages` | `GET /api/v1/blocks/gated-images` |
 | `useGenerationResources` | `GET /api/v1/blocks/generation-resources?ids=` |
 | `useHostOrigin` | **Keep** — it is the validated base URL every direct fetch needs |
-| `useImageUpload` | **Keep** — host UI. (`@civitai/sdk` has `host.openImageUpload`, but a block cannot use that package yet.) |
+| `useImageUpload` | **Keep** — host UI. (`@civitai/sdk` has covered it since 0.3.0 as `host.openImageUpload`, usable on either credential — but that is still a bridge message, not a route.) |
 | `usePublishGenerationOutputs` | **Stays on the bridge, by design** |
 | `useRequestConsent` | **Keep** — consent is host UI |
 | `useRequestSignIn` | **Keep** — host UI |
@@ -314,8 +337,10 @@ budget, the per-viewer and per-app daily caps, the maturity clamp, and the
 `app-block:<appId>` attribution tag. `app.orchestration` is the raw orchestrator
 and has **none** of them.
 
-The substitution **type-checks and passes tests**, which is why it is worth
-naming. Submit through `/api/v1/blocks/workflows/*`.
+Since `@civitai/sdk@0.5.0` a block on the **default** credential cannot make this
+mistake quietly — `app.orchestration` rejects before it sends. The hazard is live
+for an `auth: "oauth"` block, where the substitution **type-checks, passes tests
+and reaches the orchestrator**. Submit through `/api/v1/blocks/workflows/*`.
 
 The same shape applies to `orchestration.queryWorkflows({ tags })` versus
 `POST /api/v1/blocks/workflows/query`: the route forces the app tag server-side
@@ -357,15 +382,15 @@ Document these as gaps; do not design around them yet.
 
 | Gap | State |
 |---|---|
-| `useImageUpload` / `OPEN_IMAGE_UPLOAD` | No REST twin, and deliberately so — it raises host UI. `@civitai/sdk` exposes `host.openImageUpload`, but a block cannot use that package yet. |
-| `usePublishGenerationOutputs` | Same shape, and staying on the bridge by design — host chrome is the consent control. |
+| `useImageUpload` / `OPEN_IMAGE_UPLOAD` | No REST twin, and deliberately so — it raises host UI. `@civitai/sdk` exposes it as `host.openImageUpload` (since 0.3.0, either credential), which is the same bridge message behind a different package. |
+| `usePublishGenerationOutputs` | Same shape, and staying on the bridge by design — host chrome is the consent control. `@civitai/sdk`'s `host.publishGenerationOutputs` (also 0.3.0) is the same message. |
 | `useBlockAnalytics` | No sink anywhere; already a no-op. |
 | Anonymous app-storage reads | REST returns 403 where the bridge resolved a read to `null`. Whether that is the intended policy per operation is open as [#5089](https://github.com/civitai/civitai/issues/5089). |
 | `useBuzzAccounts`, `useBuzzTransactions`, `useDailyCompensation`, `useWildcardPack` | Not carried. |
 
 Because of the first two, a block that uploads images or publishes generation
-outputs **cannot reach zero `@civitai/blocks-react` imports today.** That is
-expected, and it is why the bridge is not going anywhere.
+outputs **cannot reach zero bridge messages today** — whichever package it asks
+through. That is expected, and it is why the bridge is not going anywhere.
 
 ## Next
 
