@@ -28,7 +28,7 @@ features:
   - title: A trust frame around your iframe
     details: Your app runs in a sandboxed iframe. The host hands it a short-lived, scoped token plus the page context over postMessage, and mediates anything privileged.
   - title: Generation and Buzz, host-mediated
-    details: Estimate, submit, and poll orchestrator workflows; read the viewer and their Buzz balance — the host brokers every privileged call on the platform side.
+    details: Estimate, submit, and poll orchestrator workflows; read the viewer and their Buzz balance — over the host bridge, or by calling /api/v1 with the token the host hands you.
   - title: React SDK + component pack
     details: "@civitai/blocks-react ships useBlockContext, useBuzzWorkflow, useAppStorage, and a themed component pack; @civitai/app-sdk carries the framework-agnostic contract."
 ---

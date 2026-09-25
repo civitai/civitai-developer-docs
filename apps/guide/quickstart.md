@@ -3,8 +3,8 @@ title: Quickstart
 description: Scaffold a Civitai App with the civitai CLI, run it in the local harness, and write your first block.
 sources:
   - go:github.com/civitai/cli#app
-  - npm:@civitai/blocks-react@0.53.0#README
-  - npm:@civitai/app-sdk@0.45.0/blocks#defineBlock
+  - npm:@civitai/blocks-react@0.57.1#README
+  - npm:@civitai/app-sdk@0.51.0/vite#blockManifestPlugin
   - civitai-app-starters:docs/build-your-first-app-block.md
 ---
 
@@ -166,16 +166,51 @@ same params as your submit.
 
 ## 4. Validate the manifest
 
-`block.manifest.json` is the contract the platform validates. You can check it any
-time against the same rules the platform uses by calling `defineBlock` at module
-scope, so mistakes throw at startup instead of at submit:
+`block.manifest.json` is the contract the platform validates. Check it against the
+same rules the platform uses, any time, with the CLI:
+
+```bash
+civitai app validate
+```
+
+That is the path the scaffold gives you out of the box — see the
+[CLI reference](../reference/cli).
+
+If you would rather fail the **build** than run a command, the SDK ships a Vite
+plugin you can add yourself. The scaffold does not wire it for you, and it needs
+`ajv` — an *optional* peer of `@civitai/app-sdk` that the scaffold does not
+install either:
+
+```bash
+npm install -D ajv
+```
 
 ```ts
-import { defineBlock } from '@civitai/app-sdk/blocks';
-import manifest from './block.manifest.json' with { type: 'json' };
-
-defineBlock({ manifest });   // throws BlockManifestError with a .field path
+// vite.config.ts
+import { blockManifestPlugin } from '@civitai/app-sdk/vite';
 ```
+
+Then add it to the `plugins` array the scaffold already wrote. **Append — do not
+replace the array**, or you drop the plugins your app needs to build at all:
+
+```diff
+-  plugins: [react(), civitaiSetupPlugin()],
++  plugins: [react(), civitaiSetupPlugin(), blockManifestPlugin()],
+```
+
+It fails the build with a plain `Error` whose message leads with the offending
+field — `block.manifest.json is invalid [scopes]: …`. The plugin catches
+`BlockManifestError` and re-throws deliberately, because Vite prints the message
+and not the error's own properties, so a `.field` you branched on would be
+invisible.
+
+::: tip Validating outside Vite
+`defineBlock` used to live on `@civitai/app-sdk/blocks`. It moved to
+`@civitai/app-sdk/manifest`, a **Node-only** subpath — it compiles the vendored
+canonical schema with Ajv, which needs `node:fs` and so cannot sit on the
+browser-facing surface. Reach for it in a Node script; in a Vite app use the
+plugin above.
+:::
 
 The manifest declares your `blockId` (which becomes your `<slug>.civit.ai`
 subdomain), `version`, `name`, `contentRating`, and the **scopes** your app
