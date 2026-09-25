@@ -57,18 +57,67 @@ name: cli-snapshot-refresh
 # than snapshot churn because somebody looked at it. A bot committing to main
 # turns a review into a notification.
 #
-# 🔴 PREREQUISITE — ONE REPO SETTING, CURRENTLY OFF, AND THE PR STEP CANNOT
-# SUCCEED WITHOUT IT. "Settings -> Actions -> General -> Workflow permissions ->
-# Allow GitHub Actions to create and approve pull requests" is OFF here
-# (`gh api repos/civitai/civitai-developer-docs/actions/permissions/workflow`
-# -> `can_approve_pull_request_reviews: false`). No `permissions:` block can
-# grant it — it is a repo/org Actions POLICY, not a token scope. Measured live:
-# the branch pushes fine and `gh pr create` fails with "GitHub Actions is not
-# permitted to create or approve pull requests"; flipping the setting and
-# re-running the identical workflow opened the PR. Until it is on, this job
-# pushes the branch and then exits RED naming the setting and handing over a
-# one-click compare URL — deliberately not green, because the re-captured
-# snapshot would otherwise sit on a branch nobody had been told about.
+# 🔴 PREREQUISITE — AN *ORGANIZATION* POLICY. IT IS NOT A REPOSITORY SETTING, AND
+# NOBODY WITH ADMIN ON THIS REPO CAN FLIP IT. The push works; `gh pr create` with
+# GITHUB_TOKEN is refused with "GitHub Actions is not permitted to create or
+# approve pull requests (createPullRequest)".
+#
+# 🔴 THIS PARAGRAPH USED TO SAY "ONE REPO SETTING, CURRENTLY OFF" AND SEND THE
+# READER TO Settings -> Actions -> General -> Workflow permissions. THAT WAS
+# WRONG, AND BEING WRONG IN THE ACTIONABLE-LOOKING DIRECTION IS WHY IT SURVIVED:
+# it reads as a one-tick chore somebody will get to. What is measurable from this
+# repository, re-measured 2026-09-25:
+#
+#   gh api repos/civitai/civitai-developer-docs/actions/permissions/workflow
+#     -> {"default_workflow_permissions":"write",
+#         "can_approve_pull_request_reviews":false}
+#
+# `default_workflow_permissions` is ALREADY `write` — the half of that old advice
+# a maintainer could act on had in fact been done, which the old text gave no way
+# to notice. The remaining flag is held false by the ORGANIZATION's Actions
+# policy: the corresponding `-X PUT … -F can_approve_pull_request_reviews=true`
+# is rejected with a 409 naming the org, so the repository toggle cannot be
+# turned on from here at all. An org owner changing `civitai`'s Actions policy is
+# the only thing that clears it.
+#
+# DO NOT add a step that attempts that PUT, and do not re-word this back into a
+# repository-settings instruction. An instruction the reader cannot carry out is
+# worse than no instruction: it reads as an open action item forever.
+#
+# 🔴 SO THE RED IS CURRENTLY PERMANENT AND NOBODY CAN ACT ON IT — 11 consecutive
+# failed scheduled runs, 2026-09-15 .. 2026-09-25, last green 2026-09-14. `decide`
+# and `build-cli` succeed every time; `refresh` captures cleanly, pushes
+# `bot/cli-snapshot-refresh` (currently carrying v0.1.106), and then exits 1 on
+# the refusal. The snapshot is never lost — only the announcement is.
+#
+# That was correct reasoning from a premise that turned out to be false: "exit
+# red until somebody ticks the box" assumed a box somebody could tick. A
+# permanently red gate trains everyone to click through, so this needs to become
+# "push the branch, raise ONE tracking issue, exit 0" — with the issue closed
+# automatically on the first run that gets all the way through, so it cannot
+# become green-and-silent either.
+#
+# 🔴 THAT FIX CANNOT BE WRITTEN ENTIRELY IN THIS DIRECTORY, AND THE BLOCKER IS
+# MEASURED, NOT ASSUMED. Raising the issue needs `issues: write` on a job here,
+# and two assertions in scripts/test-refresh-cli-snapshot.mjs refuse it — both by
+# grepping this file's RAW TEXT rather than its structure:
+#   - "write permissions are scoped to the ONE job" bans the substring `issues:`
+#     anywhere after `\njobs:`, so it fails on the permissions block AND on any
+#     comment that mentions the scope;
+#   - "the expensive jobs are GATED on the freshness decision" requires EVERY
+#     non-`decide` job to carry `if: needs.decide.outputs.action == 'refresh'`,
+#     which a notifier that must also report when the verdict is `up-to-date`
+#     cannot satisfy by construction.
+# Both need widening from "the whole jobs block" to "the writer job" before the
+# notifier can land. Neither is a real security property being relaxed.
+#
+# A COMPANION WORKFLOW READING THIS RUN OVER THE API DOES NOT WORK EITHER — also
+# measured. `continue-on-error: true` rewrites the conclusion the REST jobs
+# endpoint reports: on run 36136462522 the freshness step exited 1
+# (`##[error]Process completed with exit code 1` in the log) while
+# /actions/runs/36136462522/jobs reported that same step as
+# `"conclusion": "success"`. So a cross-run reader cannot see the one signal it
+# would need, and the notifier has to live in THIS file.
 #
 # 🔴 THE PR'S CHECKS DO NOT RUN. A pull request opened by GITHUB_TOKEN does not
 # get its checks run — GitHub suppresses it to prevent recursion. Measured with
