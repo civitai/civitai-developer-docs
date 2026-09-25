@@ -2,8 +2,8 @@
 title: Hooks reference
 description: Every @civitai/blocks-react hook — signature and example, generated from the published package.
 sources:
-  - npm:@civitai/blocks-react@0.57.1/dist/index.d.ts
-  - npm:@civitai/blocks-react@0.57.1#README
+  - npm:@civitai/blocks-react@0.57.2/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.57.2#README
   - npm:@civitai/app-sdk@0.51.0/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
@@ -28,8 +28,9 @@ REST route, and **a block can call those routes today with the token it already
 holds**. Most hooks below therefore have a direct-API replacement — the
 [porting guide](../guide/porting#hook-replacements) maps all 37 of them.
 
-(`@civitai/sdk` is the client for an app holding its own OAuth token. A block
-cannot adopt it yet; the porting guide explains why.)
+(`@civitai/sdk` is the other client, and since 0.5.0 it runs in a block on either
+credential. What each credential reaches — and the 22 block routes an OAuth token
+gives up — is on the porting guide.)
 
 This page is generated from `@civitai/blocks-react`'s own type definitions, so it
 can only ever describe the bridge. That is a property of the generator, not a

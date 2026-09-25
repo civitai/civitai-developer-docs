@@ -5,7 +5,7 @@ sources:
   - civitai:docs/features/app-blocks.md
   - civitai:src/components/AppBlocks/hostHandlerParity.ts#INVENTORY
   - npm:@civitai/app-sdk@0.51.0/blocks#BlockInitPayload
-  - npm:@civitai/blocks-react@0.57.1#README
+  - npm:@civitai/blocks-react@0.57.2#README
 ---
 
 # Concepts
@@ -137,7 +137,7 @@ both at once. **Neither is deprecated** — they answer different questions.
 
 | | **Bridge** | **Direct API** |
 |---|---|---|
-| Package | `@civitai/blocks-react` | `@civitai/blocks-react` today; `@civitai/sdk` once a block can hold an OAuth token |
+| Package | `@civitai/blocks-react` | `@civitai/blocks-react`, or `@civitai/sdk` — which runs in a block on either credential since 0.5.0 |
 | Mechanism | typed `postMessage` to the host | your block calls `/api/v1` itself |
 | Credential | the block token, held by the host | the same block token, read from `useBlockToken()` |
 | Good for | anything that must raise Civitai's own UI | reading and writing data |
@@ -195,8 +195,8 @@ knowing, because the refresh is lazier than it looks:
   it authenticates server-side; your token's freshness is irrelevant to it.
 - **On the direct-API path it is not harmless.**
   Your request carries the token, so an expired one is a 401. Retry once through
-  `useBlockToken().refresh()` and reissue. (`@civitai/sdk` does this for you, but
-  a block cannot use it yet — see the [porting guide](./porting).)
+  `useBlockToken().refresh()` and reissue. (`@civitai/sdk` does this for you, and
+  it runs in a block — see the [porting guide](./porting).)
 
 The host also *pushes* a new token when it re-mints one mid-session (chiefly after
 a consent grant); apply pushed tokens unconditionally. You never mint, store, or
@@ -221,17 +221,18 @@ on any route wired to accept it, which today means one general route,
 `/api/v1/models/{id}`. It does **not** reach `/api/v1/me`; blocks read the viewer
 from `/api/v1/blocks/me`.
 
-::: danger `auth: "oauth"` is accepted but not yet live
-Minting the OAuth token is behind a server flag that is **off in production**.
-While it is off the host falls back to the **block token**, so a manifest
-declaring `auth: "oauth"` silently gets `block-token` behaviour. **Do not build
-against it yet** (verified 2026-09-24).
+::: warning `auth: "oauth"` is live, and it is a trade
+The host mints a real OAuth access token for a manifest declaring `auth: "oauth"`,
+in production (verified 2026-09-25). What it buys is the general `/api/v1`
+surface, the orchestrator and the MCP.
 
-It also gives up most of the block REST surface when it does go live — app
-storage, shared storage and the workflow routes all re-verify the raw bearer as
-a block JWS, which an OAuth token is not. Both caveats, and the field's full
-reference, are on the [manifest reference](../reference/manifest) — that page is
-`auth`'s home, and this one deliberately does not repeat it.
+What it costs is **22 of the block REST routes** — app storage, shared storage,
+the five workflow routes and `user-checkpoint/set` all re-verify the raw bearer as
+a block JWS, which an OAuth access token is not. So an app that uses app storage
+cannot declare `auth: "oauth"` today, and an app that generates should stay on the
+host-proxied workflow routes. The full trade, and the field's reference, are on
+the [manifest reference](../reference/manifest) — that page is `auth`'s home, and
+this one deliberately does not repeat it.
 :::
 
 ## Next
