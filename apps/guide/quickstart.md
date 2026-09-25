@@ -41,9 +41,11 @@ civitai app create my-app
 The default template is `page-money`, a working generation app, and **the rest of
 this page assumes it** — the other templates are deliberately SDK-free, so they
 have no `.env.example`, no `dev:harness` script and none of the SDK imports below.
-Use `--template page-vite` for a dependency-free React **JavaScript** start or
-`--template static` for no build at all, and `--dir ./path` to control the output
-directory. Every template is immediately runnable and validates clean.
+Use `--template page-vite` for a React **JavaScript** start (Vite plus
+`react`/`react-dom`, no SDK) or `--template static` for no build at all, and
+`--dir ./path` to control the output directory. All three validate clean;
+`static` runs with no install, while `page-vite` and `page-money` need an
+`npm install` first.
 
 Then install dependencies:
 

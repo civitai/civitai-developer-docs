@@ -262,23 +262,32 @@ token is rejected on estimate and on submit, before either arm is inspected, so 
 model-slot block cannot run a custom graph at all; asking for a recipe does not
 change that, because the guard fires before any recipe lookup.
 
-<!-- 🔴 FOUR DRAFTS OF THE NEXT PARAGRAPH HAVE BEEN WRONG. Recorded so nobody
-     writes a fifth: (1) "app developers only" — no such check exists on this
+<!-- 🔴 FIVE DRAFTS OF THE NEXT PARAGRAPH HAVE BEEN WRONG. Recorded so nobody
+     writes a sixth: (1) "app developers only" — no such check exists on this
      path; (2) "the inline arm is ADDITIONALLY page-token-only" — the recipe arm
      is too; (3) "nothing stands between a viewer and a submit except your own
      code" — then named three platform gates in the next clause; (4) "there is no
      per-viewer gate" — the server runs at least four viewer-keyed checks before
-     either arm is inspected. If you are tempted to characterise WHO can submit,
-     don't: enumerate the refusals from `blocks.router.ts` instead, or say
-     nothing. -->
+     either arm is inspected; (5) listed "a positive `buzzBudget` that covers
+     your maxBuzz" as a VIEWER property — it is minted from the app's own
+     manifest (`page.buzzBudgetPerGen`, default 10), and that comparison is a
+     static check AFTER the arm is chosen, not one of the pre-arm viewer gates.
+     If you are tempted to characterise WHO can submit, don't: enumerate the
+     refusals from `blocks.router.ts` instead, or say nothing. Every draft above
+     was written while fixing the one before it — the failure mode is supplying a
+     reason under pressure, so prefer deleting a claim to rewording it. -->
 
 Beyond the surface, the gates are the platform's rather than this arm's. Several
 run **before** either arm is inspected, and each is a refusal your app has to
 handle: the viewer must be **signed in**, must be **enabled for Apps** (this is
-closed beta — see above), must have granted the **`ai:write:budgeted`** consent
-scope, and must carry a **positive `buzzBudget`** that covers your `maxBuzz`.
-Resource entitlement is checked against the **viewer**, not the app. So do not
-assume any viewer of your published block can submit — build the refusal paths.
+closed beta — see above), and must have granted the **`ai:write:budgeted`**
+consent scope. Resource entitlement is checked against the **viewer**, not the
+app. So do not assume any viewer of your published block can submit — build the
+refusal paths.
+
+A submit can also be refused for a reason that is **not** about the viewer: your
+`maxBuzz` has to fit the per-call ceiling **your own manifest declared**
+(`page.buzzBudgetPerGen`) — see **Requirements** below, which covers how to size it.
 
 Ask for a recipe when you want a reviewed graph you do not have to ship in the
 body, not as a way onto another surface.
