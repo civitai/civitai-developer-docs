@@ -121,6 +121,15 @@ export const SKIP_DIRS = new Set([
   // Build output / caches produced by `npm run build`.
   '.vitepress/dist',
   '.vitepress/cache',
+  // 🔴 GENERATED, GITIGNORED ARTIFACTS — `.gitignore` carries `public/appblocks/`,
+  // and `npm run gen:appblocks` writes cli.json there from the SAME committed
+  // snapshot this walk already reads. Leaving it in made the reported count
+  // depend on whether anyone had built yet (26 examples/3 files in a fresh
+  // checkout, 34/4 after a build), which quietly drains the meaning from the
+  // positive control below — and a finding raised against a regenerated file
+  // points at a remedy that does not exist. Measured on the merged tree, not
+  // predicted.
+  'public/appblocks',
   // The checks themselves. They must be free to name the bad id as fixture
   // input — check-no-hand-flag-tables.mjs does exactly that.
   'scripts',
