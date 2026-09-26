@@ -45,8 +45,10 @@ block:
 
 - the `model.sidebar_top` slot is about **360px** wide at a 360px phone
   viewport, and only about **430px** at a 1440px desktop one;
-- a page app (`app.page`) gets the host's whole content area, so the *same*
-  block can be several times wider on that same desktop.
+- a page app (`app.page`) gets the host's content area — which the host caps at
+  **1600px** by default, rendering the block as a centred column with a neutral
+  gutter either side past that — so the *same* block can be several times wider
+  on that same desktop.
 
 So "narrow" is not "phone", and "wide" is not "desktop". A 360px phone and a
 desktop model sidebar are the *same layout problem*, and a block that infers
@@ -207,10 +209,11 @@ cosmetic:
 |---|---|---|
 | iframe height | full content area; the host does **not** listen for `RESIZE_IFRAME` | sized to your content, clamped to the manifest's `iframe.minHeight` / `iframe.maxHeight` |
 | `useBlockResize` | inert — it still posts, the host ignores it | honoured |
-| typical width | the page content width | narrow, and roughly constant regardless of window width |
+| typical width | the page content width, capped at **1600px** by default | narrow, and roughly constant regardless of window width |
 
 On a page app, size **to** the surface: let the host's box be your canvas and
-lay out inside it. On a model slot, tell the host how tall you are with
+lay out inside it — the cap is inert below 1600px, so no laptop, tablet or phone
+width is touched by it. On a model slot, tell the host how tall you are with
 [`useBlockResize`](../reference/hooks) and keep the layout single-column — you
 are in a sidebar whether or not the window is wide.
 
