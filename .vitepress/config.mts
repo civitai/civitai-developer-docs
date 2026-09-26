@@ -67,6 +67,30 @@ const appsGuideSidebar: DefaultTheme.SidebarItem[] = [
       { text: 'Example apps', link: '/apps/examples' },
     ],
   },
+  // 🔴 CROSS-SECTION ON PURPOSE. These two pages live under `/site/guide/`
+  // because the binary they document is the Site API CLI, but most of the
+  // troubleshooting index is Apps-domain — `app submit`, `app listing`,
+  // `app doctor`, `app metrics`. Measured on cli-troubleshooting.md at this
+  // commit, counting rows whose cells carry a `](/apps/…)` target: 32 of its
+  // 60 rows, and 33 of its 69 outbound link instances. Registered under
+  // `'/site/guide/'` alone the pages were reachable from no Apps page at all
+  // (measured with a validated positive control: 5 files under `apps/` mention
+  // `store-listing`, 0 mention either of these pages), so an author who just
+  // got `the server rejected the image-upload request (400)` had no route to
+  // the page that indexes it.
+  //
+  // A GROUP rather than rows inside `Guide` for the reason the `Examples`
+  // comment above gives: the llms plugin turns a group into its own `###`
+  // heading in llms.txt, and these are not part of the Apps guide's reading
+  // order — they are a lookup surface. They are also emitted for the
+  // `/apps/examples` alias, which `dedupeSidebarGroups` collapses.
+  {
+    text: 'The `civitai` CLI',
+    items: [
+      { text: 'Look up a CLI error message', link: '/site/guide/cli-troubleshooting' },
+      { text: 'CLI terminal output', link: '/site/guide/cli-output' },
+    ],
+  },
 ];
 
 const sidebar: DefaultTheme.Sidebar = {
