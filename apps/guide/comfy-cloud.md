@@ -352,17 +352,8 @@ not offered to slot apps) and its manifest must:
    `buzzBudgetPerGen` as its budget and
    **gates every submit on `maxBuzz ≤ token.buzzBudget`**. If your
    per-gen budget is below the recipe's ceiling, **every submit is rejected**
-   before it runs. But that makes the recipe's ceiling a **floor**, and a floor
-   is not a sizing method — these are two different quantities. The recipe's
-   `maxBuzz` is what the *server* enforces on one job: the step runs under a
-   timeout that physically bounds GPU-seconds, and you settle down to the real
-   runtime cost regardless. `buzzBudgetPerGen` is what *you* choose — the largest
-   single generation your app may request at all, i.e. the blast radius if the
-   app is exploited. Size it from how much damage you are willing to absorb, then
-   check it clears the floor; sizing it as *the recipe's price plus a margin* is
-   the classic mistake, and it re-breaks the app the day you call a pricier
-   recipe. See [Sizing the budget](../reference/manifest) in the manifest
-   reference.
+   before it runs. See [Sizing the budget](../reference/manifest) in the
+   manifest reference.
 
 ```json
 {
