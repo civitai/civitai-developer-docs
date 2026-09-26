@@ -361,25 +361,43 @@ named **"Qwen-Image-2512"** while its edit version is named **"Image Edit
 lands you on the txt2img version. The **edit** version is `2558804`.
 :::
 
-::: danger Omitting the source image silently switches you to a different MODEL
+::: danger A version the resolved workflow doesn't offer can still be swapped silently
 The workflow variant is derived from **whether a source image is present**
-(`sourceImage`, or `sourceImages`), not
-from the version id you name. Name the edit version but leave the source image
-off, and the bridge builds a **`txt2img`** graph — and then, because the edit
-version isn't valid for `txt2img`, it **re-maps your model to that version's
-txt2img sibling** and generates with *that*. For Qwen, asking for `2558804`
-without a source image gets you `2552908`. It does not warn you, and it does
-not fail.
+(`sourceImage`, or `sourceImages`), not from the version id you name — so the
+version you send and the workflow you get are decided independently.
 
-That is the worst failure mode available here, because it looks like success:
-the workflow succeeds, images render, and nothing in the
-`BlockWorkflowSnapshot` reports either substitution. You did not get a weaker
-version of what you asked for — you got a **different model**, and the only
-tell is that the output ignores your source image and doesn't behave like an
-edit.
+**The Qwen case in the table above now fails, loudly.** Name the edit version
+`2558804`, leave the source image off, the bridge resolves `txt2img`, and the
+request is rejected with `BAD_REQUEST`:
+
+> modelVersion 2558804 is not available for 'txt2img' on the Qwen ecosystem — it
+> is offered for img2img:edit only. Either send a `sourceImage` to run it as an
+> image edit, or use modelVersionId 2552908 for txt2img.
+
+That check only fires on a version the ecosystem's config lists for **some other
+workflow**, and only in the **`txt2img` direction**. Two narrower cases are still
+substituted silently:
+
+- **A version id the ecosystem lists nowhere** — a community checkpoint, or a
+  version retired since your app shipped. Most image ecosystems lock their
+  checkpoint, and on those an unlisted id is replaced with the workflow's default
+  version and the generation succeeds: `987654321` on Qwen `txt2img` comes back
+  as `2552908`. (On an ecosystem that does not lock its checkpoint, the id
+  survives.)
+- **The reverse direction** — a `txt2img`-only version sent **with** a source
+  image. It is substituted the same way and is not rejected: `2552908` sent with
+  a source image on Qwen comes back as `2558804`.
+
+In both, it looks like success: the workflow succeeds, images render, and you are
+billed for a checkpoint you did not ask for. The swap is recorded server-side on
+the workflow snapshot as `modelSubstitutions` (`requested` / `applied` /
+`reason`), but that field is not part of the SDK's `BlockWorkflowSnapshot` type
+yet — so don't build on reading it. The tell is behavioural: the output ignores
+your source image, or doesn't look like the version you named.
 
 **The fix is in your body, not in a support request**: send a source image
-whenever you mean to edit, and name the edit version (`2558804`) explicitly.
+whenever you mean to edit, and name the version that belongs to the mode you
+want — `2558804` for a Qwen edit, `2552908` for Qwen `txt2img`.
 :::
 
 #### Worked example: Qwen single-image edit
