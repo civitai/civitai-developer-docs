@@ -603,7 +603,7 @@ run a graph that is not in this table.)
 | `recipe` | what it does | `params` (`.strict()`) | per-generation Buzz ceiling |
 |---|---|---|---|
 | `seamless-pano-360` | 360° seamless panorama, fixed **2048×1024** | `{ prompt, seed?, engine?, accountType? }` — `engine` is one of `zimage-turbo`, `flux2-klein`, `qwen-image` | 90 / 150 / 180, by engine |
-| `starter-comfy-txt2img` | single-step **Z-Image** txt2img, fixed **1024×1024** | `{ prompt, seed?, accountType? }` | 30 |
+| `starter-comfy-txt2img` | single-step **Z-Image** txt2img, fixed **1024×1024** | `{ prompt, seed?, accountType? }` | 90 |
 
 Both param schemas are `.strict()`: a field that isn't listed is rejected, not
 ignored. Note what is **not** exposed — neither recipe takes `width` / `height`,
