@@ -92,8 +92,8 @@ interface BlockInitPayload {
                                  // INFORMATIONAL ONLY — never derive "is this SFW?"
                                  // from this string; the policy is server-side.
   maxBrowsingLevel?: number;     // authoritative browsing-level BITMASK — the max
-                                 // NSFW levels the domain allows. This is the
-                                 // canonical maturity test: isSfwCeiling(maxBrowsingLevel).
+                                 // NSFW levels the domain allows. Not the viewer's
+                                 // own ceiling; see the warning below.
 }
 ```
 
@@ -101,8 +101,14 @@ interface BlockInitPayload {
 Both maturity fields are optional, and the SDK **fail-closes to SFW** when
 `maxBrowsingLevel` is missing. So treat `undefined` as the most restrictive
 ceiling — a block that reads it as "unrestricted" surfaces mature affordances on
-a host that never granted them. Gate on `isSfwCeiling(maxBrowsingLevel)`, never
-on `domain`.
+a host that never granted them.
+
+Gate on `useDomainMaturity()`'s `isSfw` / `isLevelAllowed` — never on `domain`,
+and never on `maxBrowsingLevel` alone. `maxBrowsingLevel` is a property of the
+**domain**, identical for every viewer on `civitai.red` including one whose own
+NSFW setting is off, so it cannot answer whether *this* viewer may be shown
+mature content. The hook accounts for the viewer and keeps the same fail-closed
+SFW default.
 :::
 
 From there, the [`@civitai/blocks-react`](https://www.npmjs.com/package/@civitai/blocks-react)
