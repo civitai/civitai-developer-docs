@@ -196,11 +196,6 @@ that JSON Schema can't:
 - **Scope ⊆ OAuth-client** — your declared `scopes` must be a subset of the
   app's OAuth-client allowed bits (see [Scopes](./scopes)).
 - **Sandbox-token allowlisting by trust tier.**
-- **`buildCommand` allowlist** — only a fixed set of build invocations is
-  permitted. The published schema only bounds the length; the **validator**
-  carries the positive allowlist regex and additionally rejects shell
-  metacharacters. A `buildCommand` that passes local schema validation can still
-  be rejected at submit time.
 - **`outputDir` traversal** — the schema blocks a leading `/`; the validator also
   rejects `..`, backslashes, and other traversal/escape sequences.
 
