@@ -10,8 +10,14 @@ browsing models, model versions, images, creators, and tags. It's the same
 surface that powers third-party tools like Stable Diffusion downloaders and
 metadata lookup utilities.
 
-This is **not** the Orchestration API. If you want to *submit* generation work,
-see the [Orchestration docs](/orchestration/).
+This is **not** the Orchestration API. If you are building a service that
+submits generation work against your own orchestrator credentials, see the
+[Orchestration docs](/orchestration/).
+
+The one exception is the **`civitai` CLI**, which lives in this section. As well
+as reading these endpoints it can run a generation on your own account and spend
+your own Buzz — see [Generating images from the CLI](./guide/cli-generate). That
+is a terminal tool for a civitai.com user, not the partner orchestrator API.
 
 ## Where to start
 
@@ -22,8 +28,10 @@ see the [Orchestration docs](/orchestration/).
 - **[Reference](./reference/)** — per-resource documentation for every public
   endpoint (models, images, articles, collections, creators, tags, users),
   sourced directly from the current Next.js handlers.
-- **[CLI](./guide/cli)** — search and fetch these endpoints from the terminal
-  with the `civitai` CLI read commands.
+- **[CLI](./guide/cli)** — search, fetch and download from the terminal with
+  the `civitai` CLI. Also the home of the CLI's
+  [credentials](./guide/cli-auth) and
+  [generation](./guide/cli-generate) pages.
 
 </div>
 

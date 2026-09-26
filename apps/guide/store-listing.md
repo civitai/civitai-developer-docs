@@ -314,6 +314,102 @@ least one is required. A few rules worth knowing:
   instead.
 - The server **rate-limits** these edits, at roughly 30 an hour.
 
+## Link your source code
+
+If your app is open source, its store **detail** page can carry a `Source` row
+linking to the code. It never appears on a store grid card, and it is omitted
+entirely when unset.
+
+**Where you set it depends on your app's kind, and the two are not
+interchangeable.**
+
+| kind | where the link lives | how it gets there |
+|---|---|---|
+| **on-site** | the `repository` key in `block.manifest.json` | flows to the listing when a moderator approves a version, and is **re-synced from the manifest on every approved version after that** — remove the key and the link is cleared |
+| **off-site** | the listing itself | `civitai app listing set-source-repo <url>` |
+
+`set-source-repo` **refuses an on-site app** (exit `1`) and names the manifest
+key instead, because a write here would be re-synced away at your next approved
+version.
+
+```bash
+civitai app listing set-source-repo https://github.com/me/my-app
+civitai app listing set-source-repo --clear          # remove the link
+civitai app listing set-source-repo https://github.com/me/my-app --json
+```
+
+### What the server accepts
+
+The URL must be a repository **root** on `github.com`, `gitlab.com` or
+`codeberg.org` — `https://<host>/<owner>/<repo>`, with no deeper path. A
+trailing `/` or `.git`, a query string and a fragment are accepted and
+normalised away. A deep link such as `/owner/repo/tree/main` is rejected.
+
+::: tip That rule is the server's, and the CLI does not pre-validate it
+The only local check is that you passed something. The platform's
+`validateRepositoryUrl` is the authority, and it constrains things the shipped
+manifest `pattern` does not — each path segment's characters, a stripped
+trailing `.git`. A second local copy of that rule would be a second thing to be
+wrong, so an unacceptable URL comes back as the server's own message.
+
+For the **on-site** manifest key, `civitai app validate` checks only the coarse
+shape: passing it is necessary, not sufficient.
+:::
+
+::: danger This is a *material* change, unlike `set-text`
+On an **approved** listing a change to this link is not applied in place: the
+server stages it on a revision and the listing re-enters moderator review,
+because this is an outbound link on a public page. **The live listing is
+unchanged until that revision is approved** — run
+`civitai app listing submit-revision` to send it.
+
+The command tells you which branch the server took, and `--json` carries it as
+`requiresReview` and `shadowId`. On a draft or pending listing it applies
+directly.
+
+This is also why it is a separate command rather than a flag on `set-text`:
+bundling them would make a `--tagline` edit stage instead of apply, depending
+on whether an unrelated flag happened to be passed.
+:::
+
+**What counts as a "change".** The server compares **canonical** forms, so
+several things that look like edits are not: re-setting the link you already
+have, setting a `/` or `.git` spelling of it, or `--clear` on a listing that
+has no link. Those apply in place and stage nothing, and the command reports
+`requiresReview: false` — it never guesses which branch happened, it reports
+the one the server took.
+
+### Some states are refused outright rather than staged
+
+Read the code, not the word "refused" — they do **not** share one:
+
+| state | exit |
+|---|---|
+| you unpublished the listing yourself — a material change is blocked while it is down | `2` |
+| a moderator removed the listing | `3` |
+| any other failure the server does not classify — including a platform that has not yet applied the migration adding the listing's source-repo column | `1` |
+
+The first is `2` because the server answers `MATERIAL_CHANGE_BLOCKED` as an
+HTTP `400`, which this CLI classifies as a malformed request. In each case the
+server's own sentence is what names the state, and the CLI echoes it verbatim.
+On the **moderator takedown** the CLI adds what that sentence leaves out — that
+your account's access is not the problem, and that asking a moderator to relist
+the listing is the only step that helps.
+
+### If a revision was already open
+
+Because you staged an `rm-screenshot`, or one of the attach commands minted
+one — then *when this edit is material* it joins **that** revision rather than
+getting its own, and approving it publishes *everything* staged there and
+copies its text back over the live listing. The command says so and points you
+at `civitai app listing status` first.
+
+When the edit is **not** material (the canonical no-op above) it applies in
+place and does not join the revision — but that revision can still carry a
+*different* source link that replaces yours when it is approved, so the command
+warns about it on that path too. `--json` reports it as `openRevision` either
+way.
+
 ## Reading a listing back in a script
 
 `civitai app listing status --json` is the scriptable form, and it names the two
