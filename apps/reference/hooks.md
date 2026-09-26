@@ -2,9 +2,9 @@
 title: Hooks reference
 description: Every @civitai/blocks-react hook — signature and example, generated from the published package.
 sources:
-  - npm:@civitai/blocks-react@0.58.0/dist/index.d.ts
-  - npm:@civitai/blocks-react@0.58.0#README
-  - npm:@civitai/app-sdk@0.51.1/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.58.1/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.58.1#README
+  - npm:@civitai/app-sdk@0.51.2/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
 
@@ -159,7 +159,7 @@ if (host) {
 useBlockSettings(): UseBlockSettings
 ```
 
-Shorthand for `useBlockContext().settings`. Read-only from the iframe — settings are *written* on the platform `/apps/installed` page, not via a bridge message.
+Shorthand for `useBlockContext().settings`. Read-only from the iframe — there is no general "set settings" bridge message. Writing them is platform-side, in the settings panel reached from the **Manage** control on an installed app. The one setting a block can write itself is the viewer's checkpoint, via the `SET_USER_CHECKPOINT` message (see `useCheckpointPicker`).
 
 ```tsx
 const { publisherSettings, userSettings } = useBlockSettings();
@@ -798,7 +798,7 @@ union keyed by `kind`. The hook forwards the body to the host verbatim and never
 reads member-specific fields, so every member flows through the same
 `estimate → submit → watch` lifecycle shown above.
 
-As of the pinned `@civitai/app-sdk@0.51.1` the union has three `kind` values, and
+As of the pinned `@civitai/app-sdk@0.51.2` the union has three `kind` values, and
 `kind: 'step'` is itself two arms — four members in all:
 
 | `kind` | what it runs | what your block sends |
