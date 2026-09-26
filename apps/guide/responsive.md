@@ -2,7 +2,7 @@
 title: Responsive blocks
 description: The width your block measures is the slot the host gave it, not the device — so a media query inside a block is already a container query. Covers the --civitai-bp-* scale, useBlockBreakpoint(), the em-vs-px breakpoint trap, and what the design system already reflows for you.
 sources:
-  - npm:@civitai/blocks-react@0.57.2#useBlockBreakpoint
+  - npm:@civitai/blocks-react@0.57.3#useBlockBreakpoint
   - npm:@civitai/theme@0.4.0#breakpoints
   - npm:@civitai/components@0.6.0
 ---
