@@ -117,12 +117,13 @@ it reaches your terminal, and this is what that gate promises:
   [What the server says went wrong](./cli-workflows#what-the-server-says-went-wrong),
   and is not restated here.
 
-  What the CLI prints from what **you** typed is a narrower promise. Your
-  prompt, your negative prompt, `--ecosystem` and the paths you name are echoed
-  back exactly as typed — most importantly on the **confirmation screen before a
-  spend**, which has to show what will really be sent. But some values *you*
-  supplied do go through the same gate as server text. Two of those are
-  documented:
+  What the CLI prints from what **you** typed is a narrower promise, and it
+  splits by **value**, not by screen. Your prompt, your negative prompt and
+  `--ecosystem` never go through that gate. **The paths you name are different:**
+  they are echoed exactly on the **confirmation screen before a spend**, which
+  has to show what will really be sent, while several of the lines that report a
+  path elsewhere do put it through the same gate as server text. Documented
+  cases:
 
   1. a value read out of an `--input` **file** is filtered like server text,
      because a graph file can be downloaded or generated and so is not really
@@ -131,18 +132,17 @@ it reaches your terminal, and this is what that gate promises:
      with `--out`**, because the same variable holds a **server**-chosen file
      name in its other branches.
 
-  Both of those are set out on the same page as the rune class, linked above.
-  They are not the whole set, and no surface enumerates it — the values you give
-  `civitai download`'s `--root` and `--for-base` are also filtered, in the lines
-  that report them. So a byte-for-byte echo is the rule rather than a guarantee
-  you can lean on everywhere: where it matters most, before a spend, it holds.
+  Both of those are set out on the same page as the rune class, linked above. **No
+  surface enumerates the set, so do not read those two as its boundary** —
+  `civitai download` also filters the values you give `--root` and `--for-base`,
+  in the very lines that report them.
 
   ::: warning `--dry-run` prices a different screen, and it is not this one
   The quote `civitai generate --dry-run` prints is **not** the confirmation
-  screen. It deliberately does *not* echo your prompt — it prints
-  `<not checked by --dry-run>` instead, because the estimate is priced on a graph
-  with the text removed — and it is the only screen that echoes
-  `--aspect-ratio`. Do not read one as a preview of the other.
+  screen. It withholds **both** prompt rows, printing
+  `<not checked by --dry-run>` where your prompt and your negative prompt would
+  be, because the estimate is priced on a graph with that text removed. Do not
+  read one as a preview of the other.
   :::
 - **A table cell is one line, and one column.** Every **server-supplied** value
   that reaches a cell of a rendered table — `models search`, `images search`, `app status`,
