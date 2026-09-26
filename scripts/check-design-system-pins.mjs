@@ -324,7 +324,16 @@ export const HISTORICAL_LITERALS = [
     // /group|wrap/; the `[data-nowrap='true'] { flex-wrap: nowrap; }` rule is
     // byte-identical in both. So the arrival version is still 0.4.0 and the
     // exemption below still describes reality against the NEW pin.
-    why: 'group wrapping by default + `data-nowrap` ARRIVED in components 0.4.0 — no release since has touched the group/wrap rules (measured: 0 of the 42 rules that changed between 0.4.1 and 0.6.0 match group or wrap). Bumping this to the pin would name a version in which nothing about this behaviour changed.',
+    //
+    // RE-MEASURED AGAIN at the 0.7.1 pin bump, and this time the answer is
+    // stronger than a rule-by-rule diff: `styles.css` is BYTE-IDENTICAL between
+    // 0.6.0 and 0.7.1 (`cmp` rc=0, 31108 bytes both), so 0.7.1 cannot have
+    // touched ANY rule, group/wrap included. Positive control for that cmp:
+    // 0.4.1 vs 0.7.1 DOES differ (rc=1, first at byte 8979), so the comparison
+    // is capable of reporting a difference. What 0.7.1 actually changed is JS,
+    // not CSS — it adds the `civitai-workflow-button` element and edits
+    // `civitai-sign-in-button` (custom-elements.json: 45 -> 46 elements).
+    why: 'group wrapping by default + `data-nowrap` ARRIVED in components 0.4.0 — no release since has touched the group/wrap rules (measured: 0 of the 42 rules that changed between 0.4.1 and 0.6.0 match group or wrap, and `styles.css` is byte-identical between 0.6.0 and the 0.7.1 pin). Bumping this to the pin would name a version in which nothing about this behaviour changed.',
   },
 ];
 
