@@ -173,6 +173,8 @@ through every field it does not model.
 
 ## Where to go next
 
-- [CLI exit codes](./cli-exit-codes) — branch on the code before parsing.
+- **Exit codes** — branch on the code before parsing. `civitai --help` prints
+  the summary table; the full ledger is in the
+  [CLI README](https://github.com/civitai/cli#exit-codes).
 - [Generating images from the CLI](./cli-generate).
 - [Tracking and cancelling generations](./cli-workflows).

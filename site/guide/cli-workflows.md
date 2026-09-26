@@ -242,4 +242,5 @@ the `transactions` object with every field this CLI does not model.
   every exit code.
 - [Scripting the CLI with `--json`](./cli-json) — the output guarantees for
   these commands.
-- [CLI exit codes](./cli-exit-codes) — the full per-code ledger.
+- **Exit codes** — `civitai --help` prints the summary table for every code; the full per-code ledger is in the
+  [CLI README](https://github.com/civitai/cli#exit-codes).

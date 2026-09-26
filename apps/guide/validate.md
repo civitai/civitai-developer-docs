@@ -281,4 +281,5 @@ round-trip, and for validation a stale local copy is a cost worth paying.
   it leaves out.
 - [Review, approval and deploy](./review-and-deploy) — the lifecycle after a
   successful submit.
-- [CLI exit codes](../../site/guide/cli-exit-codes) — the full per-code ledger.
+- **Exit codes** — `civitai --help` prints the summary table for every code; the full per-code ledger is in the
+  [CLI README](https://github.com/civitai/cli#exit-codes).

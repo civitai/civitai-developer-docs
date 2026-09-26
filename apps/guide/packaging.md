@@ -346,7 +346,7 @@ credential in a test file is uploaded and reviewed like any other.
 `app submit` refuses while files that go into the bundle are uncommitted,
 because the bundle is packaged from what is on disk and approving one deploys
 code that exists in no commit. `--allow-dirty` submits the tree as it is. The
-refusal is [exit `1`](../../site/guide/cli-exit-codes#exit-code-1) — a verdict
+refusal is [exit `1`](https://github.com/civitai/cli#exit-code-1) — a verdict
 about the project, not a bad command.
 
 It **degrades rather than enforcing**: a directory that is not in a git repo,
@@ -384,4 +384,5 @@ Scaffolding never puts you here — `civitai app create` and `app init` run no
   upload.
 - [Your store listing](./store-listing) — the icon and cover a listing cannot
   publish without.
-- [CLI exit codes](../../site/guide/cli-exit-codes) — the full per-code ledger.
+- **Exit codes** — `civitai --help` prints the summary table for every code; the full per-code ledger is in the
+  [CLI README](https://github.com/civitai/cli#exit-codes).

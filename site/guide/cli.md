@@ -11,13 +11,32 @@ images, articles, collections, and more straight from the terminal or a script �
 and **download** a model version's file(s) with type-aware folder routing and
 automatic SHA256 verification.
 
-::: tip Read = anonymous, download = authenticated
+::: tip Three tiers: read is anonymous, download is authenticated, generate spends
 The **read/search** commands (`models`, `model-versions`, `images`, `articles`,
 `collections`, `tags`, `creators`, `users`) hit **public** endpoints and work
 with no login; pass `--anon` to force a token-free request. The **`download`**
 command is different: Civitai requires a token for **any** model-file download —
 even a small public file — so `civitai download` needs [`civitai login`](#authentication).
+
+The same binary also **generates**, and that tier spends real Buzz
+irreversibly. This page does not cover it — start at
+[Generating images from the CLI](./cli-generate).
 :::
+
+## This page, and the rest of the CLI
+
+This page covers the **read and download** commands. The binary does more, and
+each of these is its own page:
+
+| If you want to… | Page |
+|---|---|
+| know which credential can do what, and why a plain browser login cannot spend Buzz | [CLI credentials and scopes](./cli-auth) |
+| generate an image without losing money — pricing a run first, then waiting and collecting it | [Generating images from the CLI](./cli-generate) |
+| understand why the server ran a model you did not ask for | [Choosing a model](./cli-generate-models) |
+| set a seed, or reach the sampler and step settings the flags do not expose | [Raw generation graphs](./cli-generation-graphs) |
+| find a submitted job, read what failed, or cancel one | [Tracking and cancelling generations](./cli-workflows) |
+| script against machine-readable output beyond the read endpoints | [Scripting the CLI with `--json`](./cli-json) |
+| author and ship a Civitai App | [Apps guide](/apps/guide/) |
 
 ## Install
 
@@ -309,6 +328,10 @@ active account (no separate logout).
 For the read endpoints the result is identical to `--anon` whether or not you're
 logged in.
 
+Which credential carries which capability — and why a default browser login
+**cannot spend Buzz** — is on
+[CLI credentials and scopes](./cli-auth).
+
 ## Scripting with `--json`
 
 `--json` prints the **raw `/api/v1/...` REST response** — a stable passthrough,
@@ -327,8 +350,16 @@ The output is pipe-safe by contract:
 - **the exit code is the contract, not the stderr text** — failures are
   classified into distinct codes (`4` is "not found"), so a script can tell a
   missing resource from an auth failure or a network error without parsing
-  prose. The full table is in the
+  prose. `civitai --help` prints the summary table for every code, and the full
+  per-code ledger is in the
   [CLI README](https://github.com/civitai/cli#exit-codes).
+
+::: tip Beyond the read endpoints
+The rules above are for the Site API read commands. `civitai generate` and
+`civitai workflows …` print the **orchestrator's** payload instead, and the
+byte-level guarantees differ — see
+[Scripting the CLI with `--json`](./cli-json).
+:::
 
 ### Cursor-pagination loop
 

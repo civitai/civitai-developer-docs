@@ -196,5 +196,6 @@ because the capability was denied.
 
 - [Generating images from the CLI](./cli-generate) — which of these credentials
   can spend.
-- [CLI exit codes](./cli-exit-codes) — exit `3` and what it does *not* cover.
+- **Exit codes** — exit `3` and what it does *not* cover: see the
+  [CLI README](https://github.com/civitai/cli#exit-code-3).
 - [CLI guide](./cli) — installing the binary and the read commands.
