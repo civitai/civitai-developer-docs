@@ -66,12 +66,6 @@ it's why the relationship between your block and the host is deliberately narrow
 - Your block **holds no long-lived secret**. The credential is short-lived and
   scoped, and the sandbox keeps it out of reach of the parent page.
 
-::: info Two transport models
-The bullets above hold for both. Which one your block uses decides *how* it
-spends the credential — over the `postMessage` bridge, or by calling `/api/v1`
-directly. See [Transport models](#transport-models) below.
-:::
-
 <!-- The auto-slug for this heading is `the-host-↔-block-bridge` (the `↔`
      survives slugification), which nothing links to and nobody types. Three
      pages already link to `#the-host-block-bridge`; pin that as the real id. -->
@@ -117,17 +111,23 @@ hooks surface this to you — `useBlockContext()` returns the init payload behin
 request/response message pair the host answers.
 
 ::: tip Render your shell instantly, hydrate on init
-`ready` gates the **data**, not your whole app. Your layout, headings, controls,
-and empty states need nothing from the host — render them on first paint and swap
-in the init-dependent parts when `ready` flips. Blocking the entire tree on the
-handshake turns a fast iframe into a blank panel for the length of a round trip,
-which is the single most common reason a block *feels* slow.
+`ready` gates the **data**, not your whole app — render your layout on first paint
+and swap in the init-dependent parts when `ready` flips.
 
-The host also puts the paint-time fields — `theme`, `renderMode` and
-`blockInstanceId` — in the iframe URL fragment, so a block that wants the right
-theme on its very first frame can read them before any message arrives. The
-bridge remains authoritative: treat the fragment as a hint and let `BLOCK_INIT`
-confirm it.
+```tsx
+import { useBlockContext } from '@civitai/blocks-react';
+
+export function App() {
+  const { ready, theme } = useBlockContext();
+
+  return (
+    <div data-theme={theme}>
+      <h1>My block</h1>
+      {ready ? <Results /> : <Placeholder />}
+    </div>
+  );
+}
+```
 :::
 
 ## Transport models
@@ -174,12 +174,6 @@ per-viewer and per-app daily caps, the maturity clamp, and the
 tests** — which is exactly why it is worth stating. Submit through
 `/api/v1/blocks/workflows/*`.
 :::
-
-Because every call re-presents a scoped token that the server re-checks, policy
-stays on Civitai's side either way. The bridge is what you get when you want the
-**viewer** to be the principal; the full public contract is available to anyone
-willing to be their **own principal** (own token, own backend, own Buzz). See
-[what the bridge can and cannot do](../reference/generation#what-the-bridge-can-and-cannot-do).
 
 ## Tokens, briefly
 
