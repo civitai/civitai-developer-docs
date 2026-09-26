@@ -385,10 +385,10 @@ not offered to slot apps) and its manifest must:
 ```
 
 The scaffold's Comfy on Civitai sample pairs `buzzBudgetPerGen: 300` with the
-`starter-comfy-txt2img` recipe (per-generation ceiling **30** Buzz) — roughly 10×
+`starter-comfy-txt2img` recipe (per-generation ceiling **90** Buzz) — roughly 3×
 the ceiling. That headroom is never spent: it bounds what the app is allowed to
 *ask for*, while the charge is the real runtime cost. Read the 300 as a
-blast-radius limit, not as 30 rounded up.
+blast-radius limit, not as 90 rounded up.
 
 ## How generation is billed
 
