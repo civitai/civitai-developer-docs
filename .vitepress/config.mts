@@ -256,6 +256,8 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'CLI: raw generation graphs', link: '/site/guide/cli-generation-graphs' },
         { text: 'CLI: tracking generations', link: '/site/guide/cli-workflows' },
         { text: 'CLI: scripting with --json', link: '/site/guide/cli-json' },
+        { text: 'CLI: terminal output', link: '/site/guide/cli-output' },
+        { text: 'CLI: troubleshooting', link: '/site/guide/cli-troubleshooting' },
         { text: 'Pagination', link: '/site/guide/pagination' },
         { text: 'Errors', link: '/site/guide/errors' },
         { text: 'AIR Identifiers', link: '/site/guide/air' },

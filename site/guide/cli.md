@@ -36,6 +36,8 @@ each of these is its own page:
 | set a seed, or reach the sampler and step settings the flags do not expose | [Raw generation graphs](./cli-generation-graphs) |
 | find a submitted job, read what failed, or cancel one | [Tracking and cancelling generations](./cli-workflows) |
 | script against machine-readable output beyond the read endpoints | [Scripting the CLI with `--json`](./cli-json) |
+| turn colour off in a pipeline, or know what a table cell may contain when the value came from a stranger | [CLI terminal output](./cli-output) |
+| look up an error message you just got | [CLI troubleshooting](./cli-troubleshooting) |
 | author and ship a Civitai App | [Apps guide](/apps/guide/) |
 
 ## Install

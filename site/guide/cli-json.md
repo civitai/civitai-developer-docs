@@ -22,6 +22,15 @@ update nag for clean pipeline output, the SHA256-case and embedded
 the bytes, and the generation and `app` payloads, which are not Site API REST
 shapes.
 
+::: warning `--json` is never styled, and never sanitised
+Colour never reaches it, at any setting — so it is safe to pipe regardless of
+how colour is configured or whether a TTY is attached. The flip side is that the
+escape-stripping and one-line flattening the **human** renderers apply do
+**not** run here, so a script that prints a server string from `--json` onto a
+terminal has to sanitise it itself. Both contracts are on
+[CLI terminal output](./cli-output#what-a-table-cell-can-contain).
+:::
+
 ## Two properties make the output safe to pipe
 
 - **`--json` stdout is pure JSON.** Nothing else is written to stdout, so
@@ -176,5 +185,8 @@ through every field it does not model.
 - **Exit codes** — branch on the code before parsing. `civitai --help` prints
   the summary table; the full ledger is in the
   [CLI README](https://github.com/civitai/cli#exit-codes).
+- [CLI terminal output](./cli-output) — the colour precedence, and the
+  sanitising the **human** renderers do that this output is exempt from.
+- [CLI troubleshooting](./cli-troubleshooting) — look up an error message.
 - [Generating images from the CLI](./cli-generate).
 - [Tracking and cancelling generations](./cli-workflows).

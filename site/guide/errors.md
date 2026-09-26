@@ -27,6 +27,14 @@ richer shape:
 Either way, inspect the HTTP status code first and use the body for a
 human-readable explanation.
 
+::: tip Hit this through the `civitai` CLI rather than the REST API?
+The CLI turns these statuses into **exit codes** and its own messages, and the
+mapping is not one-to-one — one `429` is exit `2`, another is exit `6`. Look the
+message you got up on
+[CLI troubleshooting](./cli-troubleshooting), which is indexed by the string the
+binary prints.
+:::
+
 ## Status codes
 
 | Status | Meaning | Typical cause |
