@@ -71,9 +71,7 @@ the same** either way.)
 
 There's no separate error code that lets you distinguish "out of buzz"
 from "capped by the user". If you need to give a precise message to the
-user, parse `message` defensively, or check the user's per-app spend
-state via [`GET /api/v1/me`](../reference/users) ahead of the call and
-present a likely-cause hint based on whether a limit is set.
+user, parse `message` defensively.
 
 ::: warning Don't rely on message text for programmatic decisions
 The exact default message string above comes from
@@ -84,9 +82,10 @@ human-readable only.
 
 ## Best practices for buzz-spending clients
 
-- **Surface the user's balance.** Call
-  [`GET /api/v1/me`](../reference/users) periodically and show buzz in
-  your UI — users hate guessing whether their next click will be denied.
+- **Surface the user's balance.** Users hate guessing whether their next
+  click will be denied. [`GET /api/v1/me`](../reference/users) does **not**
+  return a balance — read it over tRPC instead, via `buzz.getUserAccount`,
+  which requires the `BuzzRead` scope on your token.
 - **Use `whatif=true` for cost preview**, not for limit detection. The
   orchestration `whatif` mechanism ([see the orchestration guide](../../orchestration/guide/submitting-work))
   is designed to give you a per-currency cost breakdown before you submit
