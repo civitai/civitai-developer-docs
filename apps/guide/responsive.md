@@ -30,11 +30,8 @@ only the iframe box changed):
 | 430 × 320 | `true` | `430px` | `320px` |
 | 900 × 640 | `false` | `900px` | `640px` |
 
-Two things fall out of that table:
+One thing falls out of that table:
 
-- **The 900px row is the control.** A `true` on its own would also be what a
-  zero-width or failed-to-load iframe reports, so the value of the measurement
-  is that the query *flips* with the iframe box while the window never moves.
 - **`dvh`, `svh`, `lvh` and `vh` are the same number here.** Those units differ
   only when browser chrome expands and retracts over the viewport, and an
   iframe has none. Reach for `100dvh` if you like the habit — inside a block it
@@ -100,11 +97,6 @@ Below `xs` is `base`, which is where both the phone and the model sidebar land.
 is evaluated outside the cascade, where no element is in scope, so `var()` is
 never substituted there — the condition is invalid and the rules inside it never
 apply. Nothing errors and nothing warns; the styles are simply missing.
-
-Measured in the same browser, with the window at 1000px and `--bp-sm` proven to
-resolve to `768px`: the literal `@media (min-width: 768px)` applied and the
-`var()` form did not. The literal is the control — without it, "the rule did not
-apply" would not distinguish a dead condition from a probe that never ran.
 
 So write the pixel value literally in a `@media` or `@container` condition, and
 keep the token for the places that do substitute it — `width`, `max-width`,
