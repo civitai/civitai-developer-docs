@@ -518,15 +518,6 @@ So:
   request, and an older host answers it by silently doing something else.
 - **Never both**, in either direction — that is rejected as ambiguous.
 
-### Not supported today
-
-One thing is genuinely out of reach, and it is the one worth opening a platform
-request for:
-
-| Not available through the bridge | Where it stands |
-|---|---|
-| **Background removal** (e.g. BiRefNet) | a **first-class orchestrator step**, not a Comfy graph and not an `imageGen` operation — **no union member reaches it** |
-
 These are bounded by the union's shape, not by configuration:
 
 | Constraint | What to do instead |
@@ -535,7 +526,7 @@ These are bounded by the union's shape, not by configuration:
 | More images than the checkpoint's ecosystem allows | pick a checkpoint whose ecosystem has a higher cap |
 | Choosing edit vs img2img yourself | it follows from the checkpoint's ecosystem; pick the checkpoint accordingly |
 
-Note what is **not** on these lists: single-image editing, multi-image editing
+Note what is **not** on this list: single-image editing, multi-image editing
 on a capable ecosystem, and Z-Image all work through `textToImage` today — see
 [the ids you probably want](#the-ids-you-probably-want).
 
