@@ -2,8 +2,8 @@
 title: Hooks reference
 description: Every @civitai/blocks-react hook — signature and example, generated from the published package.
 sources:
-  - npm:@civitai/blocks-react@0.57.3/dist/index.d.ts
-  - npm:@civitai/blocks-react@0.57.3#README
+  - npm:@civitai/blocks-react@0.58.0/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.58.0#README
   - npm:@civitai/app-sdk@0.51.1/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
@@ -122,11 +122,16 @@ const bp = useBlockBreakpoint();
 useBlockToken(): UseBlockToken
 ```
 
-Current block-scoped JWT, auto-refreshing ~2 min before expiry. Returns the token fields plus a `refresh()` for the 401-retry path.
+Current block-scoped JWT, auto-refreshing ~2 min before expiry. Returns the token fields plus a `refresh()` for the 401-retry path, which **resolves with the new token**.
 
 ```tsx
 const { raw, scopes, expiresAt, buzzBudget, refresh } = useBlockToken();
-// after a 401: await refresh(); then retry the request once with the new `raw`.
+
+let res = await fetch(url, { headers: { Authorization: `Bearer ${raw}` } });
+if (res.status === 401) {
+  const fresh = await refresh();   // resolves WITH the new token
+  res = await fetch(url, { headers: { Authorization: `Bearer ${fresh.raw}` } });
+}
 ```
 
 **`useHostOrigin`**

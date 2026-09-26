@@ -3,7 +3,7 @@ title: Generating images (text-to-image)
 description: The primary App Blocks generation path — submit a text-to-image WorkflowBody, add LoRAs, do img2img (page-only), and read the result — with the server-enforced field contract and the page-vs-model rules stated in full.
 sources:
   - npm:@civitai/app-sdk@0.51.1/blocks#WorkflowBodyTextToImage
-  - npm:@civitai/blocks-react@0.57.3#useBuzzWorkflow
+  - npm:@civitai/blocks-react@0.58.0#useBuzzWorkflow
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockTextToImageBodySchema
 ---
 
