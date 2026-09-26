@@ -121,8 +121,7 @@ it reaches your terminal, and this is what that gate promises:
   splits by **value**, not by screen. Your prompt, your negative prompt and
   `--ecosystem` never go through that gate. **The paths you name are different:**
   they are echoed exactly on the **confirmation screen before a spend**, which
-  has to show what will really be sent, but `civitai download` puts the paths it
-  reports through the same gate as server text. Documented cases where a value
+  has to show what will really be sent. Documented cases where a value
   *you* supplied is filtered:
 
   1. a value read out of an `--input` **file** is filtered like server text,
