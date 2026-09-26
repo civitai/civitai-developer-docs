@@ -17,11 +17,10 @@ The flag **table** under
 [Global flags](/apps/reference/cli#cli-global-flags) is generated from the
 binary's own `--help` output, so its rows cannot drift from the build. It is not
 the whole set, though, and the sentence above it is hand-written: `-h` / `--help`
-is **filtered out** of that table (cobra attaches it per command, so it never
-appears in the inherited block the generator reads), and `-v` / `--version` is
-listed there even though it is **root-only**. `civitai --help` is the authority
-for any one build. What is below is what these flags *do*, which neither surface
-tells you.
+is **not in that table** even though every command accepts it, and
+`-v` / `--version` **is** in it even though it is **root-only**.
+`civitai --help` is the authority for any one build. What is below is what these
+flags *do*, which neither surface tells you.
 :::
 
 ## The global flags, and one that is not
@@ -114,23 +113,29 @@ it reaches your terminal, and this is what that gate promises:
   server-supplied strings the human renderers print, so a hostile value cannot
   overwrite a line the CLI already printed or reorder what you read. The exact
   rune class — which code points go, the one variation selector that stays, and
-  the nine scripts the strip costs a distinction in — is stated once, on
+  the scripts the strip costs a distinction in — is stated once, on
   [What the server says went wrong](./cli-workflows#what-the-server-says-went-wrong),
   and is not restated here.
 
-  What the CLI prints from what **you** typed — a prompt, a path, a flag value —
-  is echoed byte-for-byte and is deliberately *not* rewritten, with **two
-  documented exceptions**, both of them away from the screen that precedes a
-  spend:
+  What the CLI prints from what **you** typed is a narrower promise. On the
+  **confirmation screen before a spend** it is a guarantee: your prompt, your
+  negative prompt, `--aspect-ratio`, `--ecosystem` and the paths you name are
+  echoed byte-for-byte, because that screen has to show what will really be
+  sent. Away from that screen, some values *you* supplied do go through the same
+  gate as server text. Two of those are documented:
 
   1. a value read out of an `--input` **file** is filtered like server text,
      because a graph file can be downloaded or generated and so is not really
      "what you typed";
   2. `civitai download` filters the target path it reports **even when you set it
      with `--out`**, because the same variable holds a **server**-chosen file
-     name in its other branch.
+     name in its other branches.
 
-  Both are set out on the same page as the rune class, linked above.
+  Both of those are set out on the same page as the rune class, linked above.
+  They are not the whole set, and no surface enumerates it — the values you give
+  `civitai download`'s `--root` and `--for-base` are also filtered, in the lines
+  that report them. So treat the pre-spend screen as the one place a
+  byte-for-byte echo is *guaranteed* rather than merely usual.
 - **A table cell is one line, and one column.** Every **server-supplied** value
   that reaches a cell of a rendered table — `models search`, `images search`, `app status`,
   `workflows list`, the pre-spend cost table, and the rest — has any newline or

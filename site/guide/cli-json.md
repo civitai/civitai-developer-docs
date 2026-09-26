@@ -32,8 +32,15 @@ shapes.
   `civitai model-versions get 999999999 --json` exits `4` with
   `Error: not found (404): Model not found` on stderr and an empty stdout.
 
-Both hold for `civitai generate` and `civitai workflows …` too — but their
-payloads are not Site API shapes. See
+**Safe to pipe is not safe to print.** Neither property sanitises anything: the
+escape-stripping and one-line flattening the **human** renderers apply do
+**not** run on `--json`, so a script that prints a server-supplied string from
+`--json` onto a terminal has to sanitise it itself. What the human renderers
+strip, and where, is stated precisely on
+[What a table cell can contain](./cli-output#what-a-table-cell-can-contain).
+
+Both properties hold for `civitai generate` and `civitai workflows …` too — but
+their payloads are not Site API shapes. See
 [Generation `--json`](#generation-json) below.
 
 ## It passes through the DOCUMENT, not the BYTES
