@@ -230,29 +230,6 @@ orchestrator**, not a thin proxy in front of it. The body your block sends is a
 rejected at the wire schema — in the host, **before** any orchestrator call is
 made.
 
-::: tip Why the bridge isn't just the orchestrator API
-The full orchestrator contract is not hidden — it is documented as the
-[Orchestration REST API](/orchestration/) and open to anyone willing to be their
-**own principal**: your own API token, your own backend, your own Buzz.
-The bridge is what you get when you want the **viewer** to be the principal
-instead. A block spends *someone else's* Buzz, inside Civitai's brand, from code
-Civitai did not write, so the host has to be able to (a) render an honest
-confirmation of what is about to be spent, and (b) enforce policy on the values —
-sources, destinations, priority — rather than trust the caller. Both are
-strongest when the host *understands* the body semantically, which is what a
-narrow, enumerable union buys.
-
-The pass-through arm deliberately trades (b) away: `input` is forwarded
-unmodified, so the host applies no policy to the values inside it. What still
-binds is spend — the declared `maxBuzz`, the viewer's consent budget, and the
-refusal of platform-internal `$type`s. That is the trade, and it is why the
-registry arm still exists and is still the narrower choice.
-
-If your app genuinely needs the whole orchestrator surface, the supported answer
-is to ship your own backend as an ordinary API consumer and use the block purely
-as its UI.
-:::
-
 There are three `kind` values, and `kind: 'step'` is itself two arms — four
 members, and they are the whole surface:
 
@@ -267,8 +244,6 @@ The **registry arm** of `step` (added in `@civitai/app-sdk@0.30.0`) carries a
 registered **step id** plus bounded `params` validated per-step by the host's own
 `.strict()` schema. Like recipes, the step registry is server-side and
 code-reviewed: an unregistered id is rejected fail-closed at the wire schema.
-The **pass-through arm** (added in `@civitai/app-sdk@0.43.0`) omits `step`
-entirely and works the other way round — see the note below.
 
 Registered ids as of the pinned SDK (the registry arm only — the pass-through arm
 has no registry): **`convert-image`** (fixed-price image
@@ -351,24 +326,7 @@ Most of the time it **is** reachable, and the fix is naming the right
    chosen by the *presence of a source image*, not by the version id — this is
    the single most common mistake on the bridge.
 3. **Is it genuinely outside the union?** — before you conclude that, check
-   every arm. Each of them reaches work this page used to rule out:
-   - `textToImage` covers **multi-image** editing too, via `sourceImages`, on
-     any checkpoint whose ecosystem allows more than one image — see
-     [what the source-image fields can and cannot do](#what-sourceimage-can-and-cannot-do).
-   - `step` is **not** limited to non-image work: today's registry holds
-     `convert-image` (fixed-price image format conversion + resize) alongside
-     `chat-completion`, and the registry grows additively on the host.
-   - `customComfy` reaches the registered ComfyUI recipes — and, on its
-     [inline arm](../guide/comfy-cloud#the-inline-arm-ship-your-own-graph)
-     (`mode: 'inline'`), a ComfyUI graph your block ships itself.
-
-   - `step` also has the **pass-through arm** (`@civitai/app-sdk@0.43.0` and
-     above), which names an orchestrator step type directly and needs no
-     registry entry — so a first-class orchestrator step such as **background
-     removal**, long the standing example of work no arm could reach, is no
-     longer out of reach on that ground. Read the note above before you rely on
-     it: that arm trades the registry's per-step schema, moderation posture and
-     billing mode for a `maxBuzz` ceiling.
+   every arm.
 
    Asking for a **platform request** is still the route to the bounded,
    registered treatment — say so explicitly when you ask, and note that both
@@ -560,10 +518,6 @@ So:
   request, and an older host answers it by silently doing something else.
 - **Never both**, in either direction — that is rejected as ambiguous.
 
-Multi-image editing **used to be on this list and no longer is**: `sourceImages`
-expresses it, subject to the [per-ecosystem cap](#how-many-images-you-may-send)
-and the [host-version caveat](#which-field-to-send-today).
-
 These are bounded by the union's shape, not by configuration:
 
 | Constraint | What to do instead |
@@ -571,13 +525,6 @@ These are bounded by the union's shape, not by configuration:
 | Source images on a model-bound (`model.*`) block | build a **page app** |
 | More images than the checkpoint's ecosystem allows | pick a checkpoint whose ecosystem has a higher cap |
 | Choosing edit vs img2img yourself | it follows from the checkpoint's ecosystem; pick the checkpoint accordingly |
-
-Shipping your own ComfyUI graph **used to be on that list too, and no longer
-is**: `customComfy`'s
-[inline arm](../guide/comfy-cloud#the-inline-arm-ship-your-own-graph)
-(`mode: 'inline'`) carries the graph in the body. It is gated rather than
-unrestricted — **page tokens only, and so is the recipe arm** — so a model-slot
-block cannot run a custom graph by either route.
 
 Note what is **not** on this list: single-image editing, multi-image editing
 on a capable ecosystem, and Z-Image all work through `textToImage` today — see
@@ -640,13 +587,6 @@ export function useRetryableSubmit() {
 - **Reuse the SAME key** when you are **retrying a submit whose response was
   lost** (a timeout, a network drop). The host and the orchestrator then
   collapse the attempts into **one Buzz charge** instead of charging twice.
-
-The failure this prevents is invisible from the client: the first submit
-*succeeded server-side* and only the response was lost, so a naive retry spends
-the viewer's Buzz a second time on a generation they already paid for. If your
-block has any retry path at all — a wrapper, a react-query `retry`, a user-facing
-"try again" button — give that logical submit a stable id (a grid-cell id, a
-request id you already hold) and pass it every time.
 
 ::: warning A stable key must be stable per *submit*, not per *component*
 The key identifies **one logical submit**. Deriving it from something coarser —

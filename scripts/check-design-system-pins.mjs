@@ -278,18 +278,18 @@ export const HISTORICAL_LITERALS = [
     file: 'apps/reference/generation.md',
     pkg: '@civitai/app-sdk',
     version: '0.43.0',
-    // EXACT count 3 — the SAME changelog fact stated three ways, all of them
-    // arrival/floor claims about the `kind: 'step'` PASS-THROUGH arm:
-    //   1. "The pass-through arm (added in @civitai/app-sdk@0.43.0) omits `step`"
-    //   2. "@civitai/app-sdk@0.43.0 is the release that gives it a type
-    //      (`WorkflowBodyPassThroughStep`), so that is the floor"
-    //   3. "`step` also has the pass-through arm (@civitai/app-sdk@0.43.0 and above)"
-    // None is a `sources:` stamp — this file's stamp tracks the pin and sits in
+    // EXACT count 1 — one arrival/floor claim about the `kind: 'step'`
+    // PASS-THROUGH arm:
+    //   "@civitai/app-sdk@0.43.0 is the release that gives it a type
+    //   (`WorkflowBodyPassThroughStep`), so that is the floor"
+    // It was 3 until the `apps-reference-15` prose-efficiency pass deleted the
+    // other two statements of the same fact as duplicates.
+    // It is not a `sources:` stamp — this file's stamp tracks the pin and sits in
     // the frontmatter, where the stamp rule (see the header) makes it ineligible
     // for this exemption outright. A stamp regressed to 0.43.0 therefore fails as
     // a plain mismatch naming its own line; it does NOT reach this count.
     // (This comment used to say such a stamp "makes the count FOUR and this row
-    // fails". That held only until someone also reworded one of the three
+    // fails". That held only until someone also reworded one of the
     // sentences below — the substitution this row's own header now describes.)
     //
     // Measured, not assumed (npm pack + grep of the published tarballs):
@@ -297,7 +297,7 @@ export const HISTORICAL_LITERALS = [
     // in 3 files at 0.43.0 and 0.45.0. 0.43.0 really is the arrival release, so
     // bumping these to the pin would state a false arrival version and move a
     // documented TypeScript floor to a release that did not set it.
-    count: 3,
+    count: 1,
     why: 'the `kind: \'step\'` PASS-THROUGH arm and its `WorkflowBodyPassThroughStep` type ARRIVED in app-sdk 0.43.0 — a changelog fact, and the stated TS floor. Bumping these to the current pin would name a release in which nothing about this arm changed.',
   },
   {
