@@ -24,8 +24,11 @@ shapes.
 
 ## Two properties make the output safe to pipe
 
-- **`--json` stdout is pure JSON.** Nothing else is written to stdout, so
-  `… --json | jq -e .` always parses.
+- **`--json` stdout is pure JSON, and never styled.** Nothing else is written to
+  stdout, so `… --json | jq -e .` always parses — and no colour setting can put
+  an escape sequence in it, because `--json` does not pass through the
+  presentation layer at all
+  ([`--json` is never styled](./cli-output#json-is-never-styled)).
 - **Errors go to stderr with a non-zero exit.** A failed call writes the error
   to **stderr**, exits non-zero, and prints **nothing to stdout**, so `jq`
   never sees error prose. For example

@@ -117,12 +117,12 @@ it reaches your terminal, and this is what that gate promises:
   [What the server says went wrong](./cli-workflows#what-the-server-says-went-wrong),
   and is not restated here.
 
-  What the CLI prints from what **you** typed is a narrower promise. On the
-  **confirmation screen before a spend** it is a guarantee: your prompt, your
-  negative prompt, `--aspect-ratio`, `--ecosystem` and the paths you name are
-  echoed byte-for-byte, because that screen has to show what will really be
-  sent. Away from that screen, some values *you* supplied do go through the same
-  gate as server text. Two of those are documented:
+  What the CLI prints from what **you** typed is a narrower promise. Your
+  prompt, your negative prompt, `--ecosystem` and the paths you name are echoed
+  back exactly as typed — most importantly on the **confirmation screen before a
+  spend**, which has to show what will really be sent. But some values *you*
+  supplied do go through the same gate as server text. Two of those are
+  documented:
 
   1. a value read out of an `--input` **file** is filtered like server text,
      because a graph file can be downloaded or generated and so is not really
@@ -134,8 +134,16 @@ it reaches your terminal, and this is what that gate promises:
   Both of those are set out on the same page as the rune class, linked above.
   They are not the whole set, and no surface enumerates it — the values you give
   `civitai download`'s `--root` and `--for-base` are also filtered, in the lines
-  that report them. So treat the pre-spend screen as the one place a
-  byte-for-byte echo is *guaranteed* rather than merely usual.
+  that report them. So a byte-for-byte echo is the rule rather than a guarantee
+  you can lean on everywhere: where it matters most, before a spend, it holds.
+
+  ::: warning `--dry-run` prices a different screen, and it is not this one
+  The quote `civitai generate --dry-run` prints is **not** the confirmation
+  screen. It deliberately does *not* echo your prompt — it prints
+  `<not checked by --dry-run>` instead, because the estimate is priced on a graph
+  with the text removed — and it is the only screen that echoes
+  `--aspect-ratio`. Do not read one as a preview of the other.
+  :::
 - **A table cell is one line, and one column.** Every **server-supplied** value
   that reaches a cell of a rendered table — `models search`, `images search`, `app status`,
   `workflows list`, the pre-spend cost table, and the rest — has any newline or
