@@ -560,15 +560,6 @@ So:
   request, and an older host answers it by silently doing something else.
 - **Never both**, in either direction — that is rejected as ambiguous.
 
-### Not supported today
-
-One thing is genuinely out of reach, and it is the one worth opening a platform
-request for:
-
-| Not available through the bridge | Where it stands |
-|---|---|
-| **Background removal** (e.g. BiRefNet) | a **first-class orchestrator step**, not a Comfy graph and not an `imageGen` operation — **no union member reaches it** |
-
 Multi-image editing **used to be on this list and no longer is**: `sourceImages`
 expresses it, subject to the [per-ecosystem cap](#how-many-images-you-may-send)
 and the [host-version caveat](#which-field-to-send-today).
@@ -588,7 +579,7 @@ is**: `customComfy`'s
 unrestricted — **page tokens only, and so is the recipe arm** — so a model-slot
 block cannot run a custom graph by either route.
 
-Note what is **not** on these lists: single-image editing, multi-image editing
+Note what is **not** on this list: single-image editing, multi-image editing
 on a capable ecosystem, and Z-Image all work through `textToImage` today — see
 [the ids you probably want](#the-ids-you-probably-want).
 
