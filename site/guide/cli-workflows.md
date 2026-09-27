@@ -110,11 +110,13 @@ Five things it is **not**:
   `--ecosystem`, the paths you pass to `--image` / `--input`, and the ids you
   give `workflows cancel` are all echoed back exactly as typed — most
   importantly on the confirmation screen before a spend, which has to show what
-  will really be sent. Two deliberate exceptions, both outside that screen: a
-  value read out of an `--input` *file* is filtered like server text (a graph
-  file can come from anywhere), and `civitai download` filters the path it
-  reports even when you set it with `--out`, because the same variable usually
-  holds a filename the **server** chose.
+  will really be sent. Away from that screen some values you supply *are*
+  filtered anyway. Two of those are documented: a value read out of an `--input`
+  *file* is filtered like server text (a graph file can come from anywhere), and
+  `civitai download` filters the path it reports even when you set it with
+  `--out`, because the same variable usually holds a filename the **server**
+  chose. They are not the whole set — see
+  [What a table cell can contain](./cli-output#what-a-table-cell-can-contain).
 - **It is not always there.** Some failures record nothing. In that case the
   error says so instead — *"the orchestrator often supplies no failure reason,
   so it may not say why"*. That is a measured case, not a gap in the CLI, and

@@ -319,3 +319,5 @@ The practical rule that falls out of all of this: attach your listing media
   app is still in review.
 - [CLI reference](../reference/cli) — every command, flag and example, generated
   from the binary.
+- [CLI troubleshooting](/site/guide/cli-troubleshooting) — look up the exact
+  message `app submit`, `app status` or `app withdraw` printed at you.

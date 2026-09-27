@@ -587,3 +587,5 @@ not an answer: a missing section is indistinguishable from a read that failed.
   itself after `civitai app submit`.
 - [CLI reference](../reference/cli) — every `app listing` and `app doctor` flag,
   generated from the binary.
+- [CLI troubleshooting](/site/guide/cli-troubleshooting) — look up the exact
+  refusal you got, including every `app listing` `400` and `403` on this page.
