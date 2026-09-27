@@ -24,16 +24,26 @@ shapes.
 
 ## Two properties make the output safe to pipe
 
-- **`--json` stdout is pure JSON.** Nothing else is written to stdout, so
-  `… --json | jq -e .` always parses.
+- **`--json` stdout is pure JSON, and never styled.** Nothing else is written to
+  stdout, so `… --json | jq -e .` always parses — and no colour setting can put
+  an escape sequence in it, because `--json` does not pass through the
+  presentation layer at all
+  ([`--json` is never styled](./cli-output#json-is-never-styled)).
 - **Errors go to stderr with a non-zero exit.** A failed call writes the error
   to **stderr**, exits non-zero, and prints **nothing to stdout**, so `jq`
   never sees error prose. For example
   `civitai model-versions get 999999999 --json` exits `4` with
   `Error: not found (404): Model not found` on stderr and an empty stdout.
 
-Both hold for `civitai generate` and `civitai workflows …` too — but their
-payloads are not Site API shapes. See
+**Safe to pipe is not safe to print.** Neither property sanitises anything: the
+escape-stripping and one-line flattening the **human** renderers apply do
+**not** run on `--json`, so a script that prints a server-supplied string from
+`--json` onto a terminal has to sanitise it itself. What the human renderers
+strip, and where, is stated precisely on
+[What a table cell can contain](./cli-output#what-a-table-cell-can-contain).
+
+Both properties hold for `civitai generate` and `civitai workflows …` too — but
+their payloads are not Site API shapes. See
 [Generation `--json`](#generation-json) below.
 
 ## It passes through the DOCUMENT, not the BYTES
@@ -176,5 +186,8 @@ through every field it does not model.
 - **Exit codes** — branch on the code before parsing. `civitai --help` prints
   the summary table; the full ledger is in the
   [CLI README](https://github.com/civitai/cli#exit-codes).
+- [CLI terminal output](./cli-output) — the colour precedence, and the
+  sanitising the **human** renderers do that this output is exempt from.
+- [CLI troubleshooting](./cli-troubleshooting) — look up an error message.
 - [Generating images from the CLI](./cli-generate).
 - [Tracking and cancelling generations](./cli-workflows).

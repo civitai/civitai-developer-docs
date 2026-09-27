@@ -39,6 +39,10 @@ generations on your own account.
   reading what failed, and what cancelling does to a charge.
 - [Scripting the CLI with `--json`](./cli-json) — the output guarantees beyond
   the read endpoints.
+- [CLI terminal output](./cli-output) — the colour precedence, and what the
+  human renderers guarantee about text a stranger uploaded.
+- [CLI troubleshooting](./cli-troubleshooting) — **look the error message up
+  here.**
 
 To author and ship a Civitai App with the same binary, see the
 [Apps guide](/apps/guide/).
