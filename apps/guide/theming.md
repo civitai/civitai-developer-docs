@@ -10,13 +10,21 @@ sources:
 
 # Theming & the design system
 
-Civitai's UI components ship as a **dual-consumption design system**: the exact
-same themed components are available as **generic, framework-agnostic HTML** —
-styled purely by `data-*` attributes — *and* as self-styling `<civitai-*>` **custom
-elements**, which is the split that matters: the sheet if you author the markup, the
-elements if you want the behaviour and ARIA wiring supplied. Build a block in plain
-HTML, Svelte, Vue, Solid, or vanilla JS with either half and it looks like Civitai;
-in React, `@civitai/components-react` gives you the elements as typed bindings.
+Civitai's UI components ship as a **dual-consumption design system**: the same
+design language is available as **generic, framework-agnostic HTML** — styled purely
+by `data-*` attributes — *and* as self-styling `<civitai-*>` **custom elements**,
+which is the split that matters: the sheet if you author the markup, the elements if
+you want the behaviour and ARIA wiring supplied. Either half works in plain HTML,
+Svelte, Vue, Solid or vanilla JS, and in React `@civitai/components-react` gives you
+the elements as typed bindings.
+
+🔴 **The two halves are not the same set, so pick by what you need rather than by
+preference.** The sheet covers the components listed in the [Components
+reference](../reference/components); the elements cover those **and more** — `modal`,
+`menu`, `tabs`, `switch`, `table` and others have no `data-civitai-ui` contract at
+all. Derive each set rather than trusting a count here: the reference page is
+generated from the sheet, and the element set is the `tagName`s in the package's
+`custom-elements.json`.
 
 ::: tip Not the same as `@civitai/blocks-react`
 This design system (`@civitai/theme` / `@civitai/components` /
