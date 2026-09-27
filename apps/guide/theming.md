@@ -1,6 +1,6 @@
 ---
 title: Theming & the design system
-description: Civitai's dual-consumption design system — the same themed components as generic attribute-driven HTML for any framework, or as self-styling custom elements (with typed React bindings over them). Covers the 3-layer model (@civitai/theme tokens, @civitai/components CSS + custom elements, @civitai/components-react bindings), plain-HTML and React setup, light/dark theming, and the @layer override model.
+description: Civitai's dual-consumption design system — the same design language as generic attribute-driven HTML for any framework, or as self-styling custom elements (with typed React bindings over them); the two sets are not nested, and each has components the other lacks. Covers the 3-layer model (@civitai/theme tokens, @civitai/components CSS + custom elements, @civitai/components-react bindings), plain-HTML and React setup, light/dark theming, and the @layer override model.
 sources:
   - civitai-app-starters:packages/civitai-components/MARKUP.md
   - npm:@civitai/theme@0.4.0
@@ -18,13 +18,17 @@ you want the behaviour and ARIA wiring supplied. Either half works in plain HTML
 Svelte, Vue, Solid or vanilla JS, and in React `@civitai/components-react` gives you
 the elements as typed bindings.
 
-🔴 **The two halves are not the same set, so pick by what you need rather than by
-preference.** The sheet covers the components listed in the [Components
-reference](../reference/components); the elements cover those **and more** — `modal`,
-`menu`, `tabs`, `switch`, `table` and others have no `data-civitai-ui` contract at
-all. Derive each set rather than trusting a count here: the reference page is
-generated from the sheet, and the element set is the `tagName`s in the package's
-`custom-elements.json`.
+🔴 **The two halves are not the same set, and neither contains the other — pick by
+what you need rather than by preference.** Most of the difference runs one way: the
+elements include `modal`, `menu`, `switch` and `table`, none of which has any
+`data-civitai-ui` contract. It runs the other way too, once: `radio` is a sheet
+component with no `<civitai-radio>` element — the element route models a radio set as
+one `<civitai-radio-group>` taking its options as a `data` property. Derive each set
+rather than trusting a count here: the sheet's is the [Components
+reference](../reference/components), generated from the contract that ships with the
+package, and the elements' is the `tagName`s in its `custom-elements.json`. Note that
+a capability can be present under a different name — the sheet has no `tabs`, but its
+`segmented-control` documents a `role="tablist"` mode.
 
 ::: tip Not the same as `@civitai/blocks-react`
 This design system (`@civitai/theme` / `@civitai/components` /
