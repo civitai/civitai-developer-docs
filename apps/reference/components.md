@@ -17,8 +17,13 @@ sources:
 
 `@civitai/components` is a **framework-agnostic** pack of 20 presentational
 components. The styling is driven entirely by `data-*` attributes, so any
-HTML that follows the contract renders identically to the React bindings in
-`@civitai/components-react`. This page is generated from that contract —
+HTML that follows the contract picks up the design system without a
+framework. This sheet is one of **two independent** ways to consume it: the
+other is the `<civitai-*>` custom elements, self-styling in shadow DOM, which
+are what `@civitai/components-react` binds for React — so the bindings are
+not a second renderer of this contract, and since
+`@civitai/components-react@0.9.0` there is no longer a React layer that
+renders it. This page is generated from that contract —
 the canonical [`MARKUP.md`](https://github.com/civitai/civitai-app-starters/blob/main/packages/civitai-components/MARKUP.md)
 that ships inside the `@civitai/components` package — so it never drifts from
 the source of truth.
