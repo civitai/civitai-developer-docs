@@ -37,8 +37,12 @@ The system is three packages, each a layer you can adopt independently:
 Layers stack downward: `@civitai/components` builds on `@civitai/theme`'s tokens,
 and `@civitai/components-react` binds the `<civitai-*>` custom elements, which
 carry their own styles in shadow DOM — since `0.9.0` it does NOT render layer 2's
-markup. Adopt just layer 1 for tokens, layer 2 for framework-agnostic components
-in markup you write, or the bindings when you want the behaviour supplied.
+markup. Adopt just layer 1 for tokens; layer 2 for framework-agnostic components,
+either as the stylesheet-plus-markup contract you author yourself or as the
+`<civitai-*>` elements that package also ships (`import
+'@civitai/components/register'`), which carry the behaviour and the encapsulation
+in any framework or none; and layer 3 when you want those elements as typed React
+components.
 
 ::: tip Pin the version in the CDN URL — and pin each package separately
 The three packages version **independently** — this page is written against
@@ -84,12 +88,14 @@ page.
 tokens and the component CSS — then write HTML with the `data-civitai-ui`
 attributes. That's the whole integration.
 
-Be clear about what layer 2 gives you, though: it is a **stylesheet plus a markup
-contract**, not a component library. There is no behavior and no encapsulation —
-you get the *look*, and the interactive wiring is yours to write. A `button`'s
-loading state (`aria-busy` + `disabled` + the loader span) and a `text-input`'s
-label/description/error ARIA relationships are markup **you** author to the
-contract; only the React bindings in layer 3 automate them.
+Be clear about what this half of layer 2 gives you, though: the **stylesheet plus
+markup contract** is not a component library. There is no behavior and no
+encapsulation — you get the *look*, and the interactive wiring is yours to write.
+A `button`'s loading state (`aria-busy` + `disabled` + the loader span) and a
+`text-input`'s label/description/error ARIA relationships are markup **you**
+author to the contract. The `<civitai-*>` elements in the same package automate
+them for you without a framework, and layer 3 is those elements with React
+types — the ARIA wiring lives in the element, not in the binding.
 
 ```html
 <!-- 1. Load the design tokens + the component CSS (order-independent).

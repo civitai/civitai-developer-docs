@@ -17,15 +17,21 @@ source panel you can toggle between the **framework-agnostic HTML** and the
   no stylesheet to load and no second renderer of the contract. Handlers receive
   the **DOM event**, not an extracted value — `onChange={(e) => e.target.value}`.
 
-🔴 **A binding prop is assigned as a PROPERTY on every render, and `value` /
-`checked` do not reflect to an attribute.** `@lit/react`'s prop effect carries no
-dependency array (*"it'll run on every re-render"*) and deliberately skips dirty
-checking, so a hard-coded `value="…"` or `checked` on a binding **re-asserts
-itself and discards what the viewer typed** the next time the enclosing component
-renders. React's `defaultValue` does nothing here either — it is a DOM attribute
-the element never reads. For a starting value, write the `<civitai-*>` tag
-directly so it lands as an *attribute*; for a live one, hold it in state and use
-the `onChange` above. The field snippets below set neither, for that reason.
+🔴 **A binding prop is assigned as a PROPERTY on every render.** `@lit/react`'s
+prop effect carries no dependency array (*"it'll run on every re-render"*) and
+deliberately skips dirty checking, so a hard-coded `value="…"` or `checked` on a
+binding **re-asserts itself and discards what the viewer typed** the next time the
+enclosing component renders. `checked` never reflects to an attribute, and `value`
+reflects only on `civitai-checkbox`, so the property is all there is. React's
+`defaultValue` does nothing here either — the element never reads it.
+
+**A starting value belongs in state, with the `onChange` above.** Writing the
+`<civitai-*>` tag instead is not a reliable way to get an *attribute*: React 18
+sets an unknown prop as an attribute, React 19 sets it as a **property** when the
+element has one, and both majors are in the bindings' peer range. That distinction
+is not cosmetic — `formResetCallback()` re-reads `getAttribute('value')` /
+`hasAttribute('checked')`, so a property-only starting value silently vanishes the
+first time a form resets. The field snippets below set no starting value at all.
 
 The previews re-theme with the site: toggle the header's light/dark switch and
 every `--civitai-*` token re-resolves in place. The React snippets below are
