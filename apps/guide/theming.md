@@ -14,7 +14,9 @@ Civitai's UI components ship as a **dual-consumption design system**: the exact
 same themed components are available as **generic, framework-agnostic HTML** —
 styled purely by `data-*` attributes — *and* as thin **React bindings**. Build a
 block in plain HTML, Svelte, Vue, Solid, or vanilla JS and it looks like Civitai;
-build it in React and you get typed component props over the identical markup.
+build it in React and you get the same components as typed bindings around the
+`<civitai-*>` custom elements — which, since `@civitai/components-react@0.9.0`,
+render themselves rather than that markup.
 
 ::: tip Not the same as `@civitai/blocks-react`
 This design system (`@civitai/theme` / `@civitai/components` /
@@ -31,7 +33,7 @@ The system is three packages, each a layer you can adopt independently:
 | Layer | Package | What it is | You use it when… |
 |-------|---------|-----------|------------------|
 | **1. Tokens** | `@civitai/theme` | `--civitai-*` design tokens generated from Civitai's Mantine v7 theme — as a CSS-variables stylesheet, JS token objects, and a [DTCG](https://tr.designtokens.org/) JSON file. | you want Civitai's colors/spacing/typography as raw values. |
-| **2. Components (CSS)** | `@civitai/components` | Attribute-driven, framework-agnostic CSS for the presentational components, styled via `data-civitai-ui="<name>"` + `data-variant`/`data-size`. Wrapped in `@layer civitai.components`. | you want themed components in **any** framework (or none). |
+| **2. Components (CSS + elements)** | `@civitai/components` | Two independent ways to consume it: attribute-driven, framework-agnostic CSS styled via `data-civitai-ui="<name>"` + `data-variant`/`data-size` (wrapped in `@layer civitai.components`), and the self-styling `<civitai-*>` custom elements, which carry the behaviour and ARIA wiring in shadow DOM. | you want themed components in **any** framework (or none) — the CSS if you author the markup, the elements if you want the behaviour too. |
 | **3. React bindings** | `@civitai/components-react` | `@lit/react` wrappers around the `<civitai-*>` custom elements, with props and events typed from the element classes. | your block is React and you want typed props. |
 
 Layers stack downward: `@civitai/components` builds on `@civitai/theme`'s tokens,
@@ -39,8 +41,11 @@ and `@civitai/components-react` binds the `<civitai-*>` custom elements, which
 carry their own styles in shadow DOM — since `0.9.0` it does NOT render layer 2's
 markup. Adopt just layer 1 for tokens; layer 2 for framework-agnostic components,
 either as the stylesheet-plus-markup contract you author yourself or as the
-`<civitai-*>` elements that package also ships (`import
-'@civitai/components/register'`), which carry the behaviour and the encapsulation
+`<civitai-*>` elements that package also ships — `import
+'@civitai/components/register'` if you bundle, or the self-registering
+`elements.js` at the package root if you do not (it is in the published `files`,
+so a CDN serves it straight into a `<script type="module">`; a bare specifier
+does not resolve in a browser) — which carry the behaviour and the encapsulation
 in any framework or none; and layer 3 when you want those elements as typed React
 components.
 

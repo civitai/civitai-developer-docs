@@ -21,17 +21,27 @@ source panel you can toggle between the **framework-agnostic HTML** and the
 prop effect carries no dependency array (*"it'll run on every re-render"*) and
 deliberately skips dirty checking, so a hard-coded `value="…"` or `checked` on a
 binding **re-asserts itself and discards what the viewer typed** the next time the
-enclosing component renders. `checked` never reflects to an attribute, and `value`
-reflects only on `civitai-checkbox`, so the property is all there is. React's
-`defaultValue` does nothing here either — the element never reads it.
+enclosing component renders. `checked` never reflects to an attribute; `value`
+reflects on five elements — `civitai-checkbox`, `civitai-switch`, `civitai-tabs`,
+`civitai-menu-item`, `civitai-progress` — and on none of the text, number or
+select fields below, so for those the property is all there is. (Derive that list
+from the package's `custom-elements.json` rather than trusting this sentence.)
+React's `defaultValue` does nothing here either.
 
-**A starting value belongs in state, with the `onChange` above.** Writing the
+**An editable value belongs in state, with the `onChange` above.** Writing the
 `<civitai-*>` tag instead is not a reliable way to get an *attribute*: React 18
 sets an unknown prop as an attribute, React 19 sets it as a **property** when the
-element has one, and both majors are in the bindings' peer range. That distinction
-is not cosmetic — `formResetCallback()` re-reads `getAttribute('value')` /
-`hasAttribute('checked')`, so a property-only starting value silently vanishes the
-first time a form resets. The field snippets below set no starting value at all.
+element has one, and both majors are in the bindings' peer range.
+
+🔴 **If the default must survive a form reset, no React route gives you one —
+set the attribute yourself.** `formResetCallback()` re-reads
+`getAttribute('value')` / `hasAttribute('checked')` **and dispatches nothing**, so
+a reset clears a state-driven field exactly as it clears a hard-coded prop, leaves
+React holding the old value, and the next render re-asserts it. State + `onChange`
+is right for editing and does not fix reset; the only thing that does is an
+attribute you write — `ref={(el) => el?.setAttribute('value', '30')}`, or plain
+HTML outside React. The React arms below set no starting value at all; the HTML
+arms do, as ordinary attributes on native inputs.
 
 The previews re-theme with the site: toggle the header's light/dark switch and
 every `--civitai-*` token re-resolves in place. The React snippets below are
