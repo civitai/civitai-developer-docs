@@ -4,7 +4,7 @@ description: The width your block measures is the slot the host gave it, not the
 sources:
   - npm:@civitai/blocks-react@0.58.1#useBlockBreakpoint
   - npm:@civitai/theme@0.4.0#breakpoints
-  - npm:@civitai/components@0.7.1
+  - npm:@civitai/components@0.8.1
 ---
 
 # Responsive blocks
@@ -181,8 +181,9 @@ stay on it rather than mixing them in the same layout.
 ## What the design system already reflows for you
 
 Since `@civitai/components@0.4.0` you get some of this without writing anything
-(0.4.0 is the arrival version, not the current pin of 0.6.0 — the releases since
-have changed other things, not this behaviour):
+(0.4.0 is the arrival version, not the current pin — the releases since have
+changed other things, not this behaviour; the pin itself is in this page's
+`sources:` stamp, which a guard keeps honest):
 
 - **`group` wraps by default.** A row of controls that no longer fits reflows
   onto another row instead of overflowing its box, and its children may shrink

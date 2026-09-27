@@ -4,8 +4,8 @@ description: Civitai's dual-consumption design system — the same themed compon
 sources:
   - civitai-app-starters:packages/civitai-components/MARKUP.md
   - npm:@civitai/theme@0.4.0
-  - npm:@civitai/components@0.7.1
-  - npm:@civitai/components-react@0.7.0
+  - npm:@civitai/components@0.8.1
+  - npm:@civitai/components-react@0.9.0
 ---
 
 # Theming & the design system
@@ -32,7 +32,7 @@ The system is three packages, each a layer you can adopt independently:
 |-------|---------|-----------|------------------|
 | **1. Tokens** | `@civitai/theme` | `--civitai-*` design tokens generated from Civitai's Mantine v7 theme — as a CSS-variables stylesheet, JS token objects, and a [DTCG](https://tr.designtokens.org/) JSON file. | you want Civitai's colors/spacing/typography as raw values. |
 | **2. Components (CSS)** | `@civitai/components` | Attribute-driven, framework-agnostic CSS for the presentational components, styled via `data-civitai-ui="<name>"` + `data-variant`/`data-size`. Wrapped in `@layer civitai.components`. | you want themed components in **any** framework (or none). |
-| **3. React bindings** | `@civitai/components-react` | Thin `forwardRef` React components that render the layer-2 markup with typed props. | your block is React and you want typed props + refs. |
+| **3. React bindings** | `@civitai/components-react` | `@lit/react` wrappers around the `<civitai-*>` custom elements, with props and events typed from the element classes. | your block is React and you want typed props. |
 
 Layers stack downward: `@civitai/components` builds on `@civitai/theme`'s tokens,
 and `@civitai/components-react` renders `@civitai/components`' markup. Adopt just
@@ -41,8 +41,8 @@ for the React ergonomics.
 
 ::: tip Pin the version in the CDN URL — and pin each package separately
 The three packages version **independently** — this page is written against
-`@civitai/theme@0.4.0`, `@civitai/components@0.7.1` and
-`@civitai/components-react@0.7.0`, each on its own release schedule. There is no
+`@civitai/theme@0.4.0`, `@civitai/components@0.8.1` and
+`@civitai/components-react@0.9.0`, each on its own release schedule. There is no
 single shared version number, so copy each URL as written rather than sed-ing
 one version across all three — a URL naming a version a package never published
 404s, and a missing stylesheet fails **silently** as an unstyled page.
@@ -95,7 +95,7 @@ contract; only the React bindings in layer 3 automate them.
      Pin each package at its own version — they do not share one.
      Swap unpkg.com for cdn.jsdelivr.net/npm if you prefer jsDelivr. -->
 <link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.4.0/styles.css" />
-<link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.7.1/styles.css" />
+<link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.8.1/styles.css" />
 
 <!-- 2. Write markup with the data-attributes — styled identically to React. -->
 <button data-civitai-ui="button" data-variant="filled" data-size="md">Generate</button>
@@ -132,9 +132,12 @@ Every component's exact markup — required elements, `data-*` attributes, and t
 ARIA/role wiring — is in the [Components reference](../reference/components),
 generated from the canonical
 [`MARKUP.md`](https://github.com/civitai/civitai-app-starters/blob/main/packages/civitai-components/MARKUP.md)
-that ships inside `@civitai/components`. **`MARKUP.md` is the source of truth**:
-any HTML that follows it renders identically to the React bindings (asserted by a
-`getComputedStyle()` parity browser test in both themes).
+that ships inside `@civitai/components`. **`MARKUP.md` is the source of truth**
+for hand-written markup, and the `@civitai/components` suites assert its rules
+against `components.css` directly. It is **not** what the React bindings render:
+since `@civitai/components-react@0.9.0` those bind the custom elements, which
+style themselves in shadow DOM, and the `html-vs-react-parity` test that used to
+compare the two arms retired with the layer it compared.
 
 ## Plain HTML quickstart
 
@@ -172,7 +175,7 @@ Paint the page from the body/text tokens as shown.
     />
     <link
       rel="stylesheet"
-      href="https://unpkg.com/@civitai/components@0.7.1/styles.css"
+      href="https://unpkg.com/@civitai/components@0.8.1/styles.css"
     />
 
     <style>
@@ -246,21 +249,24 @@ what the generator's drift-guard exists to prevent. Reach for a border or shadow
 ## Themed components in React
 
 If your block is React, `@civitai/components-react` gives you the same components
-as typed `forwardRef` primitives — no `data-*` attributes to remember, and refs
-forward to the underlying DOM node. The bindings auto-inject the stylesheet and
-tokens on first render, so there are no `<link>`s to add.
+as typed element bindings — no `data-*` attributes to remember. The elements are
+self-styling and inject the `@civitai/theme` tokens on first mount, so there are
+no `<link>`s to add. Two consequences of binding elements rather than markup:
+handlers receive the **DOM event** (`onChange={(e) => e.target.value}`), and
+server rendering is best-effort — write the `<civitai-*>` tag directly in JSX
+where server output matters, since attributes survive SSR and properties do not.
 
 ```tsx
-import { Button, Stack, TextInput } from '@civitai/components-react';
+import { CivitaiButton, CivitaiStack, CivitaiTextInput } from '@civitai/components-react';
 
 export function GenerateForm() {
   return (
-    <Stack gap="md">
-      <TextInput label="Prompt" placeholder="a cat astronaut" />
-      <Button variant="filled" size="md" loading={false}>
+    <CivitaiStack gap="md">
+      <CivitaiTextInput label="Prompt" placeholder="a cat astronaut" />
+      <CivitaiButton variant="filled" size="md" loading={false}>
         Generate
-      </Button>
-    </Stack>
+      </CivitaiButton>
+    </CivitaiStack>
   );
 }
 ```
@@ -387,7 +393,7 @@ civitai `<link>` tags.**
 
   <!-- 2. Now load the civitai CSS. Its @layer civitai.components slots ABOVE app. -->
   <link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.4.0/styles.css" />
-  <link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.7.1/styles.css" />
+  <link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.8.1/styles.css" />
 
   <!-- 3. Wrap your existing/global CSS in the lower `app` layer. -->
   <style>
@@ -552,7 +558,7 @@ the filenames make it easy to cross the wires.
 ```
 
 Pin the packages at the version you vendored (`@civitai/theme@0.4.0`,
-`@civitai/components@0.7.1`) so a re-vendor is deliberate, and re-copy the two
+`@civitai/components@0.8.1`) so a re-vendor is deliberate, and re-copy the two
 `styles.css` files whenever you bump. If you use a bundler instead of static
 files, `import '@civitai/theme/styles.css'` and `import '@civitai/components/styles.css'`
 resolve through the same `exports` map — no manual copy needed.

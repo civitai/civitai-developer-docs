@@ -8,18 +8,24 @@ source panel you can toggle between the **framework-agnostic HTML** and the
 **`@civitai/components-react`** binding.
 
 - **HTML** authors follow the `data-civitai-ui` markup contract (see the
-  [Components reference](/apps/reference/components)); any HTML that follows it
-  renders identically to the React bindings.
-- **React** authors use `@civitai/components-react` — thin `forwardRef` wrappers
-  that emit exactly that markup and auto-inject the stylesheet.
+  [Components reference](/apps/reference/components)) and load the two
+  stylesheets below.
+- **React** authors use `@civitai/components-react` — `@lit/react` bindings
+  around the `<civitai-*>` custom elements. Since `0.9.0` those bindings bind
+  the elements, **not** the markup contract: the elements style themselves in
+  shadow DOM and inject the `@civitai/theme` tokens on first mount, so there is
+  no stylesheet to load and no second renderer of the contract. Handlers receive
+  the **DOM event**, not an extracted value — `onChange={(e) => e.target.value}`.
 
 The previews re-theme with the site: toggle the header's light/dark switch and
 every `--civitai-*` token re-resolves in place. The React snippets below are
-type-checked against the pinned `@civitai/components-react@0.7.0` declarations on
+type-checked against the pinned `@civitai/components-react@0.9.0` declarations on
 every build, so they can't drift from the shipped API.
 
-::: tip Setup
-Load the tokens **and** the component CSS (order-independent):
+::: tip Setup — the HTML path
+The React bindings need neither of these (the elements self-style and inject the
+tokens). For hand-written markup, load the tokens **and** the component CSS
+(order-independent):
 
 ```html
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@civitai/theme/styles.css" />
@@ -69,25 +75,25 @@ Loading sets `aria-busy` + `disabled` and prepends a `sm` loader.
 <template #react>
 
 ```tsx
-import { Button, Group, Stack } from '@civitai/components-react';
+import { CivitaiButton, CivitaiGroup, CivitaiStack } from '@civitai/components-react';
 
-<Stack gap="md">
-  <Group gap="sm">
-    <Button variant="filled">Filled</Button>
-    <Button variant="light">Light</Button>
-    <Button variant="outline">Outline</Button>
-    <Button variant="subtle">Subtle</Button>
-  </Group>
-  <Group gap="sm">
-    <Button size="sm">Small</Button>
-    <Button size="md">Medium</Button>
-    <Button size="lg">Large</Button>
-  </Group>
-  <Group gap="sm">
-    <Button variant="filled" loading>Saving…</Button>
-    <Button variant="outline" disabled>Disabled</Button>
-  </Group>
-</Stack>;
+<CivitaiStack gap="md">
+  <CivitaiGroup gap="sm">
+    <CivitaiButton variant="filled">Filled</CivitaiButton>
+    <CivitaiButton variant="light">Light</CivitaiButton>
+    <CivitaiButton variant="outline">Outline</CivitaiButton>
+    <CivitaiButton variant="subtle">Subtle</CivitaiButton>
+  </CivitaiGroup>
+  <CivitaiGroup gap="sm">
+    <CivitaiButton size="sm">Small</CivitaiButton>
+    <CivitaiButton size="md">Medium</CivitaiButton>
+    <CivitaiButton size="lg">Large</CivitaiButton>
+  </CivitaiGroup>
+  <CivitaiGroup gap="sm">
+    <CivitaiButton variant="filled" loading>Saving…</CivitaiButton>
+    <CivitaiButton variant="outline" disabled>Disabled</CivitaiButton>
+  </CivitaiGroup>
+</CivitaiStack>;
 ```
 
 </template>
@@ -130,26 +136,26 @@ Presentational `<span>`. `data-variant`: `filled` · `light` · `outline`.
 <template #react>
 
 ```tsx
-import { Badge, Group, Stack } from '@civitai/components-react';
+import { CivitaiBadge, CivitaiGroup, CivitaiStack } from '@civitai/components-react';
 
-<Stack gap="md">
-  <Group gap="sm">
-    <Badge variant="filled" size="md">Filled</Badge>
-    <Badge variant="light" size="md">Light</Badge>
-    <Badge variant="outline" size="md">Outline</Badge>
-  </Group>
-  <Group gap="sm">
-    <Badge variant="filled" color="info" size="md">Info</Badge>
-    <Badge variant="filled" color="success" size="md">Success</Badge>
-    <Badge variant="filled" color="warning" size="md">Warning</Badge>
-    <Badge variant="filled" color="error" size="md">Error</Badge>
-  </Group>
-  <Group gap="sm">
-    <Badge variant="light" size="sm">Small</Badge>
-    <Badge variant="light" size="md">Medium</Badge>
-    <Badge variant="light" size="lg">Large</Badge>
-  </Group>
-</Stack>;
+<CivitaiStack gap="md">
+  <CivitaiGroup gap="sm">
+    <CivitaiBadge variant="filled" size="md">Filled</CivitaiBadge>
+    <CivitaiBadge variant="light" size="md">Light</CivitaiBadge>
+    <CivitaiBadge variant="outline" size="md">Outline</CivitaiBadge>
+  </CivitaiGroup>
+  <CivitaiGroup gap="sm">
+    <CivitaiBadge variant="filled" color="info" size="md">Info</CivitaiBadge>
+    <CivitaiBadge variant="filled" color="success" size="md">Success</CivitaiBadge>
+    <CivitaiBadge variant="filled" color="warning" size="md">Warning</CivitaiBadge>
+    <CivitaiBadge variant="filled" color="error" size="md">Error</CivitaiBadge>
+  </CivitaiGroup>
+  <CivitaiGroup gap="sm">
+    <CivitaiBadge variant="light" size="sm">Small</CivitaiBadge>
+    <CivitaiBadge variant="light" size="md">Medium</CivitaiBadge>
+    <CivitaiBadge variant="light" size="lg">Large</CivitaiBadge>
+  </CivitaiGroup>
+</CivitaiStack>;
 ```
 
 </template>
@@ -199,20 +205,20 @@ The body lives in `data-civitai-ui-alert-body`, with an optional
 <template #react>
 
 ```tsx
-import { Alert, Stack } from '@civitai/components-react';
+import { CivitaiAlert, CivitaiStack } from '@civitai/components-react';
 
-<Stack gap="sm">
-  <Alert color="info" title="Heads up">
+<CivitaiStack gap="sm">
+  <CivitaiAlert color="info" heading="Heads up">
     A new model version is available.
-  </Alert>
-  <Alert color="success" title="Saved" onClose={() => {}}>
+  </CivitaiAlert>
+  <CivitaiAlert color="success" heading="Saved" closable>
     Your changes are live.
-  </Alert>
-  <Alert color="warning">Approaching your Buzz limit.</Alert>
-  <Alert color="error" title="Generation failed">
+  </CivitaiAlert>
+  <CivitaiAlert color="warning">Approaching your Buzz limit.</CivitaiAlert>
+  <CivitaiAlert color="error" heading="Generation failed">
     The provider rejected the request.
-  </Alert>
-</Stack>;
+  </CivitaiAlert>
+</CivitaiStack>;
 ```
 
 </template>
@@ -252,20 +258,20 @@ via `aria-invalid="true"` + `data-invalid="true"` on the wrapper.
 <template #react>
 
 ```tsx
-import { TextInput, Stack } from '@civitai/components-react';
+import { CivitaiTextInput, CivitaiStack } from '@civitai/components-react';
 
-<Stack gap="md">
-  <TextInput
+<CivitaiStack gap="md">
+  <CivitaiTextInput
     label="Display name"
     description="Shown on your profile."
     required
   />
-  <TextInput
+  <CivitaiTextInput
     label="Email"
-    defaultValue="not-an-email"
+    value="not-an-email"
     error="Enter a valid email address."
   />
-</Stack>;
+</CivitaiStack>;
 ```
 
 </template>
@@ -293,13 +299,13 @@ Identical to TextInput, but the control is a resizable `<textarea>`.
 <template #react>
 
 ```tsx
-import { Textarea } from '@civitai/components-react';
+import { CivitaiTextarea } from '@civitai/components-react';
 
-<Textarea
+<CivitaiTextarea
   label="Prompt"
   description="Describe what you want to generate."
   rows={3}
-  defaultValue="a serene alpine lake at dawn"
+  value="a serene alpine lake at dawn"
 />;
 ```
 
@@ -328,14 +334,14 @@ Identical to TextInput; the control is `<input type="number">`.
 <template #react>
 
 ```tsx
-import { NumberInput } from '@civitai/components-react';
+import { CivitaiNumberInput } from '@civitai/components-react';
 
-<NumberInput
+<CivitaiNumberInput
   label="Steps"
   description="Sampling steps (1–50)."
-  defaultValue={30}
-  min={1}
-  max={50}
+  value="30"
+  min="1"
+  max="50"
 />;
 ```
 
@@ -371,17 +377,18 @@ interactive JS Select from `@civitai/blocks-react`.
 <template #react>
 
 ```tsx
-import { Select } from '@civitai/components-react';
+import { CivitaiSelect } from '@civitai/components-react';
 
-<Select
+<CivitaiSelect
   label="Base model"
   description="Determines available samplers."
-  defaultValue="flux"
->
-  <option value="sdxl">SDXL 1.0</option>
-  <option value="flux">Flux.1 dev</option>
-  <option value="pony">Pony Diffusion</option>
-</Select>;
+  value="flux"
+  data={[
+    { value: 'sdxl', label: 'SDXL 1.0' },
+    { value: 'flux', label: 'Flux.1 dev' },
+    { value: 'pony', label: 'Pony Diffusion' },
+  ]}
+/>;
 ```
 
 </template>
@@ -421,16 +428,16 @@ keyboard, focus and indeterminate states are all native.
 <template #react>
 
 ```tsx
-import { Checkbox, Stack } from '@civitai/components-react';
+import { CivitaiCheckbox, CivitaiStack } from '@civitai/components-react';
 
-<Stack gap="md">
-  <Checkbox
+<CivitaiStack gap="md">
+  <CivitaiCheckbox
     label="Show mature content"
     description="You can change this later in settings."
-    defaultChecked
+    checked
   />
-  <Checkbox label="Email me product updates" />
-</Stack>;
+  <CivitaiCheckbox label="Email me product updates" />
+</CivitaiStack>;
 ```
 
 </template>
@@ -479,13 +486,18 @@ in a row (default is a vertical stack).
 <template #react>
 
 ```tsx
-import { RadioGroup, Radio } from '@civitai/components-react';
+import { CivitaiRadioGroup } from '@civitai/components-react';
 
-<RadioGroup label="Sampler">
-  <Radio name="sampler" value="euler" label="Euler a" defaultChecked />
-  <Radio name="sampler" value="ddim" label="DDIM" />
-  <Radio name="sampler" value="dpm" label="DPM++ 2M Karras" />
-</RadioGroup>;
+<CivitaiRadioGroup
+  label="Sampler"
+  name="sampler"
+  value="euler"
+  data={[
+    { value: 'euler', label: 'Euler a' },
+    { value: 'ddim', label: 'DDIM' },
+    { value: 'dpm', label: 'DPM++ 2M Karras' },
+  ]}
+/>;
 ```
 
 </template>
@@ -525,22 +537,22 @@ hairline** (surface == body there, so an unbordered card would be invisible);
 <template #react>
 
 ```tsx
-import { Card, Stack, Group } from '@civitai/components-react';
+import { CivitaiCard, CivitaiStack, CivitaiGroup } from '@civitai/components-react';
 
-<Group gap="md">
-  <Card withBorder padding="md">
-    <Stack gap="sm">
+<CivitaiGroup gap="md">
+  <CivitaiCard withBorder padding="md">
+    <CivitaiStack gap="sm">
       <strong>With border</strong>
       <span>An explicit, fully-opaque border at medium padding.</span>
-    </Stack>
-  </Card>
-  <Card padding="lg">
-    <Stack gap="sm">
+    </CivitaiStack>
+  </CivitaiCard>
+  <CivitaiCard padding="lg">
+    <CivitaiStack gap="sm">
       <strong>Default</strong>
       <span>The subtle default hairline at large padding.</span>
-    </Stack>
-  </Card>
-</Group>;
+    </CivitaiStack>
+  </CivitaiCard>
+</CivitaiGroup>;
 ```
 
 </template>
@@ -584,7 +596,7 @@ and the gap obvious (the chips are plain filler content, not components).
 <template #react>
 
 ```tsx
-import { Stack, Group } from '@civitai/components-react';
+import { CivitaiStack, CivitaiGroup } from '@civitai/components-react';
 
 const chip = {
   display: 'inline-flex',
@@ -598,24 +610,24 @@ const chip = {
   fontWeight: 700,
 } as const;
 
-<Stack gap="lg">
-  <Stack gap="sm">
+<CivitaiStack gap="lg">
+  <CivitaiStack gap="sm">
     <strong>Stack — vertical, gap="md"</strong>
-    <Stack gap="md">
+    <CivitaiStack gap="md">
       <div style={chip}>1</div>
       <div style={chip}>2</div>
       <div style={chip}>3</div>
-    </Stack>
-  </Stack>
-  <Stack gap="sm">
+    </CivitaiStack>
+  </CivitaiStack>
+  <CivitaiStack gap="sm">
     <strong>Group — horizontal, gap="md"</strong>
-    <Group gap="md">
+    <CivitaiGroup gap="md">
       <div style={chip}>1</div>
       <div style={chip}>2</div>
       <div style={chip}>3</div>
-    </Group>
-  </Stack>
-</Stack>;
+    </CivitaiGroup>
+  </CivitaiStack>
+</CivitaiStack>;
 ```
 
 </template>
@@ -649,19 +661,19 @@ label.
 <template #react>
 
 ```tsx
-import { Loader, Group } from '@civitai/components-react';
+import { CivitaiLoader, CivitaiGroup } from '@civitai/components-react';
 
-<Group gap="lg">
-  <Loader size="sm" />
-  <Loader size="md" />
-  <Loader size="lg" />
+<CivitaiGroup gap="lg">
+  <CivitaiLoader size="sm" />
+  <CivitaiLoader size="md" />
+  <CivitaiLoader size="lg" />
   <span role="status">
-    <Loader size="md" aria-hidden="true" />
+    <CivitaiLoader size="md" aria-hidden="true" />
     <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
       Loading…
     </span>
   </span>
-</Group>;
+</CivitaiGroup>;
 ```
 
 </template>
