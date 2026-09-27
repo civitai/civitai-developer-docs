@@ -1,20 +1,34 @@
 ---
 title: Theming & the design system
-description: Civitai's dual-consumption design system — the same themed components as generic attribute-driven HTML for any framework, or as thin React bindings. Covers the 3-layer model (@civitai/theme tokens, @civitai/components CSS, @civitai/components-react), plain-HTML and React setup, light/dark theming, and the @layer override model.
+description: Civitai's dual-consumption design system — the same design language as generic attribute-driven HTML for any framework, or as self-styling custom elements (with typed React bindings over them); the two sets are not nested, and each has components the other lacks. Covers the 3-layer model (@civitai/theme tokens, @civitai/components CSS + custom elements, @civitai/components-react bindings), plain-HTML and React setup, light/dark theming, and the @layer override model.
 sources:
   - civitai-app-starters:packages/civitai-components/MARKUP.md
   - npm:@civitai/theme@0.4.0
-  - npm:@civitai/components@0.7.1
-  - npm:@civitai/components-react@0.7.0
+  - npm:@civitai/components@0.8.1
+  - npm:@civitai/components-react@0.9.0
 ---
 
 # Theming & the design system
 
-Civitai's UI components ship as a **dual-consumption design system**: the exact
-same themed components are available as **generic, framework-agnostic HTML** —
-styled purely by `data-*` attributes — *and* as thin **React bindings**. Build a
-block in plain HTML, Svelte, Vue, Solid, or vanilla JS and it looks like Civitai;
-build it in React and you get typed component props over the identical markup.
+Civitai's UI components ship as a **dual-consumption design system**: the same
+design language is available as **generic, framework-agnostic HTML** — styled purely
+by `data-*` attributes — *and* as self-styling `<civitai-*>` **custom elements**,
+which is the split that matters: the sheet if you author the markup, the elements if
+you want the behaviour and ARIA wiring supplied. Either half works in plain HTML,
+Svelte, Vue, Solid or vanilla JS, and in React `@civitai/components-react` gives you
+the elements as typed bindings.
+
+🔴 **The two halves are not the same set, and neither contains the other — pick by
+what you need rather than by preference.** Most of the difference runs one way: the
+elements include `modal`, `menu`, `switch` and `table`, none of which has any
+`data-civitai-ui` contract. It runs the other way too, once: `radio` is a sheet
+component with no `<civitai-radio>` element — the element route models a radio set as
+one `<civitai-radio-group>` taking its options as a `data` property. Derive each set
+rather than trusting a count here: the sheet's is the [Components
+reference](../reference/components), generated from the contract that ships with the
+package, and the elements' is the `tagName`s in its `custom-elements.json`. Note that
+a capability can be present under a different name — the sheet has no `tabs`, but its
+`segmented-control` documents a `role="tablist"` mode.
 
 ::: tip Not the same as `@civitai/blocks-react`
 This design system (`@civitai/theme` / `@civitai/components` /
@@ -31,18 +45,26 @@ The system is three packages, each a layer you can adopt independently:
 | Layer | Package | What it is | You use it when… |
 |-------|---------|-----------|------------------|
 | **1. Tokens** | `@civitai/theme` | `--civitai-*` design tokens generated from Civitai's Mantine v7 theme — as a CSS-variables stylesheet, JS token objects, and a [DTCG](https://tr.designtokens.org/) JSON file. | you want Civitai's colors/spacing/typography as raw values. |
-| **2. Components (CSS)** | `@civitai/components` | Attribute-driven, framework-agnostic CSS for the presentational components, styled via `data-civitai-ui="<name>"` + `data-variant`/`data-size`. Wrapped in `@layer civitai.components`. | you want themed components in **any** framework (or none). |
-| **3. React bindings** | `@civitai/components-react` | Thin `forwardRef` React components that render the layer-2 markup with typed props. | your block is React and you want typed props + refs. |
+| **2. Components (CSS + elements)** | `@civitai/components` | Two independent ways to consume it: attribute-driven, framework-agnostic CSS styled via `data-civitai-ui="<name>"` + `data-variant`/`data-size` (wrapped in `@layer civitai.components`), and the self-styling `<civitai-*>` custom elements, which carry the behaviour and ARIA wiring in shadow DOM. | you want themed components in **any** framework (or none) — the CSS if you author the markup, the elements if you want the behaviour too. |
+| **3. React bindings** | `@civitai/components-react` | `@lit/react` wrappers around the `<civitai-*>` custom elements, with props and events typed from the element classes. | your block is React and you want typed props. |
 
 Layers stack downward: `@civitai/components` builds on `@civitai/theme`'s tokens,
-and `@civitai/components-react` renders `@civitai/components`' markup. Adopt just
-layer 1 for tokens, layers 1–2 for framework-agnostic components, or all three
-for the React ergonomics.
+and `@civitai/components-react` binds the `<civitai-*>` custom elements, which
+carry their own styles in shadow DOM — since `0.9.0` it does NOT render layer 2's
+markup. Adopt just layer 1 for tokens; layer 2 for framework-agnostic components,
+either as the stylesheet-plus-markup contract you author yourself or as the
+`<civitai-*>` elements that package also ships — `import
+'@civitai/components/register'` if you bundle, or the self-registering
+`elements.js` at the package root if you do not (it is in the published `files`,
+so a CDN serves it straight into a `<script type="module">`; a bare specifier
+does not resolve in a browser) — which carry the behaviour and the encapsulation
+in any framework or none; and layer 3 when you want those elements as typed React
+components.
 
 ::: tip Pin the version in the CDN URL — and pin each package separately
 The three packages version **independently** — this page is written against
-`@civitai/theme@0.4.0`, `@civitai/components@0.7.1` and
-`@civitai/components-react@0.7.0`, each on its own release schedule. There is no
+`@civitai/theme@0.4.0`, `@civitai/components@0.8.1` and
+`@civitai/components-react@0.9.0`, each on its own release schedule. There is no
 single shared version number, so copy each URL as written rather than sed-ing
 one version across all three — a URL naming a version a package never published
 404s, and a missing stylesheet fails **silently** as an unstyled page.
@@ -71,8 +93,8 @@ a package-root `styles.css`, so both [jsDelivr](https://cdn.jsdelivr.net) and
 [unpkg](https://unpkg.com) serve it at
 `<host>/@civitai/<pkg>@<version>/styles.css`. `@civitai/components-react` ships
 **no stylesheet at all** — there is no `styles.css` at any version, and that URL
-404s. It is the React bindings only, and it injects the CSS for you on first
-render, so you never link it. The
+404s. It is the React bindings only: each element carries its own CSS in shadow DOM and
+injects the `@civitai/theme` TOKENS on first mount, so you never link either. The
 [Plain HTML quickstart](#plain-html-quickstart) below is a complete, copy-paste
 page.
 :::
@@ -83,19 +105,21 @@ page.
 tokens and the component CSS — then write HTML with the `data-civitai-ui`
 attributes. That's the whole integration.
 
-Be clear about what layer 2 gives you, though: it is a **stylesheet plus a markup
-contract**, not a component library. There is no behavior and no encapsulation —
-you get the *look*, and the interactive wiring is yours to write. A `button`'s
-loading state (`aria-busy` + `disabled` + the loader span) and a `text-input`'s
-label/description/error ARIA relationships are markup **you** author to the
-contract; only the React bindings in layer 3 automate them.
+Be clear about what this half of layer 2 gives you, though: the **stylesheet plus
+markup contract** is not a component library. There is no behavior and no
+encapsulation — you get the *look*, and the interactive wiring is yours to write.
+A `button`'s loading state (`aria-busy` + `disabled` + the loader span) and a
+`text-input`'s label/description/error ARIA relationships are markup **you**
+author to the contract. The `<civitai-*>` elements in the same package automate
+them for you without a framework, and layer 3 is those elements with React
+types — the ARIA wiring lives in the element, not in the binding.
 
 ```html
 <!-- 1. Load the design tokens + the component CSS (order-independent).
      Pin each package at its own version — they do not share one.
      Swap unpkg.com for cdn.jsdelivr.net/npm if you prefer jsDelivr. -->
 <link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.4.0/styles.css" />
-<link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.7.1/styles.css" />
+<link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.8.1/styles.css" />
 
 <!-- 2. Write markup with the data-attributes — styled identically to React. -->
 <button data-civitai-ui="button" data-variant="filled" data-size="md">Generate</button>
@@ -132,9 +156,12 @@ Every component's exact markup — required elements, `data-*` attributes, and t
 ARIA/role wiring — is in the [Components reference](../reference/components),
 generated from the canonical
 [`MARKUP.md`](https://github.com/civitai/civitai-app-starters/blob/main/packages/civitai-components/MARKUP.md)
-that ships inside `@civitai/components`. **`MARKUP.md` is the source of truth**:
-any HTML that follows it renders identically to the React bindings (asserted by a
-`getComputedStyle()` parity browser test in both themes).
+that ships inside `@civitai/components`. **`MARKUP.md` is the source of truth**
+for hand-written markup, and the `@civitai/components` suites assert its rules
+against `components.css` directly. It is **not** what the React bindings render:
+since `@civitai/components-react@0.9.0` those bind the custom elements, which
+style themselves in shadow DOM, and the `html-vs-react-parity` test that used to
+compare the two arms retired with the layer it compared.
 
 ## Plain HTML quickstart
 
@@ -172,7 +199,7 @@ Paint the page from the body/text tokens as shown.
     />
     <link
       rel="stylesheet"
-      href="https://unpkg.com/@civitai/components@0.7.1/styles.css"
+      href="https://unpkg.com/@civitai/components@0.8.1/styles.css"
     />
 
     <style>
@@ -246,27 +273,30 @@ what the generator's drift-guard exists to prevent. Reach for a border or shadow
 ## Themed components in React
 
 If your block is React, `@civitai/components-react` gives you the same components
-as typed `forwardRef` primitives — no `data-*` attributes to remember, and refs
-forward to the underlying DOM node. The bindings auto-inject the stylesheet and
-tokens on first render, so there are no `<link>`s to add.
+as typed element bindings — no `data-*` attributes to remember. The elements are
+self-styling and inject the `@civitai/theme` tokens on first mount, so there are
+no `<link>`s to add. Two consequences of binding elements rather than markup:
+handlers receive the **DOM event** (`onChange={(e) => e.target.value}`), and
+server rendering is best-effort — write the `<civitai-*>` tag directly in JSX
+where server output matters, since attributes survive SSR and properties do not.
 
 ```tsx
-import { Button, Stack, TextInput } from '@civitai/components-react';
+import { CivitaiButton, CivitaiStack, CivitaiTextInput } from '@civitai/components-react';
 
 export function GenerateForm() {
   return (
-    <Stack gap="md">
-      <TextInput label="Prompt" placeholder="a cat astronaut" />
-      <Button variant="filled" size="md" loading={false}>
+    <CivitaiStack gap="md">
+      <CivitaiTextInput label="Prompt" placeholder="a cat astronaut" />
+      <CivitaiButton variant="filled" size="md" loading={false}>
         Generate
-      </Button>
-    </Stack>
+      </CivitaiButton>
+    </CivitaiStack>
   );
 }
 ```
 
-The props mirror the attribute contract: `Button` takes `variant` / `size` /
-`loading` / `fullWidth` / `leftSection` / `rightSection`; the field inputs take
+The props come from the element classes: `CivitaiButton` takes `variant` / `size` /
+`loading` / `fullWidth` / `color` / `href`; the field inputs take
 `label` / `description` / `error` / `required` and wire up
 `htmlFor` / `aria-describedby` / `aria-invalid` for you. `react` and `react-dom`
 `^18 || ^19` are peer dependencies. See the
@@ -387,7 +417,7 @@ civitai `<link>` tags.**
 
   <!-- 2. Now load the civitai CSS. Its @layer civitai.components slots ABOVE app. -->
   <link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.4.0/styles.css" />
-  <link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.7.1/styles.css" />
+  <link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.8.1/styles.css" />
 
   <!-- 3. Wrap your existing/global CSS in the lower `app` layer. -->
   <style>
@@ -552,7 +582,7 @@ the filenames make it easy to cross the wires.
 ```
 
 Pin the packages at the version you vendored (`@civitai/theme@0.4.0`,
-`@civitai/components@0.7.1`) so a re-vendor is deliberate, and re-copy the two
+`@civitai/components@0.8.1`) so a re-vendor is deliberate, and re-copy the two
 `styles.css` files whenever you bump. If you use a bundler instead of static
 files, `import '@civitai/theme/styles.css'` and `import '@civitai/components/styles.css'`
 resolve through the same `exports` map — no manual copy needed.
