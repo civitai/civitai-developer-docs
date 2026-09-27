@@ -17,6 +17,16 @@ source panel you can toggle between the **framework-agnostic HTML** and the
   no stylesheet to load and no second renderer of the contract. Handlers receive
   the **DOM event**, not an extracted value — `onChange={(e) => e.target.value}`.
 
+🔴 **A binding prop is assigned as a PROPERTY on every render, and `value` /
+`checked` do not reflect to an attribute.** `@lit/react`'s prop effect carries no
+dependency array (*"it'll run on every re-render"*) and deliberately skips dirty
+checking, so a hard-coded `value="…"` or `checked` on a binding **re-asserts
+itself and discards what the viewer typed** the next time the enclosing component
+renders. React's `defaultValue` does nothing here either — it is a DOM attribute
+the element never reads. For a starting value, write the `<civitai-*>` tag
+directly so it lands as an *attribute*; for a live one, hold it in state and use
+the `onChange` above. The field snippets below set neither, for that reason.
+
 The previews re-theme with the site: toggle the header's light/dark switch and
 every `--civitai-*` token re-resolves in place. The React snippets below are
 type-checked against the pinned `@civitai/components-react@0.9.0` declarations on
@@ -268,7 +278,6 @@ import { CivitaiTextInput, CivitaiStack } from '@civitai/components-react';
   />
   <CivitaiTextInput
     label="Email"
-    value="not-an-email"
     error="Enter a valid email address."
   />
 </CivitaiStack>;
@@ -305,7 +314,7 @@ import { CivitaiTextarea } from '@civitai/components-react';
   label="Prompt"
   description="Describe what you want to generate."
   rows={3}
-  value="a serene alpine lake at dawn"
+  placeholder="a serene alpine lake at dawn"
 />;
 ```
 
@@ -339,7 +348,7 @@ import { CivitaiNumberInput } from '@civitai/components-react';
 <CivitaiNumberInput
   label="Steps"
   description="Sampling steps (1–50)."
-  value="30"
+  placeholder="30"
   min="1"
   max="50"
 />;
@@ -382,7 +391,7 @@ import { CivitaiSelect } from '@civitai/components-react';
 <CivitaiSelect
   label="Base model"
   description="Determines available samplers."
-  value="flux"
+  placeholder="Pick a base model"
   data={[
     { value: 'sdxl', label: 'SDXL 1.0' },
     { value: 'flux', label: 'Flux.1 dev' },
@@ -434,7 +443,6 @@ import { CivitaiCheckbox, CivitaiStack } from '@civitai/components-react';
   <CivitaiCheckbox
     label="Show mature content"
     description="You can change this later in settings."
-    checked
   />
   <CivitaiCheckbox label="Email me product updates" />
 </CivitaiStack>;
@@ -491,7 +499,6 @@ import { CivitaiRadioGroup } from '@civitai/components-react';
 <CivitaiRadioGroup
   label="Sampler"
   name="sampler"
-  value="euler"
   data={[
     { value: 'euler', label: 'Euler a' },
     { value: 'ddim', label: 'DDIM' },

@@ -325,6 +325,20 @@ export const HISTORICAL_LITERALS = [
     // byte-identical in both. So the arrival version is still 0.4.0 and the
     // exemption below still describes reality against the NEW pin.
     //
+    // RE-MEASURED AGAIN at the 0.8.1 pin bump, and the byte-identity shortcut is
+    // GONE: `styles.css` is 31,108 B at 0.7.1 against 39,970 B at 0.8.1, so `cmp`
+    // reports a difference and says nothing about this rule. Measured the rule
+    // itself instead — strip CSS comments FIRST, then compare the declaration set
+    // of the `[data-civitai-ui='group']` block: IDENTICAL between 0.7.1 and 0.8.1
+    // (`flex-wrap: wrap`, `flex-wrap: nowrap`, `min-width: 0`, `display: flex`,
+    // `flex-direction: row`, `align-items: center`, four `gap`s). Only the
+    // comments moved, and 0.8.1's own comment says why: `components-react@0.9.0`
+    // deleted its hand-written `<Group>`, retiring `html-vs-react-parity` and
+    // leaving two surfaces on this rule rather than three. 🔴 An extractor that
+    // does NOT strip comments first reports the sets as DIFFERENT — comment prose
+    // matches the declaration regex. That false negative was hit here before the
+    // parser was fixed; the control is comparing a file against itself.
+    //
     // RE-MEASURED AGAIN at the 0.7.1 pin bump, and this time the answer is
     // stronger than a rule-by-rule diff: `styles.css` is BYTE-IDENTICAL between
     // 0.6.0 and 0.7.1 (`cmp` rc=0, 31108 bytes both), so 0.7.1 cannot have
@@ -333,7 +347,7 @@ export const HISTORICAL_LITERALS = [
     // is capable of reporting a difference. What 0.7.1 actually changed is JS,
     // not CSS — it adds the `civitai-workflow-button` element and edits
     // `civitai-sign-in-button` (custom-elements.json: 45 -> 46 elements).
-    why: 'group wrapping by default + `data-nowrap` ARRIVED in components 0.4.0 — no release since has touched the group/wrap rules (measured: 0 of the 42 rules that changed between 0.4.1 and 0.6.0 match group or wrap, and `styles.css` is byte-identical between 0.6.0 and the 0.7.1 pin). Bumping this to the pin would name a version in which nothing about this behaviour changed.',
+    why: 'group wrapping by default + `data-nowrap` ARRIVED in components 0.4.0 — no release since has touched the group/wrap DECLARATIONS (measured: 0 of the 42 rules that changed between 0.4.1 and 0.6.0 match group or wrap; `styles.css` byte-identical between 0.6.0 and 0.7.1; and at the 0.8.1 pin the `[data-civitai-ui=\'group\']` block\'s declarations are identical to 0.7.1\'s — only its comments moved). Bumping this to the pin would name a version in which nothing about this behaviour changed.',
   },
 ];
 

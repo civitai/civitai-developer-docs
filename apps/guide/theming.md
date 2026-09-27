@@ -35,9 +35,10 @@ The system is three packages, each a layer you can adopt independently:
 | **3. React bindings** | `@civitai/components-react` | `@lit/react` wrappers around the `<civitai-*>` custom elements, with props and events typed from the element classes. | your block is React and you want typed props. |
 
 Layers stack downward: `@civitai/components` builds on `@civitai/theme`'s tokens,
-and `@civitai/components-react` renders `@civitai/components`' markup. Adopt just
-layer 1 for tokens, layers 1–2 for framework-agnostic components, or all three
-for the React ergonomics.
+and `@civitai/components-react` binds the `<civitai-*>` custom elements, which
+carry their own styles in shadow DOM — since `0.9.0` it does NOT render layer 2's
+markup. Adopt just layer 1 for tokens, layer 2 for framework-agnostic components
+in markup you write, or the bindings when you want the behaviour supplied.
 
 ::: tip Pin the version in the CDN URL — and pin each package separately
 The three packages version **independently** — this page is written against
@@ -71,8 +72,8 @@ a package-root `styles.css`, so both [jsDelivr](https://cdn.jsdelivr.net) and
 [unpkg](https://unpkg.com) serve it at
 `<host>/@civitai/<pkg>@<version>/styles.css`. `@civitai/components-react` ships
 **no stylesheet at all** — there is no `styles.css` at any version, and that URL
-404s. It is the React bindings only, and it injects the CSS for you on first
-render, so you never link it. The
+404s. It is the React bindings only: each element carries its own CSS in shadow DOM and
+injects the `@civitai/theme` TOKENS on first mount, so you never link either. The
 [Plain HTML quickstart](#plain-html-quickstart) below is a complete, copy-paste
 page.
 :::
@@ -271,8 +272,8 @@ export function GenerateForm() {
 }
 ```
 
-The props mirror the attribute contract: `Button` takes `variant` / `size` /
-`loading` / `fullWidth` / `leftSection` / `rightSection`; the field inputs take
+The props come from the element classes: `CivitaiButton` takes `variant` / `size` /
+`loading` / `fullWidth` / `color` / `href`; the field inputs take
 `label` / `description` / `error` / `required` and wire up
 `htmlFor` / `aria-describedby` / `aria-invalid` for you. `react` and `react-dom`
 `^18 || ^19` are peer dependencies. See the

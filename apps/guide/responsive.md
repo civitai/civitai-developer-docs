@@ -197,7 +197,10 @@ changed other things, not this behaviour; the pin itself is in this page's
 <div data-civitai-ui="group" data-nowrap="true">…stays on one line…</div>
 ```
 
-This applies to bare markup and to `@civitai/components-react`'s `<Group>`.
+This applies to bare markup. The element twin `<civitai-group>` (bound as
+`CivitaiGroup` in `@civitai/components-react`) also wraps by default, but it opts
+out through a `nowrap` **property**, not `data-nowrap` — the hand-written `<Group>`
+that took this contract was superseded in `@civitai/components-react@0.9.0`.
 `@civitai/blocks-react`'s `<Group>` already wrapped and is unchanged. See the
 [components reference](../reference/components) for the full markup contract.
 
