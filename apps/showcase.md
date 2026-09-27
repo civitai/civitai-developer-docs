@@ -21,27 +21,46 @@ source panel you can toggle between the **framework-agnostic HTML** and the
 prop effect carries no dependency array (*"it'll run on every re-render"*) and
 deliberately skips dirty checking, so a hard-coded `value="…"` or `checked` on a
 binding **re-asserts itself and discards what the viewer typed** the next time the
-enclosing component renders. `checked` never reflects to an attribute; `value`
-reflects on five elements — `civitai-checkbox`, `civitai-switch`, `civitai-tabs`,
-`civitai-menu-item`, `civitai-progress` — and on none of the text, number or
-select fields below, so for those the property is all there is. (Derive that list
-from the package's `custom-elements.json` rather than trusting this sentence.)
-React's `defaultValue` does nothing here either.
+enclosing component renders. That is why the React arms below set no starting
+value.
 
-**An editable value belongs in state, with the `onChange` above.** Writing the
-`<civitai-*>` tag instead is not a reliable way to get an *attribute*: React 18
-sets an unknown prop as an attribute, React 19 sets it as a **property** when the
-element has one, and both majors are in the bindings' peer range.
+Starting values and form-reset behaviour differ between React 18 and React 19, and
+this page deliberately does not characterise them — read the element's own `value`
+docstring (`@civitai/components/dist/elements/field-base.d.ts`) and test against
+the React major you ship.
 
-🔴 **If the default must survive a form reset, no React route gives you one —
-set the attribute yourself.** `formResetCallback()` re-reads
-`getAttribute('value')` / `hasAttribute('checked')` **and dispatches nothing**, so
-a reset clears a state-driven field exactly as it clears a hard-coded prop, leaves
-React holding the old value, and the next render re-asserts it. State + `onChange`
-is right for editing and does not fix reset; the only thing that does is an
-attribute you write — `ref={(el) => el?.setAttribute('value', '30')}`, or plain
-HTML outside React. The React arms below set no starting value at all; the HTML
-arms do, as ordinary attributes on native inputs.
+<!-- 🔴 DO NOT DERIVE A FIFTH VERSION OF THE PARAGRAPH THAT USED TO SIT HERE.
+     Four consecutive audit rounds each found the PREVIOUS round's replacement
+     wrong. Every one was a confident explanation of how to get a reset-correct
+     default, written under pressure to supply a reason:
+       1. "React's `defaultValue` is a DOM attribute the element never reads" —
+          the conclusion held, the mechanism was wrong: React 18 treats
+          `defaultValue` as a RESERVED prop and never writes it at all.
+       2. "write the `<civitai-*>` tag so it lands as an attribute" — true on
+          React 18, FALSE on React 19 (property when the element has one), and
+          BOTH majors are in `@civitai/components-react`'s peer range.
+       3. "`value` reflects only on `civitai-checkbox`, so for the fields the
+          property is all there is" — wrong twice. It reflects on five elements
+          (checkbox, switch, tabs, menu-item, progress), and the follow-on was
+          false outright: `CivitaiField` declares `value: {}`, so the ATTRIBUTE is
+          observed on every field element — `field-base.d.ts` says "The `value`
+          ATTRIBUTE is the default, as on a native input". What the fields lack is
+          REFLECTION (property -> attribute), which is a different thing. That
+          draft also told the reader to derive the list from
+          `custom-elements.json`, which cannot settle it: the manifest carries no
+          `CivitaiField` declaration, so it lists no `value` on the fields.
+       4. "no React route gives you one — set the attribute yourself,
+          `ref={(el) => el?.setAttribute('value', '30')}`" — wrong twice again. A
+          raw tag under React 18 both sets the attribute and survives re-renders,
+          so a working React route does exist there; and the inline-arrow ref
+          REPRODUCES the defect this callout warns about, because @lit/react
+          forwards the user ref through `useCallback(cb, [r])` — a new arrow each
+          render detaches and reattaches, re-running setAttribute and re-asserting
+          the stale value.
+     The verified claim is the first paragraph above, measured twice in a real
+     browser. Everything past it was a characterisation nobody had measured across
+     both React majors. If you need to document defaults, MEASURE the major you
+     ship first and say which one you measured. -->
 
 The previews re-theme with the site: toggle the header's light/dark switch and
 every `--civitai-*` token re-resolves in place. The React snippets below are

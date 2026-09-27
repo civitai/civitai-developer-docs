@@ -1,6 +1,6 @@
 ---
 title: Theming & the design system
-description: Civitai's dual-consumption design system — the same themed components as generic attribute-driven HTML for any framework, or as thin React bindings. Covers the 3-layer model (@civitai/theme tokens, @civitai/components CSS, @civitai/components-react), plain-HTML and React setup, light/dark theming, and the @layer override model.
+description: Civitai's dual-consumption design system — the same themed components as generic attribute-driven HTML for any framework, or as self-styling custom elements (with typed React bindings over them). Covers the 3-layer model (@civitai/theme tokens, @civitai/components CSS + custom elements, @civitai/components-react bindings), plain-HTML and React setup, light/dark theming, and the @layer override model.
 sources:
   - civitai-app-starters:packages/civitai-components/MARKUP.md
   - npm:@civitai/theme@0.4.0
@@ -12,11 +12,11 @@ sources:
 
 Civitai's UI components ship as a **dual-consumption design system**: the exact
 same themed components are available as **generic, framework-agnostic HTML** —
-styled purely by `data-*` attributes — *and* as thin **React bindings**. Build a
-block in plain HTML, Svelte, Vue, Solid, or vanilla JS and it looks like Civitai;
-build it in React and you get the same components as typed bindings around the
-`<civitai-*>` custom elements — which, since `@civitai/components-react@0.9.0`,
-render themselves rather than that markup.
+styled purely by `data-*` attributes — *and* as self-styling `<civitai-*>` **custom
+elements**, which is the split that matters: the sheet if you author the markup, the
+elements if you want the behaviour and ARIA wiring supplied. Build a block in plain
+HTML, Svelte, Vue, Solid, or vanilla JS with either half and it looks like Civitai;
+in React, `@civitai/components-react` gives you the elements as typed bindings.
 
 ::: tip Not the same as `@civitai/blocks-react`
 This design system (`@civitai/theme` / `@civitai/components` /
