@@ -185,6 +185,45 @@ The orchestrator resolves the reference at runtime and wires up the edge automat
 
 The exact `path` available depends on the source step's output schema — see each step type's reference page for the shape.
 
+### Inserting a reference into text
+
+Add `format` to a reference to put the resolved value inside a longer string. `{0}` marks where the value goes:
+
+```json
+{
+  "steps": [
+    {
+      "$type": "chatCompletion",
+      "name": "write",
+      "input": {
+        "model": "…",
+        "messages": [{ "role": "user", "content": "Describe a fox in a scarf in under 40 words." }],
+        "responseFormat": { "type": "json_schema", "jsonSchema": { "name": "look", "schema": { "type": "object", "properties": { "look": { "type": "string" } }, "required": ["look"] } } }
+      }
+    },
+    {
+      "$type": "imageGen",
+      "input": {
+        "engine": "google",
+        "model": "nano-banana-2-lite",
+        "prompt": {
+          "$ref": "write",
+          "path": "output.parsed.look",
+          "format": "A 3D rendered cartoon character. Full-body reference of {0}. Plain grey background."
+        }
+      }
+    }
+  ]
+}
+```
+
+The model only writes the part that changes, and the fixed wording stays exactly as you wrote it.
+
+- **Placeholders:** `{0}` is the only placeholder and can appear more than once. Write a literal brace as <code v-pre>{{</code> or <code v-pre>}}</code>. A `format` that isn't a string, has no `{0}`, or has any other unescaped brace is rejected when you submit the workflow.
+- **Values:** a string is inserted as-is, and a number or boolean as its JSON text. An object or array is inserted as JSON, and a missing or `null` value inserts nothing.
+- **`default`:** if `path` doesn't resolve, the `default` is inserted into `format` in the same way.
+- **Result type:** the formatted text is then converted to the field's type like any other reference, so `"format": "https://example.com/{0}.png"` can fill a URL field.
+
 ### Workflow arguments
 
 The workflow-level `arguments` field lets you template values that steps reference. Define the shape once, submit many instances with different argument values:
