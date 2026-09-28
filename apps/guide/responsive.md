@@ -2,9 +2,9 @@
 title: Responsive blocks
 description: The width your block measures is the slot the host gave it, not the device — so a media query inside a block is already a container query. Covers the --civitai-bp-* scale, useBlockBreakpoint(), the em-vs-px breakpoint trap, and what the design system already reflows for you.
 sources:
-  - npm:@civitai/blocks-react@0.57.2#useBlockBreakpoint
-  - npm:@civitai/theme@0.3.1#breakpoints
-  - npm:@civitai/components@0.4.1
+  - npm:@civitai/blocks-react@0.58.1#useBlockBreakpoint
+  - npm:@civitai/theme@0.4.0#breakpoints
+  - npm:@civitai/components@0.8.1
 ---
 
 # Responsive blocks
@@ -30,11 +30,8 @@ only the iframe box changed):
 | 430 × 320 | `true` | `430px` | `320px` |
 | 900 × 640 | `false` | `900px` | `640px` |
 
-Two things fall out of that table:
+One thing falls out of that table:
 
-- **The 900px row is the control.** A `true` on its own would also be what a
-  zero-width or failed-to-load iframe reports, so the value of the measurement
-  is that the query *flips* with the iframe box while the window never moves.
 - **`dvh`, `svh`, `lvh` and `vh` are the same number here.** Those units differ
   only when browser chrome expands and retracts over the viewport, and an
   iframe has none. Reach for `100dvh` if you like the habit — inside a block it
@@ -48,8 +45,10 @@ block:
 
 - the `model.sidebar_top` slot is about **360px** wide at a 360px phone
   viewport, and only about **430px** at a 1440px desktop one;
-- a page app (`app.page`) gets the host's whole content area, so the *same*
-  block can be several times wider on that same desktop.
+- a page app (`app.page`) gets the host's content area — which the host caps at
+  **1600px** by default, rendering the block as a centred column with a neutral
+  gutter either side past that — so the *same* block can be several times wider
+  on that same desktop.
 
 So "narrow" is not "phone", and "wide" is not "desktop". A 360px phone and a
 desktop model sidebar are the *same layout problem*, and a block that infers
@@ -100,11 +99,6 @@ Below `xs` is `base`, which is where both the phone and the model sidebar land.
 is evaluated outside the cascade, where no element is in scope, so `var()` is
 never substituted there — the condition is invalid and the rules inside it never
 apply. Nothing errors and nothing warns; the styles are simply missing.
-
-Measured in the same browser, with the window at 1000px and `--bp-sm` proven to
-resolve to `768px`: the literal `@media (min-width: 768px)` applied and the
-`var()` form did not. The literal is the control — without it, "the rule did not
-apply" would not distinguish a dead condition from a probe that never ran.
 
 So write the pixel value literally in a `@media` or `@container` condition, and
 keep the token for the places that do substitute it — `width`, `max-width`,
@@ -187,8 +181,9 @@ stay on it rather than mixing them in the same layout.
 ## What the design system already reflows for you
 
 Since `@civitai/components@0.4.0` you get some of this without writing anything
-(0.4.0 is the arrival version, not the current pin — 0.4.1 is a docs-only release
-whose `styles.css` is byte-identical):
+(0.4.0 is the arrival version, not the current pin — the releases since have
+changed other things, not this behaviour; the pin itself is in this page's
+`sources:` stamp, which a guard keeps honest):
 
 - **`group` wraps by default.** A row of controls that no longer fits reflows
   onto another row instead of overflowing its box, and its children may shrink
@@ -202,7 +197,10 @@ whose `styles.css` is byte-identical):
 <div data-civitai-ui="group" data-nowrap="true">…stays on one line…</div>
 ```
 
-This applies to bare markup and to `@civitai/components-react`'s `<Group>`.
+This applies to bare markup. The element twin `<civitai-group>` (bound as
+`CivitaiGroup` in `@civitai/components-react`) also wraps by default, but it opts
+out through a `nowrap` **property**, not `data-nowrap` — the hand-written `<Group>`
+that took this contract was superseded in `@civitai/components-react@0.9.0`.
 `@civitai/blocks-react`'s `<Group>` already wrapped and is unchanged. See the
 [components reference](../reference/components) for the full markup contract.
 
@@ -215,10 +213,11 @@ cosmetic:
 |---|---|---|
 | iframe height | full content area; the host does **not** listen for `RESIZE_IFRAME` | sized to your content, clamped to the manifest's `iframe.minHeight` / `iframe.maxHeight` |
 | `useBlockResize` | inert — it still posts, the host ignores it | honoured |
-| typical width | the page content width | narrow, and roughly constant regardless of window width |
+| typical width | the page content width, capped at **1600px** by default | narrow, and roughly constant regardless of window width |
 
 On a page app, size **to** the surface: let the host's box be your canvas and
-lay out inside it. On a model slot, tell the host how tall you are with
+lay out inside it — the cap is inert below 1600px, so no laptop, tablet or phone
+width is touched by it. On a model slot, tell the host how tall you are with
 [`useBlockResize`](../reference/hooks) and keep the layout single-column — you
 are in a sidebar whether or not the window is wide.
 

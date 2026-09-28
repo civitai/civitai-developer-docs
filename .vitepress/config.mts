@@ -44,6 +44,11 @@ const appsGuideSidebar: DefaultTheme.SidebarItem[] = [
       { text: 'Introduction', link: '/apps/guide/' },
       { text: 'Concepts', link: '/apps/guide/concepts' },
       { text: 'Quickstart', link: '/apps/guide/quickstart' },
+      { text: 'Local dev loop — mock and live', link: '/apps/guide/local-dev' },
+      { text: 'What `app validate` proves', link: '/apps/guide/validate' },
+      { text: 'What goes in the bundle', link: '/apps/guide/packaging' },
+      { text: 'Review, approval and deploy', link: '/apps/guide/review-and-deploy' },
+      { text: 'Your store listing', link: '/apps/guide/store-listing' },
       { text: 'Moving a block off the bridge', link: '/apps/guide/porting' },
       { text: 'Generating images (text-to-image)', link: '/apps/guide/text-to-image' },
       { text: 'Comfy on Civitai (customComfy)', link: '/apps/guide/comfy-cloud' },
@@ -60,6 +65,31 @@ const appsGuideSidebar: DefaultTheme.SidebarItem[] = [
     text: 'Examples',
     items: [
       { text: 'Example apps', link: '/apps/examples' },
+    ],
+  },
+  // 🔴 CROSS-SECTION ON PURPOSE. These two pages live under `/site/guide/`
+  // because the binary they document is the Site API CLI, but most of the
+  // troubleshooting index is Apps-domain — `app submit`, `app listing`,
+  // `app doctor`, `app metrics`. Measured on cli-troubleshooting.md at this
+  // commit, counting rows whose cells carry a `](/apps/…)` target: 32 of its
+  // 60 rows, and 33 of its 69 outbound link instances. Registered under
+  // `'/site/guide/'` alone the pages were reachable from no Apps page at all
+  // (measured BEFORE this change, with a validated positive control: 5 files
+  // under `apps/` mention `store-listing`, 0 mentioned either of these
+  // pages — this branch adds the inbound links, so the count is no longer 0),
+  // so an author who just got `the server rejected the image-upload request
+  // (400)` had no route to the page that indexes it.
+  //
+  // A GROUP rather than rows inside `Guide` for the reason the `Examples`
+  // comment above gives: the llms plugin turns a group into its own `###`
+  // heading in llms.txt, and these are not part of the Apps guide's reading
+  // order — they are a lookup surface. They are also emitted for the
+  // `/apps/examples` alias, which `dedupeSidebarGroups` collapses.
+  {
+    text: 'The `civitai` CLI',
+    items: [
+      { text: 'Look up a CLI error message', link: '/site/guide/cli-troubleshooting' },
+      { text: 'CLI terminal output', link: '/site/guide/cli-output' },
     ],
   },
 ];
@@ -245,6 +275,14 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Getting Started', link: '/site/guide/getting-started' },
         { text: 'Authentication', link: '/site/guide/authentication' },
         { text: 'CLI', link: '/site/guide/cli' },
+        { text: 'CLI credentials and scopes', link: '/site/guide/cli-auth' },
+        { text: 'CLI: generating images', link: '/site/guide/cli-generate' },
+        { text: 'CLI: choosing a model', link: '/site/guide/cli-generate-models' },
+        { text: 'CLI: raw generation graphs', link: '/site/guide/cli-generation-graphs' },
+        { text: 'CLI: tracking generations', link: '/site/guide/cli-workflows' },
+        { text: 'CLI: scripting with --json', link: '/site/guide/cli-json' },
+        { text: 'CLI: terminal output', link: '/site/guide/cli-output' },
+        { text: 'CLI: troubleshooting', link: '/site/guide/cli-troubleshooting' },
         { text: 'Pagination', link: '/site/guide/pagination' },
         { text: 'Errors', link: '/site/guide/errors' },
         { text: 'AIR Identifiers', link: '/site/guide/air' },

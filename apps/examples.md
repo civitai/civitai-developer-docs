@@ -126,7 +126,7 @@ one block: private drafts in `useAppStorage`, a published feed in
 viewer up mid-flow (`useBuzzWorkflow` + `useBuzzPurchase`). It is also the
 clearest img2img example — `useImageUpload` is the source-image path.
 
-- **Scopes** — `ai:write:budgeted`, `buzz:read:self`, `apps:storage:read`, `apps:storage:write`, `apps:storage:shared:read`, `apps:storage:shared:write`
+- **Scopes** — `ai:write:budgeted`, `buzz:read:self`, `apps:storage:read`, `apps:storage:write`, `apps:storage:shared:read`, `apps:storage:shared:write`, `posts:write:self`
 - **Hooks** — `useBuzzWorkflow`, `useBuzzPurchase`, `useBuzzBalance`, `useImageUpload`, `useGenerationResources`, `useResourcePicker`, `useSharedStorage`, `useAppStorage`, `useGatedImages`, `useCivitaiNavigate`, `useRequestConsent`, `useRequestSignIn`, `useBlockContext`, `useBlockToken`, `useBlockResize`, `useBlockAnalytics`
 
 ### App Requests

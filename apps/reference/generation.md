@@ -2,8 +2,8 @@
 title: Generation bridge reference
 description: The field-level generation contract — the WorkflowBody union, the useBuzzWorkflow lifecycle (incl. cancel), and the BlockWorkflowSnapshot result — generated from the published SDK type JSDoc.
 sources:
-  - npm:@civitai/app-sdk@0.51.0/blocks#WorkflowBody
-  - npm:@civitai/blocks-react@0.57.2#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.51.2/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.58.1#useBuzzWorkflow
 ---
 
 # Generation bridge reference
@@ -33,16 +33,6 @@ boundary, re-checking scope + budget every time. Your block never holds an
 orchestrator credential.
 :::
 
-::: warning The generated `customComfy` entry below is recipe-arm only
-The field tables in this section are generated from the **published** SDK's type
-JSDoc, and the published SDK has not caught up to `customComfy`'s **inline** arm.
-Its `WorkflowBodyCustomComfy` entry therefore describes the recipe shape alone,
-and still states that a block never sends a ComfyUI graph. That is true of the
-recipe arm; it is **not** true of the bridge as a whole — see
-[the inline arm](../guide/comfy-cloud#the-inline-arm-ship-your-own-graph), which
-carries the graph in the body and is gated on an app-developer account.
-:::
-
 <BridgeReference>
 <!-- BEGIN GENERATED: bridge — markdown fallback for the .md/LLM channel. Do not edit by hand; run `npm run gen:appblocks:md`. -->
 
@@ -52,7 +42,7 @@ carries the graph in the body and is gated on an app-developer account.
 useBuzzWorkflow(): UseBuzzWorkflow
 ```
 
-Orchestrates the estimate → confirm → submit → poll dance through the host-mediated `postMessage` path. The host enforces budget rules (`cost_estimate \<= token.buzzBudget`) before forwarding to the orchestrator. 🔴 A BUDGET REFUSAL DOES **NOT** REJECT — IT RESOLVES. It comes back as a snapshot with `status: 'failed'`, an `error` string and the `cost` the server declined to charge, and THAT resolved shape is the cue to call `useBuzzPurchase().openPurchaseModal()`. What DOES reject is a submit with no usable outcome — see {@link WorkflowSubmitError}. Routing a rejection into a top-up sells Buzz for a failure Buzz cannot fix. 🔴 NOR IS EVERY RESOLVED `'failed'` AN AFFORDABILITY PROBLEM. The per-app velocity limit, the per-app aggregate daily cap, a fail-closed "temporarily unavailable" deny and a missing price quote are all priced, resolving outcomes too. Branch on the message/your own policy before offering to sell anything. AFTER `submit` FLIPS `status` TO `'polling'`, USE `watch(workflowId)`. It owns the loop, resolves on the terminal snapshot, and pushes every intermediate one to an `onUpdate` callback — so a block consumes a promise/callback rather than running its own timer. `poll(workflowId)` remains the single-round-trip primitive for callers that genuinely want to drive their own cadence; the hand-written `useEffect` + backoff around it that this docstring used to prescribe is no longer the recommended shape. `status === 'confirming'` is IDLE (estimate landed, user reviewing cost) — keep the Generate button enabled. `estimate`/`submit` take a full {@link WorkflowBody} — the discriminated union keyed by `kind`, never a bare `{ prompt }`. The hook forwards the body to the host verbatim and never reads variant-specific fields, so every member flows through unchanged, including any member added later. 🔴 THIS COMMENT DELIBERATELY DOES NOT SAY HOW MANY MEMBERS THERE ARE, OR NAME THEM (#381). It used to open "with THREE members as of `@civitai/app-sdk@0.30.0`" and close by certifying the list "otherwise unchanged" — while the union had FOUR, `WorkflowBodyPassThroughStep` having arrived in 583e8ba (#310). The sentence whose only job was to vouch for the list was the sentence that went stale. `{@link WorkflowBody}`'s own docblock is the single description of the member set; the machine-checked copy is {@link WorkflowBodyArms} below, which fails `tsc` when the union changes in either direction. A count re-typed here could only ever repeat the defect. 🔴 `customComfy` IS ITSELF A UNION, on `mode` — an app CAN ship its own ComfyUI graph, which is a CAPABILITY claim, not a member count, and so is stated here. `WorkflowBodyCustomComfyRecipe` (`mode` omitted or `'recipe'`) names a server-registered recipe; `WorkflowBodyCustomComfyInline` (`mode: 'inline'`) carries the graph itself, plus its declared AIR `resources` and a `maxBuzz` bound. The inline arm is LIVE in production (developer-only) and this comment used to describe `customComfy` as a recipe-only `{ kind, recipe, params }` shape — written when that was true and never revisited once the arm shipped. A developer working against the live feature read the equivalent claim on the type, believed it over their own instinct, and concluded the capability did not exist. That is the SAME defect the paragraph above records, one member over: an incomplete description of a union, trusted because it read as authoritative.
+Orchestrates the estimate → confirm → submit → poll dance through the host-mediated `postMessage` path. The host enforces budget rules (`cost_estimate \<= token.buzzBudget`) before forwarding to the orchestrator. 🔴 A BUDGET REFUSAL DOES **NOT** REJECT — IT RESOLVES. It comes back as a snapshot with `status: 'failed'`, an `error` string and the `cost` the server declined to charge, and THAT resolved shape is the cue to call `useBuzzPurchase().openPurchaseModal()`. What DOES reject is a submit with no usable outcome — see {@link WorkflowSubmitError}. Routing a rejection into a top-up sells Buzz for a failure Buzz cannot fix. 🔴 NOR IS EVERY RESOLVED `'failed'` AN AFFORDABILITY PROBLEM. The per-app velocity limit, the per-app aggregate daily cap, a fail-closed "temporarily unavailable" deny and a missing price quote are all priced, resolving outcomes too. Branch on the message/your own policy before offering to sell anything. AFTER `submit` FLIPS `status` TO `'polling'`, USE `watch(workflowId)`. It owns the loop, resolves on the terminal snapshot, and pushes every intermediate one to an `onUpdate` callback — so a block consumes a promise/callback rather than running its own timer. `poll(workflowId)` remains the single-round-trip primitive for callers that genuinely want to drive their own cadence; the hand-written `useEffect` + backoff around it that this docstring used to prescribe is no longer the recommended shape. `status === 'confirming'` is IDLE (estimate landed, user reviewing cost) — keep the Generate button enabled. `estimate`/`submit` take a full {@link WorkflowBody} — the discriminated union keyed by `kind`, never a bare `{ prompt }`. The hook forwards the body to the host verbatim and never reads variant-specific fields, so every member flows through unchanged, including any member added later. 🔴 THIS COMMENT DELIBERATELY DOES NOT SAY HOW MANY MEMBERS THERE ARE, OR NAME THEM (#381). It used to open "with THREE members as of `@civitai/app-sdk@0.30.0`" and close by certifying the list "otherwise unchanged" — while the union had FOUR, `WorkflowBodyPassThroughStep` having arrived in 583e8ba (#310). The sentence whose only job was to vouch for the list was the sentence that went stale. `{@link WorkflowBody}`'s own docblock is the single description of the member set; the machine-checked copy is {@link WorkflowBodyArms} below, which fails `tsc` when the union changes in either direction. A count re-typed here could only ever repeat the defect. 🔴 `customComfy` IS ITSELF A UNION, on `mode` — an app CAN ship its own ComfyUI graph, which is a CAPABILITY claim, not a member count, and so is stated here. `WorkflowBodyCustomComfyRecipe` (`mode` omitted or `'recipe'`) names a server-registered recipe; `WorkflowBodyCustomComfyInline` (`mode: 'inline'`) carries the graph itself, plus its declared AIR `resources` and a `maxBuzz` bound. The inline arm is LIVE in production (page-tokens-only, and NOT developer-only — this parenthetical said "developer-only", which is false: no `customComfy` arm runs an app-developer check. See `WorkflowBodyCustomComfyInline` for the refusals that DO run) and this comment used to describe `customComfy` as a recipe-only `{ kind, recipe, params }` shape — written when that was true and never revisited once the arm shipped. A developer working against the live feature read the equivalent claim on the type, believed it over their own instinct, and concluded the capability did not exist. That is the SAME defect the paragraph above records, one member over: an incomplete description of a union, trusted because it read as authoritative.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -67,7 +57,7 @@ Orchestrates the estimate → confirm → submit → poll dance through the host
 
 **`WorkflowBody`** — union
 
-Body the block sends to `useBuzzWorkflow().{submit,estimate}`. A real discriminated union keyed by `kind`: - {@link WorkflowBodyTextToImage} (`kind: 'textToImage'`) — the original checkpoint/LoRA/img2img generation body (unchanged, back-compatible). - {@link WorkflowBodyCustomComfy} (`kind: 'customComfy'`) — post-paid ComfyUI, itself a union on `mode`: a bounded, server-registered {@link WorkflowBodyCustomComfyRecipe} (the default), or a {@link WorkflowBodyCustomComfyInline} graph the block ships itself (`mode: 'inline'`; developer-only). - {@link WorkflowBodyStep} (`kind: 'step'`, `step` PRESENT) — a bounded, server-registered orchestrator step (the host's step registry; billing mode and moderation posture are declared per entry). - {@link WorkflowBodyPassThroughStep} (`kind: 'step'`, `step` ABSENT) — names an orchestrator `$type` directly and has the host forward `input` unmodified. Bounded by a platform-internal denylist and by `maxBuzz`, not by a registry. `kind: 'step'` is therefore itself a union, discriminated on the PRESENCE of `step` — the same nesting {@link WorkflowBodyCustomComfy} has on `mode`. Narrowing on `kind === 'step'` alone leaves both arms in play; narrow further with `'$type' in body` (or `body.step === undefined`) before touching arm-specific fields. New kinds extend this union as the host gains support for them. Narrow on `body.kind` before touching member-specific fields (e.g. `modelId`/`params` live only on the `textToImage` member). ⚠️ Adding a member is additive for PRODUCERS (every existing body still satisfies the union) but narrowing for CONSUMERS that `switch` exhaustively over `kind`. Host code that must handle every member gets a compile error pointing at the new one, which is the intended behaviour.
+Body the block sends to `useBuzzWorkflow().{submit,estimate}`. A real discriminated union keyed by `kind`: - {@link WorkflowBodyTextToImage} (`kind: 'textToImage'`) — the original checkpoint/LoRA/img2img generation body (unchanged, back-compatible). - {@link WorkflowBodyCustomComfy} (`kind: 'customComfy'`) — post-paid ComfyUI, itself a union on `mode`: a bounded, server-registered {@link WorkflowBodyCustomComfyRecipe} (the default), or a {@link WorkflowBodyCustomComfyInline} graph the block ships itself (`mode: 'inline'`; page-tokens-only, and NOT developer-only — that claim used to be here and is false). - {@link WorkflowBodyStep} (`kind: 'step'`, `step` PRESENT) — a bounded, server-registered orchestrator step (the host's step registry; billing mode and moderation posture are declared per entry). - {@link WorkflowBodyPassThroughStep} (`kind: 'step'`, `step` ABSENT) — names an orchestrator `$type` directly and has the host forward `input` unmodified. Bounded by a platform-internal denylist and by `maxBuzz`, not by a registry. `kind: 'step'` is therefore itself a union, discriminated on the PRESENCE of `step` — the same nesting {@link WorkflowBodyCustomComfy} has on `mode`. Narrowing on `kind === 'step'` alone leaves both arms in play; narrow further with `'$type' in body` (or `body.step === undefined`) before touching arm-specific fields. New kinds extend this union as the host gains support for them. Narrow on `body.kind` before touching member-specific fields (e.g. `modelId`/`params` live only on the `textToImage` member). ⚠️ Adding a member is additive for PRODUCERS (every existing body still satisfies the union) but narrowing for CONSUMERS that `switch` exhaustively over `kind`. Host code that must handle every member gets a compile error pointing at the new one, which is the intended behaviour.
 
 - `WorkflowBodyTextToImage`
 - `WorkflowBodyCustomComfy`
@@ -119,7 +109,7 @@ A Civitai-hosted source image for an img2img generation. Mirrors civitai's `bloc
 
 **`WorkflowBodyCustomComfy`** — union
 
-The `customComfy` member of the {@link WorkflowBody} discriminated union (`kind: 'customComfy'`) — itself a discriminated union on `mode`, mirroring the host's `blockCustomComfyMemberSchema`: - {@link WorkflowBodyCustomComfyRecipe} (`mode` omitted, or `'recipe'`) — names a server-registered, code-reviewed recipe. The default. - {@link WorkflowBodyCustomComfyInline} (`mode: 'inline'`) — ships the ComfyUI graph itself. Developer-only, page-tokens-only, and fenced by three server-side gates instead of code review. Both arms are `.strict()` server-side, so a body naming BOTH `recipe` and `workflow` is rejected by both rather than resolved to a winner. Narrow on `body.mode === 'inline'` — NOT on the presence of a `mode` key, and not on the presence of a `workflow` key.
+The `customComfy` member of the {@link WorkflowBody} discriminated union (`kind: 'customComfy'`) — itself a discriminated union on `mode`, mirroring the host's `blockCustomComfyMemberSchema`: - {@link WorkflowBodyCustomComfyRecipe} (`mode` omitted, or `'recipe'`) — names a server-registered, code-reviewed recipe. The default. - {@link WorkflowBodyCustomComfyInline} (`mode: 'inline'`) — ships the ComfyUI graph itself. Page-tokens-only, and fenced by three server-side gates instead of code review. 🔴 NOT developer-only — this line said it was, and no `customComfy` arm runs an app-developer check. See that type's own doc comment for the refusals that DO run. Both arms are `.strict()` server-side, so a body naming BOTH `recipe` and `workflow` is rejected by both rather than resolved to a winner. Narrow on `body.mode === 'inline'` — NOT on the presence of a `mode` key, and not on the presence of a `workflow` key.
 
 - `WorkflowBodyCustomComfyRecipe`
 - `WorkflowBodyCustomComfyInline`
@@ -137,7 +127,7 @@ The RECIPE arm of {@link WorkflowBodyCustomComfy} — runs a **server-registered
 
 **`WorkflowBodyCustomComfyInline`** — object
 
-The INLINE-GRAPH arm of {@link WorkflowBodyCustomComfy} (`kind: 'customComfy'`, `mode: 'inline'`) — the block ships **the ComfyUI graph itself**, so it can run a workflow the server's recipe registry does not contain. 🔴 THIS IS LIVE IN PRODUCTION. An earlier revision of this doc comment asserted that "there is no way for a block to run an arbitrary/unreviewed graph". That is FALSE and was removed: it predates the inline arm and cost a developer a dogfooding session, who trusted it over a working feature. WHO CAN USE IT. Narrower than the recipe arm, and both gates are server-side: - **App developers only** — the host runs `assertViewerIsAppDeveloper` on every `customComfy` estimate AND submit. A non-developer viewer of your published block cannot submit one. - **Page tokens only** — a model-bound token is rejected. So treat inline as a build/iterate primitive today. If you need a graph available to every viewer, get it registered as a recipe. WHAT REPLACED CODE REVIEW. A recipe is reviewed in-repo, and that review was the trust root. An inline graph has none, so the host substitutes three mechanical, fail-closed gates that all run BEFORE any spend or orchestrator call (a rejection therefore costs nothing): 1. **AIR containment.** Every AIR URN appearing anywhere in the graph — including as an object KEY — must also appear in {@link resources}. The match is whole-string (trimmed, case-insensitive), so an AIR embedded in a longer string does not count as declared and the body is rejected. 2. **Entitlement**, over the declared `resources`. Stricter than the onsite generator: early-access `hasAccess` and Private/epoch subscription are both folded in, an unresolvable version id is a hard `FORBIDDEN`, and a resource the site would silently SUBSTITUTE with a sibling version is REJECTED instead — your graph names one specific AIR and nothing rewrites it. 3. **Moderation sweep.** The audit reads the declared `prompt` AND every distinct string leaf in the graph, because a real graph carries its prompts inside `CLIPTextEncode` nodes. A clean declared `prompt` cannot launder a graph prompt.
+The INLINE-GRAPH arm of {@link WorkflowBodyCustomComfy} (`kind: 'customComfy'`, `mode: 'inline'`) — the block ships **the ComfyUI graph itself**, so it can run a workflow the server's recipe registry does not contain. 🔴 THIS IS LIVE IN PRODUCTION. An earlier revision of this doc comment asserted that "there is no way for a block to run an arbitrary/unreviewed graph". That is FALSE and was removed: it predates the inline arm and cost a developer a dogfooding session, who trusted it over a working feature. 🔴 IT IS NOT "APP DEVELOPERS ONLY", AND THAT CLAIM USED TO BE HERE. This block read "**App developers only** — the host runs `assertViewerIsAppDeveloper` on every `customComfy` estimate AND submit. A non-developer viewer of your published block cannot submit one." Both sentences are FALSE: NEITHER `customComfy` arm runs any app-developer check, on the estimate or on the submit. The host's own schema module records the same retraction. Do not reintroduce it, in any wording — it is a SECURITY claim, and believing it is what makes an author ship an inline graph they would not ship to every viewer. An ordinary viewer of your published block CAN reach this arm once the refusals below pass. WHO CAN USE IT — stated as the refusals the host actually runs, before either arm's body is inspected. Each is a path your block has to handle: - **Page tokens only** — a model-bound token is rejected. - The token must carry the **`ai:write:budgeted`** consent scope. - The viewer must be **signed in** — a token whose subject does not resolve is refused. - The viewer must be **enabled for Apps** (the runtime kill-switch, evaluated on the token's subject; this is a closed beta). - On **submit** only: the token must carry a **positive per-call Buzz budget**. That budget is minted from YOUR OWN manifest (`page.buzzBudgetPerGen`) — it is not a property of the viewer. A registered recipe is how you get a reviewed graph you do not have to ship in the body. It is not a way onto a surface the inline arm cannot reach. WHAT REPLACED CODE REVIEW. A recipe is reviewed in-repo, and that review was the trust root. An inline graph has none, so the host substitutes three mechanical, fail-closed gates that all run BEFORE any spend or orchestrator call (a rejection therefore costs nothing): 1. **AIR containment.** Every AIR URN appearing anywhere in the graph — including as an object KEY — must also appear in {@link resources}. The match is whole-string (trimmed, case-insensitive), so an AIR embedded in a longer string does not count as declared and the body is rejected. 2. **Entitlement**, over the declared `resources`. Stricter than the onsite generator: early-access `hasAccess` and Private/epoch subscription are both folded in, an unresolvable version id is a hard `FORBIDDEN`, and a resource the site would silently SUBSTITUTE with a sibling version is REJECTED instead — your graph names one specific AIR and nothing rewrites it. 3. **Moderation sweep.** The audit reads the declared `prompt` AND every distinct string leaf in the graph, because a real graph carries its prompts inside `CLIPTextEncode` nodes. A clean declared `prompt` cannot launder a graph prompt.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -240,29 +230,6 @@ orchestrator**, not a thin proxy in front of it. The body your block sends is a
 rejected at the wire schema — in the host, **before** any orchestrator call is
 made.
 
-::: tip Why the bridge isn't just the orchestrator API
-The full orchestrator contract is not hidden — it is documented as the
-[Orchestration REST API](/orchestration/) and open to anyone willing to be their
-**own principal**: your own API token, your own backend, your own Buzz.
-The bridge is what you get when you want the **viewer** to be the principal
-instead. A block spends *someone else's* Buzz, inside Civitai's brand, from code
-Civitai did not write, so the host has to be able to (a) render an honest
-confirmation of what is about to be spent, and (b) enforce policy on the values —
-sources, destinations, priority — rather than trust the caller. Both are
-strongest when the host *understands* the body semantically, which is what a
-narrow, enumerable union buys.
-
-The pass-through arm deliberately trades (b) away: `input` is forwarded
-unmodified, so the host applies no policy to the values inside it. What still
-binds is spend — the declared `maxBuzz`, the viewer's consent budget, and the
-refusal of platform-internal `$type`s. That is the trade, and it is why the
-registry arm still exists and is still the narrower choice.
-
-If your app genuinely needs the whole orchestrator surface, the supported answer
-is to ship your own backend as an ordinary API consumer and use the block purely
-as its UI.
-:::
-
 There are three `kind` values, and `kind: 'step'` is itself two arms — four
 members, and they are the whole surface:
 
@@ -277,8 +244,6 @@ The **registry arm** of `step` (added in `@civitai/app-sdk@0.30.0`) carries a
 registered **step id** plus bounded `params` validated per-step by the host's own
 `.strict()` schema. Like recipes, the step registry is server-side and
 code-reviewed: an unregistered id is rejected fail-closed at the wire schema.
-The **pass-through arm** (added in `@civitai/app-sdk@0.43.0`) omits `step`
-entirely and works the other way round — see the note below.
 
 Registered ids as of the pinned SDK (the registry arm only — the pass-through arm
 has no registry): **`convert-image`** (fixed-price image
@@ -361,24 +326,7 @@ Most of the time it **is** reachable, and the fix is naming the right
    chosen by the *presence of a source image*, not by the version id — this is
    the single most common mistake on the bridge.
 3. **Is it genuinely outside the union?** — before you conclude that, check
-   every arm. Each of them reaches work this page used to rule out:
-   - `textToImage` covers **multi-image** editing too, via `sourceImages`, on
-     any checkpoint whose ecosystem allows more than one image — see
-     [what the source-image fields can and cannot do](#what-sourceimage-can-and-cannot-do).
-   - `step` is **not** limited to non-image work: today's registry holds
-     `convert-image` (fixed-price image format conversion + resize) alongside
-     `chat-completion`, and the registry grows additively on the host.
-   - `customComfy` reaches the registered ComfyUI recipes — and, on its
-     [inline arm](../guide/comfy-cloud#the-inline-arm-ship-your-own-graph)
-     (`mode: 'inline'`), a ComfyUI graph your block ships itself.
-
-   - `step` also has the **pass-through arm** (`@civitai/app-sdk@0.43.0` and
-     above), which names an orchestrator step type directly and needs no
-     registry entry — so a first-class orchestrator step such as **background
-     removal**, long the standing example of work no arm could reach, is no
-     longer out of reach on that ground. Read the note above before you rely on
-     it: that arm trades the registry's per-step schema, moderation posture and
-     billing mode for a `maxBuzz` ceiling.
+   every arm.
 
    Asking for a **platform request** is still the route to the bounded,
    registered treatment — say so explicitly when you ask, and note that both
@@ -390,9 +338,10 @@ Most of the time it **is** reachable, and the fix is naming the right
    [requesting a new recipe](../guide/comfy-cloud#requesting-a-new-recipe).
    You do **not** have to wait for one to run a graph, though: the
    [inline arm](../guide/comfy-cloud#the-inline-arm-ship-your-own-graph)
-   (`mode: 'inline'`) lets an app-developer account ship the ComfyUI graph in the
-   body today. Ask for a recipe when you need the graph available to **every**
-   viewer of your block.
+   (`mode: 'inline'`) lets a page app ship the ComfyUI graph in the body today.
+   Ask for a recipe when you want a **reviewed** graph you do not have to ship in
+   the body. Neither arm reaches a model-slot block: `customComfy` is
+   page-token-only on both.
 
 #### The ids you probably want
 
@@ -412,25 +361,43 @@ named **"Qwen-Image-2512"** while its edit version is named **"Image Edit
 lands you on the txt2img version. The **edit** version is `2558804`.
 :::
 
-::: danger Omitting the source image silently switches you to a different MODEL
+::: danger A version the resolved workflow doesn't offer can still be swapped silently
 The workflow variant is derived from **whether a source image is present**
-(`sourceImage`, or `sourceImages`), not
-from the version id you name. Name the edit version but leave the source image
-off, and the bridge builds a **`txt2img`** graph — and then, because the edit
-version isn't valid for `txt2img`, it **re-maps your model to that version's
-txt2img sibling** and generates with *that*. For Qwen, asking for `2558804`
-without a source image gets you `2552908`. It does not warn you, and it does
-not fail.
+(`sourceImage`, or `sourceImages`), not from the version id you name — so the
+version you send and the workflow you get are decided independently.
 
-That is the worst failure mode available here, because it looks like success:
-the workflow succeeds, images render, and nothing in the
-`BlockWorkflowSnapshot` reports either substitution. You did not get a weaker
-version of what you asked for — you got a **different model**, and the only
-tell is that the output ignores your source image and doesn't behave like an
-edit.
+**The Qwen case in the table above now fails, loudly.** Name the edit version
+`2558804`, leave the source image off, the bridge resolves `txt2img`, and the
+request is rejected with `BAD_REQUEST`:
+
+> modelVersion 2558804 is not available for 'txt2img' on the Qwen ecosystem — it
+> is offered for img2img:edit only. Either send a `sourceImage` to run it as an
+> image edit, or use modelVersionId 2552908 for txt2img.
+
+That check only fires on a version the ecosystem's config lists for **some other
+workflow**, and only in the **`txt2img` direction**. Two narrower cases are still
+substituted silently:
+
+- **A version id the ecosystem lists nowhere** — a community checkpoint, or a
+  version retired since your app shipped. Most image ecosystems lock their
+  checkpoint, and on those an unlisted id is replaced with the workflow's default
+  version and the generation succeeds: `987654321` on Qwen `txt2img` comes back
+  as `2552908`. (On an ecosystem that does not lock its checkpoint, the id
+  survives.)
+- **The reverse direction** — a `txt2img`-only version sent **with** a source
+  image. It is substituted the same way and is not rejected: `2552908` sent with
+  a source image on Qwen comes back as `2558804`.
+
+In both, it looks like success: the workflow succeeds, images render, and you are
+billed for a checkpoint you did not ask for. The swap is recorded server-side on
+the workflow snapshot as `modelSubstitutions` (`requested` / `applied` /
+`reason`), but that field is not part of the SDK's `BlockWorkflowSnapshot` type
+yet — so don't build on reading it. The tell is behavioural: the output ignores
+your source image, or doesn't look like the version you named.
 
 **The fix is in your body, not in a support request**: send a source image
-whenever you mean to edit, and name the edit version (`2558804`) explicitly.
+whenever you mean to edit, and name the version that belongs to the mode you
+want — `2558804` for a Qwen edit, `2552908` for Qwen `txt2img`.
 :::
 
 #### Worked example: Qwen single-image edit
@@ -569,19 +536,6 @@ So:
   request, and an older host answers it by silently doing something else.
 - **Never both**, in either direction — that is rejected as ambiguous.
 
-### Not supported today
-
-One thing is genuinely out of reach, and it is the one worth opening a platform
-request for:
-
-| Not available through the bridge | Where it stands |
-|---|---|
-| **Background removal** (e.g. BiRefNet) | a **first-class orchestrator step**, not a Comfy graph and not an `imageGen` operation — **no union member reaches it** |
-
-Multi-image editing **used to be on this list and no longer is**: `sourceImages`
-expresses it, subject to the [per-ecosystem cap](#how-many-images-you-may-send)
-and the [host-version caveat](#which-field-to-send-today).
-
 These are bounded by the union's shape, not by configuration:
 
 | Constraint | What to do instead |
@@ -590,14 +544,7 @@ These are bounded by the union's shape, not by configuration:
 | More images than the checkpoint's ecosystem allows | pick a checkpoint whose ecosystem has a higher cap |
 | Choosing edit vs img2img yourself | it follows from the checkpoint's ecosystem; pick the checkpoint accordingly |
 
-Shipping your own ComfyUI graph **used to be on that list too, and no longer
-is**: `customComfy`'s
-[inline arm](../guide/comfy-cloud#the-inline-arm-ship-your-own-graph)
-(`mode: 'inline'`) carries the graph in the body. It is gated rather than
-unrestricted — **app-developer accounts only, page tokens only** — so a
-registered recipe is still how a graph reaches **every** viewer of your block.
-
-Note what is **not** on these lists: single-image editing, multi-image editing
+Note what is **not** on this list: single-image editing, multi-image editing
 on a capable ecosystem, and Z-Image all work through `textToImage` today — see
 [the ids you probably want](#the-ids-you-probably-want).
 
@@ -612,7 +559,7 @@ run a graph that is not in this table.)
 | `recipe` | what it does | `params` (`.strict()`) | per-generation Buzz ceiling |
 |---|---|---|---|
 | `seamless-pano-360` | 360° seamless panorama, fixed **2048×1024** | `{ prompt, seed?, engine?, accountType? }` — `engine` is one of `zimage-turbo`, `flux2-klein`, `qwen-image` | 90 / 150 / 180, by engine |
-| `starter-comfy-txt2img` | single-step **Z-Image** txt2img, fixed **1024×1024** | `{ prompt, seed?, accountType? }` | 30 |
+| `starter-comfy-txt2img` | single-step **Z-Image** txt2img, fixed **1024×1024** | `{ prompt, seed?, accountType? }` | 90 |
 
 Both param schemas are `.strict()`: a field that isn't listed is rejected, not
 ignored. Note what is **not** exposed — neither recipe takes `width` / `height`,
@@ -658,13 +605,6 @@ export function useRetryableSubmit() {
 - **Reuse the SAME key** when you are **retrying a submit whose response was
   lost** (a timeout, a network drop). The host and the orchestrator then
   collapse the attempts into **one Buzz charge** instead of charging twice.
-
-The failure this prevents is invisible from the client: the first submit
-*succeeded server-side* and only the response was lost, so a naive retry spends
-the viewer's Buzz a second time on a generation they already paid for. If your
-block has any retry path at all — a wrapper, a react-query `retry`, a user-facing
-"try again" button — give that logical submit a stable id (a grid-cell id, a
-request id you already hold) and pass it every time.
 
 ::: warning A stable key must be stable per *submit*, not per *component*
 The key identifies **one logical submit**. Deriving it from something coarser —

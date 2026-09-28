@@ -51,12 +51,12 @@
     "test:showcase:e2e": "node scripts/test-showcase-e2e.mjs"
   },
   "devDependencies": {
-    "@civitai/app-sdk": "0.51.0",
-    "@civitai/blocks-react": "0.57.2",
-    "@civitai/components": "0.4.1",
-    "@civitai/components-react": "0.4.1",
-    "@civitai/sdk": "0.5.0",
-    "@civitai/theme": "0.3.1",
+    "@civitai/app-sdk": "0.51.2",
+    "@civitai/blocks-react": "0.58.1",
+    "@civitai/components": "0.8.1",
+    "@civitai/components-react": "0.9.0",
+    "@civitai/sdk": "0.7.0",
+    "@civitai/theme": "0.4.0",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.0",
     "mermaid": "^11.0.0",

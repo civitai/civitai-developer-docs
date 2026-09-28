@@ -276,15 +276,42 @@ function childNames(path, completionBlock) {
   return orderChildren(path, names);
 }
 
+/**
+ * The `Binary version:` header's payload, in ONE canonical shape: the bare
+ * version, never a `v`-prefixed one. Pure + exported so the regression test can
+ * drive it without a binary.
+ *
+ * 🔴 `civitai --version` STAMPS TWO SHAPES AND BOTH ARE TRUE ABOUT THE BINARY. A
+ * goreleaser RELEASE ASSET prints the bare version (`civitai 0.1.109`); a `make
+ * build` / source build prints `git describe` (`civitai v0.1.104`, `civitai
+ * v0.1.90-13-g569f5dc`). Both used to reach the snapshot header VERBATIM, so two
+ * captures of the SAME CLI produced two different header bytes — and
+ * scripts/check-appblocks-cli-snapshot.mjs is a BYTE comparison against a
+ * release asset, so a `v`-form header reddens it. Measured in the wild: bot PR
+ * docs#105 captured from a source build and wrote `civitai v0.1.109` while
+ * docs#106 wrote `civitai 0.1.109`, and whichever landed second re-reddened the
+ * check. The capture is the one place that can end that, so it is ended here.
+ *
+ * Deliberately narrow: it strips a leading `v` from the version TOKEN only, and
+ * only when a DIGIT follows, so a binary name that happens to start with `v` and
+ * a non-numeric token like `vnext` are left exactly as the binary printed them.
+ * Everything else on the line is untouched.
+ */
+export function canonicalVersionLine(versionOutput) {
+  return String(versionOutput)
+    .split('\n')[0]
+    .replace(/^(\s*\S+\s+)v(?=\d)/, '$1');
+}
+
 // Build the delimited help bundle (same layout as the committed snapshot) from
 // a live binary, so the parser is source-agnostic. Depth-first in DISPLAY order,
 // so the snapshot reads in the same order as the rendered page.
-function captureBundle(bin) {
+export function captureBundle(bin) {
   const version = capture(bin, ['--version']).trim();
   const parts = [
     'civitai CLI help snapshot (the WHOLE command tree)',
     'Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.',
-    `Binary version: ${version.split('\n')[0]}`,
+    `Binary version: ${canonicalVersionLine(version)}`,
     'Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,',
     'else parses this committed snapshot. To refresh: run',
     'node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).',
@@ -841,7 +868,15 @@ export function buildArtifact(bundle, source = 'test') {
     paths.map((p) => p.join(' ')),
   );
 
-  const versionMatch = bundle.match(/Binary version:\s*civitai\s+(v[\w.]+)/i);
+  // 🔴 THE `v` IS OPTIONAL, AND `-` IS IN THE CLASS ON PURPOSE. This used to
+  // REQUIRE the `v` (`(v[\w.]+)`), which matched a source build's `git describe`
+  // header and nothing else — so against today's bare release-asset header
+  // (`civitai 0.1.109`) it matched nothing and `program.version` shipped as the
+  // EMPTY STRING. `canonicalVersionLine` now makes every NEW capture bare, but
+  // snapshots already in git history carry the `v`, so both shapes must parse.
+  // `-` covers the `git describe` suffix (`0.1.90-13-g569f5dc`), which `[\w.]`
+  // stopped at the first hyphen. (`\w` already admits a leading `v`.)
+  const versionMatch = bundle.match(/Binary version:\s*civitai\s+([\w.-]+)/i);
   const program = {
     name: 'civitai',
     description: 'Author and ship Civitai Apps.',

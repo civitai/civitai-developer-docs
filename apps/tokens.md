@@ -48,7 +48,7 @@ from that scope:
 | `colorText` | `--civitai-color-text` | `#222` | `#C1C2C5` |
 | `colorTextDimmed` | `--civitai-color-text-dimmed` | `#868e96` | `#8c8fa3` |
 | `colorBody` | `--civitai-color-body` | `#fefefe` | `#1A1B1E` |
-| `colorSurface` | `--civitai-color-surface` | `#fefefe` | `#1A1B1E` |
+| `colorSurface` | `--civitai-color-surface` | `#fefefe` | `#25262B` |
 | `colorSurface2` | `--civitai-color-surface-2` | `#fefefe` | `#25262B` |
 | `colorBorder` | `--civitai-color-border` | `#ced4da` | `#373A40` |
 | `colorPrimary` | `--civitai-color-primary` | `#228BE6` | `#1971C2` |
@@ -69,6 +69,9 @@ from that scope:
 | `colorGray7` | `--civitai-color-gray-7` | `#495057` | `#495057` |
 | `colorGray8` | `--civitai-color-gray-8` | `#343a40` | `#343a40` |
 | `colorGray9` | `--civitai-color-gray-9` | `#212529` | `#212529` |
+| `colorTrack` | `--civitai-color-track` | `#e9ecef` | `#25262B` |
+| `colorSegmentedBg` | `--civitai-color-segmented-bg` | `#f1f3f5` | `#25262B` |
+| `colorMediaPlaceholder` | `--civitai-color-media-placeholder` | `#e9ecef` | `#25262B` |
 
 **Typography**
 
@@ -87,6 +90,7 @@ from that scope:
 | `bpMd` | `--civitai-bp-md` | `1024px` | `1024px` |
 | `bpLg` | `--civitai-bp-lg` | `1184px` | `1184px` |
 | `bpXl` | `--civitai-bp-xl` | `1440px` | `1440px` |
+| `cardBorderWidth` | `--civitai-card-border-width` | `1px` | `0` |
 
 <!-- END GENERATED: tokens -->
 </TokenGallery>

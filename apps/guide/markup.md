@@ -96,30 +96,26 @@ person — needs one element that means **"this app is up and usable"**.
 Render something that only the booted app renders, and keep it mounted in every
 state. What *not* to use, in rough order of how often it gets reached for:
 
-**Not your mount point.** `<div id="root"></div>` ships in your static HTML. It
-is present before your JavaScript runs, and it is still present if your app
-never boots at all — so it can only ever say "the server returned a page".
-
-**Not a validation message.** An element whose text is *"Enter a prompt to
-generate."* exists precisely while the app is unusable and disappears the moment
-it becomes usable. That is exactly backwards, and it is a tempting choice
-because such an element is often the only unique one on a fresh screen.
-
-**Not an empty-state element.** `empty-state`, `no-results`, "Be the first to
-suggest one" — these vanish the instant anyone creates the first item. A signal
-that works only until your app succeeds is not a signal.
-
-**Not transient loading art.** Placeholders and skeletons are present in one
-render and gone in the next. If it can differ between two reads a second apart,
-it cannot mean "ready".
-
-**Not a generated id.** React's `useId()` produces values like `«r0»` /
-`:r0:` that are allocated by render order, so they change when anything about
-mounting changes. Never address one from outside your component.
+| Don't use | Why |
+|---|---|
+| Your mount point — `<div id="root"></div>` | Ships in your static HTML: present before your JavaScript runs, and still present if your app never boots at all. It can only ever say "the server returned a page". |
+| A validation message — *"Enter a prompt to generate."* | Exists precisely while the app is unusable and disappears the moment it becomes usable. That is exactly backwards. |
+| An empty-state element — `empty-state`, `no-results` | Vanishes the instant anyone creates the first item. A signal that works only until your app succeeds is not a signal. |
+| Transient loading art — placeholders, skeletons | Present in one render and gone in the next. If it can differ between two reads a second apart, it cannot mean "ready". |
+| A generated id — React's `useId()`, `«r0»` / `:r0:` | Allocated by render order, so it changes when anything about mounting changes. Never address one from outside your component. |
 
 A good boot signal is usually a piece of persistent chrome — a tab strip, a
 toolbar, the primary action — that your app renders once it has its data and
-keeps rendering afterwards.
+keeps rendering afterwards:
+
+```html
+<!-- good: rendered once the app has its data, and kept in every state -->
+<div data-testid="sort-control" role="tablist" aria-label="Sort requests">
+  <button role="tab" data-testid="sort-top" aria-selected="true">Top</button>
+  <button role="tab" data-testid="sort-newest" aria-selected="false">Newest</button>
+</div>
+<ul data-testid="request-list"></ul>
+```
 
 ## 4. Make destructive controls announce themselves
 

@@ -133,3 +133,32 @@ jobs:
       - name: Boot-skeleton contract — the example satisfies the rule it teaches
         if: always()
         run: npm run check:boot-skeleton
+
+      # Handing `civitai download` the bare positional 128713 downloads NOTHING —
+      # it exits 2, because that id is both a model id and a version id and the
+      # binary refuses the ambiguity. It was the headline example in all seven of
+      # the guide's bare positionals, on two hosted pages plus the generated CLI
+      # snapshot. A reader who copy-pastes the first example in the section gets
+      # an error, which is the worst possible first impression of a tool the page
+      # is teaching.
+      #
+      # 🔴 AND THE ID IS NOT SPELLED AS A COMMAND ANYWHERE ABOVE, DELIBERATELY.
+      # This guard walks EVERY committed file, `.github/workflows/` included — it
+      # matches `civitai download <digits>` as raw text, with no idea it is
+      # reading a YAML comment. Writing the bad example out in full here to
+      # explain the check turns this file into a finding and reddens the job the
+      # step was added to. Measured, not guessed: the first draft of this comment
+      # did exactly that and the check reported
+      # `.github/workflows/appblocks-snippets.yml:137`.
+      #
+      # The guard is an ALLOWLIST (`UNAMBIGUOUS_EXAMPLE_IDS`, vendored from
+      # civitai/cli's own `unambiguousExampleIDs`), not a `!== '128713'`
+      # denylist: a denylist waves through the next id somebody picks at random,
+      # which is exactly how this one shipped.
+      #
+      # Offline and repo-local — it walks committed files and nothing else, so it
+      # cannot false-fail on someone else's publish, which is what makes it safe
+      # to require by the doctrine above. (Gates — see the note above.)
+      - name: '`civitai download` example ids — every bare positional is verified unambiguous'
+        if: always()
+        run: npm run check:cli-download-ids

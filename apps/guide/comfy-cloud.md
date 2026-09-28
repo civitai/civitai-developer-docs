@@ -2,8 +2,8 @@
 title: Comfy on Civitai (customComfy)
 description: Drive ComfyUI from an App Block — either by naming a server-registered recipe, or by shipping your own graph inline. The two arms, the gates on each, the budget rules, and how to try it in the local harness.
 sources:
-  - npm:@civitai/app-sdk@0.51.0/blocks#WorkflowBodyCustomComfy
-  - npm:@civitai/blocks-react@0.57.2#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.51.2/blocks#WorkflowBodyCustomComfy
+  - npm:@civitai/blocks-react@0.58.1#useBuzzWorkflow
   - go:github.com/civitai/cli#app-create (page-money scaffold: src/comfy.ts)
   - civitai:public/schemas/app-block/v1.json#page.buzzBudgetPerGen
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
@@ -34,8 +34,8 @@ custom-node graph).
 
 | Arm | `mode` | Your block sends | Who can run it |
 | --- | --- | --- | --- |
-| **[recipe](#the-recipe-arm)** | omitted, or `'recipe'` | a registered recipe id + bounded `params` | closed-beta builders |
-| **[inline](#the-inline-arm-ship-your-own-graph)** | `'inline'` (required) | **the ComfyUI graph itself**, a declared resource manifest, and a `maxBuzz` ceiling | app developers |
+| **[recipe](#the-recipe-arm)** | omitted, or `'recipe'` | a registered recipe id + bounded `params` | page apps (closed beta) |
+| **[inline](#the-inline-arm-ship-your-own-graph)** | `'inline'` (required) | **the ComfyUI graph itself**, a declared resource manifest, and a `maxBuzz` ceiling | page apps (closed beta) |
 
 ::: danger This page used to say you could not do the second one
 Earlier revisions stated flatly that a block never ships a ComfyUI graph and
@@ -47,9 +47,9 @@ testing, and concluded the capability did not exist. It does.
 
 ::: warning Closed beta — access is limited
 Comfy on Civitai is part of the [closed-beta](./) Apps platform and is
-**mod-gated**, and the inline arm additionally requires an **app-developer**
-account. You can scaffold and run the recipe sample against the local mock host
-today (see [Try it locally](#try-it-locally)).
+**mod-gated**, and both arms are **page-token-only**. You can scaffold and
+run the recipe sample against the local mock host today (see
+[Try it locally](#try-it-locally)).
 :::
 
 ## The recipe arm
@@ -97,8 +97,9 @@ not your block — owns:
 
 Your block influences none of that beyond **choosing the recipe id and its
 `params`**. An unknown or unregistered `recipe` is rejected **fail-closed** at
-the server boundary, and any `params` field the recipe's schema doesn't accept
-is stripped.
+the server boundary, and so is any `params` field the recipe's schema doesn't
+accept — both schemas are strict, so a stray key aborts the submit rather than
+being dropped.
 
 ::: tip Why the recipe arm works this way — the security model
 A block runs in an untrusted sandboxed iframe. Code review is what makes a recipe
@@ -256,11 +257,46 @@ so naming one of them is a rejection rather than a silently ignored key.
 
 ### Access
 
-The inline arm is **app-developer-only** and **page-token-only**. The host runs a
-developer check on every `customComfy` estimate *and* submit, so a non-developer
-viewing your published block cannot submit one. Treat inline as a build-and-
-iterate primitive; to serve a graph to every viewer, get it registered as a
-recipe.
+**The whole `customComfy` path is page-token-only — both arms.** A model-bound
+token is rejected on estimate and on submit, before either arm is inspected, so a
+model-slot block cannot run a custom graph at all; asking for a recipe does not
+change that, because the guard fires before any recipe lookup.
+
+<!-- 🔴 FIVE DRAFTS OF THE NEXT PARAGRAPH HAVE BEEN WRONG. Recorded so nobody
+     writes a sixth: (1) "app developers only" — no such check exists on this
+     path; (2) "the inline arm is ADDITIONALLY page-token-only" — the recipe arm
+     is too; (3) "nothing stands between a viewer and a submit except your own
+     code" — then named three platform gates in the next clause; (4) "there is no
+     per-viewer gate" — the server runs at least four viewer-keyed checks before
+     either arm is inspected; (5) listed "a positive `buzzBudget` that covers
+     your maxBuzz" as a VIEWER property — it is minted from the app's own
+     manifest (`page.buzzBudgetPerGen`, default 10), and that comparison is a
+     static check AFTER the arm is chosen, not one of the pre-arm viewer gates.
+     If you are tempted to characterise WHO can submit, don't: enumerate the
+     refusals from `blocks.router.ts` instead, or say nothing. Every draft above
+     was written while fixing the one before it — the failure mode is supplying a
+     reason under pressure, so prefer deleting a claim to rewording it.
+     🔴 SEPARATE TRAP in the budget sentence below: `maxBuzz` is an INLINE-ARM
+     body field, so any sentence naming it must say which arm it means. This
+     section covers BOTH arms, and on the recipe arm the ceiling comes from the
+     registry (`recipe.budgetFor(params)`), not from a `maxBuzz` the app wrote. -->
+
+Beyond the surface, the gates are the platform's rather than this arm's. Several
+run **before** either arm is inspected, and each is a refusal your app has to
+handle: the viewer must be **signed in**, must be **enabled for Apps** (this is
+closed beta — see above), and must have granted the **`ai:write:budgeted`**
+consent scope. Resource entitlement is checked against the **viewer**, not the
+app. So do not assume any viewer of your published block can submit — build the
+refusal paths.
+
+A submit can also be refused for a reason that is **not** about the viewer: the
+per-generation ceiling — the `maxBuzz` you declare on the inline arm, the
+registry's on the recipe arm — has to fit the per-call budget **your own manifest
+declared** (`page.buzzBudgetPerGen`). See **Requirements** below, which covers
+both arms and how to size it.
+
+Ask for a recipe when you want a reviewed graph you do not have to ship in the
+body, not as a way onto another surface.
 
 An inline body also carries **no account preference** — its schema has no
 `accountType` field anywhere, so the host funds it from the default order.
@@ -316,17 +352,8 @@ not offered to slot apps) and its manifest must:
    `buzzBudgetPerGen` as its budget and
    **gates every submit on `maxBuzz ≤ token.buzzBudget`**. If your
    per-gen budget is below the recipe's ceiling, **every submit is rejected**
-   before it runs. But that makes the recipe's ceiling a **floor**, and a floor
-   is not a sizing method — these are two different quantities. The recipe's
-   `maxBuzz` is what the *server* enforces on one job: the step runs under a
-   timeout that physically bounds GPU-seconds, and you settle down to the real
-   runtime cost regardless. `buzzBudgetPerGen` is what *you* choose — the largest
-   single generation your app may request at all, i.e. the blast radius if the
-   app is exploited. Size it from how much damage you are willing to absorb, then
-   check it clears the floor; sizing it as *the recipe's price plus a margin* is
-   the classic mistake, and it re-breaks the app the day you call a pricier
-   recipe. See [Sizing the budget](../reference/manifest) in the manifest
-   reference.
+   before it runs. See [Sizing the budget](../reference/manifest) in the
+   manifest reference.
 
 ```json
 {
@@ -349,10 +376,10 @@ not offered to slot apps) and its manifest must:
 ```
 
 The scaffold's Comfy on Civitai sample pairs `buzzBudgetPerGen: 300` with the
-`starter-comfy-txt2img` recipe (per-generation ceiling **30** Buzz) — roughly 10×
+`starter-comfy-txt2img` recipe (per-generation ceiling **90** Buzz) — roughly 3×
 the ceiling. That headroom is never spent: it bounds what the app is allowed to
 *ask for*, while the charge is the real runtime cost. Read the 300 as a
-blast-radius limit, not as 30 rounded up.
+blast-radius limit, not as 90 rounded up.
 
 ## How generation is billed
 
@@ -432,8 +459,8 @@ and an inline body has no `params`, so driving it through the harness throws.
 That is a mock-host bug being fixed, and it does **not** affect live
 civitai.com — the scaffold's README tracks the state and spells out the wiring.
 
-Real generation needs closed-beta access (plus an app-developer account for the
-inline arm) and `npm run dev:live` / a submitted app; see the
+Real generation needs closed-beta access (and a page app — `customComfy` is
+page-only on both arms) and `npm run dev:live` / a submitted app; see the
 [Quickstart](./quickstart#submitting-closed-beta).
 
 ## Not to be confused with orchestration recipes

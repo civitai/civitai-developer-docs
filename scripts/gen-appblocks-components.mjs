@@ -4,7 +4,9 @@
 // published `@civitai/components` package as `MARKUP.md`
 // (civitai-app-starters:packages/civitai-components/MARKUP.md). That file is the
 // executable, browser-test-asserted contract for the framework-agnostic
-// components — the same document `@civitai/components-react` renders. This
+// components. It is NOT what `@civitai/components-react` renders: since its
+// 0.9.0 those bindings wrap the `<civitai-*>` custom elements, which style
+// themselves in shadow DOM and consume no part of this contract. This
 // generator transforms its `## Components` section into a VitePress page:
 //   - a generated summary table (component -> data-civitai-ui name + enumerable
 //     data-* attributes), parsed structurally, PLUS
@@ -132,7 +134,8 @@ function renderSummaryTable(components) {
 
 /**
  * The MARKUP.md body reproduced on the page: from the first `## ` section
- * (Setup) onward (Setup / Theming / Cascade / Components / React parity),
+ * (Setup) onward (Setup / Theming / Cascade / Components / Relationship to the
+ * elements and to React — upstream renamed that last one at components 0.8.1),
  * VERBATIM, so the contract never diverges. The H1 and MARKUP.md's own intro
  * paragraph are dropped — this page supplies its own H1 + intro above.
  *
@@ -191,8 +194,13 @@ function buildPage(md, components) {
     '',
     `\`@civitai/components\` is a **framework-agnostic** pack of ${components.length} presentational`,
     'components. The styling is driven entirely by `data-*` attributes, so any',
-    'HTML that follows the contract renders identically to the React bindings in',
-    '`@civitai/components-react`. This page is generated from that contract —',
+    'HTML that follows the contract picks up the design system without a',
+    'framework. This sheet is one of **two independent** ways to consume it: the',
+    'other is the `<civitai-*>` custom elements, self-styling in shadow DOM, which',
+    'are what `@civitai/components-react` binds for React — so the bindings are',
+    'not a second renderer of this contract, and since',
+    '`@civitai/components-react@0.9.0` there is no longer a React layer that',
+    'renders it. This page is generated from that contract —',
     'the canonical [`MARKUP.md`](https://github.com/civitai/civitai-app-starters/blob/main/packages/civitai-components/MARKUP.md)',
     'that ships inside the `@civitai/components` package — so it never drifts from',
     'the source of truth.',

@@ -34,6 +34,8 @@ import {
   assertNoUnlistedSubcommands,
   blockLabel,
   buildArtifact,
+  canonicalVersionLine,
+  captureBundle,
   cocheckedNodes,
   completionLabel,
   enumerationDisagreements,
@@ -1434,6 +1436,106 @@ check('END-TO-END — `--write-snapshot` under APPBLOCKS_SNAPSHOT_ONLY refuses i
   const out = `${r.stdout}${r.stderr}`;
   assert(r.status !== 0, `a refresh that cannot refresh exited 0 — the silent no-op is back: ${out.slice(0, 300)}`);
   assert(/--write-snapshot needs a live/.test(out), `the refusal is not the expected one: ${out.slice(0, 300)}`);
+});
+
+// ---------------------------------------------------------------------------
+// 🔴 ONE HEADER SHAPE — `Binary version:` IS CANONICALISED AT THE CAPTURE
+//
+// `civitai --version` stamps two shapes depending on how the binary was built: a
+// goreleaser RELEASE ASSET prints a bare version (`civitai 0.1.109`), a `make
+// build`/source build prints `git describe` (`civitai v0.1.104`, `civitai
+// v0.1.90-13-g569f5dc`). Both are true about the binary, and both used to reach
+// the snapshot header VERBATIM — so two captures of the same CLI produced two
+// different header bytes. That is a defect in two directions at once:
+//
+//   - check:cli-snapshot is a BYTE comparison against a release asset, so a
+//     `v`-form header reddens it. Measured in the wild: bot PR docs#105 captured
+//     from a source build and wrote `civitai v0.1.109` while docs#106 wrote
+//     `civitai 0.1.109`; whichever landed second re-reddened the check.
+//   - the artifact extractor REQUIRED the `v` (`/(v[\w.]+)/`), so against
+//     today's bare header `program.version` in public/appblocks/cli.json was the
+//     empty string — a field that reads as populated and carries nothing.
+//
+// The capture is the ONE place that can end the disagreement, so it strips a
+// leading `v` from the version TOKEN and nothing else on the line, and the
+// extractor accepts both shapes because snapshots already in git history carry
+// the `v`. Pinned here from BOTH ends: the pure canonicaliser, the capture it is
+// WIRED INTO (a correct-but-unwired helper is this suite's own worked failure —
+// see the END-TO-END section above), and the extractor.
+// ---------------------------------------------------------------------------
+
+console.log('');
+console.log('CANONICAL `Binary version:` HEADER — capture-side, and the extractor');
+
+check('canonicalVersionLine strips a leading `v` from the version token only', () => {
+  // Literal expected strings, pinned by hand — never derived from the regex.
+  assertEqual(canonicalVersionLine('civitai v0.1.104'), 'civitai 0.1.104', 'a tagged source build was not canonicalised');
+  assertEqual(
+    canonicalVersionLine('civitai v0.1.90-13-g569f5dc'),
+    'civitai 0.1.90-13-g569f5dc',
+    'a `git describe` source build was not canonicalised',
+  );
+  // An already-bare release asset must come through BYTE-IDENTICAL, or the
+  // canonicaliser would itself be the thing that reddens check:cli-snapshot.
+  assertEqual(canonicalVersionLine('civitai 0.1.109'), 'civitai 0.1.109', 'a bare release version was altered');
+  assertEqual(canonicalVersionLine('civitai 0.1.90-13-g569f5dc'), 'civitai 0.1.90-13-g569f5dc', 'a bare describe was altered');
+  // Only the FIRST line, as the header has always taken.
+  assertEqual(canonicalVersionLine('civitai v1.2.3\ncommit: abc\n'), 'civitai 1.2.3', 'the header took more than one line');
+});
+
+check('canonicalVersionLine does NOT eat a `v` that is not the version token\'s first char', () => {
+  // A `v` inside the token, or leading a token that is not the version, is data.
+  assertEqual(canonicalVersionLine('civitai 1.2.3-vendor'), 'civitai 1.2.3-vendor', 'a `v` inside the token was eaten');
+  assertEqual(canonicalVersionLine('vcivitai 1.2.3'), 'vcivitai 1.2.3', 'the BINARY NAME lost its leading `v`');
+  // `v` not followed by a digit is not a version prefix — leave it alone rather
+  // than guessing. `vnext` must not silently become `next`.
+  assertEqual(canonicalVersionLine('civitai vnext'), 'civitai vnext', 'a non-numeric token was mangled');
+});
+
+check('END-TO-END — a `v`-stamping binary is captured into the BARE header shape', () => {
+  // The seam, not the helper: drive the real captureBundle against the stub,
+  // which stamps `civitai v0.0.0-stub`. A canonicaliser that is correct but not
+  // wired in leaves this red.
+  const captured = captureBundle(STUB);
+  const header = captured.split('\n').find((l) => l.startsWith('Binary version:'));
+  assertEqual(header, 'Binary version: civitai 0.0.0-stub', 'the capture did not canonicalise the header');
+  assert(!/^Binary version:.*\bv\d/m.test(captured), 'a `v`-prefixed version survived into the captured header');
+});
+
+check('END-TO-END — a BARE-stamping binary is captured unchanged (idempotent)', () => {
+  const bareStub = join(stubDir, 'civitai-bare-stub.mjs');
+  writeFileSync(bareStub, readFileSync(STUB, 'utf8').replace("'civitai v0.0.0-stub'", "'civitai 0.0.0-stub'"));
+  chmodSync(bareStub, 0o755);
+  const captured = captureBundle(bareStub);
+  const header = captured.split('\n').find((l) => l.startsWith('Binary version:'));
+  assertEqual(header, 'Binary version: civitai 0.0.0-stub', 'an already-canonical header was rewritten');
+});
+
+check('the artifact extractor reads BOTH header shapes, and the real snapshot is not empty', () => {
+  const withHeader = (line) => bundle.replace(/^Binary version:.*$/m, line);
+  const versionOf = (line) => buildArtifact(withHeader(`Binary version: ${line}`), 'test').program.version;
+  // Pairwise distinct, and none equal to the committed snapshot's own version, so
+  // a mutant that hardcodes any one of these values (or the snapshot's) dies.
+  assertEqual(versionOf('civitai 0.2.77'), '0.2.77', 'a BARE release version did not reach program.version');
+  assertEqual(versionOf('civitai v0.3.88'), 'v0.3.88', 'a `v`-tagged version did not reach program.version');
+  assertEqual(
+    versionOf('civitai v0.4.99-13-g569f5dc'),
+    'v0.4.99-13-g569f5dc',
+    'a `v`-form `git describe` version did not reach program.version',
+  );
+  assertEqual(
+    versionOf('civitai 0.5.11-13-gabc1234'),
+    '0.5.11-13-gabc1234',
+    'a canonicalised (bare) `git describe` version did not reach program.version',
+  );
+
+  // THE DEFECT, on the real committed snapshot: an empty string here is what
+  // shipped in public/appblocks/cli.json. Compared against the token read by an
+  // INDEPENDENT regex over the snapshot bytes, not against the extractor's own.
+  const token = /^Binary version:\s*civitai\s+(\S+)\s*$/m.exec(bundle)?.[1];
+  assert(token, 'the committed snapshot has no `Binary version: civitai <version>` header line');
+  assert(artifact.program.version !== '', 'program.version is EMPTY for the committed snapshot');
+  assertEqual(artifact.program.version, token, "program.version does not match the snapshot header's own token");
 });
 
 // ---------------------------------------------------------------------------
