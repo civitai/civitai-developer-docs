@@ -241,9 +241,10 @@ installed rather than trusting any figure written down here:
 node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).filter(k => k.startsWith('use')).sort().join(' ')))"
 ```
 
-The table below is checked against that enumeration by
-`npm run check:porting-hooks`, so a hook the package gains and this page misses
-fails a PR rather than shipping.
+The table below is pinned to that same export set by
+`npm run check:porting-hooks`, which reads it from the installed package's own
+type barrels — so a hook the package gains and this page misses fails a PR
+rather than shipping.
 :::
 
 | Bridge hook | Replacement |
