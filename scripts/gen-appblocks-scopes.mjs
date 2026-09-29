@@ -43,6 +43,10 @@ const BINDING_NOTES = {
     'Self-bound; CONSENT-GATED — the viewer must grant it via the host consent gate before a token carries it.',
   'posts:write:self':
     'Self-bound to the token subject; an anonymous subject is rejected — there is no anonymous profile to post to. CONSENT-GATED and SENSITIVE: a manifest declaring it must carry a scopeJustifications entry or submit is rejected. The grant alone is not the whole consent story — the host also opens a per-post confirm rendering the resolved title, tags and images, because the content differs every time and a blanket grant cannot inform.',
+  'goods:read:self':
+    "Self-bound, and app-bound: the reply is scoped server-side to the calling app's own blockId, so an app only ever sees the entitlements IT sold to this viewer — never their purchases in any other app. Consent-exempt for that reason (the server-side app scoping is the gate, as with the collections read scopes); a non-anonymous subject is still required. No OAuth bit — an app good is a platform-mediated entitlement that touches none of the viewer's Civitai resources through the OAuth surface.",
+  'goods:purchase:self':
+    "Self-bound: the purchase is billed to the token subject, and an anonymous subject is rejected — there is nobody to bill. CONSENT-GATED and SENSITIVE: money leaves the viewer's balance, so it needs an explicit grant AND a scopeJustifications entry or submit is rejected. Bounded rather than prohibited on page apps: the price is review-gated and hard-capped per purchase, with a per-user daily ceiling across every app. It does NOT consult the per-app daily Buzz budget that governs ai:write:budgeted — that is a separate rail. No OAuth bit, deliberately: reusing social:tip:self's SocialTip bit would let every app already approved to tip start selling goods.",
 };
 
 function parseScopeBits(ts) {
