@@ -1,23 +1,20 @@
 // SINGLE SOURCE for the `/agent-setup/` surface.
 //
-// Three things have to agree and are trivially easy to drift apart by hand:
+// Four things have to agree and are trivially easy to drift apart by hand:
 //   1. the copy-paste string the landing page advertises,
-//   2. the URL inside that string,
-//   3. the path the raw prompt is actually served from.
+//   2. the SHORT alias inside that string,
+//   3. the canonical URL that alias redirects to,
+//   4. the path the raw prompt is actually served from.
 //
 // They are derived here, once. `agent-setup/index.md` carries the rendered
 // literals (deliberately literal, not `{{ }}` interpolation — the
 // vitepress-plugin-llms `.md` export is a machine channel and a Vue expression
 // would reach it verbatim as `{{ SETUP_PROMPT }}`), and
 // `scripts/check-agent-setup.mjs` asserts every literal against these constants
-// on every PR, in FOUR checks — (1) every command `public/agent-setup/prompt.md`
-// names exists in the CLI help snapshot and every non-`civitai` binary it
-// invokes is allowlisted; (2) the page's copy-paste string, and every absolute
-// URL it carries; (3) the exact-match nginx route that serves PROMPT_PATH; and
-// (4) the inline copy of the prompt on the landing page, byte for byte. Drift is
-// therefore a red check, not a silent one. That script's header is the authority
-// on what each check does and does NOT cover; this list is a pointer, and a
-// pointer that enumerates goes stale — it listed three of the four for a while.
+// on every PR. 🔴 THE COUNT AND THE LIST OF CHECKS ARE DELIBERATELY NOT REPEATED
+// HERE. That script's header is the authority on what each check does and does
+// NOT cover; this pointer used to enumerate them and was wrong twice — it listed
+// three of four, then four of five. Read `scripts/check-agent-setup.mjs`.
 //
 // Plain `.mjs` on purpose: imported by node scripts AND resolvable by Vite.
 
@@ -38,8 +35,39 @@ export const PROMPT_PATH = '/agent-setup/prompt.md';
 /** Absolute URL of the raw prompt. This is what an agent is told to fetch. */
 export const PROMPT_URL = `${SITE_ORIGIN}${PROMPT_PATH}`;
 
-/** The one string a developer pastes into their agent. */
-export const SETUP_PROMPT = `Fetch and execute the appropriate instructions to set me up for Civitai from ${PROMPT_URL}`;
+/**
+ * The SHORT, HUMAN-FACING ALIAS of the raw prompt — an alias, never the
+ * canonical address.
+ *
+ * 🔴 `PROMPT_URL` STAYS CANONICAL, AND THAT IS NOT A STYLE PREFERENCE: this URL
+ * is a Cloudflare redirect on civitai.com whose TARGET is `PROMPT_URL`, so
+ * repointing the canonical constant at the alias would aim the redirect at
+ * itself. Everything machine-facing keeps `PROMPT_URL`: the nginx exact-match
+ * route (check 3), the `.well-known/ai-catalog.json` entry, the built-artifact
+ * byte-identity assertions in `check-built-site.mjs`, and the "read the raw
+ * file" link on the landing page. The alias exists for exactly one job — being
+ * short enough to say out loud and to survive being retyped — so it appears in
+ * `SETUP_PROMPT` and nowhere else.
+ *
+ * 🔴 IT IS A REDIRECT, WHICH MAKES `-L` PART OF ITS CONTRACT. Measured
+ * 2026-09-28: a `GET` with no redirect following returns **143 bytes** of
+ * Cloudflare `<html>302 Found</html>` and `curl` exits **0**, against 7,433
+ * bytes of `text/markdown` through the redirect. So a COMMAND naming this URL
+ * without `-L`/`--location` hands an agent redirect HTML and a success status —
+ * the worst combination there is. `SETUP_PROMPT` is prose an agent READS, not a
+ * command, so it needs no flag; anything written as a command does, and check 6
+ * of `scripts/check-agent-setup.mjs` enforces that on both agent-setup surfaces.
+ */
+export const SHORT_PROMPT_URL = 'https://civitai.com/agent-onboarding';
+
+/**
+ * The one string a developer pastes into their agent.
+ *
+ * Natural language, deliberately: the agent reads "fetch … from <URL>" and
+ * chooses its own fetcher, which follows redirects. Do not turn this into a
+ * shell command — see the 🔴 note on SHORT_PROMPT_URL.
+ */
+export const SETUP_PROMPT = `Fetch and execute the appropriate instructions to set me up for Civitai from ${SHORT_PROMPT_URL}`;
 
 /** Repo-relative path of the prompt source, derived from PROMPT_PATH. */
 export const PROMPT_SOURCE = `public${PROMPT_PATH}`;
