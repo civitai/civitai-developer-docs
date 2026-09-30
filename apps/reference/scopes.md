@@ -70,3 +70,10 @@ source the manifest validator and the token minter read.
 
 If a scope you declare isn't approved, granted, or in-context, the corresponding
 host call fails closed — design your app to degrade gracefully.
+
+The refusal carries a machine-readable `code` that distinguishes these cases
+from each other — "you never had this scope", "the viewer withdrew it", "the
+request doesn't match what the token was bound to" and "permission state is
+temporarily unreadable" all call for different behaviour, and only one of them
+is retryable. The full list, with statuses and remedies, is in
+[How an app earns](../guide/earning).
