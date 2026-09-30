@@ -142,6 +142,36 @@ export const BLOCK_SCOPE_TO_OAUTH_BIT: Record<string, ScopeBitmaskRequirement> =
   // gallery target, because the content differs every time and a blanket grant
   // cannot inform. See `createPostFromAppGate.ts`.
   'posts:write:self': TokenScope.MediaWrite,
+  // goods:read:self — read the entitlements the VIEWER holds FROM THE CALLING
+  // APP. Scoped to `claims.appBlockId` server-side, so an app can only ever see
+  // what it sold: the reply is its own sales ledger filtered to one viewer, not
+  // a view of the viewer's purchases elsewhere. CONSENT-EXEMPT for that reason
+  // (the server-side app scoping is the gate, like the collections read
+  // scopes), and :self ⇒ a non-anon subject.
+  //
+  // SKIP_OAUTH_CHECK: an app good is a platform-mediated entitlement that
+  // touches none of the viewer's civitai resources through the OAuth surface,
+  // so there is no bit to require. Same posture as `apps:storage:*` /
+  // `collections:*`.
+  'goods:read:self': SKIP_OAUTH_CHECK,
+  // goods:purchase:self — SPEND the viewer's Buzz on a manifest-declared good.
+  //
+  //   - SENSITIVE ⇒ the manifest must justify it or submit is rejected.
+  //   - CONSENT-GATED: deliberately NOT in CONSENT_EXEMPT_SCOPES. Money out of
+  //     the viewer's balance always needs an explicit grant.
+  //   - :self ⇒ non-anon subject; there is nobody to bill otherwise.
+  //   - SKIP_OAUTH_CHECK for the same reason as the read half. Note this
+  //     DIFFERS from `social:tip:self`, which maps to `TokenScope.SocialTip`:
+  //     that bit is specifically "tip other users" and reusing it would let
+  //     every app already approved to tip start selling goods. There is no
+  //     app-goods bit, and minting one is a change to a bitmask persisted on
+  //     every API key — out of proportion to a capability whose real gates are
+  //     the approved-scope snapshot, the consent grant and the per-op check.
+  //
+  // PAGE-SAFE by BOUNDING, not by prohibition (so it stays off
+  // PAGE_FORBIDDEN_SCOPES, like tipping): the price is review-gated and
+  // hard-capped per purchase, and a per-user daily ceiling bounds the day.
+  'goods:purchase:self': SKIP_OAUTH_CHECK,
 } as const;
 
 export type BlockScopeString = keyof typeof BLOCK_SCOPE_TO_OAUTH_BIT;
@@ -272,6 +302,68 @@ export const BLOCK_BUZZ_CAP_PER_DAY = 50_000;
  */
 export const BLOCK_CONSENT_BUDGET_MIN_PER_DAY = 1;
 export const BLOCK_CONSENT_BUDGET_MAX_PER_DAY = BLOCK_BUZZ_CAP_PER_DAY;
+
+/**
+ * The scope the per-app daily Buzz budget governs.
+ *
+ * ⚠️ IT IS NOT THE ONLY SCOPE THAT CAN SPEND THE VIEWER'S BUZZ, AND THIS LINE SAID IT WAS. The
+ * digital-goods rail added `goods:purchase:self`, which also debits the viewer's balance — so a
+ * superlative here is simply false, and replacing it with a narrower superlative would be the same
+ * mistake one step along. The honest distinction is not "the only spender" but WHICH rail the
+ * per-app budget bounds: this scope's spend is reserved against the budget the viewer sets per app,
+ * while a goods purchase is bounded by its own per-USER daily cap and a per-purchase price ceiling
+ * and never consults that budget. Both are consent-gated and both are revokable; only this one is
+ * budgeted, which is exactly what the three surfaces below coordinate on.
+ *
+ * 🔴 THE CLIENT-SIDE HOME, AND IT REPLACES THREE LOCAL CONSTS RATHER THAN ADDING A FOURTH. Before
+ * this, the literal `'ai:write:budgeted'` was declared privately in
+ * `src/pages/apps/activity.tsx` (the budget editor), `src/components/AppBlocks/BlockConsentModal.tsx`
+ * (the grant modal) and — added by phase 3 and then moved here —
+ * `src/components/Apps/scopeRevoke.tsx` (the revoke dialog). Two of those carried a BYTE-IDENTICAL
+ * name and doc sentence and neither knew about the other. All three now import this; no alias or
+ * re-export is left behind, because a rename is not a consolidation (round 1 left
+ * `export const SPEND_SCOPE = BLOCK_SPEND_SCOPE` in `scopeRevoke.tsx`, which preserved the exact
+ * dependency edge the move existed to cut — the budget editor reading its spend-scope identity out
+ * of the revoke feature).
+ *
+ * 🔴 WHY HERE AND NOT `scope-grant.service.ts`, which already owns `CONSENT_SPEND_SCOPE` with a
+ * docblock making exactly this argument ("a string literal repeated at N sites is a predicate that
+ * will be wrong at N−1 of them the first time the vocabulary moves"). That module imports
+ * `dbRead`/`dbWrite`, so it is server-graph and no client surface can import it. This file is
+ * client-safe, already owns the scope vocabulary (`isKnownBlockScope`, `SENSITIVE_BLOCK_SCOPES`)
+ * AND already holds viewer-facing consent copy (`BLOCK_CONSENT_BUDGET_LOW_WARNING_BODY`), so it is
+ * the one place both sides can reach.
+ *
+ * ⚠️ THE SERVER SIDE IS DELIBERATELY NOT COLLAPSED INTO THIS ONE, AND **NO COUNT OF THE REMAINING
+ * COPIES IS QUOTED HERE** — because two successive attempts to quote one were both wrong, in the
+ * same direction, and the second was wrong after being "corrected".
+ *   · First: *"server 1 + client 1 = 2, down from server 1 + client 3 = 4"*. RETRACTED — it counted
+ *     only NAMED declarations.
+ *   · Then, on the reuse lane's measurement: *"5 declarations that own the literal, down to 4"*.
+ *     ALSO RETRACTED. A direct enumeration of `'ai:write:budgeted'` across `src/` (excluding tests)
+ *     returns roughly THIRTY live production uses — registry keys, `requiredScope:` values,
+ *     `includes()` checks on minted scope sets, telemetry labels, description-map keys — spread over
+ *     ~20 files. Two named constants and two `filter` calls is not the population.
+ *
+ * 🔴 THE REPO ALREADY OWNS THE RIGHT ANSWER AND IT IS A DERIVATION, NOT A NUMBER.
+ * `scope-grant.service.ts` states it on the docblock above `CONSENT_SPEND_SCOPE`:
+ * *"`git grep "'ai:write:budgeted'"` is the authority on what remains"* — and, importantly, that the
+ * `scope:` arguments handed to `recordScopeInvocation` are TELEMETRY LABELS rather than gate
+ * predicates, so they are deliberately literal and must not be swept. Any future consolidation
+ * starts from that grep and that distinction; a figure restated here would be stale before the next
+ * reader trusts it, which has now happened twice in one phase.
+ *
+ * What is true without a count: the two NAMED constants are this one and `CONSENT_SPEND_SCOPE`,
+ * they are asserted equal by `src/components/Apps/__tests__/scopeConsentRows.test.ts`, and that
+ * guard exists only because `scope-grant.service.ts` reaches Prisma and so cannot be imported from
+ * a client surface. It can be deleted the moment `CONSENT_SPEND_SCOPE` becomes a re-export of this.
+ *
+ * 🔴 THE THREE SURFACES MUST AGREE OR THE BUDGET SILENTLY DETACHES FROM THE SCOPE IT BOUNDS: the
+ * grant modal decides whether to offer a budget field, the budget editor decides what to send, and
+ * the revoke dialog has to say that withdrawing this scope CLEARS the stored budget. A disagreement
+ * is not a rendering bug, it is a spend path that stops being capped.
+ */
+export const BLOCK_SPEND_SCOPE = 'ai:write:budgeted';
 
 /**
  * Pre-filled suggestion when a user turns a limit ON (consent modal + the editor on
@@ -421,6 +513,10 @@ export const SENSITIVE_BLOCK_SCOPES: ReadonlySet<string> = new Set([
   // visible to other viewers OF THAT APP, this one is visible to the whole site
   // and carries the viewer's byline.
   'posts:write:self',
+  // Spends the viewer's Buzz on an app's own catalog. The read half
+  // (`goods:read:self`) is not sensitive — it returns only what the calling app
+  // already sold to this viewer.
+  'goods:purchase:self',
 ]);
 
 export function isSensitiveBlockScope(scope: string): boolean {

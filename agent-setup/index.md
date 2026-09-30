@@ -9,8 +9,12 @@ Paste this into your coding agent — Claude Code, Cursor, Codex, opencode,
 Copilot, Windsurf, Zed, whatever you use:
 
 ```text
-Fetch and execute the appropriate instructions to set me up for Civitai from https://developer.civitai.com/agent-setup/prompt.md
+Fetch and execute the appropriate instructions to set me up for Civitai from https://civitai.com/agent-onboarding
 ```
+
+That address is a short alias. It redirects to the raw instruction file at
+`developer.civitai.com`, which is the canonical address and the one linked below
+— the redirect is there so the line above is short enough to say out loud.
 
 The agent fetches the instructions, installs the
 [Civitai CLI](https://github.com/civitai/cli), runs `civitai agent-setup`, and

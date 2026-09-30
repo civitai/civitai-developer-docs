@@ -15,9 +15,11 @@
  * direction: the page keeps serving 200 while the command it names no longer
  * exists, and the agent reports a broken install as the user's problem.
  *
- * FOUR INDEPENDENT CHECKS. All are REPO-LOCAL — they read committed files only,
+ * SIX INDEPENDENT CHECKS. All are REPO-LOCAL — they read committed files only,
  * make no network request, and cannot false-fail on someone else's publish,
  * which is the property this repo requires of anything that blocks a PR.
+ * (The count is written from the list below; it read "FOUR" over five for a
+ * while, which is the rot `.vitepress/agent-setup.mjs` stopped restating.)
  *
  *   1. COMMAND SURFACE (contract §6). See "WHAT CHECK 1 ACTUALLY COVERS" below —
  *      that heading exists because the sentence that used to sit here ("every
@@ -56,6 +58,18 @@
  *      it away. What the budget buys is that the file cannot go
  *      2,798 -> 6,232 -> 6,949 bytes in three commits again with nothing
  *      measuring the total. See the constants for the derivations.
+ *
+ *   6. THE SHORT ALIAS IS FETCHED WITH REDIRECTS. `SETUP_PROMPT` now advertises
+ *      `SHORT_PROMPT_URL`, a 302 on civitai.com whose target is `PROMPT_URL`.
+ *      Measured: without redirect following it returns 143 bytes of Cloudflare
+ *      `<html>302 Found</html>` AND EXITS 0; with it, the real 7,433 bytes. So a
+ *      COMMAND naming the alias without `-L`/`--location` hands an agent nothing
+ *      and no error. This check refuses one, on BOTH agent-setup surfaces —
+ *      check 1 reads prompt.md only, and the landing page's by-hand shell block
+ *      is exactly where such a command gets written. See the banner above
+ *      `FOLLOWS_BY_DEFAULT` for the three things it does NOT cover, the first of
+ *      which is prose: the copy-paste string is natural language and must stay
+ *      flagless.
  *
  * WHAT CHECK 1 ACTUALLY COVERS
  * ----------------------------
@@ -275,6 +289,7 @@ import {
   PROMPT_PATH,
   PROMPT_SOURCE,
   PROMPT_URL,
+  SHORT_PROMPT_URL,
   SITE_ORIGIN,
   SETUP_PROMPT,
 } from '../.vitepress/agent-setup.mjs';
@@ -1311,6 +1326,13 @@ const ALLOWED_PAGE_URLS = new Map([
   ['https://github.com/civitai/cli', 'the CLI source, linked from the intro'],
   ['https://mcp.civitai.com/mcp', 'the platform MCP server the setup registers'],
   ['https://orchestration.civitai.com/mcp', 'the orchestration MCP server the setup registers'],
+  // 🔴 DERIVED, NOT TYPED. Spelling the alias out here would let the constant and
+  // this allowlist drift apart — and the drift would present as a stray-URL
+  // failure naming a URL the page is supposed to carry, which sends the reader to
+  // the wrong file. The alias is the ONE human-facing spelling of the prompt
+  // address, so it is on this page by design; check 6 below owns the separate
+  // question of whether a COMMAND may name it.
+  [SHORT_PROMPT_URL, 'the short human copy-paste alias; a 302 whose target is PROMPT_URL'],
 ]);
 
 /** Split the page at the generated region, so a failure can name the right file. */
@@ -1593,6 +1615,224 @@ function checkInlineCopy() {
   return failures;
 }
 
+// ---------------------------------------------------------------------------
+// CHECK 6: A COMMAND NAMING THE SHORT ALIAS MUST FOLLOW REDIRECTS.
+//
+// 🔴 THE HAZARD, MEASURED 2026-09-28 AND NOT INFERRED. `SHORT_PROMPT_URL` is a
+// Cloudflare **302** whose target is `PROMPT_URL`. Fetched WITHOUT redirect
+// following it returns **143 bytes** of `<html>302 Found</html>` — and the
+// fetcher exits **0**. Through the redirect it returns the real **7,433 bytes**
+// of `text/markdown`. Both arms are a success as far as an exit code is
+// concerned, so the failure is the shape this whole repo's doctrine is about: a
+// reassuring zero. An agent handed those 143 bytes has no instructions and no
+// error to report.
+//
+// 🔴 WHY THIS IS NOT COVERED BY CHECK 1, which is the reason it is its own check
+// rather than a widening of the allowlist. Check 1 reads `prompt.md` ONLY, and
+// its allowlist (`ALLOWED_NON_CIVITAI`) carries `npm` and `brew` — so a `curl`
+// in `prompt.md` is already red there, for a different reason. The surface with
+// no cover at all is `agent-setup/index.md`, which check 1 never reads and which
+// carries a by-hand shell block a maintainer will reasonably reach for when
+// someone asks "how do I just fetch it?". That is where a `curl -s <alias>` gets
+// written, and until this check nothing looked.
+//
+// 🔴 WHAT IT DOES NOT COVER, stated so nobody reads it as wider than it is:
+//   1. PROSE. Same residual as check 1's #4, and the same reason: the copy-paste
+//      string itself is prose ("Fetch and execute … from <URL>"), natural
+//      language an agent reads and satisfies with its own redirect-following
+//      fetcher. A rule that fired on prose would fire on `SETUP_PROMPT`, which
+//      is the one place the alias BELONGS. So the predicate is deliberately
+//      "appears in an extracted COMMAND", never "appears in the file".
+//   2. Other repositories. `civitai/cli`'s README carries the same paste block
+//      and this guard cannot see it; that mirror is named in both files.
+//   3. A fetcher this table has never heard of. It FAILS CLOSED — an unknown
+//      binary naming the alias is refused with the reason, because "does this
+//      tool follow redirects by default?" is exactly the question a reviewer
+//      should be made to answer once, in a one-line diff, rather than guessed.
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetchers that follow a redirect WITHOUT being asked. Each entry is a measured
+ * or documented default, not a guess; anything absent from this map is refused.
+ */
+const FOLLOWS_BY_DEFAULT = new Map([
+  ['wget', '`wget` follows up to --max-redirect (20) by default'],
+  ['wget2', 'same default as wget'],
+  ['httpie', 'HTTPie follows 3xx for GET by default'],
+  ['http', 'the HTTPie binary is installed as `http`'],
+]);
+
+/**
+ * Fetchers that need to be TOLD, and the flags that tell them. A binary here is
+ * fine only when the stage carries one of its flags.
+ */
+const NEEDS_A_FLAG = new Map([
+  ['curl', { flags: ['--location', '--location-trusted'], cluster: 'L' }],
+]);
+
+/** Does this stage name the short alias in one of its arguments? */
+function namesShortAlias(tokens) {
+  return tokens.some((t) => t.includes(SHORT_PROMPT_URL));
+}
+
+/**
+ * Why a stage naming the alias is refused, or null when it follows redirects.
+ *
+ * 🔴 THE CLUSTER CASE IS THE ONE THAT MATTERS IN PRACTICE, because the idiom
+ * everyone writes is `curl -fsSL`, not `curl --location`. A flag-name scan alone
+ * would red on the correct idiom and send a maintainer to "fix" working code, so
+ * short options are read per character — and `--long` options are excluded from
+ * that read, or `--silent` would satisfy a rule looking for `L`... it does not,
+ * being lowercase, but `--LOCATION-less` shapes are why the test is anchored on
+ * a token that starts with exactly one `-`.
+ */
+function refuseUnfollowedFetch(tokens) {
+  const binary = tokens[0];
+  if (FOLLOWS_BY_DEFAULT.has(binary)) return null;
+  const rule = NEEDS_A_FLAG.get(binary);
+  if (!rule) {
+    return (
+      `\`${binary}\` is not a fetcher this guard knows follows redirects.\n` +
+      `    ${SHORT_PROMPT_URL} is a 302; a fetch that does not follow it receives 143 bytes of\n` +
+      `    redirect HTML and exits 0. Either use the canonical ${PROMPT_URL}, which does not\n` +
+      `    redirect, or add \`${binary}\` to FOLLOWS_BY_DEFAULT / NEEDS_A_FLAG in\n` +
+      `    scripts/check-agent-setup.mjs with the measurement that justifies it.`
+    );
+  }
+  const follows = tokens.slice(1).some((t) => {
+    if (rule.flags.includes(t.split('=')[0])) return true;
+    // A SHORT-option cluster: one leading `-`, no second one. `-fsSL` counts.
+    if (!/^-[^-]/.test(t)) return false;
+    return t.slice(1).includes(rule.cluster);
+  });
+  if (follows) return null;
+  return (
+    `\`${binary}\` is given ${SHORT_PROMPT_URL} with no redirect-following flag.\n` +
+    `    That address is a 302: this command receives 143 bytes of Cloudflare\n` +
+    `    \`<html>302 Found</html>\` and EXITS 0, instead of the 7,433 bytes of text/markdown\n` +
+    `    it looks like it is fetching. Add \`-${rule.cluster}\` (or \`${rule.flags[0]}\`), or name\n` +
+    `    the canonical ${PROMPT_URL} instead — that one does not redirect.`
+  );
+}
+
+/**
+ * 🔴 THE COPY-PASTE STRING IS PROSE, AND IT LIVES IN A ```text FENCE — so the
+ * block scanner reads it as a code block and `commandStages` reads its first
+ * word as a binary. MEASURED on the first run of this check: it refused
+ * `` `Fetch` is not a fetcher this guard knows about ``, over the one line on the
+ * page where the alias is CORRECT and where a flag would be wrong.
+ *
+ * So exactly one line is exempt, and it is exempt by WHOLE-STRING EQUALITY with
+ * `SETUP_PROMPT` — derived from the constant, never a tag name and never a
+ * prefix. Two properties follow, and both are pinned in the self-test below:
+ *   - a ```text fence is NOT blanket-exempt, so a real command written in one is
+ *     still read;
+ *   - the exemption cannot be used as a PREFIX bypass —
+ *     `<SETUP_PROMPT> && curl -s <alias>` is a different string and is refused.
+ * Check 2 independently asserts the page carries this exact string verbatim, so
+ * the exemption cannot be widened by editing the page.
+ */
+const isProseCopyPasteString = (line) => line.trim() === SETUP_PROMPT;
+
+/**
+ * Every refusal one raw line earns, plus how many of its stages named the alias
+ * at all. ONE entry point, so the self-test below exercises the prose exemption
+ * and the stage split, not just the flag rule.
+ */
+function refusalsForLine(raw) {
+  const line = raw.trim();
+  if (isProseCopyPasteString(line)) return { named: 0, refusals: [] };
+  let named = 0;
+  const refusals = [];
+  for (const { tokens } of commandStages(line)) {
+    if (!namesShortAlias(tokens)) continue;
+    named++;
+    const why = refuseUnfollowedFetch(tokens);
+    if (why) refusals.push(why);
+  }
+  return { named, refusals };
+}
+
+/**
+ * 🔴 THIS CHECK'S OWN CONTROLS, run on every invocation — same doctrine as
+ * `PARSER_SELF_TEST`. Today NO command anywhere names the alias, so without
+ * these the check reports a serene "0 commands examined" and is indistinguishable
+ * from a check wired to nothing. The `false` rows are the NEGATIVE polarity: a
+ * mutant that refuses everything must fail too, or the battery reads green while
+ * the guard has become noise.
+ */
+const REDIRECT_SELF_TEST = [
+  // [label, line, expected to be REFUSED?]
+  ['the idiom everyone writes', `curl -fsSL ${SHORT_PROMPT_URL}`, false],
+  ['the long flag', `curl --location ${SHORT_PROMPT_URL}`, false],
+  ['--location-trusted', `curl --location-trusted ${SHORT_PROMPT_URL}`, false],
+  ['a default-following fetcher', `wget -qO- ${SHORT_PROMPT_URL}`, false],
+  ['the canonical URL needs no flag', `curl -s ${PROMPT_URL}`, false],
+  ['the prose copy-paste string is not a command', SETUP_PROMPT, false],
+  ['🔴 the hazard itself', `curl -s ${SHORT_PROMPT_URL}`, true],
+  ['no flags at all', `curl ${SHORT_PROMPT_URL}`, true],
+  ['a lowercase-only cluster', `curl -sS ${SHORT_PROMPT_URL}`, true],
+  ['an unknown fetcher fails closed', `fetchit ${SHORT_PROMPT_URL}`, true],
+  ['piped, second stage', `echo x | curl -s ${SHORT_PROMPT_URL}`, true],
+  // 🔴 THE EXEMPTION IS NOT A PREFIX. Without whole-string equality this line
+  // would be waved through, and it is the shape a bypass would take.
+  ['the prose exemption is not a prefix', `${SETUP_PROMPT} && curl -s ${SHORT_PROMPT_URL}`, true],
+];
+
+/** Every code-block line in `text`, with the block that carried it. */
+function codeLinesIn(text) {
+  const out = [];
+  for (const block of codeBlocks(text)) {
+    const where = blockLabel(block);
+    for (const raw of block.body.replace(/\\\n\s*/g, ' ').split('\n')) {
+      if (raw.trim()) out.push({ raw: raw.trim(), where });
+    }
+  }
+  return out;
+}
+
+function checkAliasIsFetchedWithRedirects() {
+  const failures = [];
+
+  // CONTROLS FIRST. A broken predicate must be reported as a broken predicate,
+  // not as a verdict about the corpus.
+  for (const [label, line, wantRefused] of REDIRECT_SELF_TEST) {
+    const { named, refusals } = refusalsForLine(line);
+    if (refusals.length > 0 !== wantRefused) {
+      failures.push(
+        `SELF-TEST FAILURE (${label}): \`${line}\`\n` +
+          `    expected it to be ${wantRefused ? 'REFUSED' : 'ACCEPTED'} and it was not.\n` +
+          `    This is a defect in the guard, not in the corpus. Fix the predicate before\n` +
+          `    reading anything else this check says: ${named} stage(s) named the alias.`,
+      );
+    }
+  }
+  if (failures.length) return failures;
+
+  // THE CORPUS: both agent-setup surfaces. prompt.md is the file an agent
+  // executes; the landing page is the one check 1 never reads.
+  let examined = 0;
+  for (const file of [PROMPT_SOURCE, LANDING_PAGE]) {
+    const text = readFileSync(join(repoRoot, file), 'utf8');
+    for (const { raw, where } of codeLinesIn(text)) {
+      const { named, refusals } = refusalsForLine(raw);
+      examined += named;
+      for (const why of refusals) failures.push(`${file} — in a ${where}, \`${raw}\`:\n    ${why}`);
+    }
+  }
+
+  if (!failures.length) {
+    // Report the PAIR, never the zero alone: the self-test count is what says the
+    // predicate can observe anything at all.
+    console.log(
+      `  ✓ ${REDIRECT_SELF_TEST.length} self-test case(s) (${REDIRECT_SELF_TEST.filter((c) => c[2]).length} must-refuse / ` +
+        `${REDIRECT_SELF_TEST.filter((c) => !c[2]).length} must-accept); ${examined} command(s) in ` +
+        `${PROMPT_SOURCE} + ${LANDING_PAGE} name ${SHORT_PROMPT_URL}, all of them redirect-following`,
+    );
+  }
+  return failures;
+}
+
 function main() {
   console.log('agent-setup surface — prompt.md vs the CLI help snapshot, and the page vs its constants\n');
   // FIRST, and not folded into checkSingleSource: both halves READ this file, so
@@ -1619,6 +1859,7 @@ function main() {
     ['3. serving route', checkServingRoute],
     ['4. inline copy', checkInlineCopy],
     ['5. prompt size', checkPromptSize],
+    ['6. alias is fetched with redirects', checkAliasIsFetchedWithRedirects],
   ];
   const failures = [];
   for (const [label, fn] of checks) {

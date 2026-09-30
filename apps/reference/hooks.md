@@ -2,9 +2,9 @@
 title: Hooks reference
 description: Every @civitai/blocks-react hook — signature and example, generated from the published package.
 sources:
-  - npm:@civitai/blocks-react@0.58.1/dist/index.d.ts
-  - npm:@civitai/blocks-react@0.58.1#README
-  - npm:@civitai/app-sdk@0.51.2/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.59.0/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.59.0#README
+  - npm:@civitai/app-sdk@0.52.0/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
 
@@ -259,6 +259,40 @@ Open the Buzz purchase modal — the insufficient-budget recovery path.
 const { openPurchaseModal } = useBuzzPurchase();
 const { purchased, newBalance } = await openPurchaseModal(suggestedAmount);
 if (purchased) { /* retry the generation */ }
+```
+
+**`useGoodPurchase`**
+
+```ts
+useGoodPurchase(): UseGoodPurchase
+```
+
+Sell a **digital good** — a manifest-declared entitlement the platform sells to the viewer for Buzz on your app's behalf. Requires the `goods:purchase:self` scope **and** a `goods` entry in your manifest; without both the endpoint answers 404.
+
+```tsx
+const { purchase, loading, error } = useGoodPurchase();
+const { entitlement } = await purchase(
+  { goodId: 'extra-slots', expectedPriceBuzz: 250 },
+  { topUpOnInsufficientFunds: true },
+);
+```
+
+**`useEntitlements`**
+
+```ts
+useEntitlements(): UseEntitlements
+```
+
+What the viewer owns **from this app** — the read half of the goods rail. Scope `goods:read:self`, which is consent-exempt: the reply is scoped server-side to your own app, so a read-only block needs no purchase power and triggers no re-consent prompt.
+
+```tsx
+function PaidFeature() {
+  const { owns, loading, error, unauthenticated, refetch } = useEntitlements();
+  if (loading) return <Spinner />;
+  if (unauthenticated) return <SignInToBuy />;        // a logged-out viewer
+  if (error) return <RetryNotice onRetry={refetch} />; // NOT "you own nothing"
+  return owns('extra-slots') ? <Unlocked /> : <BuyButton onDone={refetch} />;
+}
 ```
 
 **`useBuzzBalance`**
@@ -798,7 +832,7 @@ union keyed by `kind`. The hook forwards the body to the host verbatim and never
 reads member-specific fields, so every member flows through the same
 `estimate → submit → watch` lifecycle shown above.
 
-As of the pinned `@civitai/app-sdk@0.51.2` the union has three `kind` values, and
+As of the pinned `@civitai/app-sdk@0.52.0` the union has three `kind` values, and
 `kind: 'step'` is itself two arms — four members in all:
 
 | `kind` | what it runs | what your block sends |

@@ -37,7 +37,7 @@ the server accepts.
 | `auth` | `"block-token" \| "oauth"` | optional | Which credential the host hands the block: "block-token" (default when omitted) is the block-scoped JWT; "oauth" asks for an opaque OAuth access token for the block's own OauthClient, which ordinary /api/v1 routes accept as a viewer bearer. Minting it is gated on a server flag that is not generally enabled, and also requires a signed-in viewer and a declared "user:read:self" scope; when any of those is unmet the host hands back a block JWT instead of failing, so branch on the token kind the host reports rather than on this field. An OAuth token is refused by the postMessage bridge procedures, which verify a block JWT only, and declaring "oauth" alongside any "apps:storage:*" scope is refused at submit time. |
 | `trustTier` | `"unverified" \| "verified" \| "internal"` | optional | SERVER-OWNED. Do NOT set this in your manifest — the platform assigns the trust tier during review. Present here only to reject dev-set values. |
 | `scopes` | `string[]` | required | Capabilities the block requests. Must be a strict subset of what review grants. Each scope is lowercase colon-separated. |
-| `scopeJustifications` | `object` | optional | Per-scope justification: a map of scope-id → free-text rationale explaining WHY the app needs that permission, shown to the moderator during review. REQUIRED for SENSITIVE scopes — any declared scope that can spend or read the viewer's Buzz, read the viewer's private data, or write data other users see (e.g. `ai:write:budgeted`, `social:tip:self`, `buzz:read:self`, `collections:read:private`, `apps:storage:shared:write`, `posts:write:self`) MUST carry a non-empty justification here, or the manifest is rejected at submit time. OPTIONAL for non-sensitive scopes — omit those and the manifest stays valid. Every key MUST be a scope also present in `scopes` (justifications for scopes you don't request are rejected). Each value is a non-empty string of at most 500 characters. The requirement is enforced imperatively by the manifest validator (not expressed as JSON-Schema conditionals here). NOTE: the justification captures the developer's STATED rationale only; the platform does not verify the truth of the claims. |
+| `scopeJustifications` | `object` | optional | Per-scope justification: a map of scope-id → free-text rationale explaining WHY the app needs that permission, shown to the moderator during review. REQUIRED for SENSITIVE scopes — any declared scope that can spend or read the viewer's Buzz, read the viewer's private data, or write data other users see (e.g. `ai:write:budgeted`, `social:tip:self`, `goods:purchase:self`, `buzz:read:self`, `collections:read:private`, `apps:storage:shared:write`, `posts:write:self`) MUST carry a non-empty justification here, or the manifest is rejected at submit time. OPTIONAL for non-sensitive scopes — omit those and the manifest stays valid. Every key MUST be a scope also present in `scopes` (justifications for scopes you don't request are rejected). Each value is a non-empty string of at most 500 characters. The requirement is enforced imperatively by the manifest validator (not expressed as JSON-Schema conditionals here). NOTE: the justification captures the developer's STATED rationale only; the platform does not verify the truth of the claims. |
 | `minApiVersion` | `string` | optional | Minimum App SDK API version the block targets (informational). `pattern: ^\d+(\.\d+)*$` |
 | `buildCommand` | `string` | optional | Config-as-code: command the platform runs to build the static bundle. Must be one of an allowlisted set of build invocations (defense-in-depth against shell injection): "npm run \<script>", "pnpm run \<script>", "yarn run \<script>" (where \<script> is a package.json script name), "vite build", or "npx vite build". Omit for no-build (static) apps. When set, outputDir must also be set. The pattern and max length are kept in lockstep with BUILD_COMMAND_RE / BUILD_COMMAND_MAX_LENGTH in src/server/services/block-manifest-validator.service.ts (a drift-guard test enforces equality). `pattern: ^(?:(?:npm\|pnpm\|yarn) run [a-zA-Z0-9:_-]+\|(?:npx )?vite build)$, minLength 1, maxLength 128` |
 | `outputDir` | `string` | optional | Config-as-code: directory (relative to the project root) the buildCommand emits static files into (e.g. "dist"). Must be a safe relative path — no leading "/", no ".." path traversal, no backslash separators, and no Windows drive prefix (e.g. C:). Required when buildCommand is set. Kept in lockstep with the outputDir checks in src/server/services/block-manifest-validator.service.ts (a drift-guard test enforces equality). (The server additionally rejects a NUL byte; that impossible-in-a-manifest case is intentionally omitted here for RE2 regex portability.) `minLength 1, maxLength 256` |
@@ -46,6 +46,7 @@ the server accepts.
 | `iframe` | `object` | optional | iframe envelope. NOTE: iframe.src is SERVER-OWNED — do NOT set it; the platform stamps the canonical bundle URL during build/approve. |
 | `bootSkeleton` | `boolean` | optional | The app's shipped index.html paints its own loading state inside #root. The full-page run host then stands down its own branded overlay and shows the iframe from mount, so the app's boot state is visible at first paint and its own render replaces it in place with no cross-fade and no reveal transform. Omit (or false) unless the app really ships one: with the overlay stood down, an empty #root is a blank iframe for the whole load. To paint in the HOST's theme rather than guessing from prefers-color-scheme, the app must also be enabled for the BLOCK_INIT URL fragment and read it before first paint; without that the theme is a guess that can disagree with the host and be corrected on BLOCK_INIT. `default: false` |
 | `page` | `object` | optional | Full-page surface descriptor (W10). Page apps mount at /apps/run/\<slug>. |
+| `goods` | `object[]` | optional | Optional DIGITAL GOODS catalog — entitlements the platform sells to a viewer on your app's behalf, for Buzz. Manifest-governed and REVIEW-GATED: the catalog a moderator approves is the catalog that can be sold, and changing a price means shipping a new version and being re-reviewed. The platform owns the ledger (who bought what, when, at what price, and its refund state); the good's MEANING is your app's business — read the viewer's entitlements from GET /api/v1/blocks/entitlements and keep the semantics in your own app storage. Declaring goods does not by itself let you sell: the app must also declare the `goods:purchase:self` scope (and `goods:read:self` to read entitlements back), and the viewer must consent. Sales split platform 30% / app owner 70%, paid immediately. Kept in lockstep with the bounds in src/shared/constants/block-goods.constants.ts (a drift-guard test enforces equality); the imperative validator in that same module is authoritative. `maxItems 32` |
 | `targets` | `object[]` | optional | Model-page slot targets. Each target's slotId must be a known registered model slot (not the page slot). Optional for page-only apps. `maxItems 16` |
 
 <!-- END GENERATED: manifest -->
@@ -101,6 +102,44 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
   separately: it flows to the listing on moderator-approve and is **re-synced
   from the manifest on every subsequent approved version**, so an edit made
   anywhere else is overwritten by your next release.
+- **`goods`** (enforced) — an optional **digital-goods catalog**: entitlements the
+  platform sells to a viewer for Buzz on your app's behalf. At most **32**
+  entries. The table above shows only the top-level row, because it renders
+  top-level fields only — here is the per-entry shape it cannot expand
+  (`additionalProperties: false`, so an unknown key is rejected):
+
+  | Key | Type | Required | Bound |
+  |---|---|---|---|
+  | `id` | `string` | required | `^[a-z0-9][a-z0-9_-]*$`, 1–64 chars. Unique within the manifest. |
+  | `title` | `string` | required | 1–80 chars. Shown to the viewer at purchase. |
+  | `priceBuzz` | `integer` | required | **2–50000** whole Buzz. |
+  | `description` | `string` | optional | ≤ 500 chars. |
+  | `kind` | `"good" \| "app_unlock"` | optional | Defaults to `"good"`. |
+  | `payload` | `object` | optional | Opaque, copied verbatim onto the entitlement; ≤ 2048 bytes serialized. |
+
+  Three things the bounds don't say:
+
+  - **`id` is the entitlement key.** Changing it in a later version **orphans
+    every entitlement already granted** under the old id. Treat it as permanent.
+  - **`priceBuzz` starts at 2, not 1**, because the app owner's 70% share is
+    floored — a 1 Buzz item would earn its owner nothing, permanently. The cap
+    bounds a *single* purchase; a viewer also has a **daily ceiling across every
+    app**, so a purchase can be refused with a clean 4xx even at a legal price.
+    This rail is separate from `page.buzzBudgetPerGen` and never consults it.
+  - **`kind: "app_unlock"` buys nothing today.** It is recorded identically to
+    `"good"`; the paid-app access gate that reads it is a later change. Leave it
+    unset unless you intend that future behaviour.
+
+  The catalog is **review-gated**: the catalog a moderator approves is the
+  catalog that can be sold, so **changing a price means shipping a new version
+  and being re-reviewed**. Declaring `goods` does not by itself let you sell —
+  the app must also declare [`goods:purchase:self`](./scopes) (and
+  [`goods:read:self`](./scopes) to read entitlements back, plus a
+  `scopeJustifications` entry for the sensitive purchase scope), and the viewer
+  must consent. The platform owns the ledger; the good's *meaning* is your app's
+  business — read entitlements back with
+  [`useEntitlements`](./hooks) and sell with
+  [`useGoodPurchase`](./hooks).
 - **`auth`** (enforced) — `"block-token"` (the default when omitted) or
   `"oauth"`. This is the only field that changes **which credential the host
   hands your block**, so it belongs to a decision rather than a preference:
