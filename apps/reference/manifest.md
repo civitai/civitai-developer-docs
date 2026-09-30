@@ -139,7 +139,9 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
   must consent. The platform owns the ledger; the good's *meaning* is your app's
   business — read entitlements back with
   [`useEntitlements`](./hooks) and sell with
-  [`useGoodPurchase`](./hooks).
+  [`useGoodPurchase`](./hooks). The split, the rounding direction, why the floor
+  is 2, and every refusal a purchase can answer with are in
+  [How an app earns](../guide/earning).
 - **`auth`** (enforced) — `"block-token"` (the default when omitted) or
   `"oauth"`. This is the only field that changes **which credential the host
   hands your block**, so it belongs to a decision rather than a preference:
