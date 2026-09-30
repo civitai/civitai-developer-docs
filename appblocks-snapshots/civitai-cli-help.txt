@@ -1,6 +1,6 @@
 civitai CLI help snapshot (the WHOLE command tree)
 Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
-Binary version: civitai 0.1.110
+Binary version: civitai 0.1.111
 Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
 else parses this committed snapshot. To refresh: run
 node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).
@@ -1502,21 +1502,45 @@ AUTHENTICATION IS YOURS TO RUN. The servers are registered before login on
 purpose, and 'civitai login' is a separate store from CIVITAI_TOKEN: it writes
 this CLI's own config, which your coding agent does not read.
 
-WHAT --check REPORTS. It contacts nothing — no network, no credential probe —
-and writes nothing. Six rows: cli-version, agents-md, claude-md, mcp-site,
-mcp-orch, authenticated. EVERY ROW REPORTS PRESENCE, NEVER ACCEPTANCE: an
+WHAT --check REPORTS. It writes nothing and probes no credential. Seven rows:
+cli-version, agents-md, claude-md, mcp-site, mcp-orch, authenticated,
+agent-token. EVERY FILESYSTEM ROW REPORTS PRESENCE, NEVER ACCEPTANCE: an
 mcp-site row is 'ok' because the entry is in your config, not because any
 server accepted it. An ABSENT Authorization header gets no row of its own —
 that is by design, since a header-less setup still reaches the site server. A
 config file that will not parse maps to the mcp-site/mcp-orch rows, carrying
-the parse failure in 'detail'. 'authenticated' has three states and names which
-store it looked in; an unauthenticated setup is a success.
+the parse failure in 'detail'.
 
-The 'ok' verdict is the AND of every row EXCEPT authenticated, minus claude-md
-for a non-Claude agent, and minus mcp-site/mcp-orch for an agent with no
-resolvable config target. That last exemption is conditional and narrow: for a
-KNOWN agent a missing entry still fails, and the rows stay in the report and
-stay false.
+'cli-version' IS THE ONE ROW THAT CONTACTS ANYTHING: a single unauthenticated
+GET to GitHub's public releases endpoint, bounded at 2.5s, comparing the running
+build against the newest published release. It FAILS SOFT — an unreachable
+network, a timeout, a non-200 or a tag it cannot parse all report 'ok' true with
+a detail saying the comparison did not happen — so only a successful comparison
+showing this build to be OLDER can make it false. Skip it entirely with
+--no-update-check or CIVITAI_NO_UPDATE_CHECK, the same controls 'version' and
+'upgrade' honour; the row then says it was disabled.
+
+IT DOES NOT FAIL THE VERDICT EITHER, and that is deliberate. Releases land days
+apart, so a counted freshness row would be red for a large share of ordinary runs
+over a state that is usually harmless -- a permanently-red gate people learn to
+click through. READ THE ROW: a consumer that reads only 'ok' will not see a stale
+CLI, which is a real gap and not one this command can close on its own.
+
+'authenticated' and 'agent-token' are the TWO auth rows, and they are separate
+because they are about different stores. 'authenticated' is THIS CLI's
+credential — 'civitai login''s config file or CIVITAI_TOKEN — which is what
+'civitai app dev-token', 'civitai app validate' and 'civitai app submit' read.
+'agent-token' is whether CIVITAI_TOKEN is set in the PROCESS environment, which
+is the only place your agent can resolve the reference in its MCP config from.
+You do NOT need CIVITAI_TOKEN to scaffold, build, dev-run or submit an App; it
+is only for the MCP servers. Neither row can fail the verdict: an
+unauthenticated setup is a success.
+
+The 'ok' verdict is the AND of every row EXCEPT cli-version, authenticated and
+agent-token, minus claude-md for a non-Claude agent, and minus mcp-site/mcp-orch
+for an agent with no resolvable config target. That last exemption is conditional
+and narrow: for a KNOWN agent a missing entry still fails, and the rows stay in
+the report and stay false.
 
 EXIT CODES: --check exits 1 when a check failed, 0 otherwise. A write run exits
 0 when every step happened and 1 when one did not -- a config that does not
@@ -1526,8 +1550,9 @@ false, never a silent success. THE ONE STEP THAT DOES NOT HAPPEN AND STILL EXITS
 0 is the 'manual' row: --agent other, or a user-scoped agent with no resolvable
 home, where there is no file for this CLI to write and the config is printed for
 you to paste instead. A bad --agent, a --dir that does not exist or is not a
-directory, and --track api all exit 2. 'authenticated' is REPORTED by --check and
-never fails it: an unauthenticated setup is a success, not a failure.
+directory, and --track api all exit 2. 'authenticated' and 'agent-token' are
+REPORTED by --check and never fail it: an unauthenticated setup is a success, not
+a failure.
 
 WHAT --dry-run CAN TELL YOU. It writes nothing and reports the rows the PLAN can
 classify -- for all three files -- with the same 'ok' and the same exit code the
