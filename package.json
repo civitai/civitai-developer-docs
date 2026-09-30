@@ -46,6 +46,7 @@
     "check:page-context": "node scripts/check-page-context.mjs",
     "check:boot-skeleton": "node scripts/check-boot-skeleton.mjs",
     "check:md-regions": "node scripts/check-appblocks-md.mjs",
+    "check:porting-hooks": "node scripts/check-porting-hook-coverage.mjs",
     "check:built-site": "node scripts/check-built-site.mjs",
     "test:tokens:drift": "node scripts/test-tokens-drift.mjs",
     "test:showcase:e2e": "node scripts/test-showcase-e2e.mjs"

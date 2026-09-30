@@ -225,9 +225,27 @@ it changing. That is the point of having it.
 
 ## Hook replacements
 
-All 37 hooks `@civitai/blocks-react` exports — 36 from the package root, plus
+Every hook `@civitai/blocks-react` exports — the package root, plus
 `useBlocksStyles` from `@civitai/blocks-react/ui`. "Local" means the hook never
 talked to the platform — it is your own code now, with nothing to replace.
+
+::: warning Don't trust a hook count — enumerate
+This paragraph used to open "All 37 hooks", and the number is the defect: the
+package outgrows it every release, and a stale count reads as a complete list.
+It said 37 while the package exported 39, and the two it was short of were the
+digital-goods pair (`useGoodPurchase` / `useEntitlements`) — invisible to
+everyone porting off the bridge. Enumerate from the package you actually
+installed rather than trusting any figure written down here:
+
+```bash
+node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).filter(k => k.startsWith('use')).sort().join(' ')))"
+```
+
+The table below is pinned to that same export set by
+`npm run check:porting-hooks`, which reads it from the installed package's own
+type barrels — so a hook the package gains and this page misses fails a PR
+rather than shipping.
+:::
 
 | Bridge hook | Replacement |
 |---|---|
@@ -254,8 +272,10 @@ talked to the platform — it is your own code now, with nothing to replace.
 | `useDailyCompensation` | **Not carried** |
 | `useDirectLoad` | **Keep** — see [Embedding](./embedding) |
 | `useDomainMaturity` | No direct equivalent — keep the hook. 🔴 Gate through its derived `isSfw` / `isLevelAllowed`, never on a raw bitmask: `maxBrowsingLevel` is the *domain's* ceiling (identical for every viewer on it, including one whose NSFW setting is off) |
+| `useEntitlements` | `GET /api/v1/blocks/entitlements` — the read half of the goods rail, scope `goods:read:self`. The reply is scoped server-side to your own `appBlockId`, so the scope is consent-EXEMPT and a read-only block needs no purchase power. Revoked entitlements are excluded server-side |
 | `useGatedImages` | `GET /api/v1/blocks/gated-images` |
 | `useGenerationResources` | `GET /api/v1/blocks/generation-resources?ids=` |
+| `useGoodPurchase` | `POST /api/v1/blocks/goods/purchase` — scope `goods:purchase:self` **and** a `goods` entry in your manifest; without both the endpoint answers 404. Same direct-fetch-on-the-validated-origin shape as `useTip`, and the buyer is always the token subject (the block never supplies a user id). 🔴 The platform renders **no** confirmation for the purchase itself, so the confirm UI is yours. Its optional top-up on insufficient funds opens `useBuzzPurchase` — host UI, and the opposite money direction |
 | `useHostOrigin` | **Keep** — it is the validated base URL every direct fetch needs |
 | `useImageUpload` | **Keep** — host UI. (`@civitai/sdk` has covered it since 0.3.0 as `host.openImageUpload`, usable on either credential — but that is still a bridge message, not a route.) |
 | `usePublishGenerationOutputs` | **Stays on the bridge, by design** |
