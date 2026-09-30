@@ -31,3 +31,21 @@ features:
   - title: MCP-native
     details: Connect Claude Desktop, claude.ai, or any MCP-aware client to the same orchestrator. Find a service, get its exact input schema and run it, over HTTP at /mcp/v2.
 ---
+
+## Where to start
+
+- **[Get started](./guide/getting-started)** — authenticate and submit your
+  first workflow.
+- **[Guide](./guide/)** — workflows, submitting work, results and webhooks,
+  errors and retries.
+- **[API reference](./reference/)** — every consumer-facing operation, generated
+  from the OpenAPI specification.
+- **[Recipes](./recipes/)** — one page per job type, with validated inputs and
+  predictable outputs.
+- **[MCP server](./mcp/)** — connect Claude Desktop, claude.ai, or any MCP-aware
+  client to the same orchestrator.
+
+Guide and recipe pages are also served as **plain markdown** — append `.md` to
+the URL — and [`/llms.txt`](/llms.txt) indexes them for agents. The generated
+per-operation reference pages under `/orchestration/reference/operations/` are
+the exception: they are HTML only.
