@@ -162,6 +162,15 @@ function readManifest(pkgRoot) {
   return { cem, elements, path };
 }
 
+/**
+ * Bindings the React barrel is known to carry. Measured against
+ * @civitai/components-react@0.9.0 — 45 of the 47 elements. Floored, not
+ * zero-checked, for the `ABSENT_BASES` reason: a `size === 0` control cannot see
+ * 44 of 45 going missing, and a partial read mislabels those rows
+ * 'no React binding' just as confidently as an empty one.
+ */
+const REACT_BINDING_FLOOR = 45;
+
 /** The React barrel's export names, so each row can name its binding (or say none). */
 function reactBindings() {
   const dts = join(
@@ -172,12 +181,23 @@ function reactBindings() {
   );
   const src = readFileSync(dts, 'utf8');
   const names = new Set();
-  for (const m of src.matchAll(/^export\s*\{\s*([A-Za-z_$][\w$]*)[^}]*\}/gm)) names.add(m[1]);
-  if (names.size === 0) {
+  // EVERY name in each statement, not just the first: `barrelExports()` in
+  // scripts/check-showcase-coverage.mjs splits on commas and reads them all, so a
+  // first-name-only read here would silently disagree with it the day the barrel
+  // emits two names per `export { … }`. Same `^Civitai[A-Z]` filter, for the same
+  // reason — one idiom across the two readers of this file.
+  for (const m of src.matchAll(/^export\s*\{([^}]*)\}/gm)) {
+    for (const part of m[1].split(',')) {
+      const name = part.trim().split(/\s+as\s+/).pop().trim();
+      if (/^Civitai[A-Z]/.test(name)) names.add(name);
+    }
+  }
+  if (names.size < REACT_BINDING_FLOOR) {
     throw new Error(
-      'gen-appblocks-element-gallery: parsed 0 exports from @civitai/components-react ' +
-        "dist/elements/index.d.ts — every element would be labelled 'no React binding', " +
-        'which is a confident lie about 45 of them.',
+      `gen-appblocks-element-gallery: parsed ${names.size} binding export(s) from ` +
+        `@civitai/components-react dist/elements/index.d.ts (floor ${REACT_BINDING_FLOOR}). ` +
+        "Every element short of that would be labelled 'no React binding', which is a " +
+        'confident lie about a surface React authors actually call.',
     );
   }
   return names;
@@ -190,17 +210,57 @@ const bindingNameFor = (tag) =>
 /* ──────────────────────────  registration bundles  ────────────────────────── */
 
 /**
+ * The two register bundles and the number of `define*` imports each carried when
+ * this was measured — @civitai/components@0.8.1: register.js 39, register-site.js
+ * 5 (the civitai vocabulary; its `registerAll` re-entry is not a `define*` import,
+ * so it does not count).
+ *
+ * `floor` is the FAIL-LOUD half, the same shape `ABSENT_BASES` uses one section up.
+ * The line regex below is the whole derivation, so a reformat of these GENERATED
+ * bundles defeats it: switching the import specifiers to double quotes — no API
+ * change at all — makes it match nothing, every row renders
+ * '**registered by neither bundle**', and the page tells readers that neither
+ * bundle covers anything and they must hand-import 47 `/define` modules. A
+ * `size === 0` control cannot see 45 of 47 going missing, so the floor is the
+ * MEASURED count. Bump these when the package legitimately drops an element.
+ */
+const REGISTER_BUNDLES = {
+  'register.js': { label: 'registerAll', floor: 39 },
+  'register-site.js': { label: 'registerSite', floor: 5 },
+};
+
+/**
  * Which bundle defines a tag, read from the installed `register.js` /
  * `register-site.js` rather than restated — the split is a real authoring
  * decision (the five civitai-vocabulary elements are not in the generic kit) and
  * a reader who loads the wrong bundle gets an element that never upgrades.
  */
 function registrationOf(pkgRoot, tags) {
-  const read = (f) => readFileSync(join(pkgRoot, 'dist', 'elements', f), 'utf8');
-  const defines = (src) =>
-    new Set([...src.matchAll(/^import \{ (define[A-Za-z]+) \} from '\.\/([a-z-]+)\.js';/gm)].map((m) => m[2]));
-  const base = defines(read('register.js'));
-  const site = defines(read('register-site.js'));
+  const sets = {};
+  for (const [file, spec] of Object.entries(REGISTER_BUNDLES)) {
+    const src = readFileSync(join(pkgRoot, 'dist', 'elements', file), 'utf8');
+    // `[a-z0-9-]`, not `[a-z-]`, on BOTH halves: a tag carrying a digit
+    // (`civitai-panorama-360` -> `defineCivitaiPanorama360`) would otherwise fall
+    // to 'neither bundle' for that one element, under a floor the other 46 keep
+    // satisfied — too narrow a miss for a size check to ever see.
+    const found = new Set(
+      [...src.matchAll(/^import \{ define[A-Za-z0-9]+ \} from '\.\/([a-z0-9-]+)\.js';/gm)].map(
+        (m) => m[1],
+      ),
+    );
+    if (found.size < spec.floor) {
+      throw new Error(
+        `gen-appblocks-element-gallery: parsed ${found.size} define import(s) from ` +
+          `dist/elements/${file} (floor ${spec.floor}). ${spec.floor - found.size} element(s) ` +
+          `would render '**registered by neither bundle**', telling readers to hand-import a ` +
+          `/define module per element — the exact silent under-report this generator exists to ` +
+          `prevent, so this is a hard failure.`,
+      );
+    }
+    sets[spec.label] = found;
+  }
+  const base = sets.registerAll;
+  const site = sets.registerSite;
   const out = new Map();
   for (const tag of tags) {
     // The define module's basename is the tag for every element in this package
