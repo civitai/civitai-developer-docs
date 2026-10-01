@@ -49,6 +49,7 @@ const appsGuideSidebar: DefaultTheme.SidebarItem[] = [
       { text: 'What goes in the bundle', link: '/apps/guide/packaging' },
       { text: 'Review, approval and deploy', link: '/apps/guide/review-and-deploy' },
       { text: 'Your store listing', link: '/apps/guide/store-listing' },
+      { text: 'How an app earns', link: '/apps/guide/earning' },
       { text: 'Moving a block off the bridge', link: '/apps/guide/porting' },
       { text: 'Generating images (text-to-image)', link: '/apps/guide/text-to-image' },
       { text: 'Comfy on Civitai (customComfy)', link: '/apps/guide/comfy-cloud' },

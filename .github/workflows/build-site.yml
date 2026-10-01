@@ -112,3 +112,14 @@ jobs:
       # check:built-site`.
       - name: Assert the built HTML carries the CLI reference bodies + examples
         run: npm run check:built-site
+
+      # The `.md` twins are the channel every AI agent reads — `AGENTS.md` tells
+      # agents to append `.md` to a URL, and `/llms.txt` indexes the twins rather
+      # than the HTML. Two of them shipped EMPTY (/apps.md 23 B,
+      # /orchestration.md 32 B) because a `layout: home` page keeps all its
+      # content in frontmatter and the twin strips frontmatter — so the HTML
+      # rendered a full hero while an agent got a blank page. Runs here rather
+      # than as its own workflow because it asserts on `.vitepress/dist`, which
+      # only exists after the build step above.
+      - name: Assert every .md twin carries a body
+        run: npm run check:agent-md

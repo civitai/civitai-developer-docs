@@ -83,3 +83,20 @@ jobs:
       # and the refresh command.
       - name: Markdown-fallback region drift (content + in-slot structure)
         run: npm run check:md-regions
+
+      # Rides this job rather than getting its own: it needs exactly the two
+      # steps above (the pinned devDeps, and hooks.json as the control it grades
+      # its own extractor against) and nothing else, so a separate workflow would
+      # buy a second `npm ci` and a second required-context negotiation for a
+      # sub-second check. Same doctrine as the job it joins — repo-local
+      # invariant, therefore blocking: it reads the pinned package and a
+      # committed page, so it cannot go red because a third party published
+      # something.
+      #
+      # Different SUBJECT from check:md-regions, deliberately. That one pins a
+      # GENERATED region against its generator. This one pins a HAND-WRITTEN
+      # table's row set against the package, because the table's value column is
+      # a per-hook porting decision that cannot be generated — so it can only be
+      # kept complete, never regenerated.
+      - name: Porting guide documents every exported hook
+        run: npm run check:porting-hooks
