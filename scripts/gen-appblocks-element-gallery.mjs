@@ -66,13 +66,16 @@ import { join } from 'node:path';
 import { log, repoRoot, resolvePackageRoot } from './appblocks-util.mjs';
 // The companion guard, imported rather than re-implemented. It is import-safe: its
 // `main()` is behind an `import.meta.url === pathToFileURL(process.argv[1])` gate,
-// it reads nothing at module scope, and it imports only ./appblocks-util.mjs, so
-// there is no cycle back to here. Three things come from it, each because having a
-// second copy here is how the two readers would silently disagree:
+// it reads no files at module scope, and it imports only ./appblocks-util.mjs, so
+// there is no cycle back to here. (It does read two env vars at module scope,
+// `SHOWCASE_PAGE` and `ELEMENT_GALLERY_PAGE` — defaults for its own page paths, and
+// side-effect-free, which is what import safety turns on.) Two things come from it,
+// each because having a second copy here is how the two readers would silently
+// disagree about one file:
 //   `barrelExports`  — the React barrel reader (see `reactBindings()`)
 //   `FLOORS`         — the floor convention, documented there (see `REACT_BINDING_FLOOR`)
-//   `SDK_ONLY_TAGS`  — the elements no bundle registers (see `registrationOf()`)
-import { FLOORS, SDK_ONLY_TAGS, barrelExports } from './check-showcase-coverage.mjs';
+// 🔴 Its `BINDINGLESS_TAGS` is deliberately NOT imported — see `UNREGISTERED_TAGS`.
+import { FLOORS, barrelExports } from './check-showcase-coverage.mjs';
 
 const OUT = join(repoRoot, 'apps', 'reference', 'elements.md');
 
@@ -184,8 +187,8 @@ function readManifest(pkgRoot) {
  * upstream makes this throw *"would be a confident lie"* — a false "the extractor
  * broke" — and because `gen:appblocks` runs before `check:showcase-coverage` in the
  * same CI job, the real ledger (`element with no binding: …`, which names the
- * element and tells you to bump the two pins in lockstep or extend
- * `SDK_ONLY_TAGS`) never executes, since it grades the page this generator then
+ * element and tells you to bump the two pins in lockstep or extend its own
+ * `BINDINGLESS_TAGS`) never executes, since it grades the page this generator then
  * failed to write. Sitting far below the real value is what hands that case to the
  * ledger. A collapse — a `.d.ts` reformat, a regex that stops matching — still
  * lands here, which is the only claim a cardinality floor can honestly make.
@@ -227,15 +230,46 @@ const bindingNameFor = (tag) =>
 /* ──────────────────────────  registration bundles  ────────────────────────── */
 
 /**
- * The two register bundles, read in this order. `registrationOf` below checks them
- * in the same order, so a tag carried by both is attributed to the generic kit —
- * the smaller load that already suffices for it.
+ * THE TAGS THIS GENERATOR EXPECTS NO REGISTER BUNDLE TO DEFINE. That is the whole
+ * predicate — `assertRegistrationLedger`'s declared exception set, i.e. the rows
+ * that may legitimately render '**registered by neither bundle**'.
+ *
+ * Both entries today are the elements under `@civitai/components`' `src/sdk/`:
+ * they `import` `@civitai/sdk` and need a validated host transport, so neither
+ * `register.js` nor `register-site.js` pulls them in.
+ *
+ * 🔴 `scripts/check-showcase-coverage.mjs`'s `BINDINGLESS_TAGS` HOLDS THE SAME TWO
+ * TAGS TODAY. THAT IS A COINCIDENCE. DO NOT RE-MERGE THEM ON IT.
+ * Its predicate is "`@civitai/components-react` exports no binding for it" — a
+ * different claim that is true of the same two elements only because an `src/sdk/`
+ * element happens to be both unregistered and unbound. These WERE one shared list,
+ * consolidated on a "one rule, one place" reading, and the two predicates
+ * deadlocked: measured, an element dropped from both bundles while keeping its
+ * binding is told by THIS file to add the tag, after which the coverage guard
+ * failed claiming the barrel exported a binding with no element — a statement that
+ * was false, because the element was still in the manifest. No state of the single
+ * list was green in both gates. Each gate extends its OWN list.
+ */
+const UNREGISTERED_TAGS = new Set(['civitai-sign-in-button', 'civitai-workflow-button']);
+
+/**
+ * The register bundles, read in this order — `registrationOf` checks them in it,
+ * so a tag carried by both is attributed to the generic kit, the smaller load that
+ * already suffices for it.
+ *
+ * `fn` — the function name the page renders for that bundle's rows — travels WITH
+ * the file name here and is read straight off this list, so each bundle is named
+ * exactly ONCE in this file. There is no second spelling to look up and nothing to
+ * keep in step: an upstream rename of a bundle is one edit to this list.
  *
  * At @civitai/components@0.8.1 they carry 39 and 5 `define*` imports respectively
  * (register-site.js's `registerAll` re-entry is not a `define*` import, so it does
  * not count). Those numbers are NOT floors — see `REGISTER_IMPORT_FLOOR`.
  */
-const REGISTER_BUNDLES = ['register.js', 'register-site.js'];
+const REGISTER_BUNDLES = [
+  { file: 'register.js', fn: 'registerAll' },
+  { file: 'register-site.js', fn: 'registerSite' },
+];
 
 /**
  * WHAT THIS FLOOR IS FOR: "did the line regex below read ANYTHING at all", and
@@ -275,15 +309,14 @@ const REGISTER_IMPORT_FLOOR = 1;
  * readers to hand-import a `/define` module for the most-used element in the pack.
  *
  * So the invariant is an ENUMERATED LEDGER, not a count: the set of tags that no
- * bundle owns must be exactly `SDK_ONLY_TAGS` — the two `@civitai/sdk`-bound
- * elements under the package's `src/sdk/`, imported from the coverage guard so the
- * exemption lives in one place. It fails when that set GROWS *or* SHRINKS, naming
+ * bundle owns must be exactly `UNREGISTERED_TAGS` — this file's own exception set,
+ * for this file's own predicate. It fails when that set GROWS *or* SHRINKS, naming
  * the tags:
  *   GROWS  — a tag stopped resolving (a renamed module, a reformatted import, an
  *            element dropped from a bundle while still declared). The row's label
  *            changed, and whether that is true is a human call.
  *   SHRINKS — an exempt tag started resolving (it joined a bundle: drop it from
- *            `SDK_ONLY_TAGS`), or it is no longer an element at all (ditto). A
+ *            `UNREGISTERED_TAGS`), or it is no longer an element at all (ditto). A
  *            stale exemption is invisible to every other check here, because an
  *            exempt tag is excluded from the comparison that would have caught it.
  *
@@ -292,8 +325,8 @@ const REGISTER_IMPORT_FLOOR = 1;
  */
 function assertRegistrationLedger(registration) {
   const unowned = new Set([...registration].filter(([, owner]) => !owner).map(([tag]) => tag));
-  const grew = [...unowned].filter((t) => !SDK_ONLY_TAGS.has(t)).sort();
-  const shrank = [...SDK_ONLY_TAGS]
+  const grew = [...unowned].filter((t) => !UNREGISTERED_TAGS.has(t)).sort();
+  const shrank = [...UNREGISTERED_TAGS]
     .filter((t) => !unowned.has(t))
     .map((t) => `${t} (${registration.has(t) ? `now ${registration.get(t)}()` : 'no longer an element'})`)
     .sort();
@@ -304,21 +337,24 @@ function assertRegistrationLedger(registration) {
         `declared exception set.`,
       ...(grew.length
         ? [
-            `  no bundle defines these, and they are not SDK_ONLY_TAGS (${grew.length}): ${grew.join(', ')}`,
+            `  no bundle defines these, and they are not UNREGISTERED_TAGS (${grew.length}): ${grew.join(', ')}`,
             `  Each would ship labelled '**registered by neither bundle**', telling readers to`,
             `  hand-import a /define module. Either the define import in`,
             `  dist/elements/register*.js no longer matches the tag's module basename (check the`,
             `  regex in registrationOf — a renamed module or a reformatted import specifier), or`,
             `  the element genuinely left both bundles, in which case say so by adding it to`,
-            `  SDK_ONLY_TAGS in scripts/check-showcase-coverage.mjs with a reason.`,
+            `  UNREGISTERED_TAGS in THIS file (scripts/gen-appblocks-element-gallery.mjs) with a`,
+            `  reason. That list is this generator's alone — it does not change what the coverage`,
+            `  guard expects of the React barrel, and it must not be merged with that file's`,
+            `  BINDINGLESS_TAGS even though the two hold the same tags today.`,
           ]
         : []),
       ...(shrank.length
         ? [
-            `  SDK_ONLY_TAGS entries that are no longer unregistered (${shrank.length}): ${shrank.join(', ')}`,
-            `  The exemption is stale: remove the tag from SDK_ONLY_TAGS in`,
-            `  scripts/check-showcase-coverage.mjs. While it sits there it also silently exempts`,
-            `  the tag from that file's binding ledger.`,
+            `  UNREGISTERED_TAGS entries that are no longer unregistered (${shrank.length}): ${shrank.join(', ')}`,
+            `  The exemption is stale: remove the tag from UNREGISTERED_TAGS in THIS file`,
+            `  (scripts/gen-appblocks-element-gallery.mjs). While it sits there the tag is excluded`,
+            `  from the comparison above, so nothing else here can see it.`,
           ]
         : []),
     ].join('\n'),
@@ -332,8 +368,16 @@ function assertRegistrationLedger(registration) {
  * a reader who loads the wrong bundle gets an element that never upgrades.
  */
 function registrationOf(pkgRoot, tags) {
-  const sets = {};
-  for (const file of REGISTER_BUNDLES) {
+  const bundles = [];
+  for (const { file, fn } of REGISTER_BUNDLES) {
+    if (!file || !fn) {
+      throw new Error(
+        `gen-appblocks-element-gallery: a REGISTER_BUNDLES entry is missing its ` +
+          `${!file ? '`file`' : '`fn`'} (entry: ${JSON.stringify({ file, fn })}). Both halves are ` +
+          `required and they are the same edit: \`file\` is the bundle read out of ` +
+          `dist/elements/, \`fn\` is the function name the page renders for its rows.`,
+      );
+    }
     const src = readFileSync(join(pkgRoot, 'dist', 'elements', file), 'utf8');
     // `[a-z0-9-]`, not `[a-z-]`, on BOTH halves: a tag carrying a digit
     // (`civitai-panorama-360` -> `defineCivitaiPanorama360`) would otherwise fall
@@ -353,24 +397,28 @@ function registrationOf(pkgRoot, tags) {
           `quotes instead of single, say) does exactly this. Fix the regex.`,
       );
     }
-    // Keyed by FILE, which is the set's own identity here. It used to be keyed by a
-    // `label: 'registerAll'` field read back as `sets.registerAll`, while the
-    // function names the page renders were separate literals below — two spellings
-    // of one name, neither driving the other, and changing the field produced
-    // `TypeError: … (reading 'has')` with no diagnostic.
-    sets[file] = found;
+    // Collected in REGISTER_BUNDLES order, carrying that entry's own `fn` — so the
+    // list DRIVES the reads and no bundle is named twice in this file.
+    //
+    // 🔴 THE BARE-TypeError MODE IS GONE BECAUSE THERE IS NO LOOKUP LEFT, not
+    // because a key was renamed. Two earlier shapes both had one write and a
+    // hardcoded read of a second spelling, and both threw
+    // `TypeError: Cannot read properties of undefined (reading 'has')` with no
+    // diagnostic: first a `label: 'registerAll'` field read back as
+    // `sets.registerAll` (editing the field threw), then a map keyed by file with
+    // `sets['register-site.js']` hardcoded at the read — which threw on a REAL
+    // maintenance edit, an upstream bundle rename reflected in the list. Measured at
+    // 33f2a29: renaming `register-site.js` -> `register-site-v2.js` upstream and in
+    // the list exits 1 with that TypeError at the `site.has(owner)` line.
+    bundles.push({ fn, defined: found });
   }
-  const base = sets['register.js'];
-  const site = sets['register-site.js'];
   const out = new Map();
   for (const tag of tags) {
     // The define module's basename is the tag for every element in this package
     // except `civitai-tab-panel`, which `civitai-tabs.ts` declares alongside
     // `civitai-tabs` — so it registers with it.
     const owner = tag === 'civitai-tab-panel' ? 'civitai-tabs' : tag;
-    if (base.has(owner)) out.set(tag, 'registerAll');
-    else if (site.has(owner)) out.set(tag, 'registerSite');
-    else out.set(tag, null);
+    out.set(tag, bundles.find((b) => b.defined.has(owner))?.fn ?? null);
   }
   assertRegistrationLedger(out);
   return out;

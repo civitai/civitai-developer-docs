@@ -216,17 +216,26 @@ export const bindingNameFor = (tag) =>
   tag.split('-').map((p) => p[0].toUpperCase() + p.slice(1)).join('');
 
 /**
- * The elements under `@civitai/components`' `src/sdk/` — they `import`
- * `@civitai/sdk` and need a validated host transport, so they are deliberately
- * outside the generic kit. TWO consequences follow from that one fact, and both
- * are asserted against this ONE list rather than two:
- *   - `@civitai/components-react` exports no binding for them (LEDGER 2(b) below);
- *   - neither `register.js` nor `register-site.js` defines them, which is why
- *     `scripts/gen-appblocks-element-gallery.mjs` imports this set to decide which
- *     rows may legitimately render '**registered by neither bundle**'.
- * Exported, not duplicated, so adding a third SDK element is one edit.
+ * THE TAGS THIS FILE EXPECTS NO REACT BINDING FOR. That is the whole predicate —
+ * LEDGER 2(b)'s declared exception set and nothing else.
+ *
+ * Both entries today are the elements under `@civitai/components`' `src/sdk/`:
+ * they `import` `@civitai/sdk` and need a validated host transport, so
+ * `@civitai/components-react` deliberately binds neither.
+ *
+ * 🔴 `scripts/gen-appblocks-element-gallery.mjs`'s `UNREGISTERED_TAGS` HOLDS THE
+ * SAME TWO TAGS TODAY. THAT IS A COINCIDENCE. DO NOT RE-MERGE THEM ON IT.
+ * Its predicate is "no register bundle defines it" — a different claim that is
+ * true of the same two elements only because an `src/sdk/` element happens to be
+ * both unbound and unregistered. These WERE one shared list, consolidated on a
+ * "one rule, one place" reading, and the two predicates deadlocked: measured, an
+ * element that loses its React binding while keeping its registration is told by
+ * THIS file to add the tag, after which the generator fails because the tag is
+ * still registered and tells you to remove it — no state of the single list was
+ * green in both gates. Each gate extends its OWN list; they are free to diverge
+ * and the first non-`src/sdk/` entry on either side is what makes them.
  */
-export const SDK_ONLY_TAGS = new Set(['civitai-sign-in-button', 'civitai-workflow-button']);
+export const BINDINGLESS_TAGS = new Set(['civitai-sign-in-button', 'civitai-workflow-button']);
 
 /** `### \`<civitai-foo>\`` headings — the gallery's own per-element sections. */
 export function galleryTags(markdown) {
@@ -391,27 +400,60 @@ function main() {
   //     0.9.0), and a binding with no element — or an element with no binding —
   //     is a pin SKEW, which no version check sees because both pins are current.
   //     The 2 elements under the package's src/sdk/ have no binding by design and
-  //     are the declared exception — `SDK_ONLY_TAGS`, module scope, so the element
-  //     gallery generator asserts its own claim against the same list.
+  //     are the declared exception — `BINDINGLESS_TAGS`, which is THIS file's list
+  //     and no other reader's (see its comment).
+  //
+  //     Three states, three different causes, so three separate lines. The third —
+  //     a STALE exemption — used to be reported as "exported with no element", a
+  //     statement that is FALSE when the element is sitting in the manifest, and
+  //     whose remediation ("add the tag") was already done.
+  const exemptTags = sorted(BINDINGLESS_TAGS);
+  const staleExemptions = exemptTags
+    .filter((t) => !tags.has(t) || exports_.has(bindingNameFor(t)))
+    .map((t) =>
+      !tags.has(t)
+        ? `${t} (no longer an element)`
+        : `${t} (the barrel DOES export ${bindingNameFor(t)})`,
+    );
+  // An exempt tag the barrel binds anyway is reported above, not as "no element".
+  const exemptBound = new Set(exemptTags.filter((t) => tags.has(t)).map(bindingNameFor));
   const expectedBindings = new Set(
-    sorted(tags).filter((t) => !SDK_ONLY_TAGS.has(t)).map(bindingNameFor),
+    sorted(tags).filter((t) => !BINDINGLESS_TAGS.has(t)).map(bindingNameFor),
   );
-  const bindingNoElement = sorted(exports_).filter((n) => !expectedBindings.has(n));
+  const bindingNoElement = sorted(exports_).filter(
+    (n) => !expectedBindings.has(n) && !exemptBound.has(n),
+  );
   const elementNoBinding = sorted(expectedBindings).filter((n) => !exports_.has(n));
-  if (bindingNoElement.length > 0 || elementNoBinding.length > 0) {
+  if (bindingNoElement.length > 0 || elementNoBinding.length > 0 || staleExemptions.length > 0) {
     fail([
       `FAIL: @civitai/components-react@${reactVersion}'s barrel and`,
       `      @civitai/components@${componentsVersion}'s custom-elements.json describe different`,
       `      element sets. The two pins are independent, so this is a SKEW no freshness check`,
       `      can see — both pins are "current" and the pair is still inconsistent.`,
       ...(bindingNoElement.length
-        ? [`      exported with no element: ${bindingNoElement.join(', ')}`]
+        ? [
+            `      exported with no element: ${bindingNoElement.join(', ')}`,
+            `      Bump the two pins in lockstep — the barrel binds a tag the manifest does not`,
+            `      declare.`,
+          ]
         : []),
       ...(elementNoBinding.length
-        ? [`      element with no binding:  ${elementNoBinding.join(', ')}`]
+        ? [
+            `      element with no binding:  ${elementNoBinding.join(', ')}`,
+            `      Bump the two pins in lockstep, or — if the element is deliberately binding-less —`,
+            `      add its TAG to BINDINGLESS_TAGS in this file`,
+            `      (scripts/check-showcase-coverage.mjs) with a reason. That list is this file's`,
+            `      alone; the element gallery generator has its own, for its own predicate.`,
+          ]
         : []),
-      `      Bump the two pins in lockstep, or add the tag to SDK_ONLY_TAGS with a reason if`,
-      `      it is deliberately binding-less.`,
+      ...(staleExemptions.length
+        ? [
+            `      stale BINDINGLESS_TAGS entry (${staleExemptions.length}): ${staleExemptions.join(', ')}`,
+            `      Remove the tag from BINDINGLESS_TAGS in this file`,
+            `      (scripts/check-showcase-coverage.mjs). While it sits there the element is`,
+            `      excluded from the comparison above, so nothing else here can see it.`,
+          ]
+        : []),
     ]);
   }
 
@@ -517,7 +559,7 @@ function main() {
   log(
     `ok: ${ELEMENT_GALLERY_PAGE} covers all ${tags.size} elements; ` +
       `@civitai/components-react@${reactVersion} binds ${exports_.size} of them ` +
-      `(${SDK_ONLY_TAGS.size} src/sdk/ elements bind none, by design); ` +
+      `(${BINDINGLESS_TAGS.size} tag(s) in BINDINGLESS_TAGS bind none, by design); ` +
       `${importedEverywhere.size} binding(s) imported across apps/**`,
   );
   log(
