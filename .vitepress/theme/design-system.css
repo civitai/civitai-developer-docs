@@ -80,6 +80,62 @@
   all: revert-layer;
 }
 
+/* ---------- ElementPreview (the generated <civitai-*> gallery) ---------- */
+/*
+ * `.cds-el-preview` also carries `.cds-preview` (see ElementPreview.vue), so it
+ * already has the themed surface and the hatch above. These rules add only what a
+ * CUSTOM ELEMENT host needs that an attribute-markup element does not.
+ *
+ * 🔴 WHY THE HATCH HAS TO REACH THE HOSTS — A SHADOW ROOT IS NOT A SHIELD.
+ * Preflight's `*,::before,::after { border-width:0 }` cannot match anything INSIDE
+ * a shadow root, but a custom element's HOST is an ordinary element in THIS
+ * document, and the CSS cascade orders CONTEXT (which tree a declaration came
+ * from) ABOVE both layers and specificity: for normal declarations the OUTER tree
+ * wins. So an unlayered `*` in the page beats the element's own
+ * `:host { border: 1px solid … }` just as it beats the layered
+ * `[data-civitai-ui]` rules — same trap, second track.
+ *
+ * The tag list is ENUMERATED because CSS has no tag-PREFIX selector, and a blanket
+ * `.cds-el-preview *` would also revert SLOTTED light-DOM content that is supposed
+ * to keep the page's styling. `scripts/check-showcase-coverage.mjs` asserts this
+ * list equals the manifest's tag set, so a new element cannot be added upstream and
+ * silently render reset here.
+ */
+.cds-el-preview :is(
+  civitai-action-button, civitai-alert, civitai-audio, civitai-avatar, civitai-badge,
+  civitai-breadcrumb, civitai-button, civitai-button-group, civitai-card, civitai-checkbox,
+  civitai-collapse, civitai-confirm-dialog, civitai-group, civitai-image, civitai-input-group,
+  civitai-loader, civitai-media-card, civitai-menu, civitai-menu-item, civitai-menu-label,
+  civitai-modal, civitai-nav-item, civitai-nav-list, civitai-number-input, civitai-pagination,
+  civitai-progress, civitai-radio-group, civitai-rating-badge, civitai-reaction,
+  civitai-segmented-control, civitai-select, civitai-sign-in-button, civitai-slider,
+  civitai-stack, civitai-switch, civitai-tab-panel, civitai-table, civitai-tabs, civitai-tag,
+  civitai-text, civitai-text-input, civitai-textarea, civitai-toast, civitai-toast-region,
+  civitai-tooltip, civitai-video, civitai-workflow-button
+) {
+  all: revert-layer;
+}
+
+/* A `position: fixed` host (the toast region) needs a containing block, or its
+   stack floats over the whole page instead of sitting in its demo box. */
+.cds-el-preview--contain {
+  position: relative;
+  contain: paint;
+  min-height: 170px;
+}
+
+/* 🔴 DO NOT ADD `all: revert-layer` TO `<civitai-table>`'s SLOTTED TABLE. It was
+   tried, and it is actively WRONG — measured on the built site: `th` came back
+   `border-bottom-width: 0px`, `padding: 1px`, `text-transform: none`,
+   `background: transparent`, i.e. the UA default with the component's own styling
+   gone. The reason is the direction `revert-layer` rolls: `<civitai-table>` is a
+   LIGHT-DOM element (a slotted `<tr>` inside a shadow `<table>` would leave the
+   table formatting context and stop being a row), so it injects an UNLAYERED
+   stylesheet on connect rather than shadow styles. There is no layer below it to
+   revert to, so the rollback goes past the author origin entirely. The hatch above
+   is the right tool only where the losing declarations are LAYERED (or in a shadow
+   tree); against an unlayered sheet, ordinary specificity already decides it. */
+
 .cds-demo__toolbar {
   display: flex;
   align-items: center;

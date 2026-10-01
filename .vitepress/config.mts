@@ -22,6 +22,7 @@ const designSystemSidebar: DefaultTheme.SidebarItem[] = [
       { text: 'Design tokens', link: '/apps/tokens' },
       { text: 'Theming guide', link: '/apps/guide/theming' },
       { text: 'Components reference', link: '/apps/reference/components' },
+      { text: 'Element gallery', link: '/apps/reference/elements' },
     ],
   },
 ];
@@ -260,6 +261,7 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Manifest', link: '/apps/reference/manifest' },
         { text: 'Generation bridge', link: '/apps/reference/generation' },
         { text: 'Components', link: '/apps/reference/components' },
+        { text: 'Elements', link: '/apps/reference/elements' },
         { text: 'Messages', link: '/apps/reference/messages' },
         { text: 'Hooks', link: '/apps/reference/hooks' },
         { text: 'CLI', link: '/apps/reference/cli' },
@@ -380,6 +382,22 @@ export default withMermaid({
   ],
   cleanUrls: true,
   lastUpdated: true,
+
+  // The <civitai-*> CUSTOM ELEMENTS are real custom elements, not Vue
+  // components. Without this the Vue template compiler treats every
+  // `<civitai-button>` in a markdown page as an unresolved COMPONENT: it logs
+  // "Failed to resolve component" on every render and emits nothing, so the
+  // generated element gallery (apps/reference/elements.md) would come out blank.
+  // The prefix is the package's own namespace -- @civitai/components defines 47
+  // tags and every one starts with `civitai-` -- so it cannot accidentally
+  // capture a Vue component of ours.
+  vue: {
+    template: {
+      compilerOptions: {
+        isCustomElement: (tag: string) => tag.startsWith('civitai-'),
+      },
+    },
+  },
   // 🔴 `public/**` is NOT excluded by default. VitePress globs `**/*.md` from
   // srcDir and `public/` is inside it, so `public/agent-setup/prompt.md` — the
   // raw file we ship verbatim — was ALSO being compiled into a page at

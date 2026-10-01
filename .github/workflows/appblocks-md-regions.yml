@@ -100,3 +100,23 @@ jobs:
       # kept complete, never regenerated.
       - name: Porting guide documents every exported hook
         run: npm run check:porting-hooks
+
+      # Rides this job for the same reasons the porting guard above does: it needs
+      # the pinned devDeps and the `gen:appblocks` step (which now also writes the
+      # gitignored apps/reference/elements.md this guard's gallery ledger grades) and
+      # nothing else, so a separate workflow would buy a second `npm ci` and a second
+      # required-context negotiation for a sub-second check. Same doctrine —
+      # repo-local invariant, therefore BLOCKING: every input is the lock file or a
+      # page in the tree, so it cannot go red because a third party published
+      # something.
+      #
+      # Different SUBJECT again. check:md-regions pins a GENERATED region against its
+      # generator; check:porting-hooks pins ONE hand table's rows against ONE
+      # package's hooks. This one pins the DESIGN-SYSTEM docs' coverage against the
+      # two @civitai/components* pins: every component in the CSS pack has a
+      # <ComponentDemo>, every <civitai-*> element is in the generated gallery, every
+      # binding the docs import still exists, and the two independently-pinned
+      # packages still describe the same element set. It measured 12 demos against a
+      # pack of 21 on the page whose own first sentence promises "every component".
+      - name: Design-system docs cover the pinned component packages
+        run: npm run check:showcase-coverage
