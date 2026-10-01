@@ -560,15 +560,49 @@ const EXEMPLARS = {
 
 /* ────────────────────────────────  rendering  ─────────────────────────────── */
 
-const esc = (s) => String(s).replace(/\|/g, '\\|').replace(/\s*\n\s*/g, ' ').trim();
+/**
+ * 🔴 BACKSLASH BEFORE PIPE, IN BOTH HELPERS BELOW, AND THE ORDER IS THE POINT.
+ * Escaping `|` -> `\|` without first escaping a pre-existing `\` turns an input
+ * ending in a backslash into `\\|`: an escaped BACKSLASH followed by a BARE pipe.
+ * A spec-strict GFM parser (cmark-gfm — GitHub, and whatever consumes the `.md`
+ * twin this page is also served as) splits the row there and shifts every column
+ * after it. Same defect the code-span note below records, in a narrower form;
+ * CodeQL `js/incomplete-sanitization` caught this one.
+ *
+ * MEASURED, NOT DEDUCED — rendered through a real `npm run build`, with
+ * `custom-elements.json` doctored to carry the pathological strings (`a\|b` as a
+ * type, `t\` as a default, `p\|q` as a slot description) and the row HTML read
+ * back out of `.vitepress/dist`. VitePress renders with markdown-it, whose table
+ * layer strips exactly ONE backslash before a pipe and does not process `\\`:
+ *
+ *   path    input   BEFORE the fix           AFTER (this code)
+ *   esc()   p\|q    `p|q`  — backslash LOST   `p\|q`  — faithful
+ *   code()  a\|b    `a\|b` — right by luck    `a\\|b` — backslash doubled
+ *   code()  t\      `t\`   — right by luck    `t\\`   — backslash doubled
+ *
+ * Cell counts were 2 and 5 (correct) in every one of those runs, so markdown-it
+ * never actually split the row — the row-splitting half of the finding does NOT
+ * reproduce on THIS renderer. It does on a spec-strict one, which is why this is
+ * worth fixing rather than waving away, and `esc()` was losing a character anyway.
+ *
+ * THE COST, stated because it is real: inside a CODE SPAN markdown-it leaves `\\`
+ * literal, so a backslash in a type string now displays doubled on this site
+ * (it is correct on cmark-gfm). Unreachable today — 0 of the 3,820 strings in
+ * `@civitai/components@0.8.1`'s manifest contain a backslash at all — and a
+ * doubled character is a smaller fault than a shifted table. Do not "fix" that by
+ * dropping the backslash escape; that is the hazard above, restored.
+ */
+const esc = (s) =>
+  String(s).replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\s*\n\s*/g, ' ').trim();
 /**
  * A code span safe inside a GFM TABLE CELL. The pipe escape is load-bearing, not
  * cosmetic: half the element types in this manifest are unions (`Intent | ''`,
  * `'sm' | 'md' | 'lg'`), and an unescaped `|` inside a code span still splits the
  * row — `| \`Intent | ''\` |` renders as two cells and shifts every column after
- * it. Caught on the first generated page.
+ * it. Caught on the first generated page. Backslash ordering: see the note above.
  */
-const code = (s) => '`' + String(s).replace(/`/g, '').replace(/\|/g, '\\|') + '`';
+const code = (s) =>
+  '`' + String(s).replace(/`/g, '').replace(/\\/g, '\\\\').replace(/\|/g, '\\|') + '`';
 
 /** First sentence-ish line of a CEM description, for the one-line summary. */
 function summaryOf(decl) {
