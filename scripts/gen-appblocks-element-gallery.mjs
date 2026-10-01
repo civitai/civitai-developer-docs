@@ -32,6 +32,23 @@
 // `.d.ts` (not hardcoded) and floor-asserted so a silent parse failure fails the
 // build instead of quietly emitting "0 inherited fields".
 //
+// ⏳ THIS IS EXPIRING SCAFFOLDING, AND HERE IS THE CONDITION THAT ENDS IT.
+// The real fix is upstream: widen the custom-elements-manifest config so the base
+// classes are in the manifest. Filed as **civitai/civitai-app-starters#506**.
+//
+//   WHEN civitai/civitai-app-starters#506 IS MERGED *AND* THE `@civitai/components`
+//   PIN IN package.json HAS BEEN BUMPED TO A RELEASE THAT CARRIES IT:
+//     delete `ABSENT_BASES`, `publicFieldsOf`, `resolveAbsentBases` and
+//     `renderGap`, drop the `::: danger` blocks they emit, and re-run
+//     `npm run gen:appblocks`.
+//
+// Both halves are required and they are separately checkable: #506 merged is not
+// enough on its own, because this generator reads the INSTALLED tarball, not
+// upstream `main`. The mechanical check that the second half landed is that
+// `custom-elements.json` in the installed package declares `CivitaiField` — at
+// which point the notes this machinery emits are not merely redundant but WRONG,
+// since they would claim the manifest omits fields it now carries.
+//
 // WIRED INTO predev/prebuild (scripts/gen-appblocks.mjs), and the page it writes
 // is GITIGNORED, exactly like the public/appblocks/*.json artifacts. It is NOT
 // the gen-appblocks-components.mjs model (a COMMITTED page, refreshed by hand):
