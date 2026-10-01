@@ -258,9 +258,23 @@ const UNREGISTERED_TAGS = new Set(['civitai-sign-in-button', 'civitai-workflow-b
  * already suffices for it.
  *
  * `fn` — the function name the page renders for that bundle's rows — travels WITH
- * the file name here and is read straight off this list, so each bundle is named
- * exactly ONCE in this file. There is no second spelling to look up and nothing to
- * keep in step: an upstream rename of a bundle is one edit to this list.
+ * the file name here, and EVERY SPELLING THE PAGE RENDERS is derived from this list:
+ * the per-row labels in `renderElement`, and — via `subpathOf` and the positional
+ * read in `buildPage` — the import/call snippet in the page's 'Registering them'
+ * section plus the two sentences there that cross-reference those row labels. So an
+ * upstream rename of a bundle really is one edit to this list.
+ *
+ * 🔴 THAT CLAIM IS ABOUT OUTPUT, NOT ABOUT THE WHOLE FILE. Comments elsewhere here
+ * narrate past incidents by name (`registerAll` at the floor docblock below, both
+ * file names in `registrationOf`'s bare-TypeError note); those are prose the page
+ * cannot disagree with. Measured: changing `fn: 'registerAll'` to `'registerBase'`
+ * here and regenerating moves all 40 row labels, the snippet's comment and call, and
+ * the cross-reference sentence together — zero `registerAll` left on the page.
+ * Before it was derived, the same edit shipped 40 rows labelled with the new name
+ * under an instruction block still telling the reader to call the old one, at rc 0.
+ *
+ * `file` is also the EXPORT SUBPATH, minus `.js` — `subpathOf` derives the snippet's
+ * `import '@civitai/components/register'` from it rather than restating it.
  *
  * At @civitai/components@0.8.1 they carry 39 and 5 `define*` imports respectively
  * (register-site.js's `registerAll` re-entry is not a `define*` import, so it does
@@ -270,6 +284,13 @@ const REGISTER_BUNDLES = [
   { file: 'register.js', fn: 'registerAll' },
   { file: 'register-site.js', fn: 'registerSite' },
 ];
+
+/**
+ * The package export subpath that loads a bundle — `register.js` ->
+ * `@civitai/components/register`. Derived so the snippet in 'Registering them'
+ * carries no second spelling of a bundle's name.
+ */
+const subpathOf = ({ file }) => `@civitai/components/${file.replace(/\.js$/, '')}`;
 
 /**
  * WHAT THIS FLOOR IS FOR: "did the line regex below read ANYTHING at all", and
@@ -398,7 +419,8 @@ function registrationOf(pkgRoot, tags) {
       );
     }
     // Collected in REGISTER_BUNDLES order, carrying that entry's own `fn` — so the
-    // list DRIVES the reads and no bundle is named twice in this file.
+    // list DRIVES the reads, and every bundle spelling the PAGE renders comes from it
+    // (the row labels here, the snippet and its two cross-references in `buildPage`).
     //
     // 🔴 THE BARE-TypeError MODE IS GONE BECAUSE THERE IS NO LOOKUP LEFT, not
     // because a key was renamed. Two earlier shapes both had one write and a
@@ -640,7 +662,9 @@ const EXEMPLARS = {
   'civitai-sign-in-button': {
     html: null,
     note:
-      '🔴 **Not instantiated on this page, and not registered by either bundle.** It lives under ' +
+      // The lead sentence is prepended by `noLiveInstanceLead` — see it for why the
+      // registration clause is not spelled here.
+      'It lives under ' +
       "the package's `src/sdk/`, `import`s `@civitai/sdk`, and on connect asks for a host " +
       'transport (`getTransport()` / `createHost()`) — off civitai.com there is no validated host ' +
       'origin, so it stays inert and `render()` returns nothing. An empty box here would read as ' +
@@ -773,7 +797,8 @@ const EXEMPLARS = {
   'civitai-workflow-button': {
     html: null,
     note:
-      '🔴 **Not instantiated on this page, and not registered by either bundle.** It lives under ' +
+      // Lead sentence prepended by `noLiveInstanceLead`, as above.
+      'It lives under ' +
       "the package's `src/sdk/`, `import`s `@civitai/sdk`, and drives a real orchestrator " +
       'workflow — pricing it, asking for consent, submitting it and polling to a terminal state. ' +
       'Off a host with a token there is nothing for it to do, and an inert button here would read ' +
@@ -942,6 +967,29 @@ function renderGap(decl, byClassName, bases) {
   return lines.join('\n');
 }
 
+/**
+ * The lead sentence for an element with NO live instance. Derived, because it states
+ * two facts this generator already holds and the `note` used to hardcode: that there
+ * is no exemplar markup (`html: null`), and whether the tag is one this file declares
+ * no bundle registers.
+ *
+ * 🔴 THE REGISTRATION HALF READS `UNREGISTERED_TAGS`, NOT THE `registration` MAP THE
+ * ROW LABEL IS RENDERED FROM. They are pinned EQUAL by `assertRegistrationLedger`, and
+ * they are still DIFFERENT CLAIMS — the label reports what the installed bundles do,
+ * this reports what THIS FILE declares it expects — so do not collapse them. The
+ * reason to read the declaration is the SHRINKS remediation: "remove the tag from
+ * UNREGISTERED_TAGS" is the edit a maintainer makes when an exempt element joins a
+ * bundle, and that edit has to move this sentence. Measured while it was hardcoded:
+ * adding a `defineCivitaiSignInButton` import to register-site.js and following that
+ * remediation shipped a row reading 'registered by `registerSite()`' with 'not
+ * registered by either bundle' two lines below it, both gates at rc 0.
+ */
+function noLiveInstanceLead(tag) {
+  return UNREGISTERED_TAGS.has(tag)
+    ? '🔴 **Not instantiated on this page, and not registered by either bundle.** '
+    : '🔴 **Not instantiated on this page.** ';
+}
+
 function renderElement(decl, ctx) {
   const { reactNames, registration, byClassName, bases } = ctx;
   const tag = decl.tagName;
@@ -968,7 +1016,7 @@ function renderElement(decl, ctx) {
         : ['<ElementPreview>', ex.html, '</ElementPreview>'];
     parts.push(wrapper.join('\n'), '', '```html', ex.html, '```', '');
   }
-  if (ex.note) parts.push(ex.note, '');
+  if (ex.note) parts.push((ex.html ? '' : noLiveInstanceLead(tag)) + ex.note, '');
 
   parts.push(attrTable(decl), '', slotsAndEvents(decl), '');
   const gap = renderGap(decl, byClassName, bases);
@@ -978,6 +1026,21 @@ function renderElement(decl, ctx) {
 
 function buildPage({ elements, version, reactNames, registration, byClassName, bases, coverage }) {
   const ctx = { reactNames, registration, byClassName, bases };
+  // 🔴 THE 'Registering them' SNIPPET CROSS-REFERENCES THE ROW LABELS, so it is built
+  // from the same list those labels come from. Its prose differs per bundle (a generic
+  // kit, versus the vocabulary layered ON TOP of it), so the two entries are read
+  // POSITIONALLY, in the order REGISTER_BUNDLES documents — which means the prose is
+  // written for exactly two, and a third bundle needs new prose, not a derived name.
+  if (REGISTER_BUNDLES.length !== 2) {
+    throw new Error(
+      `gen-appblocks-element-gallery: the page's 'Registering them' section is written for ` +
+        `exactly two bundles ("Two bundles, and you load one or the other"), and ` +
+        `REGISTER_BUNDLES now has ${REGISTER_BUNDLES.length}. The second entry's prose says the ` +
+        `vocabulary layers ON TOP of the first, so a third bundle is a rewrite of that section ` +
+        `in buildPage() — not a relaxation of this check.`,
+    );
+  }
+  const [generic, site] = REGISTER_BUNDLES;
   const frontmatter = [
     '---',
     'title: Element gallery',
@@ -1018,13 +1081,13 @@ function buildPage({ elements, version, reactNames, registration, byClassName, b
     'load one or the other (two disjoint bundles would each carry their own copy of Lit):',
     '',
     '```js',
-    "// the generic kit — every element marked `registerAll()` below",
-    "import '@civitai/components/register';",
-    'registerAll();',
+    `// the generic kit — every element marked \`${generic.fn}()\` below`,
+    `import '${subpathOf(generic)}';`,
+    `${generic.fn}();`,
     '',
-    "// or the civitai vocabulary ON TOP of it — adds the `registerSite()` rows",
-    "import '@civitai/components/register-site';",
-    'registerSite();',
+    `// or the civitai vocabulary ON TOP of it — adds the \`${site.fn}()\` rows`,
+    `import '${subpathOf(site)}';`,
+    `${site.fn}();`,
     '',
     "// or a single element, tree-shaken:",
     "import '@civitai/components/civitai-button/define';",
