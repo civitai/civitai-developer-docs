@@ -587,10 +587,13 @@ const EXEMPLARS = {
  *
  * THE COST, stated because it is real: inside a CODE SPAN markdown-it leaves `\\`
  * literal, so a backslash in a type string now displays doubled on this site
- * (it is correct on cmark-gfm). Unreachable today — 0 of the 3,820 strings in
- * `@civitai/components@0.8.1`'s manifest contain a backslash at all — and a
- * doubled character is a smaller fault than a shifted table. Do not "fix" that by
- * dropping the backslash escape; that is the hazard above, restored.
+ * (it is correct on cmark-gfm). Unreachable today — 0 of the 3,789 strings in
+ * `@civitai/components@0.8.1`'s manifest contain a backslash at all, re-derived
+ * with a positive control that plants one and must find it (the first version of
+ * that probe tested for TWO backslashes and its control came back 0 — a broken
+ * instrument reporting a reassuring zero). A doubled character is a smaller fault
+ * than a shifted table either way. Do not "fix" the doubling by dropping the
+ * backslash escape; that is the hazard above, restored.
  */
 const esc = (s) =>
   String(s).replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\s*\n\s*/g, ' ').trim();
