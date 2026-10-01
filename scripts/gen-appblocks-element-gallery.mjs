@@ -261,20 +261,35 @@ const UNREGISTERED_TAGS = new Set(['civitai-sign-in-button', 'civitai-workflow-b
  * the file name here, and EVERY SPELLING THE PAGE RENDERS is derived from this list:
  * the per-row labels in `renderElement`, and — via `subpathOf` and the positional
  * read in `buildPage` — the import/call snippet in the page's 'Registering them'
- * section plus the two sentences there that cross-reference those row labels. So an
- * upstream rename of a bundle really is one edit to this list.
+ * section plus the two sentences there that cross-reference those row labels.
+ * `file` is also the EXPORT SUBPATH, minus `.js`, which is where `subpathOf` gets the
+ * snippet's `import '@civitai/components/register'` rather than restating it.
+ * Measured: changing `fn: 'registerAll'` to `'registerBase'` here and regenerating
+ * moves all 40 row labels, the snippet's comment and its call together — zero
+ * `registerAll` left on the page. Before they were derived, the same edit shipped 40
+ * rows labelled with the new name under an instruction block still telling the reader
+ * to call the old one, at rc 0.
  *
- * 🔴 THAT CLAIM IS ABOUT OUTPUT, NOT ABOUT THE WHOLE FILE. Comments elsewhere here
- * narrate past incidents by name (`registerAll` at the floor docblock below, both
- * file names in `registrationOf`'s bare-TypeError note); those are prose the page
- * cannot disagree with. Measured: changing `fn: 'registerAll'` to `'registerBase'`
- * here and regenerating moves all 40 row labels, the snippet's comment and call, and
- * the cross-reference sentence together — zero `registerAll` left on the page.
- * Before it was derived, the same edit shipped 40 rows labelled with the new name
- * under an instruction block still telling the reader to call the old one, at rc 0.
+ * 🔴 THAT IS A CLAIM ABOUT THIS PAGE'S OUTPUT. IT IS NOT "ONE EDIT IN THE REPO".
+ * Counted, a bundle rename lands in exactly TWO places: this list, and the live
+ * `import('@civitai/components/register-site')` in
+ * `.vitepress/theme/components/ElementPreview.vue` (`registerElements()`), which is
+ * what pulls the definitions the 45 live instances upgrade from. That second site is
+ * NOT silent and NOT driven from here — `npm run build` fails rc 1 on the unresolved
+ * specifier. Measured: pointing it at `register-site-renamed` fails the build in
+ * vite's `tryNodeResolve`, before the page is ever served.
  *
- * `file` is also the EXPORT SUBPATH, minus `.js` — `subpathOf` derives the snippet's
- * `import '@civitai/components/register'` from it rather than restating it.
+ * Measured at the same time, so it is recorded rather than re-derived: the NAMED
+ * EXPORT at that site is not load-bearing. `dist/elements/register-site.js` calls
+ * `registerSite()` at MODULE SCOPE (line 20 of the installed 0.8.1 build), so the
+ * import's side effect is what registers, and renaming only the destructured binding
+ * there leaves `npm run build` and `npm run test:showcase:e2e` both green at 43/43 —
+ * including its 'every one of the N tags UPGRADED (lazy registerSite() ran)' check,
+ * whose label therefore overstates what it observes: the IMPORT, not the call.
+ *
+ * Comments elsewhere in THIS file also narrate past incidents by name (`registerAll`
+ * at the floor docblock below, both file names in `registrationOf`'s bare-TypeError
+ * note). Those are prose the page cannot disagree with.
  *
  * At @civitai/components@0.8.1 they carry 39 and 5 `define*` imports respectively
  * (register-site.js's `registerAll` re-entry is not a `define*` import, so it does
