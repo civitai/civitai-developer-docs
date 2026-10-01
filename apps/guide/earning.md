@@ -10,7 +10,7 @@ sources:
   - civitai:src/server/services/blocks/author-fee-settlement.service.ts
   - civitai:src/server/services/blocks/rate-card.ts
   - civitai:src/server/middleware/block-scope.middleware.ts
-  - npm:@civitai/blocks-react@0.59.0/dist/hooks/useGoodPurchase.d.ts
+  - npm:@civitai/blocks-react@0.61.0/dist/hooks/useGoodPurchase.d.ts
 ---
 
 # How an app earns

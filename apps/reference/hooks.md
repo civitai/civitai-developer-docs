@@ -2,9 +2,9 @@
 title: Hooks reference
 description: Every @civitai/blocks-react hook — signature and example, generated from the published package.
 sources:
-  - npm:@civitai/blocks-react@0.59.0/dist/index.d.ts
-  - npm:@civitai/blocks-react@0.59.0#README
-  - npm:@civitai/app-sdk@0.52.0/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.61.0/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.61.0#README
+  - npm:@civitai/app-sdk@0.54.0/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
 
@@ -576,12 +576,22 @@ await shared.withdraw(key);                            // remove my own entry
 useCheckpointPicker(): UseCheckpointPicker
 ```
 
-Drive the platform Checkpoint picker + persist a viewer override.
+Drive the platform Checkpoint picker + persist a viewer override. 🔴 **`baseModelGroup` is a FILTER — derive it, never hardcode it.** The host hides every checkpoint outside the family you pass, so a literal ecosystem pins every viewer to whichever family the author happened to test with. Read it from the checkpoint the block already holds. The parameter is currently **required** by this hook's type, and `''` is **not** an escape hatch — it does not even mean the same thing on both hosts. On a **model slot** the host normalises whatever string you send, so `''` resolves to the real ecosystem key `Other` and NARROWS to that one family. On a **page** the host drops a zero-length value, so `''` behaves exactly like omitting it. Neither is what you meant on at least one surface: pass a family derived from a real checkpoint, and never `''`.
 
 ```tsx
+import { isModelSlotContext } from '@civitai/app-sdk/blocks';
+
+const { context } = useBlockContext();
 const { open, persist } = useCheckpointPicker();
-const { selected } = await open({ baseModelGroup: 'SDXL', currentVersionId });
-if (selected) await persist(selected.versionId);   // null clears the override
+
+// Derive the family from the checkpoint the block already holds — never a literal.
+if (isModelSlotContext(context) && context.checkpoint) {
+  const { selected } = await open({
+    baseModelGroup: context.checkpoint.baseModel,
+    currentVersionId: context.checkpoint.versionId,
+  });
+  if (selected) await persist(selected.versionId);   // null clears the override
+}
 ```
 
 **`useResourcePicker`**
@@ -590,11 +600,11 @@ if (selected) await persist(selected.versionId);   // null clears the override
 useResourcePicker(): UseResourcePicker
 ```
 
-Drive the platform resource picker for page blocks — `'Checkpoint' | 'LORA'`. The viewer searches in host chrome; the block only ever sees the one resource it picked. DISCOVERY ONLY — the returned `versionId` is re-validated + re-priced server-side at estimate/submit.
+Drive the platform resource picker for page blocks — `'Checkpoint' | 'LORA'`. The viewer searches in host chrome; the block only ever sees the one resource it picked. DISCOVERY ONLY — the returned `versionId` is re-validated + re-priced server-side at estimate/submit. 🔴 **Pass NO `baseModelGroup` by default.** It is an optional FILTER, and the host hides every resource outside the family you pass — so a hardcoded ecosystem makes the viewer's own valid LoRAs invisible and the picker look empty or broken. Omit it and the viewer sees everything of that type.
 
 ```tsx
 const { open } = useResourcePicker();
-const picked = await open({ resourceType: 'LORA', baseModelGroup: 'SDXL' });
+const picked = await open({ resourceType: 'LORA' });   // unconstrained — the default
 if (picked) {
   const versionId = picked.versionId;   // feed into body.additionalResources
   const weight = picked.strength;        // recommended default weight (may be undefined)
@@ -645,11 +655,72 @@ const first = resources[0];             // .versionId / .strength / .trainedWord
 useCivitaiNavigate(): UseCivitaiNavigate
 ```
 
-Request a navigation within civitai.com (host-mediated; fire-and-forget).
+```md
+Request a navigation from the host. The hook sends a `NAVIGATE` message and
+returns — fire-and-forget, so the block never learns what the host did,
+including when the host **refuses** the request.
+
+`scope` selects the **space** `path` is resolved in, and it **defaults to
+`'app'`**:
+
+| `scope` | `path` resolves | The viewer |
+|---|---|---|
+| `'app'` *(default)* | under **this app's own route**, as a sub-path of it | stays in your app; the page stays mounted |
+| `'site'` | at the **civitai.com root** | leaves your app for a site page |
+
+> 🔴 **A leading slash carries no meaning.** The host normalises it away in
+> **both** scopes, so `'/settings'` and `'settings'` are one request within
+> whichever scope you chose. That means `navigate('/models/12345')` asks for
+> **your app's** `/models/12345` — *not* civitai's model page. To reach the
+> civitai.com page, say so: `navigate('models/12345', { scope: 'site' })`.
+>
+> Both spellings were app-scoped before `scope` existed, so no call you have
+> already written changed meaning — that is the point of the default.
+
+`'site'` is granted **per-surface**: the public run page and the dev tunnel allow
+it, and a private run or a moderator's review preview refuse it. A refusal is
+silent, so do not build a flow that needs to know it happened.
+
+`target` is a REQUEST, not a guarantee. How the host acts on `'current'` vs
+`'new_tab'` is host-side behaviour and the host is the authority on it; this
+package sends the message and makes no promise about the outcome.
+
+> 🔴 **Nothing in your manifest enables `'new_tab'`.** In particular, do **not**
+> declare `allow-popups-to-escape-sandbox`: the host intersects a manifest's
+> `iframe.sandbox` with a fixed allowlist that does not contain that token, so it
+> is dropped for every block at every trust tier and declaring it has no effect.
+> Earlier versions of this page said `'new_tab'` required it — that was wrong.
+```
 
 ```tsx
 const { navigate } = useCivitaiNavigate();
-navigate('/models/12345', 'new_tab');   // 'new_tab' needs allow-popups* in the manifest sandbox
+
+// Your app's own pages — the default.
+navigate('settings');                    // this app's /settings
+navigate('/settings');                   // identical; the slash means nothing
+
+// A civitai.com page — needs an explicit scope.
+navigate('models/12345', { scope: 'site' });
+navigate('models/12345', { scope: 'site', target: 'new_tab' });
+
+// The pre-`scope` two-argument shape still works, and is still app-scoped.
+navigate('detail/7', 'new_tab');
+```
+
+**`useCivitaiRoute`**
+
+```ts
+useCivitaiRoute(): UseCivitaiRoute
+```
+
+The sub-path below your app's root that is **currently showing**. This is the other half of an app-scoped [`useCivitaiNavigate()`](#usecivitainavigate): you ask the host to move, the host pushes it shallowly so your frame stays mounted, and this is how you find out where you went.
+
+```tsx
+function Router() {
+  const subPath = useCivitaiRoute(); // '' on your app's index
+  const [view, id] = subPath.split('/');
+  return view === 'compare' ? <Compare id={id} /> : <Index />;
+}
 ```
 
 **`useBlockAnalytics`**
@@ -685,7 +756,7 @@ requestSignIn();
 useRequestConsent(): UseRequestConsent
 ```
 
-Lazy consent: ask the host to open its consent UI when a LOGGED-IN viewer takes an action whose consent-gated scope the block token is missing (e.g. Generate needs `ai:write:budgeted` but the viewer hasn't granted it). Fire-and-forget — on grant the host pushes a new token; observe `useBlockToken().scopes` and retry.
+The manual version of the above — still exported, still the right tool when you want to prompt *before* a call (e.g. on an onboarding screen) rather than after one fails. Lazy consent: ask the host to open its consent UI when a LOGGED-IN viewer takes an action whose consent-gated scope the block token is missing (e.g. Generate needs `ai:write:budgeted` but the viewer hasn't granted it). Fire-and-forget — on grant the host pushes a new token; observe `useBlockToken().scopes` and retry.
 
 ```tsx
 import { useRequestConsent } from '@civitai/blocks-react';
@@ -832,7 +903,7 @@ union keyed by `kind`. The hook forwards the body to the host verbatim and never
 reads member-specific fields, so every member flows through the same
 `estimate → submit → watch` lifecycle shown above.
 
-As of the pinned `@civitai/app-sdk@0.52.0` the union has three `kind` values, and
+As of the pinned `@civitai/app-sdk@0.54.0` the union has three `kind` values, and
 `kind: 'step'` is itself two arms — four members in all:
 
 | `kind` | what it runs | what your block sends |

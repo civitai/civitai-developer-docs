@@ -2,7 +2,7 @@
 title: Moving a block off the bridge
 description: Replace a block's postMessage data calls with /api/v1/blocks/* REST calls — what each credential reaches, which routes an OAuth token gives up, and a hook-by-hook replacement table.
 sources:
-  - npm:@civitai/blocks-react@0.59.0/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.61.0/dist/index.d.ts
   - npm:@civitai/sdk@0.5.0/dist/index.d.ts
   - civitai-app-starters:packages/civitai-sdk/BREAKING.md
   - civitai:public/schemas/app-block/v1.json#auth
@@ -266,6 +266,7 @@ rather than shipping.
 | `useBuzzWorkflow` | `/api/v1/blocks/workflows/{estimate,submit,poll,cancel}` |
 | `useCheckpointPicker` | **Keep** the picker (host UI); `.persist` → `POST /api/v1/blocks/user-checkpoint/set` |
 | `useCivitaiNavigate` | **Keep** — host UI |
+| `useCivitaiRoute` | **Keep** — reads the host-owned sub-path from the handshake and `ROUTE_CHANGED`; off the bridge your own router owns the URL, so there is nothing to replace |
 | `useCollectionFollow` | `POST /api/v1/blocks/collections/{id}/follow` |
 | `useConsentUnavailable` | **Keep** — consent is host UI |
 | `useCreatePostFromApp` | **Stays on the bridge, by design** |
