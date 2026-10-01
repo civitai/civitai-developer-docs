@@ -64,6 +64,15 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { log, repoRoot, resolvePackageRoot } from './appblocks-util.mjs';
+// The companion guard, imported rather than re-implemented. It is import-safe: its
+// `main()` is behind an `import.meta.url === pathToFileURL(process.argv[1])` gate,
+// it reads nothing at module scope, and it imports only ./appblocks-util.mjs, so
+// there is no cycle back to here. Three things come from it, each because having a
+// second copy here is how the two readers would silently disagree:
+//   `barrelExports`  — the React barrel reader (see `reactBindings()`)
+//   `FLOORS`         — the floor convention, documented there (see `REACT_BINDING_FLOOR`)
+//   `SDK_ONLY_TAGS`  — the elements no bundle registers (see `registrationOf()`)
+import { FLOORS, SDK_ONLY_TAGS, barrelExports } from './check-showcase-coverage.mjs';
 
 const OUT = join(repoRoot, 'apps', 'reference', 'elements.md');
 
@@ -163,13 +172,27 @@ function readManifest(pkgRoot) {
 }
 
 /**
- * Bindings the React barrel is known to carry. Measured against
- * @civitai/components-react@0.9.0 — 45 of the 47 elements. Floored, not
- * zero-checked, for the `ABSENT_BASES` reason: a `size === 0` control cannot see
- * 44 of 45 going missing, and a partial read mislabels those rows
- * 'no React binding' just as confidently as an empty one.
+ * WHAT THIS FLOOR IS FOR: catching a BROKEN EXTRACTOR, not encoding today's count.
+ *
+ * It is the same quantity `check-showcase-coverage.mjs` floors as `reactExports`,
+ * read from the same file by the same function, so it is the same number — taken
+ * from there rather than restated. That file's `FLOORS` comment documents the
+ * convention and the incident behind it: a floor set near the real count STEALS
+ * the ledger's failure and reports the wrong cause.
+ *
+ * Here that is concrete. At the measured 45, deleting ONE legitimate binding
+ * upstream makes this throw *"would be a confident lie"* — a false "the extractor
+ * broke" — and because `gen:appblocks` runs before `check:showcase-coverage` in the
+ * same CI job, the real ledger (`element with no binding: …`, which names the
+ * element and tells you to bump the two pins in lockstep or extend
+ * `SDK_ONLY_TAGS`) never executes, since it grades the page this generator then
+ * failed to write. Sitting far below the real value is what hands that case to the
+ * ledger. A collapse — a `.d.ts` reformat, a regex that stops matching — still
+ * lands here, which is the only claim a cardinality floor can honestly make.
+ *
+ * Never raise it to encode coverage.
  */
-const REACT_BINDING_FLOOR = 45;
+const REACT_BINDING_FLOOR = FLOORS.reactExports;
 
 /** The React barrel's export names, so each row can name its binding (or say none). */
 function reactBindings() {
@@ -179,25 +202,19 @@ function reactBindings() {
     'elements',
     'index.d.ts',
   );
-  const src = readFileSync(dts, 'utf8');
-  const names = new Set();
-  // EVERY name in each statement, not just the first: `barrelExports()` in
-  // scripts/check-showcase-coverage.mjs splits on commas and reads them all, so a
-  // first-name-only read here would silently disagree with it the day the barrel
-  // emits two names per `export { … }`. Same `^Civitai[A-Z]` filter, for the same
-  // reason — one idiom across the two readers of this file.
-  for (const m of src.matchAll(/^export\s*\{([^}]*)\}/gm)) {
-    for (const part of m[1].split(',')) {
-      const name = part.trim().split(/\s+as\s+/).pop().trim();
-      if (/^Civitai[A-Z]/.test(name)) names.add(name);
-    }
-  }
+  // `barrelExports` from the coverage guard, not a second copy of it. The two files
+  // read this one barrel and must agree about it; a copy here disagreed the moment
+  // either regex moved — e.g. the day the barrel emits two names per `export { … }`.
+  const names = barrelExports(dts);
   if (names.size < REACT_BINDING_FLOOR) {
     throw new Error(
-      `gen-appblocks-element-gallery: parsed ${names.size} binding export(s) from ` +
-        `@civitai/components-react dist/elements/index.d.ts (floor ${REACT_BINDING_FLOOR}). ` +
-        "Every element short of that would be labelled 'no React binding', which is a " +
-        'confident lie about a surface React authors actually call.',
+      `gen-appblocks-element-gallery: parsed only ${names.size} binding export(s) from ` +
+        `@civitai/components-react dist/elements/index.d.ts (floor ${REACT_BINDING_FLOOR}, ` +
+        `real count 45 at components-react@0.9.0). This far below the real value the READ is ` +
+        `broken — a reformatted barrel or a regex that stopped matching — not coverage. Fix ` +
+        `barrelExports() in scripts/check-showcase-coverage.mjs rather than lowering this; a ` +
+        `legitimate upstream removal is supposed to reach that file's 'element with no binding' ` +
+        `ledger, which names the element.`,
     );
   }
   return names;
@@ -210,24 +227,103 @@ const bindingNameFor = (tag) =>
 /* ──────────────────────────  registration bundles  ────────────────────────── */
 
 /**
- * The two register bundles and the number of `define*` imports each carried when
- * this was measured — @civitai/components@0.8.1: register.js 39, register-site.js
- * 5 (the civitai vocabulary; its `registerAll` re-entry is not a `define*` import,
- * so it does not count).
+ * The two register bundles, read in this order. `registrationOf` below checks them
+ * in the same order, so a tag carried by both is attributed to the generic kit —
+ * the smaller load that already suffices for it.
  *
- * `floor` is the FAIL-LOUD half, the same shape `ABSENT_BASES` uses one section up.
- * The line regex below is the whole derivation, so a reformat of these GENERATED
- * bundles defeats it: switching the import specifiers to double quotes — no API
- * change at all — makes it match nothing, every row renders
- * '**registered by neither bundle**', and the page tells readers that neither
- * bundle covers anything and they must hand-import 47 `/define` modules. A
- * `size === 0` control cannot see 45 of 47 going missing, so the floor is the
- * MEASURED count. Bump these when the package legitimately drops an element.
+ * At @civitai/components@0.8.1 they carry 39 and 5 `define*` imports respectively
+ * (register-site.js's `registerAll` re-entry is not a `define*` import, so it does
+ * not count). Those numbers are NOT floors — see `REGISTER_IMPORT_FLOOR`.
  */
-const REGISTER_BUNDLES = {
-  'register.js': { label: 'registerAll', floor: 39 },
-  'register-site.js': { label: 'registerSite', floor: 5 },
-};
+const REGISTER_BUNDLES = ['register.js', 'register-site.js'];
+
+/**
+ * WHAT THIS FLOOR IS FOR: "did the line regex below read ANYTHING at all", and
+ * nothing else. It is the smallest non-vacuous read, deliberately.
+ *
+ * Why not the measured 39 / 5, which is what it used to be: the split between the
+ * two bundles is an upstream AUTHORING decision, so either share can legitimately
+ * move without a single element disappearing — and a floor at the measured count
+ * then fails here, claiming the extractor broke, instead of letting the ledger
+ * below name the tag. That is the unreachable-guard shape
+ * `scripts/check-showcase-coverage.mjs`'s `FLOORS` comment documents: a floor near
+ * the real count steals the ledger's failure and reports the wrong cause. It is
+ * also why no `FLOORS` entry is reused here — every one of them sits at or above
+ * register-site.js's real 5, so none is a floor for a 5-member bundle.
+ *
+ * It still earns its place because it fires FIRST and its diagnostic is sharper:
+ * a quote-style reformat of these GENERATED bundles makes the regex match nothing,
+ * and "matched NOTHING in register-site.js — fix the regex" beats the 45 tag names
+ * `assertRegistrationLedger` would otherwise print for the same cause. Measured:
+ * rewriting register-site.js's specifiers to double quotes stops here, at 0 < 1.
+ *
+ * COVERAGE is not its job and cannot be: that is asserted as a relationship by
+ * `assertRegistrationLedger` below, which names tags instead of counting them.
+ * Never raise this to encode coverage.
+ */
+const REGISTER_IMPORT_FLOOR = 1;
+
+/**
+ * 🔴 THE PAGE DEPENDS ON A RELATIONSHIP, SO THIS ASSERTS THE RELATIONSHIP.
+ *
+ * `found` above is a set of module BASENAMES; what each row renders depends on
+ * whether a TAG is in it. A cardinality check cannot see those two disagree.
+ * Measured: rename one import in `register.js` from `'./civitai-button.js'` to
+ * `'./civitai-button-el.js'` — the basename count is unchanged, every floor
+ * passes, this generator exits 0, `check:showcase-coverage` exits 0, and
+ * `<civitai-button>` ships labelled '**registered by neither bundle**', telling
+ * readers to hand-import a `/define` module for the most-used element in the pack.
+ *
+ * So the invariant is an ENUMERATED LEDGER, not a count: the set of tags that no
+ * bundle owns must be exactly `SDK_ONLY_TAGS` — the two `@civitai/sdk`-bound
+ * elements under the package's `src/sdk/`, imported from the coverage guard so the
+ * exemption lives in one place. It fails when that set GROWS *or* SHRINKS, naming
+ * the tags:
+ *   GROWS  — a tag stopped resolving (a renamed module, a reformatted import, an
+ *            element dropped from a bundle while still declared). The row's label
+ *            changed, and whether that is true is a human call.
+ *   SHRINKS — an exempt tag started resolving (it joined a bundle: drop it from
+ *            `SDK_ONLY_TAGS`), or it is no longer an element at all (ditto). A
+ *            stale exemption is invisible to every other check here, because an
+ *            exempt tag is excluded from the comparison that would have caught it.
+ *
+ * A tag legitimately removed upstream does NOT reach this: it leaves `tags`, so it
+ * leaves the unowned set too, and the EXEMPLARS ledger in `main()` is what names it.
+ */
+function assertRegistrationLedger(registration) {
+  const unowned = new Set([...registration].filter(([, owner]) => !owner).map(([tag]) => tag));
+  const grew = [...unowned].filter((t) => !SDK_ONLY_TAGS.has(t)).sort();
+  const shrank = [...SDK_ONLY_TAGS]
+    .filter((t) => !unowned.has(t))
+    .map((t) => `${t} (${registration.has(t) ? `now ${registration.get(t)}()` : 'no longer an element'})`)
+    .sort();
+  if (grew.length === 0 && shrank.length === 0) return;
+  throw new Error(
+    [
+      `gen-appblocks-element-gallery: the set of tags NO register bundle defines is not the ` +
+        `declared exception set.`,
+      ...(grew.length
+        ? [
+            `  no bundle defines these, and they are not SDK_ONLY_TAGS (${grew.length}): ${grew.join(', ')}`,
+            `  Each would ship labelled '**registered by neither bundle**', telling readers to`,
+            `  hand-import a /define module. Either the define import in`,
+            `  dist/elements/register*.js no longer matches the tag's module basename (check the`,
+            `  regex in registrationOf — a renamed module or a reformatted import specifier), or`,
+            `  the element genuinely left both bundles, in which case say so by adding it to`,
+            `  SDK_ONLY_TAGS in scripts/check-showcase-coverage.mjs with a reason.`,
+          ]
+        : []),
+      ...(shrank.length
+        ? [
+            `  SDK_ONLY_TAGS entries that are no longer unregistered (${shrank.length}): ${shrank.join(', ')}`,
+            `  The exemption is stale: remove the tag from SDK_ONLY_TAGS in`,
+            `  scripts/check-showcase-coverage.mjs. While it sits there it also silently exempts`,
+            `  the tag from that file's binding ledger.`,
+          ]
+        : []),
+    ].join('\n'),
+  );
+}
 
 /**
  * Which bundle defines a tag, read from the installed `register.js` /
@@ -237,30 +333,35 @@ const REGISTER_BUNDLES = {
  */
 function registrationOf(pkgRoot, tags) {
   const sets = {};
-  for (const [file, spec] of Object.entries(REGISTER_BUNDLES)) {
+  for (const file of REGISTER_BUNDLES) {
     const src = readFileSync(join(pkgRoot, 'dist', 'elements', file), 'utf8');
     // `[a-z0-9-]`, not `[a-z-]`, on BOTH halves: a tag carrying a digit
     // (`civitai-panorama-360` -> `defineCivitaiPanorama360`) would otherwise fall
-    // to 'neither bundle' for that one element, under a floor the other 46 keep
-    // satisfied — too narrow a miss for a size check to ever see.
+    // to 'neither bundle' for that one element — too narrow a miss for a size
+    // check to ever see, which is `assertRegistrationLedger`'s whole job.
     const found = new Set(
       [...src.matchAll(/^import \{ define[A-Za-z0-9]+ \} from '\.\/([a-z0-9-]+)\.js';/gm)].map(
         (m) => m[1],
       ),
     );
-    if (found.size < spec.floor) {
+    if (found.size < REGISTER_IMPORT_FLOOR) {
       throw new Error(
         `gen-appblocks-element-gallery: parsed ${found.size} define import(s) from ` +
-          `dist/elements/${file} (floor ${spec.floor}). ${spec.floor - found.size} element(s) ` +
-          `would render '**registered by neither bundle**', telling readers to hand-import a ` +
-          `/define module per element — the exact silent under-report this generator exists to ` +
-          `prevent, so this is a hard failure.`,
+          `dist/elements/${file} (floor ${REGISTER_IMPORT_FLOOR}). The import regex in ` +
+          `registrationOf() matched NOTHING in that bundle, so this is a broken read, not a ` +
+          `package that registers nothing — a reformat of these generated bundles (double ` +
+          `quotes instead of single, say) does exactly this. Fix the regex.`,
       );
     }
-    sets[spec.label] = found;
+    // Keyed by FILE, which is the set's own identity here. It used to be keyed by a
+    // `label: 'registerAll'` field read back as `sets.registerAll`, while the
+    // function names the page renders were separate literals below — two spellings
+    // of one name, neither driving the other, and changing the field produced
+    // `TypeError: … (reading 'has')` with no diagnostic.
+    sets[file] = found;
   }
-  const base = sets.registerAll;
-  const site = sets.registerSite;
+  const base = sets['register.js'];
+  const site = sets['register-site.js'];
   const out = new Map();
   for (const tag of tags) {
     // The define module's basename is the tag for every element in this package
@@ -271,6 +372,7 @@ function registrationOf(pkgRoot, tags) {
     else if (site.has(owner)) out.set(tag, 'registerSite');
     else out.set(tag, null);
   }
+  assertRegistrationLedger(out);
   return out;
 }
 

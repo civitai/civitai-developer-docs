@@ -215,6 +215,19 @@ export function manifestTags(cemPath) {
 export const bindingNameFor = (tag) =>
   tag.split('-').map((p) => p[0].toUpperCase() + p.slice(1)).join('');
 
+/**
+ * The elements under `@civitai/components`' `src/sdk/` — they `import`
+ * `@civitai/sdk` and need a validated host transport, so they are deliberately
+ * outside the generic kit. TWO consequences follow from that one fact, and both
+ * are asserted against this ONE list rather than two:
+ *   - `@civitai/components-react` exports no binding for them (LEDGER 2(b) below);
+ *   - neither `register.js` nor `register-site.js` defines them, which is why
+ *     `scripts/gen-appblocks-element-gallery.mjs` imports this set to decide which
+ *     rows may legitimately render '**registered by neither bundle**'.
+ * Exported, not duplicated, so adding a third SDK element is one edit.
+ */
+export const SDK_ONLY_TAGS = new Set(['civitai-sign-in-button', 'civitai-workflow-button']);
+
 /** `### \`<civitai-foo>\`` headings — the gallery's own per-element sections. */
 export function galleryTags(markdown) {
   return new Set([...markdown.matchAll(/^###\s+`<(civitai-[a-z0-9-]+)>`/gm)].map((m) => m[1]));
@@ -378,8 +391,8 @@ function main() {
   //     0.9.0), and a binding with no element — or an element with no binding —
   //     is a pin SKEW, which no version check sees because both pins are current.
   //     The 2 elements under the package's src/sdk/ have no binding by design and
-  //     are the declared exception.
-  const SDK_ONLY_TAGS = new Set(['civitai-sign-in-button', 'civitai-workflow-button']);
+  //     are the declared exception — `SDK_ONLY_TAGS`, module scope, so the element
+  //     gallery generator asserts its own claim against the same list.
   const expectedBindings = new Set(
     sorted(tags).filter((t) => !SDK_ONLY_TAGS.has(t)).map(bindingNameFor),
   );
