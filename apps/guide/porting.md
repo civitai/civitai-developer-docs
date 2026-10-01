@@ -266,6 +266,7 @@ rather than shipping.
 | `useBuzzWorkflow` | `/api/v1/blocks/workflows/{estimate,submit,poll,cancel}` |
 | `useCheckpointPicker` | **Keep** the picker (host UI); `.persist` → `POST /api/v1/blocks/user-checkpoint/set` |
 | `useCivitaiNavigate` | **Keep** — host UI |
+| `useCivitaiRoute` | **Keep** — reads the host-owned sub-path from the handshake and `ROUTE_CHANGED`; off the bridge your own router owns the URL, so there is nothing to replace |
 | `useCollectionFollow` | `POST /api/v1/blocks/collections/{id}/follow` |
 | `useConsentUnavailable` | **Keep** — consent is host UI |
 | `useCreatePostFromApp` | **Stays on the bridge, by design** |

@@ -79,6 +79,7 @@ payload:
 ```ts
 {
     path: string;
+    scope?: BlockNavigateScope;
     target: 'current' | 'new_tab';
 }
 ```
@@ -481,7 +482,8 @@ payload:
 ```ts
 {
     requestId: string;
-    baseModelGroup: string;
+    /** Optional ecosystem-family filter. Absent ⇒ unconstrained. Never ''. */
+    baseModelGroup?: string;
     /** Currently-selected versionId so the picker can pre-highlight it. */
     currentVersionId?: number;
 }
@@ -1022,6 +1024,16 @@ reply `PUBLISH_RESULT`:
 ```
 
 Model slot: shared-grid publish is a page-only affordance today; the model slot has no such surface
+
+**`ROUTE_CHANGED`** — host → block
+
+payload:
+
+```ts
+{
+    subPath: string;
+}
+```
 
 **`SAVE_IMAGE`** — block → host · request → reply · page-only
 
