@@ -13,43 +13,17 @@ import './custom.css';
 //     `@layer civitai.components`; layered CSS loses to VitePress's unlayered chrome.
 import '@civitai/theme/styles.css';
 import '@civitai/components/styles.css';
-// The <civitai-*> CUSTOM ELEMENTS — the OTHER of the design system's two
-// consumption tracks, and the one `@civitai/components-react` binds. Without this
-// import a `<civitai-button>` on a page is an UNKNOWN element: it renders its
-// light-DOM children unstyled, never upgrades, and the element gallery would be
-// 47 blocks of markup nobody can see working.
+// The CSS half of the design system is GLOBAL, and deliberately so: it is two
+// stylesheets, the `.cds-*` escape hatch in design-system.css below has to be in
+// the document for any preview to paint, and a stylesheet styles nothing it does
+// not select.
 //
-// `registerSite()` = `registerAll()`'s 39 elements plus the 5 civitai-vocabulary
-// ones; load one bundle or the other, never both, because two disjoint bundles
-// would each carry their own copy of Lit.
-//
-// 🔴 IT MUST BE THIS SPECIFIER, AND THE CALL IS NOT OPTIONAL — MEASURED.
-// A bare side-effect `import '@civitai/components/site-elements.js'` (the
-// prebundled, self-registering root bundle) is TREE-SHAKEN AWAY: the package's
-// `sideEffects` field allow-lists `**/*.css`, `**/*.define.js`,
-// `**/elements/register.js` and `**/elements/register-site.js` — and NOT the root
-// `site-elements.js`/`elements.js` bundles. Rollup therefore drops the whole
-// import as dead code, with no warning and no error. Measured on the built site:
-// `customElements.get('civitai-card')` was `undefined` on every page, the hosts
-// never upgraded, and the only symptom was a gallery of empty boxes. Importing a
-// NAMED export and CALLING it cannot be shaken, and the specifier is on the
-// allow-list besides.
-//
-// SSR-safe: `defineElement` returns early when `customElements` is undefined
-// (dist/elements/registry.js), so the Node render pass registers nothing and only
-// the browser pass defines the 44. Idempotent by design — a duplicate
-// `customElements.define` would throw and abort the rest of the calling module, so
-// a conflict no-ops and warns instead.
-//
-// The 2 elements under the package's `src/sdk/` (civitai-sign-in-button,
-// civitai-workflow-button) are deliberately NOT registered: they `import
-// '@civitai/sdk'` and reach for a block host transport on connect, so off-platform
-// they render `nothing`. The generated gallery names them and says why rather than
-// showing an empty box as if it were the component.
-import { registerSite } from '@civitai/components/register-site';
-
-registerSite();
-
+// The <civitai-*> CUSTOM ELEMENT DEFINITIONS are NOT global — Lit plus 44 element
+// classes used to load on every page here to serve one generated gallery. They are
+// now imported lazily by `<ElementPreview>`, the only component on the site that
+// renders an element instance; see theme/components/ElementPreview.vue's
+// `registerElements()` for the measurement, the tree-shaking trap, and why the call
+// hangs off the component's mount rather than a route string.
 import './design-system.css';
 
 import spec from '../../public/openapi/v2-consumers.json' with { type: 'json' };
