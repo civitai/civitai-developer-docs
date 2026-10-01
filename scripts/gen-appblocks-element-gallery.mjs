@@ -287,9 +287,10 @@ const UNREGISTERED_TAGS = new Set(['civitai-sign-in-button', 'civitai-workflow-b
  * including its 'every one of the N tags UPGRADED (lazy registerSite() ran)' check,
  * whose label therefore overstates what it observes: the IMPORT, not the call.
  *
- * Comments elsewhere in THIS file also narrate past incidents by name (`registerAll`
- * at the floor docblock below, both file names in `registrationOf`'s bare-TypeError
- * note). Those are prose the page cannot disagree with.
+ * Comments in THIS file also narrate upstream facts and past incidents by name —
+ * `registerAll` in the next paragraph and in `registrationOf`'s bare-TypeError note,
+ * both file names in `UNREGISTERED_TAGS`', the floor's and `registrationOf`'s
+ * docblocks. Those are prose the page cannot disagree with.
  *
  * At @civitai/components@0.8.1 they carry 39 and 5 `define*` imports respectively
  * (register-site.js's `registerAll` re-entry is not a `define*` import, so it does
