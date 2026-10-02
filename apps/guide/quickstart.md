@@ -3,7 +3,7 @@ title: Quickstart
 description: Scaffold a Civitai App with the civitai CLI, run it in the local harness, and write your first block.
 sources:
   - go:github.com/civitai/cli#app
-  - npm:@civitai/blocks-react@0.61.0#README
+  - npm:@civitai/blocks-react@0.61.1#README
   - npm:@civitai/app-sdk@0.54.0/vite#blockManifestPlugin
   - civitai-app-starters:docs/build-your-first-app-block.md
 ---
