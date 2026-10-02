@@ -3,6 +3,11 @@ node_modules/
 .vitepress/cache/
 public/openapi/
 public/appblocks/
+# GENERATED on predev/prebuild by scripts/gen-appblocks-element-gallery.mjs out of
+# the custom-elements.json inside the pinned @civitai/components devDep. Ignored
+# for the same reason public/appblocks/ is: a build must never rewrite a
+# committed file, and this page is a pure function of the lock file.
+apps/reference/elements.md
 .showcase-shots/
 .appblocks-snippet-tmp/
 .page-context-tmp/

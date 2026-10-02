@@ -16,6 +16,7 @@ while the scope catalog tracks a committed snapshot in CI.
 | [Scopes](./scopes) | The scope catalog: what each scope authorizes, its OAuth bit, and its binding | `civitai` block-scope constants |
 | [Manifest](./manifest) | Every `block.manifest.json` field, type, and constraint | the published JSON Schema |
 | [Components](./components) | The `@civitai/components` design-system pack: each component's `data-civitai-ui` name, attributes, and ARIA markup | the `@civitai/components` `MARKUP.md` contract |
+| [Elements](./elements) | Every `<civitai-*>` custom element — tag, attributes with defaults, slots, events and a live instance. The design system's *other* consumption track, and the one `@civitai/components-react` binds | the `custom-elements.json` inside the pinned `@civitai/components` |
 | [Messages](./messages) | The full `postMessage` bridge protocol (payloads, directions, page-only) | `@civitai/app-sdk` + host parity inventory |
 | [Hooks](./hooks) | Every `@civitai/blocks-react` hook: signature + example | `@civitai/blocks-react` types + README |
 | [CLI](./cli) | The `civitai` CLI's App-authoring commands and flags | the Go `civitai` CLI (`civitai/cli`) |

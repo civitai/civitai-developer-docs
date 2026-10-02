@@ -123,3 +123,52 @@ jobs:
       # only exists after the build step above.
       - name: Assert every .md twin carries a body
         run: npm run check:agent-md
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # BROWSER E2E over the design-system showcase + the generated element gallery.
+      #
+      # 🔴 WHY IT IS HERE AT ALL: it was in NO WORKFLOW. `git grep -i showcase
+      # origin/main -- .github/` returned nothing across all 14 workflow files, so
+      # the only check in the repo that reads the design system's RENDERED values
+      # had never run in CI — while the `@layer`/Preflight escape hatch it guards
+      # had already regressed once and been fixed by hand. It was also RED on main
+      # (one assertion compared a Card's background against `--civitai-color-body`
+      # instead of `--civitai-color-surface`), which is the other half of why it was
+      # never wired: a permanently-red gate gets clicked through, so the assertion
+      # had to be fixed before this step could exist.
+      #
+      # WHY IT RIDES THIS JOB: it asserts on `.vitepress/dist`, which only exists
+      # after the build step above — the same reason `check:built-site` and
+      # `check:agent-md` live here. A separate workflow would buy a second `npm ci`,
+      # a second 30s build and a second required-context negotiation.
+      #
+      # WHY IT BLOCKS: repo doctrine (appblocks-drift.yml) — upstream movement is
+      # SCHEDULED, a repo-local invariant BLOCKS. Every input is in the tree or the
+      # lock file: the built site, the pinned @civitai/* devDeps, and a browser. It
+      # cannot go red because a third party published something, and it cannot go red
+      # because a third party is SLOW either — the harness aborts every request that
+      # is not localhost, so the pages' own <AuthBar>/useAuthToken fetches to
+      # auth.civitai.com and civitai.com cannot stall a `networkidle` navigation.
+      # That hermeticity was the precondition for putting this in a REQUIRED job, and
+      # it is the same precondition #51 established for the build step above. ~45s.
+      #
+      # THE BROWSER IS THE RUNNER'S, DELIBERATELY NOT DOWNLOADED. The harness
+      # resolves $PLAYWRIGHT_CHROMIUM_PATH / $CHROMIUM_PATH, then
+      # `chromium`/`chromium-browser`/`google-chrome` on PATH, then playwright's own
+      # registry; the GitHub-hosted ubuntu image ships Google Chrome, so the second
+      # of those hits and NOTHING is fetched. An `npx playwright install chromium`
+      # step would reintroduce precisely the network dependency the comment above
+      # this job says to keep out of a required check — a browser-CDN hiccup must not
+      # redden an unrelated PR.
+      #
+      # If a future runner image ships no browser at all, this step FAILS (exit 4)
+      # rather than skipping, and says so. That is the point: the old behaviour was
+      # `SKIP` + `process.exit(0)` — a job whose only output is an exit code
+      # reporting success for having measured nothing.
+      # The screenshots it writes to .showcase-shots/ are NOT uploaded as an
+      # artifact, on purpose — that would contradict this job's least-privilege note
+      # above and widen a required check's failure surface for a convenience. Every
+      # failing assertion already prints the measured value and the expected one,
+      # which is more actionable than a PNG; run it locally for the pictures.
+      - name: Showcase + element-gallery browser E2E (rendered values)
+        run: npm run test:showcase:e2e
