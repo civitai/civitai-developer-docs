@@ -662,7 +662,7 @@ half keeps the composed identifier inside that in the worst case.
 | Key expression | Verdict |
 |---|---|
 | `` `gen-${cellId}` `` | ✅ |
-| `` `buy-${goodId}-${attemptId}` `` | ✅ |
+| `` `buy-${goodId}-${attemptId}` `` | ⚠️ charset-legal, **still wrong twice**: an attempt-varying part defeats the replay the key exists for, and a good id may itself be 64 chars, which breaks the length bound below. Prefer `` `buy-${crypto.randomUUID()}` `` |
 | `crypto.randomUUID()` | ✅ — 36 chars, `[0-9a-f-]` |
 | `` `gen:${cellId}` `` | ❌ `400` — colon |
 | `React.useId()` | ❌ `400` — returns a colon-wrapped id such as `:R0:` |
