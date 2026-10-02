@@ -342,11 +342,12 @@ export function useSubmitWithRetry() {
 
   // `cellId` identifies ONE logical generation. Every retry of it reuses the
   // same key, so the host + orchestrator collapse them to ONE Buzz charge.
+  // The separator is `-`, not `:` — a colon fails the key's charset (below).
   return async (body: WorkflowBody, cellId: string) => {
     let lastErr: unknown;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        return await submit(body, { idempotencyKey: `gen:${cellId}` });
+        return await submit(body, { idempotencyKey: `gen-${cellId}` });
       } catch (err) {
         lastErr = err;
       }
@@ -363,6 +364,44 @@ export function useSubmitWithRetry() {
 - **Don't key it to something coarse** (a component instance, the block id):
   two genuinely different generations that share a key become eligible to be
   collapsed as if one were a retry of the other.
+
+::: danger The key's charset is validated — `^[A-Za-z0-9_-]{1,64}$`
+**Letters, digits, `_` and `-` only, 1–64 characters.** The host validates the
+field before it prices anything, so a key outside that class is refused outright:
+
+```json
+{ "code": "invalid_format", "format": "regex",
+  "pattern": "/^[A-Za-z0-9_-]{1,64}$/",
+  "path": ["idempotencyKey"],
+  "message": "Invalid string: must match pattern /^[A-Za-z0-9_-]{1,64}$/" }
+```
+
+— a `BAD_REQUEST` / **`400`**. Nothing is queued and nothing is charged, so a
+block that composes its keys this way simply never generates.
+
+🔴 **A colon is the one to watch, and it is excluded deliberately** — not as an
+oversight you can work around with a different punctuation mark. The host joins
+the parts of its internal per-viewer / per-app dedupe and rate-limit keys with
+`:`, and those joins are only collision-free while your key cannot contain one;
+a colon-bearing key could cross into a neighbouring key's namespace. So `.`,
+`/`, `|`, `#`, spaces and every other separator are **also** rejected — the
+allowed class is the whole contract. Use **`-`** or `_` when you need to
+concatenate parts, as the example above does.
+
+The **64**-character bound is derived too: the host builds the identifier it
+hands the orchestrator out of your key plus a prefix, and the orchestrator
+enforces its own `^[A-Za-z0-9_-]+$` over at most 128 characters. 64 keeps the
+worst case inside that.
+
+**Safe**: `` `gen-${cellId}` ``, `crypto.randomUUID()` (36 chars, `[0-9a-f-]`).
+**Not safe**: `` `gen:${cellId}` ``, `React.useId()` — `useId` returns a
+colon-wrapped value such as `:R0:` and will 400.
+
+The same charset governs every idempotency key the platform takes — the REST
+`POST /api/v1/blocks/workflows/submit` body (where it is **required**),
+`useGoodPurchase().purchase()` and `useTip().tip()`. Full rationale:
+[`idempotencyKey` — the validated charset](../reference/generation#idempotency-key-charset).
+:::
 
 The reference entry is
 [`SubmitWorkflowOptions`](../reference/generation#bridge-SubmitWorkflowOptions).

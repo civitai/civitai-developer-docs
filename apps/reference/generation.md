@@ -588,10 +588,11 @@ export function useRetryableSubmit() {
   const { submit } = useBuzzWorkflow();
 
   // ONE logical submit → ONE stable key, reused by every retry of it.
+  // `-` is the separator, not `:` — a colon fails the charset below.
   return async (body: WorkflowBody, cellId: string) => {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        return await submit(body, { idempotencyKey: `gen:${cellId}` });
+        return await submit(body, { idempotencyKey: `gen-${cellId}` });
       } catch (err) {
         if (attempt === 2) throw err;
       }
@@ -614,6 +615,59 @@ of the other. Key it to the unit of work the user asked for. When in doubt, omit
 the option: the hook's per-call key is the safe default, and only a retry needs
 to opt out of it.
 :::
+
+### `idempotencyKey` — the validated charset {#idempotency-key-charset}
+
+🔴 **`^[A-Za-z0-9_-]{1,64}$`.** Letters, digits, `_` and `-`, 1 to 64
+characters — and the host validates it on the way in, before the whatIf
+preflight prices anything. A key outside that class is refused:
+
+```json
+{ "code": "invalid_format", "format": "regex",
+  "pattern": "/^[A-Za-z0-9_-]{1,64}$/",
+  "path": ["idempotencyKey"],
+  "message": "Invalid string: must match pattern /^[A-Za-z0-9_-]{1,64}$/" }
+```
+
+returned as `BAD_REQUEST` / **`400`**. Because validation runs first, nothing is
+queued and nothing is charged — a block that composes keys outside the class
+never generates at all, rather than generating and double-charging.
+
+The **same** charset governs every idempotency key the platform accepts, on all
+four surfaces that take one: the `useBuzzWorkflow().submit()` bag documented
+here, the REST `POST /api/v1/blocks/workflows/submit` body (where the field is
+**required**, not optional), `useGoodPurchase().purchase()`, and
+`useTip().tip()`.
+
+The payload above is what the bridge path returns. The three **REST** routes
+validate the same pattern but report it in their own envelope — a `400` with
+`{ "error": "Invalid request body", "details": { "fieldErrors": {
+"idempotencyKey": [ … ] } } }` — so branch on the status, not on a shared
+error body.
+
+**Why the colon specifically is out.** It is excluded on purpose, and knowing
+why is what stops you reaching for `.` or `/` instead. The host composes its
+internal per-viewer / per-app dedupe and rate-limit keys by joining their parts
+with `:`. Those joins are unambiguous **only** while none of the parts can
+themselves contain a colon — your key is one of the parts, so a colon-bearing
+key could cross into a neighbouring key's namespace. Every other separator
+outside `[A-Za-z0-9_-]` is rejected for the same reason the class is closed:
+`-` and `_` are the two you have. Concatenate with those.
+
+**Why 64.** The host derives the orchestrator-side identifier for the run from
+your key plus a short prefix, and the orchestrator enforces its own
+`^[A-Za-z0-9_-]+$` over at most 128 characters. A 64-character ceiling on your
+half keeps the composed identifier inside that in the worst case.
+
+| Key expression | Verdict |
+|---|---|
+| `` `gen-${cellId}` `` | ✅ |
+| `` `buy-${goodId}-${attemptId}` `` | ✅ |
+| `crypto.randomUUID()` | ✅ — 36 chars, `[0-9a-f-]` |
+| `` `gen:${cellId}` `` | ❌ `400` — colon |
+| `React.useId()` | ❌ `400` — returns a colon-wrapped id such as `:R0:` |
+| `` `gen.${cellId}` `` / `` `gen/${cellId}` `` | ❌ `400` — `.` and `/` are outside the class |
+| a key longer than 64 chars | ❌ `400` |
 
 ## See also
 
