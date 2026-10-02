@@ -4357,6 +4357,106 @@
         }
       }
     },
+    "/v2/consumer/recipes/soniloAudioGen": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Generate music or a standalone sound effect from a text prompt with Sonilo.",
+        "operationId": "InvokeSoniloAudioGenStepTemplate",
+        "parameters": [
+          {
+            "name": "experimental",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "allowMatureContent",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "whatif",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ephemeral",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SoniloAudioGenInput"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SoniloAudioGenInput"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SoniloAudioGenInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SoniloAudioGenOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/consumer/recipes/textToImage": {
       "post": {
         "tags": [
@@ -8355,6 +8455,7 @@
                 "chroma": "#/components/schemas/ChromaAIToolkitTrainingInput",
                 "ernie": "#/components/schemas/ErnieAIToolkitTrainingInput",
                 "qwen": "#/components/schemas/QwenAIToolkitTrainingInput",
+                "qwen21": "#/components/schemas/Qwen21AIToolkitTrainingInput",
                 "zimageturbo": "#/components/schemas/ZImageTurboAIToolkitTrainingInput",
                 "zimagebase": "#/components/schemas/ZImageBaseAIToolkitTrainingInput",
                 "flux2klein": "#/components/schemas/Flux2KleinAIToolkitTrainingInput",
@@ -8369,6 +8470,8 @@
                 "krea2": "#/components/schemas/Krea2AIToolkitTrainingInput",
                 "ideogram4": "#/components/schemas/Ideogram4AIToolkitTrainingInput",
                 "mageflow": "#/components/schemas/MageFlowAIToolkitTrainingInput",
+                "ming": "#/components/schemas/MingAIToolkitTrainingInput",
+                "yue2": "#/components/schemas/YuE2AIToolkitTrainingInput",
                 "minimaxh3": "#/components/schemas/MiniMaxH3AIToolkitTrainingInput"
               }
             }
@@ -10132,7 +10235,7 @@
               "null",
               "string"
             ],
-            "description": "Get the storage tier holding this blob, when it is not the default one. Null means the default\ntier, which is what every blob produced before the managed tier existed deserializes as.\nCarried so a downstream step or consumer resolves the right grain directly rather than\nprobing each tier for the key."
+            "description": "Get the storage tier holding this blob, when one was declared. Null resolves to the private\nmanaged tier, falling back to the classic one for blobs written before producers moved off it."
           }
         },
         "additionalProperties": false,
@@ -21029,7 +21132,9 @@
                 "krea2": "#/components/schemas/Krea2FalImageGenInput",
                 "maiImage": "#/components/schemas/MaiImageFalImageGenInput",
                 "reve": "#/components/schemas/ReveFalImageGenInput",
-                "museImage": "#/components/schemas/MuseImageFalImageGenInput"
+                "museImage": "#/components/schemas/MuseImageFalImageGenInput",
+                "ideogram45": "#/components/schemas/Ideogram45FalImageGenInput",
+                "flux3": "#/components/schemas/Flux3FalImageGenInput"
               }
             }
           }
@@ -23273,6 +23378,186 @@
               "mapping": {
                 "createImage": "#/components/schemas/Flux2ProCreateImageInput",
                 "editImage": "#/components/schemas/Flux2ProEditImageInput"
+              }
+            }
+          }
+        ]
+      },
+      "Flux3CreateFalImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Flux3FalImageGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "model",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "enum": [
+                  "createImage"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "flux3"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "fal"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "Flux3EditFalImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Flux3FalImageGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "images",
+              "model",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "images": {
+                "maxItems": 10,
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
+                },
+                "description": "One to ten ordered references, each at least 256 pixels per side and at most 4 MP."
+              },
+              "operation": {
+                "enum": [
+                  "editImage"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "flux3"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "fal"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "Flux3FalImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/FalImageGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "model",
+              "operation",
+              "prompt"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "type": "string"
+              },
+              "prompt": {
+                "minLength": 1,
+                "type": "string",
+                "description": "Bounding boxes can be included in the prompt using FLUX 3's prompt syntax."
+              },
+              "quantity": {
+                "maximum": 8,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 1
+              },
+              "resolution": {
+                "enum": [
+                  "768sq",
+                  "1k",
+                  "2k",
+                  "4k"
+                ],
+                "type": "string",
+                "default": "1k"
+              },
+              "aspectRatio": {
+                "enum": [
+                  "auto",
+                  "21:9",
+                  "2:1",
+                  "16:9",
+                  "3:2",
+                  "7:5",
+                  "4:3",
+                  "5:4",
+                  "1:1",
+                  "4:5",
+                  "3:4",
+                  "5:7",
+                  "2:3",
+                  "9:16",
+                  "1:2"
+                ],
+                "type": "string",
+                "description": "Auto follows the first reference image, or uses a square for generation.",
+                "default": "auto"
+              },
+              "enablePromptExpansion": {
+                "type": "boolean",
+                "default": false
+              },
+              "safetyTolerance": {
+                "maximum": 4,
+                "minimum": 0,
+                "type": "integer",
+                "format": "int32",
+                "default": 2
+              },
+              "model": {
+                "enum": [
+                  "flux3"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "fal"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "operation",
+              "mapping": {
+                "createImage": "#/components/schemas/Flux3CreateFalImageGenInput",
+                "editImage": "#/components/schemas/Flux3EditFalImageGenInput"
               }
             }
           }
@@ -26250,6 +26535,240 @@
               }
             },
             "additionalProperties": false
+          }
+        ]
+      },
+      "Ideogram45CreateFalImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Ideogram45FalImageGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "model",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "quality": {
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ],
+                "type": "string",
+                "default": "medium"
+              },
+              "imageSize": {
+                "enum": [
+                  "square_hd",
+                  "square",
+                  "portrait_4_3",
+                  "portrait_16_9",
+                  "landscape_4_3",
+                  "landscape_16_9"
+                ],
+                "type": "string",
+                "default": "square_hd"
+              },
+              "enablePromptExpansion": {
+                "type": "boolean",
+                "default": true
+              },
+              "operation": {
+                "enum": [
+                  "createImage"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "ideogram45"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "fal"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "Ideogram45EditFalImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Ideogram45FalImageGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "images",
+              "model",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "quality": {
+                "enum": [
+                  "very_low",
+                  "low",
+                  "medium",
+                  "high"
+                ],
+                "type": "string",
+                "default": "medium"
+              },
+              "imageSize": {
+                "enum": [
+                  "auto",
+                  "square_hd",
+                  "square",
+                  "portrait_4_3",
+                  "portrait_16_9",
+                  "landscape_4_3",
+                  "landscape_16_9"
+                ],
+                "type": "string",
+                "default": "auto"
+              },
+              "images": {
+                "maxItems": 5,
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
+                },
+                "description": "The first image is the source; the remaining images are references."
+              },
+              "maskImage": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Black edits, white preserves. Must match the source dimensions and contain both regions.",
+                "format": "source-image"
+              },
+              "editPrecision": {
+                "enum": [
+                  "regular",
+                  "high"
+                ],
+                "type": "string",
+                "default": "regular"
+              },
+              "operation": {
+                "enum": [
+                  "editImage"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "ideogram45"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "fal"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "Ideogram45FalImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/FalImageGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "model",
+              "operation",
+              "prompt"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "type": "string"
+              },
+              "prompt": {
+                "maxLength": 10000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "quantity": {
+                "maximum": 8,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 1
+              },
+              "seed": {
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int32"
+              },
+              "quality": {
+                "type": "string",
+                "default": "medium"
+              },
+              "imageSize": {
+                "type": "string"
+              },
+              "width": {
+                "maximum": 16384,
+                "minimum": 256,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "description": "Custom dimensions override imageSize. Set width and height together.",
+                "format": "int32"
+              },
+              "height": {
+                "maximum": 16384,
+                "minimum": 256,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int32"
+              },
+              "model": {
+                "enum": [
+                  "ideogram45"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "fal"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "operation",
+              "mapping": {
+                "createImage": "#/components/schemas/Ideogram45CreateFalImageGenInput",
+                "editImage": "#/components/schemas/Ideogram45EditFalImageGenInput"
+              }
+            }
           }
         ]
       },
@@ -30431,6 +30950,52 @@
           }
         },
         "additionalProperties": false
+      },
+      "MingAIToolkitTrainingInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AIToolkitTrainingInput"
+          },
+          {
+            "required": [
+              "defaultSteps",
+              "ecosystem",
+              "engine"
+            ],
+            "type": "object",
+            "properties": {
+              "defaultSteps": {
+                "type": "integer",
+                "format": "int32",
+                "readOnly": true
+              },
+              "ecosystem": {
+                "enum": [
+                  "ming"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "ai-toolkit"
+                ],
+                "type": "string"
+              },
+              "batchSize": {
+                "maximum": 1,
+                "minimum": 1,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "description": "Training batch size. Fixed at 1 for this ecosystem.",
+                "default": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "AI Toolkit LoRA training for Ming Image 0.1 Design."
       },
       "MiniMaxH3AIToolkitTrainingInput": {
         "allOf": [
@@ -34992,6 +35557,28 @@
           }
         ]
       },
+      "PreprocessVideoGrayInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PreprocessVideoInput"
+          },
+          {
+            "required": [
+              "kind"
+            ],
+            "type": "object",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "gray"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
       "PreprocessVideoHedInput": {
         "allOf": [
           {
@@ -35053,9 +35640,49 @@
             "mlsd": "#/components/schemas/PreprocessVideoMlsdInput",
             "depth-anything-v2": "#/components/schemas/PreprocessVideoDepthAnythingV2Input",
             "hed": "#/components/schemas/PreprocessVideoHedInput",
-            "dwpose": "#/components/schemas/PreprocessVideoDwPoseInput"
+            "dwpose": "#/components/schemas/PreprocessVideoDwPoseInput",
+            "scribble": "#/components/schemas/PreprocessVideoScribbleInput",
+            "gray": "#/components/schemas/PreprocessVideoGrayInput",
+            "layout": "#/components/schemas/PreprocessVideoLayoutInput"
           }
         }
+      },
+      "PreprocessVideoLayoutInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PreprocessVideoInput"
+          },
+          {
+            "required": [
+              "kind"
+            ],
+            "type": "object",
+            "properties": {
+              "threshold": {
+                "type": "number",
+                "format": "double",
+                "default": 0.5
+              },
+              "className": {
+                "type": "string",
+                "description": "A COCO class name, or \"all\" to keep every detected class.",
+                "default": "all"
+              },
+              "maxDetections": {
+                "type": "integer",
+                "format": "int32",
+                "default": 10
+              },
+              "kind": {
+                "enum": [
+                  "layout"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
       },
       "PreprocessVideoMlsdInput": {
         "allOf": [
@@ -35104,6 +35731,35 @@
           }
         },
         "additionalProperties": false
+      },
+      "PreprocessVideoScribbleInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PreprocessVideoInput"
+          },
+          {
+            "required": [
+              "kind"
+            ],
+            "type": "object",
+            "properties": {
+              "threshold": {
+                "maximum": 64,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 32
+              },
+              "kind": {
+                "enum": [
+                  "scribble"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
       },
       "PreprocessVideoStep": {
         "allOf": [
@@ -35761,6 +36417,52 @@
             "additionalProperties": false
           }
         ]
+      },
+      "Qwen21AIToolkitTrainingInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AIToolkitTrainingInput"
+          },
+          {
+            "required": [
+              "defaultSteps",
+              "ecosystem",
+              "engine"
+            ],
+            "type": "object",
+            "properties": {
+              "defaultSteps": {
+                "type": "integer",
+                "format": "int32",
+                "readOnly": true
+              },
+              "ecosystem": {
+                "enum": [
+                  "qwen21"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "ai-toolkit"
+                ],
+                "type": "string"
+              },
+              "batchSize": {
+                "maximum": 1,
+                "minimum": 1,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "description": "Training batch size. Fixed at 1 for this ecosystem.",
+                "default": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "AI Toolkit LoRA training for Qwen Image 2.1."
       },
       "Qwen2CreateFalImageGenInput": {
         "allOf": [
@@ -37017,6 +37719,20 @@
           },
           "availability": {
             "$ref": "#/components/schemas/ResourceAvailability"
+          },
+          "isPromoted": {
+            "type": [
+              "null",
+              "boolean"
+            ],
+            "description": "Promoted resources download in the High lane for free, whatever lane the job asked for."
+          },
+          "evictable": {
+            "type": [
+              "null",
+              "boolean"
+            ],
+            "description": "When false, workers keep the cluster's last copy of this resource rather than evicting it."
           }
         },
         "additionalProperties": false,
@@ -38552,6 +39268,166 @@
         ],
         "description": "Input for evaluating arbitrary site text with Shieldstral."
       },
+      "SoniloAudioGenInput": {
+        "required": [
+          "operation",
+          "prompt"
+        ],
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": "music"
+          },
+          "prompt": {
+            "maxLength": 2000,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Text-to-audio via Sonilo; `operation` picks music or a standalone sound effect.",
+        "discriminator": {
+          "propertyName": "operation",
+          "mapping": {
+            "music": "#/components/schemas/SoniloMusicInput",
+            "soundEffect": "#/components/schemas/SoniloSoundEffectInput"
+          }
+        }
+      },
+      "SoniloAudioGenOutput": {
+        "required": [
+          "blob"
+        ],
+        "type": "object",
+        "properties": {
+          "blob": {
+            "$ref": "#/components/schemas/AudioBlob"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SoniloAudioGenStep": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStep"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/SoniloAudioGenInput"
+              },
+              "output": {
+                "$ref": "#/components/schemas/SoniloAudioGenOutput"
+              },
+              "$type": {
+                "enum": [
+                  "soniloAudioGen"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Generate music or a standalone sound effect from a text prompt with Sonilo."
+      },
+      "SoniloAudioGenStepTemplate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStepTemplate"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/SoniloAudioGenInput"
+              },
+              "$type": {
+                "enum": [
+                  "soniloAudioGen"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Generate music or a standalone sound effect from a text prompt with Sonilo."
+      },
+      "SoniloMusicInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SoniloAudioGenInput"
+          },
+          {
+            "required": [
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "duration": {
+                "maximum": 360,
+                "minimum": 5,
+                "type": "integer",
+                "description": "Track length in seconds. Sonilo bills a minimum of 10 seconds.",
+                "format": "int32",
+                "default": 90
+              },
+              "operation": {
+                "enum": [
+                  "music"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Generate a music track. Style, mood, instrumentation, lyrics and tempo are inferred from the prompt."
+      },
+      "SoniloSoundEffectInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SoniloAudioGenInput"
+          },
+          {
+            "required": [
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "duration": {
+                "maximum": 180,
+                "minimum": 0.5,
+                "type": "number",
+                "description": "Effect length in seconds. Sonilo bills a minimum of 3 seconds.",
+                "format": "double",
+                "default": 8
+              },
+              "operation": {
+                "enum": [
+                  "soundEffect"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Generate a standalone sound effect, e.g. \"heavy wooden door creaking open in a stone hallway\"."
+      },
       "Sora2ImageToVideoInput": {
         "allOf": [
           {
@@ -39535,7 +40411,7 @@
               "null",
               "string"
             ],
-            "description": "Storage tier holding the blob; null means the default tier."
+            "description": "Storage tier holding the blob; null when none was declared."
           }
         },
         "additionalProperties": false
@@ -45469,6 +46345,7 @@
             "promptEnhancement": "#/components/schemas/PromptEnhancementStep",
             "qwenImageBench": "#/components/schemas/QwenImageBenchStep",
             "shieldstralModeration": "#/components/schemas/ShieldstralModerationStep",
+            "soniloAudioGen": "#/components/schemas/SoniloAudioGenStep",
             "textToImage": "#/components/schemas/TextToImageStep",
             "textToSpeech": "#/components/schemas/TextToSpeechStep",
             "training": "#/components/schemas/TrainingStep",
@@ -45841,6 +46718,7 @@
             "promptEnhancement": "#/components/schemas/PromptEnhancementStepTemplate",
             "qwenImageBench": "#/components/schemas/QwenImageBenchStepTemplate",
             "shieldstralModeration": "#/components/schemas/ShieldstralModerationStepTemplate",
+            "soniloAudioGen": "#/components/schemas/SoniloAudioGenStepTemplate",
             "textToImage": "#/components/schemas/TextToImageStepTemplate",
             "textToSpeech": "#/components/schemas/TextToSpeechStepTemplate",
             "training": "#/components/schemas/TrainingStepTemplate",
@@ -46555,8 +47433,61 @@
         ],
         "description": "Input for evaluating site text content against XGuard moderation policies."
       },
+      "YuE2AIToolkitTrainingInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AIToolkitTrainingInput"
+          },
+          {
+            "required": [
+              "defaultSteps",
+              "ecosystem",
+              "engine"
+            ],
+            "type": "object",
+            "properties": {
+              "samplesOverrides": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/YuE2SampleOverride"
+                }
+              },
+              "defaultSteps": {
+                "type": "integer",
+                "format": "int32",
+                "readOnly": true
+              },
+              "ecosystem": {
+                "enum": [
+                  "yue2"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "ai-toolkit"
+                ],
+                "type": "string"
+              },
+              "batchSize": {
+                "maximum": 1,
+                "minimum": 1,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "description": "Training batch size. Fixed at 1 for this ecosystem.",
+                "default": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "YuE2 music LoRA training. Audio captions contain style followed by [Lyrics] and lyrics."
+      },
       "YuE2Input": {
         "required": [
+          "loras",
           "lyrics",
           "mode",
           "seed",
@@ -46615,6 +47546,14 @@
               "string"
             ],
             "description": "Optional YuE2 checkpoint override containing the model, text encoder, and audio VAE."
+          },
+          "loras": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number",
+              "format": "double"
+            },
+            "description": "Optional LoRAs for both YuE2 experts."
           }
         },
         "additionalProperties": false,
@@ -46632,6 +47571,50 @@
         },
         "additionalProperties": false,
         "description": "Output from YuE2 generation."
+      },
+      "YuE2SampleOverride": {
+        "type": "object",
+        "properties": {
+          "lyrics": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "duration": {
+            "maximum": 360,
+            "minimum": 0.03999999910593033,
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "float"
+          },
+          "steps": {
+            "maximum": 100,
+            "minimum": 1,
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "mode": {
+            "pattern": "^(full|melody|off)$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "abc": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "description": "Optional overrides aligned with Samples.Prompts."
       },
       "YuE2Step": {
         "allOf": [
