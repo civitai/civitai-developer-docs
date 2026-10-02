@@ -391,7 +391,8 @@ function BuyButton({ goodId, priceBuzz }: { goodId: string; priceBuzz: number })
     try {
       await purchase(
         { goodId, expectedPriceBuzz: priceBuzz },
-        { idempotencyKey: `buy:${goodId}:${attemptId}`, topUpOnInsufficientFunds: true },
+        // `-` joins the parts, never `:` — see the charset callout below.
+        { idempotencyKey: `buy-${goodId}-${attemptId}`, topUpOnInsufficientFunds: true },
       );
       refetch();
       return;
@@ -431,6 +432,44 @@ function BuyButton({ goodId, priceBuzz }: { goodId: string; priceBuzz: number })
   return <button disabled={loading} onClick={onBuy}>Buy for {priceBuzz} Buzz</button>;
 }
 ```
+
+::: danger The idempotency key's charset is validated — `^[A-Za-z0-9_-]{1,64}$`
+The idempotency refusals in the tables above are all about the *meaning* of your
+key. This one is about its *spelling*, and it lands before any of them:
+**letters, digits, `_` and `-` only, 1 to 64 characters.** The purchase route
+validates its body first, so a key outside that class is refused with a plain
+**`400`** —
+
+```json
+{ "error": "Invalid request body",
+  "details": {
+    "formErrors": [],
+    "fieldErrors": {
+      "idempotencyKey": ["Invalid string: must match pattern /^[A-Za-z0-9_-]{1,64}$/"]
+    } } }
+```
+
+— and note what that envelope does **not** have: no `reason`, and none of the
+`code` values from the tables above, because the request never reaches the
+purchase logic. So a `switch` on `err.reason` cannot see this, and neither can
+one on the scope `code`. Nothing is charged and no entitlement moves; the
+purchase simply never happens.
+
+🔴 **The colon is excluded on purpose**, so swapping it for `.` or `/` does not
+help — those are outside the class too. The host joins the parts of its internal
+per-viewer / per-app dedupe and rate-limit keys with `:`, and those joins stay
+unambiguous only while none of the parts can contain one; your key is a part.
+Join with **`-`** or `_`, as the example above does.
+
+The **64** bound exists because the host derives a longer downstream identifier
+from your key, against a 128-character ceiling it does not control.
+
+The same charset applies to `useTip().tip()` and to the generation
+`submit()` bag — note that `React.useId()` is **not** a usable key on any of
+them: it returns a colon-wrapped value such as `:R0:`. `crypto.randomUUID()`
+is fine. Full rationale:
+[`idempotencyKey` — the validated charset](../reference/generation#idempotency-key-charset).
+:::
 
 ---
 
