@@ -44,7 +44,7 @@ attributable.
 |---|---|---|---|---|
 | **Digital goods** | The viewer buys a `goods` entry you declared in your manifest | Viewer's Buzz → you | **Immediately**, on the purchase | Everything: which goods exist, their `priceBuzz`, whether they are `good` or `app_unlock` |
 | **Per-generation author fee** | Your app runs a generation for a viewer | Viewer's Buzz → you | **Daily**, as one credit per currency | **Nothing yet.** Platform defaults apply to every app, including yours |
-| **Fiat Buzz rev share** | The viewer buys Buzz with a card *inside your block* | Card payment → platform → **accrued against your app** | 🔴 **Not at all today.** Your share is recorded and stops there — no code path disburses it. See [Rail 3](#rail-3-the-fiat-buzz-rev-share) before you price for this | Nothing. The rate is a platform rate card |
+| **Fiat Buzz rev share** | The viewer buys Buzz with a card *inside your block* | Card payment → platform → **accrued against your app** | 🔴 **Not at all today.** Your share is recorded and stops there — no code path disburses it. See [Rail 3](#rail-3) before you price for this | Nothing. The rate is a platform rate card |
 
 Two things that look like earning rails and are not:
 
@@ -126,7 +126,7 @@ your app can price its way out of.
 A viewer's install can be **pinned to an older approved version** of your block.
 The purchase path does not follow that pin: it resolves the good and its price
 from your **latest approved manifest**, while the pinned iframe is still rendering
-the catalog of the version it is pinned to. Two consequences, both live today:
+the catalog of the version it is pinned to. Consequences, all live today:
 
 - **The price charged can differ from the price displayed.** Sending
   `expectedPriceBuzz` catches this — the purchase is refused `price_changed`
@@ -136,16 +136,22 @@ the catalog of the version it is pinned to. Two consequences, both live today:
 - **A good you added in a newer version is buyable from an older one.** A pinned
   viewer was never shown that good, and nothing refuses the purchase on those
   grounds.
+- **A good you removed or renamed is still on screen, and its buy button is
+  dead.** The pinned catalog still lists it; the purchase path cannot find it in
+  your latest approved manifest, so it answers the bare `404` in the no-`reason`
+  table below. Render that refusal as "no longer available", not as an error.
 
 🔴 **The obvious `price_changed` remedy does not terminate here.** "Re-read the
 catalog and show the new price" assumes a re-read returns the new price; on a
 pinned install the re-read returns the **pinned** price again, so a UI that
-re-reads and re-submits loops indefinitely on the same refusal. **Take the new
-price from the refusal itself** — its message names the price the server resolved
-— present *that* to the viewer, and re-submit at most once, with a fresh
-idempotency key (a new price is a new payload, so reusing the old key is refused
-as a payload mismatch). If a second `price_changed` arrives for the same good,
-stop and surface it rather than retrying again.
+re-reads and re-submits loops indefinitely on the same refusal. The refusal is
+not retryable and you cannot read the server's price out of a structured field —
+only the viewer-facing `message` names it, and that copy can be reworded. So
+**bound it**: show the refusal's own message verbatim, ask the viewer to confirm
+once, re-submit at most once with a **fresh** idempotency key (a changed price is
+a changed payload, and a key is pinned to one payload — reusing it is refused
+`422`), and if a second `price_changed` arrives for the same good, stop and
+surface it instead of trying a third time.
 
 ::: tip The share is a policy coincidence, not a constant alias
 `BLOCK_GOOD_APP_OWNER_SHARE` is deliberately **not** an alias of the cosmetic
@@ -257,17 +263,14 @@ reversed.
 **You cannot earn this fee from yourself.** If the viewer running the generation
 is the app owner, the fee is refused before any money moves.
 
-The goods rail refuses the equivalent purchase, but **the two rails do not share
-a predicate.** They are independent checks, resolved separately on each rail, that
-agree on the owner-is-the-viewer case and are not otherwise equivalent — the
-author-fee check additionally refuses a **private run**, where a delisted or
-suspended app's bundle is served to its owner or a moderator so a takedown can be
-diagnosed or appealed. So a behaviour you measured on one rail does not transfer
-to the other; if it matters to your app, test both.
+The goods rail refuses the equivalent purchase, but it does so by **its own
+independent check** — there is no shared predicate, and the two are not otherwise
+equivalent (this one also refuses a *private run*, where a delisted app's bundle
+is served for review). Don't assume parity; if it matters to your app, test both.
 
 ---
 
-## Rail 3 — the fiat Buzz rev share
+## Rail 3 — the fiat Buzz rev share {#rail-3}
 
 When a viewer buys Buzz **with a card, inside your block**, the platform records
 a `block_buzz_attribution` row against your app and you are owed a share of the
@@ -275,20 +278,21 @@ payment. This is the rail that runs in the opposite direction to goods: the
 viewer's balance goes **up**.
 
 ::: danger Nothing on this rail is paid out today. Read this before pricing for it
-Both legs of this rail **record** what you are owed and stop there. **No code
-path disburses a recorded row, and none is queued behind one.** The purchase
-leg's rows reach a state that is terminal in practice; the membership leg's rows
-are deliberately written *unrated* and cannot be priced at all until a rate is
-signed off by Civitai's monetization leadership, which has not happened. The
-platform's own source describes the payout as a thing to **build**, not a thing
-to switch on.
+This rail **records** what you are owed and stops there. **No code path
+disburses a recorded row, and none is queued behind one.** The Buzz-purchase leg's
+rows reach a state that is terminal in practice; the membership leg's rows are
+deliberately written *unrated* and cannot be priced at all until a rate is signed
+off by Civitai's monetization leadership, which has not happened. The platform's
+own source describes the payout as a thing to **build**, not a thing to switch on.
 
 That matters more than it looks, because **the accrual is shown to you.** Your
 app's revenue panel renders the purchase leg's rows in a `Confirmed (unpaid)`
 bucket whose number can be non-zero, and the panel's own tooltip says the same
-thing this callout does: *"This amount accrues; automated payouts are not yet
-enabled."* It is an accrual, not a balance, and not a receivable with a date on
-it. **Do not price, forecast, or promise anything against it.**
+thing this callout does — *"…This amount accrues; automated payouts are not yet
+enabled."* The `Paid out` bucket beside it is not pending, either: nothing in
+production writes that state, so its zero is structural. What you are looking at
+is an accrual, not a balance, and not a receivable with a date on it. **Do not
+price, forecast, or promise anything against it.**
 
 Everything below describes what is *recorded* — the surfaces, the percentages,
 the immutability rule. None of it is a payment schedule.
@@ -310,8 +314,9 @@ currently attributes at 0%.** The zero is a deliberate placeholder — page
 revenue is treated as largely platform-counterfactual — and raising it needs a
 new rate card, not a code change on your side.
 
-Mechanics worth knowing — and note that the rail's **two legs are rated at
-different times**, so a statement about one is not a statement about the other:
+Mechanics worth knowing — and note that the **Buzz-purchase leg and the
+membership leg are rated at different times**, so a statement about one is not a
+statement about the other:
 
 - **A Buzz purchase is rated at WRITE time.** The row stamps both the rate-card
   version *and* your share, computed from the net, at the moment it is written.
@@ -387,7 +392,7 @@ other:
 | `reason` | Status | Charged? | Retryable | What your app should do |
 |---|---|---|---|---|
 | `price_over_cap` | `400` | `none` | no | The approved price exceeds the platform ceiling. Ship a new version at a legal price |
-| `price_changed` | `409` | `none` | no | Your UI showed a stale price. Take the new price from the refusal **message**, re-confirm with the viewer, and re-submit once with a fresh key. 🔴 Do **not** loop on re-reading the catalog — on a pinned install that returns the stale price forever; see [the pinned-install caveat](#a-pinned-install-can-be-charged-a-price-it-was-never-shown) |
+| `price_changed` | `409` | `none` | no | Your UI showed a stale price. Show the refusal's `message` verbatim, re-confirm with the viewer, re-submit **once** with a fresh key. 🔴 Do **not** loop on re-reading the catalog — on a pinned install that returns the stale price forever; see [the pinned-install caveat](#a-pinned-install-can-be-charged-a-price-it-was-never-shown) |
 | `self_purchase` | `400` | `none` | no | The buyer is the app owner. Never retryable — see the callout above |
 | `already_owned` | `409` | `none` | no | The viewer already holds a live entitlement. Re-read entitlements and render the owned state |
 | `insufficient_funds` | `400` | `none` | **yes** | Offer a top-up. A retry after the viewer buys Buzz genuinely can succeed |
@@ -467,28 +472,36 @@ function BuyButton({ goodId, priceBuzz }: { goodId: string; priceBuzz: number })
       refetch();
       return;
     } catch (err) {
+      // 🔴 ONE place decides whether the key survives, so no branch below — the
+      // `default` included — can leave a stale one behind. Keep it only while the
+      // NEXT attempt would send the identical payload and could still land;
+      // everything else is over, or needs a different payload, and a key is
+      // pinned to one payload (reuse → 422).
+      const willRetryIdentical =
+        err instanceof GoodPurchaseRefusal
+          ? err.reason === 'charge_unknown' || err.reason === 'charge_failed'
+          : true;                        // transport failure: the charge may have landed
+      if (!willRetryIdentical) keyRef.current = null;
+
       // A refusal the server produced deliberately, as opposed to a transport failure.
       if (err instanceof GoodPurchaseRefusal) {
         switch (err.reason) {
           case 'already_owned':
           case 'duplicate':
-            keyRef.current = null;           // this purchase is over
             refetch();                       // they have it — render the owned state
             return;
           case 'price_changed':
-            // A new price is a NEW payload, so it needs a NEW key — reusing this
-            // one is refused 422. Take the price from the message, not a re-read.
-            keyRef.current = null;
-            showStalePriceNotice(err.message); // re-confirm at the new price
+            // Show this copy verbatim — the new price is only in the message. The
+            // re-confirmed price has to reach the next submit as state or a prop;
+            // this example stops at notifying, deliberately.
+            showStalePriceNotice(err.message);
             return;
           case 'self_purchase':
-            keyRef.current = null;
             showOwnerNotice();               // never retryable
             return;
           case 'charge_unknown':
-            // Buzz may have moved. Retry with the SAME idempotencyKey — so this
-            // branch deliberately does NOT clear keyRef. Never present this as a
-            // clean failure.
+            // Buzz may have moved. Retry under the SAME key — which is why the
+            // decision above keeps it. Never present this as a clean failure.
             showUncertainNotice(err.message);
             return;
           default:
@@ -509,28 +522,31 @@ function BuyButton({ goodId, priceBuzz }: { goodId: string; priceBuzz: number })
 }
 ```
 
-::: danger The key identifies the PURCHASE, not the attempt
-`idempotencyKey` is **a stable key for one logical purchase**, which is why the
-example mints it once and holds it in a ref. If you derive it from an attempt
-counter, a timestamp, a render, or anything else that changes per try, then every
-retry carries a *new* key, the server has nothing to match the first attempt
-against, and the replay path can never fire. The case this page tells you to retry
-— `charge_unknown`, where Buzz may already have moved — then becomes a
-**double-charge risk** rather than a safe repeat. One purchase, one key, for as
-long as that purchase is unresolved.
+::: tip The key identifies the PURCHASE, not the attempt
+`idempotencyKey` is **a stable key for one logical purchase** — the SDK's own type
+says so — which is why the example mints it once and holds it in a ref rather than
+deriving it from an attempt counter, a timestamp or a render. What a stable key
+buys you is narrow and worth knowing exactly: for a short window after a purchase
+settles, a retry under the same key **replays that first verdict verbatim** instead
+of mounting a second attempt, and a retry while the first attempt is still in
+flight is refused `409` instead of racing it. A key that changes per attempt gets
+neither.
+
+What it does **not** buy you is the protection against double-charging. That comes
+from a server-side transaction id the platform derives deterministically from the
+purchase itself, with no randomness and no client key in it — which is also why
+`charge_unknown` is marked retryable here even though Buzz may have moved, and why
+your retry on that path is refused `pending_reconciliation` rather than charging
+again. **So do not read a per-attempt key as a double-charge bug; read it as
+giving up the replay and the `409`.**
 
 **Do not build the key out of your `goodId` either.** A good id may be up to 64
 characters on its own, and the key is validated at `1..64` **in total** (callout
 below), so `` `buy-${goodId}-…` `` can be refused `400` on nothing but length —
 and it fails for your longest-named goods only, which is exactly the shape that
-survives testing. The `goodId` is already in the purchase payload, and a key is
-pinned to that payload's fingerprint, so it buys you no uniqueness. A prefixed
+survives testing. The `goodId` is already in the purchase payload, and the key is
+pinned to that payload, so repeating it in the key buys no uniqueness. A prefixed
 `crypto.randomUUID()` is 40 characters and safe at any good id.
-
-The flip side is **rotating it when the purchase genuinely changes**: a
-`price_changed` re-confirmation is a *different* payload, so it needs a new key —
-reusing the old one is refused `422`. The example clears the ref on every terminal
-outcome and deliberately keeps it on `charge_unknown`.
 :::
 
 ::: danger The idempotency key's charset is validated — `^[A-Za-z0-9_-]{1,64}$`
