@@ -265,8 +265,9 @@ is the app owner, the fee is refused before any money moves.
 
 The goods rail refuses the equivalent purchase, but it does so by **its own
 independent check** — there is no shared predicate, and the two are not otherwise
-equivalent (this one also refuses a *private run*, where a delisted app's bundle
-is served for review). Don't assume parity; if it matters to your app, test both.
+equivalent: the author-fee check additionally refuses a *private run*, where a
+delisted or suspended app's bundle is served for review. Don't assume parity; if
+it matters to your app, test both.
 
 ---
 
@@ -472,16 +473,20 @@ function BuyButton({ goodId, priceBuzz }: { goodId: string; priceBuzz: number })
       refetch();
       return;
     } catch (err) {
-      // 🔴 ONE place decides whether the key survives, so no branch below — the
-      // `default` included — can leave a stale one behind. Keep it only while the
-      // NEXT attempt would send the identical payload and could still land;
-      // everything else is over, or needs a different payload, and a key is
-      // pinned to one payload (reuse → 422).
-      const willRetryIdentical =
-        err instanceof GoodPurchaseRefusal
-          ? err.reason === 'charge_unknown' || err.reason === 'charge_failed'
-          : true;                        // transport failure: the charge may have landed
-      if (!willRetryIdentical) keyRef.current = null;
+      // 🔴 ONE place decides whether the key survives, and KEEPING it is the safe
+      // default: an unknown, in-flight or malformed outcome is exactly where a
+      // fresh key costs you the replay and the 409 guard, and the server already
+      // frees the key itself on any outcome it calls transient. So only discard it
+      // where this purchase is finished, or where the next attempt MUST carry a
+      // different payload — a key is pinned to one payload, and reuse is `422`.
+      const needsNewKey =
+        err instanceof GoodPurchaseRefusal &&
+        (err.status === 422 ||              // the key outlived the payload it was pinned to
+          err.reason === 'price_changed' || // a new price is a new payload
+          err.reason === 'already_owned' ||
+          err.reason === 'duplicate' ||
+          err.reason === 'self_purchase');  // this purchase is over
+      if (needsNewKey) keyRef.current = null;
 
       // A refusal the server produced deliberately, as opposed to a transport failure.
       if (err instanceof GoodPurchaseRefusal) {
@@ -500,8 +505,10 @@ function BuyButton({ goodId, priceBuzz }: { goodId: string; priceBuzz: number })
             showOwnerNotice();               // never retryable
             return;
           case 'charge_unknown':
-            // Buzz may have moved. Retry under the SAME key — which is why the
-            // decision above keeps it. Never present this as a clean failure.
+            // Buzz may have moved, so the key is kept by the default above. Note
+            // the retry does not complete the purchase — it is walled at
+            // `pending_reconciliation`, which is a state a human can act on.
+            // Never present this as a clean failure.
             showUncertainNotice(err.message);
             return;
           default:
