@@ -2,8 +2,8 @@
 title: Generation bridge reference
 description: The field-level generation contract — the WorkflowBody union, the useBuzzWorkflow lifecycle (incl. cancel), and the BlockWorkflowSnapshot result — generated from the published SDK type JSDoc.
 sources:
-  - npm:@civitai/app-sdk@0.54.0/blocks#WorkflowBody
-  - npm:@civitai/blocks-react@0.61.1#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.55.0/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.63.0#useBuzzWorkflow
 ---
 
 # Generation bridge reference
@@ -204,7 +204,7 @@ Optional per-submit controls.
 
 | Field | Type | Notes |
 |---|---|---|
-| `idempotencyKey?` | `string` | A STABLE idempotency key for this logical submit. Reuse the SAME value when RETRYING a submit whose response was lost (timeout / network drop) so the host+orchestrator collapse it to ONE Buzz charge instead of double-charging. Omit → the hook generates a fresh key per `submit()` call (each call is a new logical submit); pass a stable id (e.g. a grid-cell id) to make a retry safe. 🔴 THIS IS THE FIELD THAT MAKES A RETRY AFTER A `'workflow-failed'` REJECTION SAFE. That code means a workflow probably exists and its spend may already be committed server-side; retrying WITHOUT reusing the key mints a fresh one and therefore a SECOND reservation. See {@link WorkflowSubmitError.code}. The SDK's own automatic consent retry obeys this: whichever value ends up here — yours, or the one `submit()` mints — is the value BOTH of its attempts carry. So an error you receive may already be a second attempt's; if you then retry a third time by hand, reuse this key for that too. |
+| `idempotencyKey?` | `string` | A STABLE idempotency key for this logical submit. Reuse the SAME value when RETRYING a submit whose response was lost (timeout / network drop) so the host+orchestrator collapse it to ONE Buzz charge instead of double-charging. Omit → the hook generates a fresh key per `submit()` call (each call is a new logical submit); pass a stable id (e.g. a grid-cell id) to make a retry safe. 🔴 THIS IS THE FIELD THAT MAKES A RETRY AFTER A `'workflow-failed'` REJECTION SAFE. That code means a workflow probably exists and its spend may already be committed server-side; retrying WITHOUT reusing the key mints a fresh one and therefore a SECOND reservation. See {@link WorkflowSubmitError.code}. The SDK's own automatic consent retry obeys this: whichever value ends up here — yours, or the one `submit()` mints — is the value BOTH of its attempts carry. So an error you receive may already be a second attempt's; if you then retry a third time by hand, reuse this key for that too. 🔴 **FORMAT: `^[A-Za-z0-9_-]{1,64}$` — letters, digits, `_` and `-` only, at most 64 characters, and NO COLONS.** The host rejects anything else before the procedure runs: `BAD_REQUEST` / **400** on `blocks.submitWorkflow`, with `{"code":"invalid_format","pattern":"/^[A-Za-z0-9_-]{1,64}$/","path":["idempotencyKey"]}`. So a composite key like `sheetId:panelId:nonce` fails every time — that is the exact value that broke a shipped app, with 201 local tests green. The colon is excluded deliberately, not cosmetically: the host composes its per-`(user, app, key)` dedupe key with `:` as the delimiter and relies on the key being colon-free for that to stay injective. The 64 bound is derived from the orchestrator's 128-char `externalId` ceiling, which the host builds by substringing this key. 🔴 A key that fails this is **REFUSED before anything is sent**, with `InvalidIdempotencyKeyError` — nothing was sent and nothing was spent, which is why it is NOT a {@link WorkflowSubmitError} (every code on that class is money-ambiguous by design). The key is never sanitised for you: rewriting an idempotency key would break the identity it exists to carry — two distinct logical submits could collapse onto one slot, or a retry could be normalised differently from its first attempt and mint a SECOND reservation. Validate with `isValidBlockIdempotencyKey` from `@civitai/app-sdk/blocks` if you compose keys dynamically. |
 
 **`WatchWorkflowOptions`** — object
 
@@ -588,10 +588,11 @@ export function useRetryableSubmit() {
   const { submit } = useBuzzWorkflow();
 
   // ONE logical submit → ONE stable key, reused by every retry of it.
+  // `-` is the separator, not `:` — a colon fails the charset below.
   return async (body: WorkflowBody, cellId: string) => {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        return await submit(body, { idempotencyKey: `gen:${cellId}` });
+        return await submit(body, { idempotencyKey: `gen-${cellId}` });
       } catch (err) {
         if (attempt === 2) throw err;
       }
@@ -614,6 +615,59 @@ of the other. Key it to the unit of work the user asked for. When in doubt, omit
 the option: the hook's per-call key is the safe default, and only a retry needs
 to opt out of it.
 :::
+
+### `idempotencyKey` — the validated charset {#idempotency-key-charset}
+
+🔴 **`^[A-Za-z0-9_-]{1,64}$`.** Letters, digits, `_` and `-`, 1 to 64
+characters — and the host validates it on the way in, before the whatIf
+preflight prices anything. A key outside that class is refused:
+
+```json
+{ "code": "invalid_format", "format": "regex",
+  "pattern": "/^[A-Za-z0-9_-]{1,64}$/",
+  "path": ["idempotencyKey"],
+  "message": "Invalid string: must match pattern /^[A-Za-z0-9_-]{1,64}$/" }
+```
+
+returned as `BAD_REQUEST` / **`400`**. Because validation runs first, nothing is
+queued and nothing is charged — a block that composes keys outside the class
+never generates at all, rather than generating and double-charging.
+
+The **same** charset governs every idempotency key the platform accepts, on all
+four surfaces that take one: the `useBuzzWorkflow().submit()` bag documented
+here, the REST `POST /api/v1/blocks/workflows/submit` body (where the field is
+**required**, not optional), `useGoodPurchase().purchase()`, and
+`useTip().tip()`.
+
+The payload above is what the bridge path returns. The three **REST** routes
+validate the same pattern but report it in their own envelope — a `400` with
+`{ "error": "Invalid request body", "details": { "fieldErrors": {
+"idempotencyKey": [ … ] } } }` — so branch on the status, not on a shared
+error body.
+
+**Why the colon specifically is out.** It is excluded on purpose, and knowing
+why is what stops you reaching for `.` or `/` instead. The host composes its
+internal per-viewer / per-app dedupe and rate-limit keys by joining their parts
+with `:`. Those joins are unambiguous **only** while none of the parts can
+themselves contain a colon — your key is one of the parts, so a colon-bearing
+key could cross into a neighbouring key's namespace. Every other separator
+outside `[A-Za-z0-9_-]` is rejected for the same reason the class is closed:
+`-` and `_` are the two you have. Concatenate with those.
+
+**Why 64.** The host derives the orchestrator-side identifier for the run from
+your key plus a short prefix, and the orchestrator enforces its own
+`^[A-Za-z0-9_-]+$` over at most 128 characters. A 64-character ceiling on your
+half keeps the composed identifier inside that in the worst case.
+
+| Key expression | Verdict |
+|---|---|
+| `` `gen-${cellId}` `` | ✅ |
+| `` `buy-${goodId}-${attemptId}` `` | ⚠️ charset-legal, **still wrong twice**: an attempt-varying part defeats the replay the key exists for, and a good id may itself be 64 chars, which breaks the length bound below. Prefer `` `buy-${crypto.randomUUID()}` `` |
+| `crypto.randomUUID()` | ✅ — 36 chars, `[0-9a-f-]` |
+| `` `gen:${cellId}` `` | ❌ `400` — colon |
+| `React.useId()` | ❌ `400` — returns a colon-wrapped id such as `:R0:` |
+| `` `gen.${cellId}` `` / `` `gen/${cellId}` `` | ❌ `400` — `.` and `/` are outside the class |
+| a key longer than 64 chars | ❌ `400` |
 
 ## See also
 

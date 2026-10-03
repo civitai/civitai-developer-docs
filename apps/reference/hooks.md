@@ -2,9 +2,9 @@
 title: Hooks reference
 description: Every @civitai/blocks-react hook — signature and example, generated from the published package.
 sources:
-  - npm:@civitai/blocks-react@0.61.1/dist/index.d.ts
-  - npm:@civitai/blocks-react@0.61.1#README
-  - npm:@civitai/app-sdk@0.54.0/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.63.0/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.63.0#README
+  - npm:@civitai/app-sdk@0.55.0/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
 
@@ -813,12 +813,16 @@ const showRSlider = isLevelAllowed(BrowsingLevel.R);   // false on a SFW domain
 useTip(): UseTip
 ```
 
-Send a Buzz TIP from the viewer through the block-token-gated `POST /api/v1/blocks/tip` REST endpoint (scope `social:tip:self`). Direct-fetch (bypasses the postMessage bridge) against the VALIDATED host origin (`useHostOrigin()`) with the block bearer token (`useBlockToken().raw`) — the same security-reviewed pattern as {@link useGenerationResources}. The SENDER is always the token subject (server self-binds it); the block never supplies a `fromUserId`. IDEMPOTENCY: pass a stable `options.idempotencyKey` to make a retry-after- timeout safe (the server replays the first terminal result). Omitting it mints a fresh key per call, so each call is a distinct logical tip.
+Send a Buzz TIP from the viewer through the block-token-gated `POST /api/v1/blocks/tip` REST endpoint (scope `social:tip:self`). Direct-fetch (bypasses the postMessage bridge) against the VALIDATED host origin (`useHostOrigin()`) with the block bearer token (`useBlockToken().raw`) — the same security-reviewed pattern as {@link useGenerationResources}. The SENDER is always the token subject (server self-binds it); the block never supplies a `fromUserId`. IDEMPOTENCY: pass a stable `options.idempotencyKey` to make a retry-after- timeout safe (the server replays the first terminal result). Omitting it mints a fresh key per call, so each call is a distinct logical tip. 🔴 THE KEY'S FORMAT IS CONSTRAINED — see {@link TipOptions.idempotencyKey}. Letters, digits, `_` and `-` only, at most 64 characters, **no colons**; the host 400s anything else, and this hook now refuses it before the POST. 🔴 THIS EXAMPLE USED TO RECOMMEND `React.useId()`, AND THAT WAS A LIVE DEFECT: `useId()` wraps its value in characters outside the allowed class on most of the React versions this package's peer range admits (`^18.0.0 || ^19.0.0`) — React 18.3.1 returns `":R0:"` and early React 19 a guillemet-wrapped id, both of which 400. (React 19.2.6, resolved in this repo today, happens to return `_r_0_`, which does clear the charset — so the bug was INVISIBLE here while being guaranteed for a consumer on 18.) Anyone copying that line shipped a guaranteed rejection. Prefer a stable id you already have, which is also better idempotency: it is tied to the THING being tipped rather than to a component instance, so it survives a remount.
 
 ```tsx
-const { tip, loading, error } = useTip();
-const key = React.useId(); // stable across this component's retries
-await tip({ toUserId: 123, amount: 50, entityType: 'Image', entityId: 99 }, { idempotencyKey: key });
+// No natural id to hand? Mint one with the SDK's generator and persist it
+// for as long as the logical tip lives. Do NOT post-process `useId()` into
+// shape: rewriting a key is exactly what this SDK refuses to do, because a
+// silently-rewritten key breaks the identity the key exists to carry.
+import { generateIdempotencyKey } from '@civitai/blocks-react';
+const keyRef = React.useRef(generateIdempotencyKey());
+await tip({ toUserId: 123, amount: 50 }, { idempotencyKey: keyRef.current });
 ```
 
 **`useTipAllowance`**
@@ -900,7 +904,7 @@ union keyed by `kind`. The hook forwards the body to the host verbatim and never
 reads member-specific fields, so every member flows through the same
 `estimate → submit → watch` lifecycle shown above.
 
-As of the pinned `@civitai/app-sdk@0.54.0` the union has three `kind` values, and
+As of the pinned `@civitai/app-sdk@0.55.0` the union has three `kind` values, and
 `kind: 'step'` is itself two arms — four members in all:
 
 | `kind` | what it runs | what your block sends |
