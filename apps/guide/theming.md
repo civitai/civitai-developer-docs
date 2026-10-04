@@ -159,7 +159,7 @@ generated from the canonical
 that ships inside `@civitai/components`. **`MARKUP.md` is the source of truth**
 for hand-written markup, and the `@civitai/components` suites assert its rules
 against `components.css` directly. It is **not** what the React bindings render:
-since `@civitai/components-react@0.9.1` those bind the custom elements, which
+since `@civitai/components-react@0.9.0` those bind the custom elements, which
 style themselves in shadow DOM, and the `html-vs-react-parity` test that used to
 compare the two arms retired with the layer it compared.
 
@@ -312,6 +312,14 @@ preference: since `@civitai/theme@0.5.0` the dark values live directly on `:root
 and the stylesheet declares no `prefers-color-scheme` block in either direction.
 Set `data-theme="light"` explicitly if you want the light palette.
 
+Two consequences worth knowing. **Only `light` and `dark` select a token block** —
+any other value selects none and inherits the dark base, so an unguarded
+`root.dataset.theme = payload.theme` writes the string `"undefined"` when
+`BLOCK_INIT`'s optional `theme` is absent and silently lands on dark, where it
+used to follow the OS. And if you were stamping `data-theme` only to stop the
+browser deciding for you, **you can now drop it** — there is no OS-preference
+branch left to pre-empt.
+
 ```html
 <html data-theme="dark">
   <!-- every data-civitai-ui component below renders in the dark palette -->
@@ -362,6 +370,21 @@ that scope:
 Prefer a **token override** (a `--civitai-*` custom property) when you want to
 recolor/respace consistently, and an **unlayered rule** when you need a
 structural change to one component. Both compose cleanly with the layer.
+
+🔴 **But the layer argument covers `@civitai/components`' RULES, not the tokens —
+scope a token override, never declare one at `:root`.** `@civitai/theme`'s token
+sheet carries **no cascade layer at all** (measured: zero `@layer` in
+`@civitai/theme@0.5.2`'s `styles.css`, against three in `@civitai/components`),
+so its `:root` and `[data-theme='…']` blocks sit unlayered at specificity
+`0-1-0`. An app's own `:root { --civitai-color-primary: … }` therefore does not
+outrank them — it **ties**, and the winner is whichever stylesheet comes last.
+With `useBlocksStyles()` injecting from a `useEffect`, that order reliably goes
+against you, and the symptom is a rebrand that silently does nothing. The
+examples above are already safe because each is scoped — the inline
+`style="--civitai-color-primary: …"` on an ancestor, or a class on your block
+root. Keep them that way. The [Components
+reference](../reference/components#cascade--overriding) carries the same warning
+with the per-order measurements.
 
 ## Theming an existing app (retrofit / incremental adoption) {#retrofit}
 
