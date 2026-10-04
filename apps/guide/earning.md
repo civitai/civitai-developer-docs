@@ -115,11 +115,55 @@ blue leg can never exceed the proportional amount.
 | `BLOCK_GOOD_MIN_PRICE_BUZZ` | `2` | Cheapest listable price |
 | `BLOCK_GOOD_MAX_PRICE_BUZZ` | `50_000` | Ceiling on a **single** good, re-checked at purchase time as well as at manifest validation — so an old approved manifest cannot keep charging a price the ceiling has since moved below |
 | `BLOCK_GOOD_MAX_PER_MANIFEST` | `32` | Most goods one manifest may declare |
+| `BLOCK_APP_UNLOCK_MAX_PRICE_BUZZ` | `5_000` | Ceiling on an **`app_unlock`** good — a tenth of the ordinary one. See below |
+| `BLOCK_APP_UNLOCK_MAX_PER_MANIFEST` | `1` | Most `app_unlock` goods one manifest may declare |
+| `BLOCK_GOOD_JUSTIFICATION_MAX_LENGTH` | `500` | A good's review `justification`, measured **after trimming** |
 
 Above your per-good ceiling sits a **per-viewer daily ceiling across every app**.
 A purchase at a perfectly legal price can still be refused because the viewer has
 spent their day's allowance somewhere else, and that refusal is not something
 your app can price its way out of.
+
+### Charging for access to the app itself
+
+A good declared `kind: "app_unlock"` means "this buys admission", as opposed to
+the default `"good"`, which buys something *inside* your app. The two are sold
+through the same rail, at the same 70/30 split, and recorded in the same ledger.
+
+🔴 **It is not enforced yet. Selling one does not paywall your app.** No access
+gate reads the value today, so an `app_unlock` entitlement is recorded like any
+other and every viewer still gets in. Declaring it is how you get a catalog the
+gate can read the day it lands, without a migration — it is **not** a way to
+charge for access now. If you ship one before then, say so plainly in your
+listing; a store page implying a paywall that does not exist is the one way this
+field can cost you a buyer's trust.
+
+What it does change today is **three manifest-time rules**, all enforced by the
+submit-time validator and deliberately *not* expressed in the JSON Schema — so
+each one validates offline and is rejected at submit:
+
+| Rule | Why it is tighter than an ordinary good |
+|---|---|
+| `priceBuzz` ≤ **5000**, not 50000 | An unlock is bought *before* the viewer has used your app, so it is capped at a single Buzz tip and at the smallest top-up |
+| **At most one** per manifest | "Is this viewer admitted?" is one question and must have exactly one answer |
+| `justification` is **mandatory** | Adding one turns a free app into a paid app, and a moderator has to be told why |
+
+The `justification` is review metadata: 1–500 characters measured after
+trimming, shown to the moderator and **never to the viewer**, and — unlike
+`payload` — never copied onto the entitlement. The platform records your claim
+without verifying it.
+
+It exists because your **permission set does not move** when you start charging.
+Declaring any `goods` catalog already requires
+[`goods:purchase:self`](../reference/scopes) — including a catalog whose only
+entry is an `app_unlock` — and that scope is declared once. So an app already
+selling ordinary items can begin charging for admission with its scopes
+unchanged; the `justification` is what makes that visible at review.
+
+🔴 **You cannot buy your own app's goods.** A purchase by the app owner is
+refused `self_purchase` (400, `charge: 'none'`, `retryable: false`), so testing
+an unlock end-to-end needs a second account — being signed in with enough Buzz
+is not sufficient.
 
 ### A pinned install can be charged a price it was never shown
 

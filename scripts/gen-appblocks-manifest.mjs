@@ -25,6 +25,7 @@
 // No zod-to-json-schema — the source is already JSON Schema.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { log, outDir, resolvePackageRoot, snapshotsDir } from './appblocks-util.mjs';
 
 // The SDK declares only an `import` condition and does not expose the schema
@@ -33,11 +34,27 @@ import { log, outDir, resolvePackageRoot, snapshotsDir } from './appblocks-util.
 // schema path — the same technique the other appblocks generators use.
 const SDK_SCHEMA_REL = join('schemas', 'app-block', 'v1.json');
 
-function fieldCount(schema) {
+export function fieldCount(schema) {
   return schema && schema.properties ? Object.keys(schema.properties).length : 0;
 }
 
-function resolveSchema() {
+/**
+ * Resolve the canonical manifest schema, preferring the pinned hermetic dep.
+ *
+ * EXPORTED so a guard can ask the same question this generator asks, from the
+ * same place. `scripts/check-goods-item-parity.mjs` compares a hand-maintained
+ * table against `goods.items` and must read the schema the PAGE is generated
+ * from — a second copy of this two-step fallback would be free to disagree with
+ * the generator about which schema is authoritative, and the disagreement would
+ * surface as a guard verdict about a schema the page was never built from.
+ *
+ * 🔴 Module side effects are gated behind the entrypoint check at the bottom of
+ * this file precisely so this export is importable. `gen-appblocks.mjs` runs
+ * each generator with `execFileSync(process.execPath, [script])`, so argv[1] is
+ * this file and generation still happens when it is RUN. Do not move the
+ * generation back to module top level.
+ */
+export function resolveSchema() {
   // 1. SDK-bundled canonical schema (pinned devDep — hermetic, versioned).
   try {
     const p = join(resolvePackageRoot('@civitai/app-sdk'), SDK_SCHEMA_REL);
@@ -57,9 +74,15 @@ function resolveSchema() {
   throw new Error('gen-appblocks-manifest: no canonical manifest schema available (SDK-bundled + snapshot both missing)');
 }
 
-const { schema, source } = resolveSchema();
-mkdirSync(outDir, { recursive: true });
-const dest = join(outDir, 'manifest-schema.json');
-writeFileSync(dest, JSON.stringify(schema, null, 2) + '\n');
-log(`manifest: wrote ${fieldCount(schema)} top-level fields -> ${dest}`);
-log(`  from ${source}`);
+function main() {
+  const { schema, source } = resolveSchema();
+  mkdirSync(outDir, { recursive: true });
+  const dest = join(outDir, 'manifest-schema.json');
+  writeFileSync(dest, JSON.stringify(schema, null, 2) + '\n');
+  log(`manifest: wrote ${fieldCount(schema)} top-level fields -> ${dest}`);
+  log(`  from ${source}`);
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  main();
+}

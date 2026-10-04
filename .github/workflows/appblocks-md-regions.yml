@@ -100,3 +100,20 @@ jobs:
       # kept complete, never regenerated.
       - name: Porting guide documents every exported hook
         run: npm run check:porting-hooks
+
+      # Rides this job for the same reasons as check:porting-hooks above, and is
+      # the same CLASS of guard: a hand-written table's key set pinned against
+      # the source it summarises. Repo-local (it reads the pinned devDep's
+      # bundled schema through the generator's own resolver, with the committed
+      # snapshot as fallback — no network), therefore blocking.
+      #
+      # It exists because NEITHER check:md-regions above NOR the scheduled
+      # check:manifest-parity can see this drift, and both were green while it
+      # shipped: `goods.items` properties are one level BELOW anything the
+      # generated region expresses, so adding one moves no top-level field and
+      # `len(properties)` reads 24 before and after. The key it omitted was
+      # `justification`, which the platform validator REQUIRES for an
+      # `app_unlock` good — i.e. the documented path to authoring a paid app
+      # ended in a submit rejection the reference could not explain.
+      - name: goods.items per-entry table documents every schema key
+        run: npm run check:goods-item-parity

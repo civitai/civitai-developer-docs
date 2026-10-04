@@ -112,12 +112,13 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
   |---|---|---|---|
   | `id` | `string` | required | `^[a-z0-9][a-z0-9_-]*$`, 1–64 chars. Unique within the manifest. |
   | `title` | `string` | required | 1–80 chars. Shown to the viewer at purchase. |
-  | `priceBuzz` | `integer` | required | **2–50000** whole Buzz. |
+  | `priceBuzz` | `integer` | required | **2–50000** whole Buzz for a `"good"`. 🔴 An `"app_unlock"` is capped at **5000**, not 50000 — see below. |
   | `description` | `string` | optional | ≤ 500 chars. |
-  | `kind` | `"good" \| "app_unlock"` | optional | Defaults to `"good"`. |
+  | `kind` | `"good" \| "app_unlock"` | optional | Defaults to `"good"`. Not merely a label: `"app_unlock"` carries three extra rules, below. |
+  | `justification` | `string` | **required for `"app_unlock"`**, optional otherwise | 1–500 chars, measured **after trimming**. Review metadata only — shown to the moderator, never to the viewer, and never copied onto the entitlement. |
   | `payload` | `object` | optional | Opaque, copied verbatim onto the entitlement; ≤ 2048 bytes serialized. |
 
-  Three things the bounds don't say:
+  Four things the bounds don't say:
 
   - **`id` is the entitlement key.** Changing it in a later version **orphans
     every entitlement already granted** under the old id. Treat it as permanent.
@@ -126,9 +127,28 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
     bounds a *single* purchase; a viewer also has a **daily ceiling across every
     app**, so a purchase can be refused with a clean 4xx even at a legal price.
     This rail is separate from `page.buzzBudgetPerGen` and never consults it.
-  - **`kind: "app_unlock"` buys nothing today.** It is recorded identically to
-    `"good"`; the paid-app access gate that reads it is a later change. Leave it
-    unset unless you intend that future behaviour.
+  - **`kind: "app_unlock"` is not enforced yet, and is still not free to
+    declare.** No access gate reads it today, so an `app_unlock` entitlement is
+    recorded like any other and the platform does not yet refuse entry on it —
+    **selling one does not paywall your app.** Set it only when you intend to
+    charge for access, and say so honestly in your listing until the gate lands.
+    Declaring it turns on **three extra rules the platform validator enforces
+    and the schema above deliberately does not restate**, so each one validates
+    offline and is rejected at submit:
+    - `priceBuzz` may be at most **5000** Buzz, not the 50000 the row above
+      allows — an unlock is bought *before* the viewer has used the app, so it
+      is capped at a single Buzz tip and the smallest top-up.
+    - **At most one** `app_unlock` good per manifest, so "is this viewer
+      admitted?" has exactly one answer.
+    - `justification` becomes **mandatory**: adding an unlock turns a free app
+      into a paid one, and a moderator has to be told why.
+
+    Declaring a `goods` catalog **always** requires the
+    [`goods:purchase:self`](./scopes) scope — including a catalog whose only
+    entry is an `app_unlock`. The scope is declared once and does not move when
+    a later version adds an unlock, which is exactly why `justification` exists:
+    an app already selling ordinary items can start charging for admission with
+    its permission set unchanged, and this is what makes that visible at review.
 
   The catalog is **review-gated**: the catalog a moderator approves is the
   catalog that can be sold, so **changing a price means shipping a new version
