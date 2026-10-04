@@ -136,13 +136,20 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
     platform is not doing on your behalf.) Declaring it turns on **three extra
     rules the platform validator enforces and the schema above deliberately does
     not restate**, so each one validates offline and is rejected at submit:
-    - `priceBuzz` may be at most **5000** Buzz, not the 50000 the row above
-      allows — an unlock is bought *before* the viewer has used the app, so it
-      is capped at a single Buzz tip and the smallest top-up.
-    - **At most one** `app_unlock` good per manifest, so "is this viewer
-      admitted?" has exactly one answer.
-    - `justification` becomes **mandatory**: adding an unlock turns a free app
-      into a paid one, and a moderator has to be told why.
+    - `priceBuzz` may be at most **5000** Buzz (`BLOCK_APP_UNLOCK_MAX_PRICE_BUZZ`),
+      not the 50000 the row above allows — an unlock is bought *before* the
+      viewer has used the app, so it is capped at a single Buzz tip and the
+      smallest top-up.
+    - **At most one** `app_unlock` good per manifest
+      (`BLOCK_APP_UNLOCK_MAX_PER_MANIFEST`), so "is this viewer admitted?" has
+      exactly one answer.
+    - `justification` becomes **mandatory**, and is bounded at 500 characters
+      after trimming (`BLOCK_GOOD_JUSTIFICATION_MAX_LENGTH`): adding an unlock
+      turns a free app into a paid one, and a moderator has to be told why.
+
+    The constant names are given because a submit rejection quotes these bounds,
+    and the names are what let you match an error against the platform source.
+    They live in `civitai:src/shared/constants/block-goods.constants.ts`.
 
     Declaring a `goods` catalog **always** requires the
     [`goods:purchase:self`](./scopes) scope — including a catalog whose only

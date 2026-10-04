@@ -116,10 +116,12 @@ blue leg can never exceed the proportional amount.
 | `BLOCK_GOOD_MAX_PRICE_BUZZ` | `50_000` | Ceiling on a **single** good, re-checked at purchase time as well as at manifest validation — so an old approved manifest cannot keep charging a price the ceiling has since moved below |
 | `BLOCK_GOOD_MAX_PER_MANIFEST` | `32` | Most goods one manifest may declare |
 
-🔴 **These are the bounds for an ordinary good. A `kind: "app_unlock"` good is
-bounded more tightly** — see [charging for access](#charging-for-access-to-the-app-itself)
-below, which points at the one place those numbers are written down. They are
-deliberately not repeated here.
+🔴 **The two CEILINGS above — the per-good price cap and the per-manifest count —
+are for an ordinary good. A `kind: "app_unlock"` good is capped more tightly on
+both**; see [charging for access](#charging-for-access-to-the-app-itself) below,
+which points at the one place those numbers are written down. **The share and the
+floor are the same for both kinds**: an unlock earns the same 70% and cannot be
+priced below 2 either.
 
 Above your per-good ceiling sits a **per-viewer daily ceiling across every app**.
 A purchase at a perfectly legal price can still be refused because the viewer has
@@ -147,18 +149,21 @@ deliberately *not* declared in the JSON Schema, so each one validates offline an
 is rejected at submit.
 
 🔴 **The rules and their exact bounds are in
-[the manifest reference](../reference/manifest#optional-fields-worth-calling-out), and only there.** They are
-not restated on this page on purpose: they were written out in three places in
-one change, and nothing relates the copies, so a correction to one would leave
-the others wrong with every drift-guard green — which is the failure the
-reference's own `goods` key-set guard exists to prevent one level up. One place,
-one set of numbers.
+[the manifest reference](../reference/manifest#optional-fields-worth-calling-out),
+and only there.** They are not restated on this page on purpose: they were
+written out in four places in one change, and nothing relates the copies, so a
+correction to one would leave the others wrong. ⚠ **And no guard would catch
+that** — the reference's `goods` key-set guard checks that every schema KEY is
+documented and says in its own header that it does *not* check the bound cells,
+so it cannot see a wrong NUMBER. One place, one set of numbers, because the
+numbers are the part nothing can verify for you.
 
 What belongs here is the *money* consequence rather than the manifest rule: the
 `justification` is review metadata, never copied onto the entitlement and never
-shown to the viewer, so it has no bearing on what a buyer sees or on what you
-are paid. The split, the rounding and the refusal reasons below apply to an
-unlock exactly as they do to an ordinary good.
+shown to the viewer, so it has no bearing on what a buyer sees or on what you are
+paid — and the platform records your claim without verifying it. The split and
+its rounding, **described above**, and the [refusal reasons](#refusal-reasons-your-app-must-branch-on)
+below, apply to an unlock exactly as they do to an ordinary good.
 
 It exists because your **permission set does not move** when you start charging.
 Declaring any `goods` catalog already requires
