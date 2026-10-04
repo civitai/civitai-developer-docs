@@ -188,7 +188,8 @@ they ship with the template rather than being platform contract.
 
 The harness gives you the protocol. To see your local build rendered inside
 civitai.com's actual chrome — the real page host bridge, real pickers, real
-session — use `civitai app dev-tunnel`. Start
+session, and on a pending or approved app your real Buzz — use
+`civitai app dev-tunnel`. Start
 `npm run dev:tunnel` in one terminal, run `civitai app dev-tunnel` against the
 same port in another, and it prints a `civitai.com/apps/dev/<blockId>` URL to
 open. It mints an **ephemeral** SSH keypair in memory — never written to

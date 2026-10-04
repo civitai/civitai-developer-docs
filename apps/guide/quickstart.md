@@ -126,10 +126,13 @@ The harness pins a parent origin (`http://localhost:5186` in the shipped
 `page-money` template), and so does `VITE_BLOCK_ALLOWED_PARENT_ORIGINS`. They
 **must match**, or the transport's origin allowlist drops `BLOCK_INIT` and the
 block hangs on "Loading…". If your block never leaves the loading state, check
-that the two agree — the key is set in `.env.development`, and auto-setup merges
-it into `.env.development.local`. It is only a comment in `.env.example`, so a
-`.env` you created from that file will not carry it, and in dev mode
-`.env.development` would override it anyway.
+that the two agree. The key is set in `.env.development`, and is only a *comment*
+in `.env.example` — so a `.env` you made from that file will not carry it. Vite
+merges `.env` → `.env.local` → `.env.development` → `.env.development.local` with
+the later file winning, so a stale copy in `.env.development.local` outranks the
+shipped one. Auto-setup will not fix that for you: it writes only
+`VITE_LIVE_BLOCK_TOKEN` and `CIVITAI_HOST_KEY`, and leaves any origins line
+alone.
 :::
 
 ## 3. Read the block

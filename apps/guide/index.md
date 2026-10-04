@@ -22,9 +22,11 @@ build an app, **reach out to the Civitai team** to request access. (There is not
 yet a public self-signup flow.)
 
 **"Approved builders" is about you, not about your app.** Once you have that
-access nothing further is gated behind review: you can run your app locally and
+access nothing further is gated behind *review*: you can run your app locally and
 generate for real *before* you submit it, and before any moderator has seen it.
-Only the public URL waits for approval. See [Local dev loop](./local-dev).
+Only the public URL waits for approval. Use `npm run dev:live` for that — the
+on-site dev tunnel has a further gate of its own before you have submitted. See
+[Local dev loop](./local-dev).
 :::
 
 ## What is a Civitai App?
