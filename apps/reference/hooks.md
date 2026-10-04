@@ -2,8 +2,8 @@
 title: Hooks reference
 description: Every @civitai/blocks-react hook — signature and example, generated from the published package.
 sources:
-  - npm:@civitai/blocks-react@0.63.0/dist/index.d.ts
-  - npm:@civitai/blocks-react@0.63.0#README
+  - npm:@civitai/blocks-react@0.63.2/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.63.2#README
   - npm:@civitai/app-sdk@0.56.1/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
