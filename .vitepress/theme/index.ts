@@ -13,6 +13,17 @@ import './custom.css';
 //     `@layer civitai.components`; layered CSS loses to VitePress's unlayered chrome.
 import '@civitai/theme/styles.css';
 import '@civitai/components/styles.css';
+// The CSS half of the design system is GLOBAL, and deliberately so: it is two
+// stylesheets, the `.cds-*` escape hatch in design-system.css below has to be in
+// the document for any preview to paint, and a stylesheet styles nothing it does
+// not select.
+//
+// The <civitai-*> CUSTOM ELEMENT DEFINITIONS are NOT global — Lit plus 44 element
+// classes used to load on every page here to serve one generated gallery. They are
+// now imported lazily by `<ElementPreview>`, the only component on the site that
+// renders an element instance; see theme/components/ElementPreview.vue's
+// `registerElements()` for the measurement, the tree-shaking trap, and why the call
+// hangs off the component's mount rather than a route string.
 import './design-system.css';
 
 import spec from '../../public/openapi/v2-consumers.json' with { type: 'json' };
@@ -40,6 +51,7 @@ import MessageTable from './components/MessageTable.vue';
 import HooksReference from './components/HooksReference.vue';
 import BridgeReference from './components/BridgeReference.vue';
 import ComponentDemo from './components/ComponentDemo.vue';
+import ElementPreview from './components/ElementPreview.vue';
 import TokenGallery from './components/TokenGallery.vue';
 
 export default {
@@ -83,6 +95,7 @@ export default {
 
     // Design-system showcase surfaces.
     ctx.app.component('ComponentDemo', ComponentDemo);
+    ctx.app.component('ElementPreview', ElementPreview);
     ctx.app.component('TokenGallery', TokenGallery);
   },
 } satisfies Theme;

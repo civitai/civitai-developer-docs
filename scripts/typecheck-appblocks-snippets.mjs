@@ -135,7 +135,14 @@ const SKIP_MARKER = '@ts-skip-snippet';
 // Raise it deliberately when snippets are added; LOWER it deliberately (same
 // commit as the deletion, with the reason in the message) when docs legitimately
 // shed snippets. Never edit it to make a red run go green.
-const MIN_EXPECTED_SNIPPETS = 31;
+//
+// RAISED 31 -> 53 in the commit that completed `apps/showcase.md`'s CSS-pack
+// coverage: nine new `<ComponentDemo>` demos (text, radio, group, slider,
+// segmented-control, toast-region, toast, tooltip, image) added nine `tsx`
+// fences. The floor had drifted 13 below the real corpus of 44, which is slack
+// this control cannot use — a collapse from 44 to 35 would have passed. 53 is
+// the measured total at this commit, so the next collapse of ANY size fails.
+const MIN_EXPECTED_SNIPPETS = 53;
 
 /* ─────────────────────────────  doc discovery  ───────────────────────────── */
 

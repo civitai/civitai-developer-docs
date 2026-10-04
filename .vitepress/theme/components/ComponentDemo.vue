@@ -17,10 +17,12 @@
  *
  * The preview container carries `data-theme` driven by VitePress dark mode
  * (`useData().isDark`), so every `--civitai-*` token re-resolves to match the
- * surrounding site theme.
+ * surrounding site theme. It goes through `usePreviewTheme()` rather than a bare
+ * `computed`, because the bare one ships `data-theme="light"` in the SSR HTML and a
+ * PRODUCTION hydration never repairs it — see that composable for the measurement.
  */
-import { ref, computed, onMounted, watch, nextTick } from 'vue';
-import { useData } from 'vitepress';
+import { ref, onMounted, watch, nextTick } from 'vue';
+import { usePreviewTheme } from '../composables/usePreviewTheme';
 
 const props = withDefaults(
   defineProps<{
@@ -38,8 +40,7 @@ const props = withDefaults(
   { react: true },
 );
 
-const { isDark } = useData();
-const theme = computed(() => (isDark.value ? 'dark' : 'light'));
+const theme = usePreviewTheme();
 const showReact = props.react;
 
 const tab = ref<'html' | 'react'>('html');
