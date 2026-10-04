@@ -62,10 +62,11 @@ fail. On a third, report the exact error and stop rather than guessing.
   ```bash
   npm install -g --prefix="$HOME/.npm-global" @civitai/cli
   PATH="$HOME/.npm-global/bin:$PATH"
+  civitai agent-setup --fix-path
   ```
 
-  That `PATH` line lasts only for this shell. Report it verbatim in step 5 so
-  the user can make it permanent — do not edit their shell profile yourself.
+  The `PATH` line lasts only for this shell; `--fix-path` is what makes it
+  permanent. Report the files it printed in step 5.
 
 - **brew is not found.** Homebrew is not installed, and installing Homebrew is
   not part of this setup. Use the npm path above.
