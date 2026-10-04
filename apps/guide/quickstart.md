@@ -85,14 +85,19 @@ and no Buzz. To iterate against the **real** Civitai backend instead, mint a dev
 token (`civitai app dev-token <slug> --spend`) and run `npm run dev:live`, or
 preview your local server inside the real host with `civitai app dev-tunnel`.
 
-Both need closed-beta author access — the **same** access `civitai app submit`
-needs, so if you can submit an app you can already do this. **Neither waits for
-your app to be reviewed, or even submitted:** the dev-token mint accepts a
-brand-new slug with no app row at all and reads the scopes from your local
-`block.manifest.json`. `dev-tunnel` carries one further flag of its own, so it can
-be unavailable while `dev:live` works fine. The `--spend` flag is not optional —
-without it the token mints read-only and `dev:live` refuses to generate. See
-[Local dev loop](./local-dev).
+Both need closed-beta author access — the same access `civitai app submit` needs.
+**Neither waits for your app to be reviewed, or even submitted:** the dev-token
+mint accepts a brand-new slug with no app row at all and reads the scopes from
+your local `block.manifest.json`. `dev-tunnel` carries one further flag of its
+own, so it can be unavailable while `dev:live` works fine.
+
+🔴 **Generating for real needs two things, and author access is only the first.**
+The token must be minted from a credential carrying the **AI Services** scopes —
+`civitai login --scopes generate`, or a full-scope personal API key. A *default*
+`civitai login` can submit an app and **cannot spend**, so `--spend` on its own
+still mints read-only and `dev:live` refuses with `block lacks ai:write:budgeted
+scope`. Pass `--budget` too if your sample's Buzz ceiling exceeds the 50 an
+unsubmitted app is granted by default. See [Local dev loop](./local-dev).
 
 ::: warning Match the harness origin
 The harness pins a parent origin (`http://localhost:5186` in the shipped

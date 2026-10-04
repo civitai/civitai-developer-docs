@@ -65,9 +65,8 @@ A block can render in two places:
 ## What you'll need
 
 - Node ≥ 20 and pnpm.
-- A Civitai account, and closed-beta builder access (see the banner above). That
-  access is all you need to build, run and generate locally — your app does not
-  have to be reviewed first.
+- A Civitai account, and closed-beta builder access (see the banner above). Your
+  app does not have to be reviewed first.
 - Basic familiarity with React — the starter and SDK are React-first.
 
 You do **not** need Docker, a domain, a git host, or an OAuth client — the
