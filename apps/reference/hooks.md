@@ -4,7 +4,7 @@ description: Every @civitai/blocks-react hook — signature and example, generat
 sources:
   - npm:@civitai/blocks-react@0.63.0/dist/index.d.ts
   - npm:@civitai/blocks-react@0.63.0#README
-  - npm:@civitai/app-sdk@0.55.0/blocks#WorkflowBody
+  - npm:@civitai/app-sdk@0.56.1/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
 
@@ -904,7 +904,7 @@ union keyed by `kind`. The hook forwards the body to the host verbatim and never
 reads member-specific fields, so every member flows through the same
 `estimate → submit → watch` lifecycle shown above.
 
-As of the pinned `@civitai/app-sdk@0.55.0` the union has three `kind` values, and
+As of the pinned `@civitai/app-sdk@0.56.1` the union has three `kind` values, and
 `kind: 'step'` is itself two arms — four members in all:
 
 | `kind` | what it runs | what your block sends |
