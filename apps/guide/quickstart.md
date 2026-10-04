@@ -80,14 +80,23 @@ your block.
 npm run dev:harness        # Vite + the harness on http://localhost:5186
 ```
 
-`dev:harness` runs Vite with the mock host mounted. To iterate against the **real**
-Civitai backend instead, mint a dev token (`civitai app dev-token <slug>`) and run
-`npm run dev:live`, or preview your local server inside the real host with
-`civitai app dev-tunnel` — both are invite-gated during the pre-GA beta.
+`dev:harness` runs Vite with the mock host mounted, and needs no account, no token
+and no Buzz. To iterate against the **real** Civitai backend instead, mint a dev
+token (`civitai app dev-token <slug> --spend`) and run `npm run dev:live`, or
+preview your local server inside the real host with `civitai app dev-tunnel`.
+
+Both need closed-beta author access — the **same** access `civitai app submit`
+needs, so if you can submit an app you can already do this. **Neither waits for
+your app to be reviewed, or even submitted:** the dev-token mint accepts a
+brand-new slug with no app row at all and reads the scopes from your local
+`block.manifest.json`. `dev-tunnel` carries one further flag of its own, so it can
+be unavailable while `dev:live` works fine. The `--spend` flag is not optional —
+without it the token mints read-only and `dev:live` refuses to generate. See
+[Local dev loop](./local-dev).
 
 ::: warning Match the harness origin
-The harness pins a parent origin (for example `http://localhost:5180`), and so
-does `.env`. They **must match**, or the transport's origin allowlist drops
+The harness pins a parent origin (`http://localhost:5186` in the shipped
+templates), and so does `.env`. They **must match**, or the transport's origin allowlist drops
 `BLOCK_INIT` and the block hangs on "Loading…". If your block never leaves the
 loading state, check that the two agree.
 :::
@@ -310,6 +319,8 @@ flag.
 
 ## Next
 
+- [Local dev loop](./local-dev) — the two harness modes, which credential can
+  spend, and generating for real before you submit.
 - [Concepts](./concepts) — the block / install / slot / trust-frame / bridge model.
 - [`@civitai/blocks-react`](https://www.npmjs.com/package/@civitai/blocks-react) —
   every hook with a snippet.
