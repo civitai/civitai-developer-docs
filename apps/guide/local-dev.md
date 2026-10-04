@@ -187,14 +187,22 @@ they ship with the template rather than being platform contract.
 ## Previewing inside the real host
 
 The harness gives you the protocol. To see your local build rendered inside
-civitai.com's actual chrome — the real page host bridge, your real Buzz, real
-pickers, real session — use `civitai app dev-tunnel`. Start
+civitai.com's actual chrome — the real page host bridge, real pickers, real
+session, and on a pending or approved app your real Buzz — use
+`civitai app dev-tunnel`. Start
 `npm run dev:tunnel` in one terminal, run `civitai app dev-tunnel` against the
 same port in another, and it prints a `civitai.com/apps/dev/<blockId>` URL to
 open. It mints an **ephemeral** SSH keypair in memory — never written to
 `~/.ssh` — opens a reverse tunnel from your local dev server, and revokes the
 session server-side on Ctrl-C or an idle timeout. See the
 [CLI reference](../reference/cli) for its flags.
+
+⚠️ **The tunnel is narrower than `dev:live` for real generation on an app you
+have never submitted.** That path carries a third, spend-specific gate on top of
+author access, and it is open to fewer people; when it is closed the mint drops
+the budgeted-spend scope, so the app renders inside the host and Generate does
+nothing. The *pending* and *approved* tunnel paths are unaffected. If what you
+want is real generation before submitting, use `dev:live` above.
 
 ## Next
 

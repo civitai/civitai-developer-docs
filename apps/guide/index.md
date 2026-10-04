@@ -16,10 +16,17 @@ OAuth, or operate any infrastructure.
 
 ::: warning Closed beta — access is limited
 Civitai Apps is currently in **closed beta** and is **not yet generally
-available**. The platform is mod-gated: building and publishing an app is limited
+available**. The platform is mod-gated: authoring and publishing apps is limited
 to approved builders, and it is not openly self-serve today. If you'd like to
 build an app, **reach out to the Civitai team** to request access. (There is not
 yet a public self-signup flow.)
+
+**"Approved builders" is about you, not about your app.** Once you have that
+access nothing further is gated behind *review*: you can run your app locally and
+generate for real *before* you submit it, and before any moderator has seen it.
+Only the public URL waits for approval. Use `npm run dev:live` for that — the
+on-site dev tunnel has a further gate of its own before you have submitted. See
+[Local dev loop](./local-dev).
 :::
 
 ## What is a Civitai App?
@@ -60,7 +67,8 @@ A block can render in two places:
 ## What you'll need
 
 - Node ≥ 20 and pnpm.
-- A Civitai account, and closed-beta builder access (see the banner above).
+- A Civitai account, and closed-beta builder access (see the banner above). Your
+  app does not have to be reviewed first.
 - Basic familiarity with React — the starter and SDK are React-first.
 
 You do **not** need Docker, a domain, a git host, or an OAuth client — the
@@ -74,6 +82,9 @@ platform provisions all of that when your app is approved.
   trust frame, and how the host and your app talk to each other.
 - **[Quickstart](./quickstart)** — go from nothing to a block running in the local
   harness using the `civitai` CLI scaffold.
+- **[Local dev loop](./local-dev)** — the two harness modes, and how to generate
+  for real against the live backend *before* submitting your app. Start here if
+  generation is refusing or you think you are blocked on review.
 - **[Comfy on Civitai (customComfy)](./comfy-cloud)** — drive ComfyUI, either by
   naming a server-registered recipe (`{ kind, recipe, params }`) or by shipping
   your own graph inline (`mode: 'inline'`); the gates on each arm and the budget

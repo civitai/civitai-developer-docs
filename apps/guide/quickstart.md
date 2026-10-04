@@ -18,7 +18,7 @@ flow (see the end of this page).
 You can scaffold, build, and run a block locally with the public packages below
 right now. **Publishing** an app to civitai.com is limited to approved builders
 during the closed beta — see [Introduction](./). Everything on this page works
-without access.
+without access **except the two live modes in §2**, which need it.
 :::
 
 ## Prerequisites
@@ -26,7 +26,8 @@ without access.
 - Node ≥ 20.
 - The [`civitai` CLI](../reference/cli) installed (`npm install -g @civitai/cli`,
   or Homebrew / a prebuilt binary — see the [CLI reference](../reference/cli#install)).
-- A Civitai account (only needed later, to submit).
+- A Civitai account. Not needed for §2's mock harness; needed from §2's live
+  modes onward, and for submitting.
 
 ## 1. Scaffold
 
@@ -80,16 +81,58 @@ your block.
 npm run dev:harness        # Vite + the harness on http://localhost:5186
 ```
 
-`dev:harness` runs Vite with the mock host mounted. To iterate against the **real**
-Civitai backend instead, mint a dev token (`civitai app dev-token <slug>`) and run
-`npm run dev:live`, or preview your local server inside the real host with
-`civitai app dev-tunnel` — both are invite-gated during the pre-GA beta.
+`dev:harness` runs Vite with the mock host mounted, and needs no account, no token
+and no Buzz. To iterate against the **real** Civitai backend instead, mint a dev
+token and run `npm run dev:live`:
+
+```bash
+civitai app dev-token my-app --spend --budget 250 --env >> .env.development.local
+npm run dev:live
+```
+
+Both that and `civitai app dev-tunnel` need closed-beta author access — the same
+access `civitai app submit` needs. **Neither waits for your app to be reviewed, or
+even submitted:** the dev-token mint accepts a brand-new slug with no app row at
+all and reads the scopes from your local `block.manifest.json`.
+
+🔴 **For `dev:live`, generating for real needs two things, and author access is
+only the first.** The token must be minted from a credential carrying the **AI
+Services** scopes — `civitai login --scopes generate`, or a full-scope personal
+API key. A *default* `civitai login` can submit an app and **cannot spend**, so
+`--spend` on its own still mints read-only and `dev:live` refuses with `block
+lacks ai:write:budgeted scope`.
+
+Both flags above are load-bearing. `--env` is what writes `VITE_LIVE_BLOCK_TOKEN`
+into `.env.development.local`; without it `dev:live` has no token and fail-safes to
+a setup notice rather than generating. And on an unsubmitted app the server grants
+a flat **50** Buzz per generation — your manifest's `page.buzzBudgetPerGen` is not
+read, because there is no submitted manifest to read — which the default
+scaffold's own sample exceeds, so `--budget` is not optional there.
+
+That last point is why the CLI route above is the one to follow. The setup notice
+`dev:live` shows also offers a one-click **Set up automatically** button, which
+mints and writes the token for you — but it cannot pass a budget, so it lands on
+the flat 50 and the scaffold's own sample then fails with `insufficient buzz
+budget`. Use it for a sample that fits 50; otherwise mint from the command line.
+
+⚠️ **`dev-tunnel` is narrower than `dev:live` for real generation on an app you
+have never submitted.** That path has a third, spend-specific gate, and it is
+open to fewer people than author access is; when it is closed the app still
+renders but cannot spend. If you want real generation before submitting, use
+`dev:live`. See [Local dev loop](./local-dev).
 
 ::: warning Match the harness origin
-The harness pins a parent origin (for example `http://localhost:5180`), and so
-does `.env`. They **must match**, or the transport's origin allowlist drops
-`BLOCK_INIT` and the block hangs on "Loading…". If your block never leaves the
-loading state, check that the two agree.
+The harness pins a parent origin (`http://localhost:5186` in the shipped
+`page-money` template), and so does `VITE_BLOCK_ALLOWED_PARENT_ORIGINS`. They
+**must match**, or the transport's origin allowlist drops `BLOCK_INIT` and the
+block hangs on "Loading…". If your block never leaves the loading state, check
+that the two agree. The key is set in `.env.development`, and is only a *comment*
+in `.env.example` — so a `.env` you made from that file will not carry it. Vite
+merges `.env` → `.env.local` → `.env.development` → `.env.development.local` with
+the later file winning, so a stale copy in `.env.development.local` outranks the
+shipped one. Auto-setup will not fix that for you: it writes only
+`VITE_LIVE_BLOCK_TOKEN` and `CIVITAI_HOST_KEY`, and leaves any origins line
+alone.
 :::
 
 ## 3. Read the block
@@ -236,7 +279,7 @@ npm run build     # → dist/  (a static SPA; skip it for the `static` template)
 ```
 
 That's a shippable bundle. Everything up to here works today with the public
-packages.
+packages — except §2's two live modes, which need closed-beta author access.
 
 ## Submitting (closed beta)
 
@@ -310,6 +353,8 @@ flag.
 
 ## Next
 
+- [Local dev loop](./local-dev) — the two harness modes, which credential can
+  spend, and generating for real before you submit.
 - [Concepts](./concepts) — the block / install / slot / trust-frame / bridge model.
 - [`@civitai/blocks-react`](https://www.npmjs.com/package/@civitai/blocks-react) —
   every hook with a snippet.
