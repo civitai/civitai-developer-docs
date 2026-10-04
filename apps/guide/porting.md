@@ -7,6 +7,8 @@ sources:
   - civitai-app-starters:packages/civitai-sdk/BREAKING.md
   - civitai:public/schemas/app-block/v1.json#auth
   - civitai:src/pages/api/v1/blocks
+  - civitai:src/pages/api/v1/blocks/shared-storage/list.ts
+  - civitai:src/server/routers/apps-shared.router.ts#listSharedRows
   - civitai:src/server/middleware/block-scope.middleware.ts#verifyBlockToken
 ---
 
@@ -284,7 +286,7 @@ rather than shipping.
 | `useRequestSignIn` | **Keep** — host UI |
 | `useResourcePicker` | **Keep** — host UI; a sandboxed frame cannot draw the picker |
 | `useSaveImage` | **Keep** — host UI; the host fetches from origins it allowlists |
-| `useSharedStorage` | `/api/v1/blocks/shared-storage/*` — 11 routes |
+| `useSharedStorage` | `/api/v1/blocks/shared-storage/*` — 11 routes. The route is now the wider surface: `list` takes a `mine` filter the hook has no equivalent for — see [Listing only rows the viewer wrote](#listing-only-rows-the-viewer-wrote) |
 | `useTip` | `POST /api/v1/blocks/tip` |
 | `useTipAllowance` | `GET /api/v1/blocks/tip-allowance` |
 | `useViewer` | `GET /api/v1/blocks/me`. Keeping the hook is not free: it is a `GET_VIEWER` bridge round trip on mount, not a snapshot read — but it is the authoritative self-read, where `useBlockContext().viewer` is the coarser `BLOCK_INIT` snapshot |
@@ -332,6 +334,77 @@ Two behaviours worth knowing before you write a caller:
 - **Read `message ?? error`.** Which key carries the reason depends on where the
   request died: rejections from the block-scope middleware carry `error` only,
   while service-layer refusals carry `message`. Branch on the HTTP status.
+
+### Listing only rows the viewer wrote
+
+Shared storage is a case where the route is now the wider surface, not just the
+other spelling. `shared-storage/list` takes a `mine` filter that narrows the page
+to rows the **viewer** authored — so an app showing someone their own submissions
+stops paging the whole board and filtering in the client. There is no bridge-hook
+equivalent, and none is planned: the platform is consolidating this capability on
+the REST path.
+
+```http
+GET /api/v1/blocks/shared-storage/list?limit=50&mine=true
+```
+
+Omit the parameter for the whole board. `mine=false` is also accepted and means
+exactly that — the whole board — so a UI with a "mine / everyone" toggle can send
+either spelling rather than rebuilding the URL.
+
+Everything else is unchanged: the same `{ items, metadata: { nextCursor } }`
+envelope, the same opaque cursor, the same `prefix` and `limit`, the same
+`apps:storage:shared:read` scope. `mine` composes with `prefix` and with
+pagination — it is one more predicate on the same query, so `nextCursor` pages
+through the filtered set.
+
+::: danger `?mine=` with an empty value is a 400 — omit the parameter instead
+`mine` accepts the two string literals `true` and `false`, and nothing else.
+That is deliberate rather than an oversight: the obvious coercion maps the
+*string* `"false"` to **true** and would silently invert the filter, so the route
+refuses a value it does not recognise instead of quietly falling back to the
+whole board.
+
+The consequence to design your query builder around: **`?mine=` — the standard
+serialisation of an unset form field, or of an `undefined` in most
+query-string helpers — is a `400`, not a default.** Drop the key entirely when
+the filter is off. A bare `?mine` with no `=` parses to the same empty string and
+400s identically, as does the same key sent twice. A typo (`?mine=1`, `?mine=yes`,
+`?mine=TRUE`) is a loud 400 for the same reason, which is the point: you find out,
+rather than rendering the whole board in a UI that promised "yours".
+:::
+
+::: warning An empty page under `mine` is not evidence the store is empty
+Anonymous viewers may read this feed. An anonymous caller asking for `mine=true`
+gets an **empty page** — not an error, and not the whole board — because the
+author comparison is made against a null subject and therefore matches nothing.
+
+That is the right answer (an anonymous viewer has authored nothing), but it
+arrives from how the query is evaluated rather than from an explicit refusal, so
+it is indistinguishable at the wire from "this app has no rows yet". **Do not
+read an empty `mine` page as a fact about the store.** If your UI has an empty
+state, branch on whether the viewer is signed in before rendering "nothing here
+yet" — `useBlockContext().viewer`, or `GET /api/v1/blocks/me`, is where you find
+that out.
+:::
+
+::: info `mine` is a convenience, not a permission boundary
+It is a boolean, not a user id, and the author it filters on is the resolved
+token subject — the same value each row's `viewerVoted` already keys on. No
+caller-supplied identity enters this path.
+
+**That is not a privacy control, and it would be wrong to design as if it were.**
+Every listed row already carries its `authorUserId`, so paging the board and
+filtering by author has always been possible; `mine` makes it cheap, not
+possible. Nothing is withheld from a caller that omits it, and the rows are
+exactly as world-readable either way. The reason it is a boolean rather than a
+`mine=<userId>` form is **YAGNI**: nothing asks for the id form, and widening a
+boolean later is easy where narrowing an id once clients depend on it is not.
+
+The authoritative statement is the `listSharedRows` docblock in the `civitai`
+repo (`src/server/routers/apps-shared.router.ts`), which records the security
+framing it had to retract — read it there rather than re-deriving one here.
+:::
 
 ### Host UI stays on the bridge
 
