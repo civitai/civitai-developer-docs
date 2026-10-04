@@ -1,6 +1,6 @@
 civitai CLI help snapshot (the WHOLE command tree)
 Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
-Binary version: civitai 0.1.109
+Binary version: civitai 0.1.112
 Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
 else parses this committed snapshot. To refresh: run
 node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).
@@ -219,7 +219,7 @@ both share the estimate -> consent -> submit -> poll driver, switched by an
 on-screen mode toggle, and both work end-to-end in "npm run dev:harness".
 
 customComfy has TWO arms. Besides the recipe arm above, an app may also ship
-its own ComfyUI graph inline (mode: 'inline', app developers only). src/comfy.ts
+its own ComfyUI graph inline (mode: 'inline', page tokens only). src/comfy.ts
 includes a complete, unit-tested buildInlineComfyBody for it: the graph, the
 declared AIR resource manifest, and the maxBuzz ceiling (which is ALSO the step
 timeout in seconds). See the generated README's "Comfy on Civitai samples" section.
@@ -383,9 +383,24 @@ It also emits non-fatal WARNINGS the schema can't catch as hard errors:
     a page app until it acks BLOCK_INIT, so such an app renders fine locally and
     is replaced by a failure card in the real host — the shape of anything
     scaffolded before that was fixed. Advisory ONLY: it infers runtime behaviour
-    from static text. A project depending on @civitai/* is never flagged (the
-    SDK transport acks internally), and it reads source only — never outputDir,
+    from static text. A dependency that ACKS ends the check, and that is an
+    EXACT SET, not the @civitai/ scope: @civitai/blocks-react acks internally
+    (its iframe transport does it for you), while @civitai/app-sdk is the
+    server-side SDK and @civitai/theme and @civitai/components are CSS — none
+    of those three silences it. It reads source only — never outputDir,
     node_modules, markdown, or comments.
+  - source that calls useAppStorage() or useSharedStorage() while the manifest
+    declares NO scope for that store. The server gates storage by PRESENCE in the
+    approved scope set, so an undeclared scope means every call 403s in
+    production while working locally against the mock host — the exact shape of
+    an app that passed its whole suite, the dev harness and a submit, then failed
+    every save. The two stores are asked independently: declaring
+    apps:storage:shared:* says nothing about the per-viewer store. It does NOT
+    second-guess WHICH scope you picked — one storage scope is someone who knows
+    scopes exist and chose, so only a store with NONE is reported. Advisory ONLY:
+    it reads source statically, so a hook imported but never called is a false
+    positive. Same corpus rules as the ready-ack check — source only, comments
+    stripped, node_modules and build output skipped.
 Warnings do NOT fail validation (exit 0) unless --strict is passed.
 
 Defaults to the current directory.
@@ -492,6 +507,26 @@ Build provenance:
   all rather than a guess — and --allow-dirty still stamps, marking the
   submission dirty, because that is the case worth being able to look up.
 
+Listing-completeness gate:
+  A submit that would really upload also checks the app's STORE LISTING and
+  REFUSES while it is missing something you can fix now: a missing icon or
+  cover, and — on an off-site listing, whose copy you own — an empty tagline or
+  description. Each refusal names the command that fixes it. --yes does NOT
+  waive this; --allow-incomplete-listing does, for submitting on purpose before
+  the listing is finished.
+
+  It is deliberately narrower than `civitai app doctor`. No screenshots, an
+  empty category, a still-scanning asset and a BLOCKED asset are reported and
+  NOT refused — a blocked screenshot's remedy ends at a moderator approval, and
+  a category on an on-site app is a moderator's to set, so refusing either would
+  block your submit on somebody else's queue. An on-site app's tagline and
+  description come from block.manifest.json and are re-read when a version is
+  approved, so a tagline already in your manifest is reported as fixed rather
+  than refused.
+
+  Your FIRST submit is what creates the store listing, so there is nothing to
+  check yet and nothing is refused; the gate applies from the second one on.
+
 Defaults to the current directory.
 
 Usage:
@@ -504,17 +539,19 @@ Examples:
   civitai app submit --allow-downgrade  # deliberate rollback below the approved version
   civitai app submit --allow-dirty      # submit uncommitted working-tree changes on purpose
   civitai app submit --allow-oversize   # submit past the vendored body-size ceiling
+  civitai app submit --allow-incomplete-listing  # submit before the store listing is finished
   civitai app submit -o my-block.zip ./my-block
 
 Flags:
-      --allow-dirty       submit even when the packaged directory has uncommitted git changes
-      --allow-downgrade   submit even when the version is not above the highest approved one (deliberate rollback)
-      --allow-oversize    submit even when the body exceeds the size the server is expected to accept
-  -h, --help              help for submit
-  -o, --out string        output .zip path (default: <blockId>-<version>.zip)
-      --package-only      only write the .zip; do not attempt submission
-      --skip-validate     skip manifest validation before packaging
-  -y, --yes               skip the confirmation prompt and submit (for scripts/CI)
+      --allow-dirty                submit even when the packaged directory has uncommitted git changes
+      --allow-downgrade            submit even when the version is not above the highest approved one (deliberate rollback)
+      --allow-incomplete-listing   submit even when the app's store listing is missing media or copy (--yes does NOT waive that gate)
+      --allow-oversize             submit even when the body exceeds the size the server is expected to accept
+  -h, --help                       help for submit
+  -o, --out string                 output .zip path (default: <blockId>-<version>.zip)
+      --package-only               only write the .zip; do not attempt submission
+      --skip-validate              skip manifest validation before packaging
+  -y, --yes                        skip the confirmation prompt and submit (for scripts/CI)
 
 Global Flags:
       --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
@@ -721,7 +758,8 @@ An icon is also RE-ENCODED server-side to PNG (downscaled to at most 1024px on
 the longer side) and the platform caps that re-encoded image — a different
 measurement from the cap above, which is on your file. A detailed 1024x1024
 icon can pass here and be refused there; the lever is smaller pixel dimensions.
-See "Listing media requirements" in the README for the platform's bounds.
+
+Platform bounds: https://developer.civitai.com/apps/guide/store-listing
 
 On a listing that is already LIVE this opens a REVISION for moderator re-review
 instead of changing the live listing — pass --changelog to describe the change,
@@ -760,7 +798,8 @@ then ingested and attached, and the content scan is waited on afterwards.
 Nothing is uploaded if the local check fails. The platform validates the
 image's dimensions and aspect at the ATTACH step, so a wrongly-shaped image is
 refused in seconds rather than after the scan.
-See "Listing media requirements" in the README for the platform's bounds.
+
+Platform bounds: https://developer.civitai.com/apps/guide/store-listing
 
 On a listing that is already LIVE this opens a REVISION for moderator re-review
 instead of changing the live listing — pass --changelog to describe the change,
@@ -800,7 +839,8 @@ afterwards. Nothing is uploaded if the local check fails. The platform
 validates dimensions, aspect and format at the ATTACH step, so a bad image is
 refused in seconds rather than after the scan. --caption adds a one-line
 caption.
-See "Listing media requirements" in the README for the platform's bounds.
+
+Platform bounds: https://developer.civitai.com/apps/guide/store-listing
 
 Each run appends one screenshot; there is no bulk add. Use
 `civitai app listing reorder` to change the order afterwards and
@@ -1496,6 +1536,46 @@ AUTHENTICATION IS YOURS TO RUN. The servers are registered before login on
 purpose, and 'civitai login' is a separate store from CIVITAI_TOKEN: it writes
 this CLI's own config, which your coding agent does not read.
 
+WHAT --check REPORTS. It writes nothing and probes no credential. Seven rows:
+cli-version, agents-md, claude-md, mcp-site, mcp-orch, authenticated,
+agent-token. EVERY FILESYSTEM ROW REPORTS PRESENCE, NEVER ACCEPTANCE: an
+mcp-site row is 'ok' because the entry is in your config, not because any
+server accepted it. An ABSENT Authorization header gets no row of its own —
+that is by design, since a header-less setup still reaches the site server. A
+config file that will not parse maps to the mcp-site/mcp-orch rows, carrying
+the parse failure in 'detail'.
+
+'cli-version' IS THE ONE ROW THAT CONTACTS ANYTHING: a single unauthenticated
+GET to GitHub's public releases endpoint, bounded at 2.5s, comparing the running
+build against the newest published release. It FAILS SOFT — an unreachable
+network, a timeout, a non-200 or a tag it cannot parse all report 'ok' true with
+a detail saying the comparison did not happen — so only a successful comparison
+showing this build to be OLDER can make it false. Skip it entirely with
+--no-update-check or CIVITAI_NO_UPDATE_CHECK, the same controls 'version' and
+'upgrade' honour; the row then says it was disabled.
+
+IT DOES NOT FAIL THE VERDICT EITHER, and that is deliberate. Releases land days
+apart, so a counted freshness row would be red for a large share of ordinary runs
+over a state that is usually harmless -- a permanently-red gate people learn to
+click through. READ THE ROW: a consumer that reads only 'ok' will not see a stale
+CLI, which is a real gap and not one this command can close on its own.
+
+'authenticated' and 'agent-token' are the TWO auth rows, and they are separate
+because they are about different stores. 'authenticated' is THIS CLI's
+credential — 'civitai login''s config file or CIVITAI_TOKEN — which is what
+'civitai app dev-token', 'civitai app validate' and 'civitai app submit' read.
+'agent-token' is whether CIVITAI_TOKEN is set in the PROCESS environment, which
+is the only place your agent can resolve the reference in its MCP config from.
+You do NOT need CIVITAI_TOKEN to scaffold, build, dev-run or submit an App; it
+is only for the MCP servers. Neither row can fail the verdict: an
+unauthenticated setup is a success.
+
+The 'ok' verdict is the AND of every row EXCEPT cli-version, authenticated and
+agent-token, minus claude-md for a non-Claude agent, and minus mcp-site/mcp-orch
+for an agent with no resolvable config target. That last exemption is conditional
+and narrow: for a KNOWN agent a missing entry still fails, and the rows stay in
+the report and stay false.
+
 EXIT CODES: --check exits 1 when a check failed, 0 otherwise. A write run exits
 0 when every step happened and 1 when one did not -- a config that does not
 parse, a destination it will not write (for ANY of the three files), a file it
@@ -1504,8 +1584,9 @@ false, never a silent success. THE ONE STEP THAT DOES NOT HAPPEN AND STILL EXITS
 0 is the 'manual' row: --agent other, or a user-scoped agent with no resolvable
 home, where there is no file for this CLI to write and the config is printed for
 you to paste instead. A bad --agent, a --dir that does not exist or is not a
-directory, and --track api all exit 2. 'authenticated' is REPORTED by --check and
-never fails it: an unauthenticated setup is a success, not a failure.
+directory, and --track api all exit 2. 'authenticated' and 'agent-token' are
+REPORTED by --check and never fail it: an unauthenticated setup is a success, not
+a failure.
 
 WHAT --dry-run CAN TELL YOU. It writes nothing and reports the rows the PLAN can
 classify -- for all three files -- with the same 'ok' and the same exit code the
@@ -1517,6 +1598,26 @@ on the real run where the dry run reported the intended action and exit 0. A ful
 disk and a read-only mount are the same shape and were not measured, so treat
 that as an open list: a green dry run means the plan is sound, not that the write
 will succeed.
+
+WHAT --fix-path DOES, AND WHY IT IS OPT-IN. Every row the AGENTS.md block names
+starts with 'civitai', and an install into a prefix the user owns puts that name
+on PATH for the INSTALLING SHELL ONLY -- so every later agent session, which gets
+a new shell, cannot run any of them. --fix-path appends a marker-guarded block to
+your shell startup files that puts this CLI's own directory on PATH at startup,
+prints the full path of every file it touched, and is idempotent: running it
+twice leaves exactly one block, and nothing outside the markers is ever modified.
+It writes ~/.zshenv (read by every zsh, login or not) and the file a bash login
+shell actually reads -- the first existing of ~/.bash_profile, ~/.bash_login,
+~/.profile, and ~/.profile when none exists. It runs NO shell and probes nothing:
+the 'is it already on PATH' test is a 'case' statement evaluated by your shell at
+startup, so a redundant block is harmless. It does NOT reach 'bash -c', which
+reads no startup file at all. Without the flag NO startup file is read or written.
+--fix-path is REFUSED with --check, which writes nothing by contract; combine it
+with --dry-run to print the exact block instead. It is also REFUSED on Windows
+(exit 1, no startup file written, the project files still written): POSIX shell
+startup files are the only ones it knows, and the drive-letter colon cannot go in
+a PATH entry in the POSIX 'sh' block it emits -- which covers Git Bash and MSYS
+too. Use the Windows environment-variable settings, or run it inside WSL.
 
 --json SHAPES: 'checks' for --check, 'changes' for a write or dry run, and -- for
 a failure that happened before either could be built -- an 'error' string with
@@ -1535,6 +1636,7 @@ Examples:
   civitai agent-setup --agent cursor        # override the detection
   civitai agent-setup --dir ./my-app        # a project other than the cwd
   civitai agent-setup --dry-run             # print every path, write nothing
+  civitai agent-setup --fix-path            # also put this CLI on a new shell's PATH
   civitai agent-setup --check --json        # verify a setup (scriptable)
 
 Flags:
@@ -1542,6 +1644,7 @@ Flags:
       --check          verify an existing setup and report each check; writes nothing, exits 1 when a check failed
       --dir string     the project directory that receives AGENTS.md (default ".")
       --dry-run        print every path that would be written and why; write nothing
+      --fix-path       also add this CLI's directory to your shell startup files, so a NEW shell can run civitai; idempotent, marker-guarded, and it prints every file it writes
   -h, --help           help for agent-setup
       --json           emit the result as JSON (scriptable); the exit code is unchanged
       --track string   which onboarding track: app (the only one implemented) or api (default "app")
@@ -1940,7 +2043,12 @@ version id explicitly and skip that stop; --yes proceeds on the version
 interpretation and echoes exactly which version it is downloading.
 
 Use --dry-run to print the resolved plan (files, sizes, SHA256, target paths,
-and whether auth is required) without transferring anything.
+and whether auth is required) without transferring anything. It creates no
+file at all — not even a ".part".
+
+When a positional model id is resolved to a version, the note reads:
+
+  note: <id> is a model id — downloading its default version <v>
 
 By default the version's PRIMARY file is downloaded into the current directory
 under its server-provided name. Any file type downloads — model weights, but
@@ -1967,11 +2075,73 @@ Folder routing: pass --layout <a1111|comfyui> (with an optional --root <dir>,
 default ".") to write each file into the correct subfolder for that app, routed
 by the file/model type — so --all fans a bundled VAE into the VAE folder
 instead of polluting the checkpoint folder. --layout is mutually exclusive with
---out/--out-dir.
+--out/--out-dir; --root only applies with --layout. The routed folder map:
+
+  Civitai type                     A1111 / Forge           ComfyUI
+  ------------------------------   ---------------------   ---------------------
+  Checkpoint                       models/Stable-diffusion models/checkpoints
+  VAE (standalone OR bundled)      models/VAE              models/vae
+  LORA / LoCon / DoRA              models/Lora             models/loras
+  TextualInversion (embedding)     embeddings              models/embeddings
+  Hypernetwork                     models/hypernetworks    models/hypernetworks
+  Controlnet                       models/ControlNet       models/controlnet
+  Upscaler                         models/ESRGAN           models/upscale_models
+
+Sources: the AUTOMATIC1111 wiki plus the sd-webui-controlnet models/ControlNet
+default, and the ComfyUI models docs (docs.comfy.org). An UNMAPPED type (Poses,
+Wildcards, Archive, …) is written to --root with a stderr note rather than
+silently misplaced.
+
+Mis-file warning, WITHOUT --layout: when --all would place files of differing
+types into one directory, the CLI prints a one-line stderr warning naming the
+off-type file(s) and suggesting --layout. It is a warning, not an error, and a
+single-type download stays quiet.
 
 Compatibility: --for-base "<baseModel>" warns on stderr when the version's base
 model is in a confidently different family than your target (e.g. an SD 1.5
-embedding for an SDXL model). The version's base model is always shown.
+embedding for an SDXL model). The version's base model is always shown. The
+check is deliberately conservative: it groups the common bases into
+architecture families — SD1.x, SD2.x, the SDXL family (SDXL/Pony/Illustrious/
+NoobAI, treated loosely as one), SD3, Flux, video — and warns ONLY on an
+architecture-level mismatch. It never warns on near-neighbours (Pony vs
+Illustrious) or on a base it cannot classify.
+
+ControlNet preprocessor: when the parent model is a ControlNet, the CLI prints
+a one-line stderr note. A ControlNet model needs a matching preprocessor or
+annotator (e.g. the ComfyUI comfyui_controlnet_aux custom node — OpenPose,
+Canny, Depth) to derive the control image from your input, and that
+preprocessor is a SEPARATE install, not hosted on Civitai. Informational only;
+it never blocks the download.
+
+Transport: the Civitai download URL 302-redirects to signed storage and the CLI
+follows it. Large files (10+ GB) are never buffered in memory, and TTY-aware
+progress is printed to STDERR.
+
+Transient-failure retry applies to the READ endpoints (search / model / version
+/ images / tags / creators / users / articles / collections), which retry a
+transient 502/503/504 or network error a few times with exponential backoff and
+jitter, noting each retry on stderr. A 429 is retried ONLY when it carries a
+Retry-After header; a 429 without one is terminal, because Civitai's
+deterministic deep-paging limit arrives that way. The download STREAM is not
+retried mid-transfer.
+
+Server-supplied text is sanitised on every message here — a file name is the
+UPLOADER's string, so invisible and terminal-controlling characters are removed
+first, and newlines and tabs become spaces. Each of these is a single-line
+surface, so a newline in a file name would otherwise let an uploader write a
+whole line of their own — a forged "Saved … (SHA256 verified)" above a transfer
+that never finished, say. On the PROGRESS LINE the name is additionally cut at
+120 characters and marked with a "…", because removing newlines does not stop a
+name long enough to WRAP: the terminal, not the CLI, puts the overflow at
+column zero, and a wrap has no character in it to remove. That shortening is
+the progress line only — the "Saved …" line, the "SHA256 mismatch" line and the
+download plan all print the name in full. Two deliberate exceptions, which do
+NOT share a reason: (1) the "server returned an unusable filename" refusal
+renders through %q, which ESCAPES a newline to a visible \n, so collapsing it
+would hide what the server actually sent; (2) multi-line server text outside
+this path — a prompt, a generation failure reason — is printed RAW and
+INDENTED, not escaped, because its newlines are real and the indentation is
+what keeps a continuation line off column zero.
 
 Integrity: the streamed bytes are verified against the file's SHA256 by default
 (--no-verify to skip; a file with no published SHA256 is downloaded with a
