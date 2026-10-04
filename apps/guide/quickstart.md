@@ -86,7 +86,7 @@ and no Buzz. To iterate against the **real** Civitai backend instead, mint a dev
 token and run `npm run dev:live`:
 
 ```bash
-civitai app dev-token <slug> --spend --budget 250 --env >> .env.development.local
+civitai app dev-token my-app --spend --budget 250 --env >> .env.development.local
 npm run dev:live
 ```
 
@@ -109,6 +109,12 @@ a flat **50** Buzz per generation — your manifest's `page.buzzBudgetPerGen` is
 read, because there is no submitted manifest to read — which the default
 scaffold's own sample exceeds, so `--budget` is not optional there.
 
+That last point is why the CLI route above is the one to follow. The setup notice
+`dev:live` shows also offers a one-click **Set up automatically** button, which
+mints and writes the token for you — but it cannot pass a budget, so it lands on
+the flat 50 and the scaffold's own sample then fails with `insufficient buzz
+budget`. Use it for a sample that fits 50; otherwise mint from the command line.
+
 ⚠️ **`dev-tunnel` is narrower than `dev:live` for real generation on an app you
 have never submitted.** That path has a third, spend-specific gate, and it is
 open to fewer people than author access is; when it is closed the app still
@@ -117,10 +123,13 @@ renders but cannot spend. If you want real generation before submitting, use
 
 ::: warning Match the harness origin
 The harness pins a parent origin (`http://localhost:5186` in the shipped
-`page-money` template), and so does `.env`. They **must match**, or the
-transport's origin allowlist drops
-`BLOCK_INIT` and the block hangs on "Loading…". If your block never leaves the
-loading state, check that the two agree.
+`page-money` template), and so does `VITE_BLOCK_ALLOWED_PARENT_ORIGINS`. They
+**must match**, or the transport's origin allowlist drops `BLOCK_INIT` and the
+block hangs on "Loading…". If your block never leaves the loading state, check
+that the two agree — the key is set in `.env.development`, and auto-setup merges
+it into `.env.development.local`. It is only a comment in `.env.example`, so a
+`.env` you created from that file will not carry it, and in dev mode
+`.env.development` would override it anyway.
 :::
 
 ## 3. Read the block
@@ -267,7 +276,7 @@ npm run build     # → dist/  (a static SPA; skip it for the `static` template)
 ```
 
 That's a shippable bundle. Everything up to here works today with the public
-packages.
+packages — except §2's two live modes, which need closed-beta author access.
 
 ## Submitting (closed beta)
 
