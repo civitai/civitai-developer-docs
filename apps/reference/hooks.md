@@ -26,7 +26,10 @@ for anything that has to raise Civitai's own UI.
 It is no longer the only model. Most of the data these hooks carry now has a
 REST route, and **a block can call those routes today with the token it already
 holds**. Most hooks below therefore have a direct-API replacement — the
-[porting guide](../guide/porting#hook-replacements) maps all 37 of them.
+[porting guide](../guide/porting#hook-replacements) maps every hook the package
+exports. In a few places the route is the *wider* surface: shared storage's
+`list` route takes a `mine` filter no hook carries, and the porting guide
+documents it.
 
 (`@civitai/sdk` is the other client, and since 0.5.0 it runs in a block on either
 credential. What each credential reaches — and the 22 block routes an OAuth token
