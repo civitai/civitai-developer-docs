@@ -116,12 +116,18 @@ blue leg can never exceed the proportional amount.
 | `BLOCK_GOOD_MAX_PRICE_BUZZ` | `50_000` | Ceiling on a **single** good, re-checked at purchase time as well as at manifest validation — so an old approved manifest cannot keep charging a price the ceiling has since moved below |
 | `BLOCK_GOOD_MAX_PER_MANIFEST` | `32` | Most goods one manifest may declare |
 
-🔴 **The two CEILINGS above — the per-good price cap and the per-manifest count —
-are for an ordinary good. A `kind: "app_unlock"` good is capped more tightly on
-both**; see [charging for access](#charging-for-access-to-the-app-itself) below,
-which points at the one place those numbers are written down. **The share and the
-floor are the same for both kinds**: an unlock earns the same 70% and cannot be
-priced below 2 either.
+🔴 **Three of those four rows are kind-blind; one is not.** For a
+`kind: "app_unlock"` good, the share, the floor and the 32-entry catalog cap all
+apply unchanged — an unlock earns the same 70%, cannot be priced below 2, and
+counts toward the same 32. **Only the per-good price ceiling differs**: an unlock
+is capped well below 50,000.
+
+An unlock also carries one cap with no ordinary-good equivalent — a limit on how
+many *unlocks* a single catalog may hold — and that one **narrows nothing above**:
+a 33-entry catalog is refused by the 32 cap whether or not one entry is an
+unlock. Both unlock numbers are in
+[charging for access](#charging-for-access-to-the-app-itself) below, which points
+at the one place they are written down.
 
 Above your per-good ceiling sits a **per-viewer daily ceiling across every app**.
 A purchase at a perfectly legal price can still be refused because the viewer has

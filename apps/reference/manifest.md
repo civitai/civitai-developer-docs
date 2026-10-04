@@ -115,7 +115,7 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
   | `priceBuzz` | `integer` | required | **2–50000** whole Buzz for a `"good"`. 🔴 An `"app_unlock"` is capped at **5000**, not 50000 — see below. |
   | `description` | `string` | optional | ≤ 500 chars. |
   | `kind` | `"good" \| "app_unlock"` | optional | Defaults to `"good"`. Not merely a label: `"app_unlock"` carries three extra rules, below. |
-  | `justification` | `string` | **required for `"app_unlock"`**, optional otherwise | 1–500 chars, measured **after trimming**. Review metadata only — shown to the moderator, never to the viewer, and never copied onto the entitlement. |
+  | `justification` | `string` | **required for `"app_unlock"`**, optional otherwise | 1–500 chars (`BLOCK_GOOD_JUSTIFICATION_MAX_LENGTH`), measured **after trimming**. Review metadata only — shown to the moderator, never to the viewer, and never copied onto the entitlement. |
   | `payload` | `object` | optional | Opaque, copied verbatim onto the entitlement; ≤ 2048 bytes serialized. |
 
   Four things the bounds don't say:
@@ -143,13 +143,20 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
     - **At most one** `app_unlock` good per manifest
       (`BLOCK_APP_UNLOCK_MAX_PER_MANIFEST`), so "is this viewer admitted?" has
       exactly one answer.
-    - `justification` becomes **mandatory**, and is bounded at 500 characters
-      after trimming (`BLOCK_GOOD_JUSTIFICATION_MAX_LENGTH`): adding an unlock
-      turns a free app into a paid one, and a moderator has to be told why.
+    - `justification` becomes **mandatory**: adding an unlock turns a free app
+      into a paid one, and a moderator has to be told why. (Its 1–500 length
+      bound is in the row above and is *not* one of these three — the schema
+      declares that one, so it fails offline like any other `maxLength`.)
 
     The constant names are given because a submit rejection quotes these bounds,
     and the names are what let you match an error against the platform source.
     They live in `civitai:src/shared/constants/block-goods.constants.ts`.
+
+    Of the two caps, only one REPLACES something: the 5000 price ceiling stands
+    in for the 50000 in the row above, because the per-good ceiling is chosen by
+    `kind`. The arity cap **replaces nothing** — the 32-entry catalog limit is
+    kind-blind and still applies, so a 33-entry catalog is refused whether or not
+    one entry is an unlock.
 
     Declaring a `goods` catalog **always** requires the
     [`goods:purchase:self`](./scopes) scope — including a catalog whose only
