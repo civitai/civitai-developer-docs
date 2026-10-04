@@ -1,6 +1,6 @@
 ---
 title: Moving a block off the bridge
-description: Replace a block's postMessage data calls with /api/v1/blocks/* REST calls — what each credential reaches, which routes an OAuth token gives up, and a hook-by-hook replacement table.
+description: Replace a block's postMessage data calls with /api/v1/blocks/* REST calls — what each credential reaches, which routes an OAuth token gives up, a hook-by-hook replacement table, and where the route is now the wider surface, taking parameters no bridge hook exposes (shared storage's mine filter).
 sources:
   - npm:@civitai/blocks-react@0.63.0/dist/index.d.ts
   - npm:@civitai/sdk@0.5.0/dist/index.d.ts
