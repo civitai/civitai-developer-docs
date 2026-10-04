@@ -330,6 +330,13 @@ export const HISTORICAL_LITERALS = [
     // reports a difference and says nothing about this rule. Measured the rule
     // itself instead — strip CSS comments FIRST, then compare the declaration set
     // of the `[data-civitai-ui='group']` block: IDENTICAL between 0.7.1 and 0.8.1
+    //
+    // RE-MEASURED AGAIN at the 0.9.2 pin bump, same method: `styles.css` is
+    // 39,970 B at 0.8.1 against 40,419 B at 0.9.2, so `cmp` differs and again
+    // says nothing about this rule. Comments stripped first, the group/nowrap
+    // declaration set is IDENTICAL across both — one rule,
+    // `&[data-nowrap='true'] { flex-wrap: nowrap }`. Arrival version is still
+    // 0.4.0 and this exemption still describes reality against the NEW pin.
     // (`flex-wrap: wrap`, `flex-wrap: nowrap`, `min-width: 0`, `display: flex`,
     // `flex-direction: row`, `align-items: center`, four `gap`s). Only the
     // comments moved, and 0.8.1's own comment says why: `components-react@0.9.0`
@@ -348,6 +355,39 @@ export const HISTORICAL_LITERALS = [
     // not CSS — it adds the `civitai-workflow-button` element and edits
     // `civitai-sign-in-button` (custom-elements.json: 45 -> 46 elements).
     why: 'group wrapping by default + `data-nowrap` ARRIVED in components 0.4.0 — no release since has touched the group/wrap DECLARATIONS (measured: 0 of the 42 rules that changed between 0.4.1 and 0.6.0 match group or wrap; `styles.css` byte-identical between 0.6.0 and 0.7.1; and at the 0.8.1 pin the `[data-civitai-ui=\'group\']` block\'s declarations are identical to 0.7.1\'s — only its comments moved). Bumping this to the pin would name a version in which nothing about this behaviour changed.',
+  },
+  {
+    file: 'apps/guide/responsive.md',
+    pkg: '@civitai/components-react',
+    version: '0.9.0',
+    // EXACT count 1 — one SUPERSESSION claim, which is an arrival fact in the
+    // negative direction: "the hand-written `<Group>` that took this contract was
+    // superseded in `@civitai/components-react@0.9.0`". The supersession happened
+    // AT 0.9.0; bumping this to the 0.9.1 pin would name a release in which
+    // nothing about it changed, i.e. state a false version — exactly what this
+    // registry exists to prevent.
+    // Not a `sources:` stamp: this file's stamps sit in the leading frontmatter
+    // (lines 6-7) and are structurally ineligible, so they cannot inflate `seen`.
+    count: 1,
+    why: 'the hand-written `<Group>` contract was SUPERSEDED in components-react 0.9.0 — a changelog fact. Bumping it to the current pin would name a release in which nothing about it changed.',
+  },
+  {
+    file: 'apps/guide/theming.md',
+    pkg: '@civitai/theme',
+    version: '0.5.0',
+    // EXACT count 1 — one arrival claim about the PALETTE DEFAULT, added in the
+    // same change that bumped theme to 0.5.2: "since `@civitai/theme@0.5.0` the
+    // dark values live directly on `:root` and the stylesheet declares no
+    // `prefers-color-scheme` block in either direction."
+    // MEASURED rather than taken from the upstream README: at theme 0.4.0 the
+    // bare `:root` resolves `--civitai-color-body` to #fefefe (light) and a
+    // `:root:not([data-theme])` rule carrying #1A1B1E sits INSIDE
+    // `@media (prefers-color-scheme: dark)`, so 0.4.0 is light-by-default with an
+    // OS-dark override. At 0.5.2 the bare `:root` is #1A1B1E and there is no
+    // `:not([data-theme])` rule at all. So the change is real, and 0.5.0 — not
+    // the 0.5.2 pin — is where it landed; the upstream MARKUP.md says the same.
+    count: 1,
+    why: 'the dark-values-on-`:root` change (and the removal of the prefers-color-scheme block) landed in theme 0.5.0 — a changelog fact. Bumping it to the current pin would name the wrong release.',
   },
 ];
 

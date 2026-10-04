@@ -90,14 +90,49 @@ Or, from JS: `import { injectStyles } from '@civitai/components'; injectStyles()
 
 Set `data-theme="light"` or `data-theme="dark"` on any ancestor (typically
 `<html>` or the block root). All tokens re-resolve from that scope. Default
-(no attribute) is the light palette.
+(no attribute) is the **dark** palette, and nothing consults the OS preference:
+since `@civitai/theme@0.5.0` the dark values live on `:root` and the stylesheet
+declares no `prefers-color-scheme` block in either direction. Only `light` and
+`dark` select a token block — any other value selects none and inherits the dark
+base. ⚠️ Before that release the default was light-with-an-OS-dark-override; if
+you set `data-theme` only to stop the browser deciding, you can drop it.
 
 ## Cascade / overriding
 
 Every shipped rule lives in `@layer civitai.components`. Your own **unlayered**
-CSS always beats it — no `!important`, no specificity war. Override a token
-locally by redeclaring the custom property (e.g.
-`style="--civitai-color-primary: #a259ff"`).
+CSS always beats it — no `!important`, no specificity war.
+
+🔴 **That applies to this package's rules, NOT to the tokens — and the
+difference will cost you a rebrand if you miss it.** `@civitai/theme`'s token
+sheet carries no cascade layer: its `:root` and `[data-theme='…']` blocks are
+unlayered at specificity `0-1-0`. So an app's own `:root { --civitai-color-…: }`
+does not outrank them, it **ties** — and the winner is whichever stylesheet
+comes last.
+
+**Scope a token override; never declare one at `:root`.** Each of these was
+measured to win in **either** stylesheet order:
+
+```html
+<!-- on the element, or any ancestor of what you want recoloured -->
+<div style="--civitai-color-primary: #a259ff"> … </div>
+```
+```css
+/* or a class on your block root — not :root */
+.my-block { --civitai-color-primary: #a259ff; }
+```
+
+A scoped override reaches **inside** component shadow roots — custom properties
+cross the boundary — so `<civitai-button variant="filled">` repaints from it.
+
+⚠️ **Why `:root` is the trap rather than merely the weaker option: it fails
+SILENTLY, and it fails in the order the framework itself produces.**
+`@civitai/blocks-react`'s `useBlocksStyles()` injects the token sheet from a
+`useEffect`, so the tokens land **after** your bundler-injected CSS is already
+in `<head>`. Measured in Chromium: in that order a `:root` brand override
+resolves to civitai's own `#1971C2`, with no error and no warning — and it does
+so with or without `data-theme` present, so the host theme stamp is not the
+cause. Pinned in `test/token-override-order.browser.test.ts`, which asserts
+every route above in both orders.
 
 ---
 
