@@ -115,9 +115,11 @@ blue leg can never exceed the proportional amount.
 | `BLOCK_GOOD_MIN_PRICE_BUZZ` | `2` | Cheapest listable price |
 | `BLOCK_GOOD_MAX_PRICE_BUZZ` | `50_000` | Ceiling on a **single** good, re-checked at purchase time as well as at manifest validation — so an old approved manifest cannot keep charging a price the ceiling has since moved below |
 | `BLOCK_GOOD_MAX_PER_MANIFEST` | `32` | Most goods one manifest may declare |
-| `BLOCK_APP_UNLOCK_MAX_PRICE_BUZZ` | `5_000` | Ceiling on an **`app_unlock`** good — a tenth of the ordinary one. See below |
-| `BLOCK_APP_UNLOCK_MAX_PER_MANIFEST` | `1` | Most `app_unlock` goods one manifest may declare |
-| `BLOCK_GOOD_JUSTIFICATION_MAX_LENGTH` | `500` | A good's review `justification`, measured **after trimming** |
+
+🔴 **These are the bounds for an ordinary good. A `kind: "app_unlock"` good is
+bounded more tightly** — see [charging for access](#charging-for-access-to-the-app-itself)
+below, which points at the one place those numbers are written down. They are
+deliberately not repeated here.
 
 Above your per-good ceiling sits a **per-viewer daily ceiling across every app**.
 A purchase at a perfectly legal price can still be refused because the viewer has
@@ -134,24 +136,29 @@ through the same rail, at the same 70/30 split, and recorded in the same ledger.
 gate reads the value today, so an `app_unlock` entitlement is recorded like any
 other and every viewer still gets in. Declaring it is how you get a catalog the
 gate can read the day it lands, without a migration — it is **not** a way to
-charge for access now. If you ship one before then, say so plainly in your
-listing; a store page implying a paywall that does not exist is the one way this
-field can cost you a buyer's trust.
+charge for access now. (Not a platform rule, but worth saying: if you ship one
+before the gate exists, a listing that implies a paywall is describing something
+the platform is not doing on your behalf.)
 
-What it does change today is **three manifest-time rules**, all enforced by the
-submit-time validator and deliberately *not* expressed in the JSON Schema — so
-each one validates offline and is rejected at submit:
+What it does change today is **three manifest-time rules** an ordinary good does
+not carry — a lower price ceiling, an arity of one, and a mandatory
+`justification`. All three are enforced by the submit-time validator and are
+deliberately *not* declared in the JSON Schema, so each one validates offline and
+is rejected at submit.
 
-| Rule | Why it is tighter than an ordinary good |
-|---|---|
-| `priceBuzz` ≤ **5000**, not 50000 | An unlock is bought *before* the viewer has used your app, so it is capped at a single Buzz tip and at the smallest top-up |
-| **At most one** per manifest | "Is this viewer admitted?" is one question and must have exactly one answer |
-| `justification` is **mandatory** | Adding one turns a free app into a paid app, and a moderator has to be told why |
+🔴 **The rules and their exact bounds are in
+[the manifest reference](../reference/manifest#optional-fields-worth-calling-out), and only there.** They are
+not restated on this page on purpose: they were written out in three places in
+one change, and nothing relates the copies, so a correction to one would leave
+the others wrong with every drift-guard green — which is the failure the
+reference's own `goods` key-set guard exists to prevent one level up. One place,
+one set of numbers.
 
-The `justification` is review metadata: 1–500 characters measured after
-trimming, shown to the moderator and **never to the viewer**, and — unlike
-`payload` — never copied onto the entitlement. The platform records your claim
-without verifying it.
+What belongs here is the *money* consequence rather than the manifest rule: the
+`justification` is review metadata, never copied onto the entitlement and never
+shown to the viewer, so it has no bearing on what a buyer sees or on what you
+are paid. The split, the rounding and the refusal reasons below apply to an
+unlock exactly as they do to an ordinary good.
 
 It exists because your **permission set does not move** when you start charging.
 Declaring any `goods` catalog already requires
