@@ -116,10 +116,72 @@ blue leg can never exceed the proportional amount.
 | `BLOCK_GOOD_MAX_PRICE_BUZZ` | `50_000` | Ceiling on a **single** good, re-checked at purchase time as well as at manifest validation — so an old approved manifest cannot keep charging a price the ceiling has since moved below |
 | `BLOCK_GOOD_MAX_PER_MANIFEST` | `32` | Most goods one manifest may declare |
 
+🔴 **Three of those four rows are kind-blind; one is not.** For a
+`kind: "app_unlock"` good, the share, the floor and the 32-entry catalog cap all
+apply unchanged — an unlock earns the same 70%, cannot be priced below 2, and
+counts toward the same 32. **Only the per-good price ceiling differs**: an unlock
+is capped well below 50,000.
+
+An unlock also carries one cap with no ordinary-good equivalent — a limit on how
+many *unlocks* a single catalog may hold — and that one **narrows nothing above**:
+a 33-entry catalog is refused by the 32 cap whether or not one entry is an
+unlock. Both unlock numbers are in
+[charging for access](#charging-for-access-to-the-app-itself) below, which points
+at the one place they are written down.
+
 Above your per-good ceiling sits a **per-viewer daily ceiling across every app**.
 A purchase at a perfectly legal price can still be refused because the viewer has
 spent their day's allowance somewhere else, and that refusal is not something
 your app can price its way out of.
+
+### Charging for access to the app itself
+
+A good declared `kind: "app_unlock"` means "this buys admission", as opposed to
+the default `"good"`, which buys something *inside* your app. The two are sold
+through the same rail, at the same 70/30 split, and recorded in the same ledger.
+
+🔴 **It is not enforced yet. Selling one does not paywall your app.** No access
+gate reads the value today, so an `app_unlock` entitlement is recorded like any
+other and every viewer still gets in. Declaring it is how you get a catalog the
+gate can read the day it lands, without a migration — it is **not** a way to
+charge for access now. (Not a platform rule, but worth saying: if you ship one
+before the gate exists, a listing that implies a paywall is describing something
+the platform is not doing on your behalf.)
+
+What it does change today is **three manifest-time rules** an ordinary good does
+not carry — a lower price ceiling, an arity of one, and a mandatory
+`justification`. All three are enforced by the submit-time validator and are
+deliberately *not* declared in the JSON Schema, so each one validates offline and
+is rejected at submit.
+
+🔴 **The rules and their exact bounds are in
+[the manifest reference](../reference/manifest#optional-fields-worth-calling-out),
+and only there.** They are not restated on this page on purpose: they were
+written out in four places in one change, and nothing relates the copies, so a
+correction to one would leave the others wrong. ⚠ **And no guard would catch
+that** — the reference's `goods` key-set guard checks that every schema KEY is
+documented and says in its own header that it does *not* check the bound cells,
+so it cannot see a wrong NUMBER. One place, one set of numbers, because the
+numbers are the part nothing can verify for you.
+
+What belongs here is the *money* consequence rather than the manifest rule: the
+`justification` is review metadata, never copied onto the entitlement and never
+shown to the viewer, so it has no bearing on what a buyer sees or on what you are
+paid — and the platform records your claim without verifying it. The split and
+its rounding, **described above**, and the [refusal reasons](#refusal-reasons-your-app-must-branch-on)
+below, apply to an unlock exactly as they do to an ordinary good.
+
+It exists because your **permission set does not move** when you start charging.
+Declaring any `goods` catalog already requires
+[`goods:purchase:self`](../reference/scopes) — including a catalog whose only
+entry is an `app_unlock` — and that scope is declared once. So an app already
+selling ordinary items can begin charging for admission with its scopes
+unchanged; the `justification` is what makes that visible at review.
+
+🔴 **You cannot buy your own app's goods.** A purchase by the app owner is
+refused `self_purchase` (400, `charge: 'none'`, `retryable: false`), so testing
+an unlock end-to-end needs a second account — being signed in with enough Buzz
+is not sufficient.
 
 ### A pinned install can be charged a price it was never shown
 
