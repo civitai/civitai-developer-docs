@@ -12,6 +12,7 @@ All endpoints below live under `https://civitai.com/api/v1/`.
 | [Models](./models) | `GET /models`, `GET /models/{id}` |
 | [Model versions](./model-versions) | `GET /model-versions/{id}`, `GET /model-versions/by-hash/{hash}`, `POST /model-versions/by-hash`, `POST /model-versions/by-hash/ids`, `GET /model-versions/mini/{id}` |
 | [Images](./images) | `GET /images` |
+| [Posts](./posts) | `GET /posts/{id}` |
 | [Articles](./articles) | `GET /articles`, `GET /articles/{id}` |
 | [Collections](./collections) | `GET /collections`, `GET /collections/{id}` |
 | [Creators](./creators) | `GET /creators` |

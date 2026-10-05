@@ -56,6 +56,7 @@ browsing level; anonymous callers are capped at the public browsing level.
       "browsingLevel": 2,
       "createdAt": "2025-04-17T21:28:57.225Z",
       "postId": 1981754,
+      "thumbnail": null,
       "username": "Ajuro",
       "baseModel": "SDXL 1.0",
       "modelVersionIds": [9208, 249861, 258687, 332071, 345685],
@@ -97,6 +98,12 @@ browsing level; anonymous callers are capped at the public browsing level.
   `browsingLevel` is the raw bitmask — use this for precise filtering.
 - `hash` is a BlurHash, suitable for rendering a placeholder while the
   `url` loads.
+- `thumbnail` is a still for a video: `{ url, width, height }`. It is `null`
+  for images and audio. It is the uploader's custom thumbnail when that
+  thumbnail's rating is within the browsing level of the request, otherwise a
+  frame taken from the video. The `url` serves an optimized still (WebP for a
+  custom thumbnail, JPEG for a frame), while the item's own `url` serves the
+  video file. `width` and `height` can be `null`.
 - `meta` is present only when the uploader included metadata at post time.
   The most common fields are listed above, but the object is free-form —
   tools like Automatic1111 and ComfyUI drop in their own keys. Treat unknown
