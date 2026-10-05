@@ -2949,6 +2949,107 @@
         }
       }
     },
+    "/v2/consumer/recipes/merge": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Merge",
+        "description": "Also waits for every step the referenced steps generate, such as each iteration of a repeat.",
+        "operationId": "InvokeMergeStepTemplate",
+        "parameters": [
+          {
+            "name": "experimental",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "allowMatureContent",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "whatif",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ephemeral",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeInput"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeInput"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergeOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/consumer/recipes/miniMaxMusic3": {
       "post": {
         "tags": [
@@ -7419,6 +7520,17 @@
             "name": "tags",
             "in": "query",
             "description": "An optional list of tags to query by",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "excludeTags",
+            "in": "query",
+            "description": "An optional list of tags; workflows with any of these tags are excluded",
             "schema": {
               "type": "array",
               "items": {
@@ -27651,6 +27763,9 @@
               "null",
               "string"
             ]
+          },
+          "personMask": {
+            "$ref": "#/components/schemas/ImageScanningPersonMask"
           }
         },
         "additionalProperties": false
@@ -27722,6 +27837,28 @@
         },
         "additionalProperties": false,
         "description": "Complete result from the unified image scanner."
+      },
+      "ImageScanningPersonMask": {
+        "required": [
+          "height",
+          "pngBase64",
+          "width"
+        ],
+        "type": "object",
+        "properties": {
+          "width": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "height": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pngBase64": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "ImageScanningRecognition": {
         "required": [
@@ -30431,6 +30568,192 @@
             "backgroundRemoval": "#/components/schemas/BackgroundRemovalTransformer"
           }
         }
+      },
+      "MergeField": {
+        "required": [
+          "$ref",
+          "includeIndex",
+          "path",
+          "reduce"
+        ],
+        "type": "object",
+        "properties": {
+          "$ref": {
+            "type": "string",
+            "description": "The name of the step to read from, or `$arguments` for the workflow's arguments."
+          },
+          "path": {
+            "type": "string",
+            "description": "The path to the values, e.g. `output.steps[*].output.nsfwLevel`. `[*]` selects the rest of the path\nfrom every item of a list; nested `[*]` flatten into one list."
+          },
+          "reduce": {
+            "$ref": "#/components/schemas/MergeReducer"
+          },
+          "by": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "For `group`: the property of each item to group by."
+          },
+          "sortBy": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "description": "For `top` and `group`: the properties to rank items by, in order, each 1 (ascending) or -1 (descending)."
+          },
+          "includeIndex": {
+            "type": "boolean",
+            "description": "For `max`, `min`, `top` and `push`: wrap each result as `{ value, index }`, where index is\nthe position of its source item in the first `[*]` of the path."
+          }
+        },
+        "additionalProperties": false,
+        "description": "One field of a merge: where its values come from and how they are combined."
+      },
+      "MergeInput": {
+        "required": [
+          "fields",
+          "onMissing"
+        ],
+        "type": "object",
+        "properties": {
+          "onMissing": {
+            "$ref": "#/components/schemas/MergeMissingBehavior"
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/MergeField"
+            },
+            "description": "The fields of the merged result, keyed by the name each appears under in the output."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Input for the Merge workflow step."
+      },
+      "MergeMissingBehavior": {
+        "enum": [
+          "fail",
+          "partial"
+        ],
+        "type": "string",
+        "description": "How a merge treats a source item that has no output."
+      },
+      "MergeOutput": {
+        "required": [
+          "failedCount",
+          "fields",
+          "mergedCount",
+          "sourceCount"
+        ],
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "null"
+            },
+            "description": "The merged values, keyed by the field names of the input. Their shape follows the requested reducers."
+          },
+          "sourceCount": {
+            "type": "integer",
+            "description": "The number of source items selected by the first `[*]` of the fields' paths.",
+            "format": "int32"
+          },
+          "mergedCount": {
+            "type": "integer",
+            "description": "The number of source items whose values were merged.",
+            "format": "int32"
+          },
+          "failedCount": {
+            "type": "integer",
+            "description": "The number of source items left out because they had no output.",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Output of the Merge workflow step."
+      },
+      "MergeReducer": {
+        "enum": [
+          "max",
+          "min",
+          "sum",
+          "avg",
+          "count",
+          "any",
+          "all",
+          "first",
+          "last",
+          "push",
+          "addToSet",
+          "top",
+          "group"
+        ],
+        "type": "string",
+        "description": "How a merge field combines its values. Null values are skipped, except by `any` and `all`, which count them as false."
+      },
+      "MergeStep": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStep"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/MergeInput"
+              },
+              "output": {
+                "$ref": "#/components/schemas/MergeOutput"
+              },
+              "$type": {
+                "enum": [
+                  "merge"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Merge"
+      },
+      "MergeStepTemplate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStepTemplate"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/MergeInput"
+              },
+              "$type": {
+                "enum": [
+                  "merge"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Merge"
       },
       "MeshyFalPolyGenInput": {
         "allOf": [
@@ -46333,6 +46656,7 @@
             "mediaCaptioning": "#/components/schemas/MediaCaptioningStep",
             "mediaHash": "#/components/schemas/MediaHashStep",
             "mediaRating": "#/components/schemas/MediaRatingStep",
+            "merge": "#/components/schemas/MergeStep",
             "miniMaxMusic3": "#/components/schemas/MiniMaxMusic3Step",
             "model3DPreview": "#/components/schemas/Model3DPreviewStep",
             "modelClamScan": "#/components/schemas/ModelClamScanStep",
@@ -46706,6 +47030,7 @@
             "mediaCaptioning": "#/components/schemas/MediaCaptioningStepTemplate",
             "mediaHash": "#/components/schemas/MediaHashStepTemplate",
             "mediaRating": "#/components/schemas/MediaRatingStepTemplate",
+            "merge": "#/components/schemas/MergeStepTemplate",
             "miniMaxMusic3": "#/components/schemas/MiniMaxMusic3StepTemplate",
             "model3DPreview": "#/components/schemas/Model3DPreviewStepTemplate",
             "modelClamScan": "#/components/schemas/ModelClamScanStepTemplate",
