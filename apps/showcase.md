@@ -64,7 +64,7 @@ the React major you ship.
 
 The previews re-theme with the site: toggle the header's light/dark switch and
 every `--civitai-*` token re-resolves in place. The React snippets below are
-type-checked against the pinned `@civitai/components-react@0.9.0` declarations on
+type-checked against the pinned `@civitai/components-react@0.9.1` declarations on
 every build, so they can't drift from the shipped API.
 
 ::: tip Setup — the HTML path

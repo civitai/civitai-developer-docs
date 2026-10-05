@@ -127,7 +127,7 @@
  * whatever else the file happens to say, and the protection no longer depends on
  * every other occurrence of that version continuing to match.
  *
- * This covers all three registry rows: both `generation.md` rows (whose comments
+ * This covers every registry row — derive the set, do not restate a count: both `generation.md` rows (whose comments
  * reason about the stamp inflating the count) and the `responsive.md` row (same
  * argument, `@civitai/components`). The count stays — it still catches a genuine
  * ADD or REMOVE in prose, which this does not.
@@ -151,12 +151,31 @@
  * pointer, and does NOT fail. A gate that cannot be made green by anyone in this
  * repo would just train people to ignore it.
  *
- * 🔴 AS OF `@civitai/components@0.4.1` THAT WARNING IS EXPECTED TO BE SILENT, AND
- * ITS RETURN IS THE SIGNAL. Upstream MARKUP.md now ships those `<link>`s
+ * 🔴 THE WARNING HAS TWO CAUSES AND ONLY ONE OF THEM MEANS WHAT THIS PARAGRAPH
+ * USED TO SAY. It read "AS OF `@civitai/components@0.4.1` THAT WARNING IS
+ * EXPECTED TO BE SILENT, AND ITS RETURN IS THE SIGNAL … if this warning ever
+ * fires again, upstream has RE-PINNED the URLs … Fix it upstream." That is true
+ * of a CDN `<link>` literal and FALSE of an arrival claim, and the design-system
+ * pin bump to 0.5.2/0.9.2/0.9.1 made it fire FOUR times, none of them a URL:
+ * `components.md:25`, `:94`, `:548`, `:625` are all changelog sentences
+ * ("Until `@civitai/components-react@0.9.0` that package also shipped a
+ * hand-written React layer…"), correct upstream, un-silenced only because the
+ * pin moved PAST the version they name. Following the old remedy there means
+ * asking upstream to state a FALSE arrival version. So:
+ *   - a stale CDN `<link>` literal  ⇒ upstream re-pinned the URLs; fix upstream.
+ *   - an arrival/changelog literal  ⇒ EXPECTED and permanent; upstream is right
+ *     and there is nothing to fix. This arm has no `HISTORICAL_LITERALS`
+ *     equivalent (`findLiterals` is applied to `upstream` pages without ever
+ *     consulting the registry), which is why it cannot tell the two apart. Until
+ *     it can, those warnings are noise — do NOT let them train you to ignore the arm,
+ *     and do NOT "fix" them upstream.
+ * On the CDN-URL half specifically: upstream MARKUP.md ships those `<link>`s
  * **unversioned** (`cdn.jsdelivr.net/npm/@civitai/components/styles.css`) on
- * purpose, so they track `latest` and cannot rot. There is no version literal on
- * that page for this arm to match, so it emits nothing — which is the fixed
- * state, not a broken scan. (The per-family positive control above is what keeps
+ * purpose, so they track `latest` and cannot rot, and there is no URL literal
+ * left for this arm to match. ⚠ That used to be written as "so it emits nothing —
+ * which is the fixed state", and it is NO LONGER TRUE of the arm as a whole: the
+ * page carries FOUR arrival literals and the arm warns on all four. Silence is
+ * the fixed state for URLs only. (The per-family positive control above is what keeps
  * that distinguishable: it counts AUTHORED literals, which are still pinned and
  * still guarded, so a matcher that stopped working fails loudly regardless.)
  *
@@ -166,10 +185,15 @@
  * second of which contradicted the docs' own responsive guide, since
  * `theme@0.2.x` contains ZERO `--civitai-bp-*` tokens and that guide is written
  * entirely against them. Every one of those URLs returned **200**, with the OLD
- * stylesheet. So if this warning ever fires again, upstream has RE-PINNED the
- * URLs; do not "fix" it by re-adding a rewrite shim to
+ * stylesheet. 🔴 So if this warning fires on a CDN `<link>` literal, upstream has
+ * RE-PINNED the URLs; do not "fix" it by re-adding a rewrite shim to
  * `gen-appblocks-components.mjs` — one lived there, froze at `0.1.1`, and would
- * have silently re-pinned the page three minors backwards. Fix it upstream.
+ * have silently re-pinned the page three minors backwards. Fix THAT upstream.
+ * 🔴 **But do NOT read this paragraph as covering every warning** — it was written
+ * when URLs were the only thing the arm could match, and an earlier correction to
+ * the two-cause block above left this instruction standing unqualified. On an
+ * ARRIVAL literal upstream is CORRECT and there is nothing to fix anywhere; see
+ * the two-cause block.
  *
  * RESULTS (mirrors check-appblocks-pins.mjs's network contract)
  *   - all literals match the pin, no pin lags npm    -> PASS (exit 0)
@@ -313,41 +337,98 @@ export const HISTORICAL_LITERALS = [
     // count "becomes 2 and this row fails"; that held only while the stamp was
     // exemptible, and only until the arrival sentence was also reworded.)
     count: 1,
-    // Measured, not assumed: `styles.css` is BYTE-IDENTICAL between 0.4.0 and
-    // 0.4.1 (`cmp` rc=0), and differs from 0.3.0 — 0.4.1 changed only MARKUP.md,
-    // README.md, demo/index.html and the version field. So group-wrap-by-default
-    // and `data-nowrap` shipped in 0.4.0.
+    // ARRIVAL: 0.4.0. Measured, not assumed — `styles.css` is byte-identical
+    // between 0.4.0 and 0.4.1, which changed only MARKUP.md, README.md,
+    // demo/index.html and the version field.
     //
-    // RE-MEASURED at the 0.6.0 pin bump: 0.4.1 -> 0.6.0 changes `styles.css`
-    // (31970 -> 31108 bytes), but NOT this behaviour. Diffing the two
-    // stylesheets rule-by-rule yields 42 changed rules and ZERO of them match
-    // /group|wrap/; the `[data-nowrap='true'] { flex-wrap: nowrap; }` rule is
-    // byte-identical in both. So the arrival version is still 0.4.0 and the
-    // exemption below still describes reality against the NEW pin.
+    // 🔴 RE-VERIFY THIS AT EVERY PIN BUMP, AND *REPLACE* THE READING RATHER THAN
+    // APPEND IT. Four generations of byte counts accumulated here
+    // (31970 -> 31108 -> 39970 -> 40419), each one recording that `cmp` was
+    // uninformative again, which the method line already says; one of them was
+    // spliced mid-paragraph and orphaned the declaration list from the sentence
+    // that owned it, and they ended up out of chronological order. The method is
+    // the durable part; the numbers are not.
     //
-    // RE-MEASURED AGAIN at the 0.8.1 pin bump, and the byte-identity shortcut is
-    // GONE: `styles.css` is 31,108 B at 0.7.1 against 39,970 B at 0.8.1, so `cmp`
-    // reports a difference and says nothing about this rule. Measured the rule
-    // itself instead — strip CSS comments FIRST, then compare the declaration set
-    // of the `[data-civitai-ui='group']` block: IDENTICAL between 0.7.1 and 0.8.1
-    // (`flex-wrap: wrap`, `flex-wrap: nowrap`, `min-width: 0`, `display: flex`,
-    // `flex-direction: row`, `align-items: center`, four `gap`s). Only the
-    // comments moved, and 0.8.1's own comment says why: `components-react@0.9.0`
-    // deleted its hand-written `<Group>`, retiring `html-vs-react-parity` and
-    // leaving two surfaces on this rule rather than three. 🔴 An extractor that
-    // does NOT strip comments first reports the sets as DIFFERENT — comment prose
-    // matches the declaration regex. That false negative was hit here before the
-    // parser was fixed; the control is comparing a file against itself.
+    // 🔴 DO NOT RELY ON `cmp` OF `styles.css`. It is conclusive only when it
+    // reports IDENTICAL, which has happened twice — 0.4.0 vs 0.4.1 (the ARRIVAL
+    // paragraph above rests on it) and 0.6.0 vs 0.7.1. A DIFFERENCE says nothing
+    // about this rule, because the file changes at most bumps for unrelated
+    // reasons. So: try `cmp` first, and when it differs fall through to the
+    // method below rather than concluding anything.
     //
-    // RE-MEASURED AGAIN at the 0.7.1 pin bump, and this time the answer is
-    // stronger than a rule-by-rule diff: `styles.css` is BYTE-IDENTICAL between
-    // 0.6.0 and 0.7.1 (`cmp` rc=0, 31108 bytes both), so 0.7.1 cannot have
-    // touched ANY rule, group/wrap included. Positive control for that cmp:
-    // 0.4.1 vs 0.7.1 DOES differ (rc=1, first at byte 8979), so the comparison
-    // is capable of reporting a difference. What 0.7.1 actually changed is JS,
-    // not CSS — it adds the `civitai-workflow-button` element and edits
-    // `civitai-sign-in-button` (custom-elements.json: 45 -> 46 elements).
-    why: 'group wrapping by default + `data-nowrap` ARRIVED in components 0.4.0 — no release since has touched the group/wrap DECLARATIONS (measured: 0 of the 42 rules that changed between 0.4.1 and 0.6.0 match group or wrap; `styles.css` byte-identical between 0.6.0 and 0.7.1; and at the 0.8.1 pin the `[data-civitai-ui=\'group\']` block\'s declarations are identical to 0.7.1\'s — only its comments moved). Bumping this to the pin would name a version in which nothing about this behaviour changed.',
+    // METHOD: strip CSS comments FIRST, then compare the declaration SET of the
+    // `[data-civitai-ui='group']` block across the two versions. 🔴 An extractor
+    // that does not strip comments reports the sets as DIFFERENT, because comment
+    // prose matches the declaration regex — that false negative was hit here
+    // before the parser was fixed, and the control is comparing a file to itself.
+    //
+    // LAST RE-VERIFIED at the 0.9.2 pin: declaration set IDENTICAL to 0.8.1's —
+    // one nowrap rule, `&[data-nowrap='true'] { flex-wrap: nowrap }`, alongside
+    // `display: flex`, `flex-direction: row`, `flex-wrap: wrap`, `align-items:
+    // center`, `min-width: 0` and four `gap`s. Arrival is still 0.4.0.
+    why: 'group wrapping by default + `data-nowrap` ARRIVED in components 0.4.0 — no release since has touched the group/wrap DECLARATIONS, re-verified at each pin bump by comparing the `[data-civitai-ui=\'group\']` declaration set with CSS comments stripped (last checked at 0.9.2). Bumping this to the pin would name a version in which nothing about this behaviour changed.',
+  },
+  {
+    file: 'apps/guide/responsive.md',
+    pkg: '@civitai/components-react',
+    version: '0.9.0',
+    // EXACT count 1 — one SUPERSESSION claim, which is an arrival fact in the
+    // negative direction: "the hand-written `<Group>` that took this contract was
+    // superseded in `@civitai/components-react@0.9.0`". The supersession happened
+    // AT 0.9.0; bumping this to the 0.9.1 pin would name a release in which
+    // nothing about it changed, i.e. state a false version — exactly what this
+    // registry exists to prevent.
+    // Not a `sources:` stamp, and the argument is stronger than frontmatter
+    // position: this file declares NO `@civitai/components-react` stamp at all —
+    // whatever else its frontmatter stamps — so there is no stamp of THIS package
+    // in this file that could inflate `seen`.
+    count: 1,
+    why: 'the hand-written `<Group>` contract was SUPERSEDED in components-react 0.9.0 — a changelog fact. Bumping it to the current pin would name a release in which nothing about it changed.',
+  },
+  {
+    file: 'apps/guide/theming.md',
+    pkg: '@civitai/components-react',
+    version: '0.9.0',
+    // EXACT count 1 — one arrival claim: "since `@civitai/components-react@0.9.0`
+    // those bind the custom elements, which style themselves in shadow DOM".
+    // MEASURED: 0.9.1's `dist/` is BYTE-IDENTICAL to 0.9.0's (`diff -rq` reports
+    // only `package.json`, differing in `version` and the `@civitai/components`
+    // peer range), so nothing about binding arrived at 0.9.1. The change is at
+    // 0.9.0: 0.8.0 ships hand-written `Button.js`/`Group.js`/… that render the
+    // `data-civitai-ui` contract (3 files naming `GroupProps`, 149 files total);
+    // 0.9.0 drops all of them (0, 101) for `@lit/react` wrappers.
+    // 🔴 THE HOLE THIS ROW CLOSES, STATED PRECISELY. Once the row exists the
+    // bidirectional count DOES catch a later bump: `expected 1, saw 0`, rc=1
+    // (measured). The blind spot is narrower and is the one that bit here — an
+    // arrival literal that ALREADY EQUALS the pin, and therefore never had to be
+    // registered. `components-react@0.9.0` was the base pin, so bumping it to
+    // 0.9.1 produced no mismatch and demanded no row: the guard stayed green
+    // while the sentence went false, and review was the only thing that caught
+    // it, against sibling statements of the same fact at `responsive.md:203`,
+    // `components.md:25`, `:548` and `:625`.
+    // ⚠ An earlier draft of this comment said "THE GATE CANNOT CATCH THIS CLASS",
+    // which is false of this literal now that the row is here and trains the next
+    // bumper to distrust a check that works.
+    count: 1,
+    why: 'the custom-element binding arrived in components-react 0.9.0 — a changelog fact; 0.9.1 ships a byte-identical dist. Bumping it to the pin would name a release in which nothing about it changed.',
+  },
+  {
+    file: 'apps/guide/theming.md',
+    pkg: '@civitai/theme',
+    version: '0.5.0',
+    // EXACT count 1 — one arrival claim about the PALETTE DEFAULT, added in the
+    // same change that bumped theme to 0.5.2: "since `@civitai/theme@0.5.0` the
+    // dark values live directly on `:root` and the stylesheet declares no
+    // `prefers-color-scheme` block in either direction."
+    // MEASURED rather than taken from the upstream README: at theme 0.4.0 the
+    // bare `:root` resolves `--civitai-color-body` to #fefefe (light) and a
+    // `:root:not([data-theme])` rule carrying #1A1B1E sits INSIDE
+    // `@media (prefers-color-scheme: dark)`, so 0.4.0 is light-by-default with an
+    // OS-dark override. At 0.5.2 the bare `:root` is #1A1B1E and there is no
+    // `:not([data-theme])` rule at all. So the change is real, and 0.5.0 — not
+    // the 0.5.2 pin — is where it landed; the upstream MARKUP.md says the same.
+    count: 1,
+    why: 'the dark-values-on-`:root` change (and the removal of the prefers-color-scheme block) landed in theme 0.5.0 — a changelog fact. Bumping it to the current pin would name the wrong release.',
   },
 ];
 
@@ -659,8 +740,12 @@ async function main() {
           `\n  ⚠ ${f.file}:${lit.line} — ${lit.pkg}@${lit.version} (pin is ${pins[lit.pkg]}), but this page is`
         );
         console.log('    generated verbatim from the MARKUP.md shipped inside @civitai/components.');
-        console.log('    Fix upstream in civitai-app-starters packages/civitai-components/MARKUP.md,');
-        console.log('    publish, then re-vendor here (npm i + gen:appblocks:components). Not a failure.');
+        console.log('    If it is a CDN <link> URL: upstream re-pinned it — fix upstream in');
+        console.log('    civitai-app-starters packages/civitai-components/MARKUP.md, publish, then');
+        console.log('    re-vendor here (npm i + gen:appblocks:components).');
+        console.log('    If it is an ARRIVAL/changelog claim ("since X", "Until X"): upstream is');
+        console.log('    CORRECT and there is nothing to fix — this arm cannot consult');
+        console.log('    HISTORICAL_LITERALS, so it warns on a true sentence. Not a failure.');
       }
     }
   }

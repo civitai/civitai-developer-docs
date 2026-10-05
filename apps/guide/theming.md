@@ -3,9 +3,9 @@ title: Theming & the design system
 description: Civitai's dual-consumption design system — the same design language as generic attribute-driven HTML for any framework, or as self-styling custom elements (with typed React bindings over them); the two sets are not nested, and each has components the other lacks. Covers the 3-layer model (@civitai/theme tokens, @civitai/components CSS + custom elements, @civitai/components-react bindings), plain-HTML and React setup, light/dark theming, and the @layer override model.
 sources:
   - civitai-app-starters:packages/civitai-components/MARKUP.md
-  - npm:@civitai/theme@0.4.0
-  - npm:@civitai/components@0.8.1
-  - npm:@civitai/components-react@0.9.0
+  - npm:@civitai/theme@0.5.2
+  - npm:@civitai/components@0.9.2
+  - npm:@civitai/components-react@0.9.1
 ---
 
 # Theming & the design system
@@ -63,8 +63,8 @@ components.
 
 ::: tip Pin the version in the CDN URL — and pin each package separately
 The three packages version **independently** — this page is written against
-`@civitai/theme@0.4.0`, `@civitai/components@0.8.1` and
-`@civitai/components-react@0.9.0`, each on its own release schedule. There is no
+`@civitai/theme@0.5.2`, `@civitai/components@0.9.2` and
+`@civitai/components-react@0.9.1`, each on its own release schedule. There is no
 single shared version number, so copy each URL as written rather than sed-ing
 one version across all three — a URL naming a version a package never published
 404s, and a missing stylesheet fails **silently** as an unstyled page.
@@ -118,8 +118,8 @@ types — the ARIA wiring lives in the element, not in the binding.
 <!-- 1. Load the design tokens + the component CSS (order-independent).
      Pin each package at its own version — they do not share one.
      Swap unpkg.com for cdn.jsdelivr.net/npm if you prefer jsDelivr. -->
-<link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.4.0/styles.css" />
-<link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.8.1/styles.css" />
+<link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.5.2/styles.css" />
+<link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.9.2/styles.css" />
 
 <!-- 2. Write markup with the data-attributes — styled identically to React. -->
 <button data-civitai-ui="button" data-variant="filled" data-size="md">Generate</button>
@@ -195,11 +195,11 @@ Paint the page from the body/text tokens as shown.
          pinned ref in this file. -->
     <link
       rel="stylesheet"
-      href="https://unpkg.com/@civitai/theme@0.4.0/styles.css"
+      href="https://unpkg.com/@civitai/theme@0.5.2/styles.css"
     />
     <link
       rel="stylesheet"
-      href="https://unpkg.com/@civitai/components@0.8.1/styles.css"
+      href="https://unpkg.com/@civitai/components@0.9.2/styles.css"
     />
 
     <style>
@@ -307,7 +307,27 @@ The props come from the element classes: `CivitaiButton` takes `variant` / `size
 Both layers resolve their colors from `data-theme`. Set `data-theme="light"` or
 `data-theme="dark"` on any ancestor — typically `<html>` or your block root — and
 every token (and therefore every component) re-resolves from that scope. With no
-attribute, the light palette is the default.
+attribute, the **dark** palette is the default, and nothing consults the OS
+preference: since `@civitai/theme@0.5.0` the dark values live directly on `:root`
+and the stylesheet declares no `prefers-color-scheme` block in either direction.
+Set `data-theme="light"` explicitly if you want the light palette.
+
+Two consequences worth knowing. **Only `light` and `dark` select a token block** —
+any other value selects none and inherits the dark base. `BLOCK_INIT`'s own
+`theme` is **required** (`theme: Theme`), so `payload.theme` is safe to write
+directly; the OPTIONAL ones are `payload.context.theme` on a model-slot/page
+context and the direct-load init fragment's `theme?`. An unguarded
+`root.dataset.theme = ctx.theme` there writes the string `"undefined"` when it is
+absent, which selects no block and silently lands on dark — where it used to
+follow the OS.
+
+And if you stamped `data-theme` only to stop the browser deciding for you:
+dropping it is now safe **if you were stamping `dark`**, since that is the new
+default. If you were stamping **`light`** — which is what pre-0.5.0 pre-emption
+usually meant, the default then being light — keep it, or you will flip to dark.
+Note too that inheritance takes the NEAREST `[data-theme]` ancestor, so a
+component reading `document.documentElement` (as `BlockGate` does) is a second
+reason a stamp may be load-bearing.
 
 ```html
 <html data-theme="dark">
@@ -359,6 +379,22 @@ that scope:
 Prefer a **token override** (a `--civitai-*` custom property) when you want to
 recolor/respace consistently, and an **unlayered rule** when you need a
 structural change to one component. Both compose cleanly with the layer.
+
+🔴 **But the layer argument covers `@civitai/components`' RULES, not the tokens —
+scope a token override, never declare one at `:root`.** `@civitai/theme`'s token
+sheet carries **no cascade layer at all** — measured: zero `@layer` anywhere in
+`@civitai/theme@0.5.2`, against the single `@layer civitai.components` that
+`@civitai/components` declares — so its `:root` and `[data-theme='…']` blocks sit
+unlayered at specificity
+`0-1-0`. An app's own `:root { --civitai-color-primary: … }` therefore does not
+outrank them — it **ties**, and the winner is whichever stylesheet comes last.
+With `useBlocksStyles()` injecting from a `useEffect`, that order reliably goes
+against you, and the symptom is a rebrand that silently does nothing. The
+examples above are already safe because each is scoped — the inline
+`style="--civitai-color-primary: …"` on an ancestor, or a class on your block
+root. Keep them that way. The [Components
+reference](../reference/components#cascade-overriding) carries the same warning
+with the per-order measurements.
 
 ## Theming an existing app (retrofit / incremental adoption) {#retrofit}
 
@@ -416,8 +452,8 @@ civitai `<link>` tags.**
   <style>@layer app, civitai;</style>
 
   <!-- 2. Now load the civitai CSS. Its @layer civitai.components slots ABOVE app. -->
-  <link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.4.0/styles.css" />
-  <link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.8.1/styles.css" />
+  <link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.5.2/styles.css" />
+  <link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.9.2/styles.css" />
 
   <!-- 3. Wrap your existing/global CSS in the lower `app` layer. -->
   <style>
@@ -503,7 +539,7 @@ component CSS.
 
 ```html
 <!-- Just the tokens — no component CSS, no @layer collision. -->
-<link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.4.0/styles.css" />
+<link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.5.2/styles.css" />
 ```
 
 Then restyle your own component by swapping hard-coded values for tokens:
@@ -581,8 +617,8 @@ the filenames make it easy to cross the wires.
 <link rel="stylesheet" href="/assets/civitai/components.styles.css" />  <!-- @civitai/components → styles.css -->
 ```
 
-Pin the packages at the version you vendored (`@civitai/theme@0.4.0`,
-`@civitai/components@0.8.1`) so a re-vendor is deliberate, and re-copy the two
+Pin the packages at the version you vendored (`@civitai/theme@0.5.2`,
+`@civitai/components@0.9.2`) so a re-vendor is deliberate, and re-copy the two
 `styles.css` files whenever you bump. If you use a bundler instead of static
 files, `import '@civitai/theme/styles.css'` and `import '@civitai/components/styles.css'`
 resolve through the same `exports` map — no manual copy needed.
