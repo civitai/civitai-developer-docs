@@ -311,6 +311,7 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Models', link: '/site/reference/models' },
         { text: 'Model Versions', link: '/site/reference/model-versions' },
         { text: 'Images', link: '/site/reference/images' },
+        { text: 'Posts', link: '/site/reference/posts' },
         { text: 'Articles', link: '/site/reference/articles' },
         { text: 'Collections', link: '/site/reference/collections' },
         { text: 'Creators', link: '/site/reference/creators' },
