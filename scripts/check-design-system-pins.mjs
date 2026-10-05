@@ -127,7 +127,7 @@
  * whatever else the file happens to say, and the protection no longer depends on
  * every other occurrence of that version continuing to match.
  *
- * This covers every registry row (currently SIX — derive the count, do not restate it): both `generation.md` rows (whose comments
+ * This covers every registry row — derive the set, do not restate a count: both `generation.md` rows (whose comments
  * reason about the stamp inflating the count) and the `responsive.md` row (same
  * argument, `@civitai/components`). The count stays — it still catches a genuine
  * ADD or REMOVE in prose, which this does not.
@@ -167,13 +167,15 @@
  *     and there is nothing to fix. This arm has no `HISTORICAL_LITERALS`
  *     equivalent (`findLiterals` is applied to `upstream` pages without ever
  *     consulting the registry), which is why it cannot tell the two apart. Until
- *     it can, these four are noise — do NOT let them train you to ignore the arm,
+ *     it can, those warnings are noise — do NOT let them train you to ignore the arm,
  *     and do NOT "fix" them upstream.
- * Upstream MARKUP.md ships those `<link>`s
+ * On the CDN-URL half specifically: upstream MARKUP.md ships those `<link>`s
  * **unversioned** (`cdn.jsdelivr.net/npm/@civitai/components/styles.css`) on
- * purpose, so they track `latest` and cannot rot. There is no version literal on
- * that page for this arm to match, so it emits nothing — which is the fixed
- * state, not a broken scan. (The per-family positive control above is what keeps
+ * purpose, so they track `latest` and cannot rot, and there is no URL literal
+ * left for this arm to match. ⚠ That used to be written as "so it emits nothing —
+ * which is the fixed state", and it is NO LONGER TRUE of the arm as a whole: the
+ * page carries FOUR arrival literals and the arm warns on all four. Silence is
+ * the fixed state for URLs only. (The per-family positive control above is what keeps
  * that distinguishable: it counts AUTHORED literals, which are still pinned and
  * still guarded, so a matcher that stopped working fails loudly regardless.)
  *
@@ -183,10 +185,15 @@
  * second of which contradicted the docs' own responsive guide, since
  * `theme@0.2.x` contains ZERO `--civitai-bp-*` tokens and that guide is written
  * entirely against them. Every one of those URLs returned **200**, with the OLD
- * stylesheet. So if this warning ever fires again, upstream has RE-PINNED the
- * URLs; do not "fix" it by re-adding a rewrite shim to
+ * stylesheet. 🔴 So if this warning fires on a CDN `<link>` literal, upstream has
+ * RE-PINNED the URLs; do not "fix" it by re-adding a rewrite shim to
  * `gen-appblocks-components.mjs` — one lived there, froze at `0.1.1`, and would
- * have silently re-pinned the page three minors backwards. Fix it upstream.
+ * have silently re-pinned the page three minors backwards. Fix THAT upstream.
+ * 🔴 **But do NOT read this paragraph as covering every warning** — it was written
+ * when URLs were the only thing the arm could match, and an earlier correction to
+ * the two-cause block above left this instruction standing unqualified. On an
+ * ARRIVAL literal upstream is CORRECT and there is nothing to fix anywhere; see
+ * the two-cause block.
  *
  * RESULTS (mirrors check-appblocks-pins.mjs's network contract)
  *   - all literals match the pin, no pin lags npm    -> PASS (exit 0)
@@ -342,9 +349,12 @@ export const HISTORICAL_LITERALS = [
     // that owned it, and they ended up out of chronological order. The method is
     // the durable part; the numbers are not.
     //
-    // 🔴 DO NOT USE `cmp` ON `styles.css`. It was conclusive once (0.6.0 vs
-    // 0.7.1, byte-identical) and has been useless since — the file grows at most
-    // bumps for unrelated reasons, so a difference says nothing about this rule.
+    // 🔴 DO NOT RELY ON `cmp` OF `styles.css`. It is conclusive only when it
+    // reports IDENTICAL, which has happened twice — 0.4.0 vs 0.4.1 (the ARRIVAL
+    // paragraph above rests on it) and 0.6.0 vs 0.7.1. A DIFFERENCE says nothing
+    // about this rule, because the file changes at most bumps for unrelated
+    // reasons. So: try `cmp` first, and when it differs fall through to the
+    // method below rather than concluding anything.
     //
     // METHOD: strip CSS comments FIRST, then compare the declaration SET of the
     // `[data-civitai-ui='group']` block across the two versions. 🔴 An extractor
@@ -369,9 +379,9 @@ export const HISTORICAL_LITERALS = [
     // nothing about it changed, i.e. state a false version — exactly what this
     // registry exists to prevent.
     // Not a `sources:` stamp, and the argument is stronger than frontmatter
-    // position: this file declares NO `@civitai/components-react` stamp at all
-    // (its frontmatter stamps are `theme` and `components` only), so there is no
-    // stamp of this package in this file that could inflate `seen`.
+    // position: this file declares NO `@civitai/components-react` stamp at all —
+    // whatever else its frontmatter stamps — so there is no stamp of THIS package
+    // in this file that could inflate `seen`.
     count: 1,
     why: 'the hand-written `<Group>` contract was SUPERSEDED in components-react 0.9.0 — a changelog fact. Bumping it to the current pin would name a release in which nothing about it changed.',
   },
@@ -387,12 +397,18 @@ export const HISTORICAL_LITERALS = [
     // 0.9.0: 0.8.0 ships hand-written `Button.js`/`Group.js`/… that render the
     // `data-civitai-ui` contract (3 files naming `GroupProps`, 149 files total);
     // 0.9.0 drops all of them (0, 101) for `@lit/react` wrappers.
-    // 🔴 THIS ROW EXISTS BECAUSE THE GATE CANNOT CATCH THIS CLASS. A bump to the
-    // pin makes the literal EQUAL the pin, so it is not a mismatch and no row is
-    // demanded — the guard is silent while the sentence is false. It was bumped
-    // to 0.9.1 in this file's own pin-bump commit and caught only by review,
-    // against three sibling statements of the same fact that still said 0.9.0
-    // (`responsive.md:203`, `components.md:25`, `:548`, `:625`).
+    // 🔴 THE HOLE THIS ROW CLOSES, STATED PRECISELY. Once the row exists the
+    // bidirectional count DOES catch a later bump: `expected 1, saw 0`, rc=1
+    // (measured). The blind spot is narrower and is the one that bit here — an
+    // arrival literal that ALREADY EQUALS the pin, and therefore never had to be
+    // registered. `components-react@0.9.0` was the base pin, so bumping it to
+    // 0.9.1 produced no mismatch and demanded no row: the guard stayed green
+    // while the sentence went false, and review was the only thing that caught
+    // it, against sibling statements of the same fact at `responsive.md:203`,
+    // `components.md:25`, `:548` and `:625`.
+    // ⚠ An earlier draft of this comment said "THE GATE CANNOT CATCH THIS CLASS",
+    // which is false of this literal now that the row is here and trains the next
+    // bumper to distrust a check that works.
     count: 1,
     why: 'the custom-element binding arrived in components-react 0.9.0 — a changelog fact; 0.9.1 ships a byte-identical dist. Bumping it to the pin would name a release in which nothing about it changed.',
   },

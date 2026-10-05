@@ -313,12 +313,21 @@ and the stylesheet declares no `prefers-color-scheme` block in either direction.
 Set `data-theme="light"` explicitly if you want the light palette.
 
 Two consequences worth knowing. **Only `light` and `dark` select a token block** —
-any other value selects none and inherits the dark base, so an unguarded
-`root.dataset.theme = payload.theme` writes the string `"undefined"` when
-`BLOCK_INIT`'s optional `theme` is absent and silently lands on dark, where it
-used to follow the OS. And if you were stamping `data-theme` only to stop the
-browser deciding for you, **you can now drop it** — there is no OS-preference
-branch left to pre-empt.
+any other value selects none and inherits the dark base. `BLOCK_INIT`'s own
+`theme` is **required** (`theme: Theme`), so `payload.theme` is safe to write
+directly; the OPTIONAL ones are `payload.context.theme` on a model-slot/page
+context and the direct-load init fragment's `theme?`. An unguarded
+`root.dataset.theme = ctx.theme` there writes the string `"undefined"` when it is
+absent, which selects no block and silently lands on dark — where it used to
+follow the OS.
+
+And if you stamped `data-theme` only to stop the browser deciding for you:
+dropping it is now safe **if you were stamping `dark`**, since that is the new
+default. If you were stamping **`light`** — which is what pre-0.5.0 pre-emption
+usually meant, the default then being light — keep it, or you will flip to dark.
+Note too that inheritance takes the NEAREST `[data-theme]` ancestor, so a
+component reading `document.documentElement` (as `BlockGate` does) is a second
+reason a stamp may be load-bearing.
 
 ```html
 <html data-theme="dark">
@@ -373,9 +382,10 @@ structural change to one component. Both compose cleanly with the layer.
 
 🔴 **But the layer argument covers `@civitai/components`' RULES, not the tokens —
 scope a token override, never declare one at `:root`.** `@civitai/theme`'s token
-sheet carries **no cascade layer at all** (measured: zero `@layer` in
-`@civitai/theme@0.5.2`'s `styles.css`, against three in `@civitai/components`),
-so its `:root` and `[data-theme='…']` blocks sit unlayered at specificity
+sheet carries **no cascade layer at all** — measured: zero `@layer` anywhere in
+`@civitai/theme@0.5.2`, against the single `@layer civitai.components` that
+`@civitai/components` declares — so its `:root` and `[data-theme='…']` blocks sit
+unlayered at specificity
 `0-1-0`. An app's own `:root { --civitai-color-primary: … }` therefore does not
 outrank them — it **ties**, and the winner is whichever stylesheet comes last.
 With `useBlocksStyles()` injecting from a `useEffect`, that order reliably goes
@@ -383,7 +393,7 @@ against you, and the symptom is a rebrand that silently does nothing. The
 examples above are already safe because each is scoped — the inline
 `style="--civitai-color-primary: …"` on an ancestor, or a class on your block
 root. Keep them that way. The [Components
-reference](../reference/components#cascade--overriding) carries the same warning
+reference](../reference/components#cascade-overriding) carries the same warning
 with the per-order measurements.
 
 ## Theming an existing app (retrofit / incremental adoption) {#retrofit}
