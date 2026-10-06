@@ -2646,6 +2646,107 @@
         }
       }
     },
+    "/v2/consumer/recipes/liveTranscription": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Live transcription",
+        "description": "Transcribes speech while it is recorded: append audio to <c>output.inputUrl</c> and read text from\n/// <c>output.transcriptUrl</c> as it decodes. Billed per second of audio once the session ends.",
+        "operationId": "InvokeLiveTranscriptionStepTemplate",
+        "parameters": [
+          {
+            "name": "experimental",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "allowMatureContent",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "whatif",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ephemeral",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LiveTranscriptionInput"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LiveTranscriptionInput"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/LiveTranscriptionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveTranscriptionOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/consumer/recipes/mediaCaptioning": {
       "post": {
         "tags": [
@@ -6710,6 +6811,92 @@
       }
     },
     "/v2/consumer/streaming-blobs/{blobKey}": {
+      "post": {
+        "tags": [
+          "StreamingBlobs"
+        ],
+        "description": "Number chunks from `seq=0`; a resent seq is a no-op, a gap returns 409 with the expected seq,\nand `final=true` closes the blob.",
+        "operationId": "AppendStreamingBlob",
+        "parameters": [
+          {
+            "name": "blobKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seq",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "final",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamingBlobAppendResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamingBlobAppendResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Content Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [ ]
+      },
       "get": {
         "tags": [
           "StreamingBlobs"
@@ -26127,6 +26314,108 @@
         ],
         "description": "Engine-level base for Alibaba Happy-Horse video generation (FAL).\nThe version derived type carries the operation-level discriminator."
       },
+      "HeyGenVideoGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/VideoGenInput"
+          },
+          {
+            "required": [
+              "aspectRatio",
+              "duration",
+              "engine",
+              "operation",
+              "resolution"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "enum": [
+                  "textToVideo",
+                  "imageToVideo",
+                  "referenceToVideo"
+                ],
+                "type": "string"
+              },
+              "duration": {
+                "maximum": 15,
+                "minimum": 5,
+                "type": "integer",
+                "format": "int32"
+              },
+              "resolution": {
+                "enum": [
+                  "480p",
+                  "768p"
+                ],
+                "type": "string"
+              },
+              "aspectRatio": {
+                "enum": [
+                  "21:9",
+                  "16:9",
+                  "4:3",
+                  "1:1",
+                  "3:4",
+                  "9:16"
+                ],
+                "type": "string",
+                "description": "Ignored for imageToVideo, which follows the first frame's aspect ratio."
+              },
+              "seed": {
+                "maximum": 4294967295,
+                "minimum": 0,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int64"
+              },
+              "firstFrameImage": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
+              },
+              "referenceImages": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
+                },
+                "description": "Up to 9 images; refer to them in the prompt as <Picture 1>, <Picture 2>, etc."
+              },
+              "referenceVideos": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "description": "Up to 3 public HTTPS videos (32 MB each). The model uses the first 5 seconds of each."
+              },
+              "referenceAudios": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "description": "Up to 3 public HTTPS audio files (32 MB each), accompanying a reference image or video."
+              },
+              "engine": {
+                "enum": [
+                  "heygen"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "HeyGen Video 1 (based on MiniMax H3), served through OpenRouter. Audio is generated with the video."
+      },
       "HiDreamI1Precision": {
         "enum": [
           "fp8",
@@ -29623,6 +29912,137 @@
           }
         ]
       },
+      "LiveTranscriptionInput": {
+        "type": "object",
+        "properties": {
+          "language": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Optional language hint (e.g., \"en\", \"zh\") to guide transcription."
+          },
+          "context": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Optional context prompt to improve transcription accuracy."
+          },
+          "maxDurationSeconds": {
+            "maximum": 600,
+            "minimum": 1,
+            "type": "integer",
+            "description": "The session ends after this many seconds of audio, even if the input is still open.\nThe upfront balance check covers this much audio.",
+            "format": "int32",
+            "default": 120
+          },
+          "idleTimeoutSeconds": {
+            "maximum": 60,
+            "minimum": 2,
+            "type": "integer",
+            "description": "The input is treated as closed when no audio arrives for this many seconds, so a client that\ndisappears does not hold the session open.",
+            "format": "int32",
+            "default": 10
+          }
+        },
+        "additionalProperties": false
+      },
+      "LiveTranscriptionOutput": {
+        "required": [
+          "audioSeconds",
+          "inputUrl",
+          "inputUrlExpiresAt",
+          "transcriptUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "inputUrl": {
+            "type": "string",
+            "description": "POST raw PCM (s16le, 16 kHz, mono) here in chunks numbered `?seq=0,1,…`, with `final=true` on the last.",
+            "format": "uri"
+          },
+          "inputUrlExpiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "transcriptUrl": {
+            "type": "string",
+            "description": "NDJSON transcript events: `partial` replaces the open segment's text, `final` commits it,\nand `done` ends the stream with the whole transcript.",
+            "format": "uri"
+          },
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The whole transcript, once the session has ended."
+          },
+          "audioSeconds": {
+            "type": "number",
+            "description": "Seconds of audio received so far; the session is billed on this.",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LiveTranscriptionStep": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStep"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/LiveTranscriptionInput"
+              },
+              "output": {
+                "$ref": "#/components/schemas/LiveTranscriptionOutput"
+              },
+              "$type": {
+                "enum": [
+                  "liveTranscription"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Live transcription"
+      },
+      "LiveTranscriptionStepTemplate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStepTemplate"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/LiveTranscriptionInput"
+              },
+              "$type": {
+                "enum": [
+                  "liveTranscription"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Live transcription"
+      },
       "LoadingResourceAvailability": {
         "allOf": [
           {
@@ -31371,6 +31791,294 @@
           }
         ],
         "description": "AI Toolkit training for the MiniMax H3 base (FL2VA) model."
+      },
+      "MiniMaxH3MaxImageToVideoInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MiniMaxH3MaxVideoGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "firstFrameImage": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Optional first frame. If omitted, the last frame sets the canvas. With neither, FAL generates from text at 16:9.",
+                "format": "source-image"
+              },
+              "lastFrameImage": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
+              },
+              "targetAudio": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "HTTP(S) URL of a soundtrack, at least 2 seconds and at most 15 MB. Requires duration >= 2.",
+                "format": "uri"
+              },
+              "operation": {
+                "enum": [
+                  "imageToVideo"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "minimax-h3-max"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "MiniMaxH3MaxReferenceToVideoInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MiniMaxH3MaxVideoGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "aspectRatio": {
+                "enum": [
+                  "adaptive",
+                  "21:9",
+                  "16:9",
+                  "4:3",
+                  "1:1",
+                  "3:4",
+                  "9:16"
+                ],
+                "type": "string",
+                "default": "adaptive"
+              },
+              "referenceImages": {
+                "maxItems": 9,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
+                }
+              },
+              "referenceVideos": {
+                "maxItems": 3,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "description": "HTTP(S) clips, each 2-15 seconds, combined at most 15 seconds."
+              },
+              "referenceAudios": {
+                "maxItems": 3,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "description": "HTTP(S) audio clips, each 2-15 seconds, combined at most 15 seconds."
+              },
+              "firstFrameImage": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
+              },
+              "lastFrameImage": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
+              },
+              "middleFrameImage": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Requires first and last frames, middleFrameTime, and 480P or 768P.",
+                "format": "source-image"
+              },
+              "middleFrameTime": {
+                "type": [
+                  "null",
+                  "number"
+                ],
+                "description": "Seconds from the start, rounded to 24 fps. Must fall strictly inside the requested duration.",
+                "format": "double"
+              },
+              "operation": {
+                "enum": [
+                  "referenceToVideo"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "minimax-h3-max"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Max only. Up to 9 images, 3 videos and 3 audio clips, at most 12 combined. Reference charges share a 4096-token allowance."
+      },
+      "MiniMaxH3MaxTextToVideoInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MiniMaxH3MaxVideoGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "aspectRatio": {
+                "enum": [
+                  "21:9",
+                  "16:9",
+                  "4:3",
+                  "1:1",
+                  "3:4",
+                  "9:16"
+                ],
+                "type": "string",
+                "default": "16:9"
+              },
+              "targetAudio": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "HTTP(S) URL of a soundtrack, at least 2 seconds and at most 15 MB. Requires duration >= 2.",
+                "format": "uri"
+              },
+              "operation": {
+                "enum": [
+                  "textToVideo"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "minimax-h3-max"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "MiniMaxH3MaxVideoGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/VideoGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": "textToVideo"
+              },
+              "model": {
+                "enum": [
+                  "max",
+                  "turbo"
+                ],
+                "type": "string",
+                "default": "max"
+              },
+              "duration": {
+                "maximum": 15,
+                "minimum": 0.92,
+                "type": "number",
+                "description": "Requested seconds. FAL may return up to about 0.7 additional seconds.",
+                "format": "double",
+                "default": 5
+              },
+              "resolution": {
+                "enum": [
+                  "480P",
+                  "768P",
+                  "1080P"
+                ],
+                "type": "string",
+                "default": "768P"
+              },
+              "promptExpansionMode": {
+                "enum": [
+                  "disabled",
+                  "balanced",
+                  "quality"
+                ],
+                "type": "string",
+                "default": "balanced"
+              },
+              "seed": {
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int32"
+              },
+              "enableSafetyChecker": {
+                "type": "boolean",
+                "default": true
+              },
+              "engine": {
+                "enum": [
+                  "minimax-h3-max"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "operation",
+              "mapping": {
+                "textToVideo": "#/components/schemas/MiniMaxH3MaxTextToVideoInput",
+                "imageToVideo": "#/components/schemas/MiniMaxH3MaxImageToVideoInput",
+                "referenceToVideo": "#/components/schemas/MiniMaxH3MaxReferenceToVideoInput"
+              }
+            }
+          }
+        ],
+        "description": "MiniMax H3 Max and H3 Max Turbo core generation through FAL."
       },
       "MiniMaxH3VideoGenInput": {
         "allOf": [
@@ -35021,6 +35729,7 @@
             "scribble-pidinet": "#/components/schemas/PreprocessImageScribblePidinetInput",
             "openpose": "#/components/schemas/PreprocessImageOpenPoseInput",
             "dwpose": "#/components/schemas/PreprocessImageDwPoseInput",
+            "sdpose": "#/components/schemas/PreprocessImageSdPoseInput",
             "animal-pose": "#/components/schemas/PreprocessImageAnimalPoseInput",
             "densepose": "#/components/schemas/PreprocessImageDensePoseInput",
             "mediapipe-face": "#/components/schemas/PreprocessImageMediaPipeFaceInput",
@@ -35532,6 +36241,40 @@
           }
         ]
       },
+      "PreprocessImageSdPoseInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PreprocessImageInput"
+          },
+          {
+            "required": [
+              "kind"
+            ],
+            "type": "object",
+            "properties": {
+              "detectHand": {
+                "type": "boolean",
+                "default": true
+              },
+              "detectBody": {
+                "type": "boolean",
+                "default": true
+              },
+              "detectFace": {
+                "type": "boolean",
+                "default": true
+              },
+              "kind": {
+                "enum": [
+                  "sdpose"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
       "PreprocessImageShuffleInput": {
         "allOf": [
           {
@@ -35964,6 +36707,7 @@
             "depth-anything-v2": "#/components/schemas/PreprocessVideoDepthAnythingV2Input",
             "hed": "#/components/schemas/PreprocessVideoHedInput",
             "dwpose": "#/components/schemas/PreprocessVideoDwPoseInput",
+            "sdpose": "#/components/schemas/PreprocessVideoSdPoseInput",
             "scribble": "#/components/schemas/PreprocessVideoScribbleInput",
             "gray": "#/components/schemas/PreprocessVideoGrayInput",
             "layout": "#/components/schemas/PreprocessVideoLayoutInput"
@@ -36076,6 +36820,40 @@
               "kind": {
                 "enum": [
                   "scribble"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "PreprocessVideoSdPoseInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PreprocessVideoInput"
+          },
+          {
+            "required": [
+              "kind"
+            ],
+            "type": "object",
+            "properties": {
+              "detectHand": {
+                "type": "boolean",
+                "default": true
+              },
+              "detectBody": {
+                "type": "boolean",
+                "default": true
+              },
+              "detectFace": {
+                "type": "boolean",
+                "default": true
+              },
+              "kind": {
+                "enum": [
+                  "sdpose"
                 ],
                 "type": "string"
               }
@@ -39944,6 +40722,20 @@
           }
         ]
       },
+      "StreamingBlobAppendResponse": {
+        "required": [
+          "nextSequence"
+        ],
+        "type": "object",
+        "properties": {
+          "nextSequence": {
+            "type": "integer",
+            "description": "The sequence number the blob expects next.",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
+      },
       "SystemMessage": {
         "allOf": [
           {
@@ -42383,6 +43175,8 @@
             "grok": "#/components/schemas/GrokVideoGenInput",
             "seedance": "#/components/schemas/SeedanceVideoGenInput",
             "happyHorse": "#/components/schemas/HappyHorseVideoGenInput",
+            "heygen": "#/components/schemas/HeyGenVideoGenInput",
+            "minimax-h3-max": "#/components/schemas/MiniMaxH3MaxVideoGenInput",
             "minimax-h3": "#/components/schemas/MiniMaxH3VideoGenInput",
             "minimax-h3-comfy": "#/components/schemas/ComfyMiniMaxH3VideoGenInput",
             "flux": "#/components/schemas/Flux3VideoGenInput"
@@ -46653,6 +47447,7 @@
             "imageToSvg": "#/components/schemas/ImageToSvgStep",
             "imageUpload": "#/components/schemas/ImageUploadStep",
             "imageUpscaler": "#/components/schemas/ImageUpscalerStep",
+            "liveTranscription": "#/components/schemas/LiveTranscriptionStep",
             "mediaCaptioning": "#/components/schemas/MediaCaptioningStep",
             "mediaHash": "#/components/schemas/MediaHashStep",
             "mediaRating": "#/components/schemas/MediaRatingStep",
@@ -47027,6 +47822,7 @@
             "imageToSvg": "#/components/schemas/ImageToSvgStepTemplate",
             "imageUpload": "#/components/schemas/ImageUploadStepTemplate",
             "imageUpscaler": "#/components/schemas/ImageUpscalerStepTemplate",
+            "liveTranscription": "#/components/schemas/LiveTranscriptionStepTemplate",
             "mediaCaptioning": "#/components/schemas/MediaCaptioningStepTemplate",
             "mediaHash": "#/components/schemas/MediaHashStepTemplate",
             "mediaRating": "#/components/schemas/MediaRatingStepTemplate",
