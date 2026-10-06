@@ -40,8 +40,8 @@
  *
  *   4. INLINE COPY. The landing page renders the prompt's full text so a human
  *      can actually READ it — the raw route is `text/markdown` + `nosniff`, which
- *      a browser offers to SAVE rather than display, on the one link the page's
- *      whole "these instructions are unsigned, read them first" posture rests on.
+ *      a browser offers to SAVE rather than display, on the one link a human follows to
+ *      read the prompt before pasting it into an agent.
  *      That copy is GENERATED from the source file; this check grades the
  *      committed region byte-for-byte against what the generator would write
  *      right now. A landing page that quietly disagrees with the file an agent

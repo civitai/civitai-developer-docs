@@ -80,8 +80,8 @@ does not also compile the raw prompt into a page.
 `text/markdown` + `nosniff` means a browser offers to SAVE a `.md` URL rather than
 render it. Site-wide that is nearly free — humans visit `/apps/guide`, and
 `/apps/guide.md` is the machine channel by convention. The exception is
-`/agent-setup/prompt.md`, whose whole point is that a human reads it before
-pasting an unsigned prompt into an agent. So `agent-setup/index.md` renders the
+`/agent-setup/prompt.md`, whose whole point is that a human can read it before
+pasting it into an agent. So `agent-setup/index.md` renders the
 prompt's full text inline, generated from the served file by
 `npm run gen:agent-setup-page` and graded byte-for-byte by
 `npm run check:agent-setup`; the raw URL stays on the page, labelled as the

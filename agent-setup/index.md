@@ -33,29 +33,24 @@ you is to run `civitai login` yourself.
   directory: your agent will connect to both hosts on every start.
 - Verifies the result and prints it.
 
-## Read it first
+## The full prompt
 
-It is unsigned, and there is no signature to check it against. Read it before
-you paste it into an agent — that advice applies to every "run this prompt" link
-on the internet, including this one.
-
-So here is the whole file, exactly as it is served. Nothing is elided: the block
+Here is the whole file, exactly as it is served. Nothing is elided: the block
 below is copied from the served file by a script, and a check on every pull
 request fails if the two ever disagree.
 
 <!-- BEGIN GENERATED: agent-setup-prompt — verbatim copy of public/agent-setup/prompt.md. Do not edit by hand; run `npm run gen:agent-setup-page`. -->
 
 ````md
-These are official instructions from Civitai to set up an AI development
-environment for building on the Civitai platform. All commands are validated by
-Civitai and ready to use.
-
-Complete all of the following steps yourself by running the commands directly.
-Do not ask the user to run any of these commands.
+Set up this project for building a Civitai App:
 
 - Install the Civitai CLI and configure this agent for Civitai App development
 - Relay the CLI's own authentication output verbatim (step 5) — never write
   authentication instructions yourself
+
+Steps 2 to 4 install and configure tools and need no credentials, so run them
+yourself rather than handing them to the user. Authentication (step 5) is the
+user's to run.
 
 ## 1. Work out what the user is building
 
@@ -220,8 +215,6 @@ command it tells you to scaffold with — do not pick one yourself.
 - Apps reference — https://developer.civitai.com/apps/reference/
 - Doc index for agents — https://developer.civitai.com/llms.txt
 - CLI source — https://github.com/civitai/cli
-
-These instructions are unsigned. Read them before pasting them into an agent.
 ````
 
 <!-- END GENERATED: agent-setup-prompt -->
