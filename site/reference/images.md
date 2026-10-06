@@ -17,13 +17,26 @@ GET /api/v1/images
 **Auth:** Public. Authenticated callers see content up to their configured
 browsing level; anonymous callers are capped at the public browsing level.
 
+**Which images are listed:** only images from **public** posts. Images in
+unlisted (unsearchable) posts and in early-access posts are not returned.
+Exceptions: requests filtered by `postId`, by `imageId`, or by `modelId`
+without `modelVersionId`, and requests with `sort=Random` or `limit=0`, can still
+include unlisted and early-access images, and their `tags` filter matches an
+image carrying any one of the given tags.
+
+::: info Rolling out
+The public-only results, the all-of `tags` filter and the `feed:` cursors
+described on this page are being rolled out gradually, so some callers may
+still see the previous behaviour for a while.
+:::
+
 ### Query parameters
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `limit` | integer (0–200) | 50 | Number of items per page. |
-| `page` | integer | — | 1-indexed page number. Incompatible with `cursor`. |
-| `cursor` | string | — | Opaque cursor; use `metadata.nextCursor` from the previous response. |
+| `page` | integer | — | 1-indexed page number. Honoured only for lookups by `imageId`, or by `modelId` without `modelVersionId`; on every other request it is ignored and the first page is returned. Ignored whenever `cursor` is set. When `page` is sent, `metadata.nextPage` advances `page` rather than the cursor, so on those other requests it returns the first page again — walk results with `cursor` instead. |
+| `cursor` | string | — | Opaque cursor: pass `metadata.nextCursor` from the previous response back verbatim. See [Cursors](#cursors). |
 | `postId` | integer | — | Restrict to a specific post. |
 | `modelId` | integer | — | Images associated with any version of a model. |
 | `modelVersionId` | integer | — | Images associated with a specific version. |
@@ -34,7 +47,7 @@ browsing level; anonymous callers are capped at the public browsing level.
 | `sort` | `Most Reactions` \| `Most Comments` \| `Most Collected` \| `Newest` \| `Oldest` \| `Random` | `Most Reactions` | |
 | `nsfw` | `None` \| `Soft` \| `Mature` \| `X` \| boolean | — | Legacy NSFW filter; prefer `browsingLevel`. |
 | `browsingLevel` | integer (bitmask) | — | Raw browsing-level bitmask. Takes precedence over `nsfw`. |
-| `tags` | comma-separated integers | — | Tag IDs to require on each image. |
+| `tags` | comma-separated integers | — | Tag IDs to require on each image. With several IDs, an image must carry **all** of them (not any one). |
 | `type` | `image` \| `video` \| `audio` | — | Media type. |
 | `baseModels` | comma-separated strings | — | Filter to outputs from specific base models. |
 | `withMeta` | boolean | `false` | If `true`, include the full `meta` object (prompt, resources, etc.). |
@@ -86,7 +99,7 @@ browsing level; anonymous callers are capped at the public browsing level.
     }
   ],
   "metadata": {
-    "nextCursor": "1|1744925337225",
+    "nextCursor": "feed:1744925337225:9173928",
     "nextPage": "https://civitai.com/api/v1/images?limit=100&cursor=..."
   }
 }
@@ -113,6 +126,36 @@ browsing level; anonymous callers are capped at the public browsing level.
   [`GET /model-versions/{id}`](./model-versions).
 - `modelVersionIds` at the top level is a deduped list of every model
   version referenced in `meta.civitaiResources`.
+
+### Cursors
+
+- Treat `metadata.nextCursor` as an opaque token and pass it back verbatim
+  as `cursor` (or follow `metadata.nextPage`, which carries it as long as
+  you did not send `page`). Don't parse or build cursors yourself.
+- Cursors now begin with `feed:` (for example `feed:1744925337225:9173928`).
+  Older cursors of the form `<offset>|<timestamp>` are still accepted, and a
+  first page can occasionally still return one (for example during a brief
+  service disruption). Such a page, and a scroll that continues from an
+  older cursor, follow the previous rules: they can include unlisted and
+  early-access images, and multiple `tags` match an image carrying any one
+  of them.
+- Keep the other query parameters the same while you follow a cursor. A
+  `feed:` cursor sent with filters it cannot continue is rejected with a
+  `400` rather than silently restarting at the first page.
+- **An empty `items` array is not the end of the results.** A page can come
+  back empty with a `nextCursor`; keep following it. The results end only
+  when `nextCursor` is absent.
+
+### Errors
+
+Besides the validation errors common to all list endpoints (see
+[Errors](../guide/errors)), a request carrying a `feed:` cursor can return:
+
+| Status | Body | Meaning |
+|--------|------|---------|
+| `503` | `{ "error": "Image search is temporarily overloaded — please retry." }` | Transient. Sent with `Retry-After: 2`; retry the same request, cursor unchanged. |
+| `400` | `{ "message": "This cursor cannot be continued with these filters" }` | The cursor can't be continued with the request as sent, usually because a filter changed mid-scroll. Restore the original filters, or start again without `cursor`. |
+| `400` | `{ "message": "This cursor can no longer be continued; start again without it" }` | Start again without `cursor`. |
 
 ### Notes
 
