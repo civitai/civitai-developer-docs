@@ -418,8 +418,8 @@ check(`the built ${PROMPT_PATH} is BYTE-IDENTICAL to ${PROMPT_SOURCE}`, () => {
 // generated region, a shiki upgrade that mangles the body — would show the
 // reader something other than the file an agent executes with BOTH of those
 // checks green. scripts/agent-setup-page.mjs calls exactly that state "strictly
-// worse than the download dialog it replaces", because the page's whole posture
-// is "these instructions are unsigned, read them first".
+// worse than the download dialog it replaces", because the page exists so a human
+// can read the prompt before pasting it.
 //
 // The assertion is EQUALITY against what the generator would put in the fence,
 // not a first-line/last-line spot check: a renderer that dropped the middle of

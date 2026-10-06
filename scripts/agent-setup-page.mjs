@@ -9,8 +9,8 @@
 // the `.md` channel of this site exists for machines and some agent fetchers
 // bypass lossy summarisation only for that type. The cost lands on exactly one
 // human-facing path: a browser handed `text/markdown` + `nosniff` opens a SAVE
-// dialog instead of rendering. So the one instruction the page's entire
-// unsigned-code posture rests on did not work in a browser.
+// dialog instead of rendering. So the one link a human follows to read
+// the prompt before pasting it did not work in a browser.
 //
 // The fix is to render the prompt's full text ON the landing page, and keep the
 // raw link beside it labelled as the machine copy.
