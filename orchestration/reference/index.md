@@ -50,4 +50,4 @@ A limited set of models can be run without Buzz on a best-effort basis. [`GetFre
 - add `?tier=free` to a recipe endpoint
 - send `X-Civitai-Tier: free` on the OpenAI-compatible chat completions endpoint
 
-Free work is scheduled behind paid work and expires if it cannot be served in time. Quota used by work that fails, is canceled or expires is given back. Every step in a free workflow must use a model offered on the free tier; otherwise the request is rejected with `400`. On free requests, each quota also appears as its own entry in the `RateLimit` headers.
+Free work is scheduled behind paid work and expires if it cannot be served in time. Each free request uses quota when it is accepted, whether or not it later succeeds. Every step in a free workflow must use a model offered on the free tier; otherwise the request is rejected with `400`. On free requests, each quota also appears as its own entry in the `RateLimit` headers.
