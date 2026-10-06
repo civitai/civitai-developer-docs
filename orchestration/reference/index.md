@@ -26,6 +26,28 @@ The left sidebar is grouped by OpenAPI tag — **Workflows**, **WorkflowSteps**,
 
 ## Rate limits & quotas
 
-::: info Stub
-Fill in once the per-tier rate limit scheme is finalized.
-:::
+Responses report the limits that apply to you in the `RateLimit-Policy` and `RateLimit` headers, using the named-policy syntax of the [IETF RateLimit header fields draft](https://datatracker.ietf.org/doc/draft-ietf-httpapi-ratelimit-headers/). Each limit is one named entry:
+
+```http
+RateLimit-Policy: "buzz";q=1000;w=60
+RateLimit: "buzz";r=940;t=12
+```
+
+| Parameter | Header | Meaning |
+|-----------|--------|---------|
+| `q` | `RateLimit-Policy` | Quota per window |
+| `w` | `RateLimit-Policy` | Window length in seconds |
+| `r` | `RateLimit` | Remaining quota in the current window |
+| `t` | `RateLimit` | Seconds until the current window resets |
+
+When a limit is exhausted the API responds with `429 Too Many Requests` and a `Retry-After` header giving the seconds to wait.
+
+### Free tier
+
+A limited set of models can be run without Buzz on a best-effort basis. [`GetFreeTier`](/orchestration/reference/operations/GetFreeTier) returns the models currently offered and your remaining quota for each. To opt in:
+
+- set `"tier": "free"` on [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow)
+- add `?tier=free` to a recipe endpoint
+- send `X-Civitai-Tier: free` on the OpenAI-compatible chat completions endpoint
+
+Free work is scheduled behind paid work and expires if it cannot be served in time. Quota used by work that fails, is canceled or expires is given back. Every step in a free workflow must use a model offered on the free tier; otherwise the request is rejected with `400`. On free requests, each quota also appears as its own entry in the `RateLimit` headers.

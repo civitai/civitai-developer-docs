@@ -67,7 +67,7 @@ Everything in the table lives alongside `steps`. See the full [`WorkflowTemplate
 | `400 Bad Request` | Body failed validation — see [Errors & retries](./errors-and-retries) for the response shape. |
 | `401 Unauthorized` | Missing or invalid bearer token. |
 | `403 Forbidden` | Token is valid but not allowed to use this recipe / resource / mature content flag. |
-| `429 Too Many Requests` | Rate limited. Back off and retry. |
+| `429 Too Many Requests` | Rate limited. Wait for the `Retry-After` seconds, then retry — see [Rate limits & quotas](/orchestration/reference/#rate-limits-quotas). |
 
 ## Payments (Buzz)
 
