@@ -489,7 +489,7 @@ The generation scaffold wires all of this up against the **mock host**, so the
 estimate/submit/poll round-trip runs with no backend:
 
 ```bash
-civitai app create my-app     # generation template
+civitai app create my-app --template page-money   # the generation template
 cd my-app && npm install
 npm run dev:harness           # mock host — no backend needed
 ```

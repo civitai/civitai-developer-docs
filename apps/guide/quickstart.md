@@ -1,54 +1,233 @@
 ---
 title: Quickstart
-description: Scaffold a Civitai App with the civitai CLI, run it in the local harness, and write your first block.
+description: Scaffold a Civitai App with the civitai CLI — web components and @civitai/sdk by default, React on request — run it against the local mock host, and build it.
 sources:
   - go:github.com/civitai/cli#app
+  - npm:@civitai/sdk@0.10.1/dist/index.d.ts
+  - npm:@civitai/components@0.9.2/custom-elements.json
   - npm:@civitai/blocks-react@0.63.2#README
   - npm:@civitai/app-sdk@0.56.1/vite#blockManifestPlugin
-  - civitai-app-starters:docs/build-your-first-app-block.md
 ---
 
 # Quickstart
 
-Go from nothing to a block running in a local host simulator. About ten minutes.
-This covers building and running locally — publishing is a separate, closed-beta
-flow (see the end of this page).
+Go from nothing to an app running against a local host simulator. About ten
+minutes. This covers building and running locally — publishing is a separate,
+closed-beta flow (see the end of this page).
+
+The default scaffold is **web components and no UI framework**: Vite +
+TypeScript, [`@civitai/sdk`](./sdk) for the host, and the
+[`<civitai-*>` elements](./elements) for the UI. If you would rather write React,
+[skip to the React template](#prefer-react-the-page-money-template) — it is one
+flag away and fully supported.
 
 ::: warning Closed beta
-You can scaffold, build, and run a block locally with the public packages below
+You can scaffold, build, and run an app locally with the public packages below
 right now. **Publishing** an app to civitai.com is limited to approved builders
 during the closed beta — see [Introduction](./). Everything on this page works
-without access **except the two live modes in §2**, which need it.
+without access **except running against the real civitai.com backend**, which
+needs it.
 :::
 
 ## Prerequisites
 
-- Node ≥ 20.
+- Node 20.19+ (on 20.x) or 22.12+ — what the scaffold's Vite requires.
 - The [`civitai` CLI](../reference/cli) installed (`npm install -g @civitai/cli`,
   or Homebrew / a prebuilt binary — see the [CLI reference](../reference/cli#install)).
-- A Civitai account. Not needed for §2's mock harness; needed from §2's live
-  modes onward, and for submitting.
+- A Civitai account. Not needed for the local mock host; needed to run against
+  the live backend, and for submitting.
 
 ## 1. Scaffold
 
-The `civitai` CLI's `app create` command scaffolds a correct, ready-to-build App
-(a Vite + React + TypeScript project wired to the App SDK), slugifying the name
-you pass into your `blockId`:
-
 ```bash
-civitai app create my-app
+civitai app init my-app
 ```
 
-The default template is `page-money`, a working generation app, and **the rest of
-this page assumes it** — the other templates are deliberately SDK-free, so they
-have no `.env.example`, no `dev:harness` script and none of the SDK imports below.
-Use `--template page-vite` for a React **JavaScript** start (Vite plus
-`react`/`react-dom`, no SDK) or `--template static` for no build at all, and
-`--dir ./path` to control the output directory. `static` validates and runs with
-no install; `page-vite` and `page-money` need an `npm install` first — until you
-have run it, `civitai app validate` fails on the missing `package-lock.json`.
+`civitai app create` is the same scaffolder with the same default. The name you
+pass is slugified into your `blockId` — your app's permanent public id and its
+`<slug>.civit.ai` hostname — and the project lands in `./<slug>`. This is what
+`civitai` 0.1.114 prints:
 
-Then install dependencies:
+```text
+✓ Created App "My App" (page-elements)  ·  my-app/  ·  19 files
+  blockId: my-app  —  your app's permanent public id (it cannot be renamed later)
+  Will be served at https://my-app.civit.ai/ — only after the app is approved and deployed · `civitai app status my-app`
+
+Next steps:
+  1. cd my-app && npm install    # writes package-lock.json — COMMIT it
+     (`civitai app validate` fails until you do — it needs that lockfile)
+  2. npm run dev:harness     # mock host on localhost:5186 — works today
+  3. edit src/block.ts and iterate (npm test drives it through the real bridge)
+  4. civitai app submit      # validate + submit for review
+
+  When you have beta access (invite-only):
+     npm run dev:tunnel      # in another terminal: serve your app for the tunnel
+     civitai app dev-tunnel  # your LOCAL app INSIDE the real host, prod-fidelity — no submit needed
+
+  Prefer React? `--template page-money` scaffolds the React alternative.
+
+  Commit the lockfile. The platform build installs strictly from it (`npm ci`) and
+  will not build without it. If you install with pnpm or yarn instead, set
+  "buildCommand" to that package manager (and the "outputDir" the schema requires
+  alongside it) and commit THAT lockfile — a mismatch fails the build.
+
+  Wrote AGENTS.md — your coding agent's instructions for THIS project, derived from
+  what was just scaffolded. Run `civitai agent-setup` in it to also register the
+  Civitai MCP servers and (for Claude Code) the CLAUDE.md that imports it.
+```
+
+That is the `page-elements` template. `--template` picks another: `page-money`
+(the [React alternative](#prefer-react-the-page-money-template), with a working
+generation sample), `page-vite` (React, no SDK) or `static` (no build step at
+all). `--dir ./path` controls the output directory.
+
+The project:
+
+```
+my-app/
+├── block.manifest.json   # the one required file — blockId, version, scopes, page
+├── index.html            # boot skeleton, painted before any script runs
+├── vite.config.ts        # validates block.manifest.json on every dev boot and build
+├── .env.development      # allow-lists the mock host's origin for local dev
+├── src/
+│   ├── main.ts           # entry: theme CSS, the dev harness, startBlock()
+│   ├── block.ts          # the app: initialize → build the view → update it in place
+│   ├── dev-embed.ts      # dev-server settings that let the real host embed it (dev only)
+│   └── dev/harness.ts    # local mock host (dev only, dropped from builds)
+├── test/                # block.test.ts drives the app through the real bridge, in happy-dom;
+│                        # elements.test.ts fails if a <civitai-*> tag you use is not registered
+└── AGENTS.md             # instructions for a coding agent working in this project
+```
+
+## 2. Run it locally
+
+```bash
+cd my-app
+npm install
+npm run dev:harness        # Vite + the mock host on http://localhost:5186
+```
+
+The **harness** is a local stand-in for civitai.com: it posts a fake
+`BLOCK_INIT`, logs every message your app sends, and answers token refreshes, so
+you can iterate without civitai.com embedding your app. It needs no account, no
+token and no Buzz. `.env.development` already allow-lists its origin, which the
+bridge requires — a `BLOCK_INIT` from an origin not on that list is dropped
+silently, and the app waits on its skeleton.
+
+The same project carries its own checks:
+
+```bash
+npm test             # the app, driven through the real bridge
+npm run typecheck
+```
+
+To run your local app inside the **real** civitai.com host, serve it with
+`npm run dev:tunnel` and, in a second terminal, run `civitai app dev-tunnel`,
+which tunnels it and prints the URL to open. `.env.development` allow-lists
+`https://civitai.com` for it. That needs closed-beta access, and no submit — see
+[Local dev loop](./local-dev).
+
+## 3. Read the app
+
+The whole app is `src/block.ts`, and its shape is the one every app on this
+template keeps:
+
+```ts
+import '@civitai/components/register';
+import { initialize } from '@civitai/sdk';
+import { isPageSlotContext, isSignedIn } from '@civitai/app-sdk/blocks';
+
+const app = await initialize(); // resolves on the host's BLOCK_INIT
+
+// Build the view ONCE. Its markup is static; host data is written in below.
+const view = document.createElement('civitai-stack');
+const where = document.createElement('civitai-text');
+const viewer = document.createElement('civitai-badge');
+view.append(where, viewer);
+
+// Update it IN PLACE — on mount, and on every change the host pushes.
+function fill(): void {
+  document.documentElement.dataset.theme = app.theme;
+  if (isPageSlotContext(app.context)) where.textContent = `${app.context.slug} /${app.context.subPath}`;
+  viewer.textContent = isSignedIn(app.viewer) ? 'signed in' : 'anonymous';
+}
+
+fill();
+document.getElementById('root')!.replaceChildren(view);
+app.onChange(fill);
+```
+
+Three habits that snippet carries:
+
+- **Build once, update in place.** `app.onChange` fires on a theme switch, a
+  route change, and every token rotation — which changes nothing on screen. A
+  listener that rebuilds the view wipes whatever the viewer typed, on a timer.
+  [The `@civitai/sdk` client](./sdk#app-onchange-and-why-you-build-the-view-once)
+  has the detail.
+- **Set the theme on `<html>`.** The elements read the `--civitai-*` tokens, and
+  `data-theme` on the root selects them. The host cannot reach into your iframe to
+  set it.
+- **Narrow the context, gate on the predicate.** `app.context` is a union keyed on
+  `slotId`; `isPageSlotContext` makes the page fields readable. `viewer` is `null`
+  for an anonymous viewer — test it with `isSignedIn`, not by hand.
+
+The scaffold's own version adds what a real app needs around that: a visible
+error in place of the skeleton if the app cannot start, and a retry while no host
+has answered yet. Keep both. A page app does **not** call
+`app.host.autoResize` — the page host fills its content area and ignores resize
+messages.
+
+`register` does not define every element — see
+[which import defines which](./elements#register-the-elements). Next, add UI
+from the [elements guide](./elements) and data from
+[`app.site`](./sdk#app-site-the-rest-api). Spending Buzz needs a consent call and
+an idempotency key — [Money calls](./sdk#money-calls) shows both.
+
+## 4. Validate the manifest
+
+`block.manifest.json` is the contract the platform validates. Check it against
+the same rules the platform uses, any time:
+
+```bash
+civitai app validate
+```
+
+It reports the missing `package-lock.json` until you have run `npm install`.
+This template also validates the manifest on every dev-server boot and every
+build: `vite.config.ts` already registers `blockManifestPlugin` from
+`@civitai/app-sdk/vite`, with `ajv` installed as a dev dependency. That is a
+dev-loop gate, not a substitute for `civitai app validate`.
+
+The manifest declares your `blockId` (your `<slug>.civit.ai` subdomain),
+`version`, `name`, `contentRating`, a `page`, and the **scopes** your app requests
+— none, as scaffolded. Add a scope before you call anything that needs one; a
+call to an undeclared scope fails rather than prompting —
+[Declare every scope you call](./sdk#declare-scopes) lists what each call on that
+page needs. Keep Vite's `base` at the default `'/'`; the platform owns
+the subdomain and serves your app at its root.
+
+## 5. Build
+
+```bash
+npm run build     # → dist/  (a static SPA)
+```
+
+That's a shippable bundle. Everything up to here works today with the public
+packages.
+
+## Prefer React? The `page-money` template
+
+```bash
+civitai app init my-app --template page-money
+```
+
+`page-money` is Vite + React + TypeScript on
+[`@civitai/blocks-react`](https://www.npmjs.com/package/@civitai/blocks-react):
+the host bridge as React hooks, plus a working estimate → consent → submit → poll
+generation sample with tests. Everything above about manifests, validating,
+building and submitting applies to it unchanged; what differs is below.
+
+### Install
 
 ```bash
 cd my-app
@@ -69,15 +248,9 @@ my-app/
     └── Harness.tsx       # local host simulator (dev only)
 ```
 
-## 2. Run it locally
-
-The starter ships a **harness** — a local simulator that plays the role of the
-host: it posts a fake `BLOCK_INIT`, captures your outbound messages into a debug
-log, and echoes token refreshes, so you can iterate without civitai.com embedding
-your block.
+### Run it locally
 
 ```bash
-# from your scaffolded project:
 npm run dev:harness        # Vite + the harness on http://localhost:5186
 ```
 
@@ -135,14 +308,13 @@ shipped one. Auto-setup will not fix that for you: it writes only
 alone.
 :::
 
-## 3. Read the block
+### Read the block
 
-`civitai app create` defaults to the `page-money` template, so the `src/App.tsx`
-you already have is a working estimate → consent → submit → poll app **with tests
-that import it** — don't overwrite it. What every block does first is read what
-the host delivered with `useBlockContext()` and gate its UI on `ready`, because
-the context fields are sentinel-empty until `BLOCK_INIT` lands. That shape,
-minimally:
+The `src/App.tsx` you already have is a working estimate → consent → submit →
+poll app **with tests that import it** — don't overwrite it. What every block
+does first is read what the host delivered with `useBlockContext()` and gate its
+UI on `ready`, because the context fields are sentinel-empty until `BLOCK_INIT`
+lands. That shape, minimally:
 
 ```tsx
 import { useBlockContext } from '@civitai/blocks-react';
@@ -188,7 +360,7 @@ slots, where it is [genuinely correct](./text-to-image#the-happy-path).
 :::
 
 ::: tip `useBlockResize` does nothing on a page app
-`civitai app create` scaffolds a **page** app (`block.manifest.json` declares a
+`civitai app init` scaffolds a **page** app (`block.manifest.json` declares a
 `page` key), and a page app is rendered by the host's `PageBlockHost`, which
 mounts the iframe **full-viewport** (`flex: 1`, `width: 100%`) and subscribes to
 no `RESIZE_IFRAME` handler at all. `useBlockResize` still runs its
@@ -218,22 +390,12 @@ submit → poll) — see the [`@civitai/blocks-react`](https://www.npmjs.com/pac
 README for the full pattern, including the rule that your estimate must build the
 same params as your submit.
 
-## 4. Validate the manifest
+### Fail the build on an invalid manifest
 
-`block.manifest.json` is the contract the platform validates. Check it against the
-same rules the platform uses, any time, with the CLI:
-
-```bash
-civitai app validate
-```
-
-That is the path the scaffold gives you out of the box — see the
-[CLI reference](../reference/cli).
-
-If you would rather fail the **build** than run a command, the SDK ships a Vite
-plugin you can add yourself. The scaffold does not wire it for you, and it needs
-`ajv` — an *optional* peer of `@civitai/app-sdk` that the scaffold does not
-install either:
+Unlike the default template, `page-money` does not wire the manifest check into
+the build. If you would rather fail the **build** than run `civitai app
+validate`, add the SDK's Vite plugin yourself. It needs `ajv` — an *optional*
+peer of `@civitai/app-sdk` that this template does not install either:
 
 ```bash
 npm install -D ajv
@@ -265,21 +427,6 @@ canonical schema with Ajv, which needs `node:fs` and so cannot sit on the
 browser-facing surface. Reach for it in a Node script; in a Vite app use the
 plugin above.
 :::
-
-The manifest declares your `blockId` (which becomes your `<slug>.civit.ai`
-subdomain), `version`, `name`, `contentRating`, and the **scopes** your app
-requests. You **omit** `iframe.src`'s hostname concerns — keep it at the
-subdomain root and leave Vite's `base: '/'`; the platform owns the subdomain and
-enforces it server-side.
-
-## 5. Build
-
-```bash
-npm run build     # → dist/  (a static SPA; skip it for the `static` template)
-```
-
-That's a shippable bundle. Everything up to here works today with the public
-packages — except §2's two live modes, which need closed-beta author access.
 
 ## Submitting (closed beta)
 
@@ -353,10 +500,12 @@ flag.
 
 ## Next
 
-- [Local dev loop](./local-dev) — the two harness modes, which credential can
-  spend, and generating for real before you submit.
+- [The `@civitai/sdk` client](./sdk) — `initialize`, `onChange`, the host's UI,
+  the REST API, consent and money calls.
+- [Using the `<civitai-*>` elements in a block](./elements) — which import
+  defines which elements, theming them, and `<civitai-chat>`.
+- [Local dev loop](./local-dev) — the harness modes, which credential can spend,
+  and running against the real backend before you submit.
 - [Concepts](./concepts) — the block / install / slot / trust-frame / bridge model.
 - [`@civitai/blocks-react`](https://www.npmjs.com/package/@civitai/blocks-react) —
-  every hook with a snippet.
-- [`@civitai/app-sdk`](https://www.npmjs.com/package/@civitai/app-sdk) — the
-  framework-agnostic manifest, scope, and message contract.
+  every React hook with a snippet, if you took the React template.

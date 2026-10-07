@@ -58,7 +58,7 @@
     "@civitai/blocks-react": "0.63.2",
     "@civitai/components": "0.9.2",
     "@civitai/components-react": "0.9.1",
-    "@civitai/sdk": "0.10.0",
+    "@civitai/sdk": "0.10.1",
     "@civitai/theme": "0.5.2",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.0",

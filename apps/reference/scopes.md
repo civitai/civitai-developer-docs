@@ -57,10 +57,12 @@ source the manifest validator and the token minter read.
 
 ## What this table can't show (the server enforces more)
 
-- **Consent gating.** Most self-reads are consent-exempt (server visibility is
-  the gate), but some scopes — notably `collections:read:private` — are
-  **consent-gated**: the viewer must grant them through the host consent gate
-  before a token will carry them.
+- **Consent gating.** Only the app-storage scopes, `models:read:self`,
+  `collections:read:self`, `collections:write:self` and `goods:read:self` are
+  consent-exempt. Every other scope —
+  `user:read:self`, `buzz:read:self`, `collections:read:private` and
+  `ai:write:budgeted` among them — is **consent-gated**: the viewer must grant it
+  through the host consent gate before a token will carry it.
 - **Dev-token / dev-tunnel restrictions.** The shared-storage scopes
   (`apps:storage:shared:*`) are deliberately never minted for pre-approval dev
   sessions; only an approved, mod-reviewed app that declares them gets them.

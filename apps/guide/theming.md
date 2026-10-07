@@ -61,6 +61,9 @@ does not resolve in a browser) — which carry the behaviour and the encapsulati
 in any framework or none; and layer 3 when you want those elements as typed React
 components.
 
+Neither `register` nor `elements.js` defines every element; which import defines
+which is in [the elements guide](./elements#register-the-elements).
+
 ::: tip Pin the version in the CDN URL — and pin each package separately
 The three packages version **independently** — this page is written against
 `@civitai/theme@0.5.2`, `@civitai/components@0.9.2` and

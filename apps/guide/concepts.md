@@ -198,8 +198,9 @@ knowing, because the refresh is lazier than it looks:
   `useBlockToken().refresh()` and reissue. (`@civitai/sdk` does this for you, and
   it runs in a block — see the [porting guide](./porting).)
 
-The host also *pushes* a new token when it re-mints one mid-session (chiefly after
-a consent grant); apply pushed tokens unconditionally. You never mint, store, or
+The host also *pushes* a new token every time it re-mints one — shortly before
+each expiry while the block is open and visible, and after a consent grant; apply
+pushed tokens unconditionally. You never mint, store, or
 long-hold a credential yourself. The full authentication model (claims,
 self-binding, scope enforcement) is a later reference page; for building, `ready`
 + the hooks are all you need.

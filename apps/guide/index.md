@@ -3,7 +3,6 @@ title: Introduction to Civitai Apps
 description: What Civitai Apps are, who they're for, and how to start building one.
 sources:
   - civitai:docs/features/app-blocks.md
-  - civitai-app-starters:docs/build-your-first-app-block.md
 ---
 
 # Introduction
@@ -47,7 +46,9 @@ to `/api/v1`. See [Transport models](./concepts#transport-models).
 
 The result is a tight contract:
 
-- **You own** the UI — a normal Vite + React (or any framework) SPA.
+- **You own** the UI — a static SPA. The default scaffold builds it from
+  Civitai's `<civitai-*>` web components with no UI framework; React, or any
+  other framework, works as well.
 - **The platform owns** hosting, the subdomain, the runtime image, token minting,
   and the review/deploy pipeline.
 - **The host mediates** every privileged action (generation, Buzz, storage,
@@ -66,10 +67,14 @@ A block can render in two places:
 
 ## What you'll need
 
-- Node ≥ 20 and pnpm.
+- Node 20.19+ (on 20.x) or 22.12+, and npm (or pnpm / yarn, with a matching
+  `buildCommand` and `outputDir`).
 - A Civitai account, and closed-beta builder access (see the banner above). Your
   app does not have to be reviewed first.
-- Basic familiarity with React — the starter and SDK are React-first.
+- Basic TypeScript. The default scaffold is web components on
+  [`@civitai/sdk`](./sdk), with no UI framework to learn; if you prefer React,
+  `civitai app init --template page-money` scaffolds the React alternative on
+  `@civitai/blocks-react`.
 
 You do **not** need Docker, a domain, a git host, or an OAuth client — the
 platform provisions all of that when your app is approved.
@@ -82,6 +87,11 @@ platform provisions all of that when your app is approved.
   trust frame, and how the host and your app talk to each other.
 - **[Quickstart](./quickstart)** — go from nothing to a block running in the local
   harness using the `civitai` CLI scaffold.
+- **[The `@civitai/sdk` client](./sdk)** — `initialize()`, what `app.onChange`
+  fires on, the host's UI, the REST API, consent and money calls.
+- **[Using the `<civitai-*>` elements in a block](./elements)** — which import
+  defines which of the web components the default scaffold uses, theming them,
+  and `<civitai-chat>`.
 - **[Local dev loop](./local-dev)** — the two harness modes, and how to generate
   for real against the live backend *before* submitting your app. Start here if
   generation is refusing or you think you are blocked on review.
@@ -95,6 +105,8 @@ platform provisions all of that when your app is approved.
 
 </div>
 
-Once you understand the shape, the [`@civitai/blocks-react`](https://www.npmjs.com/package/@civitai/blocks-react)
-and [`@civitai/app-sdk`](https://www.npmjs.com/package/@civitai/app-sdk) packages
-carry the full hook and contract surface.
+Once you understand the shape, the [`@civitai/sdk`](https://www.npmjs.com/package/@civitai/sdk)
+and [`@civitai/components`](https://www.npmjs.com/package/@civitai/components)
+READMEs carry the full client and element surface; for React, so do
+[`@civitai/blocks-react`](https://www.npmjs.com/package/@civitai/blocks-react)
+and [`@civitai/app-sdk`](https://www.npmjs.com/package/@civitai/app-sdk).
