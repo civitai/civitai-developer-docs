@@ -53,6 +53,14 @@ export function Generate() {
     };
     await estimate(body);         // review cost via result.cost.total
     const snap = await submit(body);
+    // A REFUSED submit (over budget, a spend cap, a rate limit) still RESOLVES:
+    // `status: 'failed'` with a placeholder workflowId of 'failed'. A 'failed'
+    // reply is terminal, so there is nothing to watch. Branch on `status`,
+    // never on whether `workflowId` is set. See "Refused submits" below.
+    if (snap.status === 'failed') {
+      console.warn('submit refused:', snap.error); // server text: log it, don't render it
+      return;
+    }
     await watch(snap.workflowId); // owns the loop; resolves on the terminal snapshot
   };
 
@@ -282,7 +290,11 @@ you drive:
   `'confirming'` is **idle** — keep your Generate button enabled.
 - **`submit(body, options?)`** — the host runs a whatIf preflight, gates
   `cost ≤ token.buzzBudget`, spends, and returns a snapshot with a
-  `workflowId`. `status` goes `'submitting' → 'polling'`. The `options` bag
+  `workflowId`. `status` goes `'submitting' → 'polling'`. A **refused** submit
+  also resolves — with `status: 'failed'` and a placeholder `workflowId`, and
+  the hook's `status` goes to `'done'`, not `'polling'` — so a `workflowId`
+  alone does not mean a run started; see
+  [refused submits](#refused-submits). The `options` bag
   carries **`idempotencyKey`** — 🔴 **read
   [retrying a submit](#retrying-a-submit-safely) before you write any retry
   path**, because a retried submit is how a viewer gets charged twice.
@@ -306,7 +318,11 @@ import { useBuzzWorkflow } from '@civitai/blocks-react';
 export function useAutoWatch() {
   const { watch, result, status } = useBuzzWorkflow();
   useEffect(() => {
-    if (status !== 'polling' || !result?.workflowId) return;
+    // A refused submit resolves with `status: 'failed'` and a placeholder
+    // workflowId of 'failed', so a truthy `workflowId` is NOT evidence a run
+    // started. The hook leaves `status` at 'done' for a refusal; the explicit
+    // `result.status` test keeps the placeholder out of watch() regardless.
+    if (status !== 'polling' || !result || result.status === 'failed') return;
     const ac = new AbortController();
     void watch(result.workflowId, {
       signal: ac.signal,
@@ -319,10 +335,50 @@ export function useAutoWatch() {
 }
 ```
 
-::: tip Out of Buzz?
-`submit()` rejects when the estimate exceeds the token budget. Call
-`useBuzzPurchase().openPurchaseModal()` to let the viewer top up, then retry.
-:::
+### Refused submits — over budget, or a cap {#refused-submits}
+
+A refused submit does **not** reject. `submit()` **resolves** with a snapshot
+whose `status` is `'failed'`, whose `workflowId` is the placeholder `'failed'`
+(no workflow was started, so never `watch()` or `poll()` it), whose
+`cost.total` is the price the server declined to charge, and whose `error`
+says why. (A real workflow that failed straight away can resolve as `'failed'`
+too, with its real id — equally terminal, equally nothing to watch.) So
+**branch on `snap.status === 'failed'`**, never on whether `workflowId` is
+set:
+
+```tsx
+import { useBuzzWorkflow } from '@civitai/blocks-react';
+import type { WorkflowBody } from '@civitai/app-sdk/blocks';
+
+export function useGenerate(showError: (message: string) => void) {
+  const { submit, watch } = useBuzzWorkflow();
+
+  return async (body: WorkflowBody) => {
+    const snap = await submit(body);
+    if (snap.status === 'failed') {
+      // Terminal, nothing to watch. `workflowId === 'failed'` is a refusal;
+      // any other id is a real workflow that failed at once, and its Buzz may
+      // already be spent — so the copy below makes no claim about money.
+      // `error` carries the reason, but it is server-authored and unsanitised:
+      // log it, and show the viewer copy YOUR app owns.
+      console.warn('submit failed:', snap.workflowId, snap.error, 'cost:', snap.cost?.total);
+      showError('This generation did not complete.');
+      return null;
+    }
+    return watch(snap.workflowId); // a real workflow: watch it to completion
+  };
+}
+```
+
+A refusal reports a **cap**, not necessarily the viewer's balance: a price
+above your manifest's per-generation budget (see [Budget model](#budget-model)),
+a daily spend cap, the per-app rate limit or daily cap, a temporary
+"unavailable" deny, or a missing price quote. Buying Buzz raises none of those
+caps, so do not wire every refusal to `useBuzzPurchase().openPurchaseModal()` —
+decide by your own policy before offering a top-up. What **does** reject is a submit with
+no usable outcome at all — a `WorkflowSubmitError`; see the
+[`useBuzzWorkflow` reference](../reference/generation#bridge-useBuzzWorkflow)
+for its `code`s and what each says about money.
 
 ### Retrying a submit safely — `idempotencyKey` {#retrying-a-submit-safely}
 

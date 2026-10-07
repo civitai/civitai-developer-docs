@@ -326,6 +326,14 @@ export function RunButton({ prompt }: { prompt: string }) {
     };
     await estimate(body);        // display estimate → result.cost.total
     const snap = await submit(body);
+    // A REFUSED submit (over budget, a spend cap, a rate limit) still RESOLVES:
+    // `status: 'failed'` with a placeholder workflowId of 'failed'. A 'failed'
+    // reply is terminal, so there is nothing to watch. Branch on `status`,
+    // never on whether `workflowId` is set.
+    if (snap.status === 'failed') {
+      console.warn('submit refused:', snap.error); // server text: log it, don't render it
+      return;
+    }
     await watch(snap.workflowId); // owns the loop; resolves on the terminal snapshot
   };
 
@@ -337,7 +345,10 @@ The host runs the estimate and submit server-side against your block token,
 re-checking scopes and budget every time — your block never talks to the
 orchestrator directly. `estimate()` returns a **display estimate**, not a firm
 quote; the exact charge is known only when the workflow reaches a terminal
-state (see [How generation is billed](#how-generation-is-billed)).
+state (see [How generation is billed](#how-generation-is-billed)). A refused
+submit — over budget, or a spend cap or rate limit — resolves rather than
+rejects, so check `status === 'failed'` before watching; the full refusal shape
+is in [Refused submits](./text-to-image#refused-submits).
 
 ## Requirements
 
