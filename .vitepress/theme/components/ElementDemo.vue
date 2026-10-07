@@ -14,6 +14,8 @@ const props = defineProps<{
   title: string;
   /** Tag names shown as chips in the header. */
   tags?: string;
+  /** Also define the elements that act through @civitai/sdk. */
+  sdk?: boolean;
 }>();
 
 const { isDark } = useData();
@@ -32,6 +34,12 @@ const codeOf = (el: HTMLElement | null) => el?.querySelector('pre code')?.textCo
 onMounted(async () => {
   // Custom elements extend HTMLElement, which does not exist during SSR.
   await import('@civitai/components/register-site');
+  if (props.sdk) {
+    await Promise.all([
+      import('@civitai/components/civitai-sign-in-button/define'),
+      import('@civitai/components/civitai-workflow-button/define'),
+    ]);
+  }
   mounted.value = true;
   await nextTick();
   if (!preview.value) return;
