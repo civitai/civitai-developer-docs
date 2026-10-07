@@ -42,7 +42,9 @@ Three things that look like earning rails and are not:
   `useGoodPurchase` can open for you) is the opposite direction from a digital
   good: it goes **into the viewer's balance**, and your app is not paid for it.
   It can still unblock a sale, since a viewer who cannot afford your good can be
-  sent through a top-up first.
+  sent through a top-up first. Your earnings panel may still show those top-ups
+  as a **Confirmed (unpaid)** amount: it is recorded, but it is not paid out
+  today, so do not count on it.
 
 ---
 
@@ -199,9 +201,11 @@ unchanged.)
 - The `id` is the entitlement key. Changing it in a later version orphans every
   unlock already sold, so treat it as permanent.
 
-An app that already sells ordinary goods already holds `goods:purchase:self`, so
-adding an unlock leaves its scopes unchanged. The `justification` is what makes
-that switch from free to paid visible at review.
+An app that already sells ordinary goods already holds `goods:purchase:self`;
+what it must **add** is `goods:read:self`, because the gate below reads
+entitlements. Without it every entitlement read is refused, and every viewer,
+paid or not, gets the retry state instead of the app. The `justification` is
+what makes the switch from free to paid visible at review.
 
 #### Step 2: gate on the entitlement and sell the unlock
 
@@ -292,6 +296,11 @@ in full.
 refused `self_purchase` (400, `charge: 'none'`, `retryable: false`). To test
 the unlock end to end, sign in as a **second account** that has enough Buzz.
 Being signed in as the owner with enough Buzz is not enough.
+
+The same rule applies once the app is live: you can never own your own unlock,
+so the gate as sketched shows **you** the paywall too. The hooks expose no
+"is the owner" flag, so if you need to reach the paid view as the owner, decide
+how your app establishes that itself.
 
 ### A pinned install can be charged a price it was never shown
 
