@@ -7,7 +7,6 @@ sources:
   - npm:@civitai/components@0.9.2/custom-elements.json
   - npm:@civitai/blocks-react@0.63.2#README
   - npm:@civitai/app-sdk@0.56.1/vite#blockManifestPlugin
-  - civitai-app-starters:docs/build-your-first-app-block.md
 ---
 
 # Quickstart
@@ -201,7 +200,10 @@ dev-loop gate, not a substitute for `civitai app validate`.
 
 The manifest declares your `blockId` (your `<slug>.civit.ai` subdomain),
 `version`, `name`, `contentRating`, a `page`, and the **scopes** your app requests
-— none, as scaffolded. Keep Vite's `base` at the default `'/'`; the platform owns
+— none, as scaffolded. Add a scope before you call anything that needs one; a
+call to an undeclared scope fails rather than prompting —
+[Declare every scope you call](./sdk#declare-scopes) lists what each call on that
+page needs. Keep Vite's `base` at the default `'/'`; the platform owns
 the subdomain and serves your app at its root.
 
 ## 5. Build

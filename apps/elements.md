@@ -21,7 +21,10 @@ a stylesheet. Pick the elements unless you need zero JavaScript.
 
 ## Setup
 
-**No build step** — one script tag registers every element:
+**No build step** — one script tag. `site-elements.js` registers every element
+except the two that act as the viewer (`<civitai-sign-in-button>`,
+`<civitai-workflow-button>`), which need their own `define` import — see
+[Acting as the viewer](#acting-as-the-viewer):
 
 ```html
 <script type="module" src="https://cdn.jsdelivr.net/npm/@civitai/components/site-elements.js"></script>
@@ -31,6 +34,9 @@ a stylesheet. Pick the elements unless you need zero JavaScript.
 
 `site-elements.js` is the generic kit plus the Civitai vocabulary (rating
 badges, tags, reactions, media cards). `elements.js` is the generic kit alone.
+Building a Civitai App? [Using the elements in a block](./guide/elements#register-the-elements)
+has the table of which import defines which elements, and the token limits that
+apply inside a block.
 
 **With a bundler:**
 
@@ -39,7 +45,7 @@ npm install @civitai/components
 ```
 
 ```ts
-import '@civitai/components/register-site'; // everything, or:
+import '@civitai/components/register-site'; // all but the two viewer elements, or:
 import '@civitai/components/civitai-button/define'; // one element at a time
 ```
 

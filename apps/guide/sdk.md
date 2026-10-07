@@ -87,6 +87,29 @@ lists the harness origin for you.
 `viewer`, `context`, `settings` and `theme` are getters over a live snapshot:
 read them every time you render rather than copying them once.
 
+## Declare every scope you call {#declare-scopes}
+
+The token can only carry scopes your `block.manifest.json` lists in `scopes` —
+and the default scaffold ships `"scopes": []`. A call that needs an undeclared
+scope does not prompt anyone; it fails:
+
+- a route that requires the scope answers **403**;
+- `app.requestGrants` for an undeclared scope resolves **`false`** — the host
+  replies that the scope cannot be granted here — so a consent-then-call helper
+  quietly does nothing.
+
+Add the scope to `scopes` first, then ask for consent if it is consent-gated.
+The calls on this page need:
+
+| Call | Scope to declare | Consent-gated |
+|---|---|---|
+| `app.site.get('blocks/me')` | `user:read:self` | yes |
+| `app.site.get('blocks/gated-images', …)` | none | — |
+| `app.site.post('blocks/workflows/submit', …)` | `ai:write:budgeted` | yes |
+
+Adding or changing a scope needs a new review once the app is published. The
+[scopes reference](../reference/scopes) lists every scope.
+
 ## `app.onChange` — and why you build the view once {#app-onchange-and-why-you-build-the-view-once}
 
 `onChange` fires whenever the snapshot behind those getters changes. Once
@@ -150,8 +173,11 @@ how the two surfaces size a block.
 
 ## `app.site` — the REST API {#app-site-the-rest-api}
 
+Each route needs its scope [declared](#declare-scopes) — `blocks/me` needs
+`user:read:self`; `blocks/gated-images` needs none.
+
 ```ts
-const me = await app.site.get('blocks/me');
+const me = await app.site.get('blocks/me'); // declare and grant user:read:self first
 const images = await app.site.get('blocks/gated-images', { query: { ids: '1,2,3' } });
 ```
 
@@ -179,7 +205,8 @@ Some scopes are consent-gated — `ai:write:budgeted` and `goods:purchase:self`
 among them: the block's token does not carry them until the viewer agrees in the
 host's dialog. Which scopes are exempt is listed under
 [consent gating](../reference/scopes#what-this-table-can-t-show-the-server-enforces-more)
-in the scopes reference. Ask before the call that needs them:
+in the scopes reference. A scope must be [declared in the manifest](#declare-scopes)
+before it can be granted at all. Ask before the call that needs it:
 
 ```ts
 const granted = await app.requestGrants(['ai:write:budgeted'], {
@@ -192,7 +219,7 @@ It has **four** outcomes, and the fourth is the one that bites:
 | Outcome | When |
 |---|---|
 | resolves `true` | at once if the token already holds every scope asked for; otherwise when the host re-mints a token that does |
-| resolves `false` | the host answers that consent cannot be granted here |
+| resolves `false` | the host answers that consent cannot be granted here — including for a scope the manifest does not declare |
 | never settles | the host sends nothing back — the viewer dismissed the dialog, the app is in a review session, or the host was not ready — so without a `signal` the promise waits forever |
 | **rejects** | the `signal` aborted, with the signal's `reason` (an already-aborted signal rejects at once, unless the scopes are already held) |
 
@@ -224,7 +251,10 @@ async function askConsent(app: BlockAppClient, scopes: Scope[]): Promise<boolean
 
 `@civitai/sdk` has no Buzz-workflow helper. A block spends through the
 `/api/v1/blocks/*` routes with `app.site`, which apply the per-call Buzz budget,
-the daily caps and the app's attribution tag.
+the daily caps and the app's attribution tag. Submitting needs
+`ai:write:budgeted` [declared](#declare-scopes) in the manifest and granted;
+undeclared, the `askConsent` call below resolves `false` and `generate()`
+returns `null` without sending anything.
 
 ::: danger Not `app.orchestration`
 `app.orchestration` calls the orchestrator directly and carries none of those
@@ -252,21 +282,33 @@ async function generate(app: BlockAppClient, body: WorkflowBody): Promise<unknow
   const submit = () =>
     app.site.post<{ snapshot: unknown }>('blocks/workflows/submit', { body, idempotencyKey });
   const { snapshot } = await submit(); // retry with submit() again: same key, one charge
-  // A budget or cap refusal is a 200 too: status 'failed', the refused cost.total, workflowId 'failed'.
-  if ((snapshot as { status?: string }).status === 'failed') return null;
+  // A budget or cap refusal is a 200 too: status 'failed', the refused cost.total,
+  // workflowId 'failed' and an `error` string. Log `error`; don't render it.
+  const refused = snapshot as { status?: string; error?: string };
+  if (refused.status === 'failed') {
+    console.warn('submit refused:', refused.error);
+    return null;
+  }
   return snapshot;
 }
 ```
 
 The `WorkflowBody` shapes, what each costs and how a workflow is followed to its
-result are in the [generation bridge reference](../reference/generation). The
-per-generation Buzz budget is a ceiling, not an estimate, and a submit priced
-above it — or over a daily cap — is refused **without an error**: the route
-answers `200` with a snapshot whose `status` is `'failed'`, carrying the
-`cost.total` it refused to charge and the placeholder `workflowId: 'failed'`
-rather than a real id. Check the snapshot's
-`status` before treating a submit as started; that quoted cost is what a
-top-up prompt needs.
+result are in the [generation bridge reference](../reference/generation).
+
+**A refused submit resolves; it does not reject.** A submit priced above the
+token's per-call Buzz budget, or over a per-viewer or per-app daily cap, comes
+back as `200` with a snapshot whose `status` is `'failed'`, whose `workflowId` is
+the placeholder `'failed'` (no workflow started — there is nothing to follow),
+whose `cost.total` is the price it declined to charge, and whose `error` says
+why. Branch on `status`, never on whether `workflowId` is set. `error` is
+server-authored and unsanitised: log it, and show the viewer copy your app owns.
+
+**Buying Buzz does not fix any of those refusals.** They are limits on the token
+and the app, not on the viewer's wallet, so do not answer one with a top-up
+prompt. A viewer who genuinely lacks the Buzz is a different path: the
+orchestrator's insufficient-funds refusal **rejects** the request, so it arrives
+as an `ApiError` in your `catch`.
 
 ## Next
 

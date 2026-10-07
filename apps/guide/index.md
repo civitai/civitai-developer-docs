@@ -3,7 +3,6 @@ title: Introduction to Civitai Apps
 description: What Civitai Apps are, who they're for, and how to start building one.
 sources:
   - civitai:docs/features/app-blocks.md
-  - civitai-app-starters:docs/build-your-first-app-block.md
 ---
 
 # Introduction
