@@ -78,8 +78,17 @@
  *                                          carrying a token that CAN see it must
  *                                          not report the page healthy for
  *                                          readers who cannot)
- *     5. Every SCOPES line on the page matches the repository's own
- *        `block.manifest.json`. See the SCOPES banner below.
+ *     5. Every SCOPES line on the page matches the `block.manifest.json` the
+ *        section LINKS: the repository root for an external repository, the
+ *        example's own directory for a civitai-app-starters example (see
+ *        STARTERS and parseManifestTarget). See the SCOPES banner below.
+ *     6. Every example directory under civitai-app-starters' `starters/examples/`
+ *        has a section on the page (one api.github.com GET of that directory).
+ *        Check 5 grades what the page says; this is what notices what it omits.
+ *
+ *   The offline half also floors the starters sections at MIN_STARTER_EXAMPLES
+ *   and fails a section that links the starters repository without linking
+ *   into an example directory — its manifest path could not hold the file.
  *
  * 🔴 THE PAGE'S MOST AUTHORITATIVE CONTENT USED TO BE ITS LEAST GUARDED
  * --------------------------------------------------------------------
@@ -114,9 +123,11 @@
  *
  * MANIFEST FETCHES ADD ZERO api.github.com CALLS, ON PURPOSE. They go to
  * `raw.githubusercontent.com`, a different host with a different budget, so the
- * run's api.github.com count stays at exactly one GET per repository and the
- * unauthenticated 60/hr shared-runner limit is no closer than it was. (Reading
- * them through `/repos/:o/:r/contents/` would have DOUBLED it.) Same doctrine on
+ * run's api.github.com count stays at one GET per repository — plus ONE for
+ * check 6's directory listing, however many starters examples there are — and
+ * the unauthenticated 60/hr shared-runner limit stays far off (10 GETs at 9
+ * repositories). (Reading the manifests through `/repos/:o/:r/contents/` would
+ * have added one per section, 19 today.) Same doctrine on
  * failure: 403/429/5xx/timeout/DNS SKIP loudly, exit 0. A 404 on the manifest
  * does NOT skip — it is terminal, exactly like a 404 on the repository, and it
  * means the page's claim to have read that file cannot be true at that path.
@@ -216,6 +227,89 @@ const RAW_BASE = process.env.EXAMPLE_APPS_RAW || 'https://raw.githubusercontent.
  */
 const MANIFEST_PATH = 'block.manifest.json';
 const MANIFEST_REF = 'HEAD';
+
+/**
+ * THE MAINTAINED SET. `civitai/civitai-app-starters` keeps one runnable example
+ * per feature area under `starters/examples/`, each with its own
+ * `block.manifest.json`, and its CI typechecks, validates and renders every one.
+ * The page LEADS with them, and links each into its own subdirectory
+ * (`…/tree/main/starters/examples/<name>`), so a section's manifest is read from
+ * THAT directory at THAT ref — see `parseManifestTarget` — rather than from the
+ * repository root, where the starters repo has no manifest at all.
+ *
+ * The starters repository is ONE repository to the liveness half (it is one
+ * entry, checked once) but many SECTIONS to the scope half, which is why the
+ * page's self-counts below treat it apart from the external repositories.
+ */
+export const STARTERS = { owner: 'civitai', repo: 'civitai-app-starters', ref: 'main', dir: 'starters/examples' };
+const STARTERS_FULL = `${STARTERS.owner}/${STARTERS.repo}`.toLowerCase();
+
+/**
+ * Positive-control floor on how many starters examples the page has sections
+ * for. 11 exist at civitai-app-starters `ed7d69c`; 9 leaves room to retire two
+ * deliberately and none to lose them all to a matcher that stopped seeing the
+ * page. The scheduled half's coverage check (below) is what notices the OTHER
+ * direction — an example added upstream that the page does not list.
+ */
+export const MIN_STARTER_EXAMPLES = 9;
+
+/** True when a section's link points into the starters examples directory. */
+function isStarterSection(s) {
+  return Boolean(
+    s.repo &&
+      s.repo.full.toLowerCase() === STARTERS_FULL &&
+      s.manifest &&
+      s.manifest.dir.startsWith(`${STARTERS.dir}/`),
+  );
+}
+
+/**
+ * Where a section's `block.manifest.json` lives, read off the first GitHub link
+ * in the section that points into `repo` — the repository the section's `repo`
+ * field already names — so the two cannot disagree about which repository they
+ * mean.
+ *
+ *   https://github.com/o/r                                -> { ref: 'HEAD', dir: '' }
+ *   https://github.com/o/r/tree/main/starters/examples/x  -> { ref: 'main', dir: 'starters/examples/x' }
+ *
+ * Only `/tree/<ref>/<dir>` is read as a directory: it is the spelling GitHub
+ * itself produces for a folder, and anything else (a `/blob/` file link, an
+ * issue) is a link INTO the repository rather than a claim about where its
+ * manifest is, so it falls back to the root, exactly as before this existed. A
+ * ref containing `/` cannot be told apart from a path here and is not supported
+ * — the page pins `main`.
+ *
+ * Pure + exported: SECTION_FIXTURES drives it.
+ */
+export function parseManifestTarget(markdown, repo) {
+  const want = repo.full.toLowerCase();
+  const re = /https?:\/\/(?:www\.)?github\.com\/([^\s)\]"'`<>]+)/gi;
+  let m;
+  let segments = null;
+  while ((m = re.exec(markdown)) !== null) {
+    const segs = m[1].split('#')[0].split('?')[0].split('/').filter(Boolean);
+    // The same owner/repo normalisation parseRepoUrls applies, so a link it
+    // counted as `repo` is recognised here too.
+    if (segs.length < 2) continue;
+    const owner = segs[0].replace(/[^A-Za-z0-9-].*$/s, '');
+    const name = segs[1].replace(/[^A-Za-z0-9._-].*$/s, '').replace(/\.git$/i, '').replace(/\.+$/, '');
+    if (`${owner}/${name}`.toLowerCase() === want) {
+      segments = segs;
+      break;
+    }
+  }
+  if (!segments) return null;
+  if (segments[2] === 'tree' && segments.length >= 4) {
+    const dir = segments
+      .slice(4)
+      .map((s) => s.replace(/[^A-Za-z0-9._-].*$/s, ''))
+      .filter(Boolean)
+      .join('/')
+      .replace(/\.+$/, '');
+    return { ref: segments[3].replace(/[^A-Za-z0-9._-].*$/s, ''), dir };
+  }
+  return { ref: MANIFEST_REF, dir: '' };
+}
 
 /**
  * The POSITIVE-CONTROL FLOOR.
@@ -463,6 +557,7 @@ export function parseExampleSections(markdown) {
       heading,
       anchor: headingSlug(heading),
       repo: repos[0] ?? null,
+      manifest: repos[0] ? parseManifestTarget(body, repos[0]) : null,
       scopes: scopeLine ? backtickedTokens(scopeLine[1]) : null,
       hasSurfaceLine: surfaceLine,
     });
@@ -539,7 +634,49 @@ export function checkScopeClaimShape(sections, entries) {
     );
   }
 
-  return { sections: withRepo.length, claimed, tokens, failures };
+  // THE STARTERS SECTIONS. The starters repository has no manifest at its root,
+  // so a section that links the bare repository would send the scheduled half to
+  // a path that cannot hold the file the section quotes — a guaranteed 404 that
+  // reads as upstream rot. Catch it here, on the PR, where it is a page edit.
+  for (const s of withRepo) {
+    if (s.repo.full.toLowerCase() !== STARTERS_FULL || isStarterSection(s)) continue;
+    failures.push(
+      `"${s.heading}" links ${s.repo.full} but not into ${STARTERS.dir}/<example> ` +
+        `(read ${JSON.stringify(s.manifest)}).\n` +
+        `      Its scope line is graded against <that directory>/${MANIFEST_PATH}; link the example's\n` +
+        `      own folder as https://github.com/${STARTERS.owner}/${STARTERS.repo}/tree/${STARTERS.ref}/${STARTERS.dir}/<name>.`,
+    );
+  }
+
+  // Two sections claiming one manifest cannot both be graded: the scope lookup is
+  // keyed by manifest location, so the second silently replaces the first.
+  const seen = new Map();
+  for (const s of withRepo) {
+    const key = manifestKey(s);
+    if (seen.has(key)) {
+      failures.push(`"${s.heading}" and "${seen.get(key)}" point at the same manifest (${key}); only one would be graded.`);
+    } else {
+      seen.set(key, s.heading);
+    }
+  }
+
+  const starters = withRepo.filter(isStarterSection).length;
+  if (starters < MIN_STARTER_EXAMPLES) {
+    failures.push(
+      `only ${starters} section(s) link into ${STARTERS_FULL}/${STARTERS.dir} (floor ` +
+        `${MIN_STARTER_EXAMPLES}) — the page leads with the maintained starters examples, so either\n` +
+        `      they were removed (lower MIN_STARTER_EXAMPLES in the same commit, with the reason) or the\n` +
+        `      section matcher stopped seeing them.`,
+    );
+  }
+
+  return { sections: withRepo.length, starters, claimed, tokens, failures };
+}
+
+/** The identity of the manifest a section quotes: owner/repo plus its directory. */
+export function manifestKey(s) {
+  const dir = s.manifest?.dir ? `/${s.manifest.dir}` : '';
+  return `${s.repo.full}${dir}`.toLowerCase();
 }
 
 /**
@@ -549,7 +686,7 @@ export function checkScopeClaimShape(sections, entries) {
  * must be a red check and a deliberate edit here, not a silent loss of the only
  * thing standing in for a guard.
  */
-export const HOOKS_STAMP_RE = /\bHook lists verified by hand on (\d{4})-(\d{2})-(\d{2})\b/;
+export const HOOKS_STAMP_RE = /\bHook lists verified by hand on (\d{4})-(\d{2})-(\d{2})\b/g;
 
 /**
  * Grade the hook-list date stamp. `now` is injected so STAMP_FIXTURES can drive
@@ -562,11 +699,19 @@ export const HOOKS_STAMP_RE = /\bHook lists verified by hand on (\d{4})-(\d{2})-
  * of whoever reads the output rather than inferred from a date they have to
  * subtract in their head.
  */
+/**
+ * The page carries ONE stamp per group of hook lists — the starters examples and
+ * the external repositories were read on different days — so every stamp is
+ * graded, and the run reports the OLDEST: that is the age of the stalest claim a
+ * reader might be leaning on. `stamp` / `ageDays` keep their single-value shape
+ * for the report; `stamps` lists them all.
+ */
 export function checkHooksStamp(markdown, now = new Date()) {
-  const m = markdown.match(HOOKS_STAMP_RE);
-  if (!m) {
+  const found = [...markdown.matchAll(HOOKS_STAMP_RE)];
+  if (!found.length) {
     return {
       stamp: null,
+      stamps: [],
       ageDays: null,
       failures: [
         `the page carries no hook-list date stamp.\n` +
@@ -578,29 +723,32 @@ export function checkHooksStamp(markdown, now = new Date()) {
     };
   }
 
-  const [, y, mo, d] = m;
-  const stamp = `${y}-${mo}-${d}`;
-  const when = new Date(`${stamp}T00:00:00Z`);
-  if (Number.isNaN(when.getTime()) || when.toISOString().slice(0, 10) !== stamp) {
-    return {
-      stamp,
-      ageDays: null,
-      failures: [`the hook-list stamp "${stamp}" is not a real calendar date.`],
-    };
-  }
-
-  const ageDays = Math.floor((now.getTime() - when.getTime()) / 86_400_000);
   const failures = [];
-  // A two-day grace: a commit made near midnight in a UTC+N timezone is not a
-  // defect, and neither is a clock-skewed runner.
-  if (ageDays < -2) {
-    failures.push(
-      `the hook-list stamp is dated ${stamp}, which is ${-ageDays} days in the FUTURE.\n` +
-        `      A stamp nobody can have verified yet is worse than none: it reads as fresher than\n` +
-        `      anything on the page actually is.`,
-    );
+  const stamps = [];
+  let oldest = null; // { stamp, ageDays }
+  for (const [, y, mo, d] of found) {
+    const stamp = `${y}-${mo}-${d}`;
+    stamps.push(stamp);
+    const when = new Date(`${stamp}T00:00:00Z`);
+    if (Number.isNaN(when.getTime()) || when.toISOString().slice(0, 10) !== stamp) {
+      failures.push(`the hook-list stamp "${stamp}" is not a real calendar date.`);
+      continue;
+    }
+    const ageDays = Math.floor((now.getTime() - when.getTime()) / 86_400_000);
+    // A two-day grace: a commit made near midnight in a UTC+N timezone is not a
+    // defect, and neither is a clock-skewed runner.
+    if (ageDays < -2) {
+      failures.push(
+        `the hook-list stamp is dated ${stamp}, which is ${-ageDays} days in the FUTURE.\n` +
+          `      A stamp nobody can have verified yet is worse than none: it reads as fresher than\n` +
+          `      anything on the page actually is.`,
+      );
+    }
+    if (!oldest || ageDays > oldest.ageDays) oldest = { stamp, ageDays };
   }
-  return { stamp, ageDays, failures };
+  // With no valid stamp at all, still name the first one read, so the failure
+  // above is attributable.
+  return { stamp: oldest?.stamp ?? stamps[0], stamps, ageDays: oldest?.ageDays ?? null, failures };
 }
 
 /**
@@ -623,8 +771,8 @@ export function classifyManifest(entry, declared, result) {
         reason: `MANIFEST MISSING — HTTP ${result.status} for ${MANIFEST_PATH} in github.com/${entry.full}`,
         hint:
           `the page states this repository's scopes as read out of ${MANIFEST_PATH}, and there is no ` +
-          `such file at its root any more. Either it moved (point MANIFEST_PATH at the new one, ` +
-          `deliberately) or the claim cannot be true.`,
+          `such file at the path the page links any more. Either it moved (point the section's link — ` +
+          `or, for a repository root, MANIFEST_PATH — at the new one, deliberately) or the claim cannot be true.`,
       };
     }
     return { verdict: 'skip', reason: result.reason };
@@ -683,6 +831,60 @@ export function classifyManifest(entry, declared, result) {
   }
 
   return { verdict: 'ok' };
+}
+
+/**
+ * Does the page have a section for EVERY example the starters repository ships?
+ *
+ * The scope check grades what the page says; it cannot see what the page does
+ * NOT say. The starters set grows (generate-studio was the eleventh), and an
+ * example added upstream and missing here leaves the page "leading with the
+ * maintained set" while silently omitting part of it. One api.github.com GET of
+ * the examples directory per run answers it.
+ *
+ * Only this direction is checked here. An example the page lists that upstream
+ * removed already fails, more specifically, as MANIFEST MISSING on its section.
+ *
+ * Pure + exported: COVERAGE_FIXTURES drives it. `pageNames` are the example
+ * directory names the page links; `result` is the contents-API listing, shaped
+ * like fetchRepo's return.
+ */
+export function classifyStarterCoverage(pageNames, result) {
+  const where = `github.com/${STARTERS.owner}/${STARTERS.repo}/tree/${STARTERS.ref}/${STARTERS.dir}`;
+  if (!result.ok) {
+    if (result.status === 404 || result.status === 410) {
+      return {
+        verdict: 'fail',
+        kind: 'STARTERS DIR MISSING',
+        reason: `STARTERS DIR MISSING — HTTP ${result.status} listing ${where}`,
+        hint: 'the examples directory moved or was removed; every starters section on the page now links nowhere. Update STARTERS and the page together.',
+      };
+    }
+    return { verdict: 'skip', reason: result.reason };
+  }
+  if (!Array.isArray(result.body)) {
+    return { verdict: 'skip', reason: 'the contents API did not return a directory listing' };
+  }
+  const upstream = result.body.filter((e) => e && e.type === 'dir').map((e) => String(e.name));
+  if (upstream.length === 0) {
+    return {
+      verdict: 'fail',
+      kind: 'STARTERS DIR EMPTY',
+      reason: `STARTERS DIR EMPTY — ${where} lists no example directories`,
+      hint: 'the page leads with examples that are no longer there.',
+    };
+  }
+  const listed = new Set(pageNames.map((n) => n.toLowerCase()));
+  const missing = upstream.filter((n) => !listed.has(n.toLowerCase()));
+  if (missing.length) {
+    return {
+      verdict: 'fail',
+      kind: 'EXAMPLE NOT LISTED',
+      reason: `EXAMPLE NOT LISTED — ${where} has ${missing.map((n) => `\`${n}\``).join(', ')}, which apps/examples.md has no section for`,
+      hint: 'add a section for it (link, what it shows, its manifest scopes, its hooks) and a "Pick one" row if it answers a need the table does not.',
+    };
+  }
+  return { verdict: 'ok', upstream: upstream.length };
 }
 
 // ---------------------------------------------------------------------------
@@ -896,6 +1098,91 @@ export const SECTION_FIXTURES = [
     md: '# Example apps\n\n## Keeping this list honest\n\nhttps://github.com/civitai/cli\n',
     expect: [],
   },
+  // -- WHERE THE MANIFEST IS. Rows below also pin `manifest`, which decides the
+  //    file the scheduled half reads; a wrong one turns every starters section into
+  //    a MANIFEST MISSING against a repository that is fine. --
+  {
+    name: 'a starters link reads its manifest from the example\'s own directory, at the linked ref',
+    md: SECTION_PAGE(
+      '### hello-world\n\n**[starters/examples/hello-world](https://github.com/civitai/civitai-app-starters/tree/main/starters/examples/hello-world)**\n\n- **Scopes** — `models:read:self`\n- **Hooks** — `useBlockContext`',
+    ),
+    expect: [{ heading: 'hello-world', repo: 'civitai/civitai-app-starters', scopes: ['models:read:self'], hasSurfaceLine: true, manifest: { ref: 'main', dir: 'starters/examples/hello-world' } }],
+  },
+  {
+    name: 'a repository-root link reads its manifest from the root, at HEAD',
+    md: SECTION_PAGE(SECTION_OK),
+    expect: [{ heading: 'Gen Matrix', repo: 'ZacxDev/civitai-app-gen-matrix', scopes: ['ai:write:budgeted', 'apps:storage:read'], hasSurfaceLine: true, manifest: { ref: 'HEAD', dir: '' } }],
+  },
+  {
+    name: 'a /blob/ file link is not a directory claim — root, at HEAD',
+    md: SECTION_PAGE('### CLI\n\nhttps://github.com/civitai/cli/blob/main/README.md\n\n- **Scopes** — `user:read:self`\n- **Hooks** — `useViewer`'),
+    expect: [{ heading: 'CLI', repo: 'civitai/cli', scopes: ['user:read:self'], hasSurfaceLine: true, manifest: { ref: 'HEAD', dir: '' } }],
+  },
+  {
+    name: 'a trailing slash, ?query and #fragment stay out of the directory',
+    md: SECTION_PAGE(
+      '### page-app\n\nhttps://github.com/civitai/civitai-app-starters/tree/main/starters/examples/page-app/?tab=readme#top\n\n- **Scopes** — `user:read:self`\n- **Hooks** — `useViewer`',
+    ),
+    expect: [{ heading: 'page-app', repo: 'civitai/civitai-app-starters', scopes: ['user:read:self'], hasSurfaceLine: true, manifest: { ref: 'main', dir: 'starters/examples/page-app' } }],
+  },
+  {
+    // MUTATION TEST for the repo filter in parseManifestTarget: reading the FIRST
+    // link instead of the first link INTO the section's repo would take this
+    // section's manifest from civitai/cli's root.
+    name: 'the manifest follows the section\'s repo, not an earlier GitHub link that is not it',
+    md: SECTION_PAGE(
+      '### kv-storage\n\n**[kv-storage](https://github.com/civitai/civitai-app-starters/tree/main/starters/examples/kv-storage)**, run with [the CLI](https://github.com/civitai/cli/tree/main/docs).\n\n- **Scopes** — `apps:storage:read`\n- **Hooks** — `useAppStorage`',
+    ).replace('### kv-storage\n\n', '### kv-storage\n\nSee https://github.com/topics/civitai first. '),
+    expect: [{ heading: 'kv-storage', repo: 'civitai/civitai-app-starters', scopes: ['apps:storage:read'], hasSurfaceLine: true, manifest: { ref: 'main', dir: 'starters/examples/kv-storage' } }],
+  },
+];
+
+/**
+ * Verdicts the starters coverage check must reach. The NOT LISTED row is its
+ * mutation test: comparing nothing (or comparing the page against itself) turns
+ * it from 'fail' to 'ok'.
+ */
+const LISTING = (...names) => [{ type: 'file', name: 'README.md' }, ...names.map((name) => ({ type: 'dir', name }))];
+export const COVERAGE_FIXTURES = [
+  {
+    name: 'every upstream example has a section -> ok (files in the listing are ignored)',
+    page: ['hello-world', 'page-app'],
+    result: { ok: true, body: LISTING('hello-world', 'page-app') },
+    expect: 'ok',
+  },
+  {
+    name: 'case differs only -> ok',
+    page: ['Hello-World'],
+    result: { ok: true, body: LISTING('hello-world') },
+    expect: 'ok',
+  },
+  {
+    name: 'an example was added upstream and the page has no section -> fail',
+    page: ['hello-world', 'page-app'],
+    result: { ok: true, body: LISTING('hello-world', 'page-app', 'generate-studio') },
+    expect: 'fail',
+    reasonIncludes: 'EXAMPLE NOT LISTED',
+  },
+  {
+    name: 'the examples directory is gone -> fail, terminal',
+    page: ['hello-world'],
+    result: { ok: false, status: 404 },
+    expect: 'fail',
+    reasonIncludes: 'STARTERS DIR MISSING',
+  },
+  {
+    name: 'the examples directory lists no example -> fail, never a vacuous ok',
+    page: ['hello-world'],
+    result: { ok: true, body: LISTING() },
+    expect: 'fail',
+    reasonIncludes: 'STARTERS DIR EMPTY',
+  },
+  {
+    name: 'rate limit / outage -> skip, never fail',
+    page: ['hello-world'],
+    result: { ok: false, reason: 'HTTP 403 from api.github.com' },
+    expect: 'skip',
+  },
 ];
 
 /**
@@ -1034,6 +1321,23 @@ export const STAMP_FIXTURES = [
     expectStamp: '2026-02-31',
     expectFailures: 1,
   },
+  {
+    name: 'two stamps (starters + external) -> the OLDEST is reported',
+    md: 'Hook lists verified by hand on 2026-10-07. … Hook lists verified by hand on 2026-09-11.',
+    now: '2026-10-07T00:00:00Z',
+    expectStamp: '2026-09-11',
+    expectAgeDays: 26,
+    expectFailures: 0,
+  },
+  {
+    // MUTATION TEST for grading EVERY stamp: a matcher that reads only the first
+    // one passes this page with a future-dated second stamp.
+    name: 'two stamps, the SECOND in the future -> a failure',
+    md: 'Hook lists verified by hand on 2026-09-01. … Hook lists verified by hand on 2026-12-01.',
+    now: '2026-09-11T00:00:00Z',
+    expectStamp: '2026-09-01',
+    expectFailures: 1,
+  },
 ];
 
 /** Failures from the tables above; empty when all of them still assert what they say. */
@@ -1076,13 +1380,23 @@ export function runSelfTest() {
   }
 
   for (const f of SECTION_FIXTURES) {
-    const got = parseExampleSections(f.md).map((s) => ({
+    // `manifest` is compared only on the rows that pin it, so the older rows keep
+    // asserting exactly what they always did.
+    const pins = (i) => Boolean(f.expect[i] && 'manifest' in f.expect[i]);
+    const got = parseExampleSections(f.md).map((s, i) => ({
       heading: s.heading,
       repo: s.repo?.full ?? null,
       scopes: s.scopes,
       hasSurfaceLine: s.hasSurfaceLine,
+      ...(pins(i) ? { manifest: s.manifest } : {}),
     }));
-    const want = f.expect.map((e) => ({ heading: e.heading, repo: e.repo, scopes: e.scopes, hasSurfaceLine: e.hasSurfaceLine }));
+    const want = f.expect.map((e, i) => ({
+      heading: e.heading,
+      repo: e.repo,
+      scopes: e.scopes,
+      hasSurfaceLine: e.hasSurfaceLine,
+      ...(pins(i) ? { manifest: e.manifest } : {}),
+    }));
     if (JSON.stringify(got) !== JSON.stringify(want)) {
       failures.push(
         `SECTION — ${f.name}\n` +
@@ -1121,6 +1435,23 @@ export function runSelfTest() {
     }
   }
 
+  for (const f of COVERAGE_FIXTURES) {
+    const cls = classifyStarterCoverage(f.page, f.result);
+    if (cls.verdict !== f.expect) {
+      failures.push(
+        `COVERAGE — ${f.name}\n` +
+          `      expected verdict "${f.expect}", got "${cls.verdict}"${cls.reason ? ` (${cls.reason})` : ''}\n` +
+          `      This table is what makes "the page lists every starters example" a checked claim.`,
+      );
+    } else if (f.reasonIncludes && !(cls.reason ?? '').includes(f.reasonIncludes)) {
+      failures.push(
+        `COVERAGE — ${f.name}\n` +
+          `      verdict was "${cls.verdict}" as expected, but its reason does not name ` +
+          `${JSON.stringify(f.reasonIncludes)}: ${JSON.stringify(cls.reason ?? '')}`,
+      );
+    }
+  }
+
   for (const f of STAMP_FIXTURES) {
     const got = checkHooksStamp(f.md, new Date(f.now));
     if (got.stamp !== f.expectStamp) {
@@ -1146,6 +1477,7 @@ export function runSelfTest() {
   const kindless = [
     ...CLASSIFY_FIXTURES.filter((f) => f.expect === 'fail').map((f) => [f.name, classifyRepo(f.entry, f.result)]),
     ...SCOPES_FIXTURES.filter((f) => f.expect === 'fail').map((f) => [f.name, classifyManifest(f.entry, f.declared, f.result)]),
+    ...COVERAGE_FIXTURES.filter((f) => f.expect === 'fail').map((f) => [f.name, classifyStarterCoverage(f.page, f.result)]),
   ].filter(([, c]) => typeof c.kind !== 'string' || !c.kind.length);
   if (kindless.length) {
     failures.push(
@@ -1191,6 +1523,20 @@ export function runSelfTest() {
     );
   }
 
+  // The same for the starters additions: a manifest-location row that reads a
+  // subdirectory, a coverage row that FAILS on an unlisted example, and a skip.
+  const subdirTargets = SECTION_FIXTURES.filter((f) => f.expect.some((e) => e.manifest?.dir)).length;
+  const notListed = COVERAGE_FIXTURES.filter((f) => f.reasonIncludes === 'EXAMPLE NOT LISTED').length;
+  const coverageOks = COVERAGE_FIXTURES.filter((f) => f.expect === 'ok').length;
+  const coverageSkips = COVERAGE_FIXTURES.filter((f) => f.expect === 'skip').length;
+  if (subdirTargets < 2 || notListed < 1 || coverageOks < 1 || coverageSkips < 1) {
+    failures.push(
+      `SELF-TEST DEGENERATE (starters) — the tables lost their controls ` +
+        `(${subdirTargets} subdirectory manifest row(s), ${notListed} EXAMPLE NOT LISTED row(s), ` +
+        `${coverageOks} must-ok, ${coverageSkips} must-skip).`,
+    );
+  }
+
   return failures;
 }
 
@@ -1230,13 +1576,14 @@ function cardinal(token) {
  * How many claims about its own size the page must state, so a matcher that
  * silently stopped matching cannot read as "the page makes no claims".
  *
- * Five exist today (the intro, the account split, the Verified line, the
- * "Keeping this list honest" sentence and the floor restatement). The floor is
- * 4: headroom to drop one sentence deliberately, no headroom to lose all of
- * them silently. If a reword breaks a pattern, WIDEN THE PATTERN — editing this
- * constant down to get green is how the whole check evaporates.
+ * Six exist today (the starters count in the intro, the external-repositories
+ * intro, the account split, the Verified line, the "Keeping this list honest"
+ * sentence and the floor restatement). The floor is 5: headroom to drop one
+ * sentence deliberately, no headroom to lose all of them silently. If a reword
+ * breaks a pattern, WIDEN THE PATTERN — editing this constant down to get green
+ * is how the whole check evaporates.
  */
-const MIN_PAGE_CLAIMS = 4;
+const MIN_PAGE_CLAIMS = 5;
 
 /**
  * Grade every count the page states about itself against what it actually
@@ -1245,16 +1592,21 @@ const MIN_PAGE_CLAIMS = 4;
  * Each pattern's first capture is a cardinal — a word or a numeral, because both
  * spellings appear on the page — and each is keyed to a DIFFERENT expected
  * value, so a fixture cannot satisfy them all by accident:
- *   - the total number of distinct repositories parsed;
- *   - the split BY OWNER (`seven … ZacxDev … one … civitai`), which is a claim
- *     about the set's composition and not merely its size;
+ *   - the number of starters-example SECTIONS (`The eleven examples in …`);
+ *   - the number of distinct EXTERNAL repositories — every parsed repository
+ *     except the starters one, which is one repository holding many examples;
+ *   - the split BY OWNER (`seven … ZacxDev … one … civitai`) of those external
+ *     repositories, which is a claim about the set's composition and not merely
+ *     its size;
  *   - MIN_EXAMPLE_REPOS, the floor this script enforces, restated in prose.
  */
-export function checkPageClaims(markdown, entries) {
+export function checkPageClaims(markdown, entries, sections = []) {
   const prose = markdown.replace(/\s+/g, ' ');
-  const total = entries.length;
+  const external = entries.filter((e) => e.full.toLowerCase() !== STARTERS_FULL);
+  const total = external.length;
+  const starterCount = sections.filter(isStarterSection).length;
   const byOwner = new Map();
-  for (const e of entries) {
+  for (const e of external) {
     const k = e.owner.toLowerCase();
     byOwner.set(k, (byOwner.get(k) ?? 0) + 1);
   }
@@ -1274,22 +1626,28 @@ export function checkPageClaims(markdown, entries) {
 
   const single = [
     {
-      re: rx('\\b#N# Civitai App Blocks\\b'),
+      re: rx('\\bThe #N# examples in\\b'),
       what: 'the opening sentence',
+      want: () => starterCount,
+      unit: `sections linking into ${STARTERS_FULL}/${STARTERS.dir}`,
+    },
+    {
+      re: rx('\\b#N# Civitai App Blocks\\b'),
+      what: 'the "More real-world apps" intro',
       want: () => total,
-      unit: 'repositories linked on the page',
+      unit: 'external repositories linked on the page',
     },
     {
       re: rx('\\ball #N# are public\\b'),
       what: 'the Verified line',
       want: () => total,
-      unit: 'repositories linked on the page',
+      unit: 'external repositories linked on the page',
     },
     {
-      re: rx('\\bnaming #N# repositories\\b'),
+      re: rx('\\bnaming #N# (?:external )?repositories\\b'),
       what: '"Keeping this list honest"',
       want: () => total,
-      unit: 'repositories linked on the page',
+      unit: 'external repositories linked on the page',
     },
     {
       re: rx('\\bat least #N# repositories\\b'),
@@ -1337,8 +1695,8 @@ export function checkPageClaims(markdown, entries) {
     const covered = pairs.reduce((s, [n]) => s + n, 0);
     if (covered !== total) {
       failures.push(
-        `the account split accounts for ${repos(covered)}, but the page links ${total}. ` +
-          `Every example belongs to one of the named accounts or the sentence is wrong.`,
+        `the account split accounts for ${repos(covered)}, but the page links ${total} external. ` +
+          `Every external example belongs to one of the named accounts or the sentence is wrong.`,
       );
     }
   }
@@ -1456,8 +1814,12 @@ async function fetchRepo(entry, fetchImpl = fetch) {
  * than as an exception, because "the file is there and it is garbage" is a
  * finding a maintainer must be told, not a crash.
  */
-async function fetchManifest(entry, fetchImpl = fetch) {
-  const url = `${RAW_BASE}/${entry.owner}/${entry.repo}/${MANIFEST_REF}/${MANIFEST_PATH}`;
+async function fetchManifest(entry, target = { ref: MANIFEST_REF, dir: '' }, fetchImpl = fetch) {
+  // `target` is what the section LINKS (see parseManifestTarget): a repository
+  // root reads `<root>/block.manifest.json` at HEAD, exactly as before; a
+  // starters example reads its own directory at the ref the link names.
+  const path = target.dir ? `${target.dir}/${MANIFEST_PATH}` : MANIFEST_PATH;
+  const url = `${RAW_BASE}/${entry.owner}/${entry.repo}/${target.ref}/${path}`;
   try {
     const res = await fetchImpl(url, {
       signal: AbortSignal.timeout(20000),
@@ -1473,6 +1835,31 @@ async function fetchManifest(entry, fetchImpl = fetch) {
     } catch (err) {
       return { ok: true, parseError: err.message };
     }
+  } catch (err) {
+    return { ok: false, reason: err.message };
+  }
+}
+
+/**
+ * GET the starters examples directory listing (contents API). Never throws;
+ * same status handling as fetchRepo — 404/410 come back with a status (terminal),
+ * everything else as a reason (skip). This is the run's ONE api.github.com call
+ * beyond the one per repository.
+ */
+async function fetchStartersListing(fetchImpl = fetch) {
+  const headers = {
+    accept: 'application/vnd.github+json',
+    'user-agent': 'civitai-developer-docs-example-apps-guard',
+  };
+  if (process.env.GITHUB_TOKEN) headers.authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  const url = `${API_BASE}/repos/${STARTERS.owner}/${STARTERS.repo}/contents/${STARTERS.dir}?ref=${STARTERS.ref}`;
+  try {
+    const res = await fetchImpl(url, { signal: AbortSignal.timeout(20000), headers });
+    if (!res.ok) {
+      if (res.status === 404 || res.status === 410) return { ok: false, status: res.status };
+      return { ok: false, reason: `HTTP ${res.status} from ${url}` };
+    }
+    return { ok: true, body: await res.json() };
   } catch (err) {
     return { ok: false, reason: err.message };
   }
@@ -1610,9 +1997,9 @@ async function main(argv = process.argv.slice(2)) {
   // that no longer exists. 3b adds the per-example claims: every section that
   // links a repository must state the scopes the scheduled half grades, and the
   // hook lists — which nothing grades — must carry their date stamp.
-  const claims = checkPageClaims(markdown, entries);
-  const anchors = checkPageAnchors(markdown);
   const sections = parseExampleSections(markdown);
+  const claims = checkPageClaims(markdown, entries, sections);
+  const anchors = checkPageAnchors(markdown);
   const shape = checkScopeClaimShape(sections, entries);
   const stamp = checkHooksStamp(markdown);
   report.hooksStamp = stamp.stamp;
@@ -1624,9 +2011,10 @@ async function main(argv = process.argv.slice(2)) {
   );
   console.log(
     `  ${shape.claimed} of ${shape.sections} example section(s) state scopes ` +
-      `(${shape.tokens} scope string(s), floor ${MIN_EXAMPLE_REPOS} sections) · ` +
-      `hook lists stamped ${stamp.stamp ?? 'NOWHERE'}` +
-      `${stamp.ageDays === null ? '' : ` (${stamp.ageDays} day(s) old — not machine-checked, by design)`}`,
+      `(${shape.tokens} scope string(s), floor ${MIN_EXAMPLE_REPOS} sections; ` +
+      `${shape.starters} starters example(s), floor ${MIN_STARTER_EXAMPLES}) · ` +
+      `hook lists stamped ${stamp.stamps.length ? stamp.stamps.join(', ') : 'NOWHERE'}` +
+      `${stamp.ageDays === null ? '' : ` (oldest ${stamp.ageDays} day(s) old — not machine-checked, by design)`}`,
   );
   if (pageFailures.length) {
     console.error(`\n  ✗ THE PAGE CONTRADICTS ITSELF — ${pageFailures.length} finding(s)`);
@@ -1659,18 +2047,19 @@ async function main(argv = process.argv.slice(2)) {
   const skipped = [];
   let ok = 0;
 
-  // Scope claims keyed by repository, so check 5 can look one up per entry. Only
-  // repositories the page states scopes for are candidates; checkScopeClaimShape
-  // above has already failed the run if a section links a repo and states none.
-  const declaredFor = new Map();
-  for (const s of sections) {
-    if (s.repo && s.scopes && s.scopes.length) declaredFor.set(s.repo.full.toLowerCase(), s.scopes);
-  }
-  report.scopesClaimed = declaredFor.size;
+  // Scope claims keyed by MANIFEST LOCATION (owner/repo plus the directory the
+  // section links), not by repository: the starters repository is one entry to
+  // the liveness check but holds one manifest per example. Only sections that
+  // state scopes are candidates; checkScopeClaimShape above has already failed
+  // the run if a section links a repo and states none, or if two sections point
+  // at one manifest.
+  const scopeTargets = sections.filter((s) => s.repo && s.scopes && s.scopes.length);
+  report.scopesClaimed = scopeTargets.length;
 
   const scopeFailures = [];
   const scopeSkipped = [];
   let scopeOk = 0;
+  const livenessFailed = new Set();
 
   for (const entry of entries) {
     const cls = classifyRepo(entry, await fetchRepo(entry));
@@ -1683,33 +2072,58 @@ async function main(argv = process.argv.slice(2)) {
     } else {
       console.log(`  ✗ ${entry.full} — ${cls.reason}`);
       failures.push({ entry, ...cls });
+      livenessFailed.add(entry.full.toLowerCase());
     }
+  }
 
-    // ---- 5. THE SCOPES THE PAGE STATES -----------------------------------
-    // Not run for a repository that already FAILED liveness: a second finding
-    // about a repository that is gone, renamed or archived is noise on top of a
-    // remedy the maintainer already has. A SKIPPED one is still attempted —
-    // raw.githubusercontent.com is a different host, so it can be reachable when
-    // api.github.com is not, and more coverage under a rate limit is the point.
-    const declared = declaredFor.get(entry.full.toLowerCase());
-    if (cls.verdict === 'fail') continue;
-    if (!declared) continue;
-    const mcls = classifyManifest(entry, declared, await fetchManifest(entry));
+  // ---- 5. THE SCOPES THE PAGE STATES -------------------------------------
+  // Not run for a repository that already FAILED liveness: a second finding
+  // about a repository that is gone, renamed or archived is noise on top of a
+  // remedy the maintainer already has. A SKIPPED one is still attempted —
+  // raw.githubusercontent.com is a different host, so it can be reachable when
+  // api.github.com is not, and more coverage under a rate limit is the point.
+  console.log('');
+  for (const s of scopeTargets) {
+    if (livenessFailed.has(s.repo.full.toLowerCase())) continue;
+    // The label names the DIRECTORY too, so a finding on one starters example
+    // says which one, in the log, in the report and in the notifier's issue.
+    const label = { ...s.repo, full: s.manifest?.dir ? `${s.repo.full}/${s.manifest.dir}` : s.repo.full };
+    const mcls = classifyManifest(label, s.scopes, await fetchManifest(s.repo, s.manifest));
     if (mcls.verdict === 'ok') {
       scopeOk++;
       if (mcls.note) {
-        console.log(`    · ${entry.full} scopes: ${mcls.note}`);
-        report.notes.push(`${entry.full}: ${mcls.note}`);
+        console.log(`    · ${label.full} scopes: ${mcls.note}`);
+        report.notes.push(`${label.full}: ${mcls.note}`);
       } else {
-        console.log(`    · ${entry.full} scopes: ${declared.length} declared, all agree with ${MANIFEST_PATH}`);
+        console.log(`    · ${label.full} scopes: ${s.scopes.length} declared, all agree with ${MANIFEST_PATH}`);
       }
     } else if (mcls.verdict === 'skip') {
-      console.log(`    ⊘ ${entry.full} scopes — ${mcls.reason} — could not verify (skip, no false-fail)`);
-      scopeSkipped.push({ entry, ...mcls });
+      console.log(`    ⊘ ${label.full} scopes — ${mcls.reason} — could not verify (skip, no false-fail)`);
+      scopeSkipped.push({ entry: label, ...mcls });
     } else {
-      console.log(`    ✗ ${entry.full} scopes — ${mcls.reason}`);
-      scopeFailures.push({ entry, ...mcls });
+      console.log(`    ✗ ${label.full} scopes — ${mcls.reason}`);
+      scopeFailures.push({ entry: label, ...mcls });
     }
+  }
+
+  // ---- 6. EVERY STARTERS EXAMPLE HAS A SECTION ---------------------------
+  // One api.github.com GET of the examples directory. Skipped (loudly) if the
+  // starters repository itself failed liveness — that finding already says it.
+  const starterNames = sections.filter(isStarterSection).map((s) => s.manifest.dir.slice(STARTERS.dir.length + 1));
+  const coverageFailures = [];
+  let coverage = { verdict: 'skip', reason: 'the starters repository failed liveness' };
+  if (!livenessFailed.has(STARTERS_FULL)) {
+    coverage = classifyStarterCoverage(starterNames, await fetchStartersListing());
+  }
+  report.starterCoverage = { verdict: coverage.verdict, onPage: starterNames.length, upstream: coverage.upstream ?? null };
+  const startersEntry = { full: `${STARTERS.owner}/${STARTERS.repo}/${STARTERS.dir}` };
+  if (coverage.verdict === 'ok') {
+    console.log(`\n  ✓ starters coverage: all ${coverage.upstream} example(s) under ${STARTERS.dir} have a section on the page`);
+  } else if (coverage.verdict === 'skip') {
+    console.log(`\n  ⊘ starters coverage — ${coverage.reason} — could not verify (skip, no false-fail)`);
+  } else {
+    console.log(`\n  ✗ starters coverage — ${coverage.reason}`);
+    coverageFailures.push({ entry: startersEntry, ...coverage });
   }
 
   report.verified = ok;
@@ -1718,7 +2132,7 @@ async function main(argv = process.argv.slice(2)) {
   report.scopesVerified = scopeOk;
   report.scopesRotted = scopeFailures.length;
   report.scopesUnverified = scopeSkipped.length;
-  for (const f of [...failures, ...scopeFailures]) {
+  for (const f of [...failures, ...scopeFailures, ...coverageFailures]) {
     report.findings.push({
       // 🔴 THE CLASSIFIER'S OWN `kind`, NEVER THE FIRST WORDS OF ITS PROSE. The
       // first version of this line derived the kind by splitting the reason on a
@@ -1739,20 +2153,24 @@ async function main(argv = process.argv.slice(2)) {
     `\nRepositories: ${entries.length} listed · ${ok} verified live · ${failures.length} rotted · ${skipped.length} unverified (API unreachable)`,
   );
   console.log(
-    `Scopes: ${declaredFor.size} claimed on the page · ${scopeOk} verified against ${MANIFEST_PATH} · ` +
+    `Scopes: ${scopeTargets.length} claimed on the page · ${scopeOk} verified against ${MANIFEST_PATH} · ` +
       `${scopeFailures.length} drifted · ${scopeSkipped.length} unverified (manifest unreachable)`,
+  );
+  console.log(
+    `Starters coverage: ${starterNames.length} example section(s) on the page · ` +
+      `${coverage.upstream ?? '?'} upstream under ${STARTERS.dir} · ${coverage.verdict}`,
   );
   if (stamp.stamp) {
     console.log(
-      `Hook lists: NOT machine-checked, by design — stamped ${stamp.stamp}, ${stamp.ageDays} day(s) old.`,
+      `Hook lists: NOT machine-checked, by design — stamped ${stamp.stamps.join(', ')}; oldest ${stamp.ageDays} day(s) old.`,
     );
   }
 
-  if (failures.length || scopeFailures.length) {
+  if (failures.length || scopeFailures.length || coverageFailures.length) {
     console.error('\n--- EXAMPLE APP ROT: the page says something about a repository that is not true ---');
     console.error(`${PAGE} is the ONE URL the civitai CLI's agents block points at instead of embedding`);
     console.error('a repo list in every scaffolded project, so a wrong row here reaches every reader.');
-    for (const f of [...failures, ...scopeFailures]) {
+    for (const f of [...failures, ...scopeFailures, ...coverageFailures]) {
       console.error(`  - ${f.entry.full}: ${f.reason}`);
       if (f.hint) console.error(`      ${f.hint}`);
     }
@@ -1785,10 +2203,11 @@ async function main(argv = process.argv.slice(2)) {
     return;
   }
 
-  if (skipped.length || scopeSkipped.length) {
+  if (skipped.length || scopeSkipped.length || coverage.verdict === 'skip') {
     console.log(
       `\nNote: ${skipped.length} of ${entries.length} repositories and ${scopeSkipped.length} of ` +
-        `${declaredFor.size} scope lists could not be reached and were NOT verified this run.`,
+        `${scopeTargets.length} scope lists could not be reached and were NOT verified this run` +
+        `${coverage.verdict === 'skip' ? '; starters coverage was not checked either' : ''}.`,
     );
   }
   report.verdict = 'ok';
