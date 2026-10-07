@@ -90,9 +90,9 @@ platform provisions all of that when your app is approved.
   harness using the `civitai` CLI scaffold.
 - **[The `@civitai/sdk` client](./sdk)** — `initialize()`, what `app.onChange`
   fires on, the host's UI, the REST API, consent and money calls.
-- **[Building with the `<civitai-*>` elements](./elements)** — registering,
-  theming and wiring the web components the default scaffold uses, and
-  `<civitai-chat>`.
+- **[Using the `<civitai-*>` elements in a block](./elements)** — which import
+  defines which of the web components the default scaffold uses, theming them,
+  and `<civitai-chat>`.
 - **[Local dev loop](./local-dev)** — the two harness modes, and how to generate
   for real against the live backend *before* submitting your app. Start here if
   generation is refusing or you think you are blocked on review.

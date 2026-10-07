@@ -6,7 +6,7 @@ sources:
   - npm:@civitai/sdk@0.10.1/dist/app/index.d.ts
   - npm:@civitai/sdk@0.10.1/dist/host/index.d.ts
   - npm:@civitai/sdk@0.10.1#README
-  - npm:@civitai/app-sdk@0.58.0/blocks#isValidBlockIdempotencyKey
+  - npm:@civitai/app-sdk@0.56.1/blocks#isValidBlockIdempotencyKey
   - civitai:src/pages/api/v1/blocks/workflows/submit.ts
 ---
 
@@ -177,10 +177,9 @@ field.
 
 Some scopes are consent-gated — `ai:write:budgeted` and `goods:purchase:self`
 among them: the block's token does not carry them until the viewer agrees in the
-host's dialog. Exempt from consent are the app-storage scopes,
-`models:read:self`, `collections:read:self`, `collections:write:self` and
-`goods:read:self`; every other scope is gated. Ask
-before the call that needs them:
+host's dialog. Which scopes are exempt is listed under
+[consent gating](../reference/scopes#what-this-table-can-t-show-the-server-enforces-more)
+in the scopes reference. Ask before the call that needs them:
 
 ```ts
 const granted = await app.requestGrants(['ai:write:budgeted'], {
@@ -271,7 +270,7 @@ top-up prompt needs.
 
 ## Next
 
-- [Building with the `<civitai-*>` elements](./elements) — the UI half of the
+- [Using the `<civitai-*>` elements in a block](./elements) — the UI half of the
   default template.
 - [Quickstart](./quickstart) — scaffold one and run it.
 - [Moving a block off the bridge](./porting) — every `@civitai/blocks-react`

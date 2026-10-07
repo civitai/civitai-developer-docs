@@ -61,10 +61,8 @@ does not resolve in a browser) — which carry the behaviour and the encapsulati
 in any framework or none; and layer 3 when you want those elements as typed React
 components.
 
-`register` and `elements.js` cover the generic kit — 40 of the 47 elements.
-`register-site` / `site-elements.js` add the five civitai-specific ones, and the
-two SDK-backed elements each need their own `define` import; see
-[the elements guide](./elements#register-the-elements).
+Neither `register` nor `elements.js` defines every element; which import defines
+which is in [the elements guide](./elements#register-the-elements).
 
 ::: tip Pin the version in the CDN URL — and pin each package separately
 The three packages version **independently** — this page is written against

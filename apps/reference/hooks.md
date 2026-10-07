@@ -2,9 +2,9 @@
 title: Hooks reference
 description: Every @civitai/blocks-react hook — signature and example, generated from the published package.
 sources:
-  - npm:@civitai/blocks-react@0.65.0/dist/index.d.ts
-  - npm:@civitai/blocks-react@0.65.0#README
-  - npm:@civitai/app-sdk@0.58.0/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.63.2/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.63.2#README
+  - npm:@civitai/app-sdk@0.56.1/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
 
@@ -511,116 +511,6 @@ async function share() {
 }
 ```
 
-**`usePrepareTrainingDataset`**
-
-```ts
-usePrepareTrainingDataset(): UsePrepareTrainingDataset
-```
-
-```md
-Train a LoRA with the ai-toolkit engine on the **viewer's own images**, from
-inside a page app — the App Blocks `kind: 'training'` flow. Four steps, three
-hooks:
-
-1. **Dataset** — `usePrepareTrainingDataset().prepareDataset([{ imageId, caption }])`
-   (`PREPARE_TRAINING_DATASET`). Only the viewer's own scanned, unflagged images
-   within the page's maturity ceiling are admitted; the rest come back in
-   `rejected` with a reason (`unavailable`, `unsupported-media`, `not-eligible`,
-   `pending-scan`, `import-failed`, `import-unavailable`; `pending-scan` and
-   `import-unavailable` are retryable). You get an opaque `datasetId` and the
-   admitted `count`, always at least 1 — if **nothing** is admitted the call
-   rejects with the server's message instead. 1–50 images, captions up to 1,000 characters; captions are
-   moderated. No dialog, no charge.
-2. **Quote** — `useBuzzWorkflow().estimate(body)` with a `WorkflowBodyTraining`
-   (`kind: 'training'`, no `quoteId`). The reply carries `trainingQuote:
-   { quoteId, total, imageCount, expiresAt }` — the orchestrator's own price for
-   exactly this run, stored server-side for 15 minutes.
-3. **Run** — `useRunTraining().runTraining({ ...body, quoteId })` (`RUN_TRAINING`).
-   **Civitai shows the viewer a consent dialog in its own chrome** — price, base
-   model, length and dataset size, all read back from the server, never from
-   your body — and submits only on their click. Change nothing in the body
-   between the estimate and the run; the server checks it against the quoted one.
-4. **Follow** — `useBuzzWorkflow().watch(workflowId)`. Once the run's moderation
-   status is approved, `trainedEpochs` lists the epochs whose checkpoint is
-   ready; send the viewer to the publish wizard with one of them (see
-   `trainedEpochs` on `BlockWorkflowSnapshot`).
-
-🔴 **Availability.** Behind the host flag **`app-blocks-training-kind`**, which
-ships **off** and is evaluated per viewer. **Page apps only** — the model slot
-answers both messages with an error. The manifest must declare
-**`ai:write:budgeted`** and the viewer must be signed in and have granted it.
-**Refused from `dev:live` and from review sessions** (the server refuses
-development and review tokens); build the flow against the mock host. Requires a
-civitai.com host carrying civitai/civitai#5434 (`kind: 'training'`,
-`RUN_TRAINING`) and civitai/civitai#5438 (`PREPARE_TRAINING_DATASET`).
-
-🔴 **Money.** There is no `maxBuzz` and no timeout knob — the price is the quote.
-A confirmed run may cost more than the token's per-call `buzzBudget` (the viewer
-confirms the exact price), up to `BLOCK_TRAINING_MAX_BUZZ_PER_RUN` (5,000 Buzz);
-an estimate above that is refused. `useBuzzWorkflow().submit()` **refuses** a
-training body before sending anything: only `RUN_TRAINING`'s dialog can confirm a
-quote, so a training run starts nowhere else.
-
-`runTraining` **rejects** with a `RunTrainingError`; read the flags before
-saying anything about money:
-
-| | meaning | what to do |
-|---|---|---|
-| `err.declined` | the viewer dismissed the dialog — **no run was submitted** | revert, say nothing |
-| `err.unconfirmed` | `submission-unconfirmed`, or no reply within the 10-min bound (`err.timedOut`) — the run **may be running and charged** | 🔴 **never retry automatically**: check the viewer's trainings first (`useAppWorkflows()` lists this app's runs). Re-running the same body after the server did start it is a **second, separately charged run** |
-| `err.refused` (`code: 'refused'`) | the server refused the submit after the viewer confirmed — a **spend cap** (their daily or private-run Buzz cap, the per-app consent budget, the app's daily spend or rate limit, a dev-session cap) or a **temporary-availability** deny. Refunded: **no run, nothing charged**; the quote is used up | show `err.message` (the server's reason, e.g. `daily Buzz cap reached: …`); estimate again before any retry — buying Buzz does not lift these caps |
-| `err.signInRequired` | no session | route into `useRequestSignIn()` |
-| `err.code` set otherwise | a host refusal (`review-mode` / `block is not ready` / `invalid training request` / `no block token`) | show or ignore per case |
-| `err.code === undefined`, no flag | a server refusal before any submit (expired or used quote, changed body, ineligible image) | estimate again, then retry |
-
-`prepareDataset` rejects with a `PrepareTrainingDatasetError` (`.code` for the
-host's refusals — `review-mode`, `block is not ready`, `sign in to train`,
-`invalid training dataset`, `no block token` — plus `.signInRequired` and
-`.timedOut`). Preparing charges nothing, so none of them cost Buzz. It prompts
-for `ai:write:budgeted` and retries once on a grant (see the table below);
-`runTraining` deliberately does not — it carries no idempotency key and has an
-outcome where a run may exist, so it never re-sends.
-```
-
-```tsx
-const { prepareDataset } = usePrepareTrainingDataset();
-const { estimate, watch } = useBuzzWorkflow();
-const { runTraining } = useRunTraining();
-
-async function train(images: Array<{ id: number; caption: string }>) {
-  // Rejects (no `.code`) when NOTHING is admitted, e.g. "none of the requested
-  // images can be used for training"; a resolved dataset always has count >= 1.
-  const dataset = await prepareDataset(images.map((i) => ({ imageId: i.id, caption: i.caption })));
-  if (dataset.rejected.length > 0) showNotice(`${dataset.rejected.length} image(s) left out`);
-
-  const body: WorkflowBodyTraining = {
-    kind: 'training',
-    datasetId: dataset.datasetId,
-    engine: 'ai-toolkit',
-    model: baseModelKey, // a key from Civitai's training catalog
-    params: aiToolkitParams, // AiToolkitTrainingParams
-    triggerWord: 'mystyle',
-    samplePrompts: ['mystyle, a lighthouse at dusk'],
-  };
-  const quote = (await estimate(body)).trainingQuote;
-  if (!quote) return showError('No training price came back.');
-  // Show quote.total; the host's dialog will show the same number.
-
-  try {
-    const started = await runTraining({ ...body, quoteId: quote.quoteId });
-    const done = await watch(started.workflowId, { onUpdate: render });
-    setEpochs(done.trainedEpochs ?? []);
-  } catch (err) {
-    if (!(err instanceof RunTrainingError)) throw err;
-    if (err.declined) return; // no run
-    if (err.unconfirmed) return showCheckYourTrainings(); // may be running — never auto-retry
-    if (err.refused) return showError(err.message); // a cap / availability refusal; no run, nothing charged
-    if (err.signInRequired) return requestSignIn();
-    showError('Could not start training. Get a new price and try again.');
-  }
-}
-```
-
 **`useAppWorkflows`**
 
 ```ts
@@ -957,7 +847,7 @@ const { allowance, refetch } = useTipAllowance();
 usePublishGenerationOutputs(): UsePublishGenerationOutputs
 ```
 
-Publish selected outputs of one of the calling app's OWN generations into bare, real-scanned public `Image` rows via the host-mediated `PUBLISH_GENERATION_OUTPUTS` → `PUBLISH_RESULT` bridge. Token-bound + fail-closed: the host self-binds the account off the block token, re-derives (viewer, app, workflowId) ownership before reading the workflow, and re-uploads + FULL-scans each selected output server-side (no url ever crosses from the iframe). The result is a set of bare (post-less) scanned `Image` row ids — no Post, no gallery attach, no rewards/notifications. Host-chrome shows a consent confirm before anything is published, and because that confirm waits on a human the request carries {@link HUMAN_INTERACTION_TIMEOUT_MS}, not the default protocol timeout. `dev:live` refuses this bridge: publishing requires the viewer's signed-in civitai.com session, which the local harness does not have, so `publish()` rejects with a message saying so. Test publishing against the mock host — `createMockHost` or `Harness` from `@civitai/blocks-react/testing`, with the `publishImageIds` / `publishError` options.
+Publish selected outputs of one of the calling app's OWN generations into bare, real-scanned public `Image` rows via the host-mediated `PUBLISH_GENERATION_OUTPUTS` → `PUBLISH_RESULT` bridge. Token-bound + fail-closed: the host self-binds the account off the block token, re-derives (viewer, app, workflowId) ownership before reading the workflow, and re-uploads + FULL-scans each selected output server-side (no url ever crosses from the iframe). The result is a set of bare (post-less) scanned `Image` row ids — no Post, no gallery attach, no rewards/notifications. Host-chrome shows a consent confirm before anything is published, and because that confirm waits on a human the request carries {@link HUMAN_INTERACTION_TIMEOUT_MS}, not the default protocol timeout.
 
 ```tsx
 const { publish } = usePublishGenerationOutputs();
@@ -999,31 +889,6 @@ await saveImage({ url: output.url, filename: 'my-render.png' });
 await saveImage({ imageId: cell.imageId });
 ```
 
-**`useRunTraining`**
-
-```ts
-useRunTraining(): UseRunTraining
-```
-
-Run an App Blocks `kind: 'training'` LoRA training — the only way one starts — through the host-mediated `RUN_TRAINING` → `TRAINING_RESULT` bridge. 🔴 AVAILABILITY: page apps only, behind the host flag `app-blocks-training-kind` (ships off), with `ai:write:budgeted` declared and granted by a signed-in viewer. Refused from `dev:live` and from review sessions — build the flow against the mock host. See `WorkflowBodyTraining` in `@civitai/app-sdk`. The flow: `usePrepareTrainingDataset()` → `useBuzzWorkflow().estimate(body)` (its `trainingQuote.quoteId`) → `runTraining({ ...body, quoteId })` → `useBuzzWorkflow().watch(workflowId)`. Change nothing in the body between the estimate and the run: the server checks it against the quoted one. 🔴 THE CONSENT DIALOG IS CIVITAI'S, AND IT IS THE CHARGE. Every number on it is read back from the server's stored quote — never from your body. A run may cost more than the token's per-call budget (the viewer confirms the exact price), up to `BLOCK_TRAINING_MAX_BUZZ_PER_RUN` (5,000 Buzz). Images are the viewer's own. 🔴 NO AUTOMATIC CONSENT RETRY, unlike the other consent-gated hooks — on purpose. `RUN_TRAINING` carries no idempotency key and has an outcome (`submission-unconfirmed`) where a run may exist, so this hook never re-sends. It is also unreachable in practice: a block holding a `quoteId` got it from an estimate that already required `ai:write:budgeted`. Sent under the 10-minute human-interaction bound: the host replies only when the viewer clicks or dismisses its dialog.
-
-```tsx
-const { estimate, watch } = useBuzzWorkflow();
-const { runTraining } = useRunTraining();
-const quote = (await estimate(body)).trainingQuote!;
-try {
-  const started = await runTraining({ ...body, quoteId: quote.quoteId });
-  await watch(started.workflowId, { onUpdate: render });
-} catch (e) {
-  if (!(e instanceof RunTrainingError)) throw e;
-  if (e.declined) return;                          // no run — say nothing
-  if (e.signInRequired) return requestSignIn();
-  if (e.unconfirmed) return showCheckYourTrainings(); // may be running — never auto-retry
-  if (e.refused) return showError(e.message); // a cap / availability refusal; no run, nothing charged
-  showError('Could not start training. Get a new price and try again.');
-}
-```
-
 **`useDirectLoad`**
 
 ```ts
@@ -1032,23 +897,6 @@ useDirectLoad(options?: UseDirectLoadOptions): UseDirectLoad
 
 Detect a DIRECT (unembedded) top-level load of a block and, after a short grace period, report it so the SDK can show an "Open on Civitai" fallback instead of hanging on the perpetual loading state. Returns `true` ONLY when BOTH hold: 1. The block is TOP-LEVEL (`window.self === window.top` — not in the host iframe), AND 2. No `BLOCK_INIT` has landed (`ready` is still `false`) within `timeoutMs`. This is precise by construction: - An EMBEDDED block (framed) is never top-level → always `false`, even before `ready`. The embedded happy path is untouched. - The dev harness / `createMockHost` runs the block top-level BUT posts `BLOCK_INIT` immediately (a `setTimeout(0)` macrotask), so `ready` flips long before `timeoutMs` and the timer is cleared → always `false`. The dev flow is untouched. - A real direct load (nobody sends `BLOCK_INIT`) stays top-level + not-ready past `timeoutMs` → `true`. Once `ready` flips it stays authoritative: this can never return `true` while `ready` is `true`, so a late init can't leave a stuck fallback.
 
-**`useNestedDocument`**
-
-```ts
-useNestedDocument(options?: UseNestedDocumentOptions): UseNestedDocument
-```
-
-Fetch one of your OWN bundled documents and get back a `srcdoc` string with an absolute `\<base href>` injected — the only way a block can embed a nested document of its own. 🔴 PREFER NOT TO NEED THIS. A plain `\<iframe src="/game/index.html">` of your own bundle **cannot load**, and no manifest change fixes it. An engine build (Defold, Unity, Phaser) is a `\<canvas>` plus a JS loader and normally mounts directly into the block's own document, which avoids the whole problem class; reach for this hook only when a separate document is genuinely required. WHY, measured, in ONE place: the header of `@civitai/app-sdk`'s `src/blocks/nestedDocument.ts`. It carries the opaque-origin / `frame-ancestors` / `X-Frame-Options` derivation, the five-row DATED EXTERNAL platform matrix (verified by nothing in this repo — re-measure it if the platform's sandbox tiers or response headers change), and the known limits of the `\<base>` rewrite. Do not restate any of it here: it was duplicated across 11 surfaces with nothing in the repo checking them for agreement, which is exactly how two measured claims in these files' own test headers went stale. 🔴 THE STRING IS NOT SANITIZED. It is your own markup and scripts, verbatim; pass a `src` you control, and put a `sandbox` attribute on the iframe. Changing `src` restarts the fetch and aborts the previous one — `status` goes back to `'loading'` in the SAME render that changes `src`, so no paint ever shows a stale `srcDoc` as `'ready'` beside a new `src`. Unmounting aborts the in-flight fetch, and no state is written after it. A fetch that never settles is bounded: after {@link NESTED_DOCUMENT_TIMEOUT_MS} it is aborted and `status` becomes `'error'` with a message naming the timeout. A timeout is distinguished from the hook's own aborts (unmount, a `src` change) — those stay silent, as they must.
-
-````tsx
-```tsx
-const { srcDoc, status, error } = useNestedDocument({ src: '/game/index.html' });
-if (status === 'error') return <p>Could not load the game: {error?.message}</p>;
-if (status !== 'ready') return <p>Loading…</p>;
-return <iframe title="game" sandbox="allow-scripts" srcDoc={srcDoc ?? undefined} />;
-```
-````
-
 <!-- END GENERATED: hooks -->
 </HooksReference>
 
@@ -1056,24 +904,18 @@ return <iframe title="game" sandbox="allow-scripts" srcDoc={srcDoc ?? undefined}
 
 `estimate()` and `submit()` both take a full `WorkflowBody` — a discriminated
 union keyed by `kind`. The hook forwards the body to the host verbatim and never
-reads member-specific fields, so every member except `training` flows through the
-same `estimate → submit → watch` lifecycle shown above. `training` is quoted with
-`estimate()` but run with `useRunTraining()`, and `submit()` refuses it.
+reads member-specific fields, so every member flows through the same
+`estimate → submit → watch` lifecycle shown above.
 
-As of the pinned `@civitai/app-sdk@0.58.0` the union has four `kind` values, and
-`kind: 'step'` is itself two arms — five members in all:
+As of the pinned `@civitai/app-sdk@0.56.1` the union has three `kind` values, and
+`kind: 'step'` is itself two arms — four members in all:
 
 | `kind` | what it runs | what your block sends |
 |---|---|---|
 | `textToImage` | a Civitai **checkpoint** (plus optional LoRAs / img2img) | `modelId` + `modelVersionId` + `params` |
 | `customComfy` | a **ComfyUI workflow** — a server-registered recipe, **or your own graph** | a registered `recipe` id, or `mode: 'inline'` plus the graph itself |
 | `step` (`step` present) | a **server-registered orchestrator step** (`convert-image`, `chat-completion`) | a registered `step` id + bounded `params` |
-| `step` (`step` omitted) | an orchestrator step type **named directly**, `input` forwarded unmodified | a `$type` + `input` + a `maxBuzz` amount — a reservation, **not** a spend ceiling |
-| `training` | an ai-toolkit **LoRA training** run on a dataset of the viewer's own images | a `datasetId` from `usePrepareTrainingDataset()` + a base-model key + `params`; the `quoteId` from the estimate on the run |
-
-`training` is a page-app flow behind a host flag that ships off; its availability,
-money rules and the three hooks it uses are under
-[`usePrepareTrainingDataset`](#hook-usePrepareTrainingDataset) above.
+| `step` (`step` omitted) | an orchestrator step type **named directly**, `input` forwarded unmodified | a `$type` + `input` + a `maxBuzz` ceiling |
 
 Narrow on `body.kind` before touching member-specific fields — and note that
 `kind === 'step'` alone leaves both step arms in play, so narrow further on

@@ -2,7 +2,7 @@
 title: Message bridge reference
 description: The full postMessage protocol between a Civitai App and its host — payloads, directions, request/reply pairing, and page-only messages.
 sources:
-  - npm:@civitai/app-sdk@0.58.0/blocks#messages.d.ts
+  - npm:@civitai/app-sdk@0.56.1/blocks#messages.d.ts
   - civitai:src/components/AppBlocks/hostHandlerParity.ts#INVENTORY
 ---
 
@@ -998,29 +998,6 @@ reply `IMAGES_RESULT`:
 
 Model slot: shared-grid gated read is a page-only affordance today; the model slot has no such surface
 
-**`PREPARE_TRAINING_DATASET`** — block → host · request → reply · page-only
-
-payload:
-
-```ts
-{
-    requestId: string;
-    items: BlockTrainingDatasetItem[];
-}
-```
-
-reply `TRAINING_DATASET_RESULT`:
-
-```ts
-{
-    requestId: string;
-    result?: BlockTrainingDatasetResult;
-    error?: string;
-}
-```
-
-Model slot: training is page-only on the server; the shared dispatcher NACKs it with a TRAINING_DATASET_RESULT error
-
 **`PUBLISH_GENERATION_OUTPUTS`** — block → host · request → reply · page-only
 
 payload:
@@ -1057,29 +1034,6 @@ payload:
     subPath: string;
 }
 ```
-
-**`RUN_TRAINING`** — block → host · request → reply · page-only
-
-payload:
-
-```ts
-{
-    requestId: string;
-    body: WorkflowBodyTraining;
-}
-```
-
-reply `TRAINING_RESULT`:
-
-```ts
-{
-    requestId: string;
-    snapshot?: BlockWorkflowSnapshot;
-    error?: string;
-}
-```
-
-Model slot: training is page-only on the server; the shared dispatcher NACKs it with a TRAINING_RESULT error
 
 **`SAVE_IMAGE`** — block → host · request → reply · page-only
 

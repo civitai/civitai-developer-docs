@@ -5,8 +5,8 @@ sources:
   - go:github.com/civitai/cli#app
   - npm:@civitai/sdk@0.10.1/dist/index.d.ts
   - npm:@civitai/components@0.9.2/custom-elements.json
-  - npm:@civitai/blocks-react@0.65.0#README
-  - npm:@civitai/app-sdk@0.58.0/vite#blockManifestPlugin
+  - npm:@civitai/blocks-react@0.63.2#README
+  - npm:@civitai/app-sdk@0.56.1/vite#blockManifestPlugin
   - civitai-app-starters:docs/build-your-first-app-block.md
 ---
 
@@ -134,8 +134,6 @@ The whole app is `src/block.ts`, and its shape is the one every app on this
 template keeps:
 
 ```ts
-// The generic kit: 40 of the 47 elements. The five civitai-specific ones need
-// '@civitai/components/register-site'; the two SDK-backed ones their own `/define`.
 import '@civitai/components/register';
 import { initialize } from '@civitai/sdk';
 import { isPageSlotContext, isSignedIn } from '@civitai/app-sdk/blocks';
@@ -180,7 +178,9 @@ has answered yet. Keep both. A page app does **not** call
 `app.host.autoResize` — the page host fills its content area and ignores resize
 messages.
 
-Next, add UI from the [elements guide](./elements) and data from
+`register` does not define every element — see
+[which import defines which](./elements#register-the-elements). Next, add UI
+from the [elements guide](./elements) and data from
 [`app.site`](./sdk#app-site-the-rest-api). Spending Buzz needs a consent call and
 an idempotency key — [Money calls](./sdk#money-calls) shows both.
 
@@ -500,8 +500,8 @@ flag.
 
 - [The `@civitai/sdk` client](./sdk) — `initialize`, `onChange`, the host's UI,
   the REST API, consent and money calls.
-- [Building with the `<civitai-*>` elements](./elements) — registering them,
-  theming them, their events, and `<civitai-chat>`.
+- [Using the `<civitai-*>` elements in a block](./elements) — which import
+  defines which elements, theming them, and `<civitai-chat>`.
 - [Local dev loop](./local-dev) — the harness modes, which credential can spend,
   and running against the real backend before you submit.
 - [Concepts](./concepts) — the block / install / slot / trust-frame / bridge model.
