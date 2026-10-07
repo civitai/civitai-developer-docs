@@ -40,6 +40,7 @@ import MessageTable from './components/MessageTable.vue';
 import HooksReference from './components/HooksReference.vue';
 import BridgeReference from './components/BridgeReference.vue';
 import ComponentDemo from './components/ComponentDemo.vue';
+import ElementDemo from './components/ElementDemo.vue';
 import TokenGallery from './components/TokenGallery.vue';
 
 export default {
@@ -83,6 +84,7 @@ export default {
 
     // Design-system showcase surfaces.
     ctx.app.component('ComponentDemo', ComponentDemo);
+    ctx.app.component('ElementDemo', ElementDemo);
     ctx.app.component('TokenGallery', TokenGallery);
   },
 } satisfies Theme;
