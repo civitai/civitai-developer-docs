@@ -178,6 +178,15 @@ dependency for the SDK's mock-host test harness. It is also the one example
 wiring [Comfy on Civitai](./guide/comfy-cloud) into a real app, via
 `@civitai/comfy-run-kit`.
 
+::: tip Starting a no-React app today? Use the published elements
+Panorama 360 predates the published `<civitai-*>` elements, which is why it
+defines its own. A new app does not need to: `civitai app init` now scaffolds a
+React-free app on `@civitai/sdk` and the `@civitai/components` elements by
+default. Read Panorama 360 for the transport and the Comfy wiring, and start from
+the [Quickstart](./guide/quickstart) and
+[the elements guide](./guide/elements) for the UI.
+:::
+
 - **Scopes** — `ai:write:budgeted` (the shortest manifest here)
 - **SDK surface** — `getTransport`, `sendTypedRequest` (`@civitai/blocks-react`); `BlockWorkflowSnapshot`, `WorkflowBody`, `BuzzAccountType` (`@civitai/app-sdk/blocks`); `RunController`, `BridgeGateway`, `registerRunElements` (`@civitai/comfy-run-kit`)
 

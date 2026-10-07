@@ -59,6 +59,14 @@ const SDK_TYPES = [
   // posture, no AIR scan, and `maxBuzz` in place of a billing mode), so a reader who only
   // gets the registry arm's table is reading the wrong contract, not merely a short one.
   'WorkflowBodyPassThroughStep',
+  // `kind: 'training'` joined the `WorkflowBody` union in @civitai/app-sdk 0.58.0
+  // (an ai-toolkit LoRA run on a server-prepared dataset of the viewer's own images).
+  // A new TOP-LEVEL member, so without this entry the coverage assertion below fails
+  // the build — which is how this entry was found. `BlockTrainedEpoch` is the element
+  // type of the `trainedEpochs` field `BlockWorkflowSnapshot` / `AppWorkflow` gained
+  // with it, so the snapshot table does not name a type the page never defines.
+  'WorkflowBodyTraining',
+  'BlockTrainedEpoch',
   'BlockWorkflowSnapshot',
   'AppWorkflow',
   'AppWorkflowImage',

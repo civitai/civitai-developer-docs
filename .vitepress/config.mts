@@ -44,6 +44,8 @@ const appsGuideSidebar: DefaultTheme.SidebarItem[] = [
       { text: 'Introduction', link: '/apps/guide/' },
       { text: 'Concepts', link: '/apps/guide/concepts' },
       { text: 'Quickstart', link: '/apps/guide/quickstart' },
+      { text: 'The @civitai/sdk client', link: '/apps/guide/sdk' },
+      { text: 'Building with civitai-* elements', link: '/apps/guide/elements' },
       { text: 'Local dev loop — mock and live', link: '/apps/guide/local-dev' },
       { text: 'What `app validate` proves', link: '/apps/guide/validate' },
       { text: 'What goes in the bundle', link: '/apps/guide/packaging' },
