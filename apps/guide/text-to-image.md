@@ -318,11 +318,7 @@ import { useBuzzWorkflow } from '@civitai/blocks-react';
 export function useAutoWatch() {
   const { watch, result, status } = useBuzzWorkflow();
   useEffect(() => {
-    // A refused submit resolves with `status: 'failed'` and a placeholder
-    // workflowId of 'failed', so a truthy `workflowId` is NOT evidence a run
-    // started. The hook leaves `status` at 'done' for a refusal; the explicit
-    // `result.status` test keeps the placeholder out of watch() regardless.
-    if (status !== 'polling' || !result || result.status === 'failed') return;
+    if (status !== 'polling' || !result?.workflowId) return;
     const ac = new AbortController();
     void watch(result.workflowId, {
       signal: ac.signal,
@@ -337,48 +333,29 @@ export function useAutoWatch() {
 
 ### Refused submits — over budget, or a cap {#refused-submits}
 
-A refused submit does **not** reject. `submit()` **resolves** with a snapshot
-whose `status` is `'failed'`, whose `workflowId` is the placeholder `'failed'`
-(no workflow was started, so never `watch()` or `poll()` it), whose
-`cost.total` is the price the server declined to charge, and whose `error`
-says why. (A real workflow that failed straight away can resolve as `'failed'`
-too, with its real id — equally terminal, equally nothing to watch.) So
-**branch on `snap.status === 'failed'`**, never on whether `workflowId` is
-set:
-
-```tsx
-import { useBuzzWorkflow } from '@civitai/blocks-react';
-import type { WorkflowBody } from '@civitai/app-sdk/blocks';
-
-export function useGenerate(showError: (message: string) => void) {
-  const { submit, watch } = useBuzzWorkflow();
-
-  return async (body: WorkflowBody) => {
-    const snap = await submit(body);
-    if (snap.status === 'failed') {
-      // Terminal, nothing to watch. `workflowId === 'failed'` is a refusal;
-      // any other id is a real workflow that failed at once, and its Buzz may
-      // already be spent — so the copy below makes no claim about money.
-      // `error` carries the reason, but it is server-authored and unsanitised:
-      // log it, and show the viewer copy YOUR app owns.
-      console.warn('submit failed:', snap.workflowId, snap.error, 'cost:', snap.cost?.total);
-      showError('This generation did not complete.');
-      return null;
-    }
-    return watch(snap.workflowId); // a real workflow: watch it to completion
-  };
-}
-```
+A refused submit does **not** reject (with one exception, below). `submit()`
+**resolves** with a snapshot whose `status` is `'failed'`, whose `workflowId`
+is the placeholder `'failed'` (no workflow was started, so never `watch()` or
+`poll()` it), whose `cost.total` is the price the server declined to charge,
+and whose `error` says why. (A real workflow that failed straight away can resolve as `'failed'`
+too, with its real id — equally terminal, equally nothing to watch.) So branch
+on `snap.status === 'failed'`, as the [happy path](#the-happy-path) does —
+never on whether `workflowId` is set. `error` is server-authored and
+unsanitised: log it, and show the viewer copy your app owns.
 
 A refusal reports a **cap**, not necessarily the viewer's balance: a price
 above your manifest's per-generation budget (see [Budget model](#budget-model)),
 a daily spend cap, the per-app rate limit or daily cap, a temporary
 "unavailable" deny, or a missing price quote. Buying Buzz raises none of those
 caps, so do not wire every refusal to `useBuzzPurchase().openPurchaseModal()` —
-decide by your own policy before offering a top-up. What **does** reject is a submit with
-no usable outcome at all — a `WorkflowSubmitError`; see the
+decide by your own policy before offering a top-up.
+
+What **does** reject is a submit with no usable outcome — a
+`WorkflowSubmitError`. That includes a refusal that carries **no** price: a
+pass-through training step the orchestrator would not quote is refused without
+a `cost`, so it rejects rather than resolves. See the
 [`useBuzzWorkflow` reference](../reference/generation#bridge-useBuzzWorkflow)
-for its `code`s and what each says about money.
+for the error's `code`s and what each says about money.
 
 ### Retrying a submit safely — `idempotencyKey` {#retrying-a-submit-safely}
 
