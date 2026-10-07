@@ -13,7 +13,7 @@ sources:
   - civitai:src/server/services/blocks/backpay.service.ts
   - civitai:src/server/jobs/confirm-pending-block-attributions.ts
   - civitai:src/server/middleware/block-scope.middleware.ts
-  - npm:@civitai/blocks-react@0.63.2/dist/hooks/useGoodPurchase.d.ts
+  - npm:@civitai/blocks-react@0.65.0/dist/hooks/useGoodPurchase.d.ts
 ---
 
 # How an app earns
