@@ -36,38 +36,77 @@ through [`useBuzzWorkflow()`](../reference/generation#bridge-useBuzzWorkflow),
 which takes a full `WorkflowBody` — the discriminated union keyed by `kind`:
 
 ```tsx
-import { useBuzzWorkflow, useBlockContext } from '@civitai/blocks-react';
+import { useState } from 'react';
+import {
+  useBuzzWorkflow,
+  useBuzzPurchase,
+  useBlockContext,
+  WorkflowSubmitError,
+} from '@civitai/blocks-react';
 import type { WorkflowBodyTextToImage, ModelSlotContext } from '@civitai/app-sdk/blocks';
 
+type Outcome = 'refused' | 'not-started' | 'maybe-started' | 'error' | null;
+
 export function Generate() {
-  const { estimate, submit, watch, status, result } = useBuzzWorkflow();
+  const { estimate, submit, watch, status } = useBuzzWorkflow();
+  const { openPurchaseModal } = useBuzzPurchase();
   const { context } = useBlockContext();
   const ctx = context as ModelSlotContext; // model slot: has modelId + modelVersionId
+  const [outcome, setOutcome] = useState<Outcome>(null);
+  // The hook starts at 'idle'; only estimate() moves it to 'confirming'. Disable
+  // the button while a request is in flight, not "until confirming".
+  const busy = status === 'estimating' || status === 'submitting' || status === 'polling';
 
   const run = async () => {
+    setOutcome(null);
     const body: WorkflowBodyTextToImage = {
       kind: 'textToImage',
       modelId: ctx.modelId,
       modelVersionId: ctx.modelVersionId,
       params: { prompt: 'a serene alpine lake at golden hour' },
     };
-    await estimate(body);         // review cost via result.cost.total
-    const snap = await submit(body);
-    // A REFUSED submit (over budget, a spend cap, a rate limit) still RESOLVES:
-    // `status: 'failed'` with a placeholder workflowId of 'failed'. A 'failed'
-    // reply is terminal, so there is nothing to watch. Branch on `status`,
-    // never on whether `workflowId` is set. See "Refused submits" below.
-    if (snap.status === 'failed') {
-      console.warn('submit refused:', snap.error); // server text: log it, don't render it
-      return;
+    try {
+      await estimate(body);         // review cost via result.cost.total
+      const snap = await submit(body);
+      // A REFUSED submit (over your per-generation budget, a spend cap, a rate
+      // limit) still RESOLVES, with `status: 'failed'` and a placeholder
+      // workflowId of 'failed'. A 'failed' reply is terminal, so there is
+      // nothing to watch. Branch on `status`, never on whether `workflowId` is
+      // set. See "Refused submits" below.
+      if (snap.status === 'failed') {
+        console.warn('generation did not run:', snap.workflowId, snap.error); // log, never render
+        setOutcome('refused');
+        return;
+      }
+      await watch(snap.workflowId); // owns the loop; resolves on the terminal snapshot
+    } catch (err) {
+      console.warn(err); // developer-facing; never render err.message or snapshot.error
+      if (err instanceof WorkflowSubmitError && err.code === 'exception') {
+        // Usually nothing was queued. A Buzz balance too low for this run lands
+        // HERE, as a rejection, but so do other host-side failures, and no code
+        // tells them apart. So offer a top-up as the viewer's choice.
+        setOutcome('not-started');
+      } else if (err instanceof WorkflowSubmitError) {
+        setOutcome('maybe-started'); // 'workflow-failed': spend may be committed
+      } else {
+        setOutcome('error'); // estimate() rejected, or watch() gave up
+      }
     }
-    await watch(snap.workflowId); // owns the loop; resolves on the terminal snapshot
   };
 
   return (
-    <button onClick={run} disabled={status !== 'confirming'}>
-      Generate
-    </button>
+    <>
+      <button onClick={run} disabled={busy}>Generate</button>
+      {outcome === 'refused' && <p>This generation did not run.</p>}
+      {outcome === 'not-started' && (
+        <p>
+          Could not start the generation.{' '}
+          <button onClick={() => void openPurchaseModal()}>Low on Buzz? Top up</button>
+        </p>
+      )}
+      {outcome === 'maybe-started' && <p>The generation may have started but did not complete.</p>}
+      {outcome === 'error' && <p>Something went wrong. Please try again.</p>}
+    </>
   );
 }
 ```
@@ -331,31 +370,52 @@ export function useAutoWatch() {
 }
 ```
 
-### Refused submits — over budget, or a cap {#refused-submits}
+### Refused submits, and running out of Buzz {#refused-submits}
 
-A refused submit does **not** reject (with one exception, below). `submit()`
+A refused submit does **not** reject (with the exceptions below). `submit()`
 **resolves** with a snapshot whose `status` is `'failed'`, whose `workflowId`
 is the placeholder `'failed'` (no workflow was started, so never `watch()` or
-`poll()` it), whose `cost.total` is the price the server declined to charge,
-and whose `error` says why. (A real workflow that failed straight away can resolve as `'failed'`
-too, with its real id — equally terminal, equally nothing to watch.) So branch
-on `snap.status === 'failed'`, as the [happy path](#the-happy-path) does —
-never on whether `workflowId` is set. `error` is server-authored and
-unsanitised: log it, and show the viewer copy your app owns.
+`poll()` it), whose `cost.total` is the amount the server refused to spend
+(the price on text-to-image; on Comfy and step workflows it can be the
+declared ceiling, `maxBuzz`), and whose `error` says why. (A real workflow that
+failed straight away can resolve as `'failed'` too, with its real id — equally
+terminal, equally nothing to watch.) So branch on `snap.status === 'failed'`,
+as the [happy path](#the-happy-path) does — never on whether `workflowId` is
+set. `error` is server-authored and unsanitised: log it, and show the viewer
+copy your app owns.
 
-A refusal reports a **cap**, not necessarily the viewer's balance: a price
-above your manifest's per-generation budget (see [Budget model](#budget-model)),
-a daily spend cap, the per-app rate limit or daily cap, a temporary
-"unavailable" deny, or a missing price quote. Buying Buzz raises none of those
-caps, so do not wire every refusal to `useBuzzPurchase().openPurchaseModal()` —
-decide by your own policy before offering a top-up.
+A resolved refusal reports a **limit**, not the viewer's balance: a price over
+your per-generation budget (see [Budget model](#budget-model)), a daily spend
+cap, the per-app rate limit or daily cap, a temporary "unavailable" deny, or a
+missing price quote. The server checks those against the token, its counters
+or a quote, and never against the viewer's wallet. Buying Buzz raises none of
+them, so do not answer a resolved refusal with
+`useBuzzPurchase().openPurchaseModal()`.
 
-What **does** reject is a submit with no usable outcome — a
-`WorkflowSubmitError`. That includes a refusal that carries **no** price: a
-pass-through training step the orchestrator would not quote is refused without
-a `cost`, so it rejects rather than resolves. See the
+**Running out of Buzz is a rejection, not a refusal.** The host never checks
+the viewer's balance itself. The generation service does, and when the balance
+is too low the submit throws on the host. The block gets a reply with no
+`cost`, and `submit()` **rejects** with a `WorkflowSubmitError` whose `code` is
+`'exception'`. That is the one case where a top-up can help, which is why the
+happy path offers `openPurchaseModal()` only in its `'exception'` branch. There
+is **no stable way to recognise it**: `'exception'` also covers every other
+host-side failure (review preview, a network error, a validation error), and
+only `err.snapshot.error`'s text differs, which is server-authored and not a
+contract. So offer the top-up as the viewer's choice, not as a diagnosis. Other
+rejections: a pass-through training step the orchestrator would not quote is
+refused **without** a `cost`, so it rejects too. See the
 [`useBuzzWorkflow` reference](../reference/generation#bridge-useBuzzWorkflow)
 for the error's `code`s and what each says about money.
+
+::: warning The generated reference says the opposite. This guide is right.
+The [`useBuzzWorkflow` reference](../reference/generation#bridge-useBuzzWorkflow)
+calls a resolved budget or spend-cap `'failed'` "the shape to branch on when
+offering a top-up". It is generated from the SDK's own doc comment, and that
+sentence is wrong. Every resolved refusal is a cap on the token or the app,
+which a purchase does not raise, while a short balance comes back as a
+**rejection** (above). Offer the top-up from the `catch`, not from the resolved
+`'failed'` branch.
+:::
 
 ### Retrying a submit safely — `idempotencyKey` {#retrying-a-submit-safely}
 

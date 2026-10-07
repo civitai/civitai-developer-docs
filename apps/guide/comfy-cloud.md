@@ -309,13 +309,21 @@ discriminated union and forwards the body verbatim, so switching to Comfy on
 Civitai (either arm) is just a different `body`:
 
 ```tsx
-import { useBuzzWorkflow } from '@civitai/blocks-react';
+import { useState } from 'react';
+import { useBuzzWorkflow, useBuzzPurchase, WorkflowSubmitError } from '@civitai/blocks-react';
 import type { WorkflowBodyCustomComfyRecipe } from '@civitai/app-sdk/blocks';
 
 export function RunButton({ prompt }: { prompt: string }) {
-  const { estimate, submit, watch, status, result } = useBuzzWorkflow();
+  const { estimate, submit, watch, status } = useBuzzWorkflow();
+  const { openPurchaseModal } = useBuzzPurchase();
+  const [message, setMessage] = useState<string | null>(null);
+  const [offerTopUp, setOfferTopUp] = useState(false);
+  // The hook starts at 'idle'; disable only while a request is in flight.
+  const busy = status === 'estimating' || status === 'submitting' || status === 'polling';
 
   const run = async () => {
+    setMessage(null);
+    setOfferTopUp(false);
     // `estimate`/`submit` take the whole `WorkflowBody` union, but THIS body is
     // a recipe body — annotate the arm so a stray inline-arm key is a compile
     // error here rather than a server-side rejection at submit time.
@@ -324,20 +332,40 @@ export function RunButton({ prompt }: { prompt: string }) {
       recipe: 'starter-comfy-txt2img',
       params: { prompt },
     };
-    await estimate(body);        // display estimate → result.cost.total
-    const snap = await submit(body);
-    // A REFUSED submit (over budget, a spend cap, a rate limit) still RESOLVES:
-    // `status: 'failed'` with a placeholder workflowId of 'failed'. A 'failed'
-    // reply is terminal, so there is nothing to watch. Branch on `status`,
-    // never on whether `workflowId` is set.
-    if (snap.status === 'failed') {
-      console.warn('submit refused:', snap.error); // server text: log it, don't render it
-      return;
+    try {
+      await estimate(body);        // display estimate → result.cost.total
+      const snap = await submit(body);
+      // A REFUSED submit (over your per-generation budget, a spend cap, a rate
+      // limit) still RESOLVES, with `status: 'failed'` and a placeholder
+      // workflowId of 'failed'. A 'failed' reply is terminal, so there is
+      // nothing to watch. Branch on `status`, never on whether `workflowId` is set.
+      if (snap.status === 'failed') {
+        console.warn('generation did not run:', snap.workflowId, snap.error); // log, never render
+        setMessage('This generation did not run.');
+        return;
+      }
+      await watch(snap.workflowId); // owns the loop; resolves on the terminal snapshot
+    } catch (err) {
+      console.warn(err); // developer-facing; never render err.message or snapshot.error
+      if (err instanceof WorkflowSubmitError && err.code === 'exception') {
+        // A short Buzz balance lands here, but so do other host-side failures.
+        setMessage('Could not start the generation.');
+        setOfferTopUp(true);
+      } else if (err instanceof WorkflowSubmitError) {
+        setMessage('The generation may have started but did not complete.');
+      } else {
+        setMessage('Something went wrong. Please try again.');
+      }
     }
-    await watch(snap.workflowId); // owns the loop; resolves on the terminal snapshot
   };
 
-  return <button onClick={run} disabled={status !== 'confirming'}>Generate</button>;
+  return (
+    <>
+      <button onClick={run} disabled={busy}>Generate</button>
+      {message && <p>{message}</p>}
+      {offerTopUp && <button onClick={() => void openPurchaseModal()}>Low on Buzz? Top up</button>}
+    </>
+  );
 }
 ```
 
@@ -346,9 +374,11 @@ re-checking scopes and budget every time — your block never talks to the
 orchestrator directly. `estimate()` returns a **display estimate**, not a firm
 quote; the exact charge is known only when the workflow reaches a terminal
 state (see [How generation is billed](#how-generation-is-billed)). A refused
-submit — over budget, or a spend cap or rate limit — resolves rather than
-rejects, so check `status === 'failed'` before watching; the full refusal shape
-is in [Refused submits](./text-to-image#refused-submits).
+submit — over your per-generation budget, or a spend cap or rate limit —
+resolves rather than rejects, so check `status === 'failed'` before watching.
+Running out of Buzz is different: `submit()` **rejects**, which is why the
+top-up is offered from the `catch`. Both are explained in
+[Refused submits](./text-to-image#refused-submits).
 
 ## Requirements
 
