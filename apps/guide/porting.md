@@ -491,6 +491,6 @@ through. That is expected, and it is why the bridge is not going anywhere.
 - [Concepts → Transport models](./concepts#transport-models) — the mental model.
 - [Hooks reference](../reference/hooks) — the bridge surface, in full.
 - [Generation reference](../reference/generation) — what the bridge can and cannot do.
-- [How an app earns](./earning) — the three money rails behind the goods and Buzz
-  hooks, and the `reason` / `code` values every one of these routes can refuse
-  with.
+- [How an app earns](./earning) — the two money rails (digital goods and the
+  per-generation author fee) behind the goods and Buzz hooks, and the `reason` /
+  `code` values every one of these routes can refuse with.
