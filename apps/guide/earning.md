@@ -42,9 +42,9 @@ Three things that look like earning rails and are not:
   `useGoodPurchase` can open for you) is the opposite direction from a digital
   good: it goes **into the viewer's balance**, and your app is not paid for it.
   It can still unblock a sale, since a viewer who cannot afford your good can be
-  sent through a top-up first. Your earnings panel may still show those top-ups
-  as a **Confirmed (unpaid)** amount: it is recorded, but it is not paid out
-  today, so do not count on it.
+  sent through a top-up first. Your earnings panel may still show those top-ups,
+  first as **Pending** and later as **Confirmed (unpaid)**. They are recorded,
+  but neither is paid out today, so do not count on them.
 
 ---
 
@@ -301,6 +301,11 @@ The same rule applies once the app is live: you can never own your own unlock,
 so the gate as sketched shows **you** the paywall too. The hooks expose no
 "is the owner" flag, so if you need to reach the paid view as the owner, decide
 how your app establishes that itself.
+
+The moderator review preview does not grant `goods:read:self`, so every
+entitlement read there is refused and your gate shows its read-failed state.
+Make that state say what the app is, so a reviewer can tell it apart from a
+broken app.
 
 ### A pinned install can be charged a price it was never shown
 
