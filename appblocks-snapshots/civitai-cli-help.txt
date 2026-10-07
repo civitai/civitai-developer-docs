@@ -1,6 +1,6 @@
 civitai CLI help snapshot (the WHOLE command tree)
 Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
-Binary version: civitai 0.1.113
+Binary version: civitai 0.1.114
 Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
 else parses this committed snapshot. To refresh: run
 node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).
@@ -141,9 +141,9 @@ An App is a sandboxed static web app served in an iframe. The platform
 owns the build and the runtime; the only mandatory file is block.manifest.json.
 The typical authoring lifecycle is create -> validate -> submit.
 
-"civitai app create" is the friendly, batteries-included scaffolder (defaults to
-the rich page-money SDK template); "civitai app init" is the same scaffolder
-with a no-build static default (back-compat alias).
+"civitai app create" and "civitai app init" are the same scaffolder; both
+default to the page-elements template (web components, no UI framework).
+"--template page-money" is the React alternative.
 
 Usage:
   civitai app [flags]
@@ -162,7 +162,7 @@ Examples:
   civitai app dev-token my-block
 
 Available Commands:
-  create      Create a ready-to-build App (batteries-included, SDK money-path)
+  create      Create a ready-to-build App (web components by default)
   dev-token   Mint a short-lived dev block token for `npm run dev:live`
   dev-tunnel  Preview your LOCAL dev server inside the real Civitai host via a hardened tunnel
   doctor      Diagnose what is incomplete or blocked on your App store listings
@@ -187,7 +187,7 @@ Global Flags:
 
 Use "civitai app [command] --help" for more information about a command.
 ===CMD complete app===
-create	Create a ready-to-build App (batteries-included, SDK money-path)
+create	Create a ready-to-build App (web components by default)
 dev-token	Mint a short-lived dev block token for `npm run dev:live`
 dev-tunnel	Preview your LOCAL dev server inside the real Civitai host via a hardened tunnel
 doctor	Diagnose what is incomplete or blocked on your App store listings
@@ -203,20 +203,22 @@ view	Show one App's detail (GET /api/v1/apps/{slug})
 withdraw	Withdraw your own pending App submission
 :4
 ===CMD app create===
-Create a ready-to-build App, batteries included.
+Create a ready-to-build App.
 
-This is the friendly happy path: a thin superset of "civitai app init" that
-defaults to the rich page-money template — a Vite + React + TypeScript full-page
-app wired to the published App SDK (estimate -> consent -> submit -> poll ->
-Buzz spend), with a mock-host dev harness and a unit test. The scaffold is
-immediately runnable (npm install && npm run dev:harness) and test-green.
-"civitai app validate" passes once you have run "npm install" — until then it
-correctly reports the package-lock.json the platform build installs from.
+This is the friendly happy path, the same scaffolder as "civitai app init". It
+defaults to the page-elements template — a Vite + TypeScript full-page app
+built with web components and no UI framework: @civitai/sdk for the host bridge
+and <civitai-*> elements from @civitai/components (themed by @civitai/theme),
+with a mock-host dev harness and a test. The scaffold is immediately runnable
+(npm install && npm run dev:harness) and test-green. "civitai app validate"
+passes once you have run "npm install" — until then it correctly reports the
+package-lock.json the platform build installs from.
 
-The default scaffold ships a runnable txt2img money path AND a Comfy on Civitai
-(customComfy) sample that runs a server-registered recipe (invite-only beta) —
-both share the estimate -> consent -> submit -> poll driver, switched by an
-on-screen mode toggle, and both work end-to-end in "npm run dev:harness".
+Prefer React? --template page-money is the React alternative, and the one with
+a runnable money path: a txt2img sample AND a Comfy on Civitai (customComfy)
+sample that runs a server-registered recipe (invite-only beta) — both share the
+estimate -> consent -> submit -> poll driver, switched by an on-screen mode
+toggle, and both work end-to-end in "npm run dev:harness".
 
 customComfy has TWO arms. Besides the recipe arm above, an app may also ship
 its own ComfyUI graph inline (mode: 'inline', page tokens only). src/comfy.ts
@@ -225,12 +227,16 @@ declared AIR resource manifest, and the maxBuzz ceiling (which is ALSO the step
 timeout in seconds). See the generated README's "Comfy on Civitai samples" section.
 
 Templates (override with --template):
-  static      a no-build page app (index.html + a tiny JS, no build step)
-  page-vite   a vite + React page app (config-as-code build: buildCommand + outputDir)
-  page-money  a vite + React + TS full-page (W10) money-path app wired to the
-              published App SDK (estimate -> consent -> submit -> poll -> Buzz
-              spend); includes a txt2img + a Comfy on Civitai (customComfy) sample,
-              recipe and inline-graph body builders [default for create]
+  page-elements  [default] a vite + TS full-page app built with web components
+                 and no UI framework (@civitai/sdk + @civitai/components)
+  page-money     the React alternative: a vite + React + TS full-page (W10)
+                 money-path app wired to the published App SDK (estimate ->
+                 consent -> submit -> poll -> Buzz spend); includes a txt2img +
+                 a Comfy on Civitai (customComfy) sample, recipe and inline-graph
+                 body builders
+  page-vite      a vite + React page app with no SDK (config-as-code build:
+                 buildCommand + outputDir)
+  static         a no-build page app (index.html + a tiny JS, no build step)
 
 The display name can be free-form ("My Cool Block"); it is slugified for the
 blockId. A slug-shaped name is used verbatim.
@@ -247,21 +253,24 @@ By default the project is created in ./<slug>. Override the output directory wit
 a positional [dir] or --dir <path>; override the display name independently with
 --name (so name, slug, and directory can all differ).
 
-Note: a DEFAULT `civitai login` (OAuth) grants submit but NOT Buzz-spend. To
-run `dev:live` real generations, authenticate with a credential that carries
+Note (page-money): a DEFAULT `civitai login` (OAuth) grants submit but NOT
+Buzz-spend. To run `dev:live` real generations, authenticate with a credential that carries
 the AI Services scopes: `civitai login --scopes generate` (a browser login that opts into generation), or a full-scope personal API key (`civitai login --token <key>`, created at https://civitai.com/user/account).
 
 Usage:
   civitai app create [name] [dir] [flags]
 
 Examples:
-  # A page-money app in ./my-block (the batteries-included default).
+  # A web-components app (the page-elements default) in ./my-block.
   civitai app create my-block
 
   # "My Cool Block" -> slug my-cool-block, dir ./my-cool-block.
   civitai app create "My Cool Block"
 
-  # Same as init: a no-build static app.
+  # The React alternative, with the money path.
+  civitai app create my-block --template page-money
+
+  # A no-build static app.
   civitai app create my-block --template static
 
   # Custom output directory (slug stays my-block; created in ./apps/foo).
@@ -276,7 +285,7 @@ Flags:
   -h, --help              help for create
       --name string       display name (default derived from the name argument)
       --slug string       explicit blockId (bypasses derivation from the name; 3-40 chars, starts with a letter, lowercase a-z/0-9/hyphens)
-  -t, --template string   project template: static | page-vite | page-money (default "page-money")
+  -t, --template string   project template: page-elements | page-money | page-vite | static (default "page-elements")
   -y, --yes               non-interactive: never prompt (use flags/defaults; fail if a name is missing)
 
 Global Flags:
@@ -289,10 +298,16 @@ Global Flags:
 Scaffold a correct, ready-to-build App project.
 
 Templates:
-  static      a no-build page app (index.html + a tiny JS, no build step)
-  page-vite   a vite + React page app (config-as-code build: buildCommand + outputDir)
-  page-money  a vite + React + TS full-page (W10) money-path app wired to the
-              published App SDK (estimate -> consent -> submit -> poll -> Buzz spend)
+  page-elements  [default] a vite + TS full-page app built with web components and
+                 no UI framework: @civitai/sdk for the host bridge, <civitai-*>
+                 elements from @civitai/components (themed by @civitai/theme),
+                 a mock-host dev harness and a test
+  page-money     the React alternative: a vite + React + TS full-page (W10)
+                 money-path app wired to the published App SDK (estimate ->
+                 consent -> submit -> poll -> Buzz spend)
+  page-vite      a vite + React page app with no SDK (config-as-code build:
+                 buildCommand + outputDir)
+  static         a no-build page app (index.html + a tiny JS, no build step)
 
 The display name can be free-form ("My Cool Block"); it is slugified for the
 blockId. A slug-shaped name is used verbatim.
@@ -313,11 +328,14 @@ Usage:
   civitai app init [name] [dir] [flags]
 
 Examples:
-  # A no-build static app in ./my-block.
+  # A web-components app (the page-elements default) in ./my-block.
   civitai app init my-block
 
-  # A page-money app; "My Cool Block" -> slug my-cool-block, dir ./my-cool-block.
+  # The React alternative; "My Cool Block" -> slug my-cool-block, dir ./my-cool-block.
   civitai app init "My Cool Block" --template page-money
+
+  # A no-build static app.
+  civitai app init my-block --template static
 
   # Custom output directory (slug stays my-block; created in ./apps/foo).
   civitai app init my-block --dir ./apps/foo
@@ -334,7 +352,7 @@ Flags:
   -h, --help              help for init
       --name string       display name (default derived from the name argument)
       --slug string       explicit blockId (bypasses derivation from the name; 3-40 chars, starts with a letter, lowercase a-z/0-9/hyphens)
-  -t, --template string   project template: static | page-vite | page-money (default "static")
+  -t, --template string   project template: page-elements | page-money | page-vite | static (default "page-elements")
   -y, --yes               non-interactive: never prompt (use flags/defaults; fail if a name is missing)
 
 Global Flags:
@@ -1443,6 +1461,15 @@ Each finding prints the command or URL that fixes it. The three TEXT problems
 comes from block.manifest.json, an off-site app's from the web listing editor.
 A blocked asset is REPLACED for an icon or cover, but a blocked screenshot must
 be REMOVED — adding another does not clear it.
+
+APP BLOCKS ROLLOUT: before the listings, it reports whether your ACCOUNT is
+inside the App Blocks rollout. That gate is separate from your app's approval
+and from your token's scopes — when your account is outside it, every host API
+call a running block makes (shared storage, viewer identity) is refused with
+401 "Apps are not enabled" however the app is configured. Being outside it is a
+supported pre-GA state, so it NEVER sets the exit code; nor does a check that
+could not reach the host, which is reported as COULD NOT CHECK and is kept
+distinct from a negative answer ('enrolled' is null, not false, in --json).
 
 DELISTED LISTINGS: an app whose status is 'removed' is still reported, in its
 own section, but its blocking problems do NOT set the exit code. The publish

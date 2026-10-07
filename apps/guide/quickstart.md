@@ -46,7 +46,8 @@ civitai app init my-app
 
 `civitai app create` is the same scaffolder with the same default. The name you
 pass is slugified into your `blockId` — your app's permanent public id and its
-`<slug>.civit.ai` hostname — and the project lands in `./<slug>`:
+`<slug>.civit.ai` hostname — and the project lands in `./<slug>`. This is what
+`civitai` 0.1.114 prints:
 
 ```text
 ✓ Created App "My App" (page-elements)  ·  my-app/  ·  19 files

@@ -434,8 +434,8 @@ it as "up to N Buzz", not as a price.
 
 ## Try it locally
 
-The `civitai` CLI's generation scaffold (`civitai app create`, the page-app
-template that wires up Buzz + generation) ships a **Comfy on Civitai sample** — a
+The `civitai` CLI's generation scaffold (`civitai app create --template
+page-money`, the React page-app template that wires up Buzz + generation) ships a **Comfy on Civitai sample** — a
 ready-made `src/comfy.ts` with body builders for **both arms**:
 `buildComfyBody` for a `starter-comfy-txt2img` recipe body, and
 `buildInlineComfyBody` for a complete inline SDXL graph like the one above. Both
@@ -447,7 +447,7 @@ body, click generate, and see the mocked estimate/submit/poll round-trip locally
 before you ever have beta access:
 
 ```bash
-civitai app create my-app     # generation template ships src/comfy.ts
+civitai app create my-app --template page-money   # ships src/comfy.ts
 cd my-app && npm install
 npm run dev:harness           # mock host — recipe sample runs, no backend
 npm test                      # exercises BOTH body builders

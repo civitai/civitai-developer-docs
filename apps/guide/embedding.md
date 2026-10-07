@@ -80,8 +80,10 @@ conditions.
 
 ### Already there in the starters examples
 
-The `civitai` CLI's scaffold templates do **not** add `<BlockGate>` — an app
-from `civitai app create` or `civitai app init` needs the wrapper above. For a
+The `civitai` CLI's scaffold templates do **not** add `<BlockGate>` — a React app
+from `civitai app init --template page-money` needs the wrapper above. (The
+default `page-elements` template uses no React; opened top-level, it keeps its
+boot skeleton and waits for a host.) For a
 working entry point to copy, every
 [starters example](../examples#the-starters-examples) wraps its production
 render in `<BlockGate>` in `src/main.tsx`;
