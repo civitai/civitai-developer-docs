@@ -49,7 +49,7 @@ pass is slugified into your `blockId` — your app's permanent public id and its
 `<slug>.civit.ai` hostname — and the project lands in `./<slug>`:
 
 ```text
-✓ Created App "My App" (page-elements)  ·  my-app/  ·  18 files
+✓ Created App "My App" (page-elements)  ·  my-app/  ·  19 files
   blockId: my-app  —  your app's permanent public id (it cannot be renamed later)
   Will be served at https://my-app.civit.ai/ — only after the app is approved and deployed · `civitai app status my-app`
 
@@ -94,7 +94,8 @@ my-app/
 │   ├── block.ts          # the app: initialize → build the view → update it in place
 │   ├── dev-embed.ts      # dev-server settings that let the real host embed it (dev only)
 │   └── dev/harness.ts    # local mock host (dev only, dropped from builds)
-├── test/                # block.test.ts drives the app through the real bridge, in happy-dom
+├── test/                # block.test.ts drives the app through the real bridge, in happy-dom;
+│                        # elements.test.ts fails if a <civitai-*> tag you use is not registered
 └── AGENTS.md             # instructions for a coding agent working in this project
 ```
 
@@ -132,6 +133,8 @@ The whole app is `src/block.ts`, and its shape is the one every app on this
 template keeps:
 
 ```ts
+// The generic kit: 40 of the 47 elements. The five civitai-specific ones need
+// '@civitai/components/register-site'; the two SDK-backed ones their own `/define`.
 import '@civitai/components/register';
 import { initialize } from '@civitai/sdk';
 import { isPageSlotContext, isSignedIn } from '@civitai/app-sdk/blocks';

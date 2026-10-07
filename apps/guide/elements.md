@@ -41,10 +41,13 @@ element "renders as plain text" is whether it was registered.
 
 There are three ways to do it.
 
-**1. Everything, from a bundler** — one side-effect import:
+**1. A whole bundle of them, from a bundler** — one side-effect import.
+`register` defines the generic kit, 40 of the 47 elements; `register-site`
+defines those 40 plus the five civitai-specific ones. The two SDK-backed elements
+are in neither (see below):
 
 ```ts
-import '@civitai/components/register';
+import '@civitai/components/register'; // or '@civitai/components/register-site'
 ```
 
 **2. Only what you use** — one `define` import per element. A smaller bundle,
@@ -58,7 +61,8 @@ import '@civitai/components/civitai-text-input/define';
 `<civitai-tab-panel>` has no `define` of its own; `civitai-tabs/define`
 registers it.
 
-**3. No build step** — the self-registering bundle, from a CDN:
+**3. No build step** — a self-registering bundle from a CDN: `elements.js` is the
+generic kit, `site-elements.js` adds the civitai-specific five:
 
 ```html
 <script type="module"
@@ -67,7 +71,7 @@ registers it.
 
 ### What `register` does not cover
 
-"Everything" is narrower than it sounds. `@civitai/components@0.9.2` declares
+No single import registers everything. `@civitai/components@0.9.2` declares
 **47** elements in its `custom-elements.json`, and they fall into three groups:
 
 | Group | Elements | Registered by |
