@@ -78,12 +78,15 @@ reaches the fallback — see [`useDirectLoad`](../reference/hooks) for the exact
 conditions.
 :::
 
-### Already there in scaffolded apps
+### Already there in the starters examples
 
-The `civitai` CLI's starter template wraps the app root in `<BlockGate>` by
-default, so an app scaffolded with `civitai app create` already handles direct
-traffic — you don't need to add anything. This page is here so you understand
-*why* it's there (and so you keep it if you restructure your entry point).
+The `civitai` CLI's scaffold templates do **not** add `<BlockGate>` — an app
+from `civitai app create` or `civitai app init` needs the wrapper above. For a
+working entry point to copy, every
+[starters example](../examples#the-starters-examples) wraps its production
+render in `<BlockGate>` in `src/main.tsx`;
+[`page-app`'s](https://github.com/civitai/civitai-app-starters/blob/main/starters/examples/page-app/src/main.tsx)
+is the page-app shape. Keep the wrapper if you restructure your entry point.
 
 ### Custom handling with `useDirectLoad` / `hostToRunUrl`
 

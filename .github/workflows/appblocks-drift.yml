@@ -53,14 +53,19 @@ on:
 #   - check:cli-snapshot   -> api.github.com/repos/civitai/cli/releases/latest
 #                             (scripts/check-appblocks-cli-snapshot.mjs)
 #   - check:example-apps   -> api.github.com/repos/<owner>/<repo> for each
-#                             repository apps/examples.md names, plus
-#                             raw.githubusercontent.com/<owner>/<repo>/HEAD/
-#                             block.manifest.json for each scope list the page
-#                             states (scripts/check-example-apps.mjs). The
+#                             repository apps/examples.md names, plus ONE
+#                             api.github.com/repos/civitai/civitai-app-starters/
+#                             contents/starters/examples listing, plus
+#                             raw.githubusercontent.com/<owner>/<repo>/<ref>/
+#                             [<dir>/]block.manifest.json for each scope list
+#                             the page states — the root at HEAD for an
+#                             external repository, the example's own directory
+#                             at `main` for a starters example
+#                             (scripts/check-example-apps.mjs). The
 #                             manifests are on the RAW host on purpose: the
 #                             api.github.com call count stays at one per
-#                             repository, so the scope check did not move this
-#                             job closer to the unauthenticated 60/hr limit.
+#                             repository plus the one listing, however many
+#                             scope lists the page states.
 #
 #   WRITE (`issues: write`), one job and one script, and it reaches TWO endpoint
 #   families — not one, which is what this block said until #76's notifier landed
@@ -177,12 +182,15 @@ jobs:
         # status-code check reports 200 for a link that no longer points where it
         # says. The verdict is computed from the response BODY's `full_name`.
         #
-        # It also grades each example's SCOPE list against that repository's own
-        # block.manifest.json: a repository can stay public, unrenamed and
-        # unarchived while its manifest gains a scope, and the page then tells
-        # every reader something false about the privileged surface it declares.
-        # Those fetches go to raw.githubusercontent.com, so they add ZERO
-        # api.github.com calls — see the token-reach list in the header.
+        # It also grades each example's SCOPE list against the
+        # block.manifest.json that section links — a repository root, or a
+        # civitai-app-starters example's own directory: a repository can stay
+        # public, unrenamed and unarchived while its manifest gains a scope, and
+        # the page then tells every reader something false about the privileged
+        # surface it declares. Those fetches go to raw.githubusercontent.com, so
+        # they add ZERO api.github.com calls — see the token-reach list in the
+        # header. Finally it lists civitai-app-starters' starters/examples/ and
+        # fails if an example there has no section on the page.
         #
         # `--report` is what makes the `notify` job below possible. Written on
         # EVERY exit path, including a run that verified nothing, because "0
