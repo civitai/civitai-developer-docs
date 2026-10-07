@@ -18,6 +18,7 @@ const designSystemSidebar: DefaultTheme.SidebarItem[] = [
   {
     text: 'Design system',
     items: [
+      { text: 'Elements gallery', link: '/apps/elements' },
       { text: 'Component showcase', link: '/apps/showcase' },
       { text: 'Design tokens', link: '/apps/tokens' },
       { text: 'Theming guide', link: '/apps/guide/theming' },
@@ -266,6 +267,7 @@ const sidebar: DefaultTheme.Sidebar = {
       ],
     },
   ],
+  '/apps/elements': designSystemSidebar,
   '/apps/showcase': designSystemSidebar,
   '/apps/tokens': designSystemSidebar,
   '/site/guide/': [
@@ -420,6 +422,7 @@ export default withMermaid({
           { text: 'Apps Guide', link: '/apps/guide/' },
           { text: 'Apps Examples', link: '/apps/examples' },
           { text: 'Apps Reference', link: '/apps/reference/' },
+          { text: 'Apps Elements Gallery', link: '/apps/elements' },
           { text: 'Apps Component Showcase', link: '/apps/showcase' },
           { text: 'Apps Design Tokens', link: '/apps/tokens' },
         ],

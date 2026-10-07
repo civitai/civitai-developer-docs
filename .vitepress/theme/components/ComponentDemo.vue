@@ -39,7 +39,9 @@ const props = withDefaults(
 );
 
 const { isDark } = useData();
-const theme = computed(() => (isDark.value ? 'dark' : 'light'));
+// SSR always renders light, and hydration does not patch a mismatched attribute.
+const mounted = ref(false);
+const theme = computed(() => (mounted.value && isDark.value ? 'dark' : 'light'));
 const showReact = props.react;
 
 const tab = ref<'html' | 'react'>('html');
@@ -53,6 +55,7 @@ function syncPreview() {
 }
 
 onMounted(async () => {
+  mounted.value = true;
   await nextTick();
   syncPreview();
 });

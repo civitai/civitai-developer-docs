@@ -277,3 +277,44 @@
   font-size: 0.76rem;
   line-height: 1.5;
 }
+
+/* ---------- ElementDemo ---------- */
+.cds-demo__tag + .cds-demo__tag {
+  margin-left: 0.3rem;
+}
+
+.cds-element-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.cds-demo__error {
+  margin: 0;
+  padding: 0.5rem 1rem;
+  color: var(--vp-c-danger-1);
+  font-size: 0.8rem;
+}
+
+/* `.vp-doc table/tr/th/td` outrank the light-DOM rules <civitai-table> injects,
+   so undo what VitePress sets and restate only the cell box. */
+.cds-element-preview civitai-table table {
+  display: table;
+  margin: 0;
+  overflow: visible;
+}
+.cds-element-preview civitai-table tr:nth-child(n) {
+  background-color: transparent;
+  border-top: 0;
+  transition: none;
+}
+.cds-element-preview civitai-table :is(th, td) {
+  border: 0;
+  border-block-end: 1px solid var(--civitai-color-border);
+  padding: 8px 12px;
+}
+.cds-element-preview civitai-table thead th {
+  color: var(--civitai-color-text-dimmed);
+  background-color: var(--civitai-color-surface-2);
+  font-size: 12px;
+}
