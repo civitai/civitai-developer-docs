@@ -249,9 +249,11 @@ document.querySelector('civitai-radio-group').data = [
 <civitai-collapse heading="Advanced">
   <civitai-checkbox label="Restore faces"></civitai-checkbox>
 </civitai-collapse>
-<civitai-tooltip label="Spends Buzz from your balance">
-  <civitai-button variant="outline">Hover or focus me</civitai-button>
-</civitai-tooltip>
+<civitai-group>
+  <civitai-tooltip label="Spends Buzz from your balance">
+    <civitai-button variant="outline">Hover or focus me</civitai-button>
+  </civitai-tooltip>
+</civitai-group>
 ```
 
 </template>
@@ -275,7 +277,7 @@ document.querySelector('civitai-tabs').data = [
 `<civitai-confirm-dialog>` resolves `await dialog.ask()` to `true` or `false`.
 `<civitai-toast-region>` shows toasts from `show({ message, heading?, color?, duration? })`.
 
-<ElementDemo title="Modal, confirm, toast" tags="civitai-modal civitai-confirm-dialog civitai-toast-region">
+<ElementDemo title="Modal, confirm, toast" tags="civitai-modal civitai-confirm-dialog civitai-toast-region civitai-toast">
 
 <template #html>
 
@@ -326,14 +328,16 @@ Put any button in the `trigger` slot. Choosing an item fires `select` with
 <template #html>
 
 ```html
-<civitai-menu label="Image actions">
-  <civitai-button slot="trigger" variant="outline" size="sm">Actions</civitai-button>
-  <civitai-menu-item>Save to collection</civitai-menu-item>
-  <civitai-menu-item>View post</civitai-menu-item>
-  <civitai-menu-label>Moderator</civitai-menu-label>
-  <civitai-menu-item disabled>Rescan</civitai-menu-item>
-  <civitai-menu-item destructive>Delete</civitai-menu-item>
-</civitai-menu>
+<civitai-group>
+  <civitai-menu label="Image actions">
+    <civitai-button slot="trigger" variant="outline" size="sm">Actions</civitai-button>
+    <civitai-menu-item>Save to collection</civitai-menu-item>
+    <civitai-menu-item>View post</civitai-menu-item>
+    <civitai-menu-label>Moderator</civitai-menu-label>
+    <civitai-menu-item disabled>Rescan</civitai-menu-item>
+    <civitai-menu-item destructive>Delete</civitai-menu-item>
+  </civitai-menu>
+</civitai-group>
 ```
 
 </template>
@@ -478,24 +482,101 @@ like civitai.com. `<civitai-tag>` fires `vote`, `<civitai-reaction>` fires
 
 Two elements do something rather than show something, through
 [`@civitai/sdk`](https://www.npmjs.com/package/@civitai/sdk). They are not in
-the bundles above, so the SDK stays out of apps that do not need it. Import them
-by path:
+`site-elements.js` or `register-site`, so the SDK stays out of apps that do not
+need it.
 
-```ts
-import '@civitai/components/civitai-sign-in-button/define';
-import '@civitai/components/civitai-workflow-button/define';
+- **`<civitai-sign-in-button>`** signs the viewer in. Inside civitai.com it asks
+  the host; an app of its own hands it `createSignIn()`'s result as `signIn`. It
+  hides once the viewer is signed in.
+- **`<civitai-workflow-button>`** prices its `template` as soon as it has one
+  (`Bake for 185 Buzz`), submits it on click, and shows progress until it
+  finishes. A second press offers to cancel. It fires `priced`, `submitted`,
+  `progress`, `finished`, `canceled` and `error`. Pass it the `app` from
+  `initialize()`; a block may leave it out.
+
+The demo below gives both a stand-in for the SDK, so pressing them spends
+nothing and signs no one in.
+
+<ElementDemo title="Acting as the viewer" tags="civitai-workflow-button civitai-sign-in-button" sdk>
+
+<template #html>
+
+```html
+<civitai-group>
+  <civitai-workflow-button label="Bake"></civitai-workflow-button>
+  <civitai-sign-in-button variant="subtle">Sign in with Civitai</civitai-sign-in-button>
+</civitai-group>
+<civitai-text size="sm" class="log">Press Bake, then press it again to cancel.</civitai-text>
 ```
 
-- **`<civitai-sign-in-button>`** signs the viewer in with Civitai.
-- **`<civitai-workflow-button>`** prices a workflow template, submits it on
-  click, and shows progress until it finishes. A second press cancels. It fires
-  `priced`, `submitted`, `progress`, `finished`, `canceled` and `error`.
+</template>
 
-## Working on the components
+<template #js>
+
+```js
+const log = document.querySelector('.log');
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Stand-ins for initialize() and createSignIn() from @civitai/sdk.
+let canceled = false;
+const app = {
+  requestGrants: async () => true,
+  getToken: async () => 'demo',
+  orchestration: {
+    estimateWorkflow: async () => ({ cost: { total: 185 } }),
+    submitWorkflow: async () => ((canceled = false), { id: 'wf_demo' }),
+    cancelWorkflow: async () => void (canceled = true),
+    async *watchWorkflow() {
+      for (const status of ['unassigned', 'scheduled']) {
+        await wait(800);
+        yield { status, steps: [] };
+      }
+      for (let rate = 0.05; rate <= 1; rate += 0.05) {
+        await wait(300);
+        if (canceled) return yield { status: 'canceled', steps: [] };
+        yield { status: 'processing', steps: [{ status: 'processing', estimatedProgressRate: rate }] };
+      }
+      yield { status: 'succeeded', steps: [] };
+    },
+  },
+};
+const signIn = { signedIn: false, signIn: async () => (log.textContent = 'sign-in: would leave for Civitai') };
+
+const button = document.querySelector('civitai-workflow-button');
+button.app = app;
+button.template = { steps: [{ $type: 'textToImage', input: { prompt: 'a red bike' } }] };
+for (const type of ['priced', 'submitted', 'finished', 'canceled', 'error']) {
+  button.addEventListener(type, () => (log.textContent = `workflow-button: ${type}`));
+}
+document.querySelector('civitai-sign-in-button').signIn = signIn;
+```
+
+</template>
+
+</ElementDemo>
+
+In a real app, import both by path and pass the SDK's own objects:
+
+```ts
+import type { CivitaiWorkflowButton } from '@civitai/components/civitai-workflow-button';
+import '@civitai/components/civitai-workflow-button/define';
+import { initialize } from '@civitai/sdk';
+
+const button = document.querySelector<CivitaiWorkflowButton>('civitai-workflow-button')!;
+button.app = await initialize();
+button.template = {
+  steps: [{
+    $type: 'textToImage',
+    input: { model: 'urn:air:sdxl:checkpoint:civitai:101055@128078', prompt: 'a red bike', cfgScale: 7, seed: 42 },
+  }],
+};
+```
+
+## Contributing
 
 The source lives in
 [`civitai-app-starters/packages/civitai-components`](https://github.com/civitai/civitai-app-starters/tree/main/packages/civitai-components).
-Its playground renders every element straight from source with hot reload:
+To change an element, its playground runs it from source with hot reload:
 
 ```bash
 pnpm --filter @civitai/components dev
