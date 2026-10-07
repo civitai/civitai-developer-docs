@@ -310,12 +310,20 @@ Civitai (either arm) is just a different `body`:
 
 ```tsx
 import { useState } from 'react';
-import { useBuzzWorkflow, useBuzzPurchase, WorkflowSubmitError } from '@civitai/blocks-react';
+import {
+  useBuzzWorkflow,
+  useBuzzBalance,
+  useBuzzPurchase,
+  useDomainMaturity,
+  WorkflowSubmitError,
+} from '@civitai/blocks-react';
 import type { WorkflowBodyCustomComfyRecipe } from '@civitai/app-sdk/blocks';
 
 export function RunButton({ prompt }: { prompt: string }) {
   const { estimate, submit, watch, status } = useBuzzWorkflow();
   const { openPurchaseModal } = useBuzzPurchase();
+  const { balance } = useBuzzBalance(); // null unless `buzz:read:self` is granted and the viewer signed in
+  const { domain } = useDomainMaturity();
   const [message, setMessage] = useState<string | null>(null);
   const [offerTopUp, setOfferTopUp] = useState(false);
   // The hook starts at 'idle'; disable only while a request is in flight.
@@ -332,8 +340,9 @@ export function RunButton({ prompt }: { prompt: string }) {
       recipe: 'starter-comfy-txt2img',
       params: { prompt },
     };
+    let quote: number | undefined;
     try {
-      await estimate(body);        // display estimate → result.cost.total
+      quote = (await estimate(body)).cost?.total; // display estimate
       const snap = await submit(body);
       // A REFUSED submit (over your per-generation budget, a spend cap, a rate
       // limit) still RESOLVES, with `status: 'failed'` and a placeholder
@@ -348,9 +357,16 @@ export function RunButton({ prompt }: { prompt: string }) {
     } catch (err) {
       console.warn(err); // developer-facing; never render err.message or snapshot.error
       if (err instanceof WorkflowSubmitError && err.code === 'exception') {
-        // A short Buzz balance lands here, but so do other host-side failures.
-        setMessage('Could not start the generation.');
-        setOfferTopUp(true);
+        // A short balance lands here, but so do review preview, a lost response
+        // and a network error. Offer a top-up only when the balance proves it:
+        // blue plus the one paid pool this block spends is below the quote.
+        const spendable = balance
+          ? balance.blue +
+            (domain === 'red' ? balance.yellow : domain ? balance.green : Math.max(balance.green, balance.yellow))
+          : null;
+        const short = spendable !== null && quote !== undefined && spendable < quote;
+        setMessage(short ? 'Not enough Buzz for this generation.' : 'Could not start the generation. Please try again.');
+        setOfferTopUp(short);
       } else if (err instanceof WorkflowSubmitError) {
         setMessage('The generation may have started but did not complete.');
       } else {
@@ -363,7 +379,7 @@ export function RunButton({ prompt }: { prompt: string }) {
     <>
       <button onClick={run} disabled={busy}>Generate</button>
       {message && <p>{message}</p>}
-      {offerTopUp && <button onClick={() => void openPurchaseModal()}>Low on Buzz? Top up</button>}
+      {offerTopUp && <button onClick={() => void openPurchaseModal()}>Top up</button>}
     </>
   );
 }
@@ -376,9 +392,14 @@ quote; the exact charge is known only when the workflow reaches a terminal
 state (see [How generation is billed](#how-generation-is-billed)). A refused
 submit — over your per-generation budget, or a spend cap or rate limit —
 resolves rather than rejects, so check `status === 'failed'` before watching.
-Running out of Buzz is different: `submit()` **rejects**, which is why the
-top-up is offered from the `catch`. Both are explained in
-[Refused submits](./text-to-image#refused-submits).
+Running out of Buzz is different: `submit()` **rejects**, with the same
+`'exception'` code as review preview or a network error. So the `catch` offers
+a top-up only when [`useBuzzBalance()`](../reference/hooks#hook-useBuzzBalance)
+shows the Buzz this block can spend (`blue` plus `green`, or plus `yellow` on
+a red domain) below the quote. That needs the `buzz:read:self` scope, declared
+in your manifest and granted by the viewer (it is not consent-exempt), and a
+signed-in viewer. Without those, the block shows a generic "try again". Both cases
+are explained in [Refused submits](./text-to-image#refused-submits).
 
 ## Requirements
 
