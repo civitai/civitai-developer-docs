@@ -497,8 +497,11 @@ need it.
 - **`<civitai-workflow-button>`** prices its `template` as soon as it has one
   (`Bake for 185 Buzz`), submits it on click, and shows progress until it
   finishes. A second press offers to cancel. It fires `priced`, `submitted`,
-  `progress`, `finished`, `canceled` and `error`. Pass it the `app` from
-  `initialize()`; a block may leave it out.
+  `progress`, `finished`, `canceled` and `error`. Pass it a signed-in `app`
+  from `@civitai/sdk`; left out, it calls `initialize()` itself. It runs the
+  workflow through `app.orchestration`, so **inside a block, on the default
+  token, the orchestrator refuses it** — see
+  [Using the elements in a block](./guide/elements#elements-a-block-s-token-cannot-drive).
 
 The demo below gives both a stand-in for the SDK, so pressing them spends
 nothing and signs no one in.
@@ -561,15 +564,18 @@ document.querySelector('civitai-sign-in-button').signIn = signIn;
 
 </ElementDemo>
 
-In a real app, import both by path and pass the SDK's own objects:
+In an app of your own, import both by path and pass the SDK's own objects —
+here a client from `createSignIn()`, since `initialize()` with no arguments
+waits for a civitai.com host:
 
 ```ts
 import type { CivitaiWorkflowButton } from '@civitai/components/civitai-workflow-button';
 import '@civitai/components/civitai-workflow-button/define';
-import { initialize } from '@civitai/sdk';
+import { createSignIn, initialize } from '@civitai/sdk';
 
+const auth = await createSignIn({ clientId, scopes: ['ai:write:budgeted'] });
 const button = document.querySelector<CivitaiWorkflowButton>('civitai-workflow-button')!;
-button.app = await initialize();
+button.app = await initialize(auth);
 button.template = {
   steps: [{
     $type: 'textToImage',
