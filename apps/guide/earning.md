@@ -19,21 +19,6 @@ An App Block can earn on two separate rails. They are separate ledgers with
 separate triggers and separate settlement cadences. Nothing about one tells you
 anything about the other.
 
-::: danger Selling a good and selling Buzz are OPPOSITE directions
-This is the single easiest thing to get wrong on this page, and the SDK's own
-`useGoodPurchase` docblock says so too.
-
-- **A digital good** is Buzz flowing **from the viewer to you**. The viewer
-  already holds the Buzz; you take a share of it.
-- **A Buzz top-up** (`useBuzzPurchase`, or the top-up `useGoodPurchase` can open
-  for you) is fiat flowing **into the viewer's balance**. The viewer ends the
-  transaction with **more** Buzz than they started with, and it is **not** a
-  rail your app earns on.
-
-They share nothing but the fact that one can unblock the other: a viewer who
-cannot afford your good can be sent through a top-up first.
-:::
-
 ## The two rails at a glance
 
 | Rail | Trigger | Money flows | You are paid | What you configure |
@@ -53,8 +38,11 @@ Three things that look like earning rails and are not:
   covered in [the manifest reference](../reference/manifest). It interacts with
   the author fee (see below) but pays you nothing.
 - **Tips** (`social:tip:self`) move Buzz to a *creator*, not to your app.
-- **Buzz a viewer buys inside your block** goes to the viewer's balance. Your
-  app is not paid for it.
+- **Buzz a viewer buys inside your block** (`useBuzzPurchase`, or the top-up
+  `useGoodPurchase` can open for you) is the opposite direction from a digital
+  good: it goes **into the viewer's balance**, and your app is not paid for it.
+  It can still unblock a sale, since a viewer who cannot afford your good can be
+  sent through a top-up first.
 
 ---
 
@@ -128,7 +116,7 @@ An unlock also carries one cap with no ordinary-good equivalent — a limit on h
 many *unlocks* a single catalog may hold — and that one **narrows nothing above**:
 a 33-entry catalog is refused by the 32 cap whether or not one entry is an
 unlock. Both unlock numbers are in
-[charging for access](#charging-for-access-to-the-app-itself) below.
+[the manifest reference](../reference/manifest#optional-fields-worth-calling-out).
 
 Above your per-good ceiling sits a **per-viewer daily ceiling across every app**.
 A purchase at a perfectly legal price can still be refused because the viewer has
@@ -198,13 +186,13 @@ unchanged.)
   it needs a `scopeJustifications` entry, and the viewer is asked to consent.
   Declaring any `goods` catalog requires it, including one whose only entry is an
   `app_unlock`.
-- An `app_unlock` has three rules an ordinary good does not, all checked at
-  submit rather than by the JSON Schema, so a manifest that breaks one validates
-  offline and is then **rejected at submit**: `justification` is **required**
-  (1–500 characters), `priceBuzz` is capped at **5000** instead of 50000 (the
-  floor is still **2**), and a manifest may declare **at most one**
-  `app_unlock`. [The manifest reference](../reference/manifest#optional-fields-worth-calling-out)
-  is the authority on those bounds and names the platform constants behind them.
+- An `app_unlock` has three rules an ordinary good does not: a **required**
+  `justification`, a lower price ceiling, and a limit on how many a manifest may
+  declare. They are checked at submit rather than by the JSON Schema, so a
+  manifest that breaks one validates offline and is then **rejected at submit**.
+  The numbers are in
+  [the manifest reference](../reference/manifest#optional-fields-worth-calling-out),
+  the one place they are kept.
 - The `justification` is review metadata. It is shown to the moderator, never to
   the viewer, and never copied onto the entitlement, so it has no bearing on what
   a buyer sees or on what you are paid.
@@ -292,18 +280,11 @@ only once the others are ruled out:
 4. **Owns the unlock.** Render the app.
 5. **Only then:** the paywall.
 
-Two rules for the purchase itself:
-
-- **Reuse one idempotency key per logical purchase.** A purchase whose response
-  is lost (a timeout, a dropped connection) may have charged. Retrying with the
-  **same** key lets the server replay the first result instead of starting a
-  second attempt. Clear the key on success, and on a definite refusal where this
-  purchase is over or the next attempt is a different payload. The
-  [key tip](#putting-it-together) below explains what the key does and does not
-  protect.
-- **After an ambiguous outcome, `refetch()` entitlements.** The entitlement read
-  is the source of truth for whether the unlock was granted, not the outcome of
-  one `purchase()` call.
+For the purchase itself, the sketch above reuses one idempotency key across
+retries and calls `refetch()` after every outcome, because the entitlement read,
+not one `purchase()` call, is what says whether the unlock was granted. The
+[`BuyButton` example and its key tip](#putting-it-together) below explain both
+in full.
 
 #### Testing it
 
