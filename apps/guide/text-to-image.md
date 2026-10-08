@@ -458,23 +458,11 @@ purchase prompt. The alternative, offering one on every `'exception'`, is
 wrong for everyone else.
 
 Other rejections: a pass-through training step the orchestrator would not quote
-is refused **without** a `cost`, so it rejects too. See the
+is refused **without** a `cost`, so it rejects too. The
 [`useBuzzWorkflow` reference](../reference/generation#bridge-useBuzzWorkflow)
-for the error's `code`s and what each says about money.
-
-<!-- Remove the warning below when this repo bumps @civitai/blocks-react to
-     >= 0.65.1. That release carries the corrected useBuzzWorkflow JSDoc
-     (civitai-app-starters #568), so the regenerated reference no longer calls a
-     resolved refusal "the shape to branch on when offering a top-up". -->
-::: warning The generated reference says the opposite. This guide is right.
-The [`useBuzzWorkflow` reference](../reference/generation#bridge-useBuzzWorkflow)
-calls a resolved budget or spend-cap `'failed'` "the shape to branch on when
-offering a top-up". It is generated from the SDK's own doc comment, and that
-sentence is wrong. Every resolved refusal is a cap on the token or the app,
-which a purchase does not raise, while a short balance comes back as a
-**rejection** (above). Offer the top-up from the `catch`, and only when the
-balance shows the viewer is short, not from the resolved `'failed'` branch.
-:::
+states the same model from the SDK's own doc comments. It has the complete list
+of resolved refusals, each `WorkflowSubmitError` `code` and what it says about
+money, and the spendable-balance rule for a top-up.
 
 ### Retrying a submit safely — `idempotencyKey` {#retrying-a-submit-safely}
 
