@@ -6,7 +6,7 @@ sources:
   - npm:@civitai/sdk@0.10.1/dist/app/index.d.ts
   - npm:@civitai/sdk@0.10.1/dist/host/index.d.ts
   - npm:@civitai/sdk@0.10.1#README
-  - npm:@civitai/app-sdk@0.56.1/blocks#isValidBlockIdempotencyKey
+  - npm:@civitai/app-sdk@0.58.0/blocks#isValidBlockIdempotencyKey
   - civitai:src/pages/api/v1/blocks/workflows/submit.ts
 ---
 
