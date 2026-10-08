@@ -11,7 +11,7 @@ const viduT2VBody = {
     input: {
       engine: 'vidu',
       prompt: 'A cat sitting on a windowsill watching rain fall outside',
-      duration: 4, aspectRatio: '16:9', style: 'General',
+      duration: 4, aspectRatio: '16:9', style: 'General', movementAmplitude: 'auto',
     },
   }],
 };
@@ -23,7 +23,7 @@ const viduI2VBody = {
       engine: 'vidu',
       prompt: 'The subject looks up and smiles warmly at the camera',
       images: [sampleImage],
-      duration: 4, aspectRatio: '16:9',
+      duration: 4, aspectRatio: '16:9', movementAmplitude: 'auto',
     },
   }],
 };
@@ -34,7 +34,7 @@ const viduAnimeBody = {
     input: {
       engine: 'vidu',
       prompt: 'Cherry blossoms falling gently in the breeze, soft anime style',
-      duration: 4, aspectRatio: '16:9', style: 'Anime',
+      duration: 4, aspectRatio: '16:9', style: 'Anime', movementAmplitude: 'auto',
     },
   }],
 };
@@ -56,7 +56,30 @@ const viduQ3TurboBody = {
     input: {
       engine: 'vidu-q3',
       prompt: 'A city street at night with neon lights reflecting in puddles',
-      duration: 5, resolution: '720p', turbo: true, enableAudio: false,
+      duration: 5, resolution: '720p', aspectRatio: '16:9', turbo: true, enableAudio: false,
+    },
+  }],
+};
+
+const viduQ4ImageBody = {
+  steps: [{
+    $type: 'videoGen',
+    input: {
+      engine: 'vidu-q4', operation: 'imageToVideo',
+      prompt: 'The subject moves gently as the camera slowly pushes in',
+      image: sampleImage, duration: 5, resolution: '720p',
+    },
+  }],
+};
+
+const viduQ4ReferenceBody = {
+  steps: [{
+    $type: 'videoGen',
+    input: {
+      engine: 'vidu-q4', operation: 'referenceToVideo',
+      prompt: '[@reference_image_1] in a sunlit room, slow camera movement',
+      referenceImages: [sampleImage], duration: 5, resolution: '720p',
+      aspectRatio: '16:9', enableAudio: false,
     },
   }],
 };
@@ -64,16 +87,17 @@ const viduQ3TurboBody = {
 
 # Vidu video generation
 
-Vidu's video-generation models are available in two engines:
+Vidu's video-generation models are available in three engines:
 
 | `engine` | Notes |
 |----------|-------|
 | `vidu` | Vidu 2.0 (`default` / `q1` models). Flat 600 Buzz. Text-to-video, image-to-video, first-last-frame interpolation, anime style. |
 | `vidu-q3` | Vidu Q3. Per-second pricing, 4 resolution tiers, turbo mode, native audio, first-last-frame support. |
+| `vidu-q4` | Vidu Q4 through FAL. Image-to-video and reference-to-video, 3–16 seconds, up to 4K, image and voice references. |
 
-**Default choice for new integrations**: `engine: "vidu-q3"` for its per-second pricing and output quality. Use `engine: "vidu"` for simple text-to-video or anime-style clips where the flat cost model is predictable.
+Use `engine: "vidu-q4"` for Q4 image animation and reference-based scenes. Q3 remains available for text-to-video, turbo, and first-last-frame generation.
 
-All Vidu jobs exceed the [100-second timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — always submit with `wait=0`.
+Submit with `wait=0` and poll for completion because video generation can exceed the [100-second timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline).
 
 ## Vidu (`engine: "vidu"`)
 
@@ -257,6 +281,88 @@ Per-second pricing. `total = costPerSecond × duration`.
 
 ---
 
+## Vidu Q4 (`engine: "vidu-q4"`)
+
+Select the operation explicitly. One reference image can be used with either operation: `imageToVideo` animates it as frame one; `referenceToVideo` uses it to guide a new scene.
+
+### Image-to-video
+
+```json
+{
+  "engine": "vidu-q4",
+  "operation": "imageToVideo",
+  "prompt": "The subject moves gently as the camera slowly pushes in",
+  "image": "https://example.com/start.png",
+  "duration": 5,
+  "resolution": "720p"
+}
+```
+
+::: warning
+Replace `https://example.com/start.png` with your starting image URL.
+:::
+
+PNG, JPEG and WebP are supported. Send `prompt: ""` for animation without text instructions. Q4 image-to-video generates audio and takes its aspect ratio from the starting image; it has no ending-frame or audio-toggle parameter.
+
+<RecipeRun :body="viduQ4ImageBody" />
+
+### Reference-to-video
+
+```json
+{
+  "engine": "vidu-q4",
+  "operation": "referenceToVideo",
+  "prompt": "[@reference_image_1] holds [@reference_image_2] and speaks in the voice of [reference_audio_1]",
+  "referenceImages": ["https://example.com/person.png", "https://example.com/product.png"],
+  "referenceAudios": ["https://example.com/voice.mp3"],
+  "duration": 5,
+  "resolution": "720p",
+  "aspectRatio": "16:9",
+  "enableAudio": true
+}
+```
+
+::: warning
+Replace the `https://example.com/...` URLs with your reference image and audio URLs.
+:::
+
+Prompt tags use the references' positions, starting at 1. Image tags include `@`; audio tags do not. Audio clips must be MP3, each 3–12 seconds and at most 50 MB. Reference audio accepts HTTP(S) URLs or base64 `audio/mpeg` data URIs. Set `enableAudio: true` to produce dialogue or sound effects.
+
+<RecipeRun :body="viduQ4ReferenceBody" />
+
+### Parameters
+
+| Field | Default | Notes |
+|-------|---------|-------|
+| `operation` | `imageToVideo` | `imageToVideo` or `referenceToVideo`. |
+| `prompt` | Required | At most 5,000 characters; may be empty for image-to-video. |
+| `duration` | `5` | Integer seconds, 3–16. |
+| `resolution` | `720p` | `540p`, `720p`, `1080p`, `2K`, `4K`; case-sensitive. |
+| `seed` | Random | Integer from 0 to 2,147,483,647. |
+| `image` | Required for image-to-video | One starting image. |
+| `referenceImages` | `[]` | Reference-to-video only; up to 12 images, each at most 50 MB. |
+| `referenceAudios` | `[]` | Reference-to-video only; up to 3 voice clips. |
+| `aspectRatio` | `16:9` | Reference-to-video only: `16:9`, `9:16`, `4:3`, `3:4`, `1:1`. |
+| `enableAudio` | `false` | Reference-to-video only. Does not change the price. |
+
+Resolution tiers are nominal: FAL returned 960×528 in a `540p`, `16:9` reference-video test. The workflow preserves the provider's actual dimensions.
+
+### Cost
+
+Both operations use the same rates: `Buzz = seconds × Buzz/s`, before any workflow-level adjustments. These use FAL's regular USD rates with the existing 30% markup, excluding its temporary 30% provider discount through November 30, 2026.
+
+| Resolution | Provider USD/s (regular) | Buzz/s | 5-second quote |
+|------------|-------------------------|--------|-------------------|
+| `540p` | $0.045 | 58.5 | 293 |
+| `720p` | $0.095 | 123.5 | 618 |
+| `1080p` | $0.12 | 156 | 780 |
+| `2K` | $0.19 | 247 | 1,235 |
+| `4K` | $0.39 | 507 | 2,535 |
+
+The quote rounds up to whole Buzz. Use a workflow cost preview for the final charge. See [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) and [FAL's Q4 pricing](https://fal.ai/models/fal-ai/vidu/q4/reference-to-video).
+
+---
+
 ## Reading the result
 
 ```json
@@ -277,7 +383,7 @@ Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/or
 
 ## Long-running jobs
 
-Vidu jobs typically take 1–4 minutes depending on duration and resolution. Use `wait=0` + polling or webhooks:
+Completion time depends on provider load, duration and resolution. Use `wait=0` with polling or webhooks:
 
 - **Webhooks** (recommended): `type: ["workflow:succeeded", "workflow:failed"]` — see [Results & webhooks](/orchestration/guide/results-and-webhooks)
 - **Polling**: `GET /v2/consumer/workflows/{workflowId}` every 10–30 s
@@ -289,10 +395,13 @@ Vidu jobs typically take 1–4 minutes depending on duration and resolution. Use
 | `400` with "images maxItems" | More than 2 images on `vidu-q3` | Trim to at most 2 (start + end frame). |
 | `400` with "duration must be one of" | Sent `2` or `6` for `vidu` | `vidu` accepts only `4` or `8`. |
 | No audio in output | `enableAudio: false` on `vidu-q3` | Set `enableAudio: true` (the default). |
+| Silent Q4 reference video | `enableAudio` was omitted or `false` | Set `enableAudio: true`. |
+| Q4 reference audio rejected | Unsupported format or duration | Use MP3 clips of 3–12 seconds, at most 50 MB each. |
 | Step `failed`, `reason = "no_provider_available"` | No Vidu worker available | Retry shortly. |
 
 ## Related
 
+- Public input schemas: `ViduQ4ImageToVideoInput` and `ViduQ4ReferenceToVideoInput`.
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
 - [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — production result handling

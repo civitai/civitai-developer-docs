@@ -3,7 +3,7 @@ title: Moving a block off the bridge
 description: Replace a block's postMessage data calls with /api/v1/blocks/* REST calls — what each credential reaches, which routes an OAuth token gives up, a hook-by-hook replacement table, and where the route is now the wider surface, taking parameters no bridge hook exposes (shared storage's mine filter).
 sources:
   - npm:@civitai/blocks-react@0.65.0/dist/index.d.ts
-  - npm:@civitai/sdk@0.5.0/dist/index.d.ts
+  - npm:@civitai/sdk@0.10.1/dist/index.d.ts
   - civitai-app-starters:packages/civitai-sdk/BREAKING.md
   - civitai:public/schemas/app-block/v1.json#auth
   - civitai:src/pages/api/v1/blocks
@@ -35,9 +35,11 @@ one rather than a blocked one.
 **On the default block token,** `@civitai/sdk@0.5.0`'s `initialize()` succeeds.
 `app.storage`, `app.site` on `blocks/*` paths, `app.requestGrants` and the whole
 of `app.host` (host UI, which is still bridge messages underneath) all work.
-`app.orchestration` rejects **before it sends** — the orchestrator accepts a
-block-scoped token on no route — and `app.site` outside `blocks/*` returns the
-API's own 401/403 with the `auth: "oauth"` opt-in appended to the message.
+`app.orchestration` rejects **before it sends** for a signed-in viewer — the
+orchestrator accepts a block-scoped token on no route — and `app.site` outside
+`blocks/*` returns the API's own 401/403 with the `auth: "oauth"` opt-in
+appended to the message on a route that requires auth, while a public route
+answers anonymously.
 
 That is new in 0.5.0. `0.4.0` threw from `initialize()` instead, which refused the
 default configuration; the refusal moved to the two surfaces it is actually about.
@@ -494,6 +496,6 @@ through. That is expected, and it is why the bridge is not going anywhere.
 - [Concepts → Transport models](./concepts#transport-models) — the mental model.
 - [Hooks reference](../reference/hooks) — the bridge surface, in full.
 - [Generation reference](../reference/generation) — what the bridge can and cannot do.
-- [How an app earns](./earning) — the three money rails behind the goods and Buzz
-  hooks, and the `reason` / `code` values every one of these routes can refuse
-  with.
+- [How an app earns](./earning) — the two money rails (digital goods and the
+  per-generation author fee) behind the goods and Buzz hooks, and the `reason` /
+  `code` values every one of these routes can refuse with.

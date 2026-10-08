@@ -1,6 +1,6 @@
 ---
 title: How an app earns
-description: The three money rails an App Block can earn on — digital goods, the per-generation author fee, and the fiat Buzz rev share — what each one pays, who pays whom, when it settles, and the refusal reasons your app has to branch on.
+description: The two money rails an App Block can earn on — digital goods (including charging for access to the app itself) and the per-generation author fee — what each one pays, who pays whom, when it settles, and the refusal reasons your app has to branch on.
 sources:
   - civitai:src/shared/constants/block-goods.constants.ts
   - civitai:src/server/services/blocks/block-goods.service.ts
@@ -8,51 +8,43 @@ sources:
   - civitai:src/server/services/blocks/author-fee.ts
   - civitai:src/server/services/blocks/author-fee-accrual.service.ts
   - civitai:src/server/services/blocks/author-fee-settlement.service.ts
-  - civitai:src/server/services/blocks/rate-card.ts
-  - civitai:src/server/services/blocks/buzz-attribution.service.ts
-  - civitai:src/server/services/blocks/backpay.service.ts
-  - civitai:src/server/jobs/confirm-pending-block-attributions.ts
   - civitai:src/server/middleware/block-scope.middleware.ts
   - npm:@civitai/blocks-react@0.65.0/dist/hooks/useGoodPurchase.d.ts
+  - npm:@civitai/blocks-react@0.65.0/dist/hooks/useEntitlements.d.ts
 ---
 
 # How an app earns
 
-An App Block can earn on three separate rails. They are separate ledgers with
-separate triggers, separate settlement cadences, and — for two of them —
-**opposite directions of money flow**. Nothing about one tells you anything
-about another.
+An App Block can earn on two separate rails. They are separate ledgers with
+separate triggers and separate settlement cadences. Nothing about one tells you
+anything about the other.
 
-::: danger Selling a good and selling Buzz are OPPOSITE directions
-This is the single easiest thing to get wrong on this page, and the SDK's own
-`useGoodPurchase` docblock says so too.
-
-- **A digital good** is Buzz flowing **from the viewer to you**. The viewer
-  already holds the Buzz; you take a share of it.
-- **The Buzz rev share** is fiat flowing **into the viewer's balance**, and you
-  take a share of the *card payment*. The viewer ends the transaction with
-  **more** Buzz than they started with.
-
-They share nothing but the fact that one can unblock the other: a viewer who
-cannot afford your good can be sent through a top-up, and the top-up is itself
-attributable.
-:::
-
-## The three rails at a glance
+## The two rails at a glance
 
 | Rail | Trigger | Money flows | You are paid | What you configure |
 |---|---|---|---|---|
-| **Digital goods** | The viewer buys a `goods` entry you declared in your manifest | Viewer's Buzz → you | **Immediately**, on the purchase | Everything: which goods exist, their `priceBuzz`, whether they are `good` or `app_unlock` |
+| **Digital goods** | The viewer buys a `goods` entry you declared in your manifest | Viewer's Buzz → you | **Immediately**, on the purchase | Everything: which goods exist, their `priceBuzz`, whether they are `good` or `app_unlock` — the latter is how you [charge for access to the app itself](#charging-for-access-to-the-app-itself) |
 | **Per-generation author fee** | Your app runs a generation for a viewer | Viewer's Buzz → you | **Daily**, as one credit per currency | **Nothing yet.** Platform defaults apply to every app, including yours |
-| **Fiat Buzz rev share** | The viewer buys Buzz with a card *inside your block* | Card payment → platform → **accrued against your app** | 🔴 **Not at all today.** Your share is recorded and stops there — no code path disburses it. See [Rail 3](#rail-3) before you price for this | Nothing. The rate is a platform rate card |
 
-Two things that look like earning rails and are not:
+**Want viewers to pay to use your app at all?** That is the digital-goods rail
+with a single `app_unlock` good, and your app enforcing the gate itself — the
+full pattern is in
+[charging for access to the app itself](#charging-for-access-to-the-app-itself).
+
+Three things that look like earning rails and are not:
 
 - **`page.buzzBudgetPerGen`** is a **spend ceiling**, not income — the most Buzz
   a single generation your block submits may cost the viewer. Sizing it is
   covered in [the manifest reference](../reference/manifest). It interacts with
   the author fee (see below) but pays you nothing.
 - **Tips** (`social:tip:self`) move Buzz to a *creator*, not to your app.
+- **Buzz a viewer buys inside your block** (`useBuzzPurchase`, or the top-up
+  `useGoodPurchase` can open for you) is the opposite direction from a digital
+  good: it goes **into the viewer's balance**, and your app is not paid for it.
+  It can still unblock a sale, since a viewer who cannot afford your good can be
+  sent through a top-up first. Your earnings panel may still show those top-ups,
+  first as **Pending** and later as **Confirmed (unpaid)**. They are recorded,
+  but neither is paid out today, so do not count on them.
 
 ---
 
@@ -126,8 +118,7 @@ An unlock also carries one cap with no ordinary-good equivalent — a limit on h
 many *unlocks* a single catalog may hold — and that one **narrows nothing above**:
 a 33-entry catalog is refused by the 32 cap whether or not one entry is an
 unlock. Both unlock numbers are in
-[charging for access](#charging-for-access-to-the-app-itself) below, which points
-at the one place they are written down.
+[the manifest reference](../reference/manifest#optional-fields-worth-calling-out).
 
 Above your per-good ceiling sits a **per-viewer daily ceiling across every app**.
 A purchase at a perfectly legal price can still be refused because the viewer has
@@ -136,52 +127,185 @@ your app can price its way out of.
 
 ### Charging for access to the app itself
 
-A good declared `kind: "app_unlock"` means "this buys admission", as opposed to
-the default `"good"`, which buys something *inside* your app. The two are sold
-through the same rail, at the same 70/30 split, and recorded in the same ledger.
+This is the paid-admission pattern: a viewer pays once, in Buzz, to use your
+app. A good declared `kind: "app_unlock"` means "this buys admission", as opposed
+to the default `"good"`, which buys something *inside* your app. The two are sold
+through the same rail, at the same 70/30 split, and recorded in the same ledger,
+so the split and its rounding, **described above**, and the
+[refusal reasons](#refusal-reasons-your-app-must-branch-on) below apply to an
+unlock exactly as they do to an ordinary good.
 
-🔴 **It is not enforced yet. Selling one does not paywall your app.** No access
-gate reads the value today, so an `app_unlock` entitlement is recorded like any
-other and every viewer still gets in. Declaring it is how you get a catalog the
-gate can read the day it lands, without a migration — it is **not** a way to
-charge for access now. (Not a platform rule, but worth saying: if you ship one
-before the gate exists, a listing that implies a paywall is describing something
-the platform is not doing on your behalf.)
+🔴 **The platform does not gate access for you. Your app enforces the gate.** No
+platform access check reads an `app_unlock` entitlement today: your block is
+served, and its token issued, the same way whether or not the viewer bought the
+unlock. Selling one does not on its own paywall anything. To charge for access,
+your app reads the viewer's entitlements and renders the paid experience only to
+viewers who hold the unlock. Declare the good as `app_unlock` anyway, not as an
+ordinary `good`: if a platform gate lands later, `app_unlock` is the entitlement
+it is designed to read, so a correctly declared catalog needs no migration.
+(Not a platform rule, but worth saying: a listing that says the app is paid is
+describing a gate **your code** implements, so make sure it does.)
 
-What it does change today is **three manifest-time rules** an ordinary good does
-not carry — a lower price ceiling, an arity of one, and a mandatory
-`justification`. All three are enforced by the submit-time validator and are
-deliberately *not* declared in the JSON Schema, so each one validates offline and
-is rejected at submit.
+::: danger A gate in your bundle is not a security boundary
+Everything your app ships to the browser can be read by anyone who loads it,
+whether or not they paid. A check like `owns('full-access')` decides what your UI
+*shows*. It does not protect what your bundle *contains*. If the paid part of your
+app is content or data that must not leak, do not ship it in the bundle: serve it
+from your own server, and have that server establish the viewer's entitlement
+before it answers. The client-side gate below is right for gating an
+*experience*, and is not enough on its own for gating *data*.
+:::
 
-🔴 **The rules and their exact bounds are in
-[the manifest reference](../reference/manifest#optional-fields-worth-calling-out),
-and only there.** They are not restated on this page on purpose: they were
-written out in four places in one change, and nothing relates the copies, so a
-correction to one would leave the others wrong. ⚠ **And no guard would catch
-that** — the reference's `goods` key-set guard checks that every schema KEY is
-documented and says in its own header that it does *not* check the bound cells,
-so it cannot see a wrong NUMBER. One place, one set of numbers, because the
-numbers are the part nothing can verify for you.
+#### Step 1: declare the unlock and two scopes
 
-What belongs here is the *money* consequence rather than the manifest rule: the
-`justification` is review metadata, never copied onto the entitlement and never
-shown to the viewer, so it has no bearing on what a buyer sees or on what you are
-paid — and the platform records your claim without verifying it. The split and
-its rounding, **described above**, and the [refusal reasons](#refusal-reasons-your-app-must-branch-on)
-below, apply to an unlock exactly as they do to an ordinary good.
+Add **one** good with `kind: "app_unlock"` to your manifest's `goods`, and
+declare both goods scopes:
 
-It exists because your **permission set does not move** when you start charging.
-Declaring any `goods` catalog already requires
-[`goods:purchase:self`](../reference/scopes) — including a catalog whose only
-entry is an `app_unlock` — and that scope is declared once. So an app already
-selling ordinary items can begin charging for admission with its scopes
-unchanged; the `justification` is what makes that visible at review.
+```json
+{
+  "scopes": ["goods:read:self", "goods:purchase:self"],
+  "scopeJustifications": {
+    "goods:purchase:self": "Viewers pay a one-time 500 Buzz unlock to use the app."
+  },
+  "goods": [
+    {
+      "id": "full-access",
+      "title": "Full access",
+      "kind": "app_unlock",
+      "priceBuzz": 500,
+      "justification": "One-time unlock for the full editor; the free view shows a preview only."
+    }
+  ]
+}
+```
+
+(Those are only the keys this pattern adds. The rest of the manifest is
+unchanged.)
+
+- **`goods:read:self`** lets you read what the viewer bought from *your* app. It
+  is consent-exempt: the reply only ever contains your own sales to this viewer.
+- **`goods:purchase:self`** spends the viewer's Buzz. It is a sensitive scope, so
+  it needs a `scopeJustifications` entry, and the viewer is asked to consent.
+  Declaring any `goods` catalog requires it, including one whose only entry is an
+  `app_unlock`.
+- An `app_unlock` has three rules an ordinary good does not: a **required**
+  `justification`, a lower price ceiling, and a limit on how many a manifest may
+  declare. They are checked at submit rather than by the JSON Schema, so a
+  manifest that breaks one validates offline and is then **rejected at submit**.
+  The numbers are in
+  [the manifest reference](../reference/manifest#optional-fields-worth-calling-out),
+  the one place they are kept.
+- The `justification` is review metadata. It is shown to the moderator, never to
+  the viewer, and never copied onto the entitlement, so it has no bearing on what
+  a buyer sees or on what you are paid.
+- The `id` is the entitlement key. Changing it in a later version orphans every
+  unlock already sold, so treat it as permanent.
+
+An app that already sells ordinary goods already holds `goods:purchase:self`;
+what it must **add** is `goods:read:self`, because the gate below reads
+entitlements. Without it every entitlement read is refused, and every viewer,
+paid or not, gets the retry state instead of the app. The `justification` is
+what makes the switch from free to paid visible at review.
+
+#### Step 2: gate on the entitlement and sell the unlock
+
+Read ownership with `useEntitlements` and buy with `useGoodPurchase`, both from
+`@civitai/blocks-react`:
+
+```tsx
+import { useRef, type ReactNode } from 'react';
+import { useEntitlements, useGoodPurchase, GoodPurchaseRefusal } from '@civitai/blocks-react';
+
+// Must match the app_unlock entry in your manifest.
+const UNLOCK_ID = 'full-access';
+const UNLOCK_PRICE = 500;
+
+export function PaidAdmission({ children }: { children: ReactNode }) {
+  const { owns, loading, error, unauthenticated, refetch } = useEntitlements();
+  const { purchase, loading: buying, error: buyError } = useGoodPurchase();
+  // ONE key per logical purchase, reused across retries of that purchase.
+  const keyRef = useRef<string | null>(null);
+
+  async function unlock() {
+    if (!keyRef.current) keyRef.current = `unlock-${crypto.randomUUID()}`;
+    try {
+      await purchase(
+        { goodId: UNLOCK_ID, expectedPriceBuzz: UNLOCK_PRICE },
+        { idempotencyKey: keyRef.current, topUpOnInsufficientFunds: true },
+      );
+      keyRef.current = null; // success: this purchase is over
+    } catch (err) {
+      // A definite refusal ends this purchase, so the next attempt gets a new key.
+      // Anything else (a timeout, a 5xx, `charge_unknown`) may have charged: keep it.
+      const definite =
+        err instanceof GoodPurchaseRefusal &&
+        (err.status === 422 ||
+          ['already_owned', 'duplicate', 'self_purchase', 'price_changed'].includes(err.reason ?? ''));
+      if (definite) keyRef.current = null;
+    }
+    refetch(); // after ANY outcome: an ambiguous one may still have granted the unlock
+  }
+
+  if (loading) return <p>Checking your access…</p>;
+  if (unauthenticated) return <p>Sign in to unlock this app.</p>;
+  if (error) return <button onClick={refetch}>Couldn’t check your access. Try again</button>;
+  if (owns(UNLOCK_ID)) return <>{children}</>;
+
+  return (
+    <div>
+      <p>Unlock the full app for {UNLOCK_PRICE} Buzz.</p>
+      <button disabled={buying} onClick={unlock}>Unlock for {UNLOCK_PRICE} Buzz</button>
+      {buyError && <p role="alert">{buyError.message}</p>}
+    </div>
+  );
+}
+```
+
+The platform renders no confirmation for a goods purchase, so the button that
+names the price is your confirmation step. This sketch shows the purchase error's
+`message` and stops there. For per-reason handling, including the bounded
+`price_changed` re-confirm, use the [`BuyButton` example](#putting-it-together)
+below.
+
+#### The gate states, and why their order matters
+
+`useEntitlements().owns()` returns `false` until the first read succeeds, which
+is **also** what a failed read looks like. So `owns()` alone cannot tell "has not
+paid" from "could not check", and the paywall must be the last branch, reached
+only once the others are ruled out:
+
+1. **Loading.** Show a neutral state, never the paywall.
+2. **Signed out** (`unauthenticated`). The one case where "owns nothing" is
+   correct: there is no account to have bought anything. Ask the viewer to sign
+   in. It is not an error, and a retry can never clear it.
+3. **The read failed** (`error`). Show a retry that calls `refetch()`, **never
+   the paywall**. Otherwise a viewer who has already paid is asked to pay again
+   because of a network blip.
+4. **Owns the unlock.** Render the app.
+5. **Only then:** the paywall.
+
+For the purchase itself, the sketch above reuses one idempotency key across
+retries and calls `refetch()` after every outcome, because the entitlement read,
+not one `purchase()` call, is what says whether the unlock was granted. The
+[`BuyButton` example and its key tip](#putting-it-together) below explain both
+in full.
+
+#### Testing it
 
 🔴 **You cannot buy your own app's goods.** A purchase by the app owner is
-refused `self_purchase` (400, `charge: 'none'`, `retryable: false`), so testing
-an unlock end-to-end needs a second account — being signed in with enough Buzz
-is not sufficient.
+refused `self_purchase` (400, `charge: 'none'`, `retryable: false`). To test
+the unlock end to end, sign in as a **second account** that has enough Buzz.
+Being signed in as the owner with enough Buzz is not enough.
+
+The same rule applies once the app is live: you can never own your own unlock,
+so the gate as sketched shows **you** the paywall too. The hooks expose no
+"is the owner" flag, so if you need to reach the paid view as the owner, decide
+how your app establishes that itself.
+
+The moderator review preview does not grant `goods:read:self`, so every
+entitlement read there is refused and your gate shows its read-failed state.
+Make that state say what the app is, so a reviewer can tell it apart from a
+broken app.
 
 ### A pinned install can be charged a price it was never shown
 
@@ -330,88 +454,6 @@ independent check** — there is no shared predicate, and the two are not otherw
 equivalent: the author-fee check additionally refuses a *private run*, where a
 delisted or suspended app's bundle is served for review. Don't assume parity; if
 it matters to your app, test both.
-
----
-
-## Rail 3 — the fiat Buzz rev share {#rail-3}
-
-When a viewer buys Buzz **with a card, inside your block**, the platform records
-a `block_buzz_attribution` row against your app and you are owed a share of the
-payment. This is the rail that runs in the opposite direction to goods: the
-viewer's balance goes **up**.
-
-::: danger Nothing on this rail is paid out today. Read this before pricing for it
-This rail **records** what you are owed and stops there. **No code path
-disburses a recorded row, and none is queued behind one.** The Buzz-purchase leg's
-rows reach a state that is terminal in practice; the membership leg's rows are
-deliberately written *unrated* and cannot be priced at all until a rate is signed
-off by Civitai's monetization leadership, which has not happened. The platform's
-own source describes the payout as a thing to **build**, not a thing to switch on.
-
-That matters more than it looks, because **the accrual is shown to you.** Your
-app's revenue panel renders the purchase leg's rows in a `Confirmed (unpaid)`
-bucket whose number can be non-zero, and the panel's own tooltip says the same
-thing this callout does — *"…This amount accrues; automated payouts are not yet
-enabled."* The `Paid out` bucket beside it is not pending, either: nothing in
-production writes that state, so its zero is structural. What you are looking at
-is an accrual, not a balance, and not a receivable with a date on it. **Do not
-price, forecast, or promise anything against it.**
-
-Everything below describes what is *recorded* — the surfaces, the percentages,
-the immutability rule. None of it is a payment schedule.
-:::
-
-The basis is the **net** — gross minus the payment provider's fee — and the
-share depends on the *surface* the purchase happened on:
-
-| Attribution surface | Publisher share of net |
-|---|---|
-| `publisher_all_my_models` — your block installed across a publisher's models | **15%** |
-| `viewer_personal` — a viewer's own install of your block | **25%** |
-| `per_model_install` — legacy, no longer emitted for new attributions | 15% |
-| `platform_default` — a platform-default placement | **0%** |
-| `viewer_global` — a full-page app (`app.page`, no model entity) | **0%** |
-
-Read that table before you assume this rail is worth building for: **a page app
-currently attributes at 0%.** The zero is a deliberate placeholder — page
-revenue is treated as largely platform-counterfactual — and raising it needs a
-new rate card, not a code change on your side.
-
-Mechanics worth knowing — and note that the **Buzz-purchase leg and the
-membership leg are rated at different times**, so a statement about one is not a
-statement about the other:
-
-- **A Buzz purchase is rated at WRITE time.** The row stamps both the rate-card
-  version *and* your share, computed from the net, at the moment it is written.
-  The share on a purchase row is therefore already a number, not a calculation
-  deferred to a later pass — so "computed at payout" is a statement about the
-  membership leg only, and does not describe this one.
-- **A membership payment is TRACKED, not rated.** A block-initiated membership is
-  recorded per **paid invoice** — the initial purchase *and each renewal* — with
-  no rate applied and a deliberate *unrated* marker in place of a card version,
-  precisely so an immutable row is never locked to an unsigned placeholder rate.
-  Pricing it is a later backpay pass, and that pass is gated on a sign-off that
-  has not happened. The rate the active card carries today is **15% of net**,
-  mirroring the purchase floor as a conservative starting default **pending
-  monetization sign-off** — treat it as the rate a backpay *would* apply, not a
-  committed number.
-- **Rate cards are immutable.** A row is rated under the card version it was
-  written against, for the life of the row. Changing a percentage means a new
-  card; it never retroactively reprices rows already written.
-
-So a written row is not a price quote, and — per the callout above — a rated row
-is not a payment either.
-
-::: warning Wired, barely exercised, and the reason is structural
-This rail is built end-to-end across the host, the payment webhooks and the
-ledger, and almost nobody has earned on it. **That is not because it went
-undocumented, and it is not a signal about demand: it is because there is no
-disbursement.** A row can travel the whole length of every path described above
-and still have paid nobody, so near-zero earnings is exactly the behaviour the
-current code produces. If you are weighing this rail against goods or the author
-fee, **talk to the Civitai team first** rather than inferring a timeline from
-this page.
-:::
 
 ---
 

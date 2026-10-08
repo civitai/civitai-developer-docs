@@ -18,6 +18,7 @@ const designSystemSidebar: DefaultTheme.SidebarItem[] = [
   {
     text: 'Design system',
     items: [
+      { text: 'Elements gallery', link: '/apps/elements' },
       { text: 'Component showcase', link: '/apps/showcase' },
       { text: 'Design tokens', link: '/apps/tokens' },
       { text: 'Theming guide', link: '/apps/guide/theming' },
@@ -44,6 +45,8 @@ const appsGuideSidebar: DefaultTheme.SidebarItem[] = [
       { text: 'Introduction', link: '/apps/guide/' },
       { text: 'Concepts', link: '/apps/guide/concepts' },
       { text: 'Quickstart', link: '/apps/guide/quickstart' },
+      { text: 'The @civitai/sdk client', link: '/apps/guide/sdk' },
+      { text: 'Using civitai-* elements in a block', link: '/apps/guide/elements' },
       { text: 'Local dev loop — mock and live', link: '/apps/guide/local-dev' },
       { text: 'What `app validate` proves', link: '/apps/guide/validate' },
       { text: 'What goes in the bundle', link: '/apps/guide/packaging' },
@@ -266,6 +269,7 @@ const sidebar: DefaultTheme.Sidebar = {
       ],
     },
   ],
+  '/apps/elements': designSystemSidebar,
   '/apps/showcase': designSystemSidebar,
   '/apps/tokens': designSystemSidebar,
   '/site/guide/': [
@@ -420,6 +424,7 @@ export default withMermaid({
           { text: 'Apps Guide', link: '/apps/guide/' },
           { text: 'Apps Examples', link: '/apps/examples' },
           { text: 'Apps Reference', link: '/apps/reference/' },
+          { text: 'Apps Elements Gallery', link: '/apps/elements' },
           { text: 'Apps Component Showcase', link: '/apps/showcase' },
           { text: 'Apps Design Tokens', link: '/apps/tokens' },
         ],

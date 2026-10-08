@@ -24,13 +24,13 @@ hero:
 
 features:
   - title: Ship a ZIP, not infrastructure
-    details: You build a static SPA (Vite + React). Submit a ZIP; a moderator reviews it; the platform builds, deploys, and serves it at your own subdomain. No Docker, DNS, or OAuth-client setup.
+    details: You build a static SPA (Vite + TypeScript). Submit a ZIP; a moderator reviews it; the platform builds, deploys, and serves it at your own subdomain. No Docker, DNS, or OAuth-client setup.
   - title: A trust frame around your iframe
     details: Your app runs in a sandboxed iframe. The host hands it a short-lived, scoped token plus the page context over postMessage, and mediates anything privileged.
   - title: Generation and Buzz, host-mediated
     details: Estimate, submit, and poll orchestrator workflows; read the viewer and their Buzz balance — over the host bridge, or by calling /api/v1 with the token the host hands you.
-  - title: React SDK + component pack
-    details: "@civitai/blocks-react ships useBlockContext, useBuzzWorkflow, useAppStorage, and a themed component pack; @civitai/app-sdk carries the framework-agnostic contract."
+  - title: Web components + one client
+    details: "The default scaffold needs no UI framework: civitai-* custom elements from @civitai/components for the UI, themed by @civitai/theme, and @civitai/sdk for the host and the API. Prefer React? @civitai/blocks-react carries the same platform as hooks."
 ---
 
 ## Where to start
