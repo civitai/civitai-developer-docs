@@ -45,10 +45,10 @@ block:
 
 - the `model.sidebar_top` slot is about **360px** wide at a 360px phone
   viewport, and only about **430px** at a 1440px desktop one;
-- a page app (`app.page`) gets the host's content area — which the host caps at
-  **1600px** by default, rendering the block as a centred column with a neutral
-  gutter either side past that — so the *same* block can be several times wider
-  on that same desktop.
+- a page app (`app.page`) gets the host's full content area, edge to edge — the
+  host imposes **no maximum width** on it, at any window size — so the *same*
+  block can be several times wider on that same desktop, and wider still on an
+  ultrawide monitor.
 
 So "narrow" is not "phone", and "wide" is not "desktop". A 360px phone and a
 desktop model sidebar are the *same layout problem*, and a block that infers
@@ -213,11 +213,14 @@ cosmetic:
 |---|---|---|
 | iframe height | full content area; the host does **not** listen for `RESIZE_IFRAME` | sized to your content, clamped to the manifest's `iframe.minHeight` / `iframe.maxHeight` |
 | `useBlockResize` | inert — it still posts, the host ignores it | honoured |
-| typical width | the page content width, capped at **1600px** by default | narrow, and roughly constant regardless of window width |
+| typical width | the full page content width — no host maximum | narrow, and roughly constant regardless of window width |
 
 On a page app, size **to** the surface: let the host's box be your canvas and
-lay out inside it — the cap is inert below 1600px, so no laptop, tablet or phone
-width is touched by it. On a model slot, tell the host how tall you are with
+lay out inside it. Because the host sets no maximum width, a wide monitor hands
+you all of it — if your layout reads best as a centred column (long-form text,
+a form), set that `max-width` and `margin-inline: auto` in your own CSS. There is
+no manifest field or host setting for it; your stylesheet is the only control,
+and it is entirely yours. On a model slot, tell the host how tall you are with
 [`useBlockResize`](../reference/hooks) and keep the layout single-column — you
 are in a sidebar whether or not the window is wide.
 
@@ -290,6 +293,7 @@ a long prompt) from forcing the grid wider than the slot.
 - Gate a *structural* narrow branch on `measured &&`, not on the tier alone.
 - Let `group` wrap; reach for `data-nowrap="true"` only when a row must not.
 - Check your block at `base` (≈360px) as well as wide — that is the model
-  sidebar, not just a phone.
+  sidebar, not just a phone. For a page app, "wide" has no upper bound: check an
+  ultrawide window too, and cap your own column if it needs one.
 - Replacing tabs? Use the [sidenav pattern](#sidenav-pattern) — and run the
   [first review checklist](./first-review) before you submit.
