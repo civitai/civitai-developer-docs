@@ -36,30 +36,94 @@ through [`useBuzzWorkflow()`](../reference/generation#bridge-useBuzzWorkflow),
 which takes a full `WorkflowBody` — the discriminated union keyed by `kind`:
 
 ```tsx
-import { useBuzzWorkflow, useBlockContext } from '@civitai/blocks-react';
+import { useState } from 'react';
+import {
+  useBuzzWorkflow,
+  useBuzzBalance,
+  useBuzzPurchase,
+  useBlockContext,
+  useDomainMaturity,
+  WorkflowSubmitError,
+} from '@civitai/blocks-react';
+import { isSfwCeiling } from '@civitai/app-sdk/blocks';
 import type { WorkflowBodyTextToImage, ModelSlotContext } from '@civitai/app-sdk/blocks';
 
+type Outcome = 'refused' | 'short' | 'not-started' | 'maybe-started' | 'error' | null;
+
 export function Generate() {
-  const { estimate, submit, watch, status, result } = useBuzzWorkflow();
+  const { estimate, submit, watch, status } = useBuzzWorkflow();
+  const { openPurchaseModal } = useBuzzPurchase();
+  // Needs `buzz:read:self` in your manifest AND granted by the viewer, and a
+  // signed-in viewer; otherwise `balance` stays null and no top-up is offered.
+  const { balance } = useBuzzBalance();
+  // The DOMAIN's ceiling, not `isSfw` (which the viewer's own setting narrows):
+  // the server picks the pool from the ceiling.
+  const { maxBrowsingLevel } = useDomainMaturity();
   const { context } = useBlockContext();
   const ctx = context as ModelSlotContext; // model slot: has modelId + modelVersionId
+  const [outcome, setOutcome] = useState<Outcome>(null);
+  // The hook starts at 'idle'; only estimate() moves it to 'confirming'. Disable
+  // the button while a request is in flight, not "until confirming".
+  const busy = status === 'estimating' || status === 'submitting' || status === 'polling';
 
   const run = async () => {
+    setOutcome(null);
     const body: WorkflowBodyTextToImage = {
       kind: 'textToImage',
       modelId: ctx.modelId,
       modelVersionId: ctx.modelVersionId,
       params: { prompt: 'a serene alpine lake at golden hour' },
     };
-    await estimate(body);         // review cost via result.cost.total
-    const snap = await submit(body);
-    await watch(snap.workflowId); // owns the loop; resolves on the terminal snapshot
+    let quote: number | undefined;
+    try {
+      quote = (await estimate(body)).cost?.total; // the price to show, and to test the balance against
+      const snap = await submit(body);
+      // A REFUSED submit (over your per-generation budget, a spend cap, a rate
+      // limit) still RESOLVES, with `status: 'failed'` and a placeholder
+      // workflowId of 'failed'. A 'failed' reply is terminal, so there is
+      // nothing to watch. Branch on `status`, never on whether `workflowId` is
+      // set. See "Refused submits" below.
+      if (snap.status === 'failed') {
+        console.warn('generation did not run:', snap.workflowId, snap.error); // log, never render
+        setOutcome('refused');
+        return;
+      }
+      await watch(snap.workflowId); // owns the loop; resolves on the terminal snapshot
+    } catch (err) {
+      console.warn(err); // developer-facing; never render err.message or snapshot.error
+      if (err instanceof WorkflowSubmitError && err.code === 'exception') {
+        // Usually nothing was queued. A balance too low for this run lands HERE,
+        // but so do review preview, a lost response, an idempotency conflict and
+        // a network error, so the rejection alone never means "out of Buzz".
+        // Offer a top-up only when the balance PROVES it. A block spends blue plus
+        // ONE paid pool: green under an SFW ceiling, yellow under a mature one
+        // (an unknown ceiling counts as SFW, as it does on the server).
+        const spendable = balance
+          ? balance.blue + (isSfwCeiling(maxBrowsingLevel) ? balance.green : balance.yellow)
+          : null;
+        setOutcome(spendable !== null && quote !== undefined && spendable < quote ? 'short' : 'not-started');
+      } else if (err instanceof WorkflowSubmitError) {
+        setOutcome('maybe-started'); // 'workflow-failed': spend may be committed
+      } else {
+        setOutcome('error'); // estimate() rejected, or watch() gave up
+      }
+    }
   };
 
   return (
-    <button onClick={run} disabled={status !== 'confirming'}>
-      Generate
-    </button>
+    <>
+      <button onClick={run} disabled={busy}>Generate</button>
+      {outcome === 'refused' && <p>This generation did not run.</p>}
+      {outcome === 'short' && (
+        <p>
+          Not enough Buzz for this generation.{' '}
+          <button onClick={() => void openPurchaseModal()}>Top up</button>
+        </p>
+      )}
+      {outcome === 'not-started' && <p>Could not start the generation. Please try again.</p>}
+      {outcome === 'maybe-started' && <p>The generation may have started but did not complete.</p>}
+      {outcome === 'error' && <p>Something went wrong. Please try again.</p>}
+    </>
   );
 }
 ```
@@ -282,7 +346,11 @@ you drive:
   `'confirming'` is **idle** — keep your Generate button enabled.
 - **`submit(body, options?)`** — the host runs a whatIf preflight, gates
   `cost ≤ token.buzzBudget`, spends, and returns a snapshot with a
-  `workflowId`. `status` goes `'submitting' → 'polling'`. The `options` bag
+  `workflowId`. `status` goes `'submitting' → 'polling'`. A **refused** submit
+  also resolves — with `status: 'failed'` and a placeholder `workflowId`, and
+  the hook's `status` goes to `'done'`, not `'polling'` — so a `workflowId`
+  alone does not mean a run started; see
+  [refused submits](#refused-submits). The `options` bag
   carries **`idempotencyKey`** — 🔴 **read
   [retrying a submit](#retrying-a-submit-safely) before you write any retry
   path**, because a retried submit is how a viewer gets charged twice.
@@ -319,10 +387,82 @@ export function useAutoWatch() {
 }
 ```
 
-::: tip Out of Buzz?
-`submit()` rejects when the estimate exceeds the token budget. Call
-`useBuzzPurchase().openPurchaseModal()` to let the viewer top up, then retry.
-:::
+### Refused submits, and running out of Buzz {#refused-submits}
+
+A refused submit does **not** reject (with the exceptions below). `submit()`
+**resolves** with a snapshot whose `status` is `'failed'`, whose `workflowId`
+is the placeholder `'failed'` (no workflow was started, so never `watch()` or
+`poll()` it), whose `cost.total` is the amount the server refused to spend
+(the price on text-to-image; on Comfy and step workflows it can be the
+declared ceiling, `maxBuzz`), and whose `error` says why. (A real workflow that
+failed straight away can resolve as `'failed'` too, with its real id — equally
+terminal, equally nothing to watch.) So branch on `snap.status === 'failed'`,
+as the [happy path](#the-happy-path) does — never on whether `workflowId` is
+set. `error` is server-authored and unsanitised: log it, and show the viewer
+copy your app owns.
+
+A resolved `'failed'` is **not** always "nothing charged". Only the `'failed'`
+placeholder id means the server refused before spending. A real id means a
+workflow ran and failed, and the server keeps that reservation. Training is
+the other exception: an unconfirmed training submission comes back with the
+`'failed'` id **and** `submissionUnconfirmed: true`, and its reservation is not
+refunded either. (Training never goes through `submit()`; it runs through
+`useRunTraining()`.)
+
+A resolved refusal reports a **limit**, not the viewer's balance: a price over
+your per-generation budget (see [Budget model](#budget-model)), a daily spend
+cap, the per-app rate limit or daily cap, a temporary "unavailable" deny, or a
+missing price quote. The server checks those against the token, its counters
+or a quote, and never against the viewer's wallet. Buying Buzz raises none of
+them, so do not answer a resolved refusal with
+`useBuzzPurchase().openPurchaseModal()`.
+
+**Running out of Buzz is a rejection, not a refusal.** The host never checks
+the viewer's balance itself. The generation service does, and when the balance
+is too low the submit throws on the host. The block gets a reply with no
+`cost`, and `submit()` **rejects** with a `WorkflowSubmitError` whose `code` is
+`'exception'`. That is the one case where a top-up can help, but the rejection
+alone **cannot tell you it happened**. `'exception'` also covers review
+preview, a lost response, an idempotency conflict and a network error, and only
+`err.snapshot.error`'s text differs, which is server-authored and not a
+contract. Offering a top-up on every `'exception'` would tell a viewer with a
+full wallet they are low on Buzz.
+
+So decide from the **balance**, not the rejection. The happy path reads it with
+[`useBuzzBalance()`](../reference/hooks#hook-useBuzzBalance) and offers
+`openPurchaseModal()` only when the Buzz the block can actually **spend** is
+below the quoted `cost.total`. A block spends `blue` plus **one** paid pool,
+chosen by the domain's maturity **ceiling**: `green` on an SFW ceiling, `yellow`
+on a mature one. It never spends both, so an SFW block cannot spend `yellow`,
+and adding all three pools together would hide a real shortfall. The snippet
+reads the ceiling as `maxBrowsingLevel` from
+[`useDomainMaturity()`](../reference/hooks#hook-useDomainMaturity) and tests it
+with `isSfwCeiling` from `@civitai/app-sdk/blocks`. An unknown ceiling counts as
+SFW, exactly as it does on the server. Two look-alikes must **not** choose the
+pool:
+- **`domain` is informational only.** On civitai.red a block can be told
+  `domain: 'blue'` while its ceiling is fully mature, and the server then
+  spends `yellow`.
+- **`isSfw` is the wrong test here.** It also reflects the viewer's own NSFW
+  setting, which is right for deciding what to *show* but not what the server
+  *spends*.
+
+Reading the balance needs the **`buzz:read:self`** scope. Declare it in your
+manifest's `scopes`. It is **not** consent-exempt, so the viewer must also
+grant it, and `useBuzzBalance()` does not ask for it on its own. The read is
+also refused for a viewer who is not signed in. In either case `balance` stays
+`null`, and the happy path shows a generic "Could not start the generation"
+with **no** top-up offer. That is the cost of the
+fallback: a viewer who really is short, in a block without the grant, gets no
+purchase prompt. The alternative, offering one on every `'exception'`, is
+wrong for everyone else.
+
+Other rejections: a pass-through training step the orchestrator would not quote
+is refused **without** a `cost`, so it rejects too. The
+[`useBuzzWorkflow` reference](../reference/generation#bridge-useBuzzWorkflow)
+states the same model from the SDK's own doc comments. It has the complete list
+of resolved refusals, each `WorkflowSubmitError` `code` and what it says about
+money, and the spendable-balance rule for a top-up.
 
 ### Retrying a submit safely — `idempotencyKey` {#retrying-a-submit-safely}
 

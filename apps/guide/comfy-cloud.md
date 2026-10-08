@@ -309,13 +309,30 @@ discriminated union and forwards the body verbatim, so switching to Comfy on
 Civitai (either arm) is just a different `body`:
 
 ```tsx
-import { useBuzzWorkflow } from '@civitai/blocks-react';
+import { useState } from 'react';
+import {
+  useBuzzWorkflow,
+  useBuzzBalance,
+  useBuzzPurchase,
+  useDomainMaturity,
+  WorkflowSubmitError,
+} from '@civitai/blocks-react';
+import { isSfwCeiling } from '@civitai/app-sdk/blocks';
 import type { WorkflowBodyCustomComfyRecipe } from '@civitai/app-sdk/blocks';
 
 export function RunButton({ prompt }: { prompt: string }) {
-  const { estimate, submit, watch, status, result } = useBuzzWorkflow();
+  const { estimate, submit, watch, status } = useBuzzWorkflow();
+  const { openPurchaseModal } = useBuzzPurchase();
+  const { balance } = useBuzzBalance(); // null unless `buzz:read:self` is granted and the viewer signed in
+  const { maxBrowsingLevel } = useDomainMaturity(); // the domain's ceiling, not `domain` or `isSfw`
+  const [message, setMessage] = useState<string | null>(null);
+  const [offerTopUp, setOfferTopUp] = useState(false);
+  // The hook starts at 'idle'; disable only while a request is in flight.
+  const busy = status === 'estimating' || status === 'submitting' || status === 'polling';
 
   const run = async () => {
+    setMessage(null);
+    setOfferTopUp(false);
     // `estimate`/`submit` take the whole `WorkflowBody` union, but THIS body is
     // a recipe body — annotate the arm so a stray inline-arm key is a compile
     // error here rather than a server-side rejection at submit time.
@@ -324,12 +341,47 @@ export function RunButton({ prompt }: { prompt: string }) {
       recipe: 'starter-comfy-txt2img',
       params: { prompt },
     };
-    await estimate(body);        // display estimate → result.cost.total
-    const snap = await submit(body);
-    await watch(snap.workflowId); // owns the loop; resolves on the terminal snapshot
+    let quote: number | undefined;
+    try {
+      quote = (await estimate(body)).cost?.total; // display estimate
+      const snap = await submit(body);
+      // A REFUSED submit (over your per-generation budget, a spend cap, a rate
+      // limit) still RESOLVES, with `status: 'failed'` and a placeholder
+      // workflowId of 'failed'. A 'failed' reply is terminal, so there is
+      // nothing to watch. Branch on `status`, never on whether `workflowId` is set.
+      if (snap.status === 'failed') {
+        console.warn('generation did not run:', snap.workflowId, snap.error); // log, never render
+        setMessage('This generation did not run.');
+        return;
+      }
+      await watch(snap.workflowId); // owns the loop; resolves on the terminal snapshot
+    } catch (err) {
+      console.warn(err); // developer-facing; never render err.message or snapshot.error
+      if (err instanceof WorkflowSubmitError && err.code === 'exception') {
+        // A short balance lands here, but so do review preview, a lost response
+        // and a network error. Offer a top-up only when the balance proves it:
+        // blue plus the one paid pool this block spends is below the quote.
+        const spendable = balance
+          ? balance.blue + (isSfwCeiling(maxBrowsingLevel) ? balance.green : balance.yellow)
+          : null;
+        const short = spendable !== null && quote !== undefined && spendable < quote;
+        setMessage(short ? 'Not enough Buzz for this generation.' : 'Could not start the generation. Please try again.');
+        setOfferTopUp(short);
+      } else if (err instanceof WorkflowSubmitError) {
+        setMessage('The generation may have started but did not complete.');
+      } else {
+        setMessage('Something went wrong. Please try again.');
+      }
+    }
   };
 
-  return <button onClick={run} disabled={status !== 'confirming'}>Generate</button>;
+  return (
+    <>
+      <button onClick={run} disabled={busy}>Generate</button>
+      {message && <p>{message}</p>}
+      {offerTopUp && <button onClick={() => void openPurchaseModal()}>Top up</button>}
+    </>
+  );
 }
 ```
 
@@ -337,7 +389,18 @@ The host runs the estimate and submit server-side against your block token,
 re-checking scopes and budget every time — your block never talks to the
 orchestrator directly. `estimate()` returns a **display estimate**, not a firm
 quote; the exact charge is known only when the workflow reaches a terminal
-state (see [How generation is billed](#how-generation-is-billed)).
+state (see [How generation is billed](#how-generation-is-billed)). A refused
+submit — over your per-generation budget, or a spend cap or rate limit —
+resolves rather than rejects, so check `status === 'failed'` before watching.
+Running out of Buzz is different: `submit()` **rejects**, with the same
+`'exception'` code as review preview or a network error. So the `catch` offers
+a top-up only when [`useBuzzBalance()`](../reference/hooks#hook-useBuzzBalance)
+shows the Buzz this block can spend below the quote. That is `blue` plus
+`green` on an SFW ceiling, or plus `yellow` on a mature one, read from
+`maxBrowsingLevel` and never from `domain`, which is informational only. That needs the `buzz:read:self` scope, declared
+in your manifest and granted by the viewer (it is not consent-exempt), and a
+signed-in viewer. Without those, the block shows a generic "try again". Both cases
+are explained in [Refused submits](./text-to-image#refused-submits).
 
 ## Requirements
 
