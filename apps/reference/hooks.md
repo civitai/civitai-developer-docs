@@ -2,9 +2,9 @@
 title: Hooks reference
 description: Every @civitai/blocks-react hook — signature and example, generated from the published package.
 sources:
-  - npm:@civitai/blocks-react@0.65.0/dist/index.d.ts
-  - npm:@civitai/blocks-react@0.65.0#README
-  - npm:@civitai/app-sdk@0.58.0/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.65.1/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.65.1#README
+  - npm:@civitai/app-sdk@0.59.0/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
 
@@ -214,12 +214,10 @@ if (priced) {
   try {
     const snap = await submit(body); // status 'submitting' → 'polling'
     if (snap.status === 'failed') {
-      // 🔴 A RESOLVED `failed` IS A PRICED SERVER OUTCOME — and only SOME of
-      // them are about the viewer's wallet. Affordability (per-call budget, the
-      // per-user daily Buzz cap) IS fixable by buying Buzz; the per-app velocity
-      // limit, the per-app aggregate daily cap, a fail-closed "temporarily
-      // unavailable" deny and a missing price quote are NOT. Selling Buzz for
-      // one of those takes money and fixes nothing, so branch before you offer.
+      // 🔴 A RESOLVED `failed` IS A SERVER OUTCOME, NEVER A TOP-UP CUE: a spend
+      // cap or limit buying Buzz does not raise, or a run that may already have
+      // spent. The complete list is on `useBuzzWorkflow`'s `submit` docs.
+      // Running OUT of Buzz rejects instead — see the catch below.
       showError(submitOutcomeMessage(snap)); // YOUR app owns this copy
     } else {
       await poll(snap.workflowId);   // you loop this on a backoff until terminal
@@ -256,7 +254,7 @@ if (priced) {
 useBuzzPurchase(): UseBuzzPurchase
 ```
 
-Open the Buzz purchase modal — the insufficient-budget recovery path.
+Open the Buzz purchase modal. It raises the viewer's WALLET, never a spend cap: offer it when the viewer's spendable Buzz is below a quoted cost, never on a resolved `failed` submit (see `useBuzzWorkflow`'s `submit` docs).
 
 ```tsx
 const { openPurchaseModal } = useBuzzPurchase();
@@ -1060,7 +1058,7 @@ reads member-specific fields, so every member except `training` flows through th
 same `estimate → submit → watch` lifecycle shown above. `training` is quoted with
 `estimate()` but run with `useRunTraining()`, and `submit()` refuses it.
 
-As of the pinned `@civitai/app-sdk@0.58.0` the union has four `kind` values, and
+As of the pinned `@civitai/app-sdk@0.59.0` the union has four `kind` values, and
 `kind: 'step'` is itself two arms — five members in all:
 
 | `kind` | what it runs | what your block sends |

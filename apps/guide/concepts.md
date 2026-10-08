@@ -4,8 +4,8 @@ description: The Civitai Apps mental model — block, install, slot, page apps v
 sources:
   - civitai:docs/features/app-blocks.md
   - civitai:src/components/AppBlocks/hostHandlerParity.ts#INVENTORY
-  - npm:@civitai/app-sdk@0.58.0/blocks#BlockInitPayload
-  - npm:@civitai/blocks-react@0.65.0#README
+  - npm:@civitai/app-sdk@0.59.0/blocks#BlockInitPayload
+  - npm:@civitai/blocks-react@0.65.1#README
 ---
 
 # Concepts
