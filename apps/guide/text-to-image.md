@@ -45,6 +45,7 @@ import {
   useDomainMaturity,
   WorkflowSubmitError,
 } from '@civitai/blocks-react';
+import { isSfwCeiling } from '@civitai/app-sdk/blocks';
 import type { WorkflowBodyTextToImage, ModelSlotContext } from '@civitai/app-sdk/blocks';
 
 type Outcome = 'refused' | 'short' | 'not-started' | 'maybe-started' | 'error' | null;
@@ -55,7 +56,9 @@ export function Generate() {
   // Needs `buzz:read:self` in your manifest AND granted by the viewer, and a
   // signed-in viewer; otherwise `balance` stays null and no top-up is offered.
   const { balance } = useBuzzBalance();
-  const { domain } = useDomainMaturity();
+  // The DOMAIN's ceiling, not `isSfw` (which the viewer's own setting narrows):
+  // the server picks the pool from the ceiling.
+  const { maxBrowsingLevel } = useDomainMaturity();
   const { context } = useBlockContext();
   const ctx = context as ModelSlotContext; // model slot: has modelId + modelVersionId
   const [outcome, setOutcome] = useState<Outcome>(null);
@@ -93,11 +96,10 @@ export function Generate() {
         // but so do review preview, a lost response, an idempotency conflict and
         // a network error, so the rejection alone never means "out of Buzz".
         // Offer a top-up only when the balance PROVES it. A block spends blue plus
-        // ONE paid pool: green on a green/blue domain, yellow on red. With the
-        // domain unknown, the larger paid pool is still a safe upper bound.
+        // ONE paid pool: green under an SFW ceiling, yellow under a mature one
+        // (an unknown ceiling counts as SFW, as it does on the server).
         const spendable = balance
-          ? balance.blue +
-            (domain === 'red' ? balance.yellow : domain ? balance.green : Math.max(balance.green, balance.yellow))
+          ? balance.blue + (isSfwCeiling(maxBrowsingLevel) ? balance.green : balance.yellow)
           : null;
         setOutcome(spendable !== null && quote !== undefined && spendable < quote ? 'short' : 'not-started');
       } else if (err instanceof WorkflowSubmitError) {
@@ -430,12 +432,20 @@ So decide from the **balance**, not the rejection. The happy path reads it with
 [`useBuzzBalance()`](../reference/hooks#hook-useBuzzBalance) and offers
 `openPurchaseModal()` only when the Buzz the block can actually **spend** is
 below the quoted `cost.total`. A block spends `blue` plus **one** paid pool,
-chosen by its domain: `green` on a green or blue domain, `yellow` on red. It
-never spends both, so an SFW block cannot spend `yellow`, and adding all three
-pools together would hide a real shortfall. The snippet reads the domain from
-[`useDomainMaturity()`](../reference/hooks#hook-useDomainMaturity). When a host
-does not report one, it uses the larger of the two paid pools, which can only
-under-report a shortfall, never invent one.
+chosen by the domain's maturity **ceiling**: `green` on an SFW ceiling, `yellow`
+on a mature one. It never spends both, so an SFW block cannot spend `yellow`,
+and adding all three pools together would hide a real shortfall. The snippet
+reads the ceiling as `maxBrowsingLevel` from
+[`useDomainMaturity()`](../reference/hooks#hook-useDomainMaturity) and tests it
+with `isSfwCeiling` from `@civitai/app-sdk/blocks`. An unknown ceiling counts as
+SFW, exactly as it does on the server. Two look-alikes must **not** choose the
+pool:
+- **`domain` is informational only.** On civitai.red a block can be told
+  `domain: 'blue'` while its ceiling is fully mature, and the server then
+  spends `yellow`.
+- **`isSfw` is the wrong test here.** It also reflects the viewer's own NSFW
+  setting, which is right for deciding what to *show* but not what the server
+  *spends*.
 
 Reading the balance needs the **`buzz:read:self`** scope. Declare it in your
 manifest's `scopes`. It is **not** consent-exempt, so the viewer must also

@@ -317,13 +317,14 @@ import {
   useDomainMaturity,
   WorkflowSubmitError,
 } from '@civitai/blocks-react';
+import { isSfwCeiling } from '@civitai/app-sdk/blocks';
 import type { WorkflowBodyCustomComfyRecipe } from '@civitai/app-sdk/blocks';
 
 export function RunButton({ prompt }: { prompt: string }) {
   const { estimate, submit, watch, status } = useBuzzWorkflow();
   const { openPurchaseModal } = useBuzzPurchase();
   const { balance } = useBuzzBalance(); // null unless `buzz:read:self` is granted and the viewer signed in
-  const { domain } = useDomainMaturity();
+  const { maxBrowsingLevel } = useDomainMaturity(); // the domain's ceiling, not `domain` or `isSfw`
   const [message, setMessage] = useState<string | null>(null);
   const [offerTopUp, setOfferTopUp] = useState(false);
   // The hook starts at 'idle'; disable only while a request is in flight.
@@ -361,8 +362,7 @@ export function RunButton({ prompt }: { prompt: string }) {
         // and a network error. Offer a top-up only when the balance proves it:
         // blue plus the one paid pool this block spends is below the quote.
         const spendable = balance
-          ? balance.blue +
-            (domain === 'red' ? balance.yellow : domain ? balance.green : Math.max(balance.green, balance.yellow))
+          ? balance.blue + (isSfwCeiling(maxBrowsingLevel) ? balance.green : balance.yellow)
           : null;
         const short = spendable !== null && quote !== undefined && spendable < quote;
         setMessage(short ? 'Not enough Buzz for this generation.' : 'Could not start the generation. Please try again.');
@@ -395,8 +395,9 @@ resolves rather than rejects, so check `status === 'failed'` before watching.
 Running out of Buzz is different: `submit()` **rejects**, with the same
 `'exception'` code as review preview or a network error. So the `catch` offers
 a top-up only when [`useBuzzBalance()`](../reference/hooks#hook-useBuzzBalance)
-shows the Buzz this block can spend (`blue` plus `green`, or plus `yellow` on
-a red domain) below the quote. That needs the `buzz:read:self` scope, declared
+shows the Buzz this block can spend below the quote. That is `blue` plus
+`green` on an SFW ceiling, or plus `yellow` on a mature one, read from
+`maxBrowsingLevel` and never from `domain`, which is informational only. That needs the `buzz:read:self` scope, declared
 in your manifest and granted by the viewer (it is not consent-exempt), and a
 signed-in viewer. Without those, the block shows a generic "try again". Both cases
 are explained in [Refused submits](./text-to-image#refused-submits).
