@@ -67,6 +67,17 @@ const SDK_TYPES = [
   // with it, so the snapshot table does not name a type the page never defines.
   'WorkflowBodyTraining',
   'BlockTrainedEpoch',
+  // The types those two tables NAME, for the same reason: without them the page
+  // announces `params: AiToolkitTrainingParams` and `trainingQuote?:
+  // BlockTrainingQuote` and defines neither. `AiToolkitTrainingParams` is an
+  // intersection (rendered verbatim), so the base and the three string-literal
+  // unions it and its base name are listed too.
+  'AiToolkitTrainingParams',
+  'AiToolkitTrainingParamsBase',
+  'AiToolkitPlainEcosystem',
+  'AiToolkitLrScheduler',
+  'AiToolkitOptimizerType',
+  'BlockTrainingQuote',
   'BlockWorkflowSnapshot',
   'AppWorkflow',
   'AppWorkflowImage',

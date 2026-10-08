@@ -186,6 +186,122 @@ One entry of {@link BlockWorkflowSnapshot.trainedEpochs} / {@link AppWorkflow.tr
 | `$type` | `'training' \| 'imageResourceTraining'` | Which pass-through training `$type` produced this epoch. The SDK's inbound validator checks only that it is a string, so a value the host adds later can arrive — give an exhaustive `switch` a default branch. |
 | `epochNumber` | `number` | Pass as `epoch` to the `/models/train/from-orchestrator` wizard route. |
 
+**`AiToolkitTrainingParams`** — alias
+
+`params` of a {@link WorkflowBodyTraining} — the host's `aiToolkitTrainingParamsSchema`, the same schema Civitai's own training form validates against, discriminated on `ecosystem`. ⚠️ THE ECOSYSTEM LIST IS CLOSED HERE AND OPEN ON THE HOST. The host adds ecosystems over time; until this package mirrors one, a body naming it does not type-check. That is the cost of a typed copy, paid deliberately: a free `string` would let a typo through to a refused estimate.
+
+```ts
+AiToolkitTrainingParamsBase & ({
+    ecosystem: AiToolkitPlainEcosystem;
+    modelVariant?: undefined;
+} | {
+    ecosystem: 'sd3';
+    modelVariant: 'large' | 'medium';
+} | {
+    ecosystem: 'flux1';
+    modelVariant: 'dev' | 'schnell';
+} | {
+    ecosystem: 'wan';
+    modelVariant: '2.1' | '2.2';
+} | {
+    ecosystem: 'flux2klein';
+    modelVariant: '4b' | '9b';
+} | {
+    ecosystem: 'qwen21' | 'ming' | 'yue2';
+    modelVariant?: undefined;
+    batchSize?: 1;
+} | {
+    ecosystem: 'ace_step_15_xl';
+    modelVariant: 'base' | 'sft';
+})
+```
+
+**`AiToolkitTrainingParamsBase`** — object
+
+The fields every ai-toolkit ecosystem shares (`aiToolkitBaseParams` on the host).
+
+| Field | Type | Notes |
+|---|---|---|
+| `engine` | `'ai-toolkit'` |  |
+| `epochs?` | `number` | Saved checkpoint count, integer 1…50. With `steps` absent it is also the length knob. |
+| `steps?` | `number` | Total training steps, integer ≥ 1 — the primary length (and price) knob. |
+| `batchSize?` | `number` | Integer ≥ 1. Exactly `1` on the `qwen21` / `ming` / `yue2` ecosystems. |
+| `sampleCfgScale?` | `number` |  |
+| `sampleStrength?` | `number` |  |
+| `continueFrom?` | `string` |  |
+| `resolution` | `number \| null` |  |
+| `lr` | `number` | Learning rate. 🔴 Must be BELOW `0.1` unless `optimizerType` is `prodigy` or `prodigy8bit` — a host refinement this type cannot express; a body that breaks it is refused at estimate. |
+| `textEncoderLr` | `number \| null` |  |
+| `trainTextEncoder` | `boolean` |  |
+| `lrScheduler` | `AiToolkitLrScheduler` |  |
+| `optimizerType` | `AiToolkitOptimizerType` |  |
+| `networkDim` | `number \| null` |  |
+| `networkAlpha` | `number \| null` |  |
+| `noiseOffset` | `number \| null` |  |
+| `minSnrGamma` | `number \| null` |  |
+| `flipAugmentation` | `boolean` |  |
+| `shuffleTokens` | `boolean` |  |
+| `keepTokens` | `number` |  |
+| `numRepeats?` | `number` |  |
+
+**`AiToolkitPlainEcosystem`** — union
+
+The ai-toolkit ecosystems that take NO `modelVariant` — send the key absent. (`qwen21` / `ming` / `yue2` also take none; they live on their own arm of {@link AiToolkitTrainingParams} because they pin `batchSize` to `1`.)
+
+- `'sd1'`
+- `'sdxl'`
+- `'chroma'`
+- `'qwen'`
+- `'zimageturbo'`
+- `'zimagebase'`
+- `'ltx2'`
+- `'ltx23'`
+- `'ltx25'`
+- `'minimaxh3'`
+- `'ernie'`
+- `'anima'`
+- `'boogu'`
+- `'krea2'`
+- `'mageflow'`
+- `'ideogram4'`
+- `'ace_step_15'`
+
+**`AiToolkitLrScheduler`** — union
+
+`lrScheduler` values the host's ai-toolkit schema accepts.
+
+- `'constant'`
+- `'constant_with_warmup'`
+- `'cosine'`
+- `'linear'`
+- `'step'`
+
+**`AiToolkitOptimizerType`** — union
+
+`optimizerType` values the host's ai-toolkit schema accepts.
+
+- `'adamw'`
+- `'adamw8bit'`
+- `'adam8bit'`
+- `'lion'`
+- `'lion8bit'`
+- `'adafactor'`
+- `'adagrad'`
+- `'prodigy'`
+- `'prodigy8bit'`
+- `'automagic'`
+
+**`BlockTrainingQuote`** — object
+
+{@link BlockWorkflowSnapshot.trainingQuote}.
+
+| Field | Type | Notes |
+|---|---|---|
+| `quoteId` | `string` | `tq_` + 32 hex characters. Opaque — pass it back verbatim. |
+| `total` | `number` | The quoted price, in Buzz. |
+| `imageCount` | `number` | How many images the prepared dataset holds. |
+| `expiresAt` | `string` | ISO-8601. The quote cannot be run after this. |
+
 **`BlockWorkflowSnapshot`** — object
 
 The host-mediated view of an orchestrator workflow that an iframe block receives over `postMessage`. This is intentionally a flattened **subset** of `WorkflowSnapshot` from `../orchestrator/` — the host (civitai.com) maps the full orchestrator payload down to this shape before forwarding. Notable differences: - `workflowId` here = orchestrator's `id` - `imageUrls` here = flattened from `steps[].output.images[].url` - `cost.total` is the host-attested total (not the raw orchestrator field) - the status union omits orchestrator-internal states like `unassigned` If the orchestrator gains a status the host doesn't recognize, the host is responsible for mapping it to one of the values here (typically `processing` or `failed`).
@@ -265,7 +381,7 @@ orchestrator**, not a thin proxy in front of it. The body your block sends is a
 rejected at the wire schema — in the host, **before** any orchestrator call is
 made.
 
-There are three `kind` values, and `kind: 'step'` is itself two arms — four
+There are four `kind` values, and `kind: 'step'` is itself two arms — five
 members, and they are the whole surface:
 
 | `kind` | what it addresses | how you name the model |
@@ -274,6 +390,15 @@ members, and they are the whole surface:
 | `customComfy` | a **server-registered** ComfyUI recipe, **or your own graph** | a registered `recipe` id — or, with `mode: 'inline'`, the graph itself plus a declared `resources` manifest |
 | `step` (`step` present) | a **server-registered** orchestrator step (`convert-image`, `chat-completion`) | a registered `step` id |
 | `step` (`step` omitted) | an orchestrator step type **named directly**, with `input` forwarded unmodified | the orchestrator's own `$type` — not a Civitai id |
+| `training` | an ai-toolkit **LoRA training** run on a dataset of the viewer's own images | a base-model key from Civitai's training catalog (`model`), plus the `datasetId` that `usePrepareTrainingDataset()` returned |
+
+`training` ships behind the host flag **`app-blocks-training-kind`**, which is
+**off by default** and evaluated **per viewer**; where it is off, every training
+call is refused. It is a page-app flow, quoted with `estimate()` and run with
+`useRunTraining()` (`submit()` refuses it). The field table is at
+[`WorkflowBodyTraining`](#bridge-WorkflowBodyTraining); availability and money
+rules are under
+[`usePrepareTrainingDataset`](./hooks#hook-usePrepareTrainingDataset).
 
 The **registry arm** of `step` (added in `@civitai/app-sdk@0.30.0`) carries a
 registered **step id** plus bounded `params` validated per-step by the host's own
