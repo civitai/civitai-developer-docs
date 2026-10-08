@@ -2,9 +2,9 @@
 title: Running embedded & handling direct traffic
 description: Why a Civitai App runs embedded in the civitai.com host, why you should always share the /apps/run/<slug> route, how <BlockGate> makes a direct visit to the bare subdomain degrade gracefully instead of hanging, and what manifest.bootSkeleton makes the run host stand down.
 sources:
-  - npm:@civitai/blocks-react@0.63.2/dist/transport/directLoad.d.ts
-  - npm:@civitai/blocks-react@0.63.2/dist/ui/BlockGate.d.ts
-  - npm:@civitai/blocks-react@0.63.2/dist/hooks/useDirectLoad.d.ts
+  - npm:@civitai/blocks-react@0.65.0/dist/transport/directLoad.d.ts
+  - npm:@civitai/blocks-react@0.65.0/dist/ui/BlockGate.d.ts
+  - npm:@civitai/blocks-react@0.65.0/dist/hooks/useDirectLoad.d.ts
   - civitai:src/components/AppBlocks/PageBlockHost.tsx
 ---
 
@@ -80,8 +80,10 @@ conditions.
 
 ### Already there in the starters examples
 
-The `civitai` CLI's scaffold templates do **not** add `<BlockGate>` — an app
-from `civitai app create` or `civitai app init` needs the wrapper above. For a
+The `civitai` CLI's scaffold templates do **not** add `<BlockGate>` — a React app
+from `civitai app init --template page-money` needs the wrapper above. (The
+default `page-elements` template uses no React; opened top-level, it keeps its
+boot skeleton and waits for a host.) For a
 working entry point to copy, every
 [starters example](../examples#the-starters-examples) wraps its production
 render in `<BlockGate>` in `src/main.tsx`;

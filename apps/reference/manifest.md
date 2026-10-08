@@ -131,9 +131,12 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
     declare.** No access gate reads it today, so an `app_unlock` entitlement is
     recorded like any other and the platform does not yet refuse entry on it —
     **selling one does not paywall your app.** Set it only when you intend to
-    charge for access. (Not a platform rule, but worth saying: until the gate
-    lands, a listing that implies paid access is describing something the
-    platform is not doing on your behalf.) Declaring it turns on **three extra
+    charge for access — and then your app enforces the gate itself, by reading
+    the entitlement before it renders the paid experience:
+    [charging for access to the app itself](../guide/earning#charging-for-access-to-the-app-itself)
+    is the full pattern. (Not a platform rule, but worth saying: until a platform
+    gate lands, a listing that implies paid access is describing something your
+    code, not the platform, has to do.) Declaring it turns on **three extra
     rules the platform validator enforces and the schema above deliberately does
     not restate**, so each one validates offline and is rejected at submit:
     - `priceBuzz` may be at most **5000** Buzz (`BLOCK_APP_UNLOCK_MAX_PRICE_BUZZ`),

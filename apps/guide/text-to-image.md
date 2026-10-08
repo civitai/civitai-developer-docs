@@ -2,8 +2,8 @@
 title: Generating images (text-to-image)
 description: The primary App Blocks generation path — submit a text-to-image WorkflowBody, add LoRAs, do img2img (page-only), and read the result — with the server-enforced field contract and the page-vs-model rules stated in full.
 sources:
-  - npm:@civitai/app-sdk@0.56.1/blocks#WorkflowBodyTextToImage
-  - npm:@civitai/blocks-react@0.63.2#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.58.0/blocks#WorkflowBodyTextToImage
+  - npm:@civitai/blocks-react@0.65.0#useBuzzWorkflow
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockTextToImageBodySchema
 ---
 
@@ -631,7 +631,7 @@ The generation scaffold wires all of this up against the **mock host**, so the
 estimate/submit/poll round-trip runs with no backend:
 
 ```bash
-civitai app create my-app     # generation template
+civitai app create my-app --template page-money   # the generation template
 cd my-app && npm install
 npm run dev:harness           # mock host — no backend needed
 ```

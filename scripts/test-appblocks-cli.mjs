@@ -773,14 +773,16 @@ check('CONTENT — internal blank lines survive (`app create` groups five scenar
   // moves with the CLI; the STRUCTURE — content, blank, content, blank … — is
   // the invariant this guard is about, so the separator positions are derived
   // from the block rather than restated as a second literal.
+  // Re-measured at civitai 0.1.114: the page-elements default added a sixth
+  // scenario (the React alternative, `--template page-money`), 17 lines / 5.
   const got = artifact.commands.find((c) => c.command === 'app create')?.examples ?? [];
-  assertEqual(got.length, 14, '`app create` should carry 14 lines (10 content + 4 blank separators)');
+  assertEqual(got.length, 17, '`app create` should carry 17 lines (12 content + 5 blank separators)');
   assertEqual(
     got.map((l, i) => (l.trim() ? '' : String(i))).filter(Boolean).join(','),
-    '2,5,8,11',
+    '2,5,8,11,14',
     'the internal blank lines moved or were dropped',
   );
-  assert(got[0].startsWith('  # A page-money app'), `unexpected first line: ${JSON.stringify(got[0])}`);
+  assert(got[0].startsWith('  # A web-components app'), `unexpected first line: ${JSON.stringify(got[0])}`);
 });
 
 check('BOUNDARY — trailing blank lines are trimmed but nothing else is', () => {
@@ -1577,8 +1579,9 @@ check('PROSE `(default …)` stays in the description and yields no default', ()
 check('GENUINE cobra annotations ARE extracted (the guard is not "never extract")', () => {
   // Positive control. Without it, `default: null` everywhere would pass above.
   const machine = [
-    ['app create', '-t, --template string', 'page-money'],
-    ['app init', '-t, --template string', 'static'],
+    // Both default to page-elements since civitai 0.1.114 (civitai/cli#791).
+    ['app create', '-t, --template string', 'page-elements'],
+    ['app init', '-t, --template string', 'page-elements'],
     ['app listing set-icon', '--dir string', '.'],
   ];
   for (const [command, flags, want] of machine) {

@@ -2,8 +2,8 @@
 title: Generation bridge reference
 description: The field-level generation contract — the WorkflowBody union, the useBuzzWorkflow lifecycle (incl. cancel), and the BlockWorkflowSnapshot result — generated from the published SDK type JSDoc.
 sources:
-  - npm:@civitai/app-sdk@0.56.1/blocks#WorkflowBody
-  - npm:@civitai/blocks-react@0.63.2#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.58.0/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.65.0#useBuzzWorkflow
 ---
 
 # Generation bridge reference
@@ -46,8 +46,8 @@ Orchestrates the estimate → confirm → submit → poll dance through the host
 
 | Field | Type | Notes |
 |---|---|---|
-| `estimate` | `(body: WorkflowBody) => Promise<BlockWorkflowSnapshot>` | Price a workflow without queueing it. Resolves ONLY with a snapshot that carries a numeric `cost.total`. 🔴 REJECTS with {@link WorkflowEstimateError} when the reply is unusable — the estimate errored server-side, or it came back with no numeric cost. Wrap every call in `try/catch`; see that class for why resolving such a reply was civitai/civitai#4159. 🔴 THIS INCLUDES MODERATOR REVIEW PREVIEW, a behaviour change worth knowing before you ship. While an app is under review the host short-circuits every workflow request with `failureSnapshot('not available in review preview')`, so `estimate()` now rejects there where it used to resolve. That is the correct reading — no estimate happened — and it is why the catch is not optional: a block without one turns the reviewer's first click into an unhandled rejection, at exactly the moment it is meant to look healthy. A block that catches shows the reviewer the reason instead. `result` is updated to the returned snapshot BEFORE any rejection, so a failed estimate can never leave a previous, differently-configured estimate's price sitting in `result` for a Confirm gate to read. 🔴 NO AUTOMATIC CONSENT PROMPT HERE, unlike {@link UseBuzzWorkflow.submit}. Blocks call `estimate()` from an effect keyed on the generation form, so it fires on mount and on every parameter change — prompting there would open a consent dialog with no user gesture behind it, once per edit. A missing scope surfaces as an ordinary rejection; show no price and let `submit()` do the asking. |
-| `submit` | `(body: WorkflowBody, options?: SubmitWorkflowOptions) => Promise<BlockWorkflowSnapshot>` | Queue a workflow. Resolves ONLY with a reply that represents a real workflow OUTCOME — one that was queued, or one the server priced and then refused. 🔴 REJECTS with {@link WorkflowSubmitError} when the reply is failure-shaped and carries no price. Wrap every call in `try/catch`; see that class for why resolving such a reply was the `submit` half of civitai/civitai#4159. **Check `err.code` before saying anything about money** — and note that NEITHER code guarantees nothing was spent. `'exception'` usually means nothing was queued or charged, but a lost response or an in-progress idempotency conflict reaches it too; `'workflow-failed'` means a workflow PROBABLY exists (the `'whatif'` sentinel lands here too and has nothing to poll — guard before polling) and its spend may already be committed. Do not tell the viewer it was free, and on either code prefer reusing the same {@link SubmitWorkflowOptions.idempotencyKey}. 🔴 A BUDGET / SPEND-CAP REJECTION STILL RESOLVES, and that is deliberate. It is a documented outcome, not an error: the server quotes what it refused to charge, so the resolved snapshot has `status === 'failed'` AND a numeric `cost.total`. THAT is the shape to branch on when offering a top-up — `useBuzzPurchase().openPurchaseModal()` — not a `catch`. 🔴 BUT A RESOLVED `'failed'` IS NOT ALWAYS AN AFFORDABILITY PROBLEM, so do not wire every one of them to a purchase modal. The per-app **velocity** limit, the per-app **aggregate daily** cap, a fail-closed "temporarily unavailable" deny and a **missing price quote** are all priced, resolving outcomes that buying Buzz cannot fix. 🔴 THIS ALSO INCLUDES MODERATOR REVIEW PREVIEW. While an app is under review the host short-circuits every workflow request with `failureSnapshot('not available in review preview')`, so `submit()` rejects there where it used to resolve — the correct reading (no workflow was queued), and why the catch is not optional. `result` is updated to the returned snapshot BEFORE any rejection, so a failed submit can never leave a previous submit's workflow in `result`. 🔴 CONSENT IS HANDLED FOR YOU. When the token lacks `ai:write:budgeted`, this opens the host's consent dialog, waits for the grant, and re-sends the submit ONCE — with the SAME {@link SubmitWorkflowOptions.idempotencyKey}, so the two attempts are one reservation, not two. Nothing else changes: a failure while the token DOES hold the scope is untouched, a `CONSENT_UNAVAILABLE` environment is never retried, and a second consent failure reaches you unchanged. Opt out with {@link ConsentRetryOptions.autoRequestConsent}`: false`. |
+| `estimate` | `(body: WorkflowBody) => Promise<BlockWorkflowSnapshot>` | Price a workflow without queueing it. Resolves ONLY with a snapshot that carries a numeric `cost.total`. 🔴 REJECTS with {@link WorkflowEstimateError} when the reply is unusable — the estimate errored server-side, or it came back with no numeric cost. Wrap every call in `try/catch`; see that class for why resolving such a reply was civitai/civitai#4159. 🔴 THIS INCLUDES MODERATOR REVIEW PREVIEW, a behaviour change worth knowing before you ship. While an app is under review the host short-circuits every workflow request with `failureSnapshot('not available in review preview')`, so `estimate()` now rejects there where it used to resolve. That is the correct reading — no estimate happened — and it is why the catch is not optional: a block without one turns the reviewer's first click into an unhandled rejection, at exactly the moment it is meant to look healthy. A block that catches shows the reviewer the reason instead. `result` is updated to the returned snapshot BEFORE any rejection, so a failed estimate can never leave a previous, differently-configured estimate's price sitting in `result` for a Confirm gate to read. 🔴 NO AUTOMATIC CONSENT PROMPT HERE, unlike {@link UseBuzzWorkflow.submit}. Blocks call `estimate()` from an effect keyed on the generation form, so it fires on mount and on every parameter change — prompting there would open a consent dialog with no user gesture behind it, once per edit. A missing scope surfaces as an ordinary rejection; show no price and let `submit()` do the asking. A `kind: 'training'` body's reply also carries {@link BlockWorkflowSnapshot.trainingQuote} — the `quoteId` to run it with through `useRunTraining()`. |
+| `submit` | `(body: WorkflowBody, options?: SubmitWorkflowOptions) => Promise<BlockWorkflowSnapshot>` | Queue a workflow. Resolves ONLY with a reply that represents a real workflow OUTCOME — one that was queued, or one the server priced and then refused. 🔴 REJECTS with {@link WorkflowSubmitError} when the reply is failure-shaped and carries no price. Wrap every call in `try/catch`; see that class for why resolving such a reply was the `submit` half of civitai/civitai#4159. **Check `err.code` before saying anything about money** — and note that NEITHER code guarantees nothing was spent. `'exception'` usually means nothing was queued or charged, but a lost response or an in-progress idempotency conflict reaches it too; `'workflow-failed'` means a workflow PROBABLY exists (the `'whatif'` sentinel lands here too and has nothing to poll — guard before polling) and its spend may already be committed. Do not tell the viewer it was free, and on either code prefer reusing the same {@link SubmitWorkflowOptions.idempotencyKey}. 🔴 A BUDGET / SPEND-CAP REJECTION STILL RESOLVES, and that is deliberate. It is a documented outcome, not an error: the server quotes what it refused to charge, so the resolved snapshot has `status === 'failed'` AND a numeric `cost.total`. THAT is the shape to branch on when offering a top-up — `useBuzzPurchase().openPurchaseModal()` — not a `catch`. 🔴 BUT A RESOLVED `'failed'` IS NOT ALWAYS AN AFFORDABILITY PROBLEM, so do not wire every one of them to a purchase modal. The per-app **velocity** limit, the per-app **aggregate daily** cap, a fail-closed "temporarily unavailable" deny and a **missing price quote** are all priced, resolving outcomes that buying Buzz cannot fix. 🔴 THIS ALSO INCLUDES MODERATOR REVIEW PREVIEW. While an app is under review the host short-circuits every workflow request with `failureSnapshot('not available in review preview')`, so `submit()` rejects there where it used to resolve — the correct reading (no workflow was queued), and why the catch is not optional. `result` is updated to the returned snapshot BEFORE any rejection, so a failed submit can never leave a previous submit's workflow in `result`. 🔴 CONSENT IS HANDLED FOR YOU. When the token lacks `ai:write:budgeted`, this opens the host's consent dialog, waits for the grant, and re-sends the submit ONCE — with the SAME {@link SubmitWorkflowOptions.idempotencyKey}, so the two attempts are one reservation, not two. Nothing else changes: a failure while the token DOES hold the scope is untouched, a `CONSENT_UNAVAILABLE` environment is never retried, and a second consent failure reaches you unchanged. Opt out with {@link ConsentRetryOptions.autoRequestConsent}`: false`. 🔴 A `kind: 'training'` BODY IS REFUSED before anything is sent — it runs only through `useRunTraining()`. See {@link TRAINING_BODY_SUBMIT_REFUSAL}. |
 | `poll` | `(workflowId: string) => Promise<BlockWorkflowSnapshot>` | ONE host round-trip. The low-level pull primitive — you almost certainly want {@link UseBuzzWorkflow.watch} instead, which owns the loop. |
 | `watch` | `(workflowId: string, options?: WatchWorkflowOptions) => Promise<BlockWorkflowSnapshot>` | Watch a workflow to completion. Resolves with the TERMINAL snapshot; calls `onUpdate` with every intermediate snapshot along the way. This is the replacement for the `useEffect` + `setTimeout` backoff every block used to hand-write around {@link UseBuzzWorkflow.poll}. The app consumes a promise and/or a callback; the loop lives here. 🔴 THE LOOP IS SEQUENTIAL AND NON-OVERLAPPING BY CONSTRUCTION — each poll is awaited before the next is scheduled, so exactly one request per watched workflow is ever in flight. That is not tidiness: it is the property that makes a long hold SAFE. A caller-written `setInterval(poll, 2000)` against a host holding 15s would stack ~7 concurrent requests per workflow, and that is precisely why long polling is opt-in on the wire rather than switched on for every deployed block. |
 | `cancel` | `(workflowId: string) => Promise<BlockWorkflowSnapshot>` | Cancel a running workflow on the orchestrator (a real server-side stop, not just client-side untracking). The host re-derives ownership from the viewer's orchestrator token, so this can only cancel workflows the viewer owns; the orchestrator rejects others. Resolves with the workflow's (now-canceled) snapshot. |
@@ -57,12 +57,13 @@ Orchestrates the estimate → confirm → submit → poll dance through the host
 
 **`WorkflowBody`** — union
 
-Body the block sends to `useBuzzWorkflow().{submit,estimate}`. A real discriminated union keyed by `kind`: - {@link WorkflowBodyTextToImage} (`kind: 'textToImage'`) — the original checkpoint/LoRA/img2img generation body (unchanged, back-compatible). - {@link WorkflowBodyCustomComfy} (`kind: 'customComfy'`) — post-paid ComfyUI, itself a union on `mode`: a bounded, server-registered {@link WorkflowBodyCustomComfyRecipe} (the default), or a {@link WorkflowBodyCustomComfyInline} graph the block ships itself (`mode: 'inline'`; page-tokens-only, and NOT developer-only — that claim used to be here and is false). - {@link WorkflowBodyStep} (`kind: 'step'`, `step` PRESENT) — a bounded, server-registered orchestrator step (the host's step registry; billing mode and moderation posture are declared per entry). - {@link WorkflowBodyPassThroughStep} (`kind: 'step'`, `step` ABSENT) — names an orchestrator `$type` directly and has the host forward `input` unmodified. Bounded by a platform-internal denylist and by `maxBuzz`, not by a registry. `kind: 'step'` is therefore itself a union, discriminated on the PRESENCE of `step` — the same nesting {@link WorkflowBodyCustomComfy} has on `mode`. Narrowing on `kind === 'step'` alone leaves both arms in play; narrow further with `'$type' in body` (or `body.step === undefined`) before touching arm-specific fields. New kinds extend this union as the host gains support for them. Narrow on `body.kind` before touching member-specific fields (e.g. `modelId`/`params` live only on the `textToImage` member). ⚠️ Adding a member is additive for PRODUCERS (every existing body still satisfies the union) but narrowing for CONSUMERS that `switch` exhaustively over `kind`. Host code that must handle every member gets a compile error pointing at the new one, which is the intended behaviour.
+Body the block sends to `useBuzzWorkflow().{submit,estimate}`. A real discriminated union keyed by `kind`: - {@link WorkflowBodyTextToImage} (`kind: 'textToImage'`) — the original checkpoint/LoRA/img2img generation body (unchanged, back-compatible). - {@link WorkflowBodyCustomComfy} (`kind: 'customComfy'`) — post-paid ComfyUI, itself a union on `mode`: a bounded, server-registered {@link WorkflowBodyCustomComfyRecipe} (the default), or a {@link WorkflowBodyCustomComfyInline} graph the block ships itself (`mode: 'inline'`; page-tokens-only, and NOT developer-only — that claim used to be here and is false). - {@link WorkflowBodyStep} (`kind: 'step'`, `step` PRESENT) — a bounded, server-registered orchestrator step (the host's step registry; billing mode and moderation posture are declared per entry). - {@link WorkflowBodyPassThroughStep} (`kind: 'step'`, `step` ABSENT) — names an orchestrator `$type` directly and has the host forward `input` unmodified. Bounded by a platform-internal denylist and by `maxBuzz`, not by a registry. - {@link WorkflowBodyTraining} (`kind: 'training'`) — an ai-toolkit LoRA run on a server-prepared dataset of the viewer's own images. ESTIMATE ONLY through `useBuzzWorkflow`; it runs through `useRunTraining()`, whose host-chrome consent dialog is the only way to confirm its quote. `kind: 'step'` is therefore itself a union, discriminated on the PRESENCE of `step` — the same nesting {@link WorkflowBodyCustomComfy} has on `mode`. Narrowing on `kind === 'step'` alone leaves both arms in play; narrow further with `'$type' in body` (or `body.step === undefined`) before touching arm-specific fields. New kinds extend this union as the host gains support for them. Narrow on `body.kind` before touching member-specific fields (e.g. `modelId`/`params` live only on the `textToImage` member). ⚠️ Adding a member is additive for PRODUCERS (every existing body still satisfies the union) but narrowing for CONSUMERS that `switch` exhaustively over `kind`. Host code that must handle every member gets a compile error pointing at the new one, which is the intended behaviour.
 
 - `WorkflowBodyTextToImage`
 - `WorkflowBodyCustomComfy`
 - `WorkflowBodyStep`
 - `WorkflowBodyPassThroughStep`
+- `WorkflowBodyTraining`
 
 **`WorkflowBodyTextToImage`** — object
 
@@ -151,7 +152,7 @@ The REGISTRY ARM of the `kind: 'step'` member — a **registered orchestrator st
 
 **`WorkflowBodyPassThroughStep`** — object
 
-The PASS-THROUGH ARM of the `kind: 'step'` member — the block names an ORCHESTRATOR `$type` directly and the host forwards `input` **unmodified**. No registry entry, no server-side translator, no per-step param schema. Mirrors the host's `blockPassThroughStepBodySchema`. That schema is `.strict()` with exactly these fields, so anything else on this object is REJECTED server-side rather than dropped. 🔴 **`step` IS THE ARM DISCRIMINATOR AND IT MUST BE ABSENT.** Send `{ kind: 'step', $type, input, maxBuzz }` with no `step` key at all. It is typed `step?: undefined` here so that omitting it satisfies the type while setting it to anything is a compile error — the host's discriminated union uses `z.undefined()` for the same job, and a body carrying both `step` and `$type` is rejected by BOTH arms (each is `.strict()`) rather than resolved to a winner. WHAT THIS ARM GIVES UP relative to {@link WorkflowBodyStep}. Four of the registry's controls are deliberately absent, by operator decision — this is documented so it reads as a decision rather than an oversight: 1. **No per-step `.strict()` param schema.** `input` is opaque; the orchestrator's own per-`$type` validation is the only shape gate, and it runs AFTER the spend reservation rather than at the wire. 2. **No moderation posture and no prompt audit.** Nothing audits `input`. Moderation moved to the PUBLISH boundary — nothing a block generates is public until published, and that path is moderated. 3. **No resource policy / `urn:air:` scan.** AIR resources are ALLOWED here. Spend, not entitlement, is the binding control. 4. **No `billingMode` and no load-time price invariant.** {@link maxBuzz} replaces them, exactly as on {@link WorkflowBodyCustomComfyInline}. WHAT STILL BOUNDS IT, all server-side: - A **denylist** of platform-internal `$type`s (scanners, moderation classifiers, hashing/model-ingestion, web egress) is refused by the host router before any spend reservation or orchestrator call. It is a DENYLIST, not an allowlist: a `$type` the host has never heard of is allowed through by construction, which is the point of this arm. - `$type` is bounded to **1…64 characters** and `input` to **262144 bytes** (256 KB) serialized. Both REJECT; neither truncates. - `maxBuzz` is the single spend knob — see its own note below.
+The PASS-THROUGH ARM of the `kind: 'step'` member — the block names an ORCHESTRATOR `$type` directly and the host forwards `input` **unmodified**. No registry entry, no server-side translator, no per-step param schema. Mirrors the host's `blockPassThroughStepBodySchema`. That schema is `.strict()` with exactly these fields, so anything else on this object is REJECTED server-side rather than dropped. 🔴 **`step` IS THE ARM DISCRIMINATOR AND IT MUST BE ABSENT.** Send `{ kind: 'step', $type, input, maxBuzz }` with no `step` key at all. It is typed `step?: undefined` here so that omitting it satisfies the type while setting it to anything is a compile error — the host's discriminated union uses `z.undefined()` for the same job, and a body carrying both `step` and `$type` is rejected by BOTH arms (each is `.strict()`) rather than resolved to a winner. WHAT THIS ARM GIVES UP relative to {@link WorkflowBodyStep}. Four of the registry's controls are deliberately absent, by operator decision — this is documented so it reads as a decision rather than an oversight: 1. **No per-step `.strict()` param schema.** `input` is opaque; the orchestrator's own per-`$type` validation is the only shape gate, and it runs AFTER the spend reservation rather than at the wire. 2. **No moderation posture and no prompt audit.** Nothing audits `input`. Moderation moved to the PUBLISH boundary — nothing a block generates is public until published, and that path is moderated. 3. **No resource policy / `urn:air:` scan.** AIR resources are ALLOWED here. Spend, not entitlement, is the binding control. 4. **No `billingMode` and no load-time price invariant.** {@link maxBuzz} and a per-request orchestrator `whatif` quote replace them — see `maxBuzz` below for how the two combine. WHAT STILL BOUNDS IT, all server-side: - A **denylist** of platform-internal `$type`s (scanners, moderation classifiers, hashing/model-ingestion, web egress) is refused by the host router before any spend reservation or orchestrator call. It is a DENYLIST, not an allowlist: a `$type` the host has never heard of is allowed through by construction, which is the point of this arm. `training` and `imageResourceTraining` are deliberately NOT on it (a host operator decision): both may be submitted here, on the same terms as every other `$type`. If the orchestrator quotes the run, the host reserves the quote (or `maxBuzz`, if larger), gated by the token's per-call budget, and stamps no timeout; if it does not, `maxBuzz` is both the reservation and the timeout — see `maxBuzz` below. Whether a given training input is quoted, and at what price, is the orchestrator's answer, not this package's: read it from `estimate`. A host that supports it reports the trained epochs on {@link BlockWorkflowSnapshot.trainedEpochs} without exposing the checkpoint itself. - `$type` is bounded to **1…64 characters** and `input` to **262144 bytes** (256 KB) serialized. Both REJECT; neither truncates. - `maxBuzz` is the app's spend knob, and the host's quote can raise the reservation above it — see its own note below.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -159,7 +160,147 @@ The PASS-THROUGH ARM of the `kind: 'step'` member — the block names an ORCHEST
 | `step?` | `undefined` | 🔴 THE ARM DISCRIMINATOR — **omit this key**. It exists in the type only so that a body which sets it cannot be mistaken for a pass-through body: the only assignable value is `undefined`, and the wire payload carries no `step` key at all (JSON cannot express `undefined`). To name a REGISTERED step id instead, you want {@link WorkflowBodyStep}. |
 | `$type` | `string` | The ORCHESTRATOR step type to run, verbatim — e.g. `'imageBackgroundRemoval'`. Required, 1…64 characters. This is the orchestrator's own `$type` discriminator, NOT a Civitai step- registry id, and it is not resolved against any allowlist. It is refused only if it names a platform-internal type (the denylist above; the match is case-insensitive). The host records the submitted value as the subtype of the generation it stamps, so a `$type` longer than the cap is rejected rather than silently degraded. |
 | `input` | `Record<string, unknown>` | The orchestrator step's own input object, **forwarded unmodified**. The host does not read, rewrite, merge or default any field in here — that is the whole point of this arm, and the step the orchestrator receives carries an `input` byte-identical to this value. Consequently the orchestrator's per-`$type` schema is the ONLY authority for what a given `$type` accepts; nothing in this package or on the host mirrors it. Bounded only by size: at most **262144 bytes** (256 KB) serialized, which is a payload-DoS bound and not a shape gate. |
-| `maxBuzz` | `number` | The per-job Buzz ceiling. Required, an integer in **1…250**. 🔴 **IT IS ALSO THE STEP TIMEOUT, IN SECONDS** — identical mechanism to {@link WorkflowBodyCustomComfyInline.maxBuzz}. The host stamps `stepTimeoutSeconds = maxBuzz`; there is only one number, which is what makes the ceiling physically enforceable rather than merely asserted. So `maxBuzz: 10` does not buy a cheap job; it buys one that is KILLED after 10 seconds and comes back `expired`. Size it to the wall-clock time the step actually needs. You are billed the REAL cost: post-paid against measured GPU seconds, refunding the unused remainder of the ceiling, so a generous `maxBuzz` costs nothing extra when the job finishes early. `estimate` on a pass-through body echoes this number back as `cost.total` — an upper bound, not a price; surface it as "up to N Buzz". The host additionally requires `maxBuzz \<= token.buzzBudget` before submit. |
+| `maxBuzz` | `number` | The app's declared per-job Buzz amount: the least the host reserves, and — only when unquoted — the step timeout in seconds. NOT a spend ceiling (see below). Required, an integer in **1…250**. 🔴 **WHAT IT BOUNDS DEPENDS ON WHETHER THE HOST GOT A QUOTE** — this is NOT the mechanism of {@link WorkflowBodyCustomComfyInline.maxBuzz}, which is always the timeout. On both `estimate` and `submit` the host first asks the orchestrator for a `whatif` quote of this exact step, then: - **Quoted** — the host reserves `max(maxBuzz, quote)` and stamps NO step timeout. That reservation can exceed 250: it is gated against the token's per-call budget (`token.buzzBudget` — the app's per-generation budget, capped at 1000 when the host mints a production token), and a submit whose reservation exceeds that budget comes back `failed` with an `insufficient buzz budget` error before any Buzz is reserved. - **Unquoted** (the orchestrator returned no price, or the quote could not be had) — the host reserves `maxBuzz` and stamps it as the step timeout, in seconds. `maxBuzz: 10` then buys a job that is KILLED after 10 seconds and comes back `expired`, so size it to the wall-clock time the step actually needs. The same per-call budget gate applies. The timeout bounds wall-clock time; it bounds spend only for a step billed by compute time. A step priced per unit can bill ABOVE `maxBuzz`. `estimate` on a pass-through body returns, as `cost.total`, the number the submit would reserve: `max(maxBuzz, quote)`, or `maxBuzz` when unquoted. It is a reservation, NOT a guaranteed ceiling: the terminal settle refunds any unused remainder, but nothing on this arm stops a job billing above the reservation (see the unquoted case above). Do not present it to the viewer as a maximum. |
+
+**`WorkflowBodyTraining`** — object
+
+Train a LoRA with the ai-toolkit engine on a dataset Civitai prepared from the VIEWER'S OWN images — the App Blocks `kind: 'training'` workflow body. ## Availability — read before building on it - 🔴 Behind the host flag **`app-blocks-training-kind`**, which ships OFF and is evaluated per viewer. Where it is off, every training call is refused (`training from apps is not enabled`). - **Page apps only** (`/apps/run/\<slug>`). The model slot answers both training messages with an error, and the server refuses a non-page token. - The manifest must declare **`ai:write:budgeted`** and the viewer must have granted it; the viewer must be signed in. - **Not from a development or review session**: dev tokens (`dev:live`, dev tunnel) and review-sandbox tokens are refused, run-for-real included. Use the mock host (`createMockHost` / `Harness`) to build the flow. ## The flow 1. **Dataset** — `usePrepareTrainingDataset()` (`PREPARE_TRAINING_DATASET`) with `[{ imageId, caption }]`. Only the viewer's OWN scanned, unflagged images within the page's maturity ceiling are admitted; the rest come back in `rejected`. You get an opaque {@link WorkflowBodyTraining.datasetId}. 2. **Quote** — `useBuzzWorkflow().estimate(body)` with this body, `quoteId` ABSENT. The reply's {@link BlockWorkflowSnapshot.trainingQuote} is the orchestrator's own price for exactly this run, stored server-side. 3. **Run** — `useRunTraining().runTraining({ ...body, quoteId })` (`RUN_TRAINING`). Civitai shows the viewer a consent dialog in ITS chrome — price, base model, length, dataset size, all read back from the server, never from your body — and submits only on their click. 4. **Follow** — `useBuzzWorkflow().watch(snapshot.workflowId)`. 🔴 `useBuzzWorkflow().submit()` REFUSES THIS BODY before sending it. The server charges a training run only against a quote the viewer confirmed from a signed-in session, which only `RUN_TRAINING`'s dialog can record. ## Money There is no `maxBuzz` and no timeout knob, on purpose: the price is the quote. A run may cost more than the token's per-call `buzzBudget` (the viewer confirms the exact price), up to {@link BLOCK_TRAINING_MAX_BUZZ_PER_RUN} (5,000 Buzz); an estimate above that is refused.
+
+| Field | Type | Notes |
+|---|---|---|
+| `kind` | `'training'` |  |
+| `datasetId` | `string` | The handle `usePrepareTrainingDataset()` returned — `tds_` + 32 hex characters. |
+| `engine` | `'ai-toolkit'` | The only engine accepted. |
+| `model` | `string` | A base-model key from Civitai's training catalog (1…64 characters), resolved and gated server-side. Custom AIRs are not accepted. |
+| `params` | `AiToolkitTrainingParams` |  |
+| `triggerWord` | `string` | At most {@link BLOCK_TRAINING_TRIGGER_WORD_MAX_CHARS} characters. Moderated like a prompt. |
+| `samplePrompts` | `string[]` | At most {@link BLOCK_TRAINING_SAMPLE_PROMPTS_MAX} prompts of at most {@link BLOCK_TRAINING_SAMPLE_PROMPT_MAX_CHARS} characters each. Moderated like prompts. |
+| `quoteId?` | `string` | The quote this run is charged against — {@link BlockTrainingQuote.quoteId} from the estimate (`tq_` + 32 hex characters). OMIT it on the estimate; REQUIRED on `RUN_TRAINING`. The server checks the rest of the body against the body that was quoted, so change nothing else between the two. |
+
+**`BlockTrainedEpoch`** — object
+
+One entry of {@link BlockWorkflowSnapshot.trainedEpochs} / {@link AppWorkflow.trainedEpochs}.
+
+| Field | Type | Notes |
+|---|---|---|
+| `$type` | `'training' \| 'imageResourceTraining'` | Which pass-through training `$type` produced this epoch. The SDK's inbound validator checks only that it is a string, so a value the host adds later can arrive — give an exhaustive `switch` a default branch. |
+| `epochNumber` | `number` | Pass as `epoch` to the `/models/train/from-orchestrator` wizard route. |
+
+**`AiToolkitTrainingParams`** — alias
+
+`params` of a {@link WorkflowBodyTraining} — the host's `aiToolkitTrainingParamsSchema`, the same schema Civitai's own training form validates against, discriminated on `ecosystem`. ⚠️ THE ECOSYSTEM LIST IS CLOSED HERE AND OPEN ON THE HOST. The host adds ecosystems over time; until this package mirrors one, a body naming it does not type-check. That is the cost of a typed copy, paid deliberately: a free `string` would let a typo through to a refused estimate.
+
+```ts
+AiToolkitTrainingParamsBase & ({
+    ecosystem: AiToolkitPlainEcosystem;
+    modelVariant?: undefined;
+} | {
+    ecosystem: 'sd3';
+    modelVariant: 'large' | 'medium';
+} | {
+    ecosystem: 'flux1';
+    modelVariant: 'dev' | 'schnell';
+} | {
+    ecosystem: 'wan';
+    modelVariant: '2.1' | '2.2';
+} | {
+    ecosystem: 'flux2klein';
+    modelVariant: '4b' | '9b';
+} | {
+    ecosystem: 'qwen21' | 'ming' | 'yue2';
+    modelVariant?: undefined;
+    batchSize?: 1;
+} | {
+    ecosystem: 'ace_step_15_xl';
+    modelVariant: 'base' | 'sft';
+})
+```
+
+**`AiToolkitTrainingParamsBase`** — object
+
+The fields every ai-toolkit ecosystem shares (`aiToolkitBaseParams` on the host).
+
+| Field | Type | Notes |
+|---|---|---|
+| `engine` | `'ai-toolkit'` |  |
+| `epochs?` | `number` | Saved checkpoint count, integer 1…50. With `steps` absent it is also the length knob. |
+| `steps?` | `number` | Total training steps, integer ≥ 1 — the primary length (and price) knob. |
+| `batchSize?` | `number` | Integer ≥ 1. Exactly `1` on the `qwen21` / `ming` / `yue2` ecosystems. |
+| `sampleCfgScale?` | `number` |  |
+| `sampleStrength?` | `number` |  |
+| `continueFrom?` | `string` |  |
+| `resolution` | `number \| null` |  |
+| `lr` | `number` | Learning rate. 🔴 Must be BELOW `0.1` unless `optimizerType` is `prodigy` or `prodigy8bit` — a host refinement this type cannot express; a body that breaks it is refused at estimate. |
+| `textEncoderLr` | `number \| null` |  |
+| `trainTextEncoder` | `boolean` |  |
+| `lrScheduler` | `AiToolkitLrScheduler` |  |
+| `optimizerType` | `AiToolkitOptimizerType` |  |
+| `networkDim` | `number \| null` |  |
+| `networkAlpha` | `number \| null` |  |
+| `noiseOffset` | `number \| null` |  |
+| `minSnrGamma` | `number \| null` |  |
+| `flipAugmentation` | `boolean` |  |
+| `shuffleTokens` | `boolean` |  |
+| `keepTokens` | `number` |  |
+| `numRepeats?` | `number` |  |
+
+**`AiToolkitPlainEcosystem`** — union
+
+The ai-toolkit ecosystems that take NO `modelVariant` — send the key absent. (`qwen21` / `ming` / `yue2` also take none; they live on their own arm of {@link AiToolkitTrainingParams} because they pin `batchSize` to `1`.)
+
+- `'sd1'`
+- `'sdxl'`
+- `'chroma'`
+- `'qwen'`
+- `'zimageturbo'`
+- `'zimagebase'`
+- `'ltx2'`
+- `'ltx23'`
+- `'ltx25'`
+- `'minimaxh3'`
+- `'ernie'`
+- `'anima'`
+- `'boogu'`
+- `'krea2'`
+- `'mageflow'`
+- `'ideogram4'`
+- `'ace_step_15'`
+
+**`AiToolkitLrScheduler`** — union
+
+`lrScheduler` values the host's ai-toolkit schema accepts.
+
+- `'constant'`
+- `'constant_with_warmup'`
+- `'cosine'`
+- `'linear'`
+- `'step'`
+
+**`AiToolkitOptimizerType`** — union
+
+`optimizerType` values the host's ai-toolkit schema accepts.
+
+- `'adamw'`
+- `'adamw8bit'`
+- `'adam8bit'`
+- `'lion'`
+- `'lion8bit'`
+- `'adafactor'`
+- `'adagrad'`
+- `'prodigy'`
+- `'prodigy8bit'`
+- `'automagic'`
+
+**`BlockTrainingQuote`** — object
+
+{@link BlockWorkflowSnapshot.trainingQuote}.
+
+| Field | Type | Notes |
+|---|---|---|
+| `quoteId` | `string` | `tq_` + 32 hex characters. Opaque — pass it back verbatim. |
+| `total` | `number` | The quoted price, in Buzz. |
+| `imageCount` | `number` | How many images the prepared dataset holds. |
+| `expiresAt` | `string` | ISO-8601. The quote cannot be run after this. |
 
 **`BlockWorkflowSnapshot`** — object
 
@@ -174,6 +315,14 @@ The host-mediated view of an orchestrator workflow that an iframe block receives
 | `error?` | `string` |  |
 | `spentAccountType?` | `BuzzAccountType` | The Buzz pool that was the PRIMARY FUNDER of this generation — i.e. the account with the LARGEST debit, which the host stamps onto the workflow snapshot server-side. This is NOT necessarily "the paid account": a generation covered mostly by free/earned Buzz reports `spentAccountType: 'blue'`. Populated by the host from the Phase-1 backend `spentAccountType` field; absent when the host predates it or no spend occurred. Informational only — surface it (e.g. "funded from your yellow balance") but don't gate on it. |
 | `autoClaim?` | `{ type: 'dailyBoost'; amount: number; accountType: 'yellow' \| 'blue' \| 'red' \| 'green'; }` | Set when the host opportunistically claimed a Buzz reward on the user's behalf during submit. Currently the host only fires this for the daily boost (25 blue Buzz, one per UTC day) when the user's balance would otherwise have been short by less than the boost amount. Informational only — the block has no obligation to reconcile state (the claim already settled in the orchestrator). A typical block UX surfaces a small "+25 daily boost claimed" notice next to the succeeded result. |
+| `modelSubstitutions?` | `BlockModelSubstitution[]` | Checkpoint versions the host SILENTLY replaced before running the generation. `requested` is the version id the block asked for, `applied` is the one that actually ran (and was billed). On an ecosystem whose model is locked to a workflow, the host swaps a version id that is not offered for the current workflow for that workflow's default and still succeeds — graceful degradation that keeps an app pinned to a since-retired version working. This field only REPORTS the swap; the behaviour is unchanged. WHERE IT APPEARS: on the `kind: 'textToImage'` path only — the submit reply, the estimate reply, every submit reply that quotes a cost without submitting, and every later poll/cancel of that workflow (the record is persisted with it, so it sits next to the `imageUrls` it describes). An estimate creates no persisted workflow, so there it exists only on that reply. It does NOT appear for `customComfy` or `step` bodies: neither resolves a checkpoint, so there is nothing to substitute. OMITTED entirely when nothing was substituted. Absent on hosts that predate it. |
+| `textOutputs?` | `string[]` | Generated FREE TEXT produced by a registered text-output step (e.g. `chat-completion`) — every string here has PASSED the host's output moderation scan. WHERE IT APPEARS: the poll and cancel replies (`poll()` / `cancel()` / `watch()` on `useBuzzWorkflow`). NOT on the submit reply — a submit returns a freshly-queued workflow with no output yet, so poll for the text. Also never on {@link AppWorkflow}, which has no text field. OMITTED entirely when there is no text. Independent of {@link BlockWorkflowSnapshot.textOutputWithheld}: a workflow with two text steps can release one and withhold the other, and both fields then appear. |
+| `textOutputWithheld?` | `{ reason: string; }` | Set when a text-output step produced nothing the block can be given, with a user-facing sentence saying why. TWO distinct causes land here: 1. WITHHELD — text WAS produced and is being kept back: a content-policy hit, or any other fail-CLOSED scan outcome (scanner error or timeout, no verdict at all, an over-cap payload, or requested labels that came back missing or errored). Every one of those paths returns the SAME message, so this cause is one string with several origins. 2. UNPUBLISHABLE — the step SUCCEEDED and the scan RELEASED, but none of what came back could be published (e.g. a provider tool-call `id` outside the published charset). Nothing was moderated in this case, and the message says so explicitly. `reason` is deliberately generic: it does not name the labels that triggered. 🔴 THE TWO CAUSES ARE NOT MACHINE-SEPARABLE without matching on the string, which is NOT a contract. Do not branch on the text of `reason`. 🔴 ONLY CAUSE 2 IS STATUS-GATED, and that gate reads the STEP's own `succeeded` status — never the workflow's. Cause 1 is not gated at all, so a CANCELLED generation CAN still set this field: the orchestrator returns whatever text it had already produced, that text is still scanned, and a hit still withholds it. A block that skips rendering `reason` on cancel would suppress a real content-policy explanation. A block polling a healthy in-flight generation sees the field absent — not because of its status, but because a step that has produced no text yet can reach neither cause. Independent of {@link BlockWorkflowSnapshot.textOutputs} rather than mutually exclusive, so `reason` is scoped to "a step in this response", never to the response as a whole. Same appearance rules as `textOutputs`. |
+| `toolCalls?` | `BlockStepToolCall[]` | Structured tool calls the model requested on a registered text-output step (e.g. `chat-completion` with tools), which have PASSED the same output moderation scan as {@link BlockWorkflowSnapshot.textOutputs}: every `arguments` string here was part of the text the scan released. The tool `name` is restricted to `[A-Za-z0-9_-]`, so it cannot carry prose. Each entry is fully populated — the host drops a call it cannot fill completely rather than publishing a partial one. Same appearance rules as `textOutputs` (poll and cancel replies only). OMITTED entirely when there are none. |
+| `stepOutputs?` | `Array<{ $type: string; output: unknown; }>` | The raw orchestrator output of each PASS-THROUGH step ({@link WorkflowBodyPassThroughStep}: `kind: 'step'` with a `$type`), as `{ $type, output }`, forwarded as-is — minus its blobs. Blob-SHAPED values are removed from `output`; their available urls go to {@link BlockWorkflowSnapshot.imageUrls} (and to {@link AppWorkflow.images}) instead, so a pass-through step does not open a second image channel. "Blob-shaped" is the exact scope of that: a url held in a plain string field of the output is not a blob and can still appear here. 🔴 UNSCANNED. Unlike `textOutputs`, no moderation scan runs over this field; moderation for the pass-through arm happens at the publish boundary. Treat any text in it accordingly. 🔴 A `$type` that is ALSO a registered step's orchestrator type (e.g. `chatCompletion`, which `chat-completion` uses) is handled by that registered step instead — its text arrives on `textOutputs`, scanned, and it does not appear here. Which channel a pass-through `$type` lands on can therefore change the day the host registers a step for it. `output` is `unknown`: its shape is whatever the orchestrator returns for that `$type`. OMITTED entirely when the workflow has no pass-through step with an unregistered `$type`. |
+| `trainedEpochs?` | `BlockTrainedEpoch[]` | The epochs of a pass-through `training` / `imageResourceTraining` step (see {@link WorkflowBodyPassThroughStep}) that PRODUCED A CHECKPOINT — one entry per epoch, each naming the step's `$type` and its `epochNumber`. Only runs whose training moderation status is approved are listed; an unmoderated or refused run reports no epochs. 🔴 THE CHECKPOINT ITSELF IS DELIBERATELY NOT EXPOSED — this field carries no download url. (An older host may still surface checkpoint urls in `imageUrls` or `stepOutputs` for a training step; that is a host defect, not a contract — never treat an `imageUrls` entry as a checkpoint.) To publish a trained epoch, navigate the viewer to Civitai's own model wizard: ```ts const { navigate } = useCivitaiNavigate(); navigate( `models/train/from-orchestrator?workflowId=${snapshot.workflowId}&epoch=${epoch.epochNumber}`, { scope: 'site' }, ); ``` The viewer completes (or abandons) the publish there, on Civitai's surface; {@link BlockWorkflowSnapshot.publishedModel} then reports the result. 🔴 REQUIRES A HOST VERSION THAT EMITS IT. Absent on older hosts — treat absence as "unknown", not as "no checkpoint". The run's spend and timeout follow the pass-through arm's rules — see {@link WorkflowBodyPassThroughStep.maxBuzz}. |
+| `publishedModel?` | `BlockPublishedModel` | The Civitai model this run has been published as — present once the viewer has STARTED or FINISHED publishing it through the model wizard reached from {@link BlockWorkflowSnapshot.trainedEpochs}. `published` is `false` while the model is still a draft and `true` once it is published. 🔴 REQUIRES A HOST VERSION THAT EMITS IT. Absent on older hosts, and absent on any run nobody has started publishing. |
+| `trainingQuote?` | `BlockTrainingQuote` | The quote a {@link WorkflowBodyTraining} ESTIMATE produced — the orchestrator's own price for exactly that run, stored server-side. Pass `trainingQuote.quoteId` back as the body's `quoteId` on `useRunTraining().runTraining()`; the consent dialog then shows the viewer this price, read back from the server. `cost.total` on the same snapshot equals `trainingQuote.total`. `expiresAt` is an ISO-8601 timestamp: after it the run is refused and you estimate again. `imageCount` is the server-derived size of the prepared dataset, never a number the block sent. Present ONLY on the reply to a `kind: 'training'` estimate. Absent on hosts that predate civitai/civitai#5434. |
 
 **`AppWorkflow`** — object
 
@@ -186,6 +335,8 @@ The clean, wire-stable projection of ONE orchestrator workflow in the calling ap
 | `images` | `AppWorkflowImage[]` |  |
 | `cost` | `number \| null` |  |
 | `createdAt` | `string` | ISO-8601. |
+| `publishedModel?` | `BlockPublishedModel` | The Civitai model a training run in this workflow was published as — present once the viewer has started or finished publishing it through the model wizard. Same shape and meaning as {@link BlockWorkflowSnapshot.publishedModel}. 🔴 REQUIRES A HOST VERSION THAT EMITS IT. Absent on older hosts, and on every workflow nobody has published. |
+| `trainedEpochs?` | `BlockTrainedEpoch[]` | The epochs of a pass-through `training` / `imageResourceTraining` step in this workflow that produced a checkpoint. Same shape and rule as {@link BlockWorkflowSnapshot.trainedEpochs}: only runs whose training moderation status is approved are listed, the checkpoint itself is not exposed, and the field is OMITTED when there are no epochs to list. Lets a block offer "publish epoch n" from its queue without polling each run. 🔴 REQUIRES A HOST VERSION THAT EMITS IT. Absent on older hosts — treat absence as "unknown", not as "no checkpoint". |
 
 **`AppWorkflowImage`** — object
 
@@ -230,7 +381,7 @@ orchestrator**, not a thin proxy in front of it. The body your block sends is a
 rejected at the wire schema — in the host, **before** any orchestrator call is
 made.
 
-There are three `kind` values, and `kind: 'step'` is itself two arms — four
+There are four `kind` values, and `kind: 'step'` is itself two arms — five
 members, and they are the whole surface:
 
 | `kind` | what it addresses | how you name the model |
@@ -239,6 +390,15 @@ members, and they are the whole surface:
 | `customComfy` | a **server-registered** ComfyUI recipe, **or your own graph** | a registered `recipe` id — or, with `mode: 'inline'`, the graph itself plus a declared `resources` manifest |
 | `step` (`step` present) | a **server-registered** orchestrator step (`convert-image`, `chat-completion`) | a registered `step` id |
 | `step` (`step` omitted) | an orchestrator step type **named directly**, with `input` forwarded unmodified | the orchestrator's own `$type` — not a Civitai id |
+| `training` | an ai-toolkit **LoRA training** run on a dataset of the viewer's own images | a base-model key from Civitai's training catalog (`model`), plus the `datasetId` that `usePrepareTrainingDataset()` returned |
+
+`training` ships behind the host flag **`app-blocks-training-kind`**, which is
+**off by default** and evaluated **per viewer**; where it is off, every training
+call is refused. It is a page-app flow, quoted with `estimate()` and run with
+`useRunTraining()` (`submit()` refuses it). The field table is at
+[`WorkflowBodyTraining`](#bridge-WorkflowBodyTraining); availability and money
+rules are under
+[`usePrepareTrainingDataset`](./hooks#hook-usePrepareTrainingDataset).
 
 The **registry arm** of `step` (added in `@civitai/app-sdk@0.30.0`) carries a
 registered **step id** plus bounded `params` validated per-step by the host's own
