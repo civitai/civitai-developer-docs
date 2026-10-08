@@ -9,8 +9,8 @@ sources:
   - civitai:src/server/services/blocks/author-fee-accrual.service.ts
   - civitai:src/server/services/blocks/author-fee-settlement.service.ts
   - civitai:src/server/middleware/block-scope.middleware.ts
-  - npm:@civitai/blocks-react@0.65.0/dist/hooks/useGoodPurchase.d.ts
-  - npm:@civitai/blocks-react@0.65.0/dist/hooks/useEntitlements.d.ts
+  - npm:@civitai/blocks-react@0.65.1/dist/hooks/useGoodPurchase.d.ts
+  - npm:@civitai/blocks-react@0.65.1/dist/hooks/useEntitlements.d.ts
 ---
 
 # How an app earns
