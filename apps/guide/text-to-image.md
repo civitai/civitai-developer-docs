@@ -452,10 +452,10 @@ is refused **without** a `cost`, so it rejects too. See the
 [`useBuzzWorkflow` reference](../reference/generation#bridge-useBuzzWorkflow)
 for the error's `code`s and what each says about money.
 
-<!-- Remove the warning below once the generated useBuzzWorkflow reference stops
-     calling a resolved refusal "the shape to branch on when offering a top-up"
-     (civitai-app-starters #568 publishes the corrected JSDoc; this repo's pin
-     bump in #174 regenerates the page). -->
+<!-- Remove the warning below when this repo bumps @civitai/blocks-react to
+     >= 0.65.1. That release carries the corrected useBuzzWorkflow JSDoc
+     (civitai-app-starters #568), so the regenerated reference no longer calls a
+     resolved refusal "the shape to branch on when offering a top-up". -->
 ::: warning The generated reference says the opposite. This guide is right.
 The [`useBuzzWorkflow` reference](../reference/generation#bridge-useBuzzWorkflow)
 calls a resolved budget or spend-cap `'failed'` "the shape to branch on when
