@@ -47,9 +47,8 @@ of those.
 
 - **Layer surfaces instead of one flat background** — page on
   `--civitai-color-body`, panels on `--civitai-color-surface` /
-  `--civitai-color-surface-2`. In the light palette those three are the same
-  value, so separate layers there with `--civitai-color-border`. See
-  [Design tokens](../tokens).
+  `--civitai-color-surface-2`, separated with `--civitai-color-border` where
+  the values are close. Check both palettes in [Design tokens](../tokens).
 - **Keep the palette subtle.** Let colour mark state and the primary action,
   not decorate.
 - **Show media larger rather than as chips.** In an image app the image is
@@ -68,8 +67,7 @@ of those.
 ## 5. Money path honesty
 
 - **Show the exact Buzz price before spend:** estimate → consent → submit →
-  watch. `useBuzzWorkflow().estimate()` puts the price on `result.cost.total`;
-  see [the `useBuzzWorkflow` lifecycle](../reference/generation#bridge-useBuzzWorkflow)
+  watch — see [the `useBuzzWorkflow` lifecycle](../reference/generation#bridge-useBuzzWorkflow)
   and, for consent, [`app.requestGrants`](./sdk#consent-app-requestgrants) or
   `useRequestConsent` in the [hooks reference](../reference/hooks).
 - **Render your own error copy, never raw server text.** Branch on the
@@ -78,8 +76,7 @@ of those.
   ([refused submits](./text-to-image#refused-submits)).
 - **A disabled or gated action names what is missing, and recomputes live
   as fields fill.** A press that silently does nothing reads as broken.
-- **One idempotency key per attempt** — minted before the first try, reused
-  unchanged on every retry of it. A new key on a retry is a second charge. See
+- **One idempotency key per attempt**, reused on every retry of it — see
   [Retrying a submit safely](./text-to-image#retrying-a-submit-safely) and the
   [key's charset](../reference/generation#idempotency-key-charset).
 
@@ -91,13 +88,9 @@ of those.
   submission at a time, and there is no editing it — the only way to change a
   pending bundle is to withdraw and resubmit.
 - **Submit the next version only after the current one clears review.**
-
-::: danger Withdrawing a first-version submission deletes the store listing
-Icon, cover, every screenshot and caption — server-side, and resubmitting
-starts an empty listing. A moderator rejecting a first version discards it the
-same way. Attach listing media after the submission you intend to keep. See
-[Changing the bundle while a request is still pending](./review-and-deploy#changing-the-bundle-while-a-request-is-still-pending).
-:::
+- **Before you withdraw anything, read
+  [what withdrawing does to the store listing](./review-and-deploy#changing-the-bundle-while-a-request-is-still-pending).**
+  It is irreversible for a first version.
 
 ## 7. After approval
 
@@ -106,9 +99,7 @@ same way. Attach listing media after the submission you intend to keep. See
 - **Make sure the row you are reading is the live build.**
   `civitai app status <slug>` details your **newest** submission, which can be a
   `pending` or `withdrawn` row rather than what is deployed. Read the
-  `approved` row — in the `civitai app status` listing (STATUS / DEPLOY / URL
-  columns) or its `--json` — unless your CLI's detail view already says which
-  row is live. See [Tracking a submission](./review-and-deploy#tracking-a-submission).
-- **Deployed ≠ listed in the store.** `app status` and `app view` read
-  different resources; see
+  `approved` row in the listing unless your CLI's detail view already says
+  which row is live. See [Tracking a submission](./review-and-deploy#tracking-a-submission).
+- **Deployed ≠ listed in the store** — see
   [Deployed is not the same as listed](./review-and-deploy#deployed-is-not-the-same-as-listed-in-the-store).
