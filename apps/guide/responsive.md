@@ -221,6 +221,65 @@ width is touched by it. On a model slot, tell the host how tall you are with
 [`useBlockResize`](../reference/hooks) and keep the layout single-column — you
 are in a sidebar whether or not the window is wide.
 
+## Pattern: sidenav on wide, top strip on narrow {#sidenav-pattern}
+
+The usual replacement for a row of tabs: one view, with its sections in a nav
+that is a sidebar when there is room and a horizontally-scrolling strip above
+the content when there is not. It is a pure CSS reflow — the DOM is the same at
+every width, so there is no structural swap to gate on `measured`.
+
+```html
+<div class="shell">
+  <nav class="shell-nav" aria-label="Sections">
+    <a href="#create" aria-current="page">Create</a>
+    <a href="#history">History</a>
+    <a href="#settings">Settings</a>
+  </nav>
+  <main class="shell-main">…</main>
+</div>
+```
+
+```css
+.shell {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+/* base → xs: a strip across the top that scrolls sideways instead of wrapping */
+.shell-nav {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  padding: 0.5rem;
+  background: var(--civitai-color-surface);
+  border-bottom: 1px solid var(--civitai-color-border);
+}
+.shell-nav a { flex: none; white-space: nowrap; padding: 0.375rem 0.75rem; }
+.shell-nav a[aria-current] { background: var(--civitai-color-primary-light); }
+.shell-main { min-width: 0; padding: 1rem; }
+
+/* 768px is --civitai-bp-sm — literal, because var() is dead in a media condition. */
+@media (min-width: 768px) {
+  .shell { grid-template-columns: 12rem 1fr; }
+  .shell-nav {
+    flex-direction: column;
+    overflow-x: visible;
+    border-bottom: 0;
+    border-right: 1px solid var(--civitai-color-border);
+  }
+}
+```
+
+The shell deliberately sets no height. On a **page app** you may add
+`min-height: 100vh` to `.shell` so the sidenav runs the full content area. Don't
+add it on a **model slot**: there, `100vh` is the iframe's current height, so a
+root sized to it reports at least that height to
+[`useBlockResize`](../reference/hooks). The frame could then grow but never
+shrink (see [the surface table](#the-surface-decides-what-responsive-means)).
+
+`min-width: 0` on the content column is what stops a wide child (an image grid,
+a long prompt) from forcing the grid wider than the slot.
+
 ## Checklist
 
 - Never infer the device. The width you can see is the slot's.
@@ -232,3 +291,5 @@ are in a sidebar whether or not the window is wide.
 - Let `group` wrap; reach for `data-nowrap="true"` only when a row must not.
 - Check your block at `base` (≈360px) as well as wide — that is the model
   sidebar, not just a phone.
+- Replacing tabs? Use the [sidenav pattern](#sidenav-pattern) — and run the
+  [first review checklist](./first-review) before you submit.
