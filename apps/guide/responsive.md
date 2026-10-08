@@ -243,7 +243,6 @@ every width, so there is no structural swap to gate on `measured`.
 .shell {
   display: grid;
   grid-template-columns: 1fr;
-  min-height: 100vh;
 }
 
 /* base → xs: a strip across the top that scrolls sideways instead of wrapping */
@@ -270,6 +269,13 @@ every width, so there is no structural swap to gate on `measured`.
   }
 }
 ```
+
+The shell deliberately sets no height. On a **page app** you may add
+`min-height: 100vh` to `.shell` so the sidenav runs the full content area. Don't
+add it on a **model slot**: there, `100vh` is the iframe's current height, so a
+root sized to it reports at least that height to
+[`useBlockResize`](../reference/hooks). The frame could then grow but never
+shrink (see [the surface table](#the-surface-decides-what-responsive-means)).
 
 `min-width: 0` on the content column is what stops a wide child (an image grid,
 a long prompt) from forcing the grid wider than the slot.

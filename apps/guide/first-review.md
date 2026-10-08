@@ -96,10 +96,12 @@ of those.
 
 - **Open `https://<slug>.civit.ai/` in the cold-open state** — signed out
   or on a fresh profile, nothing cached — and walk it once.
-- **Make sure the row you are reading is the live build.**
-  `civitai app status <slug>` details your **newest** submission, which can be a
-  `pending` or `withdrawn` row rather than what is deployed. Read the
-  `approved` row in the listing unless your CLI's detail view already says
-  which row is live. See [Tracking a submission](./review-and-deploy#tracking-a-submission).
+- **Don't read "Not live yet" as "not serving".** Depending on your CLI
+  version, `civitai app status <slug>` may describe only your **newest**
+  submission. A `pending`, `withdrawn` or `rejected` newest row prints
+  "Not live yet" even while an earlier approved version is serving. Newer CLIs
+  name the serving submission in the detail view. Either way, confirm what is
+  live by opening `<slug>.civit.ai` cold, as above. See
+  [Tracking a submission](./review-and-deploy#tracking-a-submission).
 - **Deployed ≠ listed in the store** — see
   [Deployed is not the same as listed](./review-and-deploy#deployed-is-not-the-same-as-listed-in-the-store).
