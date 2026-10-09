@@ -58,8 +58,6 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { repoRoot } from './appblocks-util.mjs';
 import { cliLongBody } from '../.vitepress/theme/components/cliReference.shared.mjs';
-// The SAME reflow HooksReference.vue applies to a text note before rendering it.
-import { reflowNoteText } from '../.vitepress/theme/components/hookNotes.shared.mjs';
 import { LANDING_PAGE, PROMPT_PATH, PROMPT_SOURCE, PROMPT_URL } from '../.vitepress/agent-setup.mjs';
 import { renderPromptRegion } from './agent-setup-page.mjs';
 
@@ -760,7 +758,7 @@ check(`every ${HOOKS_PAGE} README note renders on the page under its own element
   );
   const text = bodiesOf(html, NOTES_TEXT_RE).map((b) => decodeEntities(b).trim());
   const code = bodiesOf(html, NOTES_CODE_RE).map((b) => decodeEntities(b).replace(/\n+$/, ''));
-  const wantText = all.flatMap((h) => h.notes.filter((n) => n.kind === 'text').map((n) => ({ h: h.name, v: reflowNoteText(n.text).trim() })));
+  const wantText = all.flatMap((h) => h.notes.filter((n) => n.kind === 'text').map((n) => ({ h: h.name, v: String(n.text).trim() })));
   const wantCode = all.flatMap((h) => h.notes.filter((n) => n.kind === 'code').map((n) => ({ h: h.name, v: n.code })));
   const missing = [
     ...wantText.filter((w) => !text.includes(w.v)).map((w) => `${w.h}: a text note is not in any <div class="ab-hook-notes">`),

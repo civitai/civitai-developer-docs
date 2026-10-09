@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { inject } from 'vue';
-import { reflowNoteText } from './hookNotes.shared.mjs';
 
 interface Hook {
   name: string;
@@ -52,12 +51,12 @@ const hooks = data.hooks ?? [];
       <!-- The rest of the README section, after the example. Text is upstream
            markdown rendered as TEXT (escaped, never v-html), like the description
            above — but with `pre-wrap`, so list items, table rows and 🔴 lines keep
-           their own lines instead of collapsing into one paragraph, and with the
-           README's hard wrap undone (`reflowNoteText`). Later code fences get
-           their own monospace block. -->
+           their own lines instead of collapsing into one paragraph. The README's
+           own line breaks are shown as-is. Later code fences get their own
+           monospace block. -->
       <template v-for="(n, i) in h.notes ?? []" :key="i">
         <pre v-if="n.kind === 'code'" class="ab-hook-notes-code"><code>{{ n.code }}</code></pre>
-        <div v-else class="ab-hook-notes">{{ reflowNoteText(n.text) }}</div>
+        <div v-else class="ab-hook-notes">{{ n.text }}</div>
       </template>
     </section>
     <p v-if="!hooks.length" class="ab-empty">

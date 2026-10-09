@@ -22,7 +22,6 @@
 // are deliberately shapes the live corpus does NOT contain.
 import { descriptionHasTable } from './lib/description-has-table.mjs';
 import { parseReadme, scanSections, splitSection, verifyPublished } from './lib/readme-hook-sections.mjs';
-import { reflowNoteText } from '../.vitepress/theme/components/hookNotes.shared.mjs';
 // Imported, NOT re-declared. An earlier version of the test below copied that
 // file's `isTableRow` regex into a local const, which made its failure message —
 // a claim about the SIBLING — a tautology about a local literal: deleting
@@ -364,25 +363,6 @@ check('verifyPublished counts repeated lines — a second `}` cannot vanish behi
   );
   const problems = verifyPublished(scanSections(README_FIXTURE), entriesFrom(byHook));
   assert(problems.length === 1 && /^useAlpha: 1 line\(s\)/.test(problems[0]) && problems[0].includes('"}"'), `got: ${problems.join('; ')}`);
-});
-
-// ── reflowNoteText — the island's display reflow of a text note ──────────────
-// Literal expected strings: the page shows exactly this, and check:built-site
-// compares the rendered HTML against the same function.
-check('reflowNoteText joins hard-wrapped prose and keeps every structural line break', () => {
-  const cases = [
-    { why: 'a hard-wrapped paragraph joins', in: 'Constrain it only when the pick has\nto match the checkpoint.', out: 'Constrain it only when the pick has to match the checkpoint.' },
-    { why: 'a blank line stays a paragraph break', in: 'one\ntwo\n\nthree', out: 'one two\n\nthree' },
-    { why: 'list items stay one per line; a continuation joins its item', in: '- first item\n  continues here\n- second\n  - nested', out: '- first item continues here\n- second\n  - nested' },
-    { why: 'numbered items stay one per line', in: '1. one\n2. two', out: '1. one\n2. two' },
-    { why: 'table rows are never joined', in: '| a | b |\n|---|---|\n| 1 | 2 |', out: '| a | b |\n|---|---|\n| 1 | 2 |' },
-    { why: 'a quote continuation joins with its `>` dropped', in: '> 🔴 **No leading slash.** The host\n> sends the segment.', out: '> 🔴 **No leading slash.** The host sends the segment.' },
-    { why: 'a quote does not swallow the unquoted line after it', in: '> quoted\nplain', out: '> quoted\nplain' },
-    { why: 'a markdown hard break (two spaces) is honoured', in: 'line one  \nline two', out: 'line one\nline two' },
-    { why: 'a heading does not absorb the line under it', in: '#### Errors\nthe table below', out: '#### Errors\nthe table below' },
-  ];
-  const wrong = cases.filter((c) => reflowNoteText(c.in) !== c.out);
-  assert(wrong.length === 0, wrong.map((c) => `${c.why}: got ${JSON.stringify(reflowNoteText(c.in))}`).join('\n       '));
 });
 
 console.log('');
