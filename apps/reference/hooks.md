@@ -2,9 +2,9 @@
 title: Hooks reference
 description: Every @civitai/blocks-react hook — signature, example and README notes, generated from the published package.
 sources:
-  - npm:@civitai/blocks-react@0.65.1/dist/index.d.ts
-  - npm:@civitai/blocks-react@0.65.1#README
-  - npm:@civitai/app-sdk@0.59.0/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.65.2/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.65.2#README
+  - npm:@civitai/app-sdk@0.60.0/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
 
@@ -1147,7 +1147,7 @@ if (isModelSlotContext(context) && context.checkpoint) {
 useResourcePicker(): UseResourcePicker
 ```
 
-Drive the platform resource picker for page blocks — `'Checkpoint' | 'LORA'`. The viewer searches in host chrome; the block only ever sees the one resource it picked. DISCOVERY ONLY — the returned `versionId` is re-validated + re-priced server-side at estimate/submit. 🔴 **Pass NO `baseModelGroup` by default.** It is an optional FILTER, and the host hides every resource outside the family you pass — so a hardcoded ecosystem makes the viewer's own valid LoRAs invisible and the picker look empty or broken. Omit it and the viewer sees everything of that type.
+Drive the platform resource picker for page blocks — `'Checkpoint' | 'LORA'`. The viewer searches in host chrome; the block only ever sees the one resource it picked. DISCOVERY ONLY — the returned `versionId` is re-validated + re-priced server-side at estimate/submit. 🔴 **OMIT `baseModelGroup` BY DEFAULT, and never pass a HARDCODED ecosystem.** It is an ecosystem-family FILTER, not a label: the host hides every resource outside the family you pass, so a literal ecosystem string makes the viewer's own valid LoRAs invisible and the picker look empty or broken. Omit it for an unconstrained pick and the viewer sees everything of that type. Pass it ONLY when the block already holds a chosen checkpoint the pick has to match, and then DERIVE it from that checkpoint (`checkpoint.baseModel`). For stack and matrix apps that pair LoRAs with a checkpoint, this is the recommended pattern: a derived family keeps incompatible LoRAs out of the picker. This hook is PAGE-ONLY, and a page slot has no `context.checkpoint` (that field lives on `ModelSlotContext` alone), so the family comes from `BlockResourceInfo.baseModel`, the `baseModel` of a Checkpoint a picker returned earlier. For a complete multi-LoRA app, see [`starters/examples/generate-studio`](https://github.com/civitai/civitai-app-starters/tree/main/starters/examples/generate-studio): `src/components/ModelSection.tsx` opens the picker once per LoRA slot, up to `MAX_LORAS`, with a `baseModelGroup` derived from the selected checkpoint, and `keepCompatibleLoras` (`src/studio/setup.ts`) re-filters the stack when the checkpoint changes, dropping LoRAs made for another family.
 
 ```tsx
 const { open } = useResourcePicker();
@@ -1159,12 +1159,8 @@ if (picked) {
 ```
 
 ````md
-Constrain it **only** when the block already holds a chosen checkpoint the pick has
-to match — and then derive the family from that checkpoint, never from a literal.
-🔴 **This hook is PAGE-ONLY, and a page slot has no `context.checkpoint`** — that
-field lives on `ModelSlotContext` alone, so the family comes from
-`BlockResourceInfo.baseModel`, the `baseModel` of a Checkpoint this same picker
-returned earlier:
+Constrained to the family of a checkpoint the block already holds, derived from
+that checkpoint, never from a literal:
 
 ```tsx
 const { open } = useResourcePicker();
@@ -1663,7 +1659,7 @@ reads member-specific fields, so every member except `training` flows through th
 same `estimate → submit → watch` lifecycle shown above. `training` is quoted with
 `estimate()` but run with `useRunTraining()`, and `submit()` refuses it.
 
-As of the pinned `@civitai/app-sdk@0.59.0` the union has four `kind` values, and
+As of the pinned `@civitai/app-sdk@0.60.0` the union has four `kind` values, and
 `kind: 'step'` is itself two arms — five members in all:
 
 | `kind` | what it runs | what your block sends |
