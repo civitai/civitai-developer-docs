@@ -3,13 +3,16 @@
 // Sources (published, pinned devDep):
 //   - signatures: parse dist/index.d.ts with ts-morph, resolving each `use*`
 //     re-export to its FunctionDeclaration (params + return type).
-//   - examples + prose: the package README.md (one `### useX()` heading with a
-//     ```tsx fence per hook). Falls back to the hook's own @example JSDoc.
+//   - lead prose + example + notes: the package README.md (one `### useX()`
+//     section per hook — the lead is the text before its first ```tsx fence, the
+//     example is that fence, the notes are everything after it, in order).
+//     Falls back to the hook's own @example JSDoc / description.
 import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget } from 'ts-morph';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { log, resolvePackageRoot, writeArtifact } from './appblocks-util.mjs';
 import { descriptionHasTable } from './lib/description-has-table.mjs';
+import { parseReadme, scanSections, verifyPublished } from './lib/readme-hook-sections.mjs';
 
 const pkgRoot = resolvePackageRoot('@civitai/blocks-react');
 const version = JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf8')).version;
@@ -23,39 +26,14 @@ const readmePath = join(pkgRoot, 'README.md');
 // fixture battery is `test-appblocks-hooks.mjs`.
 
 
-// ── README: heading order + example + prose per hook ──────────────────────────
-function parseReadme(md) {
-  const order = [];
-  const byHook = {};
-  const lines = md.split('\n');
-  let current = null;
-  let buf = [];
-  const flush = () => {
-    if (!current) return;
-    const text = buf.join('\n');
-    const fence = text.match(/```tsx\n([\s\S]*?)```/);
-    const prose = text.slice(0, fence ? text.indexOf('```tsx') : text.length).trim();
-    byHook[current] = {
-      example: fence ? fence[1].replace(/\n+$/, '') : null,
-      prose: prose || null,
-    };
-  };
-  for (const line of lines) {
-    const h = line.match(/^#{2,4}\s+`?(use[A-Za-z0-9]+)/);
-    if (h) {
-      flush();
-      current = h[1];
-      order.push(current);
-      buf = [];
-    } else if (current) {
-      buf.push(line);
-    }
-  }
-  flush();
-  return { order, byHook };
-}
-
-const { order: readmeOrder, byHook } = parseReadme(readFileSync(readmePath, 'utf8'));
+// ── README: heading order + lead / example / notes per hook ───────────────────
+// The splitter and its fail-loud guard live in `lib/readme-hook-sections.mjs`
+// (so `test-appblocks-hooks.mjs` can drive them on fixtures). Its header carries
+// the defect it replaced: everything after a hook's first ```tsx fence used to be
+// dropped, and a section used to run on into whatever non-hook section followed.
+const readmeText = readFileSync(readmePath, 'utf8');
+const readmeSections = scanSections(readmeText);
+const { order: readmeOrder, byHook } = parseReadme(readmeText);
 
 // ── ts-morph: signatures + JSDoc ──────────────────────────────────────────────
 const project = new Project({
@@ -113,6 +91,7 @@ for (const name of readmeOrder) {
     descriptionHasTable: descriptionHasTable(readme.prose || hooks[name].jsdocDesc || ''),
     example: readme.example || hooks[name].jsdocExample || '',
     exampleSource: readme.example ? 'readme' : hooks[name].jsdocExample ? 'jsdoc' : null,
+    notes: readme.notes ?? [],
   });
 }
 for (const [name, h] of Object.entries(hooks)) {
@@ -123,11 +102,23 @@ for (const [name, h] of Object.entries(hooks)) {
     descriptionHasTable: descriptionHasTable(h.jsdocDesc || ''),
     example: h.jsdocExample || '',
     exampleSource: h.jsdocExample ? 'jsdoc' : null,
+    notes: [],
   });
 }
 
 if (ordered.length === 0) {
   throw new Error('gen-appblocks-hooks: parsed 0 hooks — refusing to write an empty artifact');
+}
+
+// 🔴 FAIL LOUD: every line of every hook's README section must be in its entry,
+// and no entry may carry another section's heading. See `verifyPublished`.
+const problems = verifyPublished(readmeSections, ordered);
+if (problems.length) {
+  throw new Error(
+    `gen-appblocks-hooks: ${problems.length} hook(s) would publish less (or more) than their README section — ` +
+      `refusing to write hooks.json:\n` +
+      problems.map((p) => `  - ${p}`).join('\n'),
+  );
 }
 
 const artifact = {
@@ -138,6 +129,14 @@ const artifact = {
 };
 const dest = writeArtifact('hooks.json', artifact);
 const noEx = ordered.filter((h) => !h.example).map((h) => h.name);
-log(`hooks: wrote ${ordered.length} hooks -> ${dest}`);
+const withNotes = ordered.filter((h) => h.notes.length).length;
+log(`hooks: wrote ${ordered.length} hooks (${withNotes} with notes after the example) -> ${dest}`);
 if (noEx.length) log(`  WARNING: no example for: ${noEx.join(', ')}`);
+// README sections that sit inside the hook list but are not a hook (`### SfwGate`,
+// …). They are deliberately NOT attached to the hook above them; name them so
+// what this page does not carry is visible, not silent.
+for (const s of readmeSections.interstitials) {
+  const red = s.tokens.filter((t) => t.text.includes('🔴')).length;
+  log(`  NOTE: README section ${JSON.stringify(s.heading)} is not a hook and is not on this page${red ? ` (${red} 🔴 line(s))` : ''}`);
+}
 log(`  from ${indexDts} + README.md (@civitai/blocks-react@${version})`);

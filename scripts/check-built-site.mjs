@@ -731,6 +731,48 @@ check(`${HOOKS_PAGE} escapes descriptions rather than injecting them as HTML`, (
   );
 });
 
+// --- apps/reference/hooks.html: the README section AFTER each example ---------
+//
+// 🔴 `notes` is the part of each hook's README section after its first ```tsx
+// fence — dropped entirely until the generator learned to keep it, 🔴 warnings
+// included. The GENERATOR proves notes == section (`verifyPublished` in
+// lib/readme-hook-sections.mjs); this proves the page renders what the artifact
+// holds, which no generator-side check can see: a template that drops the loop,
+// reads the wrong field, or renders text segments through the wrong element.
+// Same RELATIONSHIP shape as the description check above — every segment on the
+// page under its element, and the two sets the same size.
+const NOTES_TEXT_RE = /<div class="ab-hook-notes"[^>]*>([\s\S]*?)<\/div>/g;
+const NOTES_CODE_RE = /<pre class="ab-hook-notes-code"[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/g;
+
+check(`every ${HOOKS_PAGE} README note renders on the page under its own element`, () => {
+  const html = readHooksHtml();
+  readHooksJson(); // its existence/vacuity guards
+  const all = JSON.parse(readFileSync(hooksArtifact, 'utf8')).hooks ?? [];
+  // POSITIVE CONTROL, by TYPE (see the descriptionHasTable one above): a generator
+  // that stopped stamping `notes` would make every loop below iterate over nothing.
+  const untyped = all.filter((h) => !Array.isArray(h.notes)).map((h) => h.name);
+  assert(
+    untyped.length === 0,
+    `${untyped.length} hook(s) carry no \`notes\` array (${untyped.slice(0, 3).join(', ')}${untyped.length > 3 ? ', …' : ''}). ` +
+      `The generator has stopped stamping it, so the README text after each example is silently gone again.`,
+  );
+  const text = bodiesOf(html, NOTES_TEXT_RE).map((b) => decodeEntities(b).trim());
+  const code = bodiesOf(html, NOTES_CODE_RE).map((b) => decodeEntities(b).replace(/\n+$/, ''));
+  const wantText = all.flatMap((h) => h.notes.filter((n) => n.kind === 'text').map((n) => ({ h: h.name, v: String(n.text).trim() })));
+  const wantCode = all.flatMap((h) => h.notes.filter((n) => n.kind === 'code').map((n) => ({ h: h.name, v: n.code })));
+  const missing = [
+    ...wantText.filter((w) => !text.includes(w.v)).map((w) => `${w.h}: a text note is not in any <div class="ab-hook-notes">`),
+    ...wantCode.filter((w) => !code.includes(w.v)).map((w) => `${w.h}: a code note is not in any <pre class="ab-hook-notes-code">`),
+  ];
+  assert(missing.length === 0, `${missing.length} note(s) from hooks.json are not on the page:\n` + missing.map((m) => `         - ${m}`).join('\n'));
+  assert(
+    text.length === wantText.length && code.length === wantCode.length,
+    `the page holds ${text.length} text and ${code.length} code note(s), but hooks.json declares ` +
+      `${wantText.length} and ${wantCode.length}. The sets have diverged.`,
+  );
+  console.log(`       ${wantText.length} text + ${wantCode.length} code note(s) across ${all.filter((h) => h.notes.length).length} hook(s)`);
+});
+
 check('the llms.txt duplicate detector still detects (fixture table)', () => {
   const wrong = LLMS_FIXTURES.filter((f) => duplicateGroups(tocGroups(f.text)).length !== f.expect);
   assert(

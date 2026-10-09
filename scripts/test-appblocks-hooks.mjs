@@ -21,6 +21,7 @@
 // matches three columns is invisible to the real artifact. The fixtures below
 // are deliberately shapes the live corpus does NOT contain.
 import { descriptionHasTable } from './lib/description-has-table.mjs';
+import { parseReadme, scanSections, splitSection, verifyPublished } from './lib/readme-hook-sections.mjs';
 // Imported, NOT re-declared. An earlier version of the test below copied that
 // file's `isTableRow` regex into a local const, which made its failure message —
 // a claim about the SIBLING — a tautology about a local literal: deleting
@@ -222,6 +223,206 @@ check('the sibling predicate cannot reach a no-outer-pipe flag table, at any lev
     flagTablesIn(withOuterPipes, '(fixture)').length > 0,
     'flagTablesIn found nothing in a CONVENTIONAL hand-written flag table, so every zero above ' +
       'proves nothing. The sibling guard is not working — fix it there, not here.',
+  );
+});
+
+// ── README section splitting (lib/readme-hook-sections.mjs) ─────────────────
+// 🔴 The generator used to keep only the prose BEFORE a hook's first ```tsx fence
+// and end a section only at the next `use…` heading. These fixtures pin the
+// replacement's three properties — boundary, fence-awareness, order — and that
+// the fail-loud guard (`verifyPublished`) goes red on the historical splitter.
+const FENCE = '```';
+const README_FIXTURE = [
+  '## The hooks',
+  '',
+  '### `useAlpha()`',
+  '',
+  'Alpha lead.',
+  '',
+  `${FENCE}tsx`,
+  'const a = useAlpha();',
+  '}',
+  FENCE,
+  '',
+  '🔴 **Alpha warning after the example.**',
+  '',
+  '| a | b |',
+  '|---|---|',
+  '| 1 | 2 |',
+  '',
+  `${FENCE}bash`,
+  '## not a heading — a shell comment inside a fence',
+  '}',
+  FENCE,
+  '',
+  '#### A deeper subheading stays with alpha',
+  '',
+  'Alpha tail.',
+  '',
+  '### `NotAHook`',
+  '',
+  'Interstitial text that belongs to no hook.',
+  '',
+  '### `useBeta()`',
+  '',
+  'Beta lead, no fence at all.',
+  '',
+  '## Testing',
+  '',
+  'A non-hook section after the hook list.',
+].join('\n');
+
+check('a hook section ends at the next same-or-higher heading, whatever its name', () => {
+  const sections = scanSections(README_FIXTURE);
+  assert(sections.map((s) => s.name).join(',') === 'useAlpha,useBeta', `sections: ${sections.map((s) => s.name)}`);
+  const alpha = sections[0].tokens.map((t) => t.text).join('\n');
+  const beta = sections[1].tokens.map((t) => t.text).join('\n');
+  assert(!alpha.includes('Interstitial text'), 'useAlpha swallowed the `### NotAHook` section after it');
+  assert(!beta.includes('A non-hook section'), 'useBeta swallowed the `## Testing` section after it');
+  assert(alpha.includes('Alpha tail.'), 'a DEEPER (####) subheading wrongly ended useAlpha');
+  assert(
+    sections.interstitials.map((s) => s.heading).join('|') === '### `NotAHook`',
+    `interstitials: ${JSON.stringify(sections.interstitials.map((s) => s.heading))}`,
+  );
+});
+
+check('a `#` line inside a code fence is not a heading', () => {
+  const alpha = scanSections(README_FIXTURE)[0].tokens.map((t) => t.text).join('\n');
+  assert(alpha.includes('Alpha tail.'), 'the `## …` shell comment inside the bash fence ended the section');
+});
+
+check('lead, example and notes keep README order, with later fences as code segments', () => {
+  const { prose, example, notes } = splitSection(scanSections(README_FIXTURE)[0].tokens);
+  assert(prose === 'Alpha lead.', `prose: ${JSON.stringify(prose)}`);
+  assert(example === 'const a = useAlpha();\n}', `example: ${JSON.stringify(example)}`);
+  const shape = notes.map((n) => (n.kind === 'code' ? `code:${n.lang}` : 'text')).join(',');
+  assert(shape === 'text,code:bash,text', `notes shape: ${shape}`);
+  assert(notes[0].text.startsWith('🔴 **Alpha warning'), 'the 🔴 line after the example is not the first note');
+  assert(notes[2].text.endsWith('Alpha tail.'), 'the deeper subsection is not in the last note');
+  // No ```tsx fence: the whole section is the lead, and there are no notes.
+  const beta = splitSection(scanSections(README_FIXTURE)[1].tokens);
+  assert(beta.prose === 'Beta lead, no fence at all.' && beta.example === null && beta.notes.length === 0, `beta: ${JSON.stringify(beta)}`);
+});
+
+const entriesFrom = (byHook) =>
+  Object.entries(byHook).map(([name, r]) => ({ name, description: r.prose ?? '', example: r.example ?? '', notes: r.notes ?? [] }));
+
+check('verifyPublished is clean on what the splitter produces', () => {
+  const problems = verifyPublished(scanSections(README_FIXTURE), entriesFrom(parseReadme(README_FIXTURE).byHook));
+  assert(problems.length === 0, problems.join('; '));
+});
+
+// NEGATIVE CONTROL — the splitter this replaced, verbatim from origin/main at
+// 1697554 (`git show 1697554:scripts/gen-appblocks-hooks.mjs`). The guard must
+// name the hook it drops content from, and count the 🔴 line among the losses.
+function historicalParseReadme(md) {
+  const byHook = {};
+  let current = null;
+  let buf = [];
+  const flush = () => {
+    if (!current) return;
+    const text = buf.join('\n');
+    const fence = text.match(/```tsx\n([\s\S]*?)```/);
+    const prose = text.slice(0, fence ? text.indexOf('```tsx') : text.length).trim();
+    byHook[current] = { example: fence ? fence[1].replace(/\n+$/, '') : null, prose: prose || null };
+  };
+  for (const line of md.split('\n')) {
+    const h = line.match(/^#{2,4}\s+`?(use[A-Za-z0-9]+)/);
+    if (h) {
+      flush();
+      current = h[1];
+      buf = [];
+    } else if (current) buf.push(line);
+  }
+  flush();
+  return byHook;
+}
+
+check('NEGATIVE CONTROL — verifyPublished goes red on the historical splitter, naming both defects', () => {
+  const problems = verifyPublished(scanSections(README_FIXTURE), entriesFrom(historicalParseReadme(README_FIXTURE)));
+  // useAlpha loses everything after its example (the 🔴 line among it); useBeta,
+  // which has no fence, has the `## Testing` section run into its lead.
+  assert(problems.length === 2, `expected two problems (useAlpha, useBeta), got ${problems.length}: ${problems.join('; ')}`);
+  assert(/^useAlpha: \d+ line\(s\).*\(1 of them 🔴\)/.test(problems[0]), `problem does not name useAlpha and its 🔴 line: ${problems[0]}`);
+  assert(/^useBeta: its published text contains 1 heading/.test(problems[1]), `problem does not name useBeta's boundary: ${problems[1]}`);
+});
+
+check('NEGATIVE CONTROL — verifyPublished goes red when another section is attached to a hook', () => {
+  const byHook = parseReadme(README_FIXTURE).byHook;
+  byHook.useAlpha.notes = [...byHook.useAlpha.notes, { kind: 'text', text: '### `NotAHook`\n\nInterstitial text that belongs to no hook.' }];
+  const problems = verifyPublished(scanSections(README_FIXTURE), entriesFrom(byHook));
+  assert(problems.length === 1 && /^useAlpha: its published text contains 1 heading/.test(problems[0]), `got: ${problems.join('; ')}`);
+});
+
+check('verifyPublished counts repeated lines — a second `}` cannot vanish behind the first', () => {
+  const byHook = parseReadme(README_FIXTURE).byHook;
+  // The bash fence's `}` duplicates the example's `}`. Drop the bash fence: a SET
+  // would still find `}` (from the example) and report only the comment line.
+  byHook.useAlpha.notes = byHook.useAlpha.notes.map((n) =>
+    n.kind === 'code' ? { ...n, code: '## not a heading — a shell comment inside a fence' } : n,
+  );
+  const problems = verifyPublished(scanSections(README_FIXTURE), entriesFrom(byHook));
+  assert(problems.length === 1 && /^useAlpha: 1 line\(s\)/.test(problems[0]) && problems[0].includes('"}"'), `got: ${problems.join('; ')}`);
+});
+
+// A `#` comment inside a fence that ends up in the DESCRIPTION is not a heading.
+// The description holds whole fences in two shapes: a section with no ```tsx
+// fence (all of it is lead), and a non-tsx fence before the ```tsx one. The
+// boundary check used to split the description into raw lines, so `# install it`
+// read as a level-1 heading and failed the build with a false "another README
+// section has been attached". Each fixture's last-line `## Testing` proves the
+// section boundary itself is still where it was.
+const DESC_FENCE_NO_TSX = [
+  '## The hooks',
+  '',
+  '### `useA()`',
+  '',
+  'Install it first.',
+  '',
+  `${FENCE}bash`,
+  '# install it',
+  'npm i @civitai/blocks-react',
+  FENCE,
+  '',
+  '## Testing',
+].join('\n');
+const DESC_FENCE_BEFORE_TSX = [
+  '## The hooks',
+  '',
+  '### `useB()`',
+  '',
+  `${FENCE}sh`,
+  '# x',
+  FENCE,
+  '',
+  `${FENCE}tsx`,
+  'const b = useB();',
+  FENCE,
+  '',
+  '## Testing',
+].join('\n');
+
+check('a `#` comment in a fence with no ```tsx fence is not a leaked heading', () => {
+  const { byHook } = parseReadme(DESC_FENCE_NO_TSX);
+  assert(byHook.useA.example === null && byHook.useA.prose.includes('# install it'), `fixture shape changed: ${JSON.stringify(byHook.useA)}`);
+  const problems = verifyPublished(scanSections(DESC_FENCE_NO_TSX), entriesFrom(byHook));
+  assert(problems.length === 0, `got: ${problems.join('; ')}`);
+});
+
+check('a `#` comment in a ```sh fence before the ```tsx fence is not a leaked heading', () => {
+  const { byHook } = parseReadme(DESC_FENCE_BEFORE_TSX);
+  assert(byHook.useB.example === 'const b = useB();' && byHook.useB.prose.includes('# x'), `fixture shape changed: ${JSON.stringify(byHook.useB)}`);
+  const problems = verifyPublished(scanSections(DESC_FENCE_BEFORE_TSX), entriesFrom(byHook));
+  assert(problems.length === 0, `got: ${problems.join('; ')}`);
+});
+
+check('NEGATIVE CONTROL — a real leaked heading is still caught in a description that holds a fence', () => {
+  const { byHook } = parseReadme(DESC_FENCE_NO_TSX);
+  byHook.useA.prose = `${byHook.useA.prose}\n\n## Testing\n\nA non-hook section.`;
+  const problems = verifyPublished(scanSections(DESC_FENCE_NO_TSX), entriesFrom(byHook));
+  assert(
+    problems.some((p) => /^useA: its published text contains 1 heading.*"## Testing"/.test(p)),
+    `got: ${problems.join('; ')}`,
   );
 });
 
