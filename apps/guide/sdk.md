@@ -311,10 +311,11 @@ retry. `error` is server-authored and unsanitised: log it, and show the viewer
 copy your app owns.
 
 A refusal's `cost.total` is what the submit would have **reserved**, which is
-not always a price. For text-to-image and training it is the quote; for Comfy
-and `step` submits it is the ceiling — a recipe's budget, a registered step's
-declared price or your `maxBuzz` — raised to the quote when that is higher. A
-training step refused because it could not be quoted has no `cost` at all.
+not always a price. For text-to-image and training it is the quote. For Comfy
+it is the ceiling — a recipe's budget or your `maxBuzz`. For `step` submits it
+is the step's declared price or your `maxBuzz`, raised to the quote when that is
+higher. A training step refused because it could not be quoted has no `cost` at
+all.
 
 **Buying Buzz does not fix any of those refusals.** They are limits on the token
 and the app, not on the viewer's wallet, so do not answer one with a top-up
@@ -325,8 +326,9 @@ other bad request. (A `training` submit checks the balance itself and rejects
 with `403`.) So don't decide on a top-up from the error: read the balance with
 `app.site.get('blocks/buzz')` — scope `buzz:read:self`, consent-gated like
 `ai:write:budgeted`, answering `{ blue, green, yellow }`; a submit can spend
-`blue` plus `green` or `yellow` depending on the block's content rating — and
-compare it with the price `blocks/workflows/estimate` quotes.
+`blue` plus one paid pool: `green` under an SFW maturity ceiling, `yellow` under
+a mature one (an unknown ceiling counts as SFW) — and compare that with the price
+`blocks/workflows/estimate` quotes.
 
 ## Next
 
