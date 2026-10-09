@@ -245,7 +245,7 @@ async function askConsent(app: BlockAppClient, scopes: Scope[]): Promise<boolean
 `Scope` is a typed union, so a misspelt scope fails to compile. In
 `@civitai/sdk@0.10.2` it does **not** include the goods scopes
 (`goods:purchase:self`, `goods:read:self`) or `apps:store:items:write`, so
-asking for one needs a cast: `'goods:purchase:self' as Scope`. (The store-items
+asking for one needs a cast: `'goods:purchase:self' as Scope`. (The sub-listings
 scope is consent-exempt, so there is nothing to ask for.)
 
 ## Money calls
