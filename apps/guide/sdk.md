@@ -275,22 +275,23 @@ yourself with `isValidBlockIdempotencyKey` from `@civitai/app-sdk/blocks`.
 
 ```ts
 import type { BlockAppClient } from '@civitai/sdk';
-import type { WorkflowBody } from '@civitai/app-sdk/blocks';
+import type { BlockWorkflowSnapshot, WorkflowBody } from '@civitai/app-sdk/blocks';
 
-async function generate(app: BlockAppClient, body: WorkflowBody): Promise<unknown> {
+type Submitted = { snapshot: BlockWorkflowSnapshot; submissionUnconfirmed?: true };
+
+async function generate(app: BlockAppClient, body: WorkflowBody) {
   if (!(await askConsent(app, ['ai:write:budgeted']))) return null; // nothing was sent
   const idempotencyKey = crypto.randomUUID(); // once per generation
   const submit = () =>
-    app.site.post<{ snapshot: unknown }>('blocks/workflows/submit', { body, idempotencyKey });
-  const { snapshot } = await submit(); // retry with submit() again: same key, one charge
-  // A budget or cap refusal is a 200 too: status 'failed', the refused cost.total,
-  // workflowId 'failed' and an `error` string. Log `error`; don't render it.
-  const refused = snapshot as { status?: string; error?: string };
-  if (refused.status === 'failed') {
-    console.warn('submit refused:', refused.error);
+    app.site.post<Submitted>('blocks/workflows/submit', { body, idempotencyKey });
+  const { snapshot, submissionUnconfirmed } = await submit(); // retry: same key, one charge
+  if (submissionUnconfirmed) return null; // training only: it may be running; don't resubmit blind
+  if (snapshot.workflowId === 'failed') {
+    // Refused before anything ran (budget or cap) — a 200, not a throw.
+    console.warn('submit refused:', snapshot.error); // log `error`; don't render it
     return null;
   }
-  return snapshot;
+  return snapshot; // a real id: follow it, even if its status is already 'failed'
 }
 ```
 
@@ -301,15 +302,31 @@ result are in the [generation bridge reference](../reference/generation).
 token's per-call Buzz budget, or over a per-viewer or per-app daily cap, comes
 back as `200` with a snapshot whose `status` is `'failed'`, whose `workflowId` is
 the placeholder `'failed'` (no workflow started — there is nothing to follow),
-whose `cost.total` is the price it declined to charge, and whose `error` says
-why. Branch on `status`, never on whether `workflowId` is set. `error` is
-server-authored and unsanitised: log it, and show the viewer copy your app owns.
+and whose `error` says why. Branch on the placeholder id, not on `status` alone:
+a `'failed'` status with a **real** `workflowId` is a workflow that was created
+and failed, and you follow it like any other. The one placeholder that does not
+mean "nothing ran" carries `submissionUnconfirmed: true` beside the snapshot — a
+training submit whose outcome is unknown and may be running, so check before you
+retry. `error` is server-authored and unsanitised: log it, and show the viewer
+copy your app owns.
+
+A refusal's `cost.total` is what the submit would have **reserved**, which is
+not always a price. For text-to-image and training it is the quote; for Comfy
+and `step` submits it is the ceiling — a recipe's budget, a registered step's
+declared price or your `maxBuzz` — raised to the quote when that is higher. A
+training step refused because it could not be quoted has no `cost` at all.
 
 **Buying Buzz does not fix any of those refusals.** They are limits on the token
 and the app, not on the viewer's wallet, so do not answer one with a top-up
 prompt. A viewer who genuinely lacks the Buzz is a different path: the
-orchestrator's insufficient-funds refusal **rejects** the request, so it arrives
-as an `ApiError` in your `catch`.
+orchestrator's insufficient-funds refusal **rejects** the request, as an
+`ApiError` with `status` `400` and a `{ message }` body — the same shape as any
+other bad request. (A `training` submit checks the balance itself and rejects
+with `403`.) So don't decide on a top-up from the error: read the balance with
+`app.site.get('blocks/buzz')` — scope `buzz:read:self`, consent-gated like
+`ai:write:budgeted`, answering `{ blue, green, yellow }`; a submit can spend
+`blue` plus `green` or `yellow` depending on the block's content rating — and
+compare it with the price `blocks/workflows/estimate` quotes.
 
 ## Next
 
