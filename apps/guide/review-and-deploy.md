@@ -13,7 +13,9 @@ Everything after that happens on the platform's side, and this page is about
 reading and steering it from the terminal.
 
 If you have not submitted anything yet, start with the
-[quickstart](./quickstart). For every command and flag named below, the
+[quickstart](./quickstart). Before you submit, run the
+[first review checklist](./first-review) — it covers the feedback reviewers
+most often send back. For every command and flag named below, the
 generated [CLI reference](../reference/cli) is the authority — this page
 explains the lifecycle, not the flag list.
 
@@ -313,6 +315,8 @@ The practical rule that falls out of all of this: attach your listing media
 
 ## Next
 
+- [First review checklist](./first-review) — what to check before the next
+  submission, and how to confirm the live build after approval.
 - [Your store listing](./store-listing) — the icon, cover and screenshots your
   app needs before it can publish, and what changes when the listing is live.
 - [Local dev loop](./local-dev) — iterating against the real backend while your

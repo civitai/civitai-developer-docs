@@ -2,7 +2,7 @@
 title: Responsive blocks
 description: The width your block measures is the slot the host gave it, not the device — so a media query inside a block is already a container query. Covers the --civitai-bp-* scale, useBlockBreakpoint(), the em-vs-px breakpoint trap, and what the design system already reflows for you.
 sources:
-  - npm:@civitai/blocks-react@0.65.1#useBlockBreakpoint
+  - npm:@civitai/blocks-react@0.65.2#useBlockBreakpoint
   - npm:@civitai/theme@0.5.2#breakpoints
   - npm:@civitai/components@0.9.2
 ---
@@ -45,10 +45,10 @@ block:
 
 - the `model.sidebar_top` slot is about **360px** wide at a 360px phone
   viewport, and only about **430px** at a 1440px desktop one;
-- a page app (`app.page`) gets the host's content area — which the host caps at
-  **1600px** by default, rendering the block as a centred column with a neutral
-  gutter either side past that — so the *same* block can be several times wider
-  on that same desktop.
+- a page app (`app.page`) gets the host's full content area, edge to edge — the
+  host imposes **no maximum width** on it, at any window size — so the *same*
+  block can be several times wider on that same desktop, and wider still on an
+  ultrawide monitor.
 
 So "narrow" is not "phone", and "wide" is not "desktop". A 360px phone and a
 desktop model sidebar are the *same layout problem*, and a block that infers
@@ -213,13 +213,75 @@ cosmetic:
 |---|---|---|
 | iframe height | full content area; the host does **not** listen for `RESIZE_IFRAME` | sized to your content, clamped to the manifest's `iframe.minHeight` / `iframe.maxHeight` |
 | `useBlockResize` | inert — it still posts, the host ignores it | honoured |
-| typical width | the page content width, capped at **1600px** by default | narrow, and roughly constant regardless of window width |
+| typical width | the full page content width — no host maximum | narrow, and roughly constant regardless of window width |
 
 On a page app, size **to** the surface: let the host's box be your canvas and
-lay out inside it — the cap is inert below 1600px, so no laptop, tablet or phone
-width is touched by it. On a model slot, tell the host how tall you are with
+lay out inside it. Because the host sets no maximum width, a wide monitor hands
+you all of it — if your layout reads best as a centred column (long-form text,
+a form), set that `max-width` and `margin-inline: auto` in your own CSS. There is
+no manifest field or host setting for it; your stylesheet is the only control,
+and it is entirely yours. On a model slot, tell the host how tall you are with
 [`useBlockResize`](../reference/hooks) and keep the layout single-column — you
 are in a sidebar whether or not the window is wide.
+
+## Pattern: sidenav on wide, top strip on narrow {#sidenav-pattern}
+
+The usual replacement for a row of tabs: one view, with its sections in a nav
+that is a sidebar when there is room and a horizontally-scrolling strip above
+the content when there is not. It is a pure CSS reflow — the DOM is the same at
+every width, so there is no structural swap to gate on `measured`.
+
+```html
+<div class="shell">
+  <nav class="shell-nav" aria-label="Sections">
+    <a href="#create" aria-current="page">Create</a>
+    <a href="#history">History</a>
+    <a href="#settings">Settings</a>
+  </nav>
+  <main class="shell-main">…</main>
+</div>
+```
+
+```css
+.shell {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+/* base → xs: a strip across the top that scrolls sideways instead of wrapping */
+.shell-nav {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  padding: 0.5rem;
+  background: var(--civitai-color-surface);
+  border-bottom: 1px solid var(--civitai-color-border);
+}
+.shell-nav a { flex: none; white-space: nowrap; padding: 0.375rem 0.75rem; }
+.shell-nav a[aria-current] { background: var(--civitai-color-primary-light); }
+.shell-main { min-width: 0; padding: 1rem; }
+
+/* 768px is --civitai-bp-sm — literal, because var() is dead in a media condition. */
+@media (min-width: 768px) {
+  .shell { grid-template-columns: 12rem 1fr; }
+  .shell-nav {
+    flex-direction: column;
+    overflow-x: visible;
+    border-bottom: 0;
+    border-right: 1px solid var(--civitai-color-border);
+  }
+}
+```
+
+The shell deliberately sets no height. On a **page app** you may add
+`min-height: 100vh` to `.shell` so the sidenav runs the full content area. Don't
+add it on a **model slot**: there, `100vh` is the iframe's current height, so a
+root sized to it reports at least that height to
+[`useBlockResize`](../reference/hooks). The frame could then grow but never
+shrink (see [the surface table](#the-surface-decides-what-responsive-means)).
+
+`min-width: 0` on the content column is what stops a wide child (an image grid,
+a long prompt) from forcing the grid wider than the slot.
 
 ## Checklist
 
@@ -231,4 +293,7 @@ are in a sidebar whether or not the window is wide.
 - Gate a *structural* narrow branch on `measured &&`, not on the tier alone.
 - Let `group` wrap; reach for `data-nowrap="true"` only when a row must not.
 - Check your block at `base` (≈360px) as well as wide — that is the model
-  sidebar, not just a phone.
+  sidebar, not just a phone. For a page app, "wide" has no upper bound: check an
+  ultrawide window too, and cap your own column if it needs one.
+- Replacing tabs? Use the [sidenav pattern](#sidenav-pattern) — and run the
+  [first review checklist](./first-review) before you submit.

@@ -95,6 +95,9 @@ platform provisions all of that when your app is approved.
 - **[Local dev loop](./local-dev)** — the two harness modes, and how to generate
   for real against the live backend *before* submitting your app. Start here if
   generation is refusing or you think you are blocked on review.
+- **[First review checklist](./first-review)** — run it before
+  `civitai app submit`: audit every state, declutter, an honest money path, and
+  how to submit without losing your store listing.
 - **[Comfy on Civitai (customComfy)](./comfy-cloud)** — drive ComfyUI, either by
   naming a server-registered recipe (`{ kind, recipe, params }`) or by shipping
   your own graph inline (`mode: 'inline'`); the gates on each arm and the budget

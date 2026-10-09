@@ -50,6 +50,7 @@ const appsGuideSidebar: DefaultTheme.SidebarItem[] = [
       { text: 'Local dev loop — mock and live', link: '/apps/guide/local-dev' },
       { text: 'What `app validate` proves', link: '/apps/guide/validate' },
       { text: 'What goes in the bundle', link: '/apps/guide/packaging' },
+      { text: 'First review checklist', link: '/apps/guide/first-review' },
       { text: 'Review, approval and deploy', link: '/apps/guide/review-and-deploy' },
       { text: 'Your store listing', link: '/apps/guide/store-listing' },
       { text: 'Store items (sub-listings)', link: '/apps/guide/store-items' },

@@ -33,6 +33,11 @@
  *
  * The manifest schema is guarded separately by check-manifest-parity.mjs.
  *
+ * It also checks PINNED_CONSTANTS: single values (rate limits, spend caps) read
+ * out of civitai source files and compared with the hand-written generation-limits
+ * table in apps/guide/text-to-image.md. Same fetch, same SKIP/FAIL rules. See the
+ * comment above PINNED_CONSTANTS for why those files are not byte-snapshotted.
+ *
  * USAGE
  *   npm run check:snapshots
  */
@@ -89,6 +94,211 @@ const SOURCES = [
     base: APP_STARTERS_BASE,
   },
 ];
+
+// PINNED CONSTANTS — the second half of this guard, for the generation-limits
+// table in apps/guide/text-to-image.md (#limits). That table is HAND-WRITTEN
+// prose about numbers that live in civitai source, so nothing regenerates it.
+// Byte-snapshotting the source files would not work: they are mostly comments
+// and change for reasons that never touch a number, so the guard would be red
+// on most runs and teach everyone to ignore it. Instead each entry pulls ONE
+// value out of the upstream file with a regex and compares it with the value
+// the table states.
+//
+// Each entry carries `doc`, a string that must appear verbatim in the page.
+// That ties the pin to the sentence it backs: editing the number in the table
+// without updating the pin goes red here too, and so does a rewrite that drops
+// the claim. A regex that stops matching (the constant was renamed or moved) is
+// drift, not a skip: it means the table's source is no longer where we look.
+//
+// On drift: re-read the upstream value, update the table, its "Values at
+// civitai <sha>, <date>" stamp, and the matching `want` below.
+const LIMITS_DOC = 'apps/guide/text-to-image.md';
+const PINNED_CONSTANTS = [
+  {
+    path: 'src/server/utils/block-catalog-rate-limit.ts',
+    name: 'BLOCK_CATALOG_RATE_LIMIT_MAX',
+    re: /export const BLOCK_CATALOG_RATE_LIMIT_MAX = ([\d_]+);/,
+    want: '150',
+    doc: '**150 requests / 10 s**',
+  },
+  {
+    path: 'src/server/utils/block-catalog-rate-limit.ts',
+    name: 'BLOCK_CATALOG_RATE_LIMIT_WINDOW_SECONDS',
+    re: /export const BLOCK_CATALOG_RATE_LIMIT_WINDOW_SECONDS = ([\d_]+);/,
+    want: '10',
+    doc: '**150 requests / 10 s**',
+  },
+  {
+    path: 'src/server/utils/block-catalog-rate-limit.ts',
+    name: 'BLOCK_POLL_RATE_LIMIT_MAX',
+    re: /export const BLOCK_POLL_RATE_LIMIT_MAX = ([\d_]+);/,
+    want: '1200',
+    doc: '**1,200 requests / 60 s**',
+  },
+  {
+    path: 'src/server/utils/block-catalog-rate-limit.ts',
+    name: 'BLOCK_POLL_RATE_LIMIT_WINDOW_SECONDS',
+    re: /export const BLOCK_POLL_RATE_LIMIT_WINDOW_SECONDS = ([\d_]+);/,
+    want: '60',
+    doc: '**1,200 requests / 60 s**',
+  },
+  {
+    path: 'src/server/services/blocks/app-cap-limits.constants.ts',
+    name: 'DEFAULT_APP_SPEND_TIER',
+    re: /export const DEFAULT_APP_SPEND_TIER: AppSpendTier = '(\w+)';/,
+    want: 'standard',
+    doc: 'Every app starts on `standard`',
+  },
+  {
+    path: 'src/server/services/blocks/app-cap-limits.constants.ts',
+    name: 'SHIPPED_APP_VELOCITY_MAX_GENS',
+    re: /export const SHIPPED_APP_VELOCITY_MAX_GENS = ([\d_]+);/,
+    want: '120',
+    doc: '**120 accepted submits / 60 s** on `standard`',
+  },
+  {
+    path: 'src/server/services/blocks/app-cap-limits.constants.ts',
+    name: 'BLOCK_APP_SPEND_VELOCITY_WINDOW_SECONDS (default)',
+    re: /envPositiveInt\(\s*'BLOCK_APP_SPEND_VELOCITY_WINDOW_SECONDS',\s*([\d_]+)\s*\)/,
+    want: '60',
+    doc: '**120 accepted submits / 60 s** on `standard`',
+  },
+  {
+    path: 'src/server/services/blocks/app-cap-limits.constants.ts',
+    name: 'SHIPPED_APP_DAILY_BUZZ_CEILING',
+    re: /export const SHIPPED_APP_DAILY_BUZZ_CEILING = ([\d_]+);/,
+    want: '5000000',
+    doc: '**5,000,000 Buzz / UTC day**',
+  },
+  {
+    path: 'src/server/services/blocks/app-cap-limits.constants.ts',
+    name: 'tier standard.velocityMaxGens',
+    re: /APP_SPEND_TIER_TARGETS[\s\S]*?standard: \{[^}]*velocityMaxGens: ([\w]+)/,
+    want: 'SHIPPED_APP_VELOCITY_MAX_GENS',
+    doc: '**120 accepted submits / 60 s** on `standard`',
+  },
+  {
+    path: 'src/server/services/blocks/app-cap-limits.constants.ts',
+    name: 'tier standard.dailyBuzz',
+    re: /APP_SPEND_TIER_TARGETS[\s\S]*?standard: \{[^}]*dailyBuzz: ([\w]+)/,
+    want: 'SHIPPED_APP_DAILY_BUZZ_CEILING',
+    doc: '**5,000,000 Buzz / UTC day** on `standard` and `trusted`',
+  },
+  {
+    path: 'src/server/services/blocks/app-cap-limits.constants.ts',
+    name: 'tier trusted.velocityMaxGens',
+    re: /APP_SPEND_TIER_TARGETS[\s\S]*?trusted: \{[^}]*velocityMaxGens: ([\w]+)/,
+    want: '600',
+    doc: '`trusted`: 600',
+  },
+  {
+    path: 'src/server/services/blocks/app-cap-limits.constants.ts',
+    name: 'tier trusted.dailyBuzz',
+    re: /APP_SPEND_TIER_TARGETS[\s\S]*?trusted: \{[^}]*dailyBuzz: ([\w]+)/,
+    want: 'SHIPPED_APP_DAILY_BUZZ_CEILING',
+    doc: '**5,000,000 Buzz / UTC day** on `standard` and `trusted`',
+  },
+  {
+    path: 'src/server/services/blocks/app-cap-limits.constants.ts',
+    name: 'tier platform.velocityMaxGens',
+    re: /APP_SPEND_TIER_TARGETS[\s\S]*?platform: \{[^}]*velocityMaxGens: ([\w]+)/,
+    want: '3000',
+    doc: '`platform`: 3,000',
+  },
+  {
+    path: 'src/server/services/blocks/app-cap-limits.constants.ts',
+    name: 'tier platform.dailyBuzz',
+    re: /APP_SPEND_TIER_TARGETS[\s\S]*?platform: \{[^}]*dailyBuzz: ([\w]+)/,
+    want: '25000000',
+    doc: '`platform`: 25,000,000',
+  },
+  {
+    path: 'src/shared/constants/block-scope.constants.ts',
+    name: 'BLOCK_BUZZ_CAP_PER_DAY',
+    re: /export const BLOCK_BUZZ_CAP_PER_DAY = ([\d_]+);/,
+    want: '50000',
+    doc: '**50,000 Buzz / UTC day**',
+  },
+  {
+    path: 'src/pages/api/v1/block-tokens/index.ts',
+    name: 'BUZZ_BUDGET_DEFAULT',
+    re: /const BUZZ_BUDGET_DEFAULT = ([\d_]+);/,
+    want: '10',
+    doc: 'Default **10** when the manifest omits it',
+  },
+  {
+    path: 'src/pages/api/v1/block-tokens/index.ts',
+    name: 'BUZZ_BUDGET_CAP',
+    re: /const BUZZ_BUDGET_CAP = ([\d_]+);/,
+    want: '1000',
+    doc: 'anything above **1,000** is clamped to 1,000',
+  },
+  {
+    path: 'src/server/schema/blocks/workflow.schema.ts',
+    name: 'QUANTITY_MAX',
+    re: /const QUANTITY_MAX = ([\d_]+);/,
+    want: '4',
+    doc: '`quantity` **1–4**',
+  },
+  {
+    path: 'src/server/schema/blocks/workflow.schema.ts',
+    name: 'quantity min',
+    re: /quantity: z\.coerce\.number\(\)\.int\(\)\.min\(([\d_]+)\)\.max\(QUANTITY_MAX\)/,
+    want: '1',
+    doc: '`quantity` **1–4**',
+  },
+];
+
+/**
+ * Checks every PINNED_CONSTANTS entry. Returns counts plus the drifted/skipped
+ * entries in the same shapes main() reports. The page half is offline and always
+ * runs; the upstream half fetches each source file once.
+ */
+async function checkPinnedConstants() {
+  const drifted = [];
+  const skipped = [];
+  let ok = 0;
+  const docPath = join(repoRoot, LIMITS_DOC);
+  const doc = existsSync(docPath) ? readFileSync(docPath, 'utf8') : null;
+  const files = new Map();
+
+  for (const pin of PINNED_CONSTANTS) {
+    const label = `${pin.name} (${pin.path})`;
+    if (doc === null || !doc.includes(pin.doc)) {
+      console.log(`  ✗ ${label} — ${LIMITS_DOC} no longer contains ${JSON.stringify(pin.doc)}`);
+      drifted.push({ pin, docMissing: true });
+      continue;
+    }
+    if (!files.has(pin.path)) files.set(pin.path, await fetchUpstream(pin.path));
+    const remote = files.get(pin.path);
+    if (!remote.ok && !remote.gone) {
+      console.log(`  ⊘ ${label} — ${remote.reason} — could not reach source`);
+      skipped.push({ pin, note: remote.reason });
+      continue;
+    }
+    if (!remote.ok) {
+      console.log(`  ✗ ${label} — source returned ${remote.reason}: moved/removed upstream`);
+      drifted.push({ pin, gone: true, status: remote.status });
+      continue;
+    }
+    const m = normalize(remote.text).match(pin.re);
+    if (!m) {
+      console.log(`  ✗ ${label} — pattern no longer matches upstream (renamed or moved?)`);
+      drifted.push({ pin, unmatched: true });
+      continue;
+    }
+    // Strip numeric separators only (`5_000_000`), never an identifier's underscores.
+    const got = /^[\d_]+$/.test(m[1]) ? m[1].replace(/_/g, '') : m[1];
+    if (got !== pin.want) {
+      console.log(`  ✗ ${label} — upstream is ${got}, the table says ${pin.want}`);
+      drifted.push({ pin, got });
+      continue;
+    }
+    console.log(`  ✓ ${label} = ${got}`);
+    ok++;
+  }
+  return { ok, drifted, skipped };
+}
 
 /** Normalize line endings so a CRLF/LF-only difference isn't reported as drift. */
 function normalize(text) {
@@ -188,8 +398,25 @@ async function main() {
     `\nSnapshots: ${ok} up-to-date · ${drifted.length} drifted · ${skipped.length} skipped (unreachable)`,
   );
 
+  console.log(`\nPinned constants — the generation-limits table in ${LIMITS_DOC} vs civitai@origin/main\n`);
+  const pins = await checkPinnedConstants();
+  console.log(
+    `\nPinned constants: ${pins.ok} of ${PINNED_CONSTANTS.length} match · ${pins.drifted.length} drifted · ${pins.skipped.length} skipped (unreachable)`,
+  );
+
   if (skipped.length && !drifted.length && ok === 0) {
     console.log('\nAll sources unreachable — treating as an environment/network issue, not drift. Exiting 0.');
+  }
+
+  if (pins.drifted.length) {
+    console.error(`\n--- DRIFT: the generation-limits table in ${LIMITS_DOC} (#limits) no longer matches civitai@origin/main ---`);
+    for (const d of pins.drifted) {
+      const where = `${RAW_BASE}/${d.pin.path}`;
+      if (d.docMissing) console.error(`  - ${d.pin.name}: the page no longer states ${JSON.stringify(d.pin.doc)} — update the pin's \`doc\` with the table`);
+      else if (d.gone) console.error(`  - ${d.pin.name}: ${where} returned HTTP ${d.status} — find where the constant moved`);
+      else if (d.unmatched) console.error(`  - ${d.pin.name}: pattern no longer matches ${where} — find where the constant moved`);
+      else console.error(`  - ${d.pin.name}: upstream ${d.got}, table ${d.pin.want} — update the table, its "Values at civitai <sha>" stamp, and the pin`);
+    }
   }
 
   if (drifted.length) {
@@ -209,8 +436,9 @@ async function main() {
       }
     }
     console.error('\nThen re-run `npm run gen:appblocks` and review the regenerated public/appblocks/*.');
-    process.exit(1);
   }
+
+  if (drifted.length || pins.drifted.length) process.exit(1);
 }
 
 main().catch((err) => {

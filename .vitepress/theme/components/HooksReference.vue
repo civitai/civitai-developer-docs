@@ -15,7 +15,13 @@ interface Hook {
    *  silently yield `undefined`, fall every description back to <p>, and restore
    *  the collapsed-table bug with a fully green build. */
   descriptionHasTable?: boolean;
+  /** Everything in the hook's README section AFTER its example, in order —
+   *  stamped by gen-appblocks-hooks.mjs (`lib/readme-hook-sections.mjs`). It used
+   *  to be dropped, 🔴 warnings included. Text is upstream markdown shown as
+   *  TEXT, like `description`; code keeps its own monospace block. */
+  notes?: HookNote[];
 }
+type HookNote = { kind: 'text'; text: string } | { kind: 'code'; lang: string; code: string };
 interface HooksData { hooks: Hook[]; reactPackage?: string; }
 
 const data = inject<HooksData>('appblocks:hooks', { hooks: [] });
@@ -42,6 +48,16 @@ const hooks = data.hooks ?? [];
         <div class="ab-sig-label">example</div>
         <pre class="ab-example"><code>{{ h.example }}</code></pre>
       </template>
+      <!-- The rest of the README section, after the example. Text is upstream
+           markdown rendered as TEXT (escaped, never v-html), like the description
+           above — but with `pre-wrap`, so list items, table rows and 🔴 lines keep
+           their own lines instead of collapsing into one paragraph. The README's
+           own line breaks are shown as-is. Later code fences get their own
+           monospace block. -->
+      <template v-for="(n, i) in h.notes ?? []" :key="i">
+        <pre v-if="n.kind === 'code'" class="ab-hook-notes-code"><code>{{ n.code }}</code></pre>
+        <div v-else class="ab-hook-notes">{{ n.text }}</div>
+      </template>
     </section>
     <p v-if="!hooks.length" class="ab-empty">
       No hooks generated. Run <code>npm run gen:appblocks</code>.
@@ -65,5 +81,6 @@ const hooks = data.hooks ?? [];
 .ab-hook pre code { font-family: var(--vp-font-family-mono); font-size: 0.82rem; white-space: pre; }
 .ab-hook-desc { margin: 0.4rem 0 0.8rem; color: var(--vp-c-text-1); }
 .ab-hook-desc-pre { white-space: pre-wrap; font-family: inherit; overflow-x: auto; }
+.ab-hook-notes { white-space: pre-wrap; margin: 0.6rem 0 0.8rem; color: var(--vp-c-text-1); overflow-wrap: anywhere; }
 .ab-empty { color: var(--vp-c-text-3); font-style: italic; }
 </style>

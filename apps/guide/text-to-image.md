@@ -2,8 +2,8 @@
 title: Generating images (text-to-image)
 description: The primary App Blocks generation path — submit a text-to-image WorkflowBody, add LoRAs, do img2img (page-only), and read the result — with the server-enforced field contract and the page-vs-model rules stated in full.
 sources:
-  - npm:@civitai/app-sdk@0.59.0/blocks#WorkflowBodyTextToImage
-  - npm:@civitai/blocks-react@0.65.1#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.60.0/blocks#WorkflowBodyTextToImage
+  - npm:@civitai/blocks-react@0.65.2#useBuzzWorkflow
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockTextToImageBodySchema
 ---
 
@@ -210,6 +210,80 @@ model-bound token** — it is honored only for **page apps**. A model-slot block
 that sends `additionalResources` gets a `FORBIDDEN` it can't diagnose from the
 response. See [page-vs-model constraints](#page-vs-model-constraints).
 :::
+
+### Building a LoRA stack (several slots) {#lora-stack}
+
+The resource picker returns **one** resource per `open()`. An app that layers
+several LoRAs (a stack, or a matrix of LoRA × weight) opens it **once per
+slot** and keeps the picks in its own state.
+
+The hook reference says to **omit `baseModelGroup` by default**, and that still
+holds for an unconstrained pick (the checkpoint picker below passes none, so the
+viewer can switch family). A LoRA slot is the case where you do pass it:
+it must stay inside the family of the checkpoint already chosen, so pass
+`baseModelGroup`, **derived** from that checkpoint's `baseModel` at the moment
+you open the picker. Never pass a hardcoded ecosystem string.
+
+```tsx
+import { useCheckpointPicker, useResourcePicker } from '@civitai/blocks-react';
+import type { BlockCheckpointInfo, BlockResourceInfo } from '@civitai/app-sdk/blocks';
+
+const MAX_LORAS = 5; // server cap on additionalResources
+
+interface LoraSlot {
+  resource: BlockResourceInfo;
+  strength: number; // [-1, 2]
+  requestedFamily: string; // the family this slot was picked FOR
+}
+
+export function useLoraStack(
+  checkpoint: BlockCheckpointInfo,
+  loras: LoraSlot[],
+  setCheckpoint: (next: BlockCheckpointInfo) => void,
+  setLoras: (next: LoraSlot[]) => void,
+) {
+  const { open: openCheckpoint } = useCheckpointPicker();
+  const { open: openResource } = useResourcePicker();
+
+  // One open() per slot: the picker returns a single resource.
+  const addLora = async () => {
+    if (loras.length >= MAX_LORAS) return;
+    const family = checkpoint.baseModel; // DERIVED, never a literal
+    const picked = await openResource({ resourceType: 'LORA', baseModelGroup: family });
+    if (!picked || loras.some((l) => l.resource.versionId === picked.versionId)) return;
+    setLoras([...loras, { resource: picked, strength: 1, requestedFamily: family }]);
+  };
+
+  // The checkpoint pick passes NO baseModelGroup, so the viewer can change family.
+  const changeCheckpoint = async () => {
+    const { selected } = await openCheckpoint({ currentVersionId: checkpoint.versionId });
+    if (!selected) return;
+    setCheckpoint(selected);
+    // A new family strands the old LoRAs. Drop them (and tell the viewer).
+    setLoras(loras.filter((l) => l.requestedFamily === selected.baseModel));
+  };
+
+  return { addLora, changeCheckpoint };
+}
+```
+
+- **Re-filter when the checkpoint changes.** A LoRA left over from the previous
+  family makes the server reject the next estimate, with nothing on screen to
+  explain it. Compare against the family you **asked for** (`requestedFamily`),
+  not the pick's own `baseModel`: the host maps a family to an ecosystem, so a
+  pick requested as `SDXL 1.0` can come back labelled `SDXL Turbo`.
+- **Respect the limits.** At most **5** entries, each `strength` in
+  **[-1, 2]**. Clamp before you build the body, and disable "add" at the cap.
+  Page apps only, like every `additionalResources` request.
+- Map the stack to the body as
+  `additionalResources: loras.map((l) => ({ modelVersionId: l.resource.versionId, strength: l.strength }))`,
+  and omit the key when the stack is empty.
+
+The full worked version is the
+[generate-studio](https://github.com/civitai/civitai-app-starters/tree/main/starters/examples/generate-studio)
+example: `src/components/ModelSection.tsx` has the per-slot picker and the
+checkpoint change, and `keepCompatibleLoras` in `src/studio/setup.ts` is the
+re-filter.
 
 ## Image-to-image (`sourceImage` / `sourceImages`) — page apps only
 
@@ -606,6 +680,118 @@ before it runs (nothing charged, nothing delivered), and it stays that way for
 every user until you ship a new manifest version. See
 [Sizing the budget](../reference/manifest) in the manifest reference. The
 `ai:write:budgeted` [scope](../reference/scopes) is required either way.
+
+## Running many generations (limits and fan-out) {#limits}
+
+There is **no batch API**. A grid or matrix app (one generation per cell) makes
+one `estimate()`, one `submit()` and one `watch()` per cell, and every limit
+below applies to each of those calls on its own. There is also **no aggregate
+quote**: a run total shown in your confirm card is the sum of the per-cell
+estimates, computed in your own UI, and the server never sees or locks it.
+
+### The limits {#limits-table}
+
+Values at civitai `a16265aaa4`, 2026-10-08. They can change, and the per-app
+values depend on the app's spend tier. Every app starts on `standard`.
+
+| Limit | Value | Keyed on | Tier | What your app sees when it trips |
+|---|---|---|---|---|
+| Per-call budget | price + author fee ≤ `page.buzzBudgetPerGen`. Default **10** when the manifest omits it; anything above **1,000** is clamped to 1,000 | one `submit()` | no | `submit()` **resolves**: `status: 'failed'`, `workflowId: 'failed'`, `cost.total`, `error: 'insufficient buzz budget: …'`. Nothing charged |
+| Images per submit | `quantity` **1–4** | one `submit()` | no | the body fails validation, so `submit()` **rejects** (`WorkflowSubmitError`, `code: 'exception'`). Nothing charged |
+| Estimate rate | **150 requests / 10 s** | the **block instance**. For a page app that is **one instance shared by every viewer of the app**; for a model-slot block it is one installed instance. The same allowance also covers `cancel()`, `useAppWorkflows()` and the host's own reads for your block (viewer, Buzz balance, image and model lookups) | no | `estimate()` **rejects** (`WorkflowEstimateError`, message `Rate limit exceeded, please retry shortly.`). Nothing charged. A refused `cancel()` **resolves** with `status: 'processing'`: the cancel was not sent, so call it again |
+| Poll rate | **1,200 requests / 60 s** | the block instance **and** the viewer | no | the poll **resolves** with `status: 'processing'` and no new data. `watch()` keeps looping and picks up the real status on a later poll. Nothing lost, nothing charged |
+| Submit request rate | **none** | n/a | n/a | n/a. Submits are bounded by the spend limits below instead |
+| App generation velocity | **120 accepted submits / 60 s** on `standard` (`trusted`: 600, `platform`: 3,000). One submit counts once, whatever its `quantity` | the **app**: every viewer and every install together | **yes** | `submit()` **resolves**: `status: 'failed'`, `workflowId: 'failed'`, `cost.total`, `error: 'app generation rate limit reached: …'`. Nothing charged |
+| App daily spend | **5,000,000 Buzz / UTC day** on `standard` and `trusted` (`platform`: 25,000,000) | the **app**: every viewer together | **yes** | `submit()` **resolves** failed, `error: 'app daily spend cap reached: …'`. Nothing charged |
+| Viewer daily spend | **50,000 Buzz / UTC day** | the **viewer**, across **all** their apps | no | `submit()` **resolves** failed, `error: 'daily Buzz cap reached: … daily cap is 50000'`. Nothing charged |
+| Viewer's consent budget | whatever the viewer set for your app when they granted spend (optional, at most 50,000 / UTC day) | the viewer **and** your app | no | `submit()` **resolves** failed, with an `error` naming that budget. Nothing charged |
+| Concurrent workflows | **no host-side cap** | n/a | n/a | n/a |
+
+Civitai can also set a per-app override of the two app-wide values. The 60 s and
+10 s windows are fixed windows, not sliding ones: the app velocity window starts
+on each clock minute.
+
+The resolved refusals above are all case 1 in the
+[resolved `'failed'` list](../reference/generation#bridge-useBuzzWorkflow): the
+placeholder `workflowId`, nothing charged, every reservation released. As
+[refused submits](#refused-submits) explains, `error` is server-authored text,
+not a contract. Log it and show your own copy; don't branch on its wording.
+
+::: tip You will not hit the app-wide limits locally
+The mock host does not model the rate limits or the app-wide limits, and a
+`dev:tunnel` session skips the app velocity and app daily limits. A velocity refusal first shows up once your
+app is live, so write the handling before you need it.
+:::
+
+### Fan-out, cell by cell {#fan-out}
+
+- **One `submit()` per cell, each with its own stable `idempotencyKey`**, for
+  example `` `cell-${runId}-${x}-${y}` ``. Reuse that key for every retry of
+  that cell and never for another cell; see
+  [Retrying a `submit()` without double-charging](../reference/generation#retrying-a-submit-without-double-charging)
+  and [the section above](#retrying-a-submit-safely).
+- **One `watch()` per workflow.** Each `watch()` keeps exactly one poll in
+  flight and waits `intervalMs` (default 1,500 ms) between polls, so one watched
+  workflow makes at most 60 / 1.5 = **40 polls a minute**.
+- **Track each cell from its own promise**, the value `submit()` and `watch()`
+  resolve with (plus `watch()`'s `onUpdate`). The hook's `result` and `status`
+  are one value per hook, so with 16 cells in flight they only show whichever
+  call updated them last.
+- **Record an outcome per cell.** A grid run ends with a mix: some cells
+  succeeded, some were refused (the `'failed'` placeholder, nothing charged),
+  some ran and failed (a real `workflowId`, possibly charged). Show each one.
+  Don't abort the whole grid because one cell was refused.
+- **Cancel per workflow.** There is no cancel-all. Call `cancel(workflowId)` for
+  every cell that is not terminal yet, and check each result: one that comes
+  back `'processing'` was not cancelled, so call it again.
+- **Estimate when the viewer is about to confirm, not on every edit.** On a
+  page app the 150-per-10-s allowance is shared by every viewer of your app. A
+  16-cell grid spends 16 of it per estimate pass, so about nine viewers
+  re-estimating a full grid in the same 10 s would use it all, and then your
+  other reads (balance, viewer, `cancel()`) start being refused too. Debounce,
+  and treat a rejected estimate as "try again in a few seconds".
+
+### The app velocity limit is shared by every viewer {#velocity-is-shared}
+
+120 accepted submits a minute is the allowance for **your whole app**, not for
+one viewer. A 16-cell grid uses 16 of them, so 120 / 16 = **7.5 full grids a
+minute across all of your viewers together**. Low concurrency per viewer does
+not protect you: three viewers each starting a 16-cell grid in the same minute
+is 48 submits, and the fourth viewer's grid can be refused partway through,
+because of traffic from people they never see.
+
+So a grid app has to treat a velocity refusal in the middle of a grid as a
+normal outcome:
+
+1. The refused cell resolved with the `'failed'` placeholder, so nothing was
+   charged and nothing is running. Mark it "waiting", not "failed".
+2. Wait until the next minute begins before you retry. A refused submit still
+   counts toward the current minute, so retrying sooner keeps the app at the
+   limit for everyone.
+3. Retry with the **same** `idempotencyKey`. The refused attempt released it,
+   so the retry runs normally, and if the earlier response was lost instead,
+   the key stops it from being charged twice.
+4. If it is refused again, stop and show the viewer which cells did not run,
+   with a button to retry them.
+
+**Pacing submits does not save velocity.** It counts submits, not workflows in
+flight. A 16-cell grid uses 16 of the minute's 120 whether you start the cells
+all at once or three at a time, unless the pacing spreads them across more than
+one minute.
+
+### Recommended concurrency {#recommended-concurrency}
+
+None of the per-viewer limits calls for a cap below the 16 cells in a 4×4 grid.
+Watching 16 workflows at once is at most 16 × 40 = **640 polls a minute**,
+about half of the 1,200 allowed for one viewer, so one viewer can watch up to
+1,200 / 40 = **30 workflows** before polls start returning placeholders (and
+even then nothing breaks, `watch()` just updates more slowly). A full grid's
+estimates are 16 of 150 per 10 s. Spend is the other bound: 16 cells at a
+1,000-Buzz budget is at most 16,000 Buzz, under one viewer's 50,000 a day.
+
+So submitting a 16-cell grid in one go is within every per-viewer limit. A
+lower per-viewer concurrency does not change your exposure to the shared app
+velocity limit, which the steps above handle.
 
 ## Page-vs-model constraints
 
