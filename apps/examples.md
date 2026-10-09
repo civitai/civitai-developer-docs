@@ -231,7 +231,8 @@ mod-only today (see the box above), and the README notes that
 setup codes, txt2img and img2img, a debounced quote, budget versus wallet, a
 queue of runs with `watch` and `cancel`, the app's own history, publishing
 outputs, and showing them only as far as the viewer may see them. Its README is
-a numbered tour of the files.
+a numbered tour of the files. For the multi-LoRA pattern it implements, see
+[Building a LoRA stack](./guide/text-to-image#lora-stack).
 
 - **Scopes** — `ai:write:budgeted`, `buzz:read:self`
 - **Hooks** — `useCheckpointPicker`, `useResourcePicker`, `useGenerationResources`, `useImageUpload`, `useBuzzWorkflow`, `useBuzzBalance`, `useBuzzPurchase`, `useAppWorkflows`, `usePublishGenerationOutputs`, `useGatedImages`, `useDomainMaturity`, `useSaveImage`, `useRequestConsent`, `useRequestSignIn`, `useBlockContext`, `useBlockResize`

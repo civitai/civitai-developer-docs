@@ -211,6 +211,80 @@ that sends `additionalResources` gets a `FORBIDDEN` it can't diagnose from the
 response. See [page-vs-model constraints](#page-vs-model-constraints).
 :::
 
+### Building a LoRA stack (several slots) {#lora-stack}
+
+The resource picker returns **one** resource per `open()`. An app that layers
+several LoRAs (a stack, or a matrix of LoRA × weight) opens it **once per
+slot** and keeps the picks in its own state.
+
+The hook reference says to **omit `baseModelGroup` by default**, and that still
+holds for an unconstrained pick (the checkpoint picker below passes none, so the
+viewer can switch family). A LoRA slot is the case where you do pass it:
+it must stay inside the family of the checkpoint already chosen, so pass
+`baseModelGroup`, **derived** from that checkpoint's `baseModel` at the moment
+you open the picker. Never pass a hardcoded ecosystem string.
+
+```tsx
+import { useCheckpointPicker, useResourcePicker } from '@civitai/blocks-react';
+import type { BlockCheckpointInfo, BlockResourceInfo } from '@civitai/app-sdk/blocks';
+
+const MAX_LORAS = 5; // server cap on additionalResources
+
+interface LoraSlot {
+  resource: BlockResourceInfo;
+  strength: number; // [-1, 2]
+  requestedFamily: string; // the family this slot was picked FOR
+}
+
+export function useLoraStack(
+  checkpoint: BlockCheckpointInfo,
+  loras: LoraSlot[],
+  setCheckpoint: (next: BlockCheckpointInfo) => void,
+  setLoras: (next: LoraSlot[]) => void,
+) {
+  const { open: openCheckpoint } = useCheckpointPicker();
+  const { open: openResource } = useResourcePicker();
+
+  // One open() per slot: the picker returns a single resource.
+  const addLora = async () => {
+    if (loras.length >= MAX_LORAS) return;
+    const family = checkpoint.baseModel; // DERIVED, never a literal
+    const picked = await openResource({ resourceType: 'LORA', baseModelGroup: family });
+    if (!picked || loras.some((l) => l.resource.versionId === picked.versionId)) return;
+    setLoras([...loras, { resource: picked, strength: 1, requestedFamily: family }]);
+  };
+
+  // The checkpoint pick passes NO baseModelGroup, so the viewer can change family.
+  const changeCheckpoint = async () => {
+    const { selected } = await openCheckpoint({ currentVersionId: checkpoint.versionId });
+    if (!selected) return;
+    setCheckpoint(selected);
+    // A new family strands the old LoRAs. Drop them (and tell the viewer).
+    setLoras(loras.filter((l) => l.requestedFamily === selected.baseModel));
+  };
+
+  return { addLora, changeCheckpoint };
+}
+```
+
+- **Re-filter when the checkpoint changes.** A LoRA left over from the previous
+  family makes the server reject the next estimate, with nothing on screen to
+  explain it. Compare against the family you **asked for** (`requestedFamily`),
+  not the pick's own `baseModel`: the host maps a family to an ecosystem, so a
+  pick requested as `SDXL 1.0` can come back labelled `SDXL Turbo`.
+- **Respect the limits.** At most **5** entries, each `strength` in
+  **[-1, 2]**. Clamp before you build the body, and disable "add" at the cap.
+  Page apps only, like every `additionalResources` request.
+- Map the stack to the body as
+  `additionalResources: loras.map((l) => ({ modelVersionId: l.resource.versionId, strength: l.strength }))`,
+  and omit the key when the stack is empty.
+
+The full worked version is the
+[generate-studio](https://github.com/civitai/civitai-app-starters/tree/main/starters/examples/generate-studio)
+example: `src/components/ModelSection.tsx` has the per-slot picker and the
+checkpoint change, and `keepCompatibleLoras` in `src/studio/setup.ts` is the
+re-filter.
+
 ## Image-to-image (`sourceImage` / `sourceImages`) — page apps only
 
 Add a source image to turn the request into **img2img**: the block bridge emits
