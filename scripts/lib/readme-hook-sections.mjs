@@ -261,12 +261,19 @@ export function verifyPublished(sections, entries) {
     }
     // The description too: a section with no ```tsx fence is ALL lead, so a
     // boundary regression there lands in `description`, not in `notes`.
+    // Fence-aware, through the same `tokenize` `scanSections` uses: the
+    // description can hold whole fences (no ```tsx fence at all, or a ```sh fence
+    // before the ```tsx one), and a `# install it` comment inside one is not a
+    // heading. Scanning raw lines read it as a level-1 heading and failed the
+    // build on a section with no leak. Only `text` tokens can be headings.
     const leaked = [e.description ?? '', ...(e.notes ?? []).filter((n) => n.kind === 'text').map((n) => n.text)]
-      .flatMap((t) => t.split('\n'))
-      .filter((l) => {
-        const m = l.match(ATX_HEADING);
+      .flatMap((t) => tokenize(t))
+      .filter((tok) => {
+        if (tok.kind !== 'text') return false;
+        const m = tok.text.match(ATX_HEADING);
         return m && m[1].length <= s.level;
-      });
+      })
+      .map((tok) => tok.text);
     if (leaked.length) {
       problems.push(
         `${s.name}: its published text contains ${leaked.length} heading(s) at level <= ${s.level} — another README ` +

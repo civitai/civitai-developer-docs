@@ -365,6 +365,67 @@ check('verifyPublished counts repeated lines — a second `}` cannot vanish behi
   assert(problems.length === 1 && /^useAlpha: 1 line\(s\)/.test(problems[0]) && problems[0].includes('"}"'), `got: ${problems.join('; ')}`);
 });
 
+// A `#` comment inside a fence that ends up in the DESCRIPTION is not a heading.
+// The description holds whole fences in two shapes: a section with no ```tsx
+// fence (all of it is lead), and a non-tsx fence before the ```tsx one. The
+// boundary check used to split the description into raw lines, so `# install it`
+// read as a level-1 heading and failed the build with a false "another README
+// section has been attached". Each fixture's last-line `## Testing` proves the
+// section boundary itself is still where it was.
+const DESC_FENCE_NO_TSX = [
+  '## The hooks',
+  '',
+  '### `useA()`',
+  '',
+  'Install it first.',
+  '',
+  `${FENCE}bash`,
+  '# install it',
+  'npm i @civitai/blocks-react',
+  FENCE,
+  '',
+  '## Testing',
+].join('\n');
+const DESC_FENCE_BEFORE_TSX = [
+  '## The hooks',
+  '',
+  '### `useB()`',
+  '',
+  `${FENCE}sh`,
+  '# x',
+  FENCE,
+  '',
+  `${FENCE}tsx`,
+  'const b = useB();',
+  FENCE,
+  '',
+  '## Testing',
+].join('\n');
+
+check('a `#` comment in a fence with no ```tsx fence is not a leaked heading', () => {
+  const { byHook } = parseReadme(DESC_FENCE_NO_TSX);
+  assert(byHook.useA.example === null && byHook.useA.prose.includes('# install it'), `fixture shape changed: ${JSON.stringify(byHook.useA)}`);
+  const problems = verifyPublished(scanSections(DESC_FENCE_NO_TSX), entriesFrom(byHook));
+  assert(problems.length === 0, `got: ${problems.join('; ')}`);
+});
+
+check('a `#` comment in a ```sh fence before the ```tsx fence is not a leaked heading', () => {
+  const { byHook } = parseReadme(DESC_FENCE_BEFORE_TSX);
+  assert(byHook.useB.example === 'const b = useB();' && byHook.useB.prose.includes('# x'), `fixture shape changed: ${JSON.stringify(byHook.useB)}`);
+  const problems = verifyPublished(scanSections(DESC_FENCE_BEFORE_TSX), entriesFrom(byHook));
+  assert(problems.length === 0, `got: ${problems.join('; ')}`);
+});
+
+check('NEGATIVE CONTROL — a real leaked heading is still caught in a description that holds a fence', () => {
+  const { byHook } = parseReadme(DESC_FENCE_NO_TSX);
+  byHook.useA.prose = `${byHook.useA.prose}\n\n## Testing\n\nA non-hook section.`;
+  const problems = verifyPublished(scanSections(DESC_FENCE_NO_TSX), entriesFrom(byHook));
+  assert(
+    problems.some((p) => /^useA: its published text contains 1 heading.*"## Testing"/.test(p)),
+    `got: ${problems.join('; ')}`,
+  );
+});
+
 console.log('');
 if (failures) {
   console.log(`appblocks-hooks tests: ${failures} FAILED`);

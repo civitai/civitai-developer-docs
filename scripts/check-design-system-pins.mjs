@@ -430,6 +430,52 @@ export const HISTORICAL_LITERALS = [
     count: 1,
     why: 'the dark-values-on-`:root` change (and the removal of the prefers-color-scheme block) landed in theme 0.5.0 — a changelog fact. Bumping it to the current pin would name the wrong release.',
   },
+  // --- apps/reference/hooks.md: arrival claims quoted from the blocks-react README ---
+  // All three sit inside the page's GENERATED markdown-fallback region (between
+  // the `BEGIN/END GENERATED: hooks` markers, written by `gen:appblocks:md` from
+  // the published README's per-hook sections). They are scanned on purpose, the
+  // same way generation.md's generated region is (its 0.30.0 row counts the
+  // generated docstring mirror): this guard has no generated-region skip, and a
+  // registry row is the reviewed exemption. Editing the text here is not an
+  // option — it is regenerated from upstream — and upstream is right.
+  // Each version MEASURED by `npm pack` of the release before and the release
+  // named, not taken from the README: a README bump that adds another "since X"
+  // line must get its own row after the same check.
+  {
+    file: 'apps/reference/hooks.md',
+    pkg: '@civitai/blocks-react',
+    version: '0.44.0',
+    // EXACT count 1 — "`submit` REJECTS when the reply carries no usable workflow
+    // outcome (`@civitai/blocks-react@0.44.0+`)". Measured: `new
+    // WorkflowSubmitError(` occurs 0 times in 0.43.1's dist JS and once in
+    // 0.44.0's (`dist/hooks/useBuzzWorkflow.js`); 0.44.0's README is the first to
+    // carry the bullet.
+    count: 1,
+    why: '`useBuzzWorkflow().submit` started REJECTING an outcome-less reply in blocks-react 0.44.0 (0.43.1 dist never throws WorkflowSubmitError) — an upstream changelog fact quoted verbatim. Bumping it to the pin would name a release in which nothing about this changed.',
+  },
+  {
+    file: 'apps/reference/hooks.md',
+    pkg: '@civitai/blocks-react',
+    version: '0.43.0',
+    // EXACT count 1 — "`estimate` follows the same rule … (`@civitai/blocks-react@0.43.0+`)".
+    // Measured: `WorkflowEstimateError` is in 0 dist files at 0.42.0 and 5 at
+    // 0.43.0 (and 0.43.1).
+    count: 1,
+    why: '`estimate` rejecting with WorkflowEstimateError ARRIVED in blocks-react 0.43.0 (absent from 0.42.0 dist) — an upstream changelog fact quoted verbatim. Bumping it to the pin would state a false arrival version.',
+  },
+  {
+    file: 'apps/reference/hooks.md',
+    pkg: '@civitai/blocks-react',
+    version: '0.5.0',
+    // EXACT count 1 — "`@civitai/blocks-react@0.5.0+` adds
+    // `useBuzzWorkflow().cancel(workflowId)`". Measured: `cancel` is in 0 `.d.ts`
+    // files at 0.4.2 and declared as `cancel: (workflowId: string) =>
+    // Promise<BlockWorkflowSnapshot>` in 0.5.0's `useBuzzWorkflow.d.ts`. The
+    // same note's "predates 0.5.0" carries no `@civitai/` prefix and is not a
+    // literal, so it does not count.
+    count: 1,
+    why: 'server-side `useBuzzWorkflow().cancel(workflowId)` ARRIVED in blocks-react 0.5.0 (absent from 0.4.2) — an upstream changelog fact quoted verbatim, and the upgrade floor the note tells readers to check. Bumping it to the pin would state a false floor.',
+  },
 ];
 
 const REGISTRY = process.env.APPBLOCKS_NPM_REGISTRY || 'https://registry.npmjs.org';
