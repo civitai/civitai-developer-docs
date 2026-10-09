@@ -66,6 +66,8 @@ import { outDir, repoRoot } from './appblocks-util.mjs';
 // rather than reimplemented for the reason this whole module exists: the .md
 // channel and the island must not be able to disagree about what they show.
 import { cliLongBody } from '../.vitepress/theme/components/cliReference.shared.mjs';
+// The same notes -> markdown join the hooks generator's guard reasons about.
+import { notesMarkdown } from './lib/readme-hook-sections.mjs';
 
 export const REFRESH_CMD = 'npm run gen:appblocks:md';
 
@@ -437,6 +439,14 @@ function renderHooks() {
         fence('ts', h.signature),
         h.description ? describeHook(h) : '',
         h.example ? fence('tsx', h.example) : '',
+        // The rest of the README section, after the example. ONE `md` fence, for
+        // the same reason `describeHook` fences a table: it is upstream markdown
+        // carrying lists, tables, nested ```tsx fences and raw `<Tag>` text in
+        // prose (2 today; a `{{` would be a build-breaker the same way), and
+        // a fence is the only container here that is `v-pre` (build-safe) AND
+        // keeps every line verbatim for the .md reader. `fence()` lengthens the
+        // outer fence past the nested ones.
+        h.notes?.length ? fence('md', notesMarkdown(h.notes)) : '',
       ),
     )
     .join('\n\n');

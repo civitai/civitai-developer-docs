@@ -21,6 +21,8 @@
 // matches three columns is invisible to the real artifact. The fixtures below
 // are deliberately shapes the live corpus does NOT contain.
 import { descriptionHasTable } from './lib/description-has-table.mjs';
+import { parseReadme, scanSections, splitSection, verifyPublished } from './lib/readme-hook-sections.mjs';
+import { reflowNoteText } from '../.vitepress/theme/components/hookNotes.shared.mjs';
 // Imported, NOT re-declared. An earlier version of the test below copied that
 // file's `isTableRow` regex into a local const, which made its failure message —
 // a claim about the SIBLING — a tautology about a local literal: deleting
@@ -223,6 +225,164 @@ check('the sibling predicate cannot reach a no-outer-pipe flag table, at any lev
     'flagTablesIn found nothing in a CONVENTIONAL hand-written flag table, so every zero above ' +
       'proves nothing. The sibling guard is not working — fix it there, not here.',
   );
+});
+
+// ── README section splitting (lib/readme-hook-sections.mjs) ─────────────────
+// 🔴 The generator used to keep only the prose BEFORE a hook's first ```tsx fence
+// and end a section only at the next `use…` heading. These fixtures pin the
+// replacement's three properties — boundary, fence-awareness, order — and that
+// the fail-loud guard (`verifyPublished`) goes red on the historical splitter.
+const FENCE = '```';
+const README_FIXTURE = [
+  '## The hooks',
+  '',
+  '### `useAlpha()`',
+  '',
+  'Alpha lead.',
+  '',
+  `${FENCE}tsx`,
+  'const a = useAlpha();',
+  '}',
+  FENCE,
+  '',
+  '🔴 **Alpha warning after the example.**',
+  '',
+  '| a | b |',
+  '|---|---|',
+  '| 1 | 2 |',
+  '',
+  `${FENCE}bash`,
+  '## not a heading — a shell comment inside a fence',
+  '}',
+  FENCE,
+  '',
+  '#### A deeper subheading stays with alpha',
+  '',
+  'Alpha tail.',
+  '',
+  '### `NotAHook`',
+  '',
+  'Interstitial text that belongs to no hook.',
+  '',
+  '### `useBeta()`',
+  '',
+  'Beta lead, no fence at all.',
+  '',
+  '## Testing',
+  '',
+  'A non-hook section after the hook list.',
+].join('\n');
+
+check('a hook section ends at the next same-or-higher heading, whatever its name', () => {
+  const sections = scanSections(README_FIXTURE);
+  assert(sections.map((s) => s.name).join(',') === 'useAlpha,useBeta', `sections: ${sections.map((s) => s.name)}`);
+  const alpha = sections[0].tokens.map((t) => t.text).join('\n');
+  const beta = sections[1].tokens.map((t) => t.text).join('\n');
+  assert(!alpha.includes('Interstitial text'), 'useAlpha swallowed the `### NotAHook` section after it');
+  assert(!beta.includes('A non-hook section'), 'useBeta swallowed the `## Testing` section after it');
+  assert(alpha.includes('Alpha tail.'), 'a DEEPER (####) subheading wrongly ended useAlpha');
+  assert(
+    sections.interstitials.map((s) => s.heading).join('|') === '### `NotAHook`',
+    `interstitials: ${JSON.stringify(sections.interstitials.map((s) => s.heading))}`,
+  );
+});
+
+check('a `#` line inside a code fence is not a heading', () => {
+  const alpha = scanSections(README_FIXTURE)[0].tokens.map((t) => t.text).join('\n');
+  assert(alpha.includes('Alpha tail.'), 'the `## …` shell comment inside the bash fence ended the section');
+});
+
+check('lead, example and notes keep README order, with later fences as code segments', () => {
+  const { prose, example, notes } = splitSection(scanSections(README_FIXTURE)[0].tokens);
+  assert(prose === 'Alpha lead.', `prose: ${JSON.stringify(prose)}`);
+  assert(example === 'const a = useAlpha();\n}', `example: ${JSON.stringify(example)}`);
+  const shape = notes.map((n) => (n.kind === 'code' ? `code:${n.lang}` : 'text')).join(',');
+  assert(shape === 'text,code:bash,text', `notes shape: ${shape}`);
+  assert(notes[0].text.startsWith('🔴 **Alpha warning'), 'the 🔴 line after the example is not the first note');
+  assert(notes[2].text.endsWith('Alpha tail.'), 'the deeper subsection is not in the last note');
+  // No ```tsx fence: the whole section is the lead, and there are no notes.
+  const beta = splitSection(scanSections(README_FIXTURE)[1].tokens);
+  assert(beta.prose === 'Beta lead, no fence at all.' && beta.example === null && beta.notes.length === 0, `beta: ${JSON.stringify(beta)}`);
+});
+
+const entriesFrom = (byHook) =>
+  Object.entries(byHook).map(([name, r]) => ({ name, description: r.prose ?? '', example: r.example ?? '', notes: r.notes ?? [] }));
+
+check('verifyPublished is clean on what the splitter produces', () => {
+  const problems = verifyPublished(scanSections(README_FIXTURE), entriesFrom(parseReadme(README_FIXTURE).byHook));
+  assert(problems.length === 0, problems.join('; '));
+});
+
+// NEGATIVE CONTROL — the splitter this replaced, verbatim from origin/main at
+// 1697554 (`git show 1697554:scripts/gen-appblocks-hooks.mjs`). The guard must
+// name the hook it drops content from, and count the 🔴 line among the losses.
+function historicalParseReadme(md) {
+  const byHook = {};
+  let current = null;
+  let buf = [];
+  const flush = () => {
+    if (!current) return;
+    const text = buf.join('\n');
+    const fence = text.match(/```tsx\n([\s\S]*?)```/);
+    const prose = text.slice(0, fence ? text.indexOf('```tsx') : text.length).trim();
+    byHook[current] = { example: fence ? fence[1].replace(/\n+$/, '') : null, prose: prose || null };
+  };
+  for (const line of md.split('\n')) {
+    const h = line.match(/^#{2,4}\s+`?(use[A-Za-z0-9]+)/);
+    if (h) {
+      flush();
+      current = h[1];
+      buf = [];
+    } else if (current) buf.push(line);
+  }
+  flush();
+  return byHook;
+}
+
+check('NEGATIVE CONTROL — verifyPublished goes red on the historical splitter, naming both defects', () => {
+  const problems = verifyPublished(scanSections(README_FIXTURE), entriesFrom(historicalParseReadme(README_FIXTURE)));
+  // useAlpha loses everything after its example (the 🔴 line among it); useBeta,
+  // which has no fence, has the `## Testing` section run into its lead.
+  assert(problems.length === 2, `expected two problems (useAlpha, useBeta), got ${problems.length}: ${problems.join('; ')}`);
+  assert(/^useAlpha: \d+ line\(s\).*\(1 of them 🔴\)/.test(problems[0]), `problem does not name useAlpha and its 🔴 line: ${problems[0]}`);
+  assert(/^useBeta: its published text contains 1 heading/.test(problems[1]), `problem does not name useBeta's boundary: ${problems[1]}`);
+});
+
+check('NEGATIVE CONTROL — verifyPublished goes red when another section is attached to a hook', () => {
+  const byHook = parseReadme(README_FIXTURE).byHook;
+  byHook.useAlpha.notes = [...byHook.useAlpha.notes, { kind: 'text', text: '### `NotAHook`\n\nInterstitial text that belongs to no hook.' }];
+  const problems = verifyPublished(scanSections(README_FIXTURE), entriesFrom(byHook));
+  assert(problems.length === 1 && /^useAlpha: its published text contains 1 heading/.test(problems[0]), `got: ${problems.join('; ')}`);
+});
+
+check('verifyPublished counts repeated lines — a second `}` cannot vanish behind the first', () => {
+  const byHook = parseReadme(README_FIXTURE).byHook;
+  // The bash fence's `}` duplicates the example's `}`. Drop the bash fence: a SET
+  // would still find `}` (from the example) and report only the comment line.
+  byHook.useAlpha.notes = byHook.useAlpha.notes.map((n) =>
+    n.kind === 'code' ? { ...n, code: '## not a heading — a shell comment inside a fence' } : n,
+  );
+  const problems = verifyPublished(scanSections(README_FIXTURE), entriesFrom(byHook));
+  assert(problems.length === 1 && /^useAlpha: 1 line\(s\)/.test(problems[0]) && problems[0].includes('"}"'), `got: ${problems.join('; ')}`);
+});
+
+// ── reflowNoteText — the island's display reflow of a text note ──────────────
+// Literal expected strings: the page shows exactly this, and check:built-site
+// compares the rendered HTML against the same function.
+check('reflowNoteText joins hard-wrapped prose and keeps every structural line break', () => {
+  const cases = [
+    { why: 'a hard-wrapped paragraph joins', in: 'Constrain it only when the pick has\nto match the checkpoint.', out: 'Constrain it only when the pick has to match the checkpoint.' },
+    { why: 'a blank line stays a paragraph break', in: 'one\ntwo\n\nthree', out: 'one two\n\nthree' },
+    { why: 'list items stay one per line; a continuation joins its item', in: '- first item\n  continues here\n- second\n  - nested', out: '- first item continues here\n- second\n  - nested' },
+    { why: 'numbered items stay one per line', in: '1. one\n2. two', out: '1. one\n2. two' },
+    { why: 'table rows are never joined', in: '| a | b |\n|---|---|\n| 1 | 2 |', out: '| a | b |\n|---|---|\n| 1 | 2 |' },
+    { why: 'a quote continuation joins with its `>` dropped', in: '> 🔴 **No leading slash.** The host\n> sends the segment.', out: '> 🔴 **No leading slash.** The host sends the segment.' },
+    { why: 'a quote does not swallow the unquoted line after it', in: '> quoted\nplain', out: '> quoted\nplain' },
+    { why: 'a markdown hard break (two spaces) is honoured', in: 'line one  \nline two', out: 'line one\nline two' },
+    { why: 'a heading does not absorb the line under it', in: '#### Errors\nthe table below', out: '#### Errors\nthe table below' },
+  ];
+  const wrong = cases.filter((c) => reflowNoteText(c.in) !== c.out);
+  assert(wrong.length === 0, wrong.map((c) => `${c.why}: got ${JSON.stringify(reflowNoteText(c.in))}`).join('\n       '));
 });
 
 console.log('');
