@@ -1,5 +1,5 @@
 ---
-title: Store items (sub-listings)
+title: App Store sub-listings
 description: How an app publishes items its viewers made — one generator, one preset — as their own cards in the /apps store, under the viewer's name. The apps:store:items:write scope, the three block REST routes, their limits and error codes, and the moderator review every item goes through.
 sources:
   - civitai:src/pages/api/v1/blocks/sub-listings/upsert.ts
@@ -9,27 +9,27 @@ sources:
   - civitai:src/shared/constants/app-sub-listing.constants.ts
 ---
 
-# Store items (sub-listings)
+# App Store sub-listings
 
 An app can place individual items it contains into the
 [`/apps` store](https://civitai.com/apps) as **their own cards**, badged
-"in ‹your app›". A store item is something a viewer made inside your app and
-saved to your app's [shared storage](../reference/scopes) — one generator, one
+"in ‹your app›" — **sub-listings** of your app's own listing. A sub-listing is
+something a viewer made inside your app and saved to your app's [shared storage](../reference/scopes) — one generator, one
 preset — and it is published **by that viewer, under their name**. Opening the
 card runs your app at a sub-path you choose:
 
 ```
-/apps/run/<your-app-slug>/<subPath>?sl=<store-item-id>
+/apps/run/<your-app-slug>/<subPath>?sl=<sub-listing-id>
 ```
 
 The server builds that link; your app supplies only `subPath`.
 
 ::: warning Not self-serve, and not yet public
-- **Your app must be enabled for store items by Civitai.** It is a per-app
+- **Your app must be enabled for sub-listings by Civitai.** It is a per-app
   switch, and it carries a per-author cap on how many items one viewer can have
   in the store. No CLI command or manifest field turns it on; until it is on,
   every publish answers `403 not_enabled`.
-- **Store items are in a moderator-only preview** (October 2026): the `/apps`
+- **Sub-listings are in a moderator-only preview** (October 2026): the `/apps`
   store mixes approved items in for Civitai moderators, and shows everyone else
   app cards only. Publishing and review work the same either way.
 :::
@@ -107,7 +107,7 @@ at most 8 KB.
 
 | Field | Rule |
 |---|---|
-| `itemKey` | 1–64 characters: the key of a row in **your app's shared storage** that the viewer **authored** and that is not hidden. One store item per key; publishing the same key again edits it. |
+| `itemKey` | 1–64 characters: the key of a row in **your app's shared storage** that the viewer **authored** and that is not hidden. One sub-listing per key; publishing the same key again edits it. |
 | `title` | 1–80 characters after cleaning. Must pass the same text-safety check as shared-storage posts (`400 text_rejected`). |
 | `tagline` | Optional, at most 140 characters, same check. |
 | `imageId` | Optional. An image **the viewer uploaded** (`403 image_not_yours` otherwise) that is **publicly visible** — in a published, non-private post, and reviewed — else `400 image_not_public`. Without one, the card shows your app's cover. |
@@ -120,7 +120,7 @@ at most 8 KB.
 means there was nothing of theirs to withdraw — or a moderator has hidden it,
 which the app cannot change. You rarely need it: when the author withdraws or
 deletes the shared-storage row the item came from, the server withdraws the
-store item itself, and a moderator hiding or deleting that row hides it (both
+sub-listing itself, and a moderator hiding or deleting that row hides it (both
 best-effort, so `mine` is the place to reconcile).
 
 `mine` returns up to 200 items, oldest first, each
@@ -161,15 +161,15 @@ server sentence, not copy for your UI.
 | `400` | `text_rejected` | the title or tagline did not pass the text-safety check |
 | `400` | `image_not_public` | `imageId` is not a publicly visible image |
 | `400` | `rating_too_loose` | `contentRating` is less mature than your app's rating |
-| `403` | `not_enabled` | your app is not enabled for store items |
+| `403` | `not_enabled` | your app is not enabled for sub-listings |
 | `403` | `untrusted` | the viewer's account does not yet clear the shared-storage write trust gate |
-| `403` | `not_your_item` | the shared row, or the existing store item, belongs to someone else |
+| `403` | `not_your_item` | the shared row, or the existing sub-listing, belongs to someone else |
 | `403` | `image_not_yours` | `imageId` is someone else's image |
 | `404` | `item_not_found` | no live shared-storage row with that `itemKey` |
 | `409` | `conflict` | the item kept changing under the write — retry |
 | `429` | `rate_limited` | over the hourly or daily allowance; honour `Retry-After` |
 | `429` | `author_cap` | the viewer already has the maximum number of items in the store for your app |
-| `503` | `unavailable` | store items are temporarily unavailable — retry later |
+| `503` | `unavailable` | sub-listings are temporarily unavailable — retry later |
 
 A `403` whose `code` is not in this table comes from the token, before the
 route runs — `insufficient_scope` (the token does not carry the scope, as in any
@@ -181,5 +181,5 @@ are listed under
 
 - [Scopes reference](../reference/scopes) — `apps:store:items:write` beside
   every other scope.
-- [Your store listing](./store-listing) — your app's own card, which a store
-  item is shown under.
+- [Your store listing](./store-listing) — your app's own card, which a
+  sub-listing is shown under.
