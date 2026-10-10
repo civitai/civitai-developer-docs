@@ -225,9 +225,10 @@ it, then retries once. Only the upload needs the scope requested up front.
    `useBlockToken().scopes` contains it.
 4. **A signed-in viewer** whose account may post. Creating a post needs an
    account with a verified email or a linked sign-in provider, that has
-   finished onboarding, is not brand new, and is not muted or banned. These
-   are checked when the post is created, not at upload, so a viewer can upload
-   successfully and still be refused at the post step. The refusal arrives as a
+   finished onboarding, is not brand new, and is not muted or banned. A banned
+   account is refused at upload as well; the rest are checked only when the
+   post is created, so a viewer can upload successfully and still be refused at
+   the post step. The refusal arrives as a
    server message you can show.
 
 ```json
@@ -241,9 +242,9 @@ it, then retries once. Only the upload needs the scope requested up front.
 
 ### The viewer confirms every post {#confirm}
 
-The scope grant does not publish anything by itself. Every `createPost()` call
-opens a dialog in Civitai's own chrome, and the post is created only if the
-viewer confirms it.
+The scope grant does not publish anything by itself. No post is created
+without the viewer confirming it in a dialog in Civitai's own chrome. A request
+Civitai refuses up front never reaches the dialog.
 
 The dialog shows what Civitai resolved from your request, not the strings you
 sent: the real thumbnails, the title and description that will be written, and
