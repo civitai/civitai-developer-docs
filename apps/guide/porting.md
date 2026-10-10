@@ -273,7 +273,7 @@ rather than shipping.
 | `useCivitaiRoute` | **Keep** — reads the host-owned sub-path from the handshake and `ROUTE_CHANGED`; off the bridge your own router owns the URL, so there is nothing to replace |
 | `useCollectionFollow` | `POST /api/v1/blocks/collections/{id}/follow` |
 | `useConsentUnavailable` | **Keep** — consent is host UI |
-| `useCreatePostFromApp` | **Stays on the bridge, by design** |
+| `useCreatePostFromApp` | **Stays on the bridge, by design** — see [Posting from an app](./posting) |
 | `useDailyCompensation` | **Not carried** |
 | `useDirectLoad` | **Keep** — see [Embedding](./embedding) |
 | `useDomainMaturity` | No direct equivalent — keep the hook. 🔴 Gate through its derived `isSfw` / `isLevelAllowed`, never on a raw bitmask: `maxBrowsingLevel` is the *domain's* ceiling (identical for every viewer on it, including one whose NSFW setting is off) |
@@ -294,7 +294,7 @@ rather than shipping.
 | `useSharedStorage` | `/api/v1/blocks/shared-storage/*` — 11 routes. The route is now the wider surface: `list` takes a `mine` filter the hook has no equivalent for — see [Listing only rows the viewer wrote](#listing-only-rows-the-viewer-wrote) |
 | `useTip` | `POST /api/v1/blocks/tip` |
 | `useTipAllowance` | `GET /api/v1/blocks/tip-allowance` |
-| `useUploadImageBytes` | **Keep** — a bridge message with no route. It sends `OPEN_IMAGE_UPLOAD` with `bytes`, and the host stores, persists and scans the image; no `/api/v1/blocks/*` route accepts an image upload. Page apps only, and the token needs `posts:write:self` |
+| `useUploadImageBytes` | **Keep** — a bridge message with no route. It sends `OPEN_IMAGE_UPLOAD` with `bytes`, and the host stores, persists and scans the image; no `/api/v1/blocks/*` route accepts an image upload. Page apps only, and the token needs `posts:write:self`. See [Posting from an app](./posting#upload-then-post) |
 | `useViewer` | `GET /api/v1/blocks/me`. Keeping the hook is not free: it is a `GET_VIEWER` bridge round trip on mount, not a snapshot read — but it is the authoritative self-read, where `useBlockContext().viewer` is the coarser `BLOCK_INIT` snapshot |
 | `useWildcardPack` | **Not carried** |
 
