@@ -1,6 +1,6 @@
 civitai CLI help snapshot (the WHOLE command tree)
 Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
-Binary version: civitai 0.1.114
+Binary version: civitai 0.1.117
 Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
 else parses this committed snapshot. To refresh: run
 node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).
@@ -589,6 +589,21 @@ submit route uses).
 With no argument it lists all your submissions (newest first). Pass a blockId
 (app slug) or --id <pubreq_id> to see a single submission in detail, including the
 rejection reason (if rejected) and the live URL (if approved + deployed).
+
+The blockId detail view shows your NEWEST submission, which is not always the
+one serving: a pending resubmission or a withdrawn duplicate can be newer than
+the approved build, and an approved submission can be superseded by a later
+deploy of an older one (its deploy state then reads "live (superseded: ...)").
+When it is not the serving one, a "Live submission" block below the detail names
+the submission that is serving (version, publish request, deploy state, live
+URL), and --json carries the same row as "liveSubmission". Nothing extra is
+printed when the newest submission IS that row, or when nothing is serving.
+"Serving" is inferred: the server leaves older approved builds marked live
+after a newer deploy, so the CLI takes the serving-marked approved submission
+deployed most recently (deployUpdatedAt; reviewedAt for legacy approvals). That
+is the right row after a rollback too, where it is not the highest version.
+--id shows exactly the submission you asked for and no "Live submission" block:
+that lookup reads no listing, so use the blockId form to see what is live.
 
 --limit N shows only the newest N of them. It is a DISPLAY limit, not a page
 size: this route accepts no limit and no cursor (that is what the cap note is
