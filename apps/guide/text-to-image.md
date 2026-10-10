@@ -652,6 +652,10 @@ export function Results() {
 }
 ```
 
+To let the viewer publish a finished result to their Civitai profile, pass
+`result.workflowId` to `createPost()` as a `workflow` source. See
+[Posting from an app](./posting).
+
 ## Reading your app's queue (`useAppWorkflows`)
 
 To show a running list of the generations **your app** submitted (across
@@ -793,6 +797,46 @@ So submitting a 16-cell grid in one go is within every per-viewer limit. A
 lower per-viewer concurrency does not change your exposure to the shared app
 velocity limit, which the steps above handle.
 
+### Posting and image-upload limits {#posting-limits}
+
+[Posting from an app](./posting) has limits of its own, separate from the
+generation limits above. Values at civitai `fc092d7b03`, 2026-10-10. They can
+change, and none of them depends on the app's spend tier.
+
+| Limit | Value | Keyed on | What your app sees when it trips |
+|---|---|---|---|
+| Upload size | **40 MiB** per file | one `upload()` | `upload()` **rejects**, `file exceeds the maximum upload size`. Nothing was sent |
+| Upload burst | **3 uploads and 80 MiB / 60 s** (a rolling window, kept by the host page) | one open page of your app, so one viewer's tab | `upload()` **rejects**, `busy`. Nothing was stored. Wait and try again |
+| Upload rate | **60 uploads / hour** (rolling) | the **viewer** | `upload()` **rejects** with a rate-limit message |
+| Image allowance | **60 images / 300 s**. One upload spends 1, one post spends 1 per image in it, and `usePublishGenerationOutputs()` spends 1 per image | the **block instance**. For a page app that is **one instance shared by every viewer of the app** | the call **rejects**, `Rate limit exceeded, please retry shortly.` |
+| Posts | **3 posts / hour** | the **block instance**, so for a page app **every viewer together** | `createPost()` **rejects** (`CreatePostError`, no `code`), `Rate limit exceeded, please retry shortly.` No post was created |
+| Posts, app-wide | **300 posts / hour** | the **app** | the same rejection |
+| Images per post | **1–20**, from at most **10** sources | one `createPost()` | `createPost()` **rejects**, `a post may contain at most 20 images`. Nothing is trimmed to fit |
+
+The 300 s and one-hour windows on the image allowance and the two post limits
+are fixed windows, not sliding ones.
+
+Three things follow from how these are counted:
+
+- **3 posts an hour is the allowance for your whole page app, not for one
+  viewer.** If three viewers post in the same hour, the fourth is refused
+  until the window ends. Posting has to be something a viewer does on purpose
+  with a finished result. Show a refusal as "try again later"; do not retry on
+  a timer.
+- **A post counts once the viewer has confirmed it, even if the server then
+  refuses it.** Refusals after the confirmation spend one of the 3: the set of
+  images changed since the dialog was shown, the image allowance is used up,
+  or a generation output could not be fetched. Refusals before that point do
+  not. Civitai checks the request before it opens the dialog, so a blocked
+  title or an image that is not available is refused there, with no dialog
+  and no post spent. A viewer dismissing the dialog does not count, because
+  the post request is only sent after they confirm. An account that may not
+  post is refused before the post is counted. Each `createPost()` call does
+  spend one request of the 150-per-10-s [estimate allowance](#limits-table)
+  for that check.
+- **The image allowance is shared between uploading, publishing and posting.**
+  A 20-image post spends a third of it.
+
 ## Page-vs-model constraints
 
 The same `textToImage` body is accepted on both a **page app** token and a
@@ -828,5 +872,6 @@ Real Buzz generation needs closed-beta access; see the
 - [Generation bridge reference](../reference/generation) — the generated field-level contract.
 - [What the bridge can and cannot do](../reference/generation#what-the-bridge-can-and-cannot-do) — the boundary vs the orchestrator, and what to do when a model isn't reachable.
 - [Comfy on Civitai (customComfy)](./comfy-cloud) — the recipe-gated ComfyUI path.
+- [Posting from an app](./posting) — publish a result to the viewer's profile.
 - [Hooks reference](../reference/hooks) · [Messages reference](../reference/messages).
 - [Scopes](../reference/scopes) — `ai:write:budgeted`. · [Manifest](../reference/manifest) — `page.buzzBudgetPerGen`.
