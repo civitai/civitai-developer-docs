@@ -823,12 +823,17 @@ Three things follow from how these are counted:
   until the window ends. Posting has to be something a viewer does on purpose
   with a finished result. Show a refusal as "try again later"; do not retry on
   a timer.
-- **A post counts once the server starts work on it**, including one it then
-  refuses (a blocked title, an image that is not available). A viewer
-  dismissing the confirmation dialog does not count, because the post request
-  is only sent after they confirm. Each `createPost()` call does spend one
-  request of the 150-per-10-s [estimate allowance](#limits-table) to build
-  that dialog.
+- **A post counts once the viewer has confirmed it, even if the server then
+  refuses it.** Refusals after the confirmation spend one of the 3: the set of
+  images changed since the dialog was shown, the image allowance is used up,
+  or a generation output could not be fetched. Refusals before that point do
+  not. Civitai checks the request before it opens the dialog, so a blocked
+  title or an image that is not available is refused there, with no dialog
+  and no post spent. A viewer dismissing the dialog does not count, because
+  the post request is only sent after they confirm. An account that may not
+  post is refused before the post is counted. Each `createPost()` call does
+  spend one request of the 150-per-10-s [estimate allowance](#limits-table)
+  for that check.
 - **The image allowance is shared between uploading, publishing and posting.**
   A 20-image post spends a third of it.
 

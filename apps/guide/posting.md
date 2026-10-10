@@ -66,16 +66,18 @@ A `published` source has four. Each image must:
 - belong to this viewer,
 - have been published or uploaded by this app,
 - not be in a post already, and
-- be scanned, unflagged, and within the viewer's content ceiling. An uploaded
-  image must also be within the safe-for-work ceiling, whatever the viewer's
-  own setting allows.
+- be scanned, unflagged, and within the content ceiling of the Civitai domain
+  the app is running on. An uploaded image must also be within the
+  safe-for-work ceiling, whatever that domain allows.
 
 An image that fails any of these is refused with
 `an image is not available to post`. The message is the same for every cause.
 An image you published with `usePublishGenerationOutputs()` a moment ago has
-not been scanned yet, so wait until
-[`useGatedImages()`](../reference/hooks#hook-useGatedImages) reports it visible
-before you offer to post it.
+not been rated yet, and an unrated image is refused.
+[`useGatedImages()`](../reference/hooks#hook-useGatedImages) returns the
+viewer's own unrated image as `status: 'visible'` with `ratingPending: true`,
+so `visible` alone is not enough. Offer to post an image only once its entry
+is `visible` **and** `ratingPending` is no longer set.
 
 ## Upload, then post {#upload-then-post}
 
@@ -90,7 +92,7 @@ The flow for a file your app produced in the tab:
    viewer confirms.
 
 ```tsx
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   CreatePostError,
   useBlockToken,
@@ -108,6 +110,8 @@ export function PostButton({ file }: { file: Blob }) {
   const { createPost } = useCreatePostFromApp();
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  // Kept across clicks, so a retry posts the image that is already uploaded.
+  const uploaded = useRef<{ file: Blob; imageId: number } | null>(null);
   const canPost = scopes.includes('posts:write:self');
 
   const onClick = async () => {
@@ -121,13 +125,19 @@ export function PostButton({ file }: { file: Blob }) {
     setBusy(true);
     setNote(null);
     try {
-      // 1. Resolves only once the scan has settled. Can take a few minutes.
-      const image = await upload(await file.arrayBuffer(), { filename: 'result.png' });
+      // 1. Upload once per file. Resolves only once the scan has settled,
+      //    which can take a few minutes.
+      let kept = uploaded.current;
+      if (kept?.file !== file) {
+        const image = await upload(await file.arrayBuffer(), { filename: 'result.png' });
+        kept = uploaded.current = { file, imageId: image.imageId };
+      }
       // 2. Opens the host's confirmation dialog.
       const post = await createPost({
-        sources: [{ kind: 'published', imageIds: [image.imageId] }],
+        sources: [{ kind: 'published', imageIds: [kept.imageId] }],
         title: 'Made with My App',
       });
+      uploaded.current = null; // an uploaded image goes into one post only
       setNote(`Posted: ${post.url}`);
     } catch (err) {
       if (err instanceof CreatePostError) {
@@ -164,9 +174,11 @@ Things the example depends on:
   with `invalid image-upload request`.
 - **`upload()` rejects with a plain `Error`**, whose message is the host's or
   the server's reason. `createPost()` rejects with a `CreatePostError`.
-- **Keep the returned `imageId`.** If the viewer dismisses the dialog, the
-  uploaded image is still there and still postable. Call `createPost()` again
-  with the same id; do not upload the file a second time.
+- **Keep the returned `imageId`.** If the viewer dismisses the dialog, or the
+  post is refused or times out, the uploaded image is still there. Call
+  `createPost()` again with the same id; do not upload the file a second time.
+  The example keeps the id in a ref next to the file it came from, uploads
+  only when it has no id for that file, and clears it once the post exists.
 
 ### Posting a generation instead
 
@@ -213,7 +225,7 @@ it, then retries once. Only the upload needs the scope requested up front.
    `useBlockToken().scopes` contains it.
 4. **A signed-in viewer** whose account may post. Creating a post needs an
    account with a verified email or a linked sign-in provider, that has
-   finished onboarding, is at least 7 days old, and is not restricted. These
+   finished onboarding, is not brand new, and is not muted or banned. These
    are checked when the post is created, not at upload, so a viewer can upload
    successfully and still be refused at the post step. The refusal arrives as a
    server message you can show.
@@ -245,14 +257,19 @@ publish another. Two consequences:
 
 ## Limits {#limits}
 
+The numbers behind the caps in this section (file size, upload burst, images
+and sources per post, and the rate limits) are published in one place, the
+[posting and image-upload limits](./text-to-image#posting-limits) table. This
+section says what is limited and what your app sees.
+
 ### The file you upload
 
 | | |
 |---|---|
 | Formats | PNG, WebP or JPEG. The host reads the file's first bytes; the filename and extension are ignored. Anything else is refused with `file type is not allowed` |
-| Size | Up to **40 MiB**. A larger buffer is refused with `file exceeds the maximum upload size` |
+| Size | Capped per file. A larger buffer is refused with `file exceeds the maximum upload size` |
 | Shape | An `ArrayBuffer` |
-| Burst | At most **3 uploads and 80 MiB per 60 seconds** in one open page of your app. Past that the host replies `busy`; wait and try again |
+| Burst | The host caps how many uploads, and how many bytes in total, one open page of your app can send in a short window. Past that it replies `busy`; wait and try again |
 | Content | Scanned before you get an id back. An image rated above the safe-for-work ceiling (PG and PG-13), or flagged by the scan, is refused with the scan's message |
 
 **The upload resolves only after the scan settles.** That is usually quick but
@@ -266,8 +283,8 @@ second upload creates a duplicate. Let the viewer decide.
 
 | | |
 |---|---|
-| Images | At least 1, at most **20**. A request that resolves to more is refused, not trimmed |
-| Sources | At most **10** entries in `sources` |
+| Images | At least 1, up to a per-post maximum. A request that resolves to more is refused, not trimmed |
+| Sources | The number of entries in `sources` is capped as well |
 | `title` | Optional, up to **255** characters, no links |
 | `detail` | Optional, up to **2,000** characters, no links |
 | `tags` | Up to **5** are applied, and only tags that already exist on Civitai. An app cannot create a tag |
@@ -299,13 +316,13 @@ list. A refusal there, or for a link, comes back as a server message.
 
 ### Rate limits {#rate-limits}
 
-Uploads and posts are rate limited on the server as well. The numbers live in
-one place, the
+Uploads and posts are rate limited on the server as well, and those numbers
+are in the same
 [posting and image-upload limits](./text-to-image#posting-limits) table. The
-one to design around: **a page app gets 3 posts an hour, shared by every
-viewer of the app.** Make posting a deliberate action the viewer takes on a
-finished result, never something your app does in a loop, and show a refusal
-as "try again later".
+one to design around: **a page app's hourly post allowance is small, and it is
+shared by every viewer of the app.** Make posting a deliberate action the
+viewer takes on a finished result, never something your app does in a loop,
+and show a refusal as "try again later".
 
 ## Handling errors {#errors}
 
@@ -335,7 +352,7 @@ answers both messages with no backend. See
 [the local dev loop](./local-dev) for the harness itself.
 
 For the upload it runs the host's own checks in the host's order: the size cap,
-then the 60-second window, then the file type. These options control the rest:
+then the burst window, then the file type. These options control the rest:
 
 | Option | Effect |
 |---|---|
