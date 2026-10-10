@@ -166,12 +166,93 @@ const oneLine = (s) => {
 // A single class that contains `\` is total by construction.
 const ESCAPE_TEXT = /[\\<]|&(?=(?:[a-zA-Z][a-zA-Z0-9]*|#\d+|#[xX][0-9a-fA-F]+);)/g;
 const ESCAPE_CELL = /[\\<|]|&(?=(?:[a-zA-Z][a-zA-Z0-9]*|#\d+|#[xX][0-9a-fA-F]+);)/g;
-const escapeWith = (re) => (s) => oneLine(s).replace(re, (m) => `\\${m}`);
 
-const escapeInline = escapeWith(ESCAPE_TEXT);
+/**
+ * Split one line of source prose into plain-text runs and CODE SPANS, matching
+ * backtick runs the way CommonMark does: a run of N backticks opens a span only
+ * if a later run of EXACTLY N closes it; an unmatched run is literal text.
+ *
+ * 🔴 WHY THE ESCAPERS NEED THIS. A code span does not process backslash
+ * escapes, so escaping `<` inside one does not protect anything — it ADDS a
+ * literal backslash. `` `<a href="blob:…" download>` `` in a hook docstring
+ * reached the `.md` twin as `` `\<a href="blob:…" download>` ``, i.e. the
+ * agent channel quoted a backslash the source never contained, in every
+ * generated region (hooks, manifest, bridge on 2026-10-10). The escape is also not
+ * NEEDED there: markdown-it renders a code span's content HTML-escaped, so no
+ * tag inside one reaches the Vue compiler (`{{` is refused by `oneLine` before
+ * any of this). So code spans pass through verbatim and only the text between
+ * them is escaped.
+ *
+ * Matching on RAW backtick runs is correct for the OUTPUT, not just the input:
+ * every backslash in a text run is doubled, so no backslash in the emitted
+ * markdown can escape a backtick, and CommonMark then finds exactly the spans
+ * found here. And no text run can open an HTML tag or autolink (which would
+ * outrank a code span), because every `<` in a text run is escaped.
+ */
+export function splitCodeSpans(t) {
+  const out = [];
+  let textStart = 0;
+  let i = 0;
+  const runEnd = (p) => {
+    while (t[p] === '`') p++;
+    return p;
+  };
+  while (i < t.length) {
+    if (t[i] !== '`') {
+      i++;
+      continue;
+    }
+    const open = runEnd(i);
+    const n = open - i;
+    let close = -1;
+    for (let k = open; k < t.length; ) {
+      if (t[k] !== '`') {
+        k++;
+        continue;
+      }
+      const e = runEnd(k);
+      if (e - k === n) {
+        close = k;
+        break;
+      }
+      k = e;
+    }
+    if (close === -1) {
+      i = open; // unmatched: literal backticks, stay in the text run
+      continue;
+    }
+    if (i > textStart) out.push({ code: false, s: t.slice(textStart, i) });
+    out.push({ code: true, s: t.slice(i, close + n) });
+    i = textStart = close + n;
+  }
+  if (textStart < t.length) out.push({ code: false, s: t.slice(textStart) });
+  return out;
+}
 
-/** A table cell: one line, with `|` escaped so it cannot split the row. */
-export const cell = escapeWith(ESCAPE_CELL);
+const escapeWith = (re, codeSpan) => (s) =>
+  splitCodeSpans(oneLine(s))
+    .map((seg) => (seg.code ? codeSpan(seg.s) : seg.s.replace(re, (m) => `\\${m}`)))
+    .join('');
+
+// Outside a table a code span needs nothing at all.
+const escapeInline = escapeWith(ESCAPE_TEXT, (span) => span);
+
+/**
+ * A table cell: one line, with `|` escaped so it cannot split the row — inside
+ * a code span too, because GFM splits the row BEFORE inline parsing. Same rule
+ * and same refusal as `codeCell`, for the same reason: a `\|` already inside a
+ * code span has no unambiguous encoding.
+ */
+export const cell = escapeWith(ESCAPE_CELL, (span) => {
+  if (/\\\|/.test(span)) {
+    throw new Error(
+      `appblocks-md: cannot safely put ${JSON.stringify(span.slice(0, 80))} in a table cell — ` +
+        `a code span in this prose contains a backslash immediately before a pipe, which has no ` +
+        `unambiguous encoding inside a GFM code span. Reword the upstream text.`,
+    );
+  }
+  return span.replace(/\|/g, '\\|');
+});
 
 /**
  * Inline code, with a backtick fence long enough to survive backticks in the
