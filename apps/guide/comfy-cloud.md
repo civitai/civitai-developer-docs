@@ -2,8 +2,8 @@
 title: Comfy on Civitai (customComfy)
 description: Drive ComfyUI from an App Block — either by naming a server-registered recipe, or by shipping your own graph inline. The two arms, the gates on each, the budget rules, and how to try it in the local harness.
 sources:
-  - npm:@civitai/app-sdk@0.60.0/blocks#WorkflowBodyCustomComfy
-  - npm:@civitai/blocks-react@0.65.2#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.61.0/blocks#WorkflowBodyCustomComfy
+  - npm:@civitai/blocks-react@0.66.0#useBuzzWorkflow
   - go:github.com/civitai/cli#app-create (page-money scaffold: src/comfy.ts)
   - civitai:public/schemas/app-block/v1.json#page.buzzBudgetPerGen
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema

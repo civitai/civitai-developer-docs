@@ -2,9 +2,9 @@
 title: Hooks reference
 description: Every @civitai/blocks-react hook — signature, example and README notes, generated from the published package.
 sources:
-  - npm:@civitai/blocks-react@0.65.2/dist/index.d.ts
-  - npm:@civitai/blocks-react@0.65.2#README
-  - npm:@civitai/app-sdk@0.60.0/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.66.0/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.66.0#README
+  - npm:@civitai/app-sdk@0.61.0/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
 
@@ -1199,6 +1199,44 @@ if (img) {
 }
 ```
 
+**`useSaveImage`**
+
+```ts
+useSaveImage(): UseSaveImage
+```
+
+Ask the host to download a file to the viewer's device. **A block cannot download anything itself.** Its sandbox lacks `allow-downloads`, and the validator refuses that token for unverified blocks, so an `\<a href="blob:…" download>` click silently does nothing. 🔴 **This hook is the sanctioned way to deliver a file**, including one the block produced in the tab. Pass exactly ONE of three inputs, each gated differently by the host: - **`{ url }`**: the block's own generation output. The host allowlists the origin to the civitai image CDN and refuses any other. - **`{ imageId }`**: an image from another user, read through the same per-viewer gate as `useGatedImages()`. A withheld image is never saved. - **`{ bytes }`**: an `ArrayBuffer` the block made in the tab, such as a healed image or a JSON sidecar. 🔴 **Page apps only.** The host classifies it by CONTENT. It accepts PNG, WebP and JPEG by magic bytes. Anything else must be valid UTF-8 with no NUL byte: it is saved as JSON when it parses and `filename` ends `.json` (any case) once the host has replaced each `?` and `#` with `_`, and as plain text otherwise. A GIF, a zip or other binary is refused with `file type is not allowed`. The host forces the extension from the classified type. The cap is 50 MiB, and the hook refuses a larger buffer before sending it: `file exceeds the maximum save size`. The buffer is copied, not transferred, so you can keep displaying it. 🔴 **On a host that predates the `bytes` variant, `saveImage({ bytes })` rejects with `invalid save-image request`.** The host also replies that when the input is not exactly one variant, or when `bytes` is empty or not an `ArrayBuffer`. Pass `await blob.arrayBuffer()`, not the `Blob` or a `Uint8Array`. The promise resolves once the host has started the download. On any refusal it rejects with the host's error string, which can also be `busy` when too many saves are in flight.
+
+```tsx
+import { useSaveImage } from '@civitai/blocks-react';
+
+const { saveImage } = useSaveImage();
+
+// A file healed in the tab. It never leaves the device except to the viewer's disk.
+const healed: Blob = await healPngMetadata(file);
+await saveImage({ bytes: await healed.arrayBuffer(), filename: 'healed.png' });
+
+// Its JSON sidecar. The .json filename makes valid JSON save as .json rather than .txt.
+const sidecar = new TextEncoder().encode(JSON.stringify(metadata, null, 2));
+try {
+  await saveImage({ bytes: sidecar.slice().buffer, filename: 'healed.json' });
+} catch (err) {
+  // 'invalid save-image request' here means this host cannot save bytes yet.
+  setStatus(`Could not save the sidecar: ${(err as Error).message}`);
+}
+
+// The block's own generation output, or another user's image.
+await saveImage({ url: output.url, filename: 'render.png' });
+await saveImage({ imageId: cell.imageId });
+```
+
+```md
+Under `createMockHost` / `Harness` the `bytes` variant is classified the same
+way. `onSaveBytes` reports what would have been downloaded, and `saveImageError`
+forces a refusal. Pass `saveImageError: 'invalid save-image request'` to test a
+host without the variant. `dev:live` refuses every save.
+```
+
 **`useGenerationResources`**
 
 ```ts
@@ -1582,22 +1620,6 @@ for (const image of images) {
 }
 ```
 
-**`useSaveImage`**
-
-```ts
-useSaveImage(): UseSaveImage
-```
-
-Download an image via the host-mediated `SAVE_IMAGE` → `SAVE_IMAGE_RESULT` bridge. See {@link SaveImageInput} for the url-vs-id security posture.
-
-```tsx
-const { saveImage } = useSaveImage();
-// block's own generation output (origin-allowlisted host-side):
-await saveImage({ url: output.url, filename: 'my-render.png' });
-// a cross-user grid cell (routed through the gated per-viewer read):
-await saveImage({ imageId: cell.imageId });
-```
-
 **`useRunTraining`**
 
 ```ts
@@ -1659,7 +1681,7 @@ reads member-specific fields, so every member except `training` flows through th
 same `estimate → submit → watch` lifecycle shown above. `training` is quoted with
 `estimate()` but run with `useRunTraining()`, and `submit()` refuses it.
 
-As of the pinned `@civitai/app-sdk@0.60.0` the union has four `kind` values, and
+As of the pinned `@civitai/app-sdk@0.61.0` the union has four `kind` values, and
 `kind: 'step'` is itself two arms — five members in all:
 
 | `kind` | what it runs | what your block sends |
