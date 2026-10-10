@@ -5,18 +5,18 @@ description: List, search, and fetch public Civitai collections.
 
 # Collections
 
-A **collection** is a curated set of resources (models, images, articles, or
-posts) grouped by a user on Civitai. These endpoints expose **public**
-collections only.
+A **collection** is a curated set of resources (models, images, articles,
+posts, or 3D models) grouped by a user on Civitai. The list exposes **public**
+collections. Detail also accepts an **unlisted** collection when its ID is known.
 
 ::: tip Public, edge-cached, rate-limited
 Both endpoints are **public** — they work anonymously and always evaluate the
 request as anonymous, so a token is *optional* and never changes the data you
-get back (the result is a pure function of the URL + your region). Only
-**public** collections are ever returned — private collections are unreachable,
-and a private collection is indistinguishable from a missing one. Responses are
-edge-cached (`public, s-maxage=300`) and **conservatively rate-limited**; on a
-`429` respect the `Retry-After` header. Mature covers/collections are clamped to
+get back (the result is a pure function of the URL + your region). Private
+collections are unreachable, and a private collection is indistinguishable
+from a missing one. Anonymous responses are edge-cached (`public, s-maxage=300`);
+requests with credentials are uncached. Requests are **rate-limited**; on a `429`
+respect the `Retry-After` header. Mature covers/collections are clamped to
 the SFW ceiling in restricted regions regardless of the `nsfw` param. There is
 no "my collections" mode here — own-collection discovery is a per-user
 (authoring) surface, not public discovery.
@@ -104,14 +104,45 @@ GET /api/v1/collections/{id}
   "name": "Favorite anime LoRAs",
   "description": "A running list of the best anime LoRAs.",
   "type": "Model",
+  "mode": null,
   "nsfwLevel": 1,
   "read": "Public",
   "isPublic": true,
   "coverImageUrl": "https://image.civitai.com/.../cover.jpeg",
+  "coverImage": {
+    "id": 501,
+    "url": "https://image.civitai.com/.../cover.jpeg",
+    "type": "image",
+    "width": 1200,
+    "height": 800,
+    "nsfwLevel": 1
+  },
   "user": { "id": 4021, "username": "some-curator" },
-  "tags": [ { "id": 5, "name": "anime" } ]
+  "tags": [{ "id": 5, "name": "anime" }]
 }
 ```
+
+- `type` is `Model`, `Article`, `Post`, `Image`, `Model3D`, or `null` for a
+  collection without a fixed resource type.
+- `mode` is `Contest`, `Bookmark`, or `null` for an ordinary collection.
+- `description` is the entered text or `null`; it may contain Markdown.
+- `tags` are named collection tags, separate from `type`. A collection may
+  have several or none.
+- `nsfwLevel` is the collection's aggregate content bucket, **not the cover's
+  rating**. Use `coverImage.nsfwLevel` to assess the specific cover.
+- `coverImage` is `null` when no eligible cover is available. Otherwise it contains
+  the cover's image ID, ready-to-use CDN media URL, media type (`image` or `video`),
+  original dimensions (nullable), and its own rating. Only scanned, positively
+  rated media without a review, terms-of-service or block flag and within the endpoint's existing
+  public/region ceiling are included. Unrated, pending, blocked, or restricted
+  covers are omitted from both cover fields.
+- `coverImageUrl` remains the same ready-to-use CDN media URL as
+  `coverImage.url`, or `null`. The URL format follows the existing media delivery
+  convention; a `video` cover is not guaranteed to be a still-image thumbnail.
+  Consumers can use `coverImage.type` to choose their media presentation.
+- Detail uses the PG public ceiling by default, including on `civitai.red`; it
+  does not accept `nsfw`. A restricted region uses the existing PG/PG-13 ceiling.
+  Cover metadata does not widen access.
 
 Returns `404` if the collection doesn't exist **or** is private (the two cases
 are indistinguishable):
