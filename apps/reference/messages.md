@@ -2,7 +2,7 @@
 title: Message bridge reference
 description: The full postMessage protocol between a Civitai App and its host — payloads, directions, request/reply pairing, and page-only messages.
 sources:
-  - npm:@civitai/app-sdk@0.61.0/blocks#messages.d.ts
+  - npm:@civitai/app-sdk@0.62.0/blocks#messages.d.ts
   - civitai:src/components/AppBlocks/hostHandlerParity.ts#INVENTORY
 ---
 
@@ -507,6 +507,10 @@ payload:
     requestId: string;
     purpose?: BlockUploadPurpose;
     asyncScan?: boolean;
+    /** In-tab image bytes; no picker. Page apps only. See the comment above. */
+    bytes?: ArrayBuffer;
+    /** Optional name for a `bytes` upload (host-sanitised). */
+    filename?: string;
 }
 ```
 
@@ -516,6 +520,8 @@ reply `IMAGE_UPLOAD_RESULT`:
 {
     requestId: string;
     selected?: BlockUploadedImageInfo | BlockGenerationSourceImageInfo | BlockPendingImageInfo;
+    /** A `bytes` upload's refusal or failure: a host string or a forwarded server message. */
+    error?: string;
 }
 ```
 
