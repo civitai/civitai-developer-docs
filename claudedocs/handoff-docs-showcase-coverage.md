@@ -21,29 +21,38 @@ automation so the next gap cannot land silently.
   merge does not prove it exists on the deployed site.
 
 ## State now
-- **PR `civitai/civitai-developer-docs#133` — OPEN, merge-ready, NOT merged.** Head
-  `c1a6776`, `+3126/−37`, 17 files, **16/16 checks pass** — those ran on a tree containing
-  `cb2d43c`. 🔴 **`main` has since moved to `a5b40c0` (#135), so that green set is once
-  again a run on a STALE BASE.** Re-merge `origin/main` into the branch and let CI re-run
-  before merging; `mergeStateStatus` says nothing about this. 🔴 A merge to `main` **AUTO-DEPLOYS** developer.civitai.com
-  (branch-tracked, ~26min build → Flux). There is no separate release step; `main`
-  requires **0** approving reviews. The merge is the operator's call and was left to them.
-  ⚠ `mergeStateStatus` read `UNKNOWN` at write time — that is GitHub computing lazily, a
-  property of the API, not a conflict.
+- **PR `civitai/civitai-developer-docs#133` — OPEN, NOT merged.** Head `c1a6776`,
+  `+3126/−37`, 17 files, **16/16 checks pass** — but those ran on a tree containing
+  `cb2d43c`. 🔴 **`main` is now `b70c220`, so #133 is TWO commits behind and its green set
+  is a run on a STALE BASE** (`git merge-base --is-ancestor origin/main <head>` → non-zero).
+  Re-merge `origin/main` and let CI re-run before merging. `mergeStateStatus` reads
+  `UNKNOWN` — GitHub computing lazily, a property of the API, not a conflict, and silent
+  about CI either way.
+- 🔴 **A merge to `main` AUTO-DEPLOYS developer.civitai.com** (branch-tracked, ~26min build
+  → Flux), no separate release step, and `main` requires **0** approving reviews. The merge
+  was deliberately left to the operator.
+- **This doc is ON MAINLINE.** `civitai-developer-docs#137` **MERGED** as `b70c220` — the
+  first `claudedocs/` doc in that repo. (The `/handoff` gate refused filing it in
+  `civitai-app-starters` with `status=new-doc`: that tree already carries four unrelated
+  handoff docs, and the arc's subject is this repo.)
+- **Ranked item 5 is CLOSED — the cairn entry is written.** `civitai-developer-docs /
+  showcase`, revision `0159767f80bc8556`, 8 nuance bullets; the instance went 140 → 141
+  entry-files. It had been refused twice earlier with `http-503 — no available server` while
+  `cairn.civitai.com` was down; the instance came back and the write went through.
 - **What shipped in #133:** showcase completed 12 → **all 21** CSS-pack components (`text`,
   `slider`, `segmented-control`, `toast`, `toast-region`, `tooltip`, `image` were absent;
   `group` and `radio` had no addressable `ui=` chip). Element bundle imported into the
-  VitePress theme so `<civitai-*>` render live. New generated gallery over all **47**
-  elements (`scripts/gen-appblocks-element-gallery.mjs` → gitignored
-  `apps/reference/elements.md`). New `scripts/check-showcase-coverage.mjs`, PR-blocking on
-  `test-md-regions`. `scripts/test-showcase-e2e.mjs` rewired into `build-site` with floors.
-- 🔴 **A live bug on the deployed site was found and fixed as a side effect.**
-  `data-theme` was rendered during SSR where VitePress's `isDark` is `ref(false)`, and a
-  production Vue hydration *adopts* a mismatched plain attribute rather than patching it.
-  A returning dark-mode reader got `<html class="dark">` with `data-theme="light"` — white
-  cards on a dark page, across all 21 demos and all 45 element previews, measured
-  identically at +0ms/+1s/+3s. Fixed in `usePreviewTheme.ts` via a `mounted` gate. The
-  E2E never saw it because it only ever reached dark **by clicking**.
+  VitePress theme so `<civitai-*>` render live. Generated gallery over all **47** elements
+  (`scripts/gen-appblocks-element-gallery.mjs` → gitignored `apps/reference/elements.md`).
+  New `scripts/check-showcase-coverage.mjs`, PR-blocking on `test-md-regions`.
+  `scripts/test-showcase-e2e.mjs` rewired into `build-site` with floors.
+- 🔴 **A live bug on the deployed site was found and fixed as a side effect.** `data-theme`
+  was rendered during SSR where VitePress's `isDark` is `ref(false)`, and a production Vue
+  hydration *adopts* a mismatched plain attribute rather than patching it. A returning
+  dark-mode reader got `<html class="dark">` with `data-theme="light"` — white cards on a
+  dark page, across all 21 demos and all 45 element previews, measured identically at
+  +0ms/+1s/+3s. Fixed in `usePreviewTheme.ts` via a `mounted` gate. The E2E never saw it
+  because it only ever reached dark **by clicking**.
 - **Upstream prerequisites filed in `civitai/civitai-app-starters`:** **#506** (the
   custom-elements-manifest config globs only `civitai-*.ts`, so `CivitaiField`
   (`src/elements/field-base.ts:78`) and `CivitaiElement` (`base.ts:26`) are absent from all
@@ -51,18 +60,18 @@ automation so the next gap cannot land silently.
   `field-base.ts:94-103`) and **#507** (`@civitai/components-chat` has no
   `custom-elements.json` and no `MARKUP.md`, so it is unreachable by every docs mechanism;
   0 mentions across all 129 dev-docs markdown files, against a control of 77).
-- **Audit ladder COMPLETE — round 0 + rounds 1-4, all posted to #133.** Round 0:
-  requirement questioned, 5 deletion candidates, all 5 dispositioned. Rounds 1-4 each found
-  a real defect; round 4's was fixed and the ladder closed rather than running a round 5
-  over a derivation change. Payload per round: 80 / 202 / 120 / 135, all non-zero, so the
+- **Audit ladder COMPLETE — round 0 + rounds 1-4, all posted to #133.** Round 0: requirement
+  questioned, 5 deletion candidates, all 5 dispositioned. Rounds 1-4 each found a real
+  defect; round 4's was fixed and the ladder closed rather than running a round 5 over a
+  derivation change. Payload per round: 80 / 202 / 120 / 135, all non-zero, so the
   attribution gate never fired.
-- **Deploy/verify:** nothing is verified against developer.civitai.com — the PR is unmerged.
+- **Deploy/verify:** nothing is verified against developer.civitai.com — #133 is unmerged.
   The gates are the claim. `Dockerfile:17` runs `npm run build`, whose `prebuild` runs
   `gen:appblocks`, so the gitignored gallery **is** generated inside the image and cannot
   404 on rollout — verified by reading the Dockerfile, not by a deploy.
-- clawgate resolve: **exit 5, NOTHING RESOLVED** (0 tasks). An unknown session id answers
-  200 with an empty array, so that zero cannot distinguish "touched no task" from "wrong
-  id" ⇒ no `clawgate-task:` field, by rule. Not a clean bill of health.
+- clawgate resolve: **exit 5, NOTHING RESOLVED** (0 tasks), re-run this session. An unknown
+  session id answers 200 with an empty array, so that zero cannot distinguish "touched no
+  task" from "wrong id" ⇒ no `clawgate-task:` field, by rule. Not a clean bill of health.
 
 ## Open investigations — live diagnosis state
 
@@ -92,14 +101,15 @@ automation so the next gap cannot land silently.
   for who wrote the claim and why.
 
 ## Next steps (ranked)
-1. **Merge `civitai/civitai-developer-docs#133`.** 16/16 green on the merged tree; the only
-   thing between it and the deployed site is the click. 🔴 Merging AUTO-DEPLOYS — confirm
-   the close-check's second half (the `/apps/reference/elements` 200) afterwards, because a
-   green merge does not prove a gitignored generated page exists on the site.
-   forcing: user — the operator asked for the showcase audited and the drift automated;
-   this is the delivery, and they explicitly reserved the merge.
-2. **Fix the four lagging pins in `civitai-developer-docs`.** `check:ds-pins`' online half
-   is red: `@civitai/components` 0.8.1→0.9.0, `components-react` 0.9.0→0.9.1, `app-sdk`
+1. **Re-merge `origin/main` into `civitai/civitai-developer-docs#133`, let CI re-run, then
+   merge.** It is two commits behind (`b70c220`); the existing 16/16 is a stale-base run.
+   🔴 Merging AUTO-DEPLOYS — afterwards confirm the close-check's second half (a `200` from
+   `/apps/reference/elements`), because a green merge does not prove a gitignored generated
+   page exists on the site.
+   forcing: user — the operator asked for the showcase audited and the drift automated; this
+   is the delivery, and they explicitly reserved the merge.
+2. **Fix the four lagging pins in `civitai-developer-docs`.** `check:ds-pins`' online half is
+   red: `@civitai/components` 0.8.1→0.9.0, `components-react` 0.9.0→0.9.1, `app-sdk`
    0.52.0→0.54.0, `blocks-react` 0.59.0→0.61.0. Scheduled, not PR-blocking; the `--offline`
    form is rc 0. ⚠ Measured: `components@0.9.0` + `components-react@0.9.1` trip **none** of
    the new guards, so the bump is mechanically safe. Touches `package.json` plus ~13 prose
@@ -115,14 +125,6 @@ automation so the next gap cannot land silently.
    `/simplify` mutates, so it is the operator's to run. forcing: none
 4. **Unblock `civitai-app-starters#506`** so the generator's `ABSENT_BASES` machinery can be
    deleted. See Defects for why `0.9.0` does not close it. forcing: none
-5. **Write the `civitai-developer-docs / showcase` cairn entry** — drafted this session and
-   **NOT written**: `cairn create --scope civitai-developer-docs --ref showcase` was refused
-   twice with `http-503 — no available server`, and `cairn sync` confirms
-   `cairn.civitai.com` is down while the `personal` instance is live. The scope is
-   `scope-absent`, so this would be its first entry. ⚠ The draft lived only in a
-   session scratchpad and is **gone**; the lessons it carried are preserved in this doc's
-   Gotchas, so re-derive the entry from there rather than from memory. Re-check with
-   `cairn sync` before retrying. forcing: none
 
 ## Defects (batched)
 - `civitai-app-starters#506` is **NOT closed by the `@civitai/components@0.9.0` bump.** That
@@ -191,6 +193,29 @@ automation so the next gap cannot land silently.
 - **`npm ci` in a fresh worktree skips `esbuild`/`vue-demi` postinstall scripts**, so
   `npm run build` / VitePress is not a clean measurement there. The plain-Node gate scripts
   are unaffected.
+
+- 🔴 **`subsystem_touch.py` AND `cairn-validate` READ THE WRONG CACHE ROOT FOR A NON-DEFAULT
+  CAIRN INSTANCE, and both report it as an ABSENCE.** The `civitai` instance caches at
+  `/home/zach/.cache/subsystem-store-civitai`; those two tools read
+  `/home/zach/.cache/subsystem-store` (the `personal` root). Measured this session:
+  `subsystem_touch.py --repo <dev-docs>` printed `status=scope-absent scope=
+  civitai-developer-docs` and `policy: (none)`, and `cairn-validate --scope
+  civitai-developer-docs` printed *"NOTHING WAS CHECKED — no entry files were found"* —
+  while `cairn recall --scope civitai-developer-docs` lists **7 entries** (6 of them
+  pre-existing, written by earlier sessions). ⚠ **So an earlier note in this doc saying the
+  scope was `scope-absent` and this would be "its first entry" was WRONG and is retracted.**
+  Read a non-default instance's scope with `cairn recall --scope <name>`, never with the
+  touch probe's status line or the validator's count — and note the validator's own zero is
+  self-labelled as not a clean bill of health, which is the only reason this was caught.
+- ⚠ **A `cairn` write can be refused by the instance being DOWN, and it is loud:**
+  `🔴 cairn: the store REFUSED the write [http-503] — no available server`, with
+  `cairn sync` then reporting `cairn[civitai]: cached — … answered HTTP 503 … SERVED FROM
+  CACHE`. Nothing is written locally, so the entry simply does not exist — retry after
+  `cairn sync` shows the instance `live`.
+- ⚠ **`/handoff` refuses a NEW doc in a tree that already holds several** (`status=new-doc`,
+  exit 7, which names the existing docs). That refusal is what forced the right call here:
+  the arc's subject is `civitai-developer-docs`, and "that repo has no `claudedocs`
+  convention" is a reason to create the first one, not to file in a sibling.
 
 ## How to verify
 - **The closing condition, both halves:**
