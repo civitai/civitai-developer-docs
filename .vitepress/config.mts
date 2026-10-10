@@ -53,7 +53,7 @@ const appsGuideSidebar: DefaultTheme.SidebarItem[] = [
       { text: 'First review checklist', link: '/apps/guide/first-review' },
       { text: 'Review, approval and deploy', link: '/apps/guide/review-and-deploy' },
       { text: 'Your store listing', link: '/apps/guide/store-listing' },
-      { text: 'Store items (sub-listings)', link: '/apps/guide/store-items' },
+      { text: 'App Store sub-listings', link: '/apps/guide/sub-listings' },
       { text: 'How an app earns', link: '/apps/guide/earning' },
       { text: 'Moving a block off the bridge', link: '/apps/guide/porting' },
       { text: 'Generating images (text-to-image)', link: '/apps/guide/text-to-image' },
