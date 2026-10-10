@@ -2,7 +2,7 @@
 title: Moving a block off the bridge
 description: Replace a block's postMessage data calls with /api/v1/blocks/* REST calls — what each credential reaches, which routes an OAuth token gives up, a hook-by-hook replacement table, and where the route is now the wider surface, taking parameters no bridge hook exposes (shared storage's mine filter).
 sources:
-  - npm:@civitai/blocks-react@0.66.0/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.67.0/dist/index.d.ts
   - npm:@civitai/sdk@0.10.2/dist/index.d.ts
   - civitai-app-starters:packages/civitai-sdk/BREAKING.md
   - civitai:public/schemas/app-block/v1.json#auth
@@ -294,6 +294,7 @@ rather than shipping.
 | `useSharedStorage` | `/api/v1/blocks/shared-storage/*` — 11 routes. The route is now the wider surface: `list` takes a `mine` filter the hook has no equivalent for — see [Listing only rows the viewer wrote](#listing-only-rows-the-viewer-wrote) |
 | `useTip` | `POST /api/v1/blocks/tip` |
 | `useTipAllowance` | `GET /api/v1/blocks/tip-allowance` |
+| `useUploadImageBytes` | **Keep** — a bridge message with no route. It sends `OPEN_IMAGE_UPLOAD` with `bytes`, and the host stores, persists and scans the image; no `/api/v1/blocks/*` route accepts an image upload. Page apps only, and the token needs `posts:write:self` |
 | `useViewer` | `GET /api/v1/blocks/me`. Keeping the hook is not free: it is a `GET_VIEWER` bridge round trip on mount, not a snapshot read — but it is the authoritative self-read, where `useBlockContext().viewer` is the coarser `BLOCK_INIT` snapshot |
 | `useWildcardPack` | **Not carried** |
 
