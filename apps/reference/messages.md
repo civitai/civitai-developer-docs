@@ -2,7 +2,7 @@
 title: Message bridge reference
 description: The full postMessage protocol between a Civitai App and its host — payloads, directions, request/reply pairing, and page-only messages.
 sources:
-  - npm:@civitai/app-sdk@0.60.0/blocks#messages.d.ts
+  - npm:@civitai/app-sdk@0.61.0/blocks#messages.d.ts
   - civitai:src/components/AppBlocks/hostHandlerParity.ts#INVENTORY
 ---
 
@@ -1088,11 +1088,20 @@ payload:
 ```ts
 {
     requestId: string;
-    /** Own-output URL — origin-allowlisted host-side. Mutually exclusive with `imageId`. */
+    /** Own-output URL — origin-allowlisted host-side. Mutually exclusive with `imageId` / `bytes`. */
     url?: string;
-    /** Cross-user image id — routed through the gated per-viewer read. Mutually exclusive with `url`. */
+    /** Cross-user image id — routed through the gated per-viewer read. Mutually exclusive with `url` / `bytes`. */
     imageId?: number;
-    /** Optional download filename (host-sanitized). */
+    /**
+     * In-tab file bytes — classified by CONTENT host-side, size-capped host-side.
+     * Page apps only. Mutually exclusive with `url` / `imageId`.
+     */
+    bytes?: ArrayBuffer;
+    /**
+     * Optional download filename (host-sanitized). For `bytes`, a `.json`
+     * name selects JSON for text that parses as JSON, and the extension is
+     * forced from the classified type.
+     */
     filename?: string;
 }
 ```
