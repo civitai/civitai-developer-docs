@@ -251,7 +251,10 @@ export const cell = escapeWith(ESCAPE_CELL, (span) => {
         `unambiguous encoding inside a GFM code span. Reword the upstream text.`,
     );
   }
-  return span.replace(/\|/g, '\\|');
+  // `\` is in the class as a PASS-THROUGH, exactly as in `codeCell`: a code
+  // span does not process escapes, so doubling it would corrupt the text, and
+  // the only way a backslash can break a cell (`\|`) was refused above.
+  return span.replace(/[\\|]/g, (m) => (m === '|' ? '\\|' : m));
 });
 
 /**
