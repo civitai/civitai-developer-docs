@@ -4,11 +4,9 @@ title: Loaded Resources
 
 # Loaded Resources
 
-`GET /v2/resources?view=Loaded` lists the resources the fleet currently holds — cached on at least
-one worker and usable right now, with no download to wait for. It is the pull side of keeping an
-external catalogue in step with what the orchestrator can actually run.
-
-It is a sibling of `view=Queue`, which lists the opposite set: what the orchestrator is *loading*.
+`GET /v2/resources?view=Loaded` lists the resources the fleet currently holds: cached on at least
+one worker and usable now, with no download to wait for. Use it to keep an external catalogue in
+step with what the orchestrator can run. Its sibling `view=Queue` lists what is being *loaded*.
 
 ```bash
 curl -G https://orchestration.civitai.com/v2/resources \
@@ -24,17 +22,15 @@ Items are [`ResourceInfo`](/orchestration/reference/operations/GetResource), the
 
 ## Filter first — an unfiltered query is refused
 
-The fleet holds **hundreds of thousands** of loaded resources. The overwhelming majority are not
-models: they are input images, sample images and other generated artifacts that passed through a
-workflow. When more than 50,000 resources match on one provider, the request is refused with a
-`400` saying how many matched, so you can narrow:
+The fleet holds **hundreds of thousands** of loaded resources, mostly not models but input images,
+sample images and other workflow artifacts. When more than 50,000 resources match on one provider,
+the request is refused with a `400` saying how many matched:
 
 ```
 {N} resources match on one provider. Narrow the query with type, source or minSizeBytes.
 ```
 
-The filters compose with AND. Each repeatable one is OR'd within itself, and they apply to
-`view=Queue` just as well — the same narrowing works on what the orchestrator is currently pulling.
+The filters compose with AND; each repeatable one is OR'd within itself.
 
 | Parameter | Matches |
 | --- | --- |
@@ -45,52 +41,47 @@ The filters compose with AND. Each repeatable one is OR'd within itself, and the
 
 ## Filtering by type, and why `checkpoint` is not "every base model"
 
-`type` matches the AIR's type segment **literally**. There is no alias expansion, no enum and no
-validation — an unrecognised value simply matches nothing.
+`type` matches the AIR's type segment **literally**: no alias expansion, no enum, no validation. An
+unrecognised value matches nothing.
 
-That segment is a **routing key derived from the model's type, not the file's**. A Diffusion Model
-file attached to a model whose type is Checkpoint is published as `…:checkpoint:…`. The consequence
-for filtering is that base weights are spread across several type segments:
+The segment comes from the model's type, not the file's (a Diffusion Model file on a Checkpoint
+model is published as `…:checkpoint:…`), so base weights are spread across several segments:
 
 - `checkpoint`
 - `diffusion_model` and `diffusionmodel`
 - `unet` — GGUF weights, a distinct loader slot from diffusion weights
 
-So `type=checkpoint` returns *some* base models, not all of them. Pass each segment you want:
+`type=checkpoint` alone returns only *some* base models, and the segments are not aliased
+server-side. Pass each one you want:
 
 ```
 ?view=Loaded&type=checkpoint&type=diffusion_model&type=diffusionmodel&type=unet
 ```
 
-These are deliberately **not** aliased server-side. `unet` and `diffusion_model` are different
-routing slots, and collapsing them here would hide a distinction the rest of the pipeline depends on.
-
 ## Filtering by size
 
-`minSizeBytes` is the blunter but more reliable cut, and it is the one to reach for when you want
-"the big models" rather than a particular category:
+`minSizeBytes` is the blunter but more reliable cut when you want "the big models" rather than a
+category:
 
 ```
 ?view=Loaded&minSizeBytes=1073741824
 ```
 
-**1 GiB (`1073741824`)** is the meaningful boundary. It is the threshold at which the orchestrator
-puts a resource in its large download lane, so in practice it separates base weights from LoRAs,
-embeddings and VAEs without naming any of them.
+**1 GiB (`1073741824`)** is the meaningful boundary: the orchestrator puts larger resources in its
+large download lane, and in practice it separates base weights from LoRAs, embeddings and VAEs.
 
 ::: warning A size of 0 means unknown, not empty
-Some resources reach the fleet without their provider ever reporting a byte count; these have
-`size: 0`. Any `minSizeBytes` therefore excludes them. If you need those, filter by type or source
-instead.
+Resources whose provider never reported a byte count have `size: 0`, so any `minSizeBytes` excludes
+them. Filter by type or source to include them.
 :::
 
 ## Filtering by source
 
 `source=civitai` is the cheapest single predicate for a catalogue sync. It drops everything the
-orchestrator generated or fetched itself — blob and object-storage URLs are represented by synthetic
-AIRs with a source of `orchestrator` and a type of `other`, and they are the bulk of the table.
+orchestrator generated or fetched itself: blob and object-storage URLs, represented by synthetic AIRs
+with source `orchestrator` and type `other`, which are the bulk of the table.
 
-Filtering by type instead? The non-model artifacts are `other`, `torchcompilecache` and
+To exclude them by type instead, the non-model artifacts are `other`, `torchcompilecache` and
 `nodepacklayer`:
 
 ```
@@ -99,34 +90,28 @@ Filtering by type instead? The non-model artifacts are `other`, `torchcompilecac
 
 ## A complete list, or an error
 
-`view=Loaded` never returns a partial list. If any part of the fleet is unreachable, or is still
-re-registering its workers after an orchestrator restart, the response is `503` with a
-`Retry-After` header instead of a shorter list. Treat anything other than a `200` as "no answer this
-time", never as "these resources were unloaded".
+`view=Loaded` never returns a partial list. If any part of the fleet is unreachable, or still
+re-registering workers after an orchestrator restart, the response is `503` with `Retry-After`.
+Treat anything but `200` as "no answer this time", never as "these resources were unloaded".
 
 ## Paging
 
-Pass the `next` value from each response as `cursor`. `take` defaults to 100, which is also the maximum: every item is a full `ResourceInfo`, so pages stay small and you follow `next`.
+Pass each response's `next` as `cursor`. `take` defaults to 100, which is also the maximum.
 
-Each page is a **fresh snapshot** rather than a slice of one consistent read. If the fleet's cache
-changes mid-sweep — a worker evicts something, another finishes a download — an item can be missed
-or repeated at a page boundary. Treat the sweep as eventually consistent and make your reconciliation
-idempotent. `view=Queue` behaves the same way.
+Each page is a **fresh snapshot**, not a slice of one consistent read: if the fleet's cache changes
+mid-sweep, an item can be missed or repeated at a page boundary. Make your reconciliation
+idempotent. `view=Queue` pages the same way.
 
 ## The same filters on `view=Queue`
 
-Nothing here is specific to `Loaded`. `?view=Queue&type=checkpoint` narrows the download queue the
-same way, with two differences worth knowing:
+`?view=Queue&type=checkpoint` narrows the download queue the same way, with two differences:
 
 - The queue does not carry sizes, so `minSizeBytes` / `maxSizeBytes` make the orchestrator look up
-  each queued candidate's size. Filtering the queue by `type` or `source` is free.
-- There is no too-broad refusal. The queue is only what is being pulled right now, so an unfiltered
-  `view=Queue` is small by construction.
+  each queued candidate's size. Filtering by `type` or `source` is free.
+- There is no too-broad refusal: the queue holds only what is being pulled right now.
 
 ## What this view does not tell you
 
-- **`availability` is not populated.** Every item in this view is available by definition; filling it
-  in would cost a fleet-wide lookup per item. Call `GET /v2/resources/{air}` when you need the
-  detail for one resource.
-- **Nothing about capacity.** Worker counts, lane occupancy and download bandwidth are not exposed
-  here. This answers "is it loaded", not "how much of it is there".
+- **`availability` is not populated** — every item is available by definition. Call
+  `GET /v2/resources/{air}` for one resource's detail.
+- **Nothing about capacity.** Worker counts, lane occupancy and download bandwidth are not exposed.

@@ -1,6 +1,6 @@
 ---
 title: Review, approval and deploy
-description: What happens to a Civitai App after civitai app submit — the pending/approved/deployed lifecycle, how to track it, what the recorded source commit does and does not prove, and how to withdraw a submission without losing your store listing.
+description: What happens to a Civitai App after civitai app submit — the review and deploy lifecycle, tracking it, the recorded source commit, and withdrawing a submission.
 sources:
   - go:github.com/civitai/cli
 ---
@@ -8,16 +8,12 @@ sources:
 # Review, approval and deploy
 
 `civitai app submit` is not a deploy. It packages your **source** tree, uploads
-it, and creates a **publish request** that a Civitai moderator has to look at.
-Everything after that happens on the platform's side, and this page is about
-reading and steering it from the terminal.
+it, and creates a **publish request** that a Civitai moderator reviews. This
+page covers reading and steering what happens next from the terminal.
 
-If you have not submitted anything yet, start with the
-[quickstart](./quickstart). Before you submit, run the
-[first review checklist](./first-review) — it covers the feedback reviewers
-most often send back. For every command and flag named below, the
-generated [CLI reference](../reference/cli) is the authority — this page
-explains the lifecycle, not the flag list.
+New here? Start with the [quickstart](./quickstart), and run the
+[first review checklist](./first-review) before you submit. Every flag is in
+the generated [CLI reference](../reference/cli).
 
 ## The lifecycle
 
@@ -32,25 +28,20 @@ explains the lifecycle, not the flag list.
    few minutes after approval the app serves at `https://<blockId>.civit.ai/`.
 
 ::: warning Before approval, `https://<blockId>.civit.ai/` returns 404
-Submitting does not make the subdomain serve. The DNS record is programmed as
-part of the **deploy** step, which only runs on approval. A 404 there while your
-submission is `pending` is the expected state, not a broken deploy.
-
-You do **not** have to wait for it to iterate against the real backend: the dev
-token mint accepts a pending slug, so `npm run dev:live` works against an
-un-approved app. See [Local dev loop](./local-dev).
+The DNS record is programmed by the **deploy** step, which runs only on
+approval, so a 404 while your submission is `pending` is expected. You can
+still iterate against the real backend: the dev token mint accepts a pending
+slug, so `npm run dev:live` works — see [Local dev loop](./local-dev).
 :::
 
-Submitting also mints your **store listing** as a draft, which is why the
-listing media commands work while you are still in review. That half of the
-story is on [Your store listing](./store-listing).
+Submitting also mints your **store listing** as a draft — see
+[Your store listing](./store-listing).
 
 ## Tracking a submission
 
-`civitai app status` reads the token-authenticated, self-scoped route
-`GET /api/v1/blocks/submissions`. You only ever see your **own** submissions —
-the same credential that submitted can read the status. An OAuth login needs the
-Apps submit scope, which the default `civitai login` already grants.
+`civitai app status` reads `GET /api/v1/blocks/submissions`, which returns only
+your **own** submissions. An OAuth login needs the Apps submit scope, which the
+default `civitai login` grants.
 
 With no argument it lists every submission it got back, newest first:
 
@@ -89,38 +80,26 @@ An approved, deployed submission ends with `Live at:` and the app's
 
 ### The listing is capped at 100 rows, and cannot be paged
 
-The unfiltered listing is capped **server-side at 100 submissions**, and the
-route returns neither a cursor nor a total. There is therefore no way to page it
-and no way to know how many rows were dropped. When a full-length page comes
-back, the CLI says so on **stderr** rather than presenting it as your complete
-history:
+The unfiltered listing is capped **server-side at 100 submissions**, with no
+cursor or total, so it cannot be paged. When exactly 100 come back, the CLI
+notes on **stderr** that older submissions *may* exist:
 
 ```
 note: the server returned the newest 100 submissions — the API caps this listing and offers no way to page, so older submissions may exist but are not listed. Look up a specific app with `civitai app status <blockId>`.
 ```
 
-That is an inference — a page that is exactly full is indistinguishable from one
-that was truncated — which is why it says *may*. A **per-app** lookup
-(`civitai app status <blockId>`) is not affected: the server narrows to the slug
-before it applies the cap.
+A **per-app** lookup (`civitai app status <blockId>`) is unaffected — the
+server narrows to the slug before capping.
 
-`--limit N` is a **display** limit, not a page size. This route accepts no limit
-and no cursor, so the CLI fetches the same page either way and prints fewer rows
-of it. Two consequences:
-
-- `--limit` **cannot reach submissions the API did not return**, and it does not
-  suppress the cap note — if the server capped the page, you are still told.
-- It applies to `--json` as well, so `--limit 5 --json` emits five records.
-
-`--limit 0` or a negative value is refused as a usage mistake (exit `2`), and so
-is combining `--limit` with a `blockId` or `--id` — a single submission cannot be
-limited, and silently ignoring the flag would be worse than saying so.
+`--limit N` only trims what is **displayed** (in `--json` too: `--limit 5
+--json` emits five records); it cannot reach submissions the API did not
+return, and it does not suppress the cap note. `--limit 0`, a negative value,
+or `--limit` with a `blockId` or `--id` is refused (exit `2`).
 
 ### Scripting it
 
-`--json` emits the submissions as one object with a `submissions` array. Notes
-like the cap caveat go to **stderr**, so stdout stays a pure, parseable payload
-and the exit code stays `0`:
+`--json` emits one object with a `submissions` array. Notes such as the cap
+caveat go to **stderr**, so stdout stays parseable and the exit code stays `0`:
 
 ```bash
 civitai app status --limit 5 --json | jq -r '.submissions[] | "\(.blockId) \(.status)"'
@@ -132,9 +111,8 @@ rendering; with no credential configured the command points you at
 
 ### Off-site apps have no submissions at all
 
-An **off-site** app is a registered URL rather than a block bundle, so it never
-enters the block-submission pipeline. Where the CLI can tell, asking about one
-says that instead of telling you to submit:
+An **off-site** app is a registered URL, so it never enters the
+block-submission pipeline. Where the CLI can tell, it says so:
 
 ```console
 $ civitai app status my-offsite-app
@@ -142,45 +120,36 @@ Error: `my-offsite-app` is an OFFSITE app (registered at https://example.com/), 
 Run `civitai app view my-offsite-app` for what the CLI can show about this app
 ```
 
-That exits `4`, the same code as any other slug this lookup cannot resolve.
-Recognising the off-site case takes one extra lookup that cannot always answer,
-so you sometimes get the generic `no such submission … run civitai app submit
-first` message instead — on the same exit `4`. The wording is best-effort; the
-exit code is not.
+That exits `4`, like any slug this lookup cannot resolve. Recognising the
+off-site case needs an extra lookup that cannot always answer, so you may get
+the generic `no such submission … run civitai app submit first` message
+instead — still exit `4`.
 
 ## Build provenance: which commit is live?
 
-The bundle is packaged from what is on disk, so without a recorded commit a live
-version cannot be traced back to source at all. `civitai app submit` records it
-and `civitai app status` shows it.
-
-What a submit that really uploads sends:
+`civitai app submit` records the commit it packaged from, and
+`civitai app status` shows it. A submit that really uploads sends:
 
 - **`sourceCommit`** — the full 40-character SHA of `HEAD` in the packaged
   directory's repository.
 - **`sourceDirty`** — `true` when files that went into the bundle were
-  uncommitted (only reachable with `--allow-dirty`, which is exactly the case
-  worth recording), `false` when the tree was clean.
+  uncommitted (only reachable with `--allow-dirty`), `false` when the tree was
+  clean.
 
 ::: danger It is a CLAIM, not a proof
 The server stores what the client reported and **cannot check** that the bundle
-was built from that commit. A different machine, a different client, or a
-modified one all produce a row that looks identical. The CLI says so wherever it
-prints the value — `Reported by the client that submitted it; the server stores
-it unverified` — and you should read it the same way. It is a very good pointer
-and it is not an attestation.
+was built from that commit — the CLI prints `Reported by the client that
+submitted it; the server stores it unverified` wherever it shows the value. It
+is a good pointer, not an attestation.
 :::
 
-It also **degrades rather than guessing, and a missing stamp never fails a
-submit.** Nothing is sent when the packaged directory is in no git repository
-(every scaffolded app starts that way), when there is no `git` on `PATH`, when
-the repository has no commits yet, or when the CLI cannot resolve a value in
-exactly the shape the server accepts (`^[0-9a-f]{40}$`). The server answers a
-malformed `sourceCommit` with a `400` that fails the whole upload, so the CLI
-sends *nothing* rather than something it is unsure of.
+A missing stamp **never fails a submit.** Nothing is sent when the directory is
+in no git repository (every scaffolded app starts that way), with no `git` on
+`PATH`, with no commits yet, or when the value is not exactly the shape the
+server accepts (`^[0-9a-f]{40}$` — a malformed one would `400` the whole
+upload).
 
-Reading it back, `sourceDirty` is a **tri-state**, and the difference is
-load-bearing:
+Reading it back, `sourceDirty` is a **tri-state**:
 
 | JSON value | `SOURCE` column | meaning |
 | --- | --- | --- |
@@ -188,20 +157,18 @@ load-bearing:
 | `false` | `a1b2c3d` | a client **asserted** the tree was clean |
 | `true` | `a1b2c3d (dirty)` | a client asserted uncommitted changes went into the bundle |
 
-`null` and `false` are different answers: do not collapse them in a script. The
-table abbreviates to seven characters for width; the detail view and `--json`
-both carry all forty.
+Do not collapse `null` and `false` in a script. The table shows seven
+characters; the detail view and `--json` carry all forty.
 
 ## Is your repo behind what you shipped?
 
-A checkout can fall **behind its own live deployment** — you, or a teammate,
-released 0.5.2, and then you came back to a working copy still on 0.4.0.
-Submitting from there is accepted, and on approval it **replaces newer code with
-older code** while the version number reads like an ordinary forward bump.
+A checkout can fall **behind its own live deployment** — someone released 0.5.2
+and your working copy is still on 0.4.0. Submitting from there is accepted and,
+on approval, **replaces newer code with older code**.
 
-So when you ask about a single submission **from inside that app's directory**,
-`civitai app status` compares the local `block.manifest.json` against your
-**highest approved** version of the same app and warns on **stderr**:
+So the detail view (`app status <blockId>` or `--id`), run **from inside that
+app's directory**, compares the local `block.manifest.json` with your **highest
+approved** version and warns on **stderr**:
 
 ```console
 $ civitai app status custom-generators
@@ -214,49 +181,26 @@ Version:          0.7.0
   Sync the released code (civitai app pull . --app custom-generators) or raise the local version above 0.5.2 before civitai app submit.
 ```
 
-The remedy is `civitai app pull . --app <slug>` — **the `.` matters.** Without a
-`[dir]` argument, `app pull` clones into `./<slug>`, which from inside the
-checkout would create a second copy nested in your repository and leave the
-checkout itself just as far behind. Raising the local version above the
-published one is equally legitimate, and is what you want when the local work
-really is newer.
+Fix it with `civitai app pull . --app <slug>` — **the `.` matters**: without it
+`app pull` clones into a nested `./<slug>` and leaves your checkout behind — or
+raise the local version above the published one if your local work really is
+newer.
 
-What the warning deliberately does **not** do:
+The warning never changes the exit code and never touches `--json` stdout. It
+speaks only when you are **behind** and the CLI is sure: no local manifest, an
+unreadable or other app's manifest, a failed lookup, nothing approved yet, or a
+version it cannot order all mean silence. Versions with a pre-release or build
+suffix (`-rc1`, `-beta.2`, `-3-gabc123`, `+build.7`) are not compared: a
+suffixed local version gives no warning, and a suffixed approved version is
+skipped.
 
-- **It never changes the exit code.** It is a warning, not a refusal — nothing
-  that scripts `app status` starts failing because a repository is out of date.
-- **It goes to stderr**, like the cap caveat, so `--json` stdout stays a pure
-  payload on both renderings.
-- **It says nothing unless it is sure.** No local manifest, an unreadable one, a
-  manifest for a *different* app, a version on either side the CLI cannot order,
-  a listing lookup that fails, or nothing approved yet — every one of those is
-  silence. A false "your repo is behind" would send you to re-pull released code
-  for no reason.
-- **It only speaks when you are BEHIND.** Being *ahead* is the normal state of a
-  repository about to release; being *equal* is the healthy state right after
-  one.
-- **It is scoped to the detail view** (`app status <blockId>` or `--id`). The
-  bare listing is many apps at once and has no single version line to attach to.
-
-**Pre-release and build metadata are not ordered at all.** A version carrying a
-`-rc1`, `-beta.2`, `-3-gabc123` or `+build.7` suffix is treated as *not
-comparable* rather than reduced to its numeric triple, because real semver ranks
-`0.5.0` **above** `0.5.0-beta.1` while a truncating compare calls them equal and
-ranks `0.6.0-rc.1` above `0.5.2`. So a **local** version with a suffix produces
-no drift warning, and an **approved** version with a suffix is skipped rather
-than quoted as "the highest APPROVED version".
-
-The reference is your **highest approved** version, which is deliberately not
-the same thing as the newest row: the newest row can be a `pending` resubmission
-or a `withdrawn` duplicate, and neither is code anyone is running.
-`civitai app submit`'s own downgrade refusal measures against the same
-predicate over the same rows, so the two commands cannot quote different numbers
-for the same repository.
+"Highest approved" is not the newest row (that can be a `pending` resubmission
+or a `withdrawn` duplicate). `civitai app submit`'s downgrade refusal uses the
+same rule, so the two commands always quote the same number.
 
 ## Deployed is not the same as listed in the store
 
-`civitai app status` and `civitai app view` read **different resources**, and an
-app can legitimately be in one and not the other:
+`civitai app status` and `civitai app view` read **different resources**:
 
 - `civitai app status <slug>` reads your **submission pipeline**
   (`GET /api/v1/blocks/submissions`) — review status, deploy state, live URL.
@@ -264,13 +208,11 @@ app can legitimately be in one and not the other:
   (`GET /api/v1/apps/{slug}`) — the published store listing.
 
 So `app status` can show `approved / live` with a working `<slug>.civit.ai` URL
-while `app view <slug>` returns **not found** and exits `4`. That 404 is
-truthful and says nothing about your deploy: the store lists an app only once its
-**store listing** is published — which needs an icon and a cover, see
-[Your store listing](./store-listing) — and the catalog itself is still gated by
-a launch flag while the store is pre-GA. When the 404 lands on a slug **you
-own**, the CLI detects that and names both next commands instead of leaving you
-with a bare "App not found".
+while `app view <slug>` returns **not found** (exit `4`). The store lists an app
+only once its **store listing** is published — which needs an icon and a cover,
+see [Your store listing](./store-listing) — and the catalog itself is still
+gated by a launch flag while the store is pre-GA. On a slug **you own**, the
+CLI names both next commands instead of a bare "App not found".
 
 ## Changing the bundle while a request is still pending
 
@@ -285,33 +227,25 @@ civitai app listing set-icon ./assets/icon.png    # re-attach the media
 ```
 
 ::: danger Withdrawing a first-version submission deletes that app's store listing
-It deletes the icon, the cover and **every screenshot with its caption**. That
-is server-side and the CLI cannot opt out of it: the withdraw route takes the
-publish-request id and nothing else. Resubmitting mints an **empty** listing —
-the media does not come back, and neither do the captions.
+It deletes the icon, the cover and **every screenshot with its caption**,
+server-side; the CLI cannot opt out. Resubmitting mints an **empty** listing.
+A moderator *rejecting* a first-version submission keeps the draft listing and
+its media, so a re-submit lands on the same listing; that applies to apps
+hosted on `civit.ai`; an off-site app's draft listing is still deleted when it
+is rejected.
 
-**The same discard happens when a moderator rejects a first-version
-submission.** What "carries forward" is *approval*: media survives a moderator
-approving the app, and does not survive the app leaving review any other way.
-
-A withdraw on an app whose listing is already **approved** — a subsequent
-version — leaves the live listing alone.
+A withdraw of a subsequent version, whose listing is already **approved**,
+leaves the live listing alone.
 :::
 
-Because that is irreversible, `civitai app withdraw` **asks first** on a
-terminal and **refuses** in a non-interactive shell unless you pass `--yes`.
+`civitai app withdraw` therefore **asks first** on a terminal and **refuses** in
+a non-interactive shell unless you pass `--yes`.
 
-Two further properties worth knowing before you script it:
+- Only a **`pending`** request can be withdrawn.
+- Withdrawing an already-withdrawn request still succeeds, but the listing the
+  first withdraw deleted does not come back.
 
-- Only a **`pending`** request can be withdrawn. An already approved, rejected or
-  withdrawn one cannot.
-- It is **idempotent with respect to the submission** — withdrawing an
-  already-withdrawn request still succeeds. That idempotency does **not** extend
-  to the listing: the first withdraw deleted it, and a second call does not
-  bring it back.
-
-The practical rule that falls out of all of this: attach your listing media
-**after** the submission you intend to keep, not before one you may withdraw.
+So attach listing media **after** the submission you intend to keep.
 
 ## Next
 

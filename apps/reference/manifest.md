@@ -192,25 +192,10 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
   - `"oauth"` is an opaque OAuth access token for the block's own client, which
     ordinary `/api/v1` routes accept as a viewer bearer.
 
-  `"oauth"` is **live in production**, and it is a trade
-  rather than an upgrade.
-
-  **`"oauth"` gives up 22 of the block REST routes.** Not for want of
-  identity — an OAuth token resolves to the same `(app, viewer)` claims. The
-  reason is that those routes **re-verify the raw bearer as a block JWS** in
-  their service layer, and an OAuth access token is not one. That covers app
-  storage (5 routes), shared storage (11), all five workflow routes
-  (`estimate`/`submit`/`poll`/`cancel` and `query`) and `user-checkpoint/set` —
-  22 in all — including the routes that carry the Buzz budget, the per-viewer
-  and per-app caps, the maturity clamp and the attribution tag. The other 12
-  block routes work on either credential.
-
-  So declare `"oauth"` when your app calls `/api/v1`, the orchestrator or the MCP
-  directly and needs none of those 22. **An app that uses app storage cannot
-  use `"oauth"` today** — and validation does not yet refuse the pair, so the
-  failure surfaces at runtime rather than at `civitai app validate`. An app that
-  generates should stay on `block-token` and the host-proxied workflow routes.
-  This path has little production use yet. See
+  `"oauth"` is a trade, not an upgrade: it **gives up 22 of the block REST
+  routes** — app storage, shared storage, the workflow routes and
+  `user-checkpoint/set` — so an app that uses app storage or generates should
+  stay on `block-token`. See
   [Porting → choose your credential](../guide/porting#auth-field).
 
 ### Sizing `page.buzzBudgetPerGen`

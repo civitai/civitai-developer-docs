@@ -9,11 +9,11 @@ Errors surface in two places:
 1. **HTTP responses** on the submit / get / update endpoints — validation, auth, rate-limit, or server issues.
 2. **Step status** inside a returned workflow — the request succeeded, but a step reached `failed`, `expired`, or `canceled`.
 
-The orchestrator races providers internally, so transient provider failures (one worker crashing, one region being slow) are usually invisible to you — a different provider claims the job. You only see step-level failures once every viable provider has been exhausted.
+The orchestrator races providers, so a transient provider failure (a worker crashing, a slow region) is usually invisible: another provider claims the job. You see a step-level failure only once every viable provider is exhausted.
 
 ## HTTP error shape
 
-Validation and error responses use the standard [RFC 7807](https://www.rfc-editor.org/rfc/rfc7807) `application/problem+json` shape ([`ProblemDetails`](/orchestration/reference/operations/SubmitWorkflow) / [`ValidationProblemDetails`](/orchestration/reference/operations/SubmitWorkflow)):
+Error responses use the standard [RFC 7807](https://www.rfc-editor.org/rfc/rfc7807) `application/problem+json` shape ([`ProblemDetails`](/orchestration/reference/operations/SubmitWorkflow) / [`ValidationProblemDetails`](/orchestration/reference/operations/SubmitWorkflow)):
 
 ```json
 {
@@ -27,8 +27,6 @@ Validation and error responses use the standard [RFC 7807](https://www.rfc-edito
   }
 }
 ```
-
-Fields:
 
 - `status` — the HTTP status code (also in the response line).
 - `title` — short, human-readable summary.
@@ -48,11 +46,11 @@ Fields:
 | `429 Too Many Requests` | Rate-limit hit. | **Yes, with backoff.** |
 | `5xx Server Error` | Transient orchestrator issue. | **Yes, with backoff.** |
 
-Retry guidance for `429` / `5xx`: exponential backoff with jitter, capped at ~30 s between attempts, give up after ~5 tries. Don't retry `400` / `401` / `403` / `404` until you've fixed the underlying issue.
+For `429` / `5xx`: exponential backoff with jitter, capped at ~30 s between attempts, giving up after ~5 tries.
 
 ## Step-level failures
 
-A `200` / `202` on submit means the workflow was accepted — individual steps can still fail later. The [`Workflow`](/orchestration/reference/operations/GetWorkflow) payload you get back (or that arrives by webhook) carries per-step status:
+A `200` / `202` on submit means the workflow was accepted; steps can still fail later. The [`Workflow`](/orchestration/reference/operations/GetWorkflow) you get back (or by webhook) carries per-step status:
 
 ```json
 {
@@ -75,7 +73,7 @@ A `200` / `202` on submit means the workflow was accepted — individual steps c
 }
 ```
 
-Workflow / step / job statuses share the same enum: `unassigned`, `preparing`, `scheduled`, `processing`, `succeeded`, `failed`, `expired`, `canceled`. Terminal states are `succeeded`, `failed`, `expired`, `canceled` — once reached, [they do not change](./results-and-webhooks#delivery-semantics).
+Workflows, steps and jobs share one status enum ([Status lifecycle](./workflows#status-lifecycle)); its terminal states [never change](./results-and-webhooks#delivery-semantics).
 
 The `reason` and `blockedReason` fields on failed jobs are the best hint at *why*:
 
@@ -84,16 +82,16 @@ The `reason` and `blockedReason` fields on failed jobs are the best hint at *why
 | `no_provider_available` | No provider can run this job with the given inputs (unusual resolution, unsupported duration, restricted region, etc.). | Relax inputs, try another `provider`/`version`, or retry later. |
 | `blocked` | The job was blocked by content moderation. `blockedReason` explains further. | Don't retry the same input; rework the prompt or image. |
 | `timeout` / `expired` | Job exceeded its internal deadline. | Safe to resubmit — possibly with a smaller workload. |
-| `canceled` | Someone (you or an operator) canceled the workflow via [`DeleteWorkflow`](/orchestration/reference/operations/DeleteWorkflow). | No retry unless you actually want to re-run it. |
+| `canceled` | The workflow was canceled, usually via [`DeleteWorkflow`](/orchestration/reference/operations/DeleteWorkflow); see [Step `canceled` unexpectedly](#common-gotchas) for the other causes. | No retry unless you actually want to re-run it. |
 
 When `reason` is absent, the failure is generic — safe to retry once with the same body.
 
 ## Webhook retries
 
-If you've registered callbacks, the orchestrator retries transient failures on your endpoint automatically. See [Results & webhooks → Delivery semantics](./results-and-webhooks#delivery-semantics) for the serialization guarantees you can rely on.
+The orchestrator retries transient failures on your callback endpoint automatically; see [Delivery semantics](./results-and-webhooks#delivery-semantics) for the ordering guarantees.
 
 ## Common gotchas
 
-- **Blob URLs 403 after a few minutes.** The signed URL expired — refetch the workflow (or call [`GetBlob`](/orchestration/reference/operations/GetBlob)) for a fresh one. This isn't a real failure.
-- **`202` after `wait=90`.** The workflow didn't finish within the [100-second request timeout](./getting-started#_3-poll-if-you-didn-t-wait-inline). Expected for video / training / large-batch jobs — continue via webhooks or polling.
-- **Step `canceled` unexpectedly.** Check whether another process called [`DeleteWorkflow`](/orchestration/reference/operations/DeleteWorkflow). The orchestrator itself only cancels on explicit request or when a dependent step already failed.
+- **Blob URL stopped working.** Check its `urlExpiresAt`: past it a signed URL is rejected, which isn't a failure. Get a fresh one as described in [Blobs in results](./results-and-webhooks#blobs-in-results). For a public-tier URL it means the object was deleted; refetching won't bring it back, so regenerate it.
+- **`202` after `wait=90`.** The workflow didn't finish within those 90 s (keep `wait` below [your HTTP client's timeout](./getting-started#_3-poll-if-you-didn-t-wait-inline)); continue via webhooks or polling.
+- **Step `canceled` unexpectedly.** Check whether another process called [`DeleteWorkflow`](/orchestration/reference/operations/DeleteWorkflow). The orchestrator also cancels on its own when a per-recipe endpoint's caller disconnects, when a step it depends on failed, or when your Buzz runs out (before the work is scheduled, or mid-run for a runtime-billed custom Comfy step).

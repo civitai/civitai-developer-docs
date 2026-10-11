@@ -1,6 +1,6 @@
 ---
 title: Choosing a model, and what the server may run instead
-description: Why --checkpoint does not carry its ecosystem, how the Civitai CLI reports a silent model substitution, what --fail-on-substitution can and cannot guarantee, and the rules for image-to-image with --image.
+description: How civitai generate's --checkpoint, --ecosystem and --image interact, and how the CLI reports and refuses silent model substitution.
 sources:
   - go:github.com/civitai/cli
 ---
@@ -8,41 +8,32 @@ sources:
 # Choosing a model, and what the server may run instead
 
 `civitai generate` lets you name a checkpoint, LoRAs, an ecosystem and
-reference images. None of those are validated for *coherence* by anything —
-not this CLI, not the cost estimator, not the generator. This page is about the
-gap between what you asked for and what actually runs, and what the CLI can
-honestly tell you about it.
-
-If you have not read [the money contract](./cli-generate#what-the-cli-can-and-cannot-tell-you-about-a-charge)
-yet, start there — everything below can cost Buzz.
+reference images. Nothing — not this CLI, the cost estimator or the generator —
+validates that they are *coherent*. This page covers the gap between what you
+asked for and what runs. Everything below can cost Buzz; read
+[the money contract](./cli-generate#what-the-cli-can-and-cannot-tell-you-about-a-charge)
+first.
 
 ## A checkpoint does not carry its ecosystem
 
-`--checkpoint` selects a model **version** and nothing else. The settings the
-server generates with — engine, steps, cfg scale, sampler — follow the
-**ecosystem** (`--ecosystem`, or the server's default when you pass none),
-*not* the checkpoint you named. There is no `--steps` or `--cfg-scale` here to
-correct them either; see
-[Raw generation graphs](./cli-generation-graphs) for the route that does reach
-them.
+`--checkpoint` selects a model **version** and nothing else. The engine,
+steps, cfg scale and sampler follow the **ecosystem** (`--ecosystem`, or the
+server's default), *not* the checkpoint. There is no `--steps` or
+`--cfg-scale`; [Raw generation graphs](./cli-generation-graphs) is the route
+that reaches them.
 
-Pairing a checkpoint with an ecosystem it does not belong to is refused by
-**nothing**. Such a job can be charged, run, and finish `Status: failed` with
-**0 deliverable outputs**, even though `--dry-run` reported
-`Resources ready: true` beforehand.
-
-The two things that look like they should catch it do not:
-
-- the model-version lookup proves the id **exists**, not that it **fits**;
-- `Resources ready` reports resource availability, not coherence. It is
-  [not a promise of output](./cli-json#ready-is-one-directional).
+A checkpoint paired with an ecosystem it does not belong to is refused by
+**nothing**: the job can be charged, run, and finish `Status: failed` with
+**0 deliverable outputs**, even after `--dry-run` reported
+`Resources ready: true`. The model-version lookup proves the id **exists**, not
+that it **fits**, and `Resources ready` reports availability, not coherence
+([not a promise of output](./cli-json#ready-is-one-directional)).
 
 ::: warning Which ecosystem a checkpoint belongs to is server knowledge
-The CLI does not hold it and will not guess. A local copy of server state goes
-stale and starts refusing valid *new* inputs, which is worse than the gap it
-closes — so there is no vendored table here and no list of valid `--ecosystem`
-values. `--ecosystem` is sent **verbatim and is not checked locally**; an
-unknown value comes back as the server's own `unknown ecosystem` error.
+The CLI does not hold it and will not guess — a vendored copy would go stale
+and start refusing valid *new* inputs — so there is no list of valid
+`--ecosystem` values here. `--ecosystem` is sent **verbatim**; an unknown value
+comes back as the server's own `unknown ecosystem` error.
 
 **If you name a checkpoint, name the `--ecosystem` it belongs to as well.**
 :::
@@ -71,35 +62,29 @@ that will *not* run is never the last one you read before saying yes:
 Checkpoint:       DreamShaper — 8 (Checkpoint, id 128713)  [SUPERSEDED — the server will run version 1892509 instead; see the warning above]
 ```
 
-Your own id stays on the line. The CLI marks it; it never quietly substitutes
-the applied one.
+Your own id stays on the line, marked; the CLI never quietly swaps in the
+applied one.
 
-Two things about that transcript, so you can tell a *reproduction* from a
-*mismatch*:
+To tell a *reproduction* from a *mismatch*:
 
 - **The applied id is the server's current answer, not a constant.** `1892509`
-  is whatever that family's default was when this was run; yours will differ,
-  and so will the price. What reproduces is the *shape* — a warning naming both
-  ids and a `reason`, and a `[SUPERSEDED …]` note on the checkpoint line.
-- **A version id that does not exist at all will not get you here.**
-  `generate` resolves every `--checkpoint` against the public model-version API
-  before it prices anything, so a nonexistent id fails locally with
-  `not found (404): Model not found` and exit `4` — no estimate, no submit,
-  nothing charged. That live lookup closes off the *nonexistent* id; it cannot
-  tell you whether an id that does exist belongs to the family you are
-  generating with.
+  was that family's default when this was run; yours, and the price, will
+  differ. What reproduces is the *shape* — a warning naming both ids and a
+  `reason`, and a `[SUPERSEDED …]` note on the checkpoint line.
+- **A version id that does not exist will not get you here.** `generate`
+  resolves every `--checkpoint` against the public model-version API before
+  pricing, so a nonexistent id fails locally with
+  `not found (404): Model not found`, exit `4`, nothing charged. That lookup
+  cannot tell you whether an existing id belongs to your family.
 
 ### Where it is reported
 
 On the **estimate** (`--dry-run`, and before the confirmation prompt on a real
-run — while you can still back out); **again after the submit**, where it is
-the receipt for what was billed; and on a **later read** with
-`civitai workflows get <id>`, which is the only place a `--no-wait` run can
-still discover it.
-
-The report always goes to **stderr**, in every mode including `--json`, so
-`--json` stdout stays machine-clean — and `--json` carries the raw
-`modelSubstitutions` array itself.
+run, while you can still back out); **again after the submit**, as the receipt
+for what was billed; and on a **later read** with `civitai workflows get <id>`,
+the only place a `--no-wait` run can discover it. The report always goes to
+**stderr**, including under `--json`, whose stdout carries the raw
+`modelSubstitutions` array.
 
 ### The three reasons
 
@@ -114,43 +99,34 @@ A `reason` this CLI does not recognise is still reported, with both ids intact
 
 ### Refusing instead: `--fail-on-substitution`
 
-**By default a substitution is a warning and the run continues.** That is
-deliberate graceful degradation: a script pinned to a version that was later
-retired keeps working rather than breaking on a CLI upgrade.
-
-`--fail-on-substitution` refuses instead. It is checked against the
-**estimate**, so nothing is submitted and nothing is charged when it refuses.
+**By default a substitution is a warning and the run continues**, so a script
+pinned to a since-retired version keeps working. `--fail-on-substitution`
+refuses instead. It is checked against the **estimate**, so a refusal submits
+and charges nothing.
 
 ::: danger Silence is not an assurance
-The `modelSubstitutions` field is **omitted** when nothing was substituted, so
-"no warning" means *either* "no substitution" *or* "a server older than this
-feature". The CLI cannot tell those apart and deliberately never claims the
-negative. **Do not read a quiet run as confirmation that your model was used.**
+The flag can only refuse what the server **reports**. `modelSubstitutions` is
+**omitted** when nothing was reported, so "no warning" means *either* no
+substitution *or* a server that does not report them (for example one older
+than this feature) — against which the flag
+is **silently inert** (exit `0`, submitted, charged). The CLI cannot tell these
+apart and never claims the negative. Read a quiet run as *"nothing was
+reported"*, never *"nothing was substituted"*.
 :::
 
-::: danger `--fail-on-substitution` is not a spend guard
-It can only refuse what the server *reports*. Against a deployment that does
-not report substitutions the flag is **silently inert** — exit `0`, submitted,
-charged — and there is no signal distinguishing that from "nothing was
-substituted".
-:::
+It also:
 
-Three further limits worth knowing before you build a pipeline on it:
-
-- It is evaluated on the **estimate**, and deliberately does not re-fire after
-  the submit. A substitution appearing only on the submit reply is **reported**
-  (and is in `--json`) but exits `0`, because the money is already gone and
-  failing there would strand a result you paid for and still need to collect.
-- It refuses on the *first* reported substitution; the message names that one
-  and counts the rest.
-- **With `--input` it stays live, but its coverage is unknown to this CLI.** It
-  still fires on the estimate's record, so it still refuses before any spend —
-  a raw graph does not disarm it. What the CLI cannot do is relate that record
-  to your file: the graph is not interpreted, so nothing local knows which
-  model references it contains. A checkpoint named under `resources`, for
-  example, can be charged and run as a different model version with **no record
-  at all**, so the flag does not fire. Read a silent run as *"nothing was
-  reported"*, never as *"nothing was substituted"*.
+- **does not re-fire after the submit.** A substitution appearing only on the
+  submit reply is reported (and is in `--json`) but exits `0`: the money is
+  already gone, and failing would strand a result you paid for.
+- **refuses on the first** reported substitution, naming it and counting the
+  rest.
+- **stays live with `--input`, with unknowable coverage.** It still fires on the
+  estimate's record, before any spend, but the CLI does not interpret a raw
+  graph, so it cannot relate that record to your file. A checkpoint named under
+  `resources`, for example, can be charged and run as a different version with
+  **no record at all**, so the flag does not fire. The command warns about this
+  whenever `--input` and `--fail-on-substitution` appear together.
 
 ## Image-to-image: `--image` and `--ecosystem`
 
@@ -166,21 +142,18 @@ civitai generate "combine these" --ecosystem Seedream \
   --image https://example.com/a.jpg --image ./b.png --yes
 ```
 
-A **local `.png`/`.jpg`** is uploaded to Civitai first and the stored blob is
-referenced; an **`https` URL** is passed through as-is, but must be publicly
-reachable — the generator downloads it server-side too, and an unfetchable URL
-is a `400` after you have already been priced.
+A **local `.png`/`.jpg`** is uploaded to Civitai and the stored blob is
+referenced; an **`https` URL** is passed through as-is and must be publicly
+reachable — the generator downloads it server-side, and an unfetchable URL is a
+`400` after you have already been priced. `http://`, `file://` and `data:` are
+refused.
 
-Either way the CLI reads the image's width and height from its **header only**
-(never decoding the pixels) and sends them, because the server requires both
-and rejects an entry without them. `http://`, `file://` and `data:` are
-refused, and local files are capped at **64 MiB** (checked by `stat`, before a
-byte is read).
-
-Only **PNG and JPEG** are supported, and the format is decided by the file's
-**bytes, not its extension** — a `.png` that really holds JPEG data is accepted
-and sent as `image/jpeg`, while a `.jpg` holding anything else is refused. WebP
-is not supported.
+The CLI reads width and height from the image **header only** (no pixel
+decode) and sends them, because the server rejects an entry without them.
+Local files are capped at **64 MiB** (checked by `stat`, before a byte is
+read). Only **PNG and JPEG** are supported, decided by the file's **bytes, not
+its extension**: a `.png` holding JPEG data is sent as `image/jpeg`, while a
+`.jpg` holding anything else is refused. WebP is not supported.
 
 ### `--image` requires `--ecosystem`, and the reason is money
 
@@ -191,20 +164,17 @@ $ echo $?
 2
 ```
 
-The server promotes a text-to-image job to image-to-image only when the request
-*names an ecosystem*. Without one it **ignores the images, generates from the
-prompt alone, and charges you the full amount** — HTTP 200, no error, no
-warning. The refusal above is a check on a flag combination the CLI
-owns, and it costs nothing — it fires before any pricing.
+Without an ecosystem the server **ignores the images, generates from the
+prompt alone, and charges the full amount** — HTTP 200, no warning. The CLI's
+refusal fires before any pricing, so it costs nothing.
 
 ### The workflow on screen still says `txt2img`, and that is correct
 
-Image editing is *requested* as `txt2img` plus your images — the server does
-the promotion itself, from the request body. So the `--dry-run` quote and the
-spend confirmation both name `txt2img` and, when `--image` is set, say why on
-the same line. The CLI does not rename the field, because the value it sends
-really is `txt2img`; and it does not claim the promotion *happened*, because it
-cannot see that.
+Image editing is *requested* as `txt2img` plus your images; the server does
+the promotion. So the `--dry-run` quote and the spend confirmation name
+`txt2img` and, with `--image`, say why on the same line. The CLI sends that
+value as-is and does not claim the promotion *happened*, because it cannot see
+that.
 
 ### Two things the CLI genuinely cannot check for you
 
@@ -226,18 +196,17 @@ graphs, and the extras are dropped *before* any limit check can fire — so the
 server never reports it and the truncated job is billed. For example, `Qwen`
 accepts 3: sending 4 or more prices exactly as sending 3.
 
-The CLI refuses **more than 7** — one global ceiling, chosen because no
-ecosystem accepts more, so that refusal can never block a valid request — and
-**warns** for anything above 1. Below 7 it genuinely does not know your
-ecosystem's limit, and it deliberately does not vendor the per-ecosystem table.
+The CLI refuses **more than 7** (no ecosystem accepts more, so that refusal
+never blocks a valid request) and **warns** above 1; below 7 it does not know
+your ecosystem's limit and deliberately does not vendor the table.
 :::
 
 ### `--dry-run` still uploads
 
-`--dry-run` **does** upload local `--image` files, because an estimate built on
-a graph with no `images[]` prices a plain text-to-image job. Uploading spends
-no Buzz, and `--dry-run` still never submits — but it is a network write, so
-neither `--dry-run` nor `--print-input` is offline once `--image` is involved.
+`--dry-run` **does** upload local `--image` files, because an estimate without
+`images[]` prices a plain text-to-image job. Uploading spends no Buzz and
+`--dry-run` still never submits, but it is a network write: neither `--dry-run`
+nor `--print-input` is offline once `--image` is involved.
 
 ## Where to go next
 

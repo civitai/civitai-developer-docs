@@ -1,6 +1,6 @@
 ---
 title: Posting from an app
-description: Publish a post to the viewer's Civitai profile from a page app, from the app's own generation outputs or from an image the app produced in the browser tab and uploaded. The two source kinds, the upload-then-post flow, the requirements, the limits, and how to test it with the mock host.
+description: Publish a post to the viewer's Civitai profile from a page app — the two source kinds, the upload-then-post flow, requirements, limits and testing.
 sources:
   - npm:@civitai/blocks-react@0.67.1#useCreatePostFromApp
   - npm:@civitai/blocks-react@0.67.1#useUploadImageBytes

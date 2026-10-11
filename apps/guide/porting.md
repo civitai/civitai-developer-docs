@@ -1,6 +1,6 @@
 ---
 title: Moving a block off the bridge
-description: Replace a block's postMessage data calls with /api/v1/blocks/* REST calls — what each credential reaches, which routes an OAuth token gives up, a hook-by-hook replacement table, and where the route is now the wider surface, taking parameters no bridge hook exposes (shared storage's mine filter).
+description: Replace a block's postMessage data calls with /api/v1/blocks/* REST calls — what each credential reaches, what auth oauth gives up, and a hook-by-hook replacement table.
 sources:
   - npm:@civitai/blocks-react@0.67.1/dist/index.d.ts
   - npm:@civitai/sdk@0.10.2/dist/index.d.ts
@@ -14,10 +14,10 @@ sources:
 
 # Moving a block off the bridge
 
-A block used to reach every Civitai capability by posting a message to its host.
-Most of that data now has a REST route, and **a block can call those routes today
-with the token it already has.** This page maps each bridge hook to its route,
-and is honest about what each credential does and does not reach.
+Most data a block used to fetch by posting a message to its host now has a REST
+route, and **a block can call those routes today with the token it already
+has.** This page maps each bridge hook to its route, and says what each
+credential reaches.
 
 ::: tip The rule to build by
 **Default to the API. Use messaging only for the things that must go through it.**
@@ -28,33 +28,20 @@ needs host chrome.
 :::
 
 ::: warning `@civitai/sdk` runs in a block now — and nothing is asking you to move
-`@civitai/app-sdk` + `@civitai/blocks-react` continue, and the platform's position
-is unchanged: **no app has to move.** What changed is that the choice is a real
-one rather than a blocked one.
+`@civitai/app-sdk` + `@civitai/blocks-react` continue; **no app has to move.**
 
-**On the default block token,** `@civitai/sdk@0.5.0`'s `initialize()` succeeds.
-`app.storage`, `app.site` on `blocks/*` paths, `app.requestGrants` and the whole
-of `app.host` (host UI, which is still bridge messages underneath) all work.
-`app.orchestration` rejects **before it sends** for a signed-in viewer — the
-orchestrator accepts a block-scoped token on no route — and `app.site` outside
-`blocks/*` returns the API's own 401/403 with the `auth: "oauth"` opt-in
-appended to the message on a route that requires auth, while a public route
-answers anonymously.
+**On the default block token,** `@civitai/sdk`'s `initialize()` succeeds (since
+`0.5.0`; `0.4.0` threw). `app.storage`, `app.site` on `blocks/*` paths,
+`app.requestGrants` and all of `app.host` (bridge messages underneath) work.
+`app.orchestration` rejects **before it sends** for a signed-in viewer, and
+`app.site` outside `blocks/*` returns the API's own 401/403 — with the
+`auth: "oauth"` opt-in appended — on a route that requires auth, while a public
+route answers anonymously.
 
-That is new in 0.5.0. `0.4.0` threw from `initialize()` instead, which refused the
-default configuration; the refusal moved to the two surfaces it is actually about.
-
-**With `auth: "oauth"`,** the host mints a real OAuth access token and the general
-`/api/v1` surface, the orchestrator and the MCP accept it unchanged. That mint is
-enabled in production.
-
-**But `auth: "oauth"` is a trade, not an upgrade** — it costs you 22 block
-routes, app storage among them, and nothing stops you shipping a manifest that
-needs both. Read [choosing your credential](#auth-field) before you declare it.
-
-**Either way the replacement table below still applies:** it is a map of routes,
-not of packages, and the `/api/v1/blocks/*` routes accept your block token right
-now.
+**`auth: "oauth"`** gets a real OAuth access token that `/api/v1`, the
+orchestrator and the MCP accept — but it is a trade that costs 22 block routes;
+see [choosing your credential](#auth-field). The replacement table below is a
+map of routes, not packages, and applies either way.
 :::
 
 The bridge is **not deprecated**. Host UI stays on it by design, and so does
@@ -65,32 +52,22 @@ not zero.
 
 ### Scope binding is per-route — declare only what you use
 
-A route that declares a required scope binds **that scope, and only that
-scope**, against your block context. `GET /api/v1/models/{id}` declares
-`models:read:self` and 403s unless `?id` equals the model your block is
-rendering beside. `GET /api/v1/blocks/buzz` declares `buzz:read:self` and does
-not look at your other scopes.
+A route that declares a required scope binds **only that scope** against your
+block context: `GET /api/v1/models/{id}` declares `models:read:self` and 403s
+unless `?id` is the model your block renders beside; `GET /api/v1/blocks/buzz`
+declares `buzz:read:self` and ignores your other scopes. A route with no
+required scope binds nothing — `GET /api/v1/blocks/models` accepts any valid
+block token, clamped only by its maturity ceiling. (An unrecognised scope is
+rejected outright, but the manifest validator catches that first.)
 
-A route that declares no required scope binds nothing: `GET /api/v1/blocks/models`
-accepts any valid block token, clamped only by the token's maturity ceiling.
-Declaring `models:read:self` is not what gates it.
-
-A token carrying a scope the platform does not recognise is rejected outright,
-but that is a registration-time mistake rather than a call-site one — the
-manifest validator catches it first.
-
-So the only rule at the call site is the ordinary one: **declare the scopes your
-app actually uses**, and pass each route the parameters its own scope binds on.
+So **declare the scopes your app actually uses**, and pass each route the
+parameters its scope binds on.
 
 ### Your tests will pass while exercising nothing
 
-This is the one people get wrong. After the port your block sends no
-`postMessage` operations — so a mock host is answering a conversation nobody is
-having, and the suite goes green having tested none of the new path.
-
-**The fake has to move to `fetch`.** A fake that still answers `postMessage`
-cannot see a request your app gets wrong — a dropped `cursor` parameter, say,
-when every fixture fits on one page. See [Testing](#testing) below.
+After the port your block sends no `postMessage` operations, so a mock host
+answers nothing and the suite goes green having tested none of the new path.
+**Move the fake to `fetch`** — see [Testing](#testing) below.
 
 ## Choose your credential: the manifest's `auth` field {#auth-field}
 
@@ -109,60 +86,46 @@ when every fixture fits on one page. See [Testing](#testing) below.
 Omitting `auth` keeps today's behaviour, so an existing manifest needs no edit to
 start calling the block routes.
 
-::: tip The mint is live — and `block-token` is still the default for a reason
-The host mints a real OAuth access token for a manifest declaring `auth: "oauth"`,
-in production.
+The OAuth mint is live in production, but `block-token` is the default for good
+reasons:
 
-Two things to weigh before you declare it:
-
-- **The block token reaches further than its name suggests.** It is accepted on 34
-  of the 38 `/api/v1/blocks/*` routes and on the general `/api/v1/models/{id}`. If
-  that is your whole surface, `auth: "oauth"` buys you nothing and costs you the
-  routes below.
-- **This path has little production use yet.** Budget for finding the first
-  rough edge yourself.
-
-**Declare the narrowest scope set you can.** An `auth: "oauth"` block's consent
-surface is new, and the fewer scopes your manifest asks for, the less rides on it.
-:::
+- **The block token reaches further than its name suggests** — 34 of the 38
+  `/api/v1/blocks/*` routes, plus `/api/v1/models/{id}`. If that is your whole
+  surface, `auth: "oauth"` buys nothing and costs the routes below.
+- **The `oauth` path has little production use yet**, and its consent surface is
+  new — declare the narrowest scope set you can.
 
 ::: danger `auth: "oauth"` gives up 22 of the block REST routes
-This is wider than it looks, and it is not an identity gap — an OAuth token does
-resolve to the same `(app, viewer)` claims. The reason is that those routes
-**re-verify the raw bearer as a block JWS** inside their service layer, and an
-OAuth access token is not one. Those calls fail with a 401 or 403.
+An OAuth token resolves to the same `(app, viewer)` claims, but these routes
+**re-verify the raw bearer as a block JWS**, which it is not, so they fail with
+a 401 or 403: **app storage** (5 routes), **shared storage** (11), all **five
+workflow routes** (`estimate`/`submit`/`poll`/`cancel` **and `query`**) and
+`user-checkpoint/set`. The other 12 work on either token: `buzz`, `me`,
+`models`, `images`, `gated-images`, `generation-resources`, `tools`, `tip`,
+`tip-allowance` and the three `collections` routes.
 
-That covers **app storage** (5 routes), **shared storage** (11 routes), all
-**five workflow routes** (`estimate`/`submit`/`poll`/`cancel` **and `query`**) and
-`user-checkpoint/set` — 22 in all. The other 12 block routes are
-credential-agnostic and work on either token: `buzz`, `me`, `models`, `images`,
-`gated-images`, `generation-resources`, `tools`, `tip`, `tip-allowance` and the
-three `collections` routes.
-
-**If your app uses app storage, it cannot use `auth: "oauth"` today** — and
-nothing stops you shipping the pair, because manifest validation does not yet
-refuse it. The failure arrives at runtime as an unexplained 401 on every read and
-write. `@civitai/sdk` will not annotate it either: its `auth: "oauth"` hint fires
-only for a block that *holds* a block token, which yours no longer does.
+**If your app uses app storage, it cannot use `auth: "oauth"` today.** The server
+refuses the pair when a moderator approves the version (and on a direct git
+push), not when `civitai app submit` uploads it, and `civitai app validate`
+doesn't check it either — so fix it before submitting, or the request sits in
+review until approval fails. Left unrefused, every storage read and write would
+401 as soon as a viewer signs in.
 
 **If your block generates, stay on the host-proxied workflow routes.** They
 carry the per-call Buzz budget, the per-viewer and per-app daily caps, the
-maturity clamp and the `app-block:<appId>` attribution tag. A direct orchestrator
-call keeps only the per-viewer consent budget; the rest have not moved across yet.
+maturity clamp and the `app-block:<appId>` attribution tag; a direct
+orchestrator call keeps only the per-viewer consent budget.
 
 `oauth` is for a block that needs the general `/api/v1` surface or the
-orchestrator directly, and needs none of those 22.
+orchestrator directly, and none of those 22.
 :::
 
 ## The adapter shape
 
 Put a thin per-app layer in `src/platform/` rather than calling the API from
-components. It is worth doing whichever transport you are
-on: it gives you one place to own the token, one place to fake in tests, and it
-keeps wire shapes out of your UI.
-
-A block already holds everything it needs — the validated host origin and the
-bearer — and this is the same direct-fetch pattern `useTip` and
+components: one place to own the token, one place to fake in tests, and no wire
+shapes in your UI. It uses the validated host origin and the bearer the block
+already holds — the same direct-fetch pattern `useTip` and
 `useGenerationResources` use internally:
 
 ```tsx
@@ -212,19 +175,16 @@ export function useBuzzBalanceFetcher() {
 Components import the capability, never the fetcher.
 
 ::: tip Two things this layer does not do for you
-**Gate on readiness.** The returned function throws until `BLOCK_INIT` lands, so a
-mount-time read fires before `useHostOrigin()` resolves. Gate the call site on
-`useBlockContext().ready` — it self-heals when `host` arrives and the identity
-changes, but without a gate you get an unhandled rejection first.
+**Gate on readiness.** The function throws until `BLOCK_INIT` lands, so gate
+the call site on `useBlockContext().ready`, or a mount-time read fails with an
+unhandled rejection first.
 
-**Retry the 401 race.** `useBlockToken()` exposes `refresh()` for a request that
-outlived the token it was issued against. Retry once through it rather than
-failing the call.
+**Retry the 401 race.** For a request that outlived its token, retry once
+through `useBlockToken().refresh()`.
 :::
 
-The same layer is what you swap: `@civitai/sdk`'s `initialize()` runs in a block
-today, on either credential, so `useApi` can become `app.site` with nothing above
-it changing. That is the point of having it.
+`@civitai/sdk`'s `initialize()` runs in a block on either credential, so
+`useApi` can later become `app.site` with nothing above it changing.
 
 ## Hook replacements
 
@@ -233,8 +193,8 @@ Every hook `@civitai/blocks-react` exports — the package root, plus
 talked to the platform — it is your own code now, with nothing to replace.
 
 ::: warning Don't trust a hook count — enumerate
-The package gains hooks between releases, so enumerate the ones in the version
-you actually installed:
+The package gains hooks between releases. List the ones in your installed
+version:
 
 ```bash
 node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).filter(k => k.startsWith('use')).sort().join(' ')))"
@@ -245,7 +205,7 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 |---|---|
 | `useAppStorage` | `/api/v1/blocks/app-storage/{get,set,delete,list,quota}` — block-token only |
 | `useAppWorkflows` | `POST /api/v1/blocks/workflows/query` |
-| `useBlockAnalytics` | **Nothing to replace** — see the note below |
+| `useBlockAnalytics` | **Keep** — a bridge message with no route. Its events are recorded once your manifest declares them; `@civitai/sdk`'s `app.host.track()` sends the same message (from 0.11.0, not yet published). See the note below |
 | `useBlockBreakpoint` | Local — element measurement, keep as is |
 | `useBlockContext` | **Keep** — the handshake payload arrives over the bridge and has no route |
 | `useBlockResize` | **Keep** — host UI; only the host can size your frame |
@@ -288,11 +248,24 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 | `useViewer` | `GET /api/v1/blocks/me`. Keeping the hook is not free: it is a `GET_VIEWER` bridge round trip on mount, not a snapshot read — but it is the authoritative self-read, where `useBlockContext().viewer` is the coarser `BLOCK_INIT` snapshot |
 | `useWildcardPack` | **Not carried** |
 
-::: info `useBlockAnalytics` loses nothing
-It emits `TRACK_EVENT`, which has **no host-side sink on either host** — the
-events are dropped today. The call sites are already no-ops, so removing the hook
-costs you nothing that was working. A no-op shim is a fine way to avoid touching
-every call site at once.
+::: warning Keep your `track()` calls — and declare the events
+`useBlockAnalytics()` sends `TRACK_EVENT`, and **both hosts forward it**: your
+events reach your app's analytics. An earlier version of this page said the
+calls were no-ops and could be deleted. That is no longer true, and deleting
+them loses data.
+
+Two things to do when you port:
+
+- **Declare every event** under `analytics.events` in your manifest. Only
+  declared events, with declared properties of the declared type, are recorded;
+  an undeclared event is counted as a drop and its name is not stored.
+- **Move the calls, don't drop them.** `TRACK_EVENT` has no REST route. If you
+  are moving to `@civitai/sdk`, `app.host.track(eventName, properties)` sends
+  the same message, but it is added in `@civitai/sdk` 0.11.0, which is not yet
+  published to npm. Until then keep `useBlockAnalytics()` for these calls.
+
+See [Custom events](./custom-events) for the declaration, the limits and where
+the numbers show up.
 :::
 
 ### Reading and writing
@@ -320,88 +293,40 @@ await call('shared-storage/append', {
 });
 ```
 
-Two behaviours worth knowing before you write a caller:
-
 - **Treat every refusal as a refusal.** No route has a success shape that means
-  "could not read". If your code must not act on a partial view, branch on the
-  error — never on an empty result. Once you are reading the cursor from the
-  right place, its absence is your proof a scan completed — read it from the
-  wrong place and you get a silent one-page truncation instead.
-- **Read `message ?? error`.** Which key carries the reason depends on where the
-  request died: rejections from the block-scope middleware carry `error` only,
-  while service-layer refusals carry `message`. Branch on the HTTP status.
+  "could not read", so branch on the error, never on an empty result. A missing
+  cursor proves a scan completed only if you read it from the right place;
+  otherwise you get a silent one-page truncation.
+- **Read `message ?? error`.** Block-scope middleware rejections carry `error`;
+  service-layer refusals carry `message`. Branch on the HTTP status.
 
 ### Listing only rows the viewer wrote
 
-Shared storage is a case where the route is now the wider surface, not just the
-other spelling. `shared-storage/list` takes a `mine` filter that narrows the page
-to rows the **viewer** authored — so an app showing someone their own submissions
-stops paging the whole board and filtering in the client. There is no bridge-hook
-equivalent, and none is planned: the platform is consolidating this capability on
-the REST path.
+`shared-storage/list` takes a `mine` filter that narrows the page to rows the
+**viewer** authored, so an app showing someone their own submissions need not
+page the whole board. There is no bridge-hook equivalent, and none is planned.
 
 ```http
 GET /api/v1/blocks/shared-storage/list?limit=50&mine=true
 ```
 
-Omit the parameter for the whole board. `mine=false` is also accepted and means
-exactly that — the whole board — so a UI with a "mine / everyone" toggle can send
-either spelling rather than rebuilding the URL.
-
-Everything else is unchanged: the same `{ items, metadata: { nextCursor } }`
-envelope, the same opaque cursor, the same `prefix` and `limit`, the same
-`apps:storage:shared:read` scope. `mine` composes with `prefix` and with
-pagination — it is one more predicate on the same query, so `nextCursor` pages
-through the filtered set.
-
-::: danger `?mine=` with an empty value is a 400 — omit the parameter instead
-`mine` accepts the two string literals `true` and `false`, and nothing else.
-That is deliberate rather than an oversight: the obvious coercion maps the
-*string* `"false"` to **true** and would silently invert the filter, so the route
-refuses a value it does not recognise instead of quietly falling back to the
-whole board.
-
-The consequence to design your query builder around: **`?mine=` — the standard
-serialisation of an unset form field, or of an `undefined` in most
-query-string helpers — is a `400`, not a default.** Drop the key entirely when
-the filter is off. A bare `?mine` with no `=` parses to the same empty string and
-400s identically, as does the same key sent twice. A typo (`?mine=1`, `?mine=yes`,
-`?mine=TRUE`) is a loud 400 for the same reason, which is the point: you find out,
-rather than rendering the whole board in a UI that promised "yours".
-:::
-
-::: warning An empty page under `mine` is not evidence the store is empty
-Anonymous viewers may read this feed. An anonymous caller asking for `mine=true`
-gets an **empty page** — not an error, and not the whole board — because the
-author comparison is made against a null subject and therefore matches nothing.
-
-That is the right answer (an anonymous viewer has authored nothing), but it
-arrives from how the query is evaluated rather than from an explicit refusal, so
-it is indistinguishable at the wire from "this app has no rows yet". **Do not
-read an empty `mine` page as a fact about the store.** If your UI has an empty
-state, branch on whether the viewer is signed in before rendering "nothing here
-yet" — `useBlockContext().viewer`, or `GET /api/v1/blocks/me`, is where you find
-that out.
-:::
-
-::: info `mine` is a convenience, not a permission boundary
-It is a boolean, not a user id, and the author it filters on is the resolved
-token subject — the same value each row's `viewerVoted` already keys on. No
-caller-supplied identity enters this path.
-
-**That is not a privacy control, and it would be wrong to design as if it were.**
-Every listed row already carries its `authorUserId`, so paging the board and
-filtering by author has always been possible; `mine` makes it cheap, not
-possible. Nothing is withheld from a caller that omits it, and the rows are
-exactly as world-readable either way. The reason it is a boolean rather than a
-`mine=<userId>` form is **YAGNI**: nothing asks for the id form, and widening a
-boolean later is easy where narrowing an id once clients depend on it is not.
-:::
+- **Values:** `true` filters to the viewer's rows; `false` means the whole
+  board, the same as omitting the key. Anything else is a `400`, including **`?mine=` with an empty value** (how most
+  query-string helpers serialise an unset field or `undefined`), a bare `?mine`,
+  the key sent twice, and `1`/`yes`/`TRUE`. Drop the key when the filter is off.
+- **It composes** with `prefix`, `limit` and pagination; the envelope, cursor
+  and `apps:storage:shared:read` scope are unchanged.
+- **Anonymous callers get an empty page**, indistinguishable from "no rows yet".
+  Check whether the viewer is signed in (`useBlockContext().viewer` or
+  `GET /api/v1/blocks/me`) before rendering an empty state.
+- **It is not a privacy control.** It filters on the token subject (no
+  caller-supplied id), but every row already carries its `authorUserId` and is
+  world-readable either way.
 
 ### Host UI stays on the bridge
 
-Nothing changes here — `@civitai/blocks-react`'s hooks are the path, on either
-transport, because only the host can draw this UI:
+Only the host can draw this UI, so `@civitai/blocks-react`'s hooks remain the
+path on either transport:
 
 ```tsx
 import { useResourcePicker } from '@civitai/blocks-react';
@@ -423,24 +348,20 @@ budget, the per-viewer and per-app daily caps, the maturity clamp, and the
 `app-block:<appId>` attribution tag. `app.orchestration` is the raw orchestrator
 and has **none** of them.
 
-Since `@civitai/sdk@0.5.0` a block on the **default** credential cannot make this
-mistake quietly — `app.orchestration` rejects before it sends. The hazard is live
-for an `auth: "oauth"` block, where the substitution **type-checks, passes tests
-and reaches the orchestrator**. Submit through `/api/v1/blocks/workflows/*`.
+On the **default** credential `app.orchestration` rejects before it sends
+(since `@civitai/sdk@0.5.0`). On an `auth: "oauth"` block the substitution
+**type-checks, passes tests and reaches the orchestrator**. Submit through
+`/api/v1/blocks/workflows/*`.
 
-The same shape applies to `orchestration.queryWorkflows({ tags })` versus
-`POST /api/v1/blocks/workflows/query`: the route forces the app tag server-side
-from the token, while the client takes tags from the caller — which moves a trust
-boundary inside the iframe.
+Likewise prefer `POST /api/v1/blocks/workflows/query` to
+`orchestration.queryWorkflows({ tags })`: the route forces the app tag from the
+token server-side, while the client trusts caller-supplied tags.
 :::
 
 ## Testing
 
-After the port your block makes HTTP requests, not `postMessage` calls. A mock
-host will therefore sit idle while your suite passes.
-
-Move the fake to `fetch` — and keep a record of what was requested, not only
-what came back:
+Move the fake to `fetch`, and record what was requested, not only what came
+back:
 
 ```ts
 const calls: string[] = [];
@@ -458,9 +379,8 @@ Then assert on `calls` — the **requests your app made**, not just the values i
 rendered. A fixture that fits on one page cannot see a dropped `cursor`
 parameter.
 
-Keep your existing mock host for the calls that genuinely remain on the bridge —
-the resource picker, Buzz purchase, sign-in, publishing. Those are still
-`postMessage`, so the old fake is still the right one for them.
+Keep your existing mock host for the calls that remain on the bridge — the
+resource picker, Buzz purchase, sign-in, publishing.
 
 ## Known gaps
 
@@ -470,13 +390,12 @@ Document these as gaps; do not design around them yet.
 |---|---|
 | `useImageUpload` / `OPEN_IMAGE_UPLOAD` | No REST twin, and deliberately so — it raises host UI. `@civitai/sdk` exposes it as `host.openImageUpload` (since 0.3.0, either credential), which is the same bridge message behind a different package. |
 | `usePublishGenerationOutputs` | Same shape, and staying on the bridge by design — host chrome is the consent control. `@civitai/sdk`'s `host.publishGenerationOutputs` (also 0.3.0) is the same message. |
-| `useBlockAnalytics` | No sink anywhere; already a no-op. |
+| `useBlockAnalytics` / `TRACK_EVENT` | No REST twin — a fire-and-forget bridge message, recorded only when the manifest declares the event. `@civitai/sdk` carries it as `host.track` from 0.11.0 (not yet published). See [Custom events](./custom-events). |
 | Anonymous app-storage reads | REST returns 403 where the bridge resolved a read to `null`; handle both. |
 | `useBuzzAccounts`, `useBuzzTransactions`, `useDailyCompensation`, `useWildcardPack` | Not carried. |
 
 Because of the first two, a block that uploads images or publishes generation
-outputs **cannot reach zero bridge messages today** — whichever package it asks
-through. That is expected, and it is why the bridge is not going anywhere.
+outputs **cannot reach zero bridge messages** — by design.
 
 ## Next
 
