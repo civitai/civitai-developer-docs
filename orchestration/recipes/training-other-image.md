@@ -509,7 +509,7 @@ price = steps × costPerStep + epochs × 10        (rounded)
 floor: never less than 80% of the default-configuration price
 ```
 
-`epochs` is the number of saved checkpoints delivered (range `1`–`200`; when omitted, `steps / 200` rounded to the nearest whole number, with a `.5` going to the even neighbour, so `steps: 2500` gives `12`); each adds 10 Buzz of storage. Every ecosystem on this page defaults to 2000 steps, so with both `steps` and `epochs` omitted the run is **2000 steps / 10 epochs**, which lands each ecosystem on its default price (the examples above send `steps: 2000`, which also resolves to 10 epochs). Lowering `steps` or `epochs` can save at most 20% (the floor).
+`epochs` is the number of saved checkpoints delivered (range `1`–`200`; when omitted, `steps / 200` rounded to the nearest whole number, with a `.5` going to the even neighbour, so `steps: 2500` gives `12`); each adds 10 Buzz of storage. Every ecosystem on this page defaults to 2000 steps, so with both `steps` and `epochs` omitted the run is **2000 steps / 10 epochs**, which lands each ecosystem on its default price (the examples at the top of the page send `steps: 2000`, which also resolves to 10 epochs). Lowering `steps` or `epochs` can save at most 20% (the floor).
 
 | Ecosystem | `costPerStep` | Default price (2000 steps, 10 epochs) | Floor (80%) |
 |-----------|---------------|----------------------------------------|-------------|
