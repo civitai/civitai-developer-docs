@@ -107,7 +107,8 @@ and charges nothing.
 ::: danger Silence is not an assurance
 The flag can only refuse what the server **reports**. `modelSubstitutions` is
 **omitted** when nothing was reported, so "no warning" means *either* no
-substitution *or* a server that does not report them — against which the flag
+substitution *or* a server that does not report them (for example one older
+than this feature) — against which the flag
 is **silently inert** (exit `0`, submitted, charged). The CLI cannot tell these
 apart and never claims the negative. Read a quiet run as *"nothing was
 reported"*, never *"nothing was substituted"*.

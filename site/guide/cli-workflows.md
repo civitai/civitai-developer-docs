@@ -81,9 +81,10 @@ It is printed whatever the workflow's status. What it is **not**:
   scripts and ZWJ emoji render — the exact set is in
   [What a table cell can contain](./cli-output#what-a-table-cell-can-contain).
   `--json` is not filtered at all.
-- **Not applied to what you typed.** Your prompt, flags, paths and ids are
-  echoed exactly, most importantly on the confirmation screen before a spend
-  (the few documented exceptions are in the same section).
+- **Not applied to your prompt.** Your prompt, negative prompt and
+  `--ecosystem` never go through the filter. Paths you name are exact on the
+  confirmation screen before a spend but filtered in some other lines; the
+  value-by-value rules are in the same section.
 - **Not always there.** Some failures record nothing, and the error then says
   *"the orchestrator often supplies no failure reason, so it may not say why"*.
   That is the server's answer; there is no further detail to look for.

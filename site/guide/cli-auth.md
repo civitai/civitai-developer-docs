@@ -135,8 +135,8 @@ server-side and are not visible to the CLI.
 ## `whoami --json`
 
 `--json` is a stable, curated object of fourteen keys, **not** the server's raw
-`/api/v1/me` body: it deliberately omits the PII fields `email` and
-`emailVerified`.
+`/api/v1/me` body. The only two fields the server sends that never appear are
+the PII fields **`email` and `emailVerified`**.
 
 ```json
 {

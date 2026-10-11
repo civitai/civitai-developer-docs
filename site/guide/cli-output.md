@@ -80,8 +80,10 @@ The human renderers put all of it through one gate:
 - **Two values are cut at 120 characters**: the download progress line and
   `generate`'s `could not read your Buzz balance` warning. Nothing else is
   shortened.
-- **What you typed is mostly echoed exactly** — above all on the confirmation
-  screen before a spend, which has to show what will really be sent.
+- **What you typed splits by value, not by screen.** Your prompt, negative
+  prompt and `--ecosystem` never go through the gate. Paths you name are shown
+  exactly on the confirmation screen before a spend, but filtered in several
+  other lines that report a path.
 
 ::: details The full rules: which characters, which fields, which limits
 
@@ -103,12 +105,13 @@ that uses the join controls to make a distinction loses it — Persian/Arabic
 (`می‌روم` renders joined), Malayalam (the chillu `ണ്‍` becomes `ണ്`, a different
 letter), Devanagari, Bengali, Tamil, Kannada, Sinhala and Mongolian.
 
-**Values you supplied.** Your prompt, negative prompt, `--aspect-ratio`,
-`--ecosystem`, the paths you pass to `--image` / `--input`, and the ids you give
-`workflows cancel` are echoed exactly as typed, most importantly on the
-confirmation screen before a spend. Some values you supply *are* filtered
-elsewhere, and no surface enumerates the set — these are the known cases, not
-its boundary:
+**Values you supplied.** The promise splits by **value**, not by screen. Your
+prompt, your negative prompt and `--ecosystem` never go through the gate. **The
+paths you name are different:** they are echoed exactly on the **confirmation
+screen before a spend**, which has to show what will really be sent, and
+filtered in several of the lines that report a path elsewhere. Other values you
+supply are filtered too, and no surface enumerates the set — these are the
+known cases, not its boundary:
 
 1. a value read out of an `--input` **file** is filtered like server text,
    because a graph file can be downloaded or generated;
