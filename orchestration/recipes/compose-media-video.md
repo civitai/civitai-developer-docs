@@ -130,17 +130,228 @@ With only audio elements, `composeMedia` produces a single mixed audio blob — 
 
 List the clips in order — no `canvas`, no `layout`. The output is derived as video, the clips play back-to-back, and the canvas is taken from the inputs.
 
+```json
+{
+  "steps": [
+    {
+      "$type": "videoGen",
+      "name": "c1",
+      "input": {
+        "engine": "ltx2.3",
+        "operation": "createVideo",
+        "model": "22b-distilled",
+        "prompt": "Sunrise over a misty mountain range",
+        "duration": 5,
+        "width": 1280,
+        "height": 720,
+        "fps": 30,
+        "generateAudio": false
+      }
+    },
+    {
+      "$type": "videoGen",
+      "name": "c2",
+      "input": {
+        "engine": "ltx2.3",
+        "operation": "createVideo",
+        "model": "22b-distilled",
+        "prompt": "A busy city street at noon, time-lapse",
+        "duration": 5,
+        "width": 1280,
+        "height": 720,
+        "fps": 30,
+        "generateAudio": false
+      }
+    },
+    {
+      "$type": "composeMedia",
+      "input": {
+        "output": {
+          "type": "video"
+        },
+        "elements": [
+          {
+            "url": {
+              "$ref": "c1",
+              "path": "output.video.url"
+            }
+          },
+          {
+            "url": {
+              "$ref": "c2",
+              "path": "output.video.url"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
+```
+
 <RecipeRun :body="stitchBody" :wait="0" />
 
 ## Audio over a video
 
 A single video fills the canvas; a music bed is mixed in at an absolute time, attenuated and faded up.
 
+```json
+{
+  "steps": [
+    {
+      "$type": "videoGen",
+      "name": "clip",
+      "input": {
+        "engine": "ltx2.3",
+        "operation": "createVideo",
+        "model": "22b-distilled",
+        "prompt": "A calm beach at sunset, gentle waves rolling in",
+        "duration": 5,
+        "width": 1280,
+        "height": 720,
+        "fps": 30,
+        "generateAudio": false
+      }
+    },
+    {
+      "$type": "aceStepAudio",
+      "name": "music",
+      "input": {
+        "musicDescription": "Warm, relaxed lo-fi beat.",
+        "lyrics": "",
+        "duration": 8,
+        "instrumentalWeight": 1,
+        "vocalWeight": 0,
+        "seed": 3
+      }
+    },
+    {
+      "$type": "composeMedia",
+      "input": {
+        "canvas": {
+          "width": 1280,
+          "height": 720,
+          "fps": 30,
+          "background": "#000000"
+        },
+        "output": {
+          "type": "video",
+          "container": "mp4"
+        },
+        "elements": [
+          {
+            "url": {
+              "$ref": "clip",
+              "path": "output.video.url"
+            }
+          },
+          {
+            "url": {
+              "$ref": "music",
+              "path": "output.audioBlob.url"
+            },
+            "at": 1,
+            "transformers": [
+              {
+                "type": "volume",
+                "db": -6
+              },
+              {
+                "type": "fadeIn",
+                "durationMs": 400
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
+```
+
 <RecipeRun :body="audioOverVideoBody" :wait="0" />
 
 ## Picture-in-picture
 
 Two videos on one canvas. The base clip fills the frame; the second is scaled to a 30% inset, positioned in the lower-right, and drawn on top.
+
+```json
+{
+  "steps": [
+    {
+      "$type": "videoGen",
+      "name": "base",
+      "input": {
+        "engine": "ltx2.3",
+        "operation": "createVideo",
+        "model": "22b-distilled",
+        "prompt": "Aerial view gliding over a pine forest",
+        "duration": 5,
+        "width": 1280,
+        "height": 720,
+        "fps": 30,
+        "generateAudio": false
+      }
+    },
+    {
+      "$type": "videoGen",
+      "name": "inset",
+      "input": {
+        "engine": "ltx2.3",
+        "operation": "createVideo",
+        "model": "22b-distilled",
+        "prompt": "Close-up of a crackling campfire at night",
+        "duration": 5,
+        "width": 1280,
+        "height": 720,
+        "fps": 30,
+        "generateAudio": false
+      }
+    },
+    {
+      "$type": "composeMedia",
+      "input": {
+        "canvas": {
+          "width": 1280,
+          "height": 720,
+          "fps": 30
+        },
+        "output": {
+          "type": "video",
+          "container": "mp4"
+        },
+        "elements": [
+          {
+            "url": {
+              "$ref": "base",
+              "path": "output.video.url"
+            }
+          },
+          {
+            "url": {
+              "$ref": "inset",
+              "path": "output.video.url"
+            },
+            "at": 0,
+            "layout": {
+              "x": 880,
+              "y": 500,
+              "scale": 0.3,
+              "zOrder": 1
+            },
+            "transformers": [
+              {
+                "type": "fadeIn",
+                "durationMs": 300
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
+```
 
 <RecipeRun :body="pipBody" :wait="0" />
 
@@ -156,6 +367,59 @@ Array order is z-order: later elements draw over earlier ones (ties broken by `l
 - Prompt your source animation onto a **plain, solid background** for the cleanest matte.
 
 WebP output ignores audio streams, and works without background removal too (an opaque background gives a plain animated webp).
+
+```json
+{
+  "steps": [
+    {
+      "$type": "videoGen",
+      "name": "anim",
+      "input": {
+        "engine": "ltx2.3",
+        "operation": "createVideo",
+        "model": "22b-distilled",
+        "prompt": "A golden trophy slowly spinning on a plain solid white background, studio lighting",
+        "duration": 3,
+        "width": 768,
+        "height": 768,
+        "fps": 24,
+        "generateAudio": false
+      }
+    },
+    {
+      "$type": "composeMedia",
+      "input": {
+        "canvas": {
+          "width": 240,
+          "height": 240,
+          "fps": 12,
+          "background": "#00000000"
+        },
+        "output": {
+          "container": "webp"
+        },
+        "elements": [
+          {
+            "url": {
+              "$ref": "anim",
+              "path": "output.video.url"
+            },
+            "layout": {
+              "fit": "cover"
+            },
+            "transformers": [
+              {
+                "type": "backgroundRemoval",
+                "shadowRemoval": "gentle"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
+```
 
 <RecipeRun :body="webpBadgeBody" :wait="0" />
 
@@ -253,7 +517,7 @@ Video compositions carry a small compositing charge scaled by the number of elem
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| Job fails at the worker | No GPU-capable worker advertised the `composeMedia` capability | Ensure the target environment runs media workers with compose-media enabled. |
+| Job fails at the worker | No worker was available to run `composeMedia` | Retry later; contact Civitai support if it persists. |
 | `400` validation error, "is not an AIR-resolvable resource" | An element `url` is a direct third-party URL | Reference a prior step via `$ref`, or use a Civitai resource/blob URL — external URLs aren't supported yet. |
 | An element you expected on-screen is only audible | Its URL is an audio file (or it has no video stream), so it is mixed, not drawn | Supply a video URL for elements you want on the canvas. |
 | Inset is letterboxed inside its box | `fit: contain` preserves aspect ratio | Use `fit: cover` to fill the inset (cropping overflow), or size the box to the clip's aspect. |

@@ -28,7 +28,7 @@ This page is the contract for advanced use and non-React SDK consumers.
 - **page-only** — handled only by the full-page host (a page app at
   `/apps/run/<slug>`), not by the model-slot host today. Slot apps are deferred
   during the closed beta, so build page apps and you get the full surface.
-- 🔴 **A host → block push added after your block was built is inert until you
+- **A host → block push added after your block was built is inert until you
   rebuild.** Your bundle compiles in the `@civitai/blocks-react` you built
   against, so it only understands the messages that version knew about. A push
   the host began sending later — `THEME_CHANGE` is the current example — is

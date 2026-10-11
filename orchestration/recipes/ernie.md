@@ -232,13 +232,13 @@ Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact 
 
 Per-pixel + per-step scaling against 1024² and the variant's default step count:
 
-**Standard** (`ComfyErnieStandardCreateImageGenInput.CalculateCost`):
+**Standard**:
 
 ```
 total = 20 × (width × height / 1024²) × (steps / 20) × quantity
 ```
 
-**Turbo** (`ComfyErnieTurboCreateImageGenInput.CalculateCost`):
+**Turbo**:
 
 ```
 total = 8 × (width × height / 1024²) × (steps / 8) × quantity
@@ -255,7 +255,7 @@ Standard pricing is ~2.5× turbo at defaults — reach for turbo when iterating 
 
 ## Runtime
 
-Claim duration (`job.startedAt` → `job.completedAt`) measured against `orchestration-next` with `quantity: 1`:
+Typical claim duration (`job.startedAt` → `job.completedAt`) with `quantity: 1`:
 
 | Variant | Shape | Claim duration |
 |---------|-------|----------------|
@@ -263,13 +263,12 @@ Claim duration (`job.startedAt` → `job.completedAt`) measured against `orchest
 | `ernie` (standard) | 832×1216 / 20 steps | ~27 s |
 | `turbo` | 1024² / 8 steps | ~13 s |
 
-`wait=60` covers single-image calls comfortably. For `quantity > 1`, larger dimensions, or high `steps` counts, compute + queue wait typically runs past the 60 s long-poll ceiling — submit with `wait=60` and re-issue `GET /v2/consumer/workflows/{id}?wait=60` on a loop until the response is terminal (see [Submitting work → Waiting for results](/orchestration/guide/submitting-work#waiting-for-results)), or register a webhook.
+`wait=60` covers single-image calls comfortably. For `quantity > 1`, larger dimensions, or high `steps` counts, compute + queue wait typically runs past the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — submit with `wait=60` and re-issue `GET /v2/consumer/workflows/{id}?wait=60` on a loop until the response is terminal (see [Submitting work → Waiting for results](/orchestration/guide/submitting-work#waiting-for-results)), or register a webhook.
 
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| `400` with "No derived type found for discriminator value 'ernie'" on `ecosystem` | ERNIE not yet rolled out to the environment you're hitting | Confirm the target orchestrator lists `ernie` in `/openapi/v2-consumers.json` → `ComfyImageGenInput` `ecosystem` enum. Retry after rollout. |
 | `400` with "operation must be createImage" | Passed `editImage` or `createVariant` | ERNIE only supports `createImage`. Use [Qwen](./qwen) or [Flux 2 Klein](./flux2#klein-createvariant-img2img) for img2img / edit. |
 | `400` on `model` | Sent a full AIR URN or a value other than `ernie` / `turbo` | The `model` field is a variant selector, not a checkpoint URN. Only `"ernie"` and `"turbo"` are valid. |
 | `400` on `width` / `height` | Value not divisible by 16, or outside `64`–`2048` | Round to a valid multiple of 16 inside that range. |

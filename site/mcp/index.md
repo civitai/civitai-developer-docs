@@ -1,5 +1,6 @@
 ---
 title: MCP Server
+description: Connect an MCP client to the remote Civitai platform MCP server to browse and act on civitai.com.
 ---
 
 # Civitai MCP Server
@@ -41,7 +42,7 @@ claude mcp add --transport http civitai https://mcp.civitai.com/mcp \
 
 ### Claude Desktop / Cursor / VS Code
 
-Add the server to your client's `mcp.json` (or `~/.claude/config.json` for Claude Desktop), then restart:
+Add the server to your client's `mcp.json` (or `claude_desktop_config.json` for Claude Desktop, opened with **Settings → Developer → Edit Config**), then restart:
 
 <McpConfigBlock kind="json" url="https://mcp.civitai.com/mcp" serverName="civitai" />
 

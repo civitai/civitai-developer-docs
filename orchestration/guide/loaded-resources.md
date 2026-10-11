@@ -29,7 +29,7 @@ models: they are input images, sample images and other generated artifacts that 
 workflow. Ask for all of them and you get a `400` telling you how many matched, so you can narrow:
 
 ```json
-{ "status": 400, "title": "412873 resources match. Narrow the query with type, source or minSizeBytes." }
+{ "status": 400, "title": "250000 resources match. Narrow the query with type, source or minSizeBytes." }
 ```
 
 The filters compose with AND. Each repeatable one is OR'd within itself, and they apply to
@@ -61,7 +61,7 @@ So `type=checkpoint` returns *some* base models, not all of them. Pass each segm
 ?view=Loaded&type=checkpoint&type=diffusion_model&type=diffusionmodel&type=unet
 ```
 
-These are deliberately **not** aliased server-side. `unet` and `diffusion_models` are different
+These are deliberately **not** aliased server-side. `unet` and `diffusion_model` are different
 routing slots, and collapsing them here would hide a distinction the rest of the pipeline depends on.
 
 ## Filtering by size

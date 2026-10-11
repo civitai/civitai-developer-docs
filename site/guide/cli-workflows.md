@@ -119,7 +119,7 @@ Five things it is **not**:
   [What a table cell can contain](./cli-output#what-a-table-cell-can-contain).
 - **It is not always there.** Some failures record nothing. In that case the
   error says so instead — *"the orchestrator often supplies no failure reason,
-  so it may not say why"*. That is a measured case, not a gap in the CLI, and
+  so it may not say why"*. That is the server's answer, not a gap in the CLI, and
   there is no further detail to go and look for.
 - **It is not a statement about your Buzz.** Whether a charge stands, is
   re-priced or comes back is decided server-side and reported separately — see

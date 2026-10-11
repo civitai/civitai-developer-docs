@@ -18,8 +18,9 @@ That address is a short alias. It redirects to the raw instruction file at
 
 The agent fetches the instructions, installs the
 [Civitai CLI](https://github.com/civitai/cli), runs `civitai agent-setup`, and
-reports what it did. It stops before authentication — the last thing it tells
-you is to run `civitai login` yourself.
+reports what it did. It stops before authentication: the last thing it does is
+show you the sign-in steps for your agent (the `Authentication:` section that
+`civitai agent-setup` prints) for you to run yourself.
 
 ## What it actually does
 
@@ -35,9 +36,8 @@ you is to run `civitai login` yourself.
 
 ## The full prompt
 
-Here is the whole file, exactly as it is served. Nothing is elided: the block
-below is copied from the served file by a script, and a check on every pull
-request fails if the two ever disagree.
+Here is the whole file, exactly as it is served. Nothing is elided: this is the
+exact file your agent fetches.
 
 <!-- BEGIN GENERATED: agent-setup-prompt — verbatim copy of public/agent-setup/prompt.md. Do not edit by hand; run `npm run gen:agent-setup-page`. -->
 
@@ -93,8 +93,8 @@ above; do not report the Homebrew failure as a problem.
 
 ### If the install fails
 
-Two failures were measured on a real machine — not the only ways an install can
-fail. On a third, report the exact error and stop rather than guessing.
+Two common failures are below; they are not the only ways an install can fail.
+On any other, report the exact error and stop rather than guessing.
 
 - **npm fails with `EACCES`, or with `ENOENT` on a `mkdir` under npm's global
   prefix.** The prefix is not writable. This is normal on NixOS, in some
@@ -118,9 +118,8 @@ fail. On a third, report the exact error and stop rather than guessing.
 
 A **successful** npm 11 install still ends with a warning that `@civitai/cli`'s
 `postinstall` is "not yet covered by allowScripts". That is an advisory about a
-future npm policy, not a report that the script was skipped — measured on npm
-11.19, the postinstall ran and the platform binary was on disk before the CLI
-was run once. Do not stop, and do not re-install with an allow-scripts flag.
+future npm policy, not a report that the script was skipped: the postinstall
+still runs. Do not stop, and do not re-install with an allow-scripts flag.
 Step 4 tells you whether the install worked.
 
 ## 3. Configure this agent
@@ -231,10 +230,12 @@ for you to read.
 npm install -g @civitai/cli   # or, on macOS only: brew install civitai/tap/civitai
 civitai agent-setup --track app
 civitai agent-setup --check --json
-civitai login
 ```
 
-Then restart your agent so the MCP servers load.
+Then follow the `Authentication:` section that `civitai agent-setup --track app`
+printed. It is specific to your agent: `civitai login` on its own signs in this
+CLI, not your agent's MCP servers. Then restart your agent so the MCP servers
+load.
 
 Building an app is documented in the [Apps guide](/apps/guide/); the manifest,
 scopes, hooks and CLI are in the [Apps reference](/apps/reference/).

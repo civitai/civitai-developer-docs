@@ -137,13 +137,8 @@ What the key does — **including what it costs** — is the server's answer.
 `--dry-run` prices the graph with your key included, so the estimate is where a
 price effect would show; nothing local can predict one. Check the spelling.
 
-::: danger This warning used to assert the opposite, and it was wrong
-It said an undeclared key "returns HTTP 200, prices the same, and simply has no
-effect". A graph carrying `"priority": "high"` drew that sentence and then
-priced at **28**, with a `fixed → priority 20` component three lines below it,
-against **8** for `normal`. The key was honoured, it tripled the price, and the
-warning would have talked you out of the one change that clears a slow queue.
-:::
+For example, an undeclared `"priority": "high"` is honoured and raises the
+price; `--dry-run` shows by how much.
 
 ### 4. No model-id safety net
 
@@ -161,8 +156,8 @@ on the flag path. The limit is that a raw graph is not interpreted, so the CLI
 cannot tell you which model references your file contains, or which of them a
 record would name.
 
-One measured case — a checkpoint named under `resources` — was charged and ran
-a different version with **no record at all**. The command warns about exactly
+A checkpoint named under `resources`, for example, can be charged and run as a
+different version with **no record at all**. The command warns about exactly
 this whenever the two flags appear together, unconditionally and without
 reading your file, because deciding *which* graphs to warn about would mean
 vendoring which keys the server reports on.

@@ -203,11 +203,167 @@ The output is a single Ogg Vorbis blob plus an `elements[]` array echoing each i
 
 Three speakers, each clip placed after the previous one ends. No overlap; the gaps between clips are silent.
 
+```json
+{
+  "steps": [
+    {
+      "$type": "textToSpeech",
+      "name": "opener",
+      "input": {
+        "text": "Welcome to the panel — today we are debating whether open-source models can be trusted.",
+        "engine": "custom",
+        "speaker": "vivian",
+        "xVectorOnlyMode": false,
+        "language": "English"
+      }
+    },
+    {
+      "$type": "textToSpeech",
+      "name": "pro",
+      "input": {
+        "text": "Open source is the only way to keep the field honest. Closed models hide their training data.",
+        "engine": "custom",
+        "speaker": "ryan",
+        "xVectorOnlyMode": false,
+        "language": "English"
+      }
+    },
+    {
+      "$type": "textToSpeech",
+      "name": "con",
+      "input": {
+        "text": "And yet open weights make misuse trivial. Trust requires gatekeeping, not full disclosure.",
+        "engine": "custom",
+        "speaker": "aiden",
+        "xVectorOnlyMode": false,
+        "language": "English"
+      }
+    },
+    {
+      "$type": "composeMedia",
+      "input": {
+        "elements": [
+          {
+            "url": {
+              "$ref": "opener",
+              "path": "output.audioBlob.url"
+            }
+          },
+          {
+            "url": {
+              "$ref": "pro",
+              "path": "output.audioBlob.url"
+            }
+          },
+          {
+            "url": {
+              "$ref": "con",
+              "path": "output.audioBlob.url"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
+```
+
 <RecipeRun :body="sequentialBody" :wait="0" />
 
 ## Crosstalk and interruption
 
 A speaker starts before the previous one finishes. ffmpeg's `amix` sums the overlapping samples, so the two voices are audible simultaneously. A small `fadeIn` transformer on the interrupter softens the entry.
+
+```json
+{
+  "steps": [
+    {
+      "$type": "textToSpeech",
+      "name": "host",
+      "input": {
+        "text": "So the real question is whether safety can survive open release...",
+        "engine": "custom",
+        "speaker": "vivian",
+        "instruct": "Speak in a measured, journalistic tone.",
+        "xVectorOnlyMode": false,
+        "language": "English"
+      }
+    },
+    {
+      "$type": "textToSpeech",
+      "name": "interrupt",
+      "input": {
+        "text": "But that framing is exactly the problem — safety is not the only axis!",
+        "engine": "custom",
+        "speaker": "ryan",
+        "instruct": "Speak forcefully, slightly elevated.",
+        "xVectorOnlyMode": false,
+        "language": "English"
+      }
+    },
+    {
+      "$type": "textToSpeech",
+      "name": "rebuttal",
+      "input": {
+        "text": "Wait — let him finish, then we can take that apart.",
+        "engine": "custom",
+        "speaker": "aiden",
+        "instruct": "Speak with calm authority, slightly amused.",
+        "xVectorOnlyMode": false,
+        "language": "English"
+      }
+    },
+    {
+      "$type": "composeMedia",
+      "input": {
+        "elements": [
+          {
+            "url": {
+              "$ref": "host",
+              "path": "output.audioBlob.url"
+            }
+          },
+          {
+            "url": {
+              "$ref": "interrupt",
+              "path": "output.audioBlob.url"
+            },
+            "offset": -0.6,
+            "transformers": [
+              {
+                "type": "fadeIn",
+                "durationMs": 60
+              }
+            ]
+          },
+          {
+            "url": {
+              "$ref": "rebuttal",
+              "path": "output.audioBlob.url"
+            },
+            "offset": -0.4,
+            "transformers": [
+              {
+                "type": "volume",
+                "db": -1
+              },
+              {
+                "type": "fadeIn",
+                "durationMs": 80
+              },
+              {
+                "type": "fadeOut",
+                "durationMs": 120
+              }
+            ]
+          }
+        ],
+        "normalize": false
+      }
+    }
+  ]
+}
+```
 
 <RecipeRun :body="crosstalkBody" :wait="0" />
 
@@ -216,6 +372,70 @@ For a "hot debate" effect, set `offset: -0.3` to `-1.0` on each interrupter — 
 ## Adding a music or ambience bed
 
 Generate an instrumental with `aceStepAudio` (or reference any Civitai-hosted audio resource) and overlay it under the voice track.
+
+```json
+{
+  "steps": [
+    {
+      "$type": "textToSpeech",
+      "name": "voice",
+      "input": {
+        "text": "And that wraps our segment for today — until next time, keep building in the open.",
+        "engine": "custom",
+        "speaker": "dylan",
+        "xVectorOnlyMode": false,
+        "language": "English"
+      }
+    },
+    {
+      "$type": "aceStepAudio",
+      "name": "bed",
+      "input": {
+        "musicDescription": "Soft ambient piano pad, gentle and unobtrusive, no drums.",
+        "lyrics": "",
+        "duration": 20,
+        "instrumentalWeight": 1,
+        "vocalWeight": 0,
+        "seed": 7
+      }
+    },
+    {
+      "$type": "composeMedia",
+      "input": {
+        "elements": [
+          {
+            "url": {
+              "$ref": "voice",
+              "path": "output.audioBlob.url"
+            }
+          },
+          {
+            "url": {
+              "$ref": "bed",
+              "path": "output.audioBlob.url"
+            },
+            "at": 0,
+            "transformers": [
+              {
+                "type": "volume",
+                "db": -18
+              },
+              {
+                "type": "fadeIn",
+                "durationMs": 500
+              },
+              {
+                "type": "fadeOut",
+                "durationMs": 1500
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
+```
 
 <RecipeRun :body="musicBedBody" :wait="0" />
 
@@ -249,7 +469,7 @@ Each entry is `{ "type": "<name>", ...params }`. The audio-relevant set:
 |--------|--------|-------|
 | `volume` | `db` (float) | Per-element gain in dB. `-3` halves perceived loudness; `-18` is a typical music-bed level. |
 | `fadeIn` | `durationMs` (int) | Linear fade-in applied at the element's resolved start. |
-| `fadeOut` | `durationMs` (int) | Linear fade-out applied at the element's tail (resolved start + duration − duration). |
+| `fadeOut` | `durationMs` (int) | Linear fade-out applied over the last `durationMs` of the element. |
 
 ## Reading the result
 

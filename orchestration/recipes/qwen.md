@@ -236,7 +236,7 @@ Common sdcpp-qwen parameters:
 |-----------|--------------|-------|
 | `latest` | all ops | Follows whatever release Civitai is currently pinning to. Recommended unless you need reproducibility against a specific release. |
 | `2509` | all ops | September 2025 release snapshot. |
-| `2512` | create / variant | December 2025 release — latest generation-side release at the time of writing. |
+| `2512` | create / variant | December 2025 release. |
 | `2511` | edit | November 2025 release — edit-specific snapshot. |
 
 ```json
@@ -374,17 +374,16 @@ land first. Two operations — `createImage` and `editImage` — with the model 
 | `3.0-pro` | create, edit | 512–2048 per side | 1–6 | Newest generation. Lowest throughput of the family — reserve it for hero shots. |
 | `2.0-pro` | create, edit | 512–2048 per side | 1–6 | Strongest generally-available tier: text rendering, realistic texture, prompt adherence. |
 | `2.0` | create, edit | 512–2048 per side | 1–6 | **Default for `createImage` and `editImage`.** Accelerated; balances quality and throughput. |
-| `max` | create | 5 fixed presets | 1 | **Deprecated** — use `2.0-pro`. Higher realism, fewer artifacts. Text-to-image only. |
-| `plus` | create | 5 fixed presets | 1 | **Deprecated** — use `2.0`. Leans artistic, strong at text-in-image. |
-| `edit-max` | edit | 512–2048 per side | 1–6 | **Deprecated** — use `2.0-pro`. Industrial design, geometric reasoning, character consistency. |
-| `edit-plus` | edit | 512–2048 per side | 1–6 | **Deprecated** — use `2.0`. |
-| `edit` | edit | not settable | 1 | **Deprecated** — use `2.0`. Output matches the input image's shape. |
+| `max` | create | 5 fixed presets | 1 | **Retired** — use `2.0-pro`. Higher realism, fewer artifacts. Text-to-image only. |
+| `plus` | create | 5 fixed presets | 1 | **Retired** — use `2.0`. Leans artistic, strong at text-in-image. |
+| `edit-max` | edit | 512–2048 per side | 1–6 | **Retired** — use `2.0-pro`. Industrial design, geometric reasoning, character consistency. |
+| `edit-plus` | edit | 512–2048 per side | 1–6 | **Retired** — use `2.0`. |
+| `edit` | edit | not settable | 1 | **Retired** — use `2.0`. Output matches the input image's shape. |
 
-::: warning Legacy models retire on 2026-10-10
-Alibaba retires `max`, `plus`, `edit-max`, `edit-plus` and `edit` on **2026-10-10 00:00 UTC+8**
-(2026-10-09 16:00 UTC). Until then, workflows using them still run but carry a
-[`modelDeprecated` warning](/orchestration/guide/workflows#warnings) and `Deprecation` / `Sunset`
-response headers; from then on they are rejected with a `400`. `editImage` now defaults to `2.0`.
+::: warning Legacy models are retired
+Alibaba retired `max`, `plus`, `edit-max`, `edit-plus` and `edit` on **2026-10-10 00:00 UTC+8**
+(2026-10-09 16:00 UTC). Don't use them in new requests: use `2.0` or `2.0-pro` as the table
+above shows. `editImage` defaults to `2.0`.
 :::
 
 `max` and `plus` accept only Alibaba's fixed presets — `1664×928`, `1472×1104`, `1328×1328`,
@@ -435,7 +434,7 @@ from the prompt, and on `editImage` it matches the input image's aspect ratio at
     "$type": "imageGen",
     "input": {
       "engine": "qwen",
-      "model": "edit-plus",
+      "model": "2.0",
       "operation": "editImage",
       "prompt": "Make it daytime",
       "images": [

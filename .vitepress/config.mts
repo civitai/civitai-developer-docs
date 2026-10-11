@@ -372,7 +372,24 @@ export function dedupeSidebarGroups(config: DefaultTheme.Sidebar): DefaultTheme.
   return groups;
 }
 
-const llmsSidebar = dedupeSidebarGroups(sidebar);
+/**
+ * True when every link under a sidebar group points at a generated operation
+ * page. Those pages are in the llms plugin's `ignoreFiles` (their `.md` twins do
+ * not exist), so the plugin emitted each such group as a run of blank lines
+ * under `### Reference` in `llms.txt`. The orchestration reference stays listed
+ * through its Overview page, which is not dropped.
+ */
+function isOperationsOnlyGroup(item: DefaultTheme.SidebarItem): boolean {
+  const links: string[] = [];
+  const walk = (i: DefaultTheme.SidebarItem) => {
+    if (i.link) links.push(i.link);
+    for (const child of i.items ?? []) walk(child);
+  };
+  walk(item);
+  return links.length > 0 && links.every((l) => l.startsWith('/orchestration/reference/operations/'));
+}
+
+const llmsSidebar = dedupeSidebarGroups(sidebar).filter((g) => !isOperationsOnlyGroup(g));
 
 export default withMermaid({
   title: 'Civitai Developer',
@@ -489,7 +506,7 @@ export default withMermaid({
         description: 'Civitai developer documentation — orchestration API (submit AI workflows: video, image, audio, text via a single contract that races multiple providers), the Civitai site API, MCP servers for both, plus SDKs and related developer tooling.',
         details:
           'Orchestration section covers the consumer-facing REST API: authenticating, submitting workflows, polling / receiving webhooks for results, and using each recipe (videoGen/WAN, imageGen/Flux, upscalers, transcription, TTS, prompt enhancement). ' +
-          'Reference pages are generated from the v2-consumers OpenAPI specification and stay in sync with the live API on every build.',
+          'Reference pages are generated from a committed snapshot of the v2-consumers OpenAPI specification, refreshed when the snapshot is updated.',
         // NOT the routed `sidebar` object — see `dedupeSidebarGroups` above: the
         // plugin flattens every key, so an aliased array emits its groups twice.
         sidebar: llmsSidebar,

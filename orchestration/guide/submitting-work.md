@@ -43,7 +43,7 @@ Everything in the table lives alongside `steps`. See the full [`WorkflowTemplate
 | `callbacks` | Webhooks for lifecycle events — see [Results & webhooks](./results-and-webhooks). |
 | `tags` | Indexed string tags for later lookup via [`QueryWorkflows`](/orchestration/reference/operations/QueryWorkflows). Great for tenant / campaign / user IDs. |
 | `metadata` | Arbitrary JSON attached to the workflow. Not indexed — use for notes, correlation IDs, UI hints. |
-| `arguments` | Reserved for templating values referenced by steps. |
+| `arguments` | Values steps can read via `{ "$ref": "$arguments" }` — see [Workflow arguments](./workflows#workflow-arguments). |
 | `allowMatureContent` | Controls mature-content gating and which Buzz currency pays — see [Payments (Buzz)](#payments-buzz) below. |
 | `experimental` | Marks the workflow as experimental; may relax some guardrails. |
 | `upgradeMode` | How to handle a workflow paid with blue/green Buzz that turns out to produce mature content — see [Payments (Buzz)](#payments-buzz). |
@@ -154,13 +154,11 @@ Once submitted, a workflow is live until it reaches a terminal state. You can:
 - [`AddWorkflowTag`](/orchestration/reference/operations/AddWorkflowTag) / [`RemoveWorkflowTag`](/orchestration/reference/operations/RemoveWorkflowTag) — tag maintenance
 - [`DeleteWorkflow`](/orchestration/reference/operations/DeleteWorkflow) — cancel / remove
 
-::: warning Breaking changes
-`UpdateWorkflow` (`PUT`) now returns `200` with the full workflow body instead of `204 No Content`,
-and accepts `?whatif=true` to price a change without applying it.
+`UpdateWorkflow` (`PUT`) returns `200` with the full workflow body, and accepts `?whatif=true` to
+price a change without applying it.
 
-Resource `availability` gained a `queued` status. A resource that previously reported
-`unavailable` with a `queuePosition` now reports `queued`; `unavailable` is left to mean
-"eligible, but nothing is fetching it". Clients that exhaustively match on `status` must handle it.
-:::
+Resource `availability.status` includes `queued`: a resource waiting in a download queue (it carries a
+`queuePosition`) reports `queued`, while `unavailable` means "eligible, but nothing is fetching it".
+Clients that exhaustively match on `status` must handle both.
 
 For step-level updates (e.g. rewriting `input` before execution, if still `unassigned`), use [`UpdateWorkflowStep`](/orchestration/reference/operations/UpdateWorkflowStep) / [`PatchWorkflowStep`](/orchestration/reference/operations/PatchWorkflowStep).

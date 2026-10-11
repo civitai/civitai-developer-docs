@@ -88,7 +88,7 @@ Pick a version with `model`:
 | `v2-mini` | 4–15 s | 480p / 720p / 1080p | same as `v2`, cheapest tier |
 | `v2.5` | **4–30 s** | **480p / 720p only** | **30 images · 10 videos · 10 audio, ≤30 s total** |
 
-**Seedance 2.5** doubles the single-shot length to 30 seconds and triples the reference budget, and is the only version that accepts audio-only input. It drops 1080p in exchange — 1080p and 4K remain `v2`-only.
+**Seedance 2.5** doubles the single-shot length to 30 seconds and triples the reference budget, and is the only version that accepts audio-only input. It drops 1080p in exchange: 1080p is available on `v2` and `v2-mini`, not on `v2.5`.
 
 **Default choice**: `model: "v2"`, `resolution: "720p"`, `duration: 5`, `aspectRatio: "adaptive"`. Every Seedance job exceeds the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — always submit with `wait=0`.
 

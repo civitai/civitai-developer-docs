@@ -235,7 +235,7 @@ SD1-specific fields are a subset of the SDXL list — same `model` / `minSnrGamm
 
 ## Common parameters {#common-parameters}
 
-These apply to every AI Toolkit training input regardless of ecosystem. Defaults shown are the post-`ApplyDefaults` values for SDXL; some ecosystems override individual defaults (the SD1 / SDXL differences above are the main examples).
+These apply to every AI Toolkit training input regardless of ecosystem. Defaults shown are the effective defaults for SDXL; some ecosystems override individual defaults (the SD1 / SDXL differences above are the main examples).
 
 | Field | Required | Default | Notes |
 |-------|----------|---------|-------|
@@ -327,7 +327,7 @@ To resume from a LoRA you already trained instead of starting from the base chec
 
 ## Reading the result
 
-Submitting with `wait=0` returns immediately with `status: processing`. Poll [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) (or use a webhook — see [Results & webhooks](/orchestration/guide/results-and-webhooks)) until the step settles. The step reports an `epochs[]` array with one entry per epoch — the number of epochs is derived from `steps` — where `model.available` tells you whether that checkpoint has been saved yet. Each available entry contains the trained LoRA blob and any sample images:
+Submitting with `wait=0` returns immediately with `status: processing`. Poll [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) (or use a webhook — see [Results & webhooks](/orchestration/guide/results-and-webhooks)) until the step settles. The step reports an `epochs[]` array with one entry per saved epoch (set by `epochs`, default `10`) — where `model.available` tells you whether that checkpoint has been saved yet. Each available entry contains the trained LoRA blob and any sample images:
 
 ```json
 {

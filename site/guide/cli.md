@@ -61,8 +61,7 @@ nix profile install github:civitai/cli
 ```
 
 ::: warning Homebrew is macOS-only
-The tap publishes a **cask**, not a formula — the CLI's release config carries
-`homebrew_casks:` and no `brews:` stanza — and a cask is a macOS-only concept.
+The tap publishes a **cask**, not a formula, and a cask is a macOS-only concept.
 On Linux (Linuxbrew included) `brew install civitai/tap/civitai` has nothing to
 install; use npm, the Nix flake, `go install`, or a prebuilt binary instead.
 :::
@@ -229,7 +228,7 @@ civitai download 691639 --dry-run
 ::: warning Downloads require authentication
 Civitai requires a token to download **any** model file — even a small public
 one (a 336 KB public embedding returns `401` just like a gated checkpoint). Run
-[`civitai login`](#authentication) first; your stored token or `CIVITAI_API_KEY`
+[`civitai login`](#authentication) first; your stored token or `CIVITAI_TOKEN`
 is sent automatically. `--anon` is meaningful for the read commands but **not**
 for downloads (they still `401` without a token).
 :::

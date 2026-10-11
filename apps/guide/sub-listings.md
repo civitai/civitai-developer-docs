@@ -12,7 +12,7 @@ sources:
 # App Store sub-listings
 
 An app can place individual items it contains into the
-[`/apps` store](https://civitai.com/apps) as **their own cards**, badged
+[`/apps` store](https://civitai.com/apps) (still gated while the store is pre-GA) as **their own cards**, badged
 "in ‹your app›" — **sub-listings** of your app's own listing. A sub-listing is
 something a viewer made inside your app and saved to your app's [shared storage](../reference/scopes) — one generator, one
 preset — and it is published **by that viewer, under their name**. Opening the

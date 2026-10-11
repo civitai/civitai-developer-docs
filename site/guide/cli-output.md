@@ -12,17 +12,6 @@ styling is on, and what the human renderers are allowed to do with text a
 **stranger uploaded**. Both matter in a pipeline, and neither applies to
 `--json`.
 
-::: tip This page is about behaviour, not about the flag list
-The flag **table** under
-[Global flags](/apps/reference/cli#cli-global-flags) is generated from the
-binary's own `--help` output, so its rows cannot drift from the build. It is not
-the whole set, though, and the sentence above it is hand-written: `-h` / `--help`
-is **not in that table** even though every command accepts it, and
-`-v` / `--version` **is** in it even though it is **root-only**.
-`civitai --help` is the authority for any one build. What is below is what these
-flags *do*, which neither surface tells you.
-:::
-
 ## The global flags, and one that is not
 
 `--no-color`, `--color`, `--no-update-check` and `-h` / `--help` are accepted by

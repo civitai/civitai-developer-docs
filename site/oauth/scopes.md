@@ -44,7 +44,13 @@ scope = UserRead | AIServicesRead | AIServicesWrite | BuzzRead
 | 22 | 4 194 304 | `NotificationsWrite` | Manage notification preferences |
 | 23 | 8 388 608 | `VaultRead` | View vault |
 | 24 | 16 777 216 | `VaultWrite` | Manage vault |
-| — | 33 554 431 | `Full` | All scopes |
+| 25 | 33 554 432 | `AppBlocksSubmit` | Manage your Apps: submit versions, pull source, test locally, edit listings _(opt-in, see below)_ |
+| 26 | 67 108 864 | `AppBlocksDevTunnel` | Open on-site dev tunnels _(opt-in, see below)_ |
+| — | 33 554 431 | `Full` | Bits 0–24 |
+
+Bits 25 and above are **opt-in** scopes. They are not part of `Full`, and a
+client can obtain one only if it is registered with it in its allowed scopes
+(the first-party `civitai` CLI requests bits 25 and 26 by default).
 
 ## `UserRead` is always granted
 
@@ -92,7 +98,7 @@ target them from the `scope` URL parameter directly:
 | **Read Only** | 10 701 093 | All `*Read` scopes |
 | **Creator** | 11 492 205 | Read Only + Models / Media / Articles / Bounties / Collections Write + SocialWrite |
 | **AI Services** | 114 689 | `UserRead` \| `AIServicesRead` \| `AIServicesWrite` \| `BuzzRead` |
-| **Full Access** | 33 554 431 | Every defined scope |
+| **Full Access** | 33 554 431 | Every scope in bits 0–24 (not the opt-in bits) |
 
 Use a preset's number on `/authorize` and the consent screen will still show
 the user every flag underneath — there's no shortcut around per-scope consent.

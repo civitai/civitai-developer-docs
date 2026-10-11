@@ -39,22 +39,19 @@ The `urn:` and `air:` prefixes are both optional — parsers accept
 
 ## Real examples
 
-From actual `GET /api/v1/model-versions/{id}` responses and internal workflow
-templates:
+From actual `GET /api/v1/model-versions/{id}` responses:
 
 ```
 urn:air:sdxl:checkpoint:civitai:827184@2514310
 urn:air:sdxl:checkpoint:civitai:827184@2514310+2402203
 urn:air:illustrious:checkpoint:civitai:795765@900661
 urn:air:other:upscaler:civitai:147759@164821
-urn:air:other:other:civitai-r2:civitai-worker-assets@sam_vit_b_01ec64.pth
 ```
 
 The second example pins the AIR to a specific file on the version (e.g.
 `waiIllustriousSDXL_v160.safetensors`, file id `2402203`) — useful when a
 version ships multiple downloadable artifacts and you need to be explicit
-about which one to load. The last one is a file asset (SAM ViT-B checkpoint)
-stored on Civitai's R2 bucket rather than a model version.
+about which one to load.
 
 ## Type values
 
@@ -110,13 +107,13 @@ urn:air:oci:image:{registry}:{repo}@{tag-or-digest}
 | `ecosystem` | `oci` (fixed) |
 | `type` | `image` (fixed) |
 | `source` | Registry alias: `dockerhub`, `ghcr`, etc. |
-| `id` | Full repo path (may include `/`), e.g. `civitai/spine-comfy` |
+| `id` | Full repo path (may include `/`), e.g. `your-org/your-image` |
 | `version` | Tag like `v1.0.0`, or a digest like `sha256:abc123...` |
 
 Examples:
 
 ```
-urn:air:oci:image:dockerhub:civitai/spine-comfy@v1.0.0
+urn:air:oci:image:dockerhub:your-org/your-image@v1.0.0
 urn:air:oci:image:dockerhub:library/python@3.12-slim
 urn:air:oci:image:ghcr:civitai/training-toolkit@sha256:abc123...
 ```

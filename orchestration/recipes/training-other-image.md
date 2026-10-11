@@ -206,7 +206,7 @@ Always submit with `wait=0`. These ecosystems run anywhere from a fraction of a 
 
 ## Chroma
 
-Trains on the Chroma1-HD base. Uses [`TextToImageV2Job`](/orchestration/reference/) for sample renders; output LoRA is usable wherever Chroma is supported.
+Trains on the Chroma1-HD base. The output LoRA is usable wherever Chroma is supported.
 
 ```http
 POST https://orchestration.civitai.com/v2/consumer/workflows?wait=0
@@ -253,7 +253,7 @@ Chroma defaults: `networkDim: 16`, `optimizerType: adamw8bit`, `trainTextEncoder
 
 ## ERNIE
 
-Trains on Baidu's ERNIE-Image. Comfy-based ecosystem with built-in diffuser. Uses [`ComfyImageGenJob`](/orchestration/reference/) for sample renders.
+Trains on Baidu's ERNIE-Image. Comfy-based ecosystem with built-in diffuser.
 
 ```http
 POST https://orchestration.civitai.com/v2/consumer/workflows?wait=0
@@ -433,7 +433,7 @@ Z-Image Base defaults: `networkDim: 32`, `optimizerType: automagic` (overridden)
 
 ## Common parameters {#common-parameters}
 
-Defaults shown are the post-`ApplyDefaults` values; per-ecosystem deviations are noted above.
+Defaults shown are the effective defaults; per-ecosystem deviations are noted above.
 
 | Field | Required | Default | Notes |
 |-------|----------|---------|-------|
@@ -527,7 +527,7 @@ Sample-prompt rendering is billed separately at each ecosystem's image-generatio
 |---------|--------------|-----|
 | `400` with "ecosystem unknown" | Typo, or not one of `chroma` / `ernie` / `qwen` / `zimageturbo` / `zimagebase` | Check spelling. |
 | `400` with "version not allowed" (Qwen only) | `version` not one of `latest` / `2509` / `2512` | Use one of the listed values. |
-| Z-Image Base: `optimizerType` you set seems ignored | Intentional — `ApplyDefaults` overrides to `automagic` | Use Z-Image Turbo if you need full optimizer control. |
+| Z-Image Base: `optimizerType` you set seems ignored | Intentional — the server overrides it to `automagic` | Use Z-Image Turbo if you need full optimizer control. |
 | Trained LoRA underbaked | Too few steps / too low `lr` | Raise `steps` (these ecosystems often need more steps than SDXL); keep `lr` ≤ `5e-4`. |
 | Trained LoRA overcooked | Too many steps or `networkDim` too high | Drop `networkDim` to 16, lower `steps`. |
 | Step `failed`, `moderationStatus: "Rejected"` | Dataset failed content moderation | Replace flagged images. |

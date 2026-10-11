@@ -304,6 +304,9 @@ Flat **1 Buzz** per step — regardless of source image size, number of transfor
       "$type": "imageGen",
       "input": {
         "engine": "flux2",
+        "model": "klein",
+        "operation": "createImage",
+        "modelVersion": "4b",
         "prompt": "A photorealistic cat sitting in a sunny garden"
       }
     },
@@ -311,7 +314,7 @@ Flat **1 Buzz** per step — regardless of source image size, number of transfor
       "name": "convert",
       "$type": "convertImage",
       "input": {
-        "image": { "$ref": "gen.output.images[0].url" },
+        "image": { "$ref": "gen", "path": "output.images[0].url" },
         "transforms": [{ "type": "resize", "targetWidth": 1024 }],
         "output": { "format": "webp", "quality": 90 }
       }

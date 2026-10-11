@@ -134,6 +134,26 @@ Content-Type: application/json
 
 Drop vocals by pairing an empty `lyrics` string with `vocalWeight: 0.0` and `instrumentalWeight: 1.0`. The model still needs both fields — an empty `lyrics` with the default `vocalWeight` of 0.9 will produce scat-like placeholder vocals.
 
+```json
+{
+  "steps": [
+    {
+      "$type": "aceStepAudio",
+      "input": {
+        "musicDescription": "Lo-Fi Hip Hop: A chill, relaxing lo-fi beat with dusty samples, soft piano, and mellow drums.",
+        "lyrics": "",
+        "duration": 60,
+        "bpm": 85,
+        "key": "A minor",
+        "instrumentalWeight": 1,
+        "vocalWeight": 0,
+        "seed": 7
+      }
+    }
+  ]
+}
+```
+
 <RecipeRun :body="instrumentalBody" :wait="60" />
 
 ## Audio with cover image (MP4 output)
@@ -257,11 +277,11 @@ Fields:
 - **`blob.duration`** — on audio blobs only, the requested duration in seconds (echoes `input.duration`). Video blobs omit this and expose `width` / `height` (both 512) instead.
 - **`blob.available`** — `true` once the file is persisted. Whatif previews return `false` because no job actually ran.
 
-When `cover.imageUrl` is set, `blob` is a video blob — same shape, `type: "video"`, `.mp4` extension, `width: 512`, `height: 512`. Despite the C# source commenting "WebM", the current Civitai pipeline emits MP4.
+When `cover.imageUrl` is set, `blob` is a video blob — same shape, `type: "video"`, `.mp4` extension, `width: 512`, `height: 512`.
 
 ## Runtime
 
-Measured end-to-end against `orchestration.civitai.com` on 2026-04-14:
+Typical end-to-end times:
 
 | Shape | POST → terminal |
 |---|---|
@@ -270,7 +290,7 @@ Measured end-to-end against `orchestration.civitai.com` on 2026-04-14:
 | `duration: 30`, 2B turbo, with cover image | ~13 s (job itself ~7 s) |
 | `duration: 30`, XL turbo (4B) cold worker | >60 s (needs `wait=60` resume loop; worker had to pull split files) |
 
-The 2B turbo default beats the 60-s long-poll window comfortably for every duration up to the 190-s cap, so **submit with `wait=60` and expect the POST itself to return terminal state**. If it doesn't (cold XL variant, capacity pressure), the response comes back non-terminal at the 60-s ceiling — re-issue `GET /v2/consumer/workflows/{id}?wait=60` in a loop until the response is terminal. See [Results & webhooks](/orchestration/guide/results-and-webhooks) for the resume pattern.
+The 2B turbo default finishes well inside a `wait=60` long-poll for every duration up to the 190-s cap, so **submit with `wait=60` and expect the POST itself to return terminal state**. If it doesn't (cold XL variant, capacity pressure), the response comes back non-terminal when the 60-s wait expires — re-issue `GET /v2/consumer/workflows/{id}?wait=60` in a loop until the response is terminal. See [Results & webhooks](/orchestration/guide/results-and-webhooks) for the resume pattern.
 
 For backend integrations that can't hold a connection, register a webhook URL and submit with `wait=0` (fire-and-forget).
 
@@ -292,7 +312,7 @@ total = 1 + duration × 0.1
 | `duration: 90` (typical full song) | 10 |
 | `duration: 180` (near max, 3-minute track) | 19 |
 
-Arithmetic check against the formula: `1 + 30 × 0.1 = 4` ✅, `1 + 60 × 0.1 = 7` ✅, `1 + 180 × 0.1 = 19` ✅. Prod whatif previews confirmed these exact Buzz figures on 2026-04-14. The orchestrator surfaces the raw `Factors["total"]` value — non-integer formula outputs (e.g. `duration: 15` → `2.5`) are passed through unchanged in `cost.total`; there's no `Math.Ceiling` / `Math.Round` in the handler.
+Non-integer totals (e.g. `duration: 15` → `2.5`) are not rounded: `cost.total` carries them unchanged.
 
 Cover images, key, BPM, time signature, language, and instrumental / vocal weights don't affect Buzz price — ACE-Step bills flat-plus-per-second on duration only.
 

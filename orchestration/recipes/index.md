@@ -15,10 +15,10 @@ These are **Orchestration REST API** recipes — you hold a Bearer token and POS
 - [WAN video generation](./wan) — all WAN versions (2.1–3.0) across FAL, Comfy, Civitai, and Alibaba, with text-to-video, image-to-video, reference-to-video, and edit-video operations
 - [LTX2 video generation](./ltx2) — Lightricks LTX2 and LTX2.3 on Comfy, including the new videoToVideo (style transfer) and audioToVideo (talking-head) operations
 - [Kling video generation](./kling) — Kuaishou Kling (v1/v1.5/v1.6/v2/v2.5-turbo with camera control) and Kling V3 (5 operations, multi-prompt, audio, video-to-video)
-- [Vidu video generation](./vidu) — Vidu 2.0 (flat 600 Buzz, anime style, first-last-frame) and Vidu Q3 (per-second pricing, 4 resolution tiers, turbo mode, native audio)
+- [Vidu video generation](./vidu) — Vidu 2.0 (flat 600 Buzz, anime style, first-last-frame), Vidu Q3 (per-second pricing, 4 resolution tiers, turbo mode, native audio) and Vidu Q4 via FAL (image- and reference-to-video, up to 4K)
 - [Veo 3 video generation](./veo3) — Google Veo 3.0/3.1 in standard / fast / lite tiers; operation inferred from image count; optional synchronized audio track
 - [Gemini Omni video generation](./gemini-omni) — Google Gemini Omni 1.1 Flash; 360p–4K with audio, up to 6 reference images; billed on the seconds actually delivered
-- [MiniMax H3 video generation](./minimax-h3) — MiniMax's native H3 model at 2K; text-to-video, first/last-frame, and reference-to-video with up to 3 reference images, videos, and audio clips
+- [MiniMax H3 video generation](./minimax-h3) — MiniMax's native H3 model at 2K; text-to-video, first/last-frame, and reference-to-video with up to 9 reference images plus 3 videos and 3 audio clips
 - [Seedance video generation](./seedance) — ByteDance Seedance direct on BytePlus; v2 / v2-fast / v2-mini up to 15 s and 1080p, or v2.5 for 30 s single-shot and a 50-asset reference budget
 - [Grok video generation](./grok-video) — xAI Grok-Imagine-Video via FAL; text-to-video, image-to-video, and edit-video with 480p/720p output
 - [FLUX-3 video generation](./flux3-video) — Black Forest Labs FLUX-3 via FAL; text / image / first-last-frame / keyframes / extend plus draftEnhance, 720p–1080p with synchronized audio and a cheap draft-then-enhance loop
@@ -33,14 +33,15 @@ These are **Orchestration REST API** recipes — you hold a Bearer token and POS
 - [Flux 2 image generation](./flux2) — Flux.2 Klein (default, cheap + capable, 4b/9b, supports createVariant) plus Dev / Flex / Pro / Max for higher-fidelity and commercial tiers
 - [Flux 1 image generation](./flux1) — Flux.1 through sdcpp (default, minimal required input) or Comfy, plus the BFL-hosted `flux1-kontext` editing tier
 - [Z-Image generation](./zimage) — lightweight text-to-image on sdcpp; `turbo` (default, distilled, extremely fast + cheap) or `base` when you need more fidelity
-- [Qwen image generation](./qwen) — Qwen-Image 20B on sdcpp (default) or FAL-hosted Qwen2 with a Pro tier; supports createImage + createVariant + editImage
+- [Qwen image generation](./qwen) — Qwen-Image 20B on sdcpp (default), the Alibaba-hosted catalog (`engine: "qwen"`), or Qwen2 under a FAL-shaped request with a Pro tier; supports createImage + createVariant + editImage
 - [MAI Image 2.5 image generation](./mai-image) — Microsoft MAI Image 2.5 via FAL; text-to-image only, eleven aspect ratios (incl. `auto`), flat per-image pricing
 - [Anima image generation](./anima) — anime-tuned sdcpp ecosystem with built-in diffuser, LoRA support, createImage only
 - [ERNIE image generation](./ernie) — Baidu ERNIE Image on Comfy; `ernie` standard + `turbo` distilled variant, built-in diffuser, LoRA support, createImage only
 - [SDXL image generation](./sdxl) — Stable Diffusion XL at 1024² native via sdcpp (default) or Comfy, with createImage + createVariant
 - [SD1 image generation](./sd1) — classic Stable Diffusion 1.5 at 512² via sdcpp (default) or Comfy, with createImage + createVariant
-- [OpenAI image generation](./openai) — GPT-Image 1 / 1.5 and DALL·E 2 / 3 via OpenAI's hosted API
+- [OpenAI image generation](./openai) — GPT-Image 2 (default) / 1.5 / 1 and DALL·E 2 / 3 via OpenAI's hosted API
 - [Google image generation](./google) — Imagen 4 and Nano Banana Pro / 2 / 2 Lite via Vertex AI, with editing + web-search grounding
+- [Krea v2 image generation](./krea) — Krea v2 medium and large tiers via FAL, text-to-image
 - [Gemini image generation](./gemini) — Gemini 2.5 Flash Image (same product as Nano Banana) via the direct Gemini API
 - [Seedream image generation](./seedream) — ByteDance Seedream v3 / v4 / v4.5 / v5.0-lite with native up-to-4096 output + editing
 - [Grok image generation](./grok) — xAI Grok with wide aspect-ratio menu (21 options) + editing

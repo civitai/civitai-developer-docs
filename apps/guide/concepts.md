@@ -87,7 +87,7 @@ interface BlockInitPayload {
   theme: 'light' | 'dark';       // matches the host color scheme
   renderMode: 'iframe' | 'inline';
 
-  // Both are optional because a host predating civitai/civitai#2670 omits them.
+  // Both are optional.
   domain?: ColorDomain | null;   // 'green' | 'blue' | 'red', or null if unresolved.
                                  // INFORMATIONAL ONLY — never derive "is this SFW?"
                                  // from this string; the policy is server-side.
@@ -202,9 +202,8 @@ knowing, because the refresh is lazier than it looks:
 The host also *pushes* a new token every time it re-mints one — shortly before
 each expiry while the block is open and visible, and after a consent grant; apply
 pushed tokens unconditionally. You never mint, store, or
-long-hold a credential yourself. The full authentication model (claims,
-self-binding, scope enforcement) is a later reference page; for building, `ready`
-+ the hooks are all you need.
+long-hold a credential yourself. For building, `ready` + the hooks are all you
+need; what each scope allows is in the [Scopes reference](../reference/scopes).
 
 ### Which credential you get: the manifest's `auth` field
 
@@ -225,7 +224,7 @@ from `/api/v1/blocks/me`.
 
 ::: warning `auth: "oauth"` is live, and it is a trade
 The host mints a real OAuth access token for a manifest declaring `auth: "oauth"`,
-in production (verified 2026-09-25). What it buys is the general `/api/v1`
+in production. What it buys is the general `/api/v1`
 surface, the orchestrator and the MCP.
 
 What it costs is **22 of the block REST routes** — app storage, shared storage,
@@ -233,8 +232,7 @@ the five workflow routes and `user-checkpoint/set` all re-verify the raw bearer 
 a block JWS, which an OAuth access token is not. So an app that uses app storage
 cannot declare `auth: "oauth"` today, and an app that generates should stay on the
 host-proxied workflow routes. The full trade, and the field's reference, are on
-the [manifest reference](../reference/manifest) — that page is `auth`'s home, and
-this one deliberately does not repeat it.
+the [manifest reference](../reference/manifest).
 :::
 
 ## Next

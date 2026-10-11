@@ -91,7 +91,7 @@ const kleinEditBody = {
       noiseOffset: 0,
       trainingData: {
         type: 'zip',
-        sourceUrl: 'https://blobs-temp.sfo3.digitaloceanspaces.com/flux2_klein_edit_testdata.zip',
+        sourceUrl: 'https://example.com/your-edit-dataset.zip',
         count: 3,
       },
       samples: {
@@ -101,8 +101,8 @@ const kleinEditBody = {
           'a painting of a cat sitting on a windowsill looking outside at a rainy day',
         ],
         sourceImages: [
-          'https://blobs-temp.sfo3.digitaloceanspaces.com/sample-edit-source-1.jpg',
-          'https://blobs-temp.sfo3.digitaloceanspaces.com/sample-edit-source-2.jpg',
+          'https://example.com/your-source-image-1.jpg',
+          'https://example.com/your-source-image-2.jpg',
         ],
       },
     },
@@ -265,7 +265,7 @@ Content-Type: application/json
       "networkAlpha": 32,
       "trainingData": {
         "type": "zip",
-        "sourceUrl": "https://blobs-temp.sfo3.digitaloceanspaces.com/flux2_klein_edit_testdata.zip",
+        "sourceUrl": "https://example.com/your-edit-dataset.zip",
         "count": 3
       },
       "samples": {
@@ -275,8 +275,8 @@ Content-Type: application/json
           "a painting of a cat sitting on a windowsill looking outside at a rainy day"
         ],
         "sourceImages": [
-          "https://blobs-temp.sfo3.digitaloceanspaces.com/sample-edit-source-1.jpg",
-          "https://blobs-temp.sfo3.digitaloceanspaces.com/sample-edit-source-2.jpg"
+          "https://example.com/your-source-image-1.jpg",
+          "https://example.com/your-source-image-2.jpg"
         ]
       }
     }
@@ -284,13 +284,18 @@ Content-Type: application/json
 }
 ```
 
+::: warning Supply your own edit dataset
+The `https://example.com/…` URLs above are placeholders. Replace `trainingData.sourceUrl` with your own edit-training zip (laid out as described above, and addressed as the [Prerequisites](#prerequisites) describe), set `count` to its number of `main/` entries, and replace `samples.sourceImages` with your own reference image URLs before submitting.
+:::
+
+<!-- test-skip: the edit dataset and source images are reader-supplied placeholders -->
 <RecipeRun :body="kleinEditBody" :wait="0" />
 
 `samples.sourceImages` is required for edit training when you want preview samples — the listed URLs become the reference images for the per-checkpoint sample renders.
 
 ## Common parameters {#common-parameters}
 
-Defaults shown are the post-`ApplyDefaults` values for Klein.
+Defaults shown are the effective defaults for Klein.
 
 | Field | Required | Default | Notes |
 |-------|----------|---------|-------|

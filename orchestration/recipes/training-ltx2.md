@@ -175,7 +175,7 @@ Content-Type: application/json
 
 ## Common parameters {#common-parameters}
 
-Defaults shown are the post-`ApplyDefaults` values for both LTX ecosystems.
+Defaults shown are the effective defaults for both LTX ecosystems.
 
 | Field | Required | Default | Notes |
 |-------|----------|---------|-------|

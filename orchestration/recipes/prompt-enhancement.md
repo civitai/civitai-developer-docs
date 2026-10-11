@@ -154,7 +154,7 @@ Most generative ecosystems exposed by the orchestrator have a registered prompt-
 
 <RecipeRun :body="instructionBody" :wait="60" />
 
-A live run against prod with that input returned:
+Example output for that input:
 
 > *"A golden retriever leaping dynamically mid-air to catch a flying frisbee, sharp motion-blurred action shot."* (19 words)
 
@@ -173,7 +173,7 @@ When `negativePrompt` is present, the response includes an `enhancedNegativeProm
 
 <RecipeRun :body="negativeBody" :wait="60" />
 
-Response (from a live run):
+Example response:
 
 ```json
 {

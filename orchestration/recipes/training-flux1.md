@@ -80,7 +80,7 @@ Train a Flux.1 LoRA on your own image dataset using AI Toolkit. The output LoRA 
 | `dev` (default) | `black-forest-labs/FLUX.1-dev` | Higher fidelity, ~20–28 sampler steps. Good default for most LoRAs. |
 | `schnell` | `black-forest-labs/FLUX.1-schnell` | Faster inference, 4 sampler steps, no CFG. Use when you specifically want a Schnell-targeted LoRA. |
 
-The base checkpoint is fixed by `modelVariant` — there's no `model` field to override. To train on a non-BFL Flux.1 finetune, use the [SDXL & SD1](./training-sdxl-sd1) or [other-image](./training-other-image) ecosystems instead.
+The base checkpoint is fixed by `modelVariant` — there's no `model` field to override, so training against another Flux.1 finetune as the base isn't supported.
 
 ::: tip Long-running step
 Flux 1 training is the most expensive AI Toolkit image ecosystem (2000 Buzz for the default run) and a typical 2000-step run on a 10-image dataset takes several minutes. Always use `wait=0` and follow up via polling or a webhook — see [Results & webhooks](/orchestration/guide/results-and-webhooks).
@@ -184,7 +184,7 @@ Content-Type: application/json
 
 ## Common parameters {#common-parameters}
 
-Shared by both Flux 1 variants. Defaults shown are after `ApplyDefaults`.
+Shared by both Flux 1 variants. Defaults shown are the effective defaults.
 
 | Field | Required | Default | Notes |
 |-------|----------|---------|-------|

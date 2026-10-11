@@ -92,9 +92,8 @@ A browser never fetches a file nothing references, so the emitter has to be
 or an `import './civitai-host.js';` at the top of the entry module `index.html`
 loads.
 
-Earlier releases of this check looked only for the *text* `BLOCK_READY`
-anywhere in your tree, so an unreferenced copy silenced it and a still-broken
-app validated clean. It now resolves what your `index.html` actually loads.
+The check resolves what your `index.html` actually loads, so an unreferenced
+copy of the emitter does not satisfy it.
 :::
 
 Four things follow.
@@ -173,20 +172,15 @@ bug in the check, not something you should have to work around.
 }
 ```
 
-Two guarantees, both of which an earlier release broke:
+Two guarantees:
 
-- **`field` is present on every finding, and is never `null` or empty.** It
-  used to be recovered by parsing the message text, which worked only for the
-  JSON Schema errors — so every *semantic* finding (the sandbox rules, the
-  justification rules, the money-path warnings: the ones a local pre-check
-  exists for) arrived as `"field": null`, and grouping by field in CI silently
-  dropped them. Findings now carry their field from where they are produced.
+- **`field` is present on every finding, and is never `null` or empty**,
+  including the semantic findings (the sandbox rules, the justification rules,
+  the money-path warnings), so grouping by field in CI sees all of them.
 - **One notation: dotted paths.** `blockId`, `iframe.sandbox`, `scopes[1]`,
   `targets[0].slotId`, `scopeJustifications.<scope>` — the same way the
-  human-readable messages and the schema name fields. Earlier releases mixed
-  JSON Pointer (`/blockId`, `/scopes/1`) into `--json` while the text output
-  used dotted; **if you were matching on `/`-prefixed fields, update your
-  scripts.**
+  human-readable messages and the schema name fields. **If your scripts match
+  `/`-prefixed fields (`/blockId`), update them.**
 
 Two findings have no single manifest field, and say so explicitly rather than
 omitting the key:
@@ -217,10 +211,6 @@ Error: ./definitely-not-here: no such directory — pass the path to an App proj
 $ echo $?
 2
 ```
-
-It used to print `{"ok": false, "dir": "/nope", "errors": [ … ]}` and exit `1`
-— a fabricated validation result, complete with a finding about a manifest
-nobody could have written.
 
 A failure that produces **no validation result at all** likewise emits no
 object and exits `1`: a project directory the CLI cannot **stat** (it is
@@ -267,13 +257,6 @@ case $rc in
     ;;
 esac
 ```
-
-## The durable fix
-
-A server-side `civitai app validate` endpoint calling the real validator — the
-faithful contract — with this schema published as the syntactic half. Until
-that exists, vendoring is on purpose: a local answer is *cheaper* than a
-round-trip, and for validation a stale local copy is a cost worth paying.
 
 ## Where to go next
 

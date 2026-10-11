@@ -25,7 +25,10 @@ That split has one sharp edge worth designing for from day one.
 **not** a URL you point users at. If someone opens the bare `<slug>.civit.ai`
 directly (a top-level navigation — a shared link, a pasted URL, a social-card
 crawl), there is no parent host to send `BLOCK_INIT`. Your `ready` gate never
-flips, and the block sits on its loading state **forever**.
+flips, and the block sits on its loading state **forever**. (For a page app the
+platform redirects such a navigation to the run route at the edge — see
+[Platform edge behavior](#platform-edge-behavior-for-context) — but design as if
+a direct hit can still reach your bundle.)
 
 ::: tip The one rule
 **Always link and share the `civitai.com/apps/run/<slug>` route — never the bare

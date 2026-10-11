@@ -1576,9 +1576,10 @@ function cardinal(token) {
  * How many claims about its own size the page must state, so a matcher that
  * silently stopped matching cannot read as "the page makes no claims".
  *
- * Six exist today (the starters count in the intro, the external-repositories
- * intro, the account split, the Verified line, the "Keeping this list honest"
- * sentence and the floor restatement). The floor is 5: headroom to drop one
+ * Five exist today (the starters count in the intro, the external-repositories
+ * intro, the account split, the Verified line and the "Keeping this list
+ * honest" summary; the `naming N repositories` and floor-restatement patterns
+ * are kept for older wordings). The floor is 5: headroom to drop one
  * sentence deliberately, no headroom to lose all of them silently. If a reword
  * breaks a pattern, WIDEN THE PATTERN — editing this constant down to get green
  * is how the whole check evaporates.
@@ -1646,6 +1647,12 @@ export function checkPageClaims(markdown, entries, sections = []) {
     {
       re: rx('\\bnaming #N# (?:external )?repositories\\b'),
       what: '"Keeping this list honest"',
+      want: () => total,
+      unit: 'external repositories linked on the page',
+    },
+    {
+      re: rx('\\beach of the #N# external repositories\\b'),
+      what: 'the "Keeping this list honest" summary',
       want: () => total,
       unit: 'external repositories linked on the page',
     },

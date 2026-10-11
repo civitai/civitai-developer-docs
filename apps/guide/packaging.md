@@ -54,9 +54,8 @@ inspect a bundle you cannot submit.
 
 **The ceiling is 10485760 bytes of body, and `app submit` refuses above it.**
 The refusal costs no upload — it is checked against the marshalled document
-itself, before the request is built. The number is not this CLI's: it is
-Next.js's `proxyClientMaxBodySize` default, which applies because civitai's
-proxy matches `/api/v1/:path*` and sets no override.
+itself, before the request is built. The number is not this CLI's: it is the
+server's request-body limit.
 
 A submit that carries build provenance sends `sourceCommit` and `sourceDirty`
 in that same document, so its body is a few dozen bytes larger. The printed
@@ -333,11 +332,8 @@ spells one of those words (`fastest.civitai.com`, `db.dev.civitai.com`,
 stops **and says so** rather than reporting a quiet zero.
 :::
 
-**The rate you can measure is the false-positive one.** Over 244 real project
-directories and 3,917 packaged files this fires on **one** project. The
-*true*-positive rate is unmeasured and cannot be measured from that corpus,
-because it holds no real credential: detection is evidenced only against
-planted fixtures. It is aimed at accidental inclusion by an honest author.
+False positives are rare. The check is aimed at accidental inclusion by an
+honest author.
 There is deliberately **no** carve-out for `*.test.*` files, because a
 credential in a test file is uploaded and reviewed like any other.
 

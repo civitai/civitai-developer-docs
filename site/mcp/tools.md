@@ -1,5 +1,6 @@
 ---
 title: Tools
+description: The tools the Civitai platform MCP server exposes, grouped by area, with their auth and scope requirements.
 ---
 
 # Tools

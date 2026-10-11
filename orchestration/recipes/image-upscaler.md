@@ -267,7 +267,7 @@ Cost scales with input pixel area and the total scale factor applied by `numberO
 
 ```
 inputMegapixels = width × height / 1 000 000
-scale           = 2 ^ numberOfRepeats      // default 4x-Remacri, 2 per pass
+scale           = 2 ^ numberOfRepeats      // the price doubles per pass, whatever the model's own scale
 total           = max(1, ceil(inputMegapixels)) × scale
 ```
 
@@ -279,7 +279,7 @@ total           = max(1, ceil(inputMegapixels)) × scale
 | 1024×1024 input, `numberOfRepeats: 2` | **8** |
 | 1024×1024 input, `numberOfRepeats: 3` | **16** |
 
-Upscaling is one of the cheapest operations exposed — even aggressive stacked passes on a 2-megapixel source land under a few dozen Buzz. The practical ceiling is usually the [upscaler's content-size cap](#runtime), not cost.
+Upscaling is one of the cheapest operations exposed — even aggressive stacked passes on a 2-megapixel source land under a few dozen Buzz. The practical ceiling is usually runtime and output size (see [Runtime](#runtime)), not cost.
 
 ## Runtime
 
@@ -302,4 +302,4 @@ A single pass (`numberOfRepeats: 1`) with the default 4x-Remacri on a ~1-megapix
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — generic path for chaining
 - [Video upscaling](./video-upscaler) — the `videoUpscaler` equivalent for video
 - [Image background removal](./image-background-removal) — cut out the subject before or after upscaling
-- [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism) — how the `@step.output.*` references work
+- [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism) — how `{ "$ref": "<step>", "path": "…" }` step references work

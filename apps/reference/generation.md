@@ -549,11 +549,12 @@ substituted silently:
   a source image on Qwen comes back as `2558804`.
 
 In both, it looks like success: the workflow succeeds, images render, and you are
-billed for a checkpoint you did not ask for. The swap is recorded server-side on
-the workflow snapshot as `modelSubstitutions` (`requested` / `applied` /
-`reason`), but that field is not part of the SDK's `BlockWorkflowSnapshot` type
-yet — so don't build on reading it. The tell is behavioural: the output ignores
-your source image, or doesn't look like the version you named.
+billed for a checkpoint you did not ask for. The swap is reported on the
+`textToImage` snapshot's `modelSubstitutions` field (see
+`BlockWorkflowSnapshot` above: `requested` / `applied` /
+`reason`, omitted when nothing was substituted), so read it on the estimate and
+on the result. The other tell is behavioural: the output ignores your source
+image, or doesn't look like the version you named.
 
 **The fix is in your body, not in a support request**: send a source image
 whenever you mean to edit, and name the version that belongs to the mode you
@@ -668,32 +669,13 @@ of 1.
 
 #### Which field to send today
 
-`sourceImages` is the current field, but "always use the current field" is the
-wrong rule here, because of one asymmetry:
-
-::: danger An old host STRIPS `sourceImages` and still bills you
-`sourceImages` requires a host running
-[civitai/civitai#3518](https://github.com/civitai/civitai/pull/3518) or later.
-The text-to-image body schema is **not** `.strict()`, so a host that predates
-#3518 does **not** error on the field — it **silently strips it** and runs, and
-**bills**, a plain text-to-image generation with **no image conditioning at
-all**. There is no client-side way to detect that: you get a successful workflow,
-real images, and a real Buzz charge for a generation that ignored your input.
-
-`sourceImage` (singular) is understood by **both** old and new hosts.
-:::
-
-So:
-
-- **One image → send `sourceImage`.** It is marked `@deprecated`, but the SDK
-  states the alias keeps working **indefinitely** (every deployed block and
+- **One image → either field.** `sourceImage` is marked `@deprecated`, but the
+  SDK states the alias keeps working **indefinitely** (every deployed block and
   these docs ship it), and the server normalizes it into a 1-element array, so a
   1-element `sourceImages` array produces a **byte-identical** generation. The
   deprecation is a signpost toward the array, not a removal notice.
-- **Two or more images → send `sourceImages`**, and only against a host you know
-  runs #3518 or later. Until #3518 is deployed everywhere you target, that is
-  the trade you are making: `sourceImages` is the only way to express the
-  request, and an older host answers it by silently doing something else.
+- **Two or more images → send `sourceImages`**, the only way to express the
+  request.
 - **Never both**, in either direction — that is rejected as ambiguous.
 
 These are bounded by the union's shape, not by configuration:
@@ -778,7 +760,7 @@ to opt out of it.
 
 ### `idempotencyKey` — the validated charset {#idempotency-key-charset}
 
-🔴 **`^[A-Za-z0-9_-]{1,64}$`.** Letters, digits, `_` and `-`, 1 to 64
+**`^[A-Za-z0-9_-]{1,64}$`.** Letters, digits, `_` and `-`, 1 to 64
 characters — and the host validates it on the way in, before the whatIf
 preflight prices anything. A key outside that class is refused:
 

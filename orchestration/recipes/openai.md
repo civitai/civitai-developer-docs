@@ -261,7 +261,7 @@ Content-Type: application/json
 
 Pass one or more source images in `images[]`. The Edit shape also accepts a `mask` (string URL/DataURL/Base64) if you want to inpaint a specific region.
 
-## gpt-image-1 (previous flagship, transparent backgrounds)
+## gpt-image-1 (older GPT-Image, transparent backgrounds)
 
 Same shape as `gpt-image-1.5` but older weights. Reach for it when you need:
 
@@ -289,7 +289,7 @@ Same shape as `gpt-image-1.5` but older weights. Reach for it when you need:
 
 <RecipeRun :body="gpt1TransparentBody" :wait="60" />
 
-`size`, `background`, `images[]`, and `mask` work exactly like 1.5; the only difference is `quantity` goes up to 10 and `quality` accepts `auto` as a fifth option.
+`size`, `background`, `images[]`, and `mask` work exactly like 1.5; the only difference is `quantity` goes up to 10 and `quality` accepts `auto` as a fourth option.
 
 ## dall-e-3 (style-controlled, `natural` vs `vivid`)
 
@@ -456,5 +456,5 @@ For the older models `size`, `background`, and `style` don't change the Buzz pri
 - [Flux 2](./flux2) / [Flux 1](./flux1) / [Qwen](./qwen) — open-weights alternatives on Civitai-hosted workers
 - [Image upscaling](./image-upscaler) — chain after `imageGen` for higher-res output
 - [Prompt enhancement](./prompt-enhancement) — LLM-rewrite a prompt before feeding it in via `$ref`
-- Full parameter catalog: the `OpenAIGpt1CreateImageInput`, `OpenAIGpt1EditImageInput`, `OpenAIGpt15CreateImageInput`, `OpenAIGpt15EditImageInput`, `OpenAIDallE3CreateImageGenInput`, `OpenAIDallE2CreateImageGenInput`, `OpenAIDallE2EditImageInput` schemas in the [API reference](/orchestration/reference/)
+- Full parameter catalog: the `OpenAIGpt2CreateImageInput`, `OpenAIGpt2EditImageInput`, `OpenAIGpt1CreateImageInput`, `OpenAIGpt1EditImageInput`, `OpenAIGpt15CreateImageInput`, `OpenAIGpt15EditImageInput`, `OpenAIDallE3CreateImageGenInput`, `OpenAIDallE2CreateImageGenInput`, `OpenAIDallE2EditImageInput` schemas in the [API reference](/orchestration/reference/)
 - [`imageGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `imageGen` surface

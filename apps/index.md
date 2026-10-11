@@ -1,4 +1,6 @@
 ---
+title: Civitai Apps
+description: "Build small web apps that run inside civitai.com: guide, examples and reference for Civitai Apps."
 layout: home
 
 hero:

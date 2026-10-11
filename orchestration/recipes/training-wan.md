@@ -115,7 +115,7 @@ Content-Type: application/json
 
 ## Common parameters {#common-parameters}
 
-Defaults shown are the post-`ApplyDefaults` values for Wan.
+Defaults shown are the effective defaults for Wan.
 
 | Field | Required | Default | Notes |
 |-------|----------|---------|-------|
@@ -135,7 +135,7 @@ Defaults shown are the post-`ApplyDefaults` values for Wan.
 | `noiseOffset` | | `0` | `0`–`1`. |
 | `flipAugmentation` | | `false` | Random horizontal flips. |
 | `shuffleTokens` / `keepTokens` | | `false` / `0` | Caption-tag shuffling. |
-| `triggerWord` | | *(none)* | Activation token. Per the source, not all video ecosystems support `triggerWord` — leave empty if you see schema rejections. |
+| `triggerWord` | | *(none)* | Activation token. Some video ecosystems reject `triggerWord` — leave it empty if you see schema rejections. |
 | `trainingData.{type, sourceUrl, count}` | ✅ | — | `type: "zip"`. Images, video clips, or a mix; the example uses an image dataset. |
 | `samples.prompts[]` | | `[]` | Preview videos rendered at each saved checkpoint with the trained LoRA. |
 | `samples.negativePrompt` | | *(none)* | — |
@@ -203,7 +203,7 @@ Lowering `epochs` saves the most. Sample-prompt rendering itself uses Wan video-
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `400` with "modelVariant required" | Missing `modelVariant` | Set to `"2.1"` or `"2.2"`. |
-| Step starts then fails immediately | Preview ecosystem not yet enabled on the routing GPU fleet | Contact Civitai support — Wan training is rolling out. |
+| Step starts then fails immediately | Wan training not yet available for your request | Contact Civitai support. |
 | Step `failed` with VRAM-related error | Resolution × clip length too high for the worker | Lower `resolution` (e.g. to `512`), shorten clips to ≤ 3 seconds. |
 | Trained LoRA produces static / no motion | Too few steps, too few / too short clips | Raise `steps`; ensure clips show the motion you want learned. |
 | Step `failed`, `moderationStatus: "Rejected"` | Dataset failed content moderation | Replace flagged clips. |

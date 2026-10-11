@@ -141,7 +141,7 @@ total = 60 × quantity
 | `editImage` with 1 reference | ~60 |
 | `createImage`, `quantity: 4` | ~240 |
 
-Gemini 2.5 Flash's price doesn't depend on resolution (there's no `resolution` field) or the number of reference images. If you need the same product with tiered resolution pricing, the [`google` engine](./google)'s `nano-banana-2` is materially cheaper at 1K (~104 Buzz) and has a tiered scale for 2K / 4K.
+Gemini 2.5 Flash's price doesn't depend on resolution (there's no `resolution` field) or the number of reference images. If you need the same product with tiered resolution pricing, the [`google` engine](./google)'s `nano-banana-2` costs more at 1K (~104 Buzz) but adds a tiered scale for 2K / 4K.
 
 ## Troubleshooting
 
