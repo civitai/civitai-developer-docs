@@ -115,7 +115,7 @@ Examples:
 ```
 urn:air:oci:image:dockerhub:your-org/your-image@v1.0.0
 urn:air:oci:image:dockerhub:library/python@3.12-slim
-urn:air:oci:image:ghcr:civitai/training-toolkit@sha256:abc123...
+urn:air:oci:image:ghcr:your-org/your-image@sha256:abc123...
 ```
 
 Workers advertise support for `oci:image` via the `oci` ecosystem and the

@@ -173,7 +173,7 @@ Qwen is Alibaba's image-generation family. The orchestrator exposes three invoca
 | `engine` | Model | Best for | Notes |
 |----------|-------|----------|-------|
 | `sdcpp` (ecosystem `qwen`) | `20b` | **Default** — Qwen-Image 20B on Civitai workers | `createImage` / `createVariant` / `editImage`. Version picker (`latest`, `2509`, `2512`, `2511`). LoRA support. |
-| `qwen` | `3.0-pro` … `edit` | The full Alibaba-hosted catalog, including the newest releases | `createImage` / `editImage`. Explicit `width`/`height`. No LoRA support. |
+| `qwen` | `3.0-pro`, `2.0-pro`, `2.0` | The full Alibaba-hosted catalog, including the newest releases | `createImage` / `editImage`. Explicit `width`/`height`. No LoRA support. |
 | `fal` | `qwen2` | The Qwen-Image-2 tier under a stable, FAL-shaped request | `createImage` / `proCreateImage` / `editImage` / `proEditImage`. `imageSize` enum instead of width/height. No LoRA support. |
 
 **Default choice for new integrations**: `engine: "sdcpp"`, `ecosystem: "qwen"`, `model: "20b"`. Reach for `engine: "qwen"` when you want a model Civitai doesn't host itself — Qwen-Image 3.0 Pro or 2.0 Pro.
@@ -374,21 +374,12 @@ land first. Two operations — `createImage` and `editImage` — with the model 
 | `3.0-pro` | create, edit | 512–2048 per side | 1–6 | Newest generation. Lowest throughput of the family — reserve it for hero shots. |
 | `2.0-pro` | create, edit | 512–2048 per side | 1–6 | Strongest generally-available tier: text rendering, realistic texture, prompt adherence. |
 | `2.0` | create, edit | 512–2048 per side | 1–6 | **Default for `createImage` and `editImage`.** Accelerated; balances quality and throughput. |
-| `max` | create | 5 fixed presets | 1 | **Retired** — use `2.0-pro`. Higher realism, fewer artifacts. Text-to-image only. |
-| `plus` | create | 5 fixed presets | 1 | **Retired** — use `2.0`. Leans artistic, strong at text-in-image. |
-| `edit-max` | edit | 512–2048 per side | 1–6 | **Retired** — use `2.0-pro`. Industrial design, geometric reasoning, character consistency. |
-| `edit-plus` | edit | 512–2048 per side | 1–6 | **Retired** — use `2.0`. |
-| `edit` | edit | not settable | 1 | **Retired** — use `2.0`. Output matches the input image's shape. |
 
 ::: warning Legacy models are retired
-Alibaba retired `max`, `plus`, `edit-max`, `edit-plus` and `edit` on **2026-10-10 00:00 UTC+8**
-(2026-10-09 16:00 UTC). Don't use them in new requests: use `2.0` or `2.0-pro` as the table
-above shows. `editImage` defaults to `2.0`.
+`max`, `plus`, `edit-max`, `edit-plus` and `edit` were retired on **2026-10-09 16:00 UTC**. A request
+using one is rejected with a `400` that names the replacement: `2.0-pro` for `max` and `edit-max`,
+`2.0` for the others. `editImage` defaults to `2.0`.
 :::
-
-`max` and `plus` accept only Alibaba's fixed presets — `1664×928`, `1472×1104`, `1328×1328`,
-`1104×1472`, `928×1664`. Any other `width`/`height` snaps to whichever preset is closest in aspect
-ratio, so `1024×1024` becomes `1328×1328` rather than erroring.
 
 Omit `width` and `height` entirely to let the model choose: on `createImage` it infers a resolution
 from the prompt, and on `editImage` it matches the input image's aspect ratio at roughly 1024².
@@ -400,7 +391,7 @@ from the prompt, and on `editImage` it matches the input image's aspect ratio at
 | `prompt` | — ✅ | ≤ 5 000 chars | Natural-language works well on Qwen. |
 | `negativePrompt` | *(none)* | ≤ 500 chars | Optional. |
 | `width` / `height` | *(model chooses)* | 512–2048 each | See the sizing rules above. |
-| `quantity` | `1` | `1`–`6`, model-dependent | `max`, `plus` and `edit` generate one image per request. |
+| `quantity` | `1` | `1`–`6` | |
 | `promptExtend` | `true` | boolean | Model-side prompt rewriting. **On by default, and it dominates latency** — measured on `3.0-pro` at 2048×1152: 11 s off vs 98 s on. Set `false` to send your prompt verbatim and generate far faster. |
 | `watermark` | `false` | boolean | Adds Alibaba's "Qwen-Image" watermark bottom-right. |
 | `seed` | random | int32 | Pin for reproducibility. |
@@ -604,12 +595,8 @@ total = base × quantity
 
 | `model` | Buzz per image |
 |---------|----------------|
-| `2.0`, `edit-plus`* | **45.5** / **39** |
-| `plus` | **39** |
-| `edit` | **58.5** |
-| `3.0-pro`, `2.0-pro`, `max`, `edit-max` | **97.5** |
-
-\* `2.0` is 45.5; `edit-plus` is 39.
+| `2.0` | **45.5** |
+| `3.0-pro`, `2.0-pro` | **97.5** |
 
 **FAL Qwen2** (`engine: "fal"`) — fixed per operation, per image. `createImage` / `editImage` are cheapest; `proCreateImage` / `proEditImage` cost meaningfully more. Use `whatif=true` to confirm pricing for your shape.
 
@@ -621,8 +608,7 @@ total = base × quantity
 | `400` with "version must be one of" | Picked a version that isn't valid for that operation | Edit supports `latest`/`2509`/`2511`; create + variant support `latest`/`2509`/`2512`. |
 | `400` with unexpected "width/height" error on edit/variant | Dimensions conflict with source resolution | Omit `width`/`height`; they auto-populate from the source. |
 | `400` with "imageSize must be one of" on fal | Arbitrary dimensions on the `fal` path | The `fal` path uses the enum — pick `square_hd`, `landscape_16_9`, etc. Use `engine: "qwen"` or the sdcpp path for arbitrary dimensions. |
-| `400` "does not support custom output dimensions" on `engine: "qwen"` | `width`/`height` sent to `model: "edit"` | That model always matches the input image — omit both fields. |
-| `400` "generates at most 1 image(s)" | `quantity > 1` on `max`, `plus` or `edit` | Those models return a single image per request; submit multiple steps instead. |
+| `400` "Model '…' was retired on …" on `engine: "qwen"` | A retired model (`max`, `plus`, `edit-max`, `edit-plus`, `edit`) | Use the replacement the message names (`2.0` or `2.0-pro`). |
 | Prompt visibly rewritten before generation | `promptExtend` defaults to `true` on `engine: "qwen"` | Set `promptExtend: false` to send it verbatim. |
 | `400` with "images maxItems" | More than 10 source images on sdcpp `editImage`, or more than 3 on fal `editImage` | Trim the array. |
 | LoRA has no effect | Only the sdcpp path supports LoRAs | Switch to `engine: "sdcpp"`, `ecosystem: "qwen"`. |

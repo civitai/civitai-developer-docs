@@ -134,26 +134,6 @@ Content-Type: application/json
 
 Drop vocals by pairing an empty `lyrics` string with `vocalWeight: 0.0` and `instrumentalWeight: 1.0`. The model still needs both fields — an empty `lyrics` with the default `vocalWeight` of 0.9 will produce scat-like placeholder vocals.
 
-```json
-{
-  "steps": [
-    {
-      "$type": "aceStepAudio",
-      "input": {
-        "musicDescription": "Lo-Fi Hip Hop: A chill, relaxing lo-fi beat with dusty samples, soft piano, and mellow drums.",
-        "lyrics": "",
-        "duration": 60,
-        "bpm": 85,
-        "key": "A minor",
-        "instrumentalWeight": 1,
-        "vocalWeight": 0,
-        "seed": 7
-      }
-    }
-  ]
-}
-```
-
 <RecipeRun :body="instrumentalBody" :wait="60" />
 
 ## Audio with cover image (MP4 output)

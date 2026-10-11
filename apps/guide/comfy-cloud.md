@@ -508,11 +508,8 @@ npm run dev:harness           # mock host — recipe sample runs, no backend
 npm test                      # exercises BOTH body builders
 ```
 
-The inline builder is not on the scaffold's mode toggle yet: the mock host in the
-pinned `@civitai/blocks-react` reads `body.params.accountType` unconditionally
-and an inline body has no `params`, so driving it through the harness throws.
-That is a mock-host limitation, and it does **not** affect live civitai.com —
-the scaffold's README spells out the wiring.
+The inline builder is not on the scaffold's mode toggle yet; the scaffold's
+README spells out the wiring.
 
 Real generation needs closed-beta access (and a page app — `customComfy` is
 page-only on both arms) and `npm run dev:live` / a submitted app; see the

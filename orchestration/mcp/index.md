@@ -32,9 +32,7 @@ Every request needs a valid token; requests without one are rejected with `401`.
 
 ### Claude Desktop
 
-Add the server to `claude_desktop_config.json` (open it with **Settings → Developer → Edit Config**), then restart Claude Desktop:
-
-<McpConfigBlock kind="json" url="https://orchestration.civitai.com/mcp/v2" />
+Claude Desktop connects to a remote server as a **custom connector**, the same way as [claude.ai](#claude-ai) below. Its `claude_desktop_config.json` is for local (command-based) servers, not a remote URL.
 
 ### claude.ai
 

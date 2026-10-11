@@ -284,8 +284,8 @@ Content-Type: application/json
 }
 ```
 
-::: warning Supply your own edit dataset
-The `https://example.com/…` URLs above are placeholders. Replace `trainingData.sourceUrl` with your own edit-training zip (laid out as described above, and addressed as the [Prerequisites](#prerequisites) describe), set `count` to its number of `main/` entries, and replace `samples.sourceImages` with your own reference image URLs before submitting.
+::: warning Placeholder URLs
+Replace the `https://example.com/…` URLs with your own edit-training zip and reference images before submitting.
 :::
 
 <!-- test-skip: the edit dataset and source images are reader-supplied placeholders -->

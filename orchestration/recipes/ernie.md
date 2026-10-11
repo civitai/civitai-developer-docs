@@ -71,7 +71,7 @@ Baidu's ERNIE Image is a distillation-friendly text-to-image family hosted on Ci
 | `model` | Steps (default) | `cfgScale` (default) | Best for |
 |---------|-----------------|----------------------|----------|
 | `ernie` | `20` | `4` | **Default** — full-quality output, standard sampling |
-| `turbo` | `8` | `1` | Distilled for speed — 3–4× faster and ~⅓ the Buzz per image; use for drafts, batches, and iteration |
+| `turbo` | `8` | `1` | Distilled for speed — 3–4× faster and ~40% of the Buzz per image (8 vs 20 at defaults); use for drafts, batches, and iteration |
 
 Leave `cfgScale: 1` on `turbo` — it's a distilled model and doesn't respond to classifier-free guidance the way the standard variant does.
 

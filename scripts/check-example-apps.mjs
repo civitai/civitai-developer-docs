@@ -60,7 +60,7 @@
  *        construction rather than by luck. See the floor's note below.
  *     3. The page's own claims about itself agree with what it links: every
  *        count it states ("eight", "all eight", the ZacxDev/civitai account
- *        split, the restated floor), and every same-page `#anchor` resolving to
+ *        split, "each of the eight"), and every same-page `#anchor` resolving to
  *        a heading that is still there. Nothing else reads those, and VitePress
  *        checks routes rather than fragments.
  *
@@ -1578,11 +1578,11 @@ function cardinal(token) {
  *
  * Five exist today (the starters count in the intro, the external-repositories
  * intro, the account split, the Verified line and the "Keeping this list
- * honest" summary; the `naming N repositories` and floor-restatement patterns
- * are kept for older wordings). The floor is 5: headroom to drop one
- * sentence deliberately, no headroom to lose all of them silently. If a reword
- * breaks a pattern, WIDEN THE PATTERN — editing this constant down to get green
- * is how the whole check evaporates.
+ * honest" summary). The floor is 5, equal to that count, so there is NO
+ * headroom: a change that drops or rewords one of those sentences must add or
+ * widen the pattern for its replacement in the same commit. If a reword breaks
+ * a pattern, WIDEN THE PATTERN — editing this constant down to get green is how
+ * the whole check evaporates.
  */
 const MIN_PAGE_CLAIMS = 5;
 
@@ -1599,7 +1599,6 @@ const MIN_PAGE_CLAIMS = 5;
  *   - the split BY OWNER (`seven … ZacxDev … one … civitai`) of those external
  *     repositories, which is a claim about the set's composition and not merely
  *     its size;
- *   - MIN_EXAMPLE_REPOS, the floor this script enforces, restated in prose.
  */
 export function checkPageClaims(markdown, entries, sections = []) {
   const prose = markdown.replace(/\s+/g, ' ');
@@ -1645,22 +1644,10 @@ export function checkPageClaims(markdown, entries, sections = []) {
       unit: 'external repositories linked on the page',
     },
     {
-      re: rx('\\bnaming #N# (?:external )?repositories\\b'),
-      what: '"Keeping this list honest"',
-      want: () => total,
-      unit: 'external repositories linked on the page',
-    },
-    {
       re: rx('\\beach of the #N# external repositories\\b'),
       what: 'the "Keeping this list honest" summary',
       want: () => total,
       unit: 'external repositories linked on the page',
-    },
-    {
-      re: rx('\\bat least #N# repositories\\b'),
-      what: 'the restated floor',
-      want: () => MIN_EXAMPLE_REPOS,
-      unit: 'MIN_EXAMPLE_REPOS in this script',
     },
   ];
 

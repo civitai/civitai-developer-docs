@@ -6,9 +6,12 @@ description: Generated-from-source reference for Civitai Apps — scopes, manife
 # Reference
 
 The pages in this section are **regenerated from pinned sources** on every build,
-rather than hand-maintained. Each page states its exact source at the top. They
-describe the pinned release of each source, so a change upstream reaches these
-pages when the site moves to that release.
+rather than hand-maintained. Each page states its exact source at the top.
+Manifest, Hooks and the Messages payload shapes follow pinned `@civitai/*`
+package releases; Scopes, the Messages page-only flags, Components and the CLI
+follow committed snapshots of their sources (the `civitai` repo's constants, the
+`@civitai/components` markup contract and the CLI's `--help`). Either way, an upstream change reaches these pages when the
+site re-pins or re-snapshots.
 
 | Page | What it covers | Source of truth |
 |------|----------------|-----------------|

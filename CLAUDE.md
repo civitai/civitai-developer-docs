@@ -89,8 +89,6 @@ The auth token is shared between AuthBar and the vitepress-openapi playground (b
 
 ### App Blocks reference sources (`apps/reference/`)
 
-Moved here from the published `apps/reference/index.md`, which now carries only the reader-facing summary.
-
 The reference artifacts are produced by `scripts/gen-appblocks-*.mjs` into a gitignored `public/appblocks/`; `npm run gen:appblocks` (wired into `predev` / `prebuild`) rebuilds them from the pinned SDK packages and the `civitai` contract sources. Regeneration is automatic, but the **sources** are pinned, so an upstream change reaches the pages only after a maintainer refreshes the relevant pin or snapshot:
 
 | Page(s) | Source in CI | Refresh action |
@@ -102,6 +100,8 @@ The reference artifacts are produced by `scripts/gen-appblocks-*.mjs` into a git
 | Scopes + the Messages page-only / request-reply flags | committed `appblocks-snapshots/` (CI has no `civitai` checkout) | Re-copy the 3 snapshot files from `civitai@origin/main` (`block-scope.constants.ts`, `scope-descriptions.constants.ts`, `hostHandlerParity.ts`). |
 
 On a machine with the `civitai` sibling repo checked out, the scopes / messages-parity generators read `civitai@origin/main` directly and fall back to the snapshot only when it is absent, so those snapshots are the CI-hermetic copy, not the live source.
+
+The pinned SDK versions are the `@civitai/*` devDependencies in `package.json` (`@civitai/app-sdk` for messages, scopes metadata and the manifest schema; `@civitai/blocks-react` for hooks). Bumping a pin there is the one-line change that flows through to every SDK-derived page; read versions from `package.json`, not from any page.
 
 Drift is detected on the daily `appblocks-drift.yml` schedule: `npm run check:pins` (a pinned SDK devDep lags npm `latest`), `npm run check:snapshots` (a committed snapshot lags the upstream contract) and `npm run check:cli-snapshot` (the committed `--help` capture lags the latest `civitai/cli` release). Separately, `npm run test:appblocks:cli` blocks a PR when the CLI gains an `app` subcommand the generator does not list.
 

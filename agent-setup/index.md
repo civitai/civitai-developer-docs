@@ -19,8 +19,8 @@ That address is a short alias. It redirects to the raw instruction file at
 The agent fetches the instructions, installs the
 [Civitai CLI](https://github.com/civitai/cli), runs `civitai agent-setup`, and
 reports what it did. It stops before authentication: the last thing it does is
-show you the sign-in steps for your agent (the `Authentication:` section that
-`civitai agent-setup` prints) for you to run yourself.
+show you the sign-in steps for your agent (the `Authentication:` and `Next:`
+sections that `civitai agent-setup` prints) for you to run yourself.
 
 ## What it actually does
 
@@ -232,9 +232,9 @@ civitai agent-setup --track app
 civitai agent-setup --check --json
 ```
 
-Then follow the `Authentication:` section that `civitai agent-setup --track app`
-printed. It is specific to your agent: `civitai login` on its own signs in this
-CLI, not your agent's MCP servers. Then restart your agent so the MCP servers
+Then follow the `Authentication:` and `Next:` sections that
+`civitai agent-setup --track app` printed. They are specific to your agent:
+`civitai login` on its own signs in this CLI, not your agent's MCP servers. Then restart your agent so the MCP servers
 load.
 
 Building an app is documented in the [Apps guide](/apps/guide/); the manifest,

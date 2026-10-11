@@ -327,7 +327,7 @@ To resume from a LoRA you already trained instead of starting from the base chec
 
 ## Reading the result
 
-Submitting with `wait=0` returns immediately with `status: processing`. Poll [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) (or use a webhook — see [Results & webhooks](/orchestration/guide/results-and-webhooks)) until the step settles. The step reports an `epochs[]` array with one entry per saved epoch (set by `epochs`, default `10`) — where `model.available` tells you whether that checkpoint has been saved yet. Each available entry contains the trained LoRA blob and any sample images:
+Submitting with `wait=0` returns immediately with `status: processing`. Poll [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) (or use a webhook — see [Results & webhooks](/orchestration/guide/results-and-webhooks)) until the step settles. The step reports an `epochs[]` array with one entry per saved epoch (set by `epochs`; when it is omitted, `round(steps / 200)`, and `10` if neither is set) — where `model.available` tells you whether that checkpoint has been saved yet. Each available entry contains the trained LoRA blob and any sample images:
 
 ```json
 {

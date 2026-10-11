@@ -26,10 +26,11 @@ Items are [`ResourceInfo`](/orchestration/reference/operations/GetResource), the
 
 The fleet holds **hundreds of thousands** of loaded resources. The overwhelming majority are not
 models: they are input images, sample images and other generated artifacts that passed through a
-workflow. Ask for all of them and you get a `400` telling you how many matched, so you can narrow:
+workflow. When more than 50,000 resources match on one provider, the request is refused with a
+`400` saying how many matched, so you can narrow:
 
-```json
-{ "status": 400, "title": "250000 resources match. Narrow the query with type, source or minSizeBytes." }
+```
+{N} resources match on one provider. Narrow the query with type, source or minSizeBytes.
 ```
 
 The filters compose with AND. Each repeatable one is OR'd within itself, and they apply to

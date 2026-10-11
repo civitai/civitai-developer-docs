@@ -40,9 +40,13 @@ claude mcp add --transport http civitai https://mcp.civitai.com/mcp \
   --header "Authorization: Bearer YOUR_CIVITAI_API_KEY"
 ```
 
-### Claude Desktop / Cursor / VS Code
+### Claude Desktop
 
-Add the server to your client's `mcp.json` (or `claude_desktop_config.json` for Claude Desktop, opened with **Settings → Developer → Edit Config**), then restart:
+Claude Desktop connects to a remote server as a **custom connector**, the same way as [claude.ai](#claude-ai) below. Its `claude_desktop_config.json` is for local (command-based) servers, not a remote URL.
+
+### Cursor / VS Code
+
+Add the server to your client's `mcp.json`, then restart:
 
 <McpConfigBlock kind="json" url="https://mcp.civitai.com/mcp" serverName="civitai" />
 

@@ -74,7 +74,7 @@ The `code` is single-use, valid for 10 minutes.
 |---:|---|---|
 | 400 | `invalid_request` | Missing required param, bad `redirect_uri`, missing or non-S256 PKCE, missing state. |
 | 400 | `invalid_client` | `client_id` doesn't exist. |
-| 400 | `invalid_scope` | Scope is not a non-negative integer made of defined scope bits (`Full` plus the opt-in bits). |
+| 400 | `invalid_scope` | Scope is not a non-negative integer within the defined scope bits (`Full` plus the opt-in bits 25–28), or it includes `AppStoreCatalogWrite`, which a user cannot grant. |
 | 429 | _rate_limit_ | More than **10 requests / minute / user**. |
 
 ### CORS
