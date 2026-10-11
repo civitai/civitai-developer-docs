@@ -48,6 +48,7 @@
     "check:md-regions": "node scripts/check-appblocks-md.mjs",
     "check:porting-hooks": "node scripts/check-porting-hook-coverage.mjs",
     "check:goods-item-parity": "node scripts/check-goods-item-parity.mjs",
+    "check:showcase-coverage": "node scripts/check-showcase-coverage.mjs",
     "check:built-site": "node scripts/check-built-site.mjs",
     "check:agent-md": "node scripts/check-agent-md.mjs",
     "test:tokens:drift": "node scripts/test-tokens-drift.mjs",

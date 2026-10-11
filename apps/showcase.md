@@ -1,92 +1,99 @@
+---
+title: Component showcase
+description: Every <civitai-*> custom element in @civitai/components, live and themed, component by component — with the CSS-only data-civitai-ui markup as the no-JavaScript fallback where the stylesheet has an equivalent.
+---
+
 # Component showcase
 
-A live gallery of every component in **`@civitai/components`** — the
-framework-agnostic, dual-consumption design system that powers Civitai App
-Blocks. Each demo renders **live and fully themed** (painted by the *published*
-`@civitai/theme` + `@civitai/components` CSS a real consumer installs), above a
-source panel you can toggle between the **framework-agnostic HTML** and the
-**`@civitai/components-react`** binding.
+A live tour of **`@civitai/components`**, component by component. Every section
+leads with the **`<civitai-*>` custom element** — the default way to build a
+Civitai App's UI, and what `civitai app init` scaffolds. The elements style
+themselves in shadow DOM, inject the `@civitai/theme` tokens on first use and
+carry their own keyboard and ARIA behaviour.
 
-- **HTML** authors follow the `data-civitai-ui` markup contract (see the
-  [Components reference](/apps/reference/components)) and load the two
-  stylesheets below.
-- **React** authors use `@civitai/components-react` — `@lit/react` bindings
-  around the `<civitai-*>` custom elements. Since `0.9.0` those bindings bind
-  the elements, **not** the markup contract: the elements style themselves in
-  shadow DOM and inject the `@civitai/theme` tokens on first mount, so there is
-  no stylesheet to load and no second renderer of the contract. Handlers receive
-  the **DOM event**, not an extracted value — `onChange={(e) => e.target.value}`.
+Where the package's stylesheet has the same component, a collapsed
+**CSS-only / no-JS** panel under the element shows it as hand-written
+`data-civitai-ui` markup. Reach for that only when a page must run no
+JavaScript: the markup is styling and nothing else, so focus handling, keyboard
+navigation and ARIA state are yours to write. A few sections carry no such panel
+— those elements have no stylesheet equivalent.
 
-🔴 **A binding prop is assigned as a PROPERTY on every render.** `@lit/react`'s
-prop effect carries no dependency array (*"it'll run on every re-render"*) and
-deliberately skips dirty checking, so a hard-coded `value="…"` or `checked` on a
-binding **re-asserts itself and discards what the viewer typed** the next time the
-enclosing component renders. That is why the React arms below set no starting
-value.
+Every preview is rendered from the code shown under it and follows the site's
+light/dark switch.
 
-Starting values and form-reset behaviour differ between React 18 and React 19, and
-this page deliberately does not characterise them — read the element's own `value`
-docstring (`@civitai/components/dist/elements/field-base.d.ts`) and test against
-the React major you ship.
+::: tip Setup
+**Elements** — one script tag, or one import with a bundler:
 
-<!-- 🔴 DO NOT DERIVE A FIFTH VERSION OF THE PARAGRAPH THAT USED TO SIT HERE.
-     Four consecutive audit rounds each found the PREVIOUS round's replacement
-     wrong. Every one was a confident explanation of how to get a reset-correct
-     default, written under pressure to supply a reason:
-       1. "React's `defaultValue` is a DOM attribute the element never reads" —
-          the conclusion held, the mechanism was wrong: React 18 treats
-          `defaultValue` as a RESERVED prop and never writes it at all.
-       2. "write the `<civitai-*>` tag so it lands as an attribute" — true on
-          React 18, FALSE on React 19 (property when the element has one), and
-          BOTH majors are in `@civitai/components-react`'s peer range.
-       3. "`value` reflects only on `civitai-checkbox`, so for the fields the
-          property is all there is" — wrong twice. It reflects on five elements
-          (checkbox, switch, tabs, menu-item, progress), and the follow-on was
-          false outright: `CivitaiField` declares `value: {}`, so the ATTRIBUTE is
-          observed on every field element — `field-base.d.ts` says "The `value`
-          ATTRIBUTE is the default, as on a native input". What the fields lack is
-          REFLECTION (property -> attribute), which is a different thing. That
-          draft also told the reader to derive the list from
-          `custom-elements.json`, which cannot settle it: the manifest carries no
-          `CivitaiField` declaration, so it lists no `value` on the fields.
-       4. "no React route gives you one — set the attribute yourself,
-          `ref={(el) => el?.setAttribute('value', '30')}`" — wrong twice again. A
-          raw tag under React 18 both sets the attribute and survives re-renders,
-          so a working React route does exist there; and the inline-arrow ref
-          REPRODUCES the defect this callout warns about, because @lit/react
-          forwards the user ref through `useCallback(cb, [r])` — a new arrow each
-          render detaches and reattaches, re-running setAttribute and re-asserting
-          the stale value.
-     The verified claim is the first paragraph above, measured twice in a real
-     browser. Everything past it was a characterisation nobody had measured across
-     both React majors. If you need to document defaults, MEASURE the major you
-     ship first and say which one you measured. -->
+```html
+<script type="module" src="https://cdn.jsdelivr.net/npm/@civitai/components/site-elements.js"></script>
+```
 
-The previews re-theme with the site: toggle the header's light/dark switch and
-every `--civitai-*` token re-resolves in place. The React snippets below are
-type-checked against the pinned `@civitai/components-react@0.9.1` declarations on
-every build, so they can't drift from the shipped API.
+```ts
+import '@civitai/components/register-site';
+```
 
-::: tip Setup — the HTML path
-The React bindings need neither of these (the elements self-style and inject the
-tokens). For hand-written markup, load the tokens **and** the component CSS
-(order-independent):
+That defines every element except `<civitai-sign-in-button>` and
+`<civitai-workflow-button>` — see [Acting as the viewer](#acting-as-the-viewer).
+In a block, [Using the elements in a block](./guide/elements#register-the-elements)
+has which import defines which elements.
+
+**CSS-only** — load the tokens and the component stylesheet (order-independent),
+then set `data-theme="light"` or `data-theme="dark"` on any ancestor:
 
 ```html
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@civitai/theme/styles.css" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@civitai/components/styles.css" />
 ```
 
-Then set `data-theme="light"` or `data-theme="dark"` on any ancestor. From JS,
-`import { injectStyles } from '@civitai/components'; injectStyles()` injects both
-idempotently.
+The markup contract is in the [Components reference](/apps/reference/components).
 :::
+
+Using React? `@civitai/components-react` wraps these same elements as typed
+components — see [Themed components in React](./guide/theming#themed-components-in-react).
 
 ## Button
 
-Native `<button>` (ref-forwarded in React). `data-variant`:
-`filled` · `light` · `outline` · `subtle`. `data-size`: `sm` · `md` · `lg`.
-Loading sets `aria-busy` + `disabled` and prepends a `sm` loader.
+`variant`: `filled` · `light` · `outline` · `subtle`. `size`: `sm` · `md` · `lg`.
+`loading` shows a spinner and disables the button. `<civitai-button-group>`
+joins its buttons into one control.
+
+<ElementDemo title="Button" tags="civitai-button civitai-button-group">
+
+<template #html>
+
+```html
+<civitai-stack gap="md">
+  <civitai-group gap="sm">
+    <civitai-button variant="filled">Filled</civitai-button>
+    <civitai-button variant="light">Light</civitai-button>
+    <civitai-button variant="outline">Outline</civitai-button>
+    <civitai-button variant="subtle">Subtle</civitai-button>
+  </civitai-group>
+  <civitai-group gap="sm">
+    <civitai-button size="sm">Small</civitai-button>
+    <civitai-button size="md">Medium</civitai-button>
+    <civitai-button size="lg">Large</civitai-button>
+  </civitai-group>
+  <civitai-group gap="sm">
+    <civitai-button variant="filled" loading>Saving…</civitai-button>
+    <civitai-button variant="outline" disabled>Disabled</civitai-button>
+    <civitai-button>Next<span slot="right">&rarr;</span></civitai-button>
+  </civitai-group>
+  <civitai-button-group aria-label="Alignment">
+    <civitai-button variant="outline">Left</civitai-button>
+    <civitai-button variant="outline">Center</civitai-button>
+    <civitai-button variant="outline">Right</civitai-button>
+  </civitai-button-group>
+</civitai-stack>
+```
+
+</template>
+
+</ElementDemo>
+
+::: details CSS-only / no-JS: data-civitai-ui="button"
+A native `<button>`. Loading is `aria-busy` + `disabled` with a `sm` loader
+prepended. There is no button-group in the stylesheet.
 
 <ComponentDemo title="Button" ui="button">
 
@@ -117,39 +124,47 @@ Loading sets `aria-busy` + `disabled` and prepends a `sm` loader.
 
 </template>
 
-<template #react>
+</ComponentDemo>
 
-```tsx
-import { CivitaiButton, CivitaiGroup, CivitaiStack } from '@civitai/components-react';
+:::
 
-<CivitaiStack gap="md">
-  <CivitaiGroup gap="sm">
-    <CivitaiButton variant="filled">Filled</CivitaiButton>
-    <CivitaiButton variant="light">Light</CivitaiButton>
-    <CivitaiButton variant="outline">Outline</CivitaiButton>
-    <CivitaiButton variant="subtle">Subtle</CivitaiButton>
-  </CivitaiGroup>
-  <CivitaiGroup gap="sm">
-    <CivitaiButton size="sm">Small</CivitaiButton>
-    <CivitaiButton size="md">Medium</CivitaiButton>
-    <CivitaiButton size="lg">Large</CivitaiButton>
-  </CivitaiGroup>
-  <CivitaiGroup gap="sm">
-    <CivitaiButton variant="filled" loading>Saving…</CivitaiButton>
-    <CivitaiButton variant="outline" disabled>Disabled</CivitaiButton>
-  </CivitaiGroup>
-</CivitaiStack>;
+## Badge
+
+`variant`: `filled` · `light` · `outline`. `size`: `sm` · `md` · `lg`. `color`:
+`info` · `success` · `warning` · `error` — omit it for the primary accent. If a
+badge conveys status, give it an `aria-label`.
+
+<ElementDemo title="Badge" tags="civitai-badge">
+
+<template #html>
+
+```html
+<civitai-stack gap="md">
+  <civitai-group gap="sm">
+    <civitai-badge variant="filled">Filled</civitai-badge>
+    <civitai-badge variant="light">Light</civitai-badge>
+    <civitai-badge variant="outline">Outline</civitai-badge>
+  </civitai-group>
+  <civitai-group gap="sm">
+    <civitai-badge color="info">Info</civitai-badge>
+    <civitai-badge color="success">Success</civitai-badge>
+    <civitai-badge color="warning">Warning</civitai-badge>
+    <civitai-badge color="error">Error</civitai-badge>
+  </civitai-group>
+  <civitai-group gap="sm">
+    <civitai-badge variant="light" size="sm">Small</civitai-badge>
+    <civitai-badge variant="light" size="md">Medium</civitai-badge>
+    <civitai-badge variant="light" size="lg">Large</civitai-badge>
+  </civitai-group>
+</civitai-stack>
 ```
 
 </template>
 
-</ComponentDemo>
+</ElementDemo>
 
-## Badge
-
-Presentational `<span>`. `data-variant`: `filled` · `light` · `outline`.
-`data-size`: `sm` · `md` · `lg`. `data-color` (new in 0.1.2): `info` ·
-`success` · `warning` · `error` — omit it for the default primary accent.
+::: details CSS-only / no-JS: data-civitai-ui="badge"
+A presentational `<span>`.
 
 <ComponentDemo title="Badge" ui="badge">
 
@@ -178,41 +193,36 @@ Presentational `<span>`. `data-variant`: `filled` · `light` · `outline`.
 
 </template>
 
-<template #react>
+</ComponentDemo>
 
-```tsx
-import { CivitaiBadge, CivitaiGroup, CivitaiStack } from '@civitai/components-react';
+:::
 
-<CivitaiStack gap="md">
-  <CivitaiGroup gap="sm">
-    <CivitaiBadge variant="filled" size="md">Filled</CivitaiBadge>
-    <CivitaiBadge variant="light" size="md">Light</CivitaiBadge>
-    <CivitaiBadge variant="outline" size="md">Outline</CivitaiBadge>
-  </CivitaiGroup>
-  <CivitaiGroup gap="sm">
-    <CivitaiBadge variant="filled" color="info" size="md">Info</CivitaiBadge>
-    <CivitaiBadge variant="filled" color="success" size="md">Success</CivitaiBadge>
-    <CivitaiBadge variant="filled" color="warning" size="md">Warning</CivitaiBadge>
-    <CivitaiBadge variant="filled" color="error" size="md">Error</CivitaiBadge>
-  </CivitaiGroup>
-  <CivitaiGroup gap="sm">
-    <CivitaiBadge variant="light" size="sm">Small</CivitaiBadge>
-    <CivitaiBadge variant="light" size="md">Medium</CivitaiBadge>
-    <CivitaiBadge variant="light" size="lg">Large</CivitaiBadge>
-  </CivitaiGroup>
-</CivitaiStack>;
+## Alert
+
+`color`: `info` (default) · `success` · `warning` · `error`. `heading` adds a
+title; `closable` adds a dismiss button, which fires `close`.
+
+<ElementDemo title="Alert" tags="civitai-alert">
+
+<template #html>
+
+```html
+<civitai-stack gap="sm">
+  <civitai-alert heading="Heads up">A new model version is available.</civitai-alert>
+  <civitai-alert color="success" heading="Saved" closable>Your changes are live.</civitai-alert>
+  <civitai-alert color="warning">Approaching your Buzz limit.</civitai-alert>
+  <civitai-alert color="error" heading="Generation failed">The provider rejected the request.</civitai-alert>
+</civitai-stack>
 ```
 
 </template>
 
-</ComponentDemo>
+</ElementDemo>
 
-## Alert
-
-`data-civitai-ui="alert"` with **`role="alert"`** (use `role="status"` for
-non-urgent). `data-color`: `info` (default) · `success` · `warning` · `error`.
-The body lives in `data-civitai-ui-alert-body`, with an optional
-`data-civitai-ui-alert-title` and an optional dismiss button.
+::: details CSS-only / no-JS: data-civitai-ui="alert"
+Put `role="alert"` on the wrapper (`role="status"` for non-urgent). The body
+lives in `data-civitai-ui-alert-body`, with an optional
+`data-civitai-ui-alert-title`; a dismiss button needs your own handler.
 
 <ComponentDemo title="Alert" ui="alert">
 
@@ -247,34 +257,101 @@ The body lives in `data-civitai-ui-alert-body`, with an optional
 
 </template>
 
-<template #react>
+</ComponentDemo>
 
-```tsx
-import { CivitaiAlert, CivitaiStack } from '@civitai/components-react';
+:::
 
-<CivitaiStack gap="sm">
-  <CivitaiAlert color="info" heading="Heads up">
-    A new model version is available.
-  </CivitaiAlert>
-  <CivitaiAlert color="success" heading="Saved" closable>
-    Your changes are live.
-  </CivitaiAlert>
-  <CivitaiAlert color="warning">Approaching your Buzz limit.</CivitaiAlert>
-  <CivitaiAlert color="error" heading="Generation failed">
-    The provider rejected the request.
-  </CivitaiAlert>
-</CivitaiStack>;
+## Loader and progress
+
+`<civitai-loader>` is a spinner: `size` `sm` · `md` · `lg`, and `label` names it
+for screen readers. `<civitai-progress>` is a bar: `value` out of `max`
+(default 100), `show-value` prints the percentage, and `indeterminate` animates
+it when there is no number to show.
+
+<ElementDemo title="Loader and progress" tags="civitai-loader civitai-progress">
+
+<template #html>
+
+```html
+<civitai-stack gap="md">
+  <civitai-group gap="lg">
+    <civitai-loader size="sm" label="Loading"></civitai-loader>
+    <civitai-loader size="md" label="Loading"></civitai-loader>
+    <civitai-loader size="lg" label="Loading"></civitai-loader>
+  </civitai-group>
+  <civitai-progress label="Generating" value="64" show-value></civitai-progress>
+  <civitai-progress label="Preparing" indeterminate color="warning"></civitai-progress>
+</civitai-stack>
+```
+
+</template>
+
+</ElementDemo>
+
+::: details CSS-only / no-JS: data-civitai-ui="loader"
+Decorative inside a button → `aria-hidden="true"`; standalone → wrap it in
+`role="status"` with a visually hidden label. There is no progress bar in the
+stylesheet.
+
+<ComponentDemo title="Loader" ui="loader">
+
+<template #html>
+
+```html
+<div data-civitai-ui="group" data-gap="lg">
+  <span data-civitai-ui="loader" data-size="sm"></span>
+  <span data-civitai-ui="loader" data-size="md"></span>
+  <span data-civitai-ui="loader" data-size="lg"></span>
+  <span role="status">
+    <span data-civitai-ui="loader" data-size="md" aria-hidden="true"></span>
+    <span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Loading…</span>
+  </span>
+</div>
 ```
 
 </template>
 
 </ComponentDemo>
 
+:::
+
 ## TextInput
 
-Labeled `<input>`. The wrapper carries `data-civitai-ui="text-input"`; the label
-is wired via `for`/`id`, help text via `aria-describedby`, and the invalid state
-via `aria-invalid="true"` + `data-invalid="true"` on the wrapper.
+`label`, `description`, `required`, `disabled` and `error` work on every field
+element — text-input, textarea, number-input, select, checkbox, switch, slider,
+radio-group and segmented-control — and every field is form-associated: `name`,
+`FormData` and `form.reset()` work as on a native input. Setting `error` also
+marks the field invalid. `placeholder` reaches the input only on
+`<civitai-text-input>`, `<civitai-textarea>` and `<civitai-number-input>`;
+`<civitai-select>` renders it as a disabled first option shown while nothing is
+chosen, and the other fields ignore it. `readonly` works only on
+`<civitai-text-input>` and `<civitai-textarea>` — elsewhere it leaves the control
+editable. `<civitai-input-group>` joins fields, buttons and
+`data-affix` text into one row.
+
+<ElementDemo title="TextInput" tags="civitai-text-input civitai-input-group">
+
+<template #html>
+
+```html
+<civitai-stack gap="md">
+  <civitai-text-input label="Display name" description="Shown on your profile." required></civitai-text-input>
+  <civitai-text-input label="Email" value="not-an-email" error="Enter a valid email address."></civitai-text-input>
+  <civitai-input-group>
+    <civitai-text-input aria-label="Search models" placeholder="Search models"></civitai-text-input>
+    <civitai-button>Search</civitai-button>
+  </civitai-input-group>
+</civitai-stack>
+```
+
+</template>
+
+</ElementDemo>
+
+::: details CSS-only / no-JS: data-civitai-ui="text-input"
+The label is wired by `for`/`id`, help text by `aria-describedby`, and the
+invalid state by `aria-invalid="true"` plus `data-invalid="true"` on the
+wrapper. There is no input-group in the stylesheet.
 
 <ComponentDemo title="TextInput" ui="text-input">
 
@@ -300,32 +377,29 @@ via `aria-invalid="true"` + `data-invalid="true"` on the wrapper.
 
 </template>
 
-<template #react>
+</ComponentDemo>
 
-```tsx
-import { CivitaiTextInput, CivitaiStack } from '@civitai/components-react';
+:::
 
-<CivitaiStack gap="md">
-  <CivitaiTextInput
-    label="Display name"
-    description="Shown on your profile."
-    required
-  />
-  <CivitaiTextInput
-    label="Email"
-    error="Enter a valid email address."
-  />
-</CivitaiStack>;
+## Textarea
+
+The same field as TextInput over a resizable `<textarea>`; `rows` sets its
+starting height.
+
+<ElementDemo title="Textarea" tags="civitai-textarea">
+
+<template #html>
+
+```html
+<civitai-textarea label="Prompt" description="Describe what you want to generate." rows="3"
+  value="a serene alpine lake at dawn"></civitai-textarea>
 ```
 
 </template>
 
-</ComponentDemo>
+</ElementDemo>
 
-## Textarea
-
-Identical to TextInput, but the control is a resizable `<textarea>`.
-
+::: details CSS-only / no-JS: data-civitai-ui="textarea"
 <ComponentDemo title="Textarea" ui="textarea">
 
 <template #html>
@@ -340,27 +414,30 @@ Identical to TextInput, but the control is a resizable `<textarea>`.
 
 </template>
 
-<template #react>
+</ComponentDemo>
 
-```tsx
-import { CivitaiTextarea } from '@civitai/components-react';
+:::
 
-<CivitaiTextarea
-  label="Prompt"
-  description="Describe what you want to generate."
-  rows={3}
-  placeholder="a serene alpine lake at dawn"
-/>;
+## NumberInput
+
+The same field over `<input type="number">`, with `min`, `max` and `step`.
+
+<ElementDemo title="NumberInput" tags="civitai-number-input">
+
+<template #html>
+
+```html
+<civitai-group gap="md" style="align-items: flex-start">
+  <civitai-number-input label="Steps" description="Sampling steps (1–50)." value="30" min="1" max="50"></civitai-number-input>
+  <civitai-number-input label="CFG scale" value="99" max="20" error="Max is 20"></civitai-number-input>
+</civitai-group>
 ```
 
 </template>
 
-</ComponentDemo>
+</ElementDemo>
 
-## NumberInput
-
-Identical to TextInput; the control is `<input type="number">`.
-
+::: details CSS-only / no-JS: data-civitai-ui="number-input"
 <ComponentDemo title="NumberInput" ui="number-input">
 
 <template #html>
@@ -375,30 +452,43 @@ Identical to TextInput; the control is `<input type="number">`.
 
 </template>
 
-<template #react>
+</ComponentDemo>
 
-```tsx
-import { CivitaiNumberInput } from '@civitai/components-react';
+:::
 
-<CivitaiNumberInput
-  label="Steps"
-  description="Sampling steps (1–50)."
-  placeholder="30"
-  min="1"
-  max="50"
-/>;
+## Select
+
+A labelled select. Its options are a `data` **property** — an attribute cannot
+carry an array — of `{ value, label, disabled? }`.
+
+<ElementDemo title="Select" tags="civitai-select">
+
+<template #html>
+
+```html
+<civitai-select label="Base model" description="Determines available samplers."
+  placeholder="Pick a base model" value="flux"></civitai-select>
 ```
 
 </template>
 
-</ComponentDemo>
+<template #js>
 
-## Select
+```js
+document.querySelector('civitai-select').data = [
+  { value: 'sdxl', label: 'SDXL 1.0' },
+  { value: 'flux', label: 'Flux.1 dev' },
+  { value: 'sd15', label: 'SD 1.5 (retired)', disabled: true },
+];
+```
 
-Labeled native `<select>` — the same field chrome as TextInput, with the
-control being a `<select data-civitai-ui-control>` (the native disclosure caret
-is retained). This is the framework-agnostic **native** select, not the
-interactive JS Select from `@civitai/blocks-react`.
+</template>
+
+</ElementDemo>
+
+::: details CSS-only / no-JS: data-civitai-ui="select"
+The field chrome over a native `<select data-civitai-ui-control>`, which keeps
+its native disclosure caret.
 
 <ComponentDemo title="Select" ui="select">
 
@@ -418,32 +508,37 @@ interactive JS Select from `@civitai/blocks-react`.
 
 </template>
 
-<template #react>
+</ComponentDemo>
 
-```tsx
-import { CivitaiSelect } from '@civitai/components-react';
+:::
 
-<CivitaiSelect
-  label="Base model"
-  description="Determines available samplers."
-  placeholder="Pick a base model"
-  data={[
-    { value: 'sdxl', label: 'SDXL 1.0' },
-    { value: 'flux', label: 'Flux.1 dev' },
-    { value: 'pony', label: 'Pony Diffusion' },
-  ]}
-/>;
+## Checkbox and switch
+
+`<civitai-checkbox>` and `<civitai-switch>` take `label`, `description`,
+`checked` and `disabled`, and fire `change`; read `checked` from the element.
+
+<ElementDemo title="Checkbox and switch" tags="civitai-checkbox civitai-switch">
+
+<template #html>
+
+```html
+<civitai-stack gap="md">
+  <civitai-checkbox label="Show mature content" description="You can change this later in settings." checked></civitai-checkbox>
+  <civitai-checkbox label="Email me product updates"></civitai-checkbox>
+  <civitai-switch label="Public"></civitai-switch>
+  <civitai-switch label="Locked" checked disabled></civitai-switch>
+</civitai-stack>
 ```
 
 </template>
 
-</ComponentDemo>
+</ElementDemo>
 
-## Checkbox
-
-A themed native checkbox: the box and its label sit inline in a `-choice` row,
-with optional description/error below. `accent-color` carries the theme tint, so
-keyboard, focus and indeterminate states are all native.
+::: details CSS-only / no-JS: data-civitai-ui="checkbox"
+A native checkbox: the box and its label sit inline in a `-choice` row, with
+optional description and error below. `accent-color` carries the theme tint, so
+keyboard, focus and indeterminate states stay native. There is no switch in the
+stylesheet.
 
 <ComponentDemo title="Checkbox" ui="checkbox">
 
@@ -469,32 +564,55 @@ keyboard, focus and indeterminate states are all native.
 
 </template>
 
-<template #react>
+</ComponentDemo>
 
-```tsx
-import { CivitaiCheckbox, CivitaiStack } from '@civitai/components-react';
+:::
 
-<CivitaiStack gap="md">
-  <CivitaiCheckbox
-    label="Show mature content"
-    description="You can change this later in settings."
-  />
-  <CivitaiCheckbox label="Email me product updates" />
-</CivitaiStack>;
+## Radio group
+
+`<civitai-radio-group>` renders a labelled set of radios from its `data`
+property. `orientation="horizontal"` lays them out in a row.
+
+<ElementDemo title="Radio group" tags="civitai-radio-group">
+
+<template #html>
+
+```html
+<civitai-stack gap="md">
+  <civitai-radio-group label="Sampler" value="euler"></civitai-radio-group>
+  <civitai-radio-group label="Speed" orientation="horizontal" value="fast"></civitai-radio-group>
+</civitai-stack>
 ```
 
 </template>
 
-</ComponentDemo>
+<template #js>
 
-## Radio & RadioGroup
+```js
+const [sampler, speed] = document.querySelectorAll('civitai-radio-group');
+sampler.data = [
+  { value: 'euler', label: 'Euler a' },
+  { value: 'ddim', label: 'DDIM' },
+  { value: 'dpm', label: 'DPM++ 2M Karras' },
+];
+speed.data = [
+  { value: 'fast', label: 'Fast' },
+  { value: 'quality', label: 'Quality' },
+];
+```
 
-Themed native radios. A **RadioGroup** wraps a set of **Radio**s in a
-`role="radiogroup"` with a group label; give the children a shared `name` to
-make them one native radio set. `data-orientation="horizontal"` lays the options
-in a row (default is a vertical stack).
+</template>
 
-<ComponentDemo title="Radio & RadioGroup" ui="radio-group">
+</ElementDemo>
+
+::: details CSS-only / no-JS: data-civitai-ui="radio-group" and "radio"
+The stylesheet has two pieces: `radio`, one themed native radio (the checkbox
+row with `type="radio"`), and `radio-group`, the `role="radiogroup"` wrapper with
+a group label. A shared `name` makes the radios one native set. `radio` is the
+one CSS component with no element of its own — `<civitai-radio-group>` renders
+its options for you.
+
+<ComponentDemo title="Radio group" ui="radio-group">
 
 <template #html>
 
@@ -526,33 +644,175 @@ in a row (default is a vertical stack).
 
 </template>
 
-<template #react>
+</ComponentDemo>
 
-```tsx
-import { CivitaiRadioGroup } from '@civitai/components-react';
+:::
 
-<CivitaiRadioGroup
-  label="Sampler"
-  name="sampler"
-  data={[
-    { value: 'euler', label: 'Euler a' },
-    { value: 'ddim', label: 'DDIM' },
-    { value: 'dpm', label: 'DPM++ 2M Karras' },
-  ]}
-/>;
+## Slider
+
+`min`, `max`, `step` and `value` as on a native range input; `show-value` adds a
+read-out of the raw value.
+
+<ElementDemo title="Slider" tags="civitai-slider">
+
+<template #html>
+
+```html
+<civitai-stack gap="md">
+  <civitai-slider label="Steps" description="Sampling steps (1–50)." min="1" max="50" value="20" show-value></civitai-slider>
+  <civitai-slider label="CFG scale" min="1" max="20" step="0.5" value="7" show-value></civitai-slider>
+</civitai-stack>
+```
+
+</template>
+
+</ElementDemo>
+
+::: details CSS-only / no-JS: data-civitai-ui="slider"
+A themed native `<input type="range">`, so keyboard and ARIA come from the
+browser. Like checkbox and radio the input does **not** carry
+`data-civitai-ui-control`. A formatted read-out (`40%`) needs `aria-valuetext`
+on the input to the same string — on either track; `show-value` above prints
+the raw number and sets none.
+
+<ComponentDemo title="Slider" ui="slider">
+
+<template #html>
+
+```html
+<div data-civitai-ui="stack" data-gap="lg">
+  <div data-civitai-ui="slider">
+    <div data-civitai-ui-slider-header>
+      <label data-civitai-ui-label for="steps-range">Steps</label>
+      <output data-civitai-ui-slider-value for="steps-range">20</output>
+    </div>
+    <input type="range" id="steps-range" min="1" max="50" value="20" />
+  </div>
+  <div data-civitai-ui="slider">
+    <div data-civitai-ui-slider-header>
+      <label data-civitai-ui-label for="denoise">Denoise</label>
+      <output data-civitai-ui-slider-value for="denoise">40%</output>
+    </div>
+    <input type="range" id="denoise" min="0" max="100" step="5" value="40" aria-valuetext="40%" />
+  </div>
+</div>
 ```
 
 </template>
 
 </ComponentDemo>
 
+:::
+
+## Segmented control and tabs
+
+Two elements over one look. `<civitai-segmented-control>` picks a value with no
+panels; `<civitai-tabs>` switches `<civitai-tab-panel>` children whose `value`
+matches. Both take their segments as a `data` property and fire `change`.
+
+<ElementDemo title="Segmented control and tabs" tags="civitai-segmented-control civitai-tabs civitai-tab-panel">
+
+<template #html>
+
+```html
+<civitai-stack gap="md">
+  <civitai-segmented-control aria-label="Layout" value="grid"></civitai-segmented-control>
+  <civitai-tabs aria-label="Result view">
+    <civitai-tab-panel value="images"><civitai-card padding="md">Images panel</civitai-card></civitai-tab-panel>
+    <civitai-tab-panel value="videos"><civitai-card padding="md">Videos panel</civitai-card></civitai-tab-panel>
+  </civitai-tabs>
+</civitai-stack>
+```
+
+</template>
+
+<template #js>
+
+```js
+document.querySelector('civitai-segmented-control').data = [
+  { value: 'grid', label: 'Grid' },
+  { value: 'list', label: 'List' },
+  { value: 'map', label: 'Map', disabled: true },
+];
+document.querySelector('civitai-tabs').data = [
+  { value: 'images', label: 'Images' },
+  { value: 'videos', label: 'Videos' },
+];
+```
+
+</template>
+
+</ElementDemo>
+
+::: details CSS-only / no-JS: data-civitai-ui="segmented-control"
+The stylesheet is presentational only: roving `tabindex` and arrow-key
+navigation are **yours to implement**, which is why the elements are the
+recommended path here. Mode `toggle` is `role="radiogroup"` with
+`role="radio"` segments; mode `tabs` is `role="tablist"` with `role="tab"`
+segments pointing at `data-civitai-ui-tabpanel` panels.
+
+<ComponentDemo title="Segmented control" ui="segmented-control">
+
+<template #html>
+
+```html
+<div data-civitai-ui="stack" data-gap="lg">
+  <div data-civitai-ui="segmented-control" role="radiogroup" aria-label="Layout" data-size="md">
+    <button data-civitai-ui-segment role="radio" aria-checked="true" tabindex="0">Grid</button>
+    <button data-civitai-ui-segment role="radio" aria-checked="false" tabindex="-1">List</button>
+    <button data-civitai-ui-segment role="radio" aria-checked="false" tabindex="-1" disabled>Map</button>
+  </div>
+  <div data-civitai-ui="stack" data-gap="sm">
+    <div data-civitai-ui="segmented-control" role="tablist" aria-label="Result view" data-size="sm">
+      <button data-civitai-ui-segment role="tab" id="t-images" aria-selected="true"
+              aria-controls="p-images" tabindex="0">Images</button>
+      <button data-civitai-ui-segment role="tab" id="t-videos" aria-selected="false"
+              aria-controls="p-videos" tabindex="-1">Videos</button>
+    </div>
+    <div data-civitai-ui-tabpanel role="tabpanel" id="p-images" aria-labelledby="t-images" tabindex="0">Images panel</div>
+    <div data-civitai-ui-tabpanel role="tabpanel" id="p-videos" aria-labelledby="t-videos" tabindex="0" hidden>Videos panel</div>
+  </div>
+</div>
+```
+
+</template>
+
+</ComponentDemo>
+
+:::
+
 ## Card
 
-Presentational surface container. In light mode a card gets a **subtle default
-hairline** (surface == body there, so an unbordered card would be invisible);
-`data-with-border="true"` upgrades that to the **stronger, fully-opaque** border.
-`data-padding`: `sm` · `md` · `lg`.
+A surface container. `padding`: `sm` · `md` · `lg`. In light mode a card gets a
+subtle default hairline (surface and body are the same colour there);
+`with-border` upgrades it to the stronger, fully opaque border.
 
+<ElementDemo title="Card" tags="civitai-card">
+
+<template #html>
+
+```html
+<civitai-group gap="md" style="align-items: stretch">
+  <civitai-card with-border padding="md">
+    <civitai-stack gap="sm">
+      <strong>With border</strong>
+      <span>An explicit, fully-opaque border at medium padding.</span>
+    </civitai-stack>
+  </civitai-card>
+  <civitai-card padding="lg">
+    <civitai-stack gap="sm">
+      <strong>Default</strong>
+      <span>The subtle default hairline at large padding.</span>
+    </civitai-stack>
+  </civitai-card>
+</civitai-group>
+```
+
+</template>
+
+</ElementDemo>
+
+::: details CSS-only / no-JS: data-civitai-ui="card"
 <ComponentDemo title="Card" ui="card">
 
 <template #html>
@@ -576,39 +836,48 @@ hairline** (surface == body there, so an unbordered card would be invisible);
 
 </template>
 
-<template #react>
+</ComponentDemo>
 
-```tsx
-import { CivitaiCard, CivitaiStack, CivitaiGroup } from '@civitai/components-react';
+:::
 
-<CivitaiGroup gap="md">
-  <CivitaiCard withBorder padding="md">
-    <CivitaiStack gap="sm">
-      <strong>With border</strong>
-      <span>An explicit, fully-opaque border at medium padding.</span>
-    </CivitaiStack>
-  </CivitaiCard>
-  <CivitaiCard padding="lg">
-    <CivitaiStack gap="sm">
-      <strong>Default</strong>
-      <span>The subtle default hairline at large padding.</span>
-    </CivitaiStack>
-  </CivitaiCard>
-</CivitaiGroup>;
+## Stack and group
+
+Layout. `<civitai-stack>` lays its children out **vertically**;
+`<civitai-group>` lays them out **horizontally**, centred, and wraps onto more
+rows rather than overflowing (`nowrap` turns that off). Both take `gap`: `sm` ·
+`md` · `lg`. The numbered chips are filler content, not components.
+
+<ElementDemo title="Stack and group" tags="civitai-stack civitai-group">
+
+<template #html>
+
+```html
+<civitai-stack gap="lg">
+  <civitai-stack gap="sm">
+    <strong>Stack — vertical, gap="md"</strong>
+    <civitai-stack gap="md">
+      <div data-demo-chip style="display:inline-flex;align-items:center;justify-content:center;width:2.25rem;height:2.25rem;border-radius:8px;background:var(--civitai-color-primary);color:var(--civitai-color-primary-fg);font-weight:700">1</div>
+      <div data-demo-chip style="display:inline-flex;align-items:center;justify-content:center;width:2.25rem;height:2.25rem;border-radius:8px;background:var(--civitai-color-primary);color:var(--civitai-color-primary-fg);font-weight:700">2</div>
+      <div data-demo-chip style="display:inline-flex;align-items:center;justify-content:center;width:2.25rem;height:2.25rem;border-radius:8px;background:var(--civitai-color-primary);color:var(--civitai-color-primary-fg);font-weight:700">3</div>
+    </civitai-stack>
+  </civitai-stack>
+  <civitai-stack gap="sm">
+    <strong>Group — horizontal, gap="md"</strong>
+    <civitai-group gap="md">
+      <div data-demo-chip style="display:inline-flex;align-items:center;justify-content:center;width:2.25rem;height:2.25rem;border-radius:8px;background:var(--civitai-color-primary);color:var(--civitai-color-primary-fg);font-weight:700">1</div>
+      <div data-demo-chip style="display:inline-flex;align-items:center;justify-content:center;width:2.25rem;height:2.25rem;border-radius:8px;background:var(--civitai-color-primary);color:var(--civitai-color-primary-fg);font-weight:700">2</div>
+      <div data-demo-chip style="display:inline-flex;align-items:center;justify-content:center;width:2.25rem;height:2.25rem;border-radius:8px;background:var(--civitai-color-primary);color:var(--civitai-color-primary-fg);font-weight:700">3</div>
+    </civitai-group>
+  </civitai-stack>
+</civitai-stack>
 ```
 
 </template>
 
-</ComponentDemo>
+</ElementDemo>
 
-## Stack & Group
-
-Layout primitives. **Stack** lays its children out **vertically** (top-to-bottom);
-**Group** lays them out **horizontally** (left-to-right, center-aligned). Both
-take `data-gap`: `sm` · `md` · `lg` — the numbered chips below make the direction
-and the gap obvious (the chips are plain filler content, not components).
-
-<ComponentDemo title="Stack & Group" ui="stack">
+::: details CSS-only / no-JS: data-civitai-ui="stack" and "group"
+<ComponentDemo title="Stack and group" ui="stack">
 
 <template #html>
 
@@ -635,89 +904,536 @@ and the gap obvious (the chips are plain filler content, not components).
 
 </template>
 
-<template #react>
+</ComponentDemo>
 
-```tsx
-import { CivitaiStack, CivitaiGroup } from '@civitai/components-react';
+:::
 
-const chip = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '2.25rem',
-  height: '2.25rem',
-  borderRadius: 8,
-  background: 'var(--civitai-color-primary)',
-  color: 'var(--civitai-color-primary-fg)',
-  fontWeight: 700,
-} as const;
+## Text
 
-<CivitaiStack gap="lg">
-  <CivitaiStack gap="sm">
-    <strong>Stack — vertical, gap="md"</strong>
-    <CivitaiStack gap="md">
-      <div style={chip}>1</div>
-      <div style={chip}>2</div>
-      <div style={chip}>3</div>
-    </CivitaiStack>
-  </CivitaiStack>
-  <CivitaiStack gap="sm">
-    <strong>Group — horizontal, gap="md"</strong>
-    <CivitaiGroup gap="md">
-      <div style={chip}>1</div>
-      <div style={chip}>2</div>
-      <div style={chip}>3</div>
-    </CivitaiGroup>
-  </CivitaiStack>
-</CivitaiStack>;
+Typography. `as` picks the element — `h1`–`h6` for a heading, `p` for a
+paragraph — so a heading lands in the document outline; `size` (`xs` … `5xl`)
+and `weight` (`normal` · `medium` · `semibold` · `bold`) pick the look. Level
+and size are independent on purpose: an `h3` can be small print. Text inherits
+its colour from its parent.
+
+<ElementDemo title="Text" tags="civitai-text">
+
+<template #html>
+
+```html
+<civitai-stack gap="md">
+  <civitai-text as="h2" size="4xl" weight="bold">Generate an image</civitai-text>
+  <civitai-text size="xl">Pick a model, then press Generate.</civitai-text>
+  <civitai-text>The body size is md, the default.</civitai-text>
+  <civitai-text size="sm" weight="semibold">Small and semibold.</civitai-text>
+  <civitai-text as="h3" size="xs" weight="medium">An h3 at the smallest size.</civitai-text>
+</civitai-stack>
+```
+
+</template>
+
+</ElementDemo>
+
+::: details CSS-only / no-JS: data-civitai-ui="text"
+Write the tag the meaning calls for and add `data-civitai-ui="text"`, with
+`data-size` and `data-weight`. Colour, alignment and truncation are `ci-*`
+utility classes in the separate `@civitai/components/utilities.css`, which
+`styles.css` does not include.
+
+<ComponentDemo title="Text" ui="text">
+
+<template #html>
+
+```html
+<div data-civitai-ui="stack" data-gap="md">
+  <h2 data-civitai-ui="text" data-size="4xl" data-weight="bold">Generate an image</h2>
+  <p data-civitai-ui="text" data-size="xl">Pick a model, then press Generate.</p>
+  <p data-civitai-ui="text">The body size is md, the default.</p>
+  <p data-civitai-ui="text" data-size="sm" data-weight="semibold">Small and semibold.</p>
+  <h3 data-civitai-ui="text" data-size="xs" data-weight="medium">An h3 at the smallest size.</h3>
+</div>
 ```
 
 </template>
 
 </ComponentDemo>
 
-## Loader
+:::
 
-Spinner. `data-size`: `sm` · `md` · `lg`. Decorative inside a button →
-`aria-hidden="true"`; standalone → wrap with `role="status"` + an accessible
-label.
+## Tooltip
 
-<ComponentDemo title="Loader" ui="loader">
+Wrap any focusable element; `label` is the tooltip text. The element wires the
+trigger's `aria-describedby` and Escape-to-dismiss for you.
+
+<ElementDemo title="Tooltip" tags="civitai-tooltip">
 
 <template #html>
 
 ```html
-<div data-civitai-ui="group" data-gap="lg">
-  <span data-civitai-ui="loader" data-size="sm"></span>
-  <span data-civitai-ui="loader" data-size="md"></span>
-  <span data-civitai-ui="loader" data-size="lg"></span>
-  <span role="status">
-    <span data-civitai-ui="loader" data-size="md" aria-hidden="true"></span>
-    <span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Loading…</span>
+<civitai-group gap="md">
+  <civitai-tooltip label="Randomize the seed">
+    <civitai-button variant="light">Seed</civitai-button>
+  </civitai-tooltip>
+  <civitai-tooltip label="Spends Buzz from your balance">
+    <civitai-button variant="outline">Hover or focus me</civitai-button>
+  </civitai-tooltip>
+</civitai-group>
+```
+
+</template>
+
+</ElementDemo>
+
+::: details CSS-only / no-JS: data-civitai-ui="tooltip"
+The reveal is pure CSS on `:hover` / `:focus-within`; `data-open="true"` forces
+it open. Wiring `aria-describedby` and any Escape handling is yours. The second
+bubble is pinned open so it shows without hovering.
+
+<ComponentDemo title="Tooltip" ui="tooltip">
+
+<template #html>
+
+```html
+<div data-civitai-ui="group" data-gap="lg" style="padding-top:2.5rem">
+  <span data-civitai-ui="tooltip">
+    <button data-civitai-ui="button" data-variant="light" aria-describedby="tip-seed">Seed</button>
+    <span data-civitai-ui-tooltip-bubble role="tooltip" id="tip-seed">Randomize the seed</span>
+  </span>
+  <span data-civitai-ui="tooltip">
+    <button data-civitai-ui="button" data-variant="outline" aria-describedby="tip-open">Pinned open</button>
+    <span data-civitai-ui-tooltip-bubble role="tooltip" id="tip-open" data-open="true">data-open="true"</span>
   </span>
 </div>
 ```
 
 </template>
 
-<template #react>
+</ComponentDemo>
 
-```tsx
-import { CivitaiLoader, CivitaiGroup } from '@civitai/components-react';
+:::
 
-<CivitaiGroup gap="lg">
-  <CivitaiLoader size="sm" />
-  <CivitaiLoader size="md" />
-  <CivitaiLoader size="lg" />
-  <span role="status">
-    <CivitaiLoader size="md" aria-hidden="true" />
-    <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
-      Loading…
-    </span>
-  </span>
-</CivitaiGroup>;
+## Toast
+
+`<civitai-toast-region>` owns the queue and the auto-dismiss timers: call
+`show({ message, heading?, color?, duration? })` on it, and it returns the
+toast's id. `<civitai-toast>` is the card it renders — `color`, `heading`,
+`closable` — and can also be placed by hand, as below.
+
+<ElementDemo title="Toast" tags="civitai-toast-region civitai-toast">
+
+<template #html>
+
+```html
+<civitai-stack gap="sm">
+  <civitai-toast heading="Heads up" color="info" closable>A new model version is available.</civitai-toast>
+  <civitai-toast color="warning">Approaching your Buzz limit.</civitai-toast>
+  <civitai-group>
+    <civitai-button class="toast" variant="light">Show a toast</civitai-button>
+  </civitai-group>
+  <civitai-toast-region></civitai-toast-region>
+</civitai-stack>
+```
+
+</template>
+
+<template #js>
+
+```js
+const toasts = document.querySelector('civitai-toast-region');
+document.querySelector('.toast').addEventListener('click', () => {
+  toasts.show({ heading: 'Saved', message: 'Your changes are live.', color: 'success' });
+});
+```
+
+</template>
+
+</ElementDemo>
+
+::: details CSS-only / no-JS: data-civitai-ui="toast-region" and "toast"
+Render into the region yourself, one `toast` per notification, so its
+`aria-live` announces each one; timers and dismissal are yours. The region is
+`position: fixed` — the `contain: paint` box here only keeps it inside the
+preview.
+
+<ComponentDemo title="Toast" ui="toast-region">
+
+<template #html>
+
+```html
+<div style="position:relative;contain:paint;height:200px">
+  <div data-civitai-ui="toast-region" role="region" aria-label="Notifications" aria-live="polite">
+    <div data-civitai-ui="toast" data-color="success" role="status">
+      <div data-civitai-ui-toast-body>
+        <div data-civitai-ui-toast-title>Saved</div>
+        Your changes are live.
+      </div>
+      <button data-civitai-ui-toast-close aria-label="Dismiss">×</button>
+    </div>
+    <div data-civitai-ui="toast" data-color="info" role="status">
+      <div data-civitai-ui-toast-body>Queued behind the first one.</div>
+    </div>
+  </div>
+</div>
 ```
 
 </template>
 
 </ComponentDemo>
+
+:::
+
+## Image
+
+`<civitai-image>` shows a placeholder while loading and a fallback when the file
+fails. `fit` is `cover` or `contain`; `pending` shows a loader for a file still
+being made, `blocked` withholds it from this viewer, and `openable` makes it a
+button that fires `open`. Size it from outside.
+
+<ElementDemo title="Image" tags="civitai-image">
+
+<template #html>
+
+```html
+<civitai-group gap="md" style="align-items: flex-start">
+  <civitai-image openable alt="A gradient" style="width: 140px; aspect-ratio: 1"
+    src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'%3E%3Cdefs%3E%3ClinearGradient id='g' x2='1' y2='1'%3E%3Cstop stop-color='%23228be6'/%3E%3Cstop offset='1' stop-color='%23326D5C'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='1' height='1' fill='url(%23g)'/%3E%3C/svg%3E"></civitai-image>
+  <civitai-image pending style="width: 140px; aspect-ratio: 1"></civitai-image>
+  <civitai-image blocked style="width: 140px; aspect-ratio: 1"><span slot="blocked">Hidden: mature content</span></civitai-image>
+  <civitai-image src="data:image/png;base64,AAAA" alt="Missing" fallback="Image unavailable" style="width: 140px; aspect-ratio: 1"></civitai-image>
+</civitai-group>
+```
+
+</template>
+
+</ElementDemo>
+
+::: details CSS-only / no-JS: data-civitai-ui="image"
+You set `data-status` (`loading` · `loaded` · `error`) yourself; the fallback
+overlay shows only at `error`. The element reflects the same state as `status`,
+not `data-status`. There is no `pending` or `blocked` in the stylesheet.
+
+<ComponentDemo title="Image" ui="image">
+
+<template #html>
+
+```html
+<div data-civitai-ui="group" data-gap="md">
+  <div data-civitai-ui="image" style="width:140px;aspect-ratio:1 / 1">
+    <img data-civitai-ui-image-img data-fit="cover" src="/images/oauth/edit-oauth-app.png" alt="cover" />
+  </div>
+  <div data-civitai-ui="image" style="width:140px;aspect-ratio:1 / 1">
+    <img data-civitai-ui-image-img data-fit="contain" src="/images/oauth/edit-oauth-app.png" alt="contain" />
+  </div>
+  <div data-civitai-ui="image" data-status="error" style="width:140px;aspect-ratio:1 / 1">
+    <img data-civitai-ui-image-img src="/images/oauth/edit-oauth-app.png" alt="" />
+    <div data-civitai-ui-image-fallback aria-hidden="true">Image unavailable</div>
+  </div>
+</div>
+```
+
+</template>
+
+</ComponentDemo>
+
+:::
+
+## Video and audio
+
+The same `pending`, `blocked` and `fallback` states as `<civitai-image>`, for a
+generated clip or track.
+
+<ElementDemo title="Video and audio" tags="civitai-video civitai-audio">
+
+<template #html>
+
+```html
+<civitai-stack gap="md">
+  <civitai-video src="data:video/mp4;base64,AAAA" fallback="This clip is gone" style="width: 200px; aspect-ratio: 16 / 9"></civitai-video>
+  <civitai-audio src="data:audio/mpeg;base64,AAAA" alt="A jingle" fallback="This track is gone" style="max-width: 320px"></civitai-audio>
+</civitai-stack>
+```
+
+</template>
+
+</ElementDemo>
+
+## Modal and confirm dialog
+
+`<civitai-modal>` traps focus and closes on Escape or an overlay click; set
+`open` or call `show()`. `<civitai-confirm-dialog>` resolves
+`await dialog.ask()` to `true` or `false`. Neither has a CSS-only equivalent.
+
+<ElementDemo title="Modal and confirm dialog" tags="civitai-modal civitai-confirm-dialog">
+
+<template #html>
+
+```html
+<civitai-stack gap="sm">
+  <civitai-group>
+    <civitai-button class="open-modal">Open modal</civitai-button>
+    <civitai-button class="ask" variant="outline">Delete…</civitai-button>
+  </civitai-group>
+  <civitai-text size="sm" class="log">Press Delete… and answer.</civitai-text>
+  <civitai-modal heading="Confirm generation">
+    This will spend Buzz. Focus cannot leave the dialog.
+  </civitai-modal>
+  <civitai-confirm-dialog heading="Delete model?" message="This cannot be undone."
+    confirm-label="Delete" destructive></civitai-confirm-dialog>
+</civitai-stack>
+```
+
+</template>
+
+<template #js>
+
+```js
+const modal = document.querySelector('civitai-modal');
+const confirm = document.querySelector('civitai-confirm-dialog');
+const log = document.querySelector('.log');
+
+document.querySelector('.open-modal').addEventListener('click', () => (modal.open = true));
+document.querySelector('.ask').addEventListener('click', async () => {
+  log.textContent = (await confirm.ask()) ? 'Deleted.' : 'Kept.';
+});
+```
+
+</template>
+
+</ElementDemo>
+
+## Collapse
+
+A disclosure: `heading` is the toggle, `open` the state, and it fires `toggle`.
+
+<ElementDemo title="Collapse" tags="civitai-collapse">
+
+<template #html>
+
+```html
+<civitai-collapse heading="Advanced">
+  <civitai-stack gap="sm">
+    <civitai-checkbox label="Restore faces"></civitai-checkbox>
+    <civitai-checkbox label="Tile"></civitai-checkbox>
+  </civitai-stack>
+</civitai-collapse>
+```
+
+</template>
+
+</ElementDemo>
+
+## Menu
+
+Put any button in the `trigger` slot. Choosing an item fires `select` with
+`detail.value`; `<civitai-menu-label>` titles a group of items.
+
+<ElementDemo title="Menu" tags="civitai-menu civitai-menu-item civitai-menu-label">
+
+<template #html>
+
+```html
+<civitai-group>
+  <civitai-menu label="Image actions">
+    <civitai-button slot="trigger" variant="outline" size="sm">Actions</civitai-button>
+    <civitai-menu-item>Save to collection</civitai-menu-item>
+    <civitai-menu-item>View post</civitai-menu-item>
+    <civitai-menu-label>Moderator</civitai-menu-label>
+    <civitai-menu-item disabled>Rescan</civitai-menu-item>
+    <civitai-menu-item destructive>Delete</civitai-menu-item>
+  </civitai-menu>
+</civitai-group>
+```
+
+</template>
+
+</ElementDemo>
+
+## Navigation
+
+`<civitai-breadcrumb>` takes its trail as a `data` property.
+`<civitai-pagination>` fires `change`; read `page`. `<civitai-nav-list
+current="…">` marks the item whose `href` matches and opens every group above
+it; an item with children is a collapsible group.
+
+<ElementDemo title="Navigation" tags="civitai-breadcrumb civitai-pagination civitai-nav-list civitai-nav-item">
+
+<template #html>
+
+```html
+<civitai-stack gap="md">
+  <civitai-breadcrumb></civitai-breadcrumb>
+  <civitai-pagination total="20" page="7"></civitai-pagination>
+  <civitai-nav-list label="Sections" current="/jobs/replay" style="max-width: 240px">
+    <civitai-nav-item href="/" label="Summary"></civitai-nav-item>
+    <civitai-nav-item label="Jobs">
+      <civitai-nav-item href="/jobs" label="Active"></civitai-nav-item>
+      <civitai-nav-item href="/jobs/replay" label="Replay"></civitai-nav-item>
+    </civitai-nav-item>
+    <civitai-nav-item href="/workers" label="Workers"></civitai-nav-item>
+  </civitai-nav-list>
+</civitai-stack>
+```
+
+</template>
+
+<template #js>
+
+```js
+document.querySelector('civitai-breadcrumb').data = [
+  { label: 'Home', href: '/' },
+  { label: 'Models', href: '/models' },
+  { label: 'Flux.1 [dev]' },
+];
+```
+
+</template>
+
+</ElementDemo>
+
+## Table
+
+`<civitai-table>` styles a `<table>` you write yourself, including one a data
+grid generates. Flags: `striped`, `hoverable`, `with-border`, `dense`,
+`sticky-header`. Mark number cells with `data-numeric`.
+
+<ElementDemo title="Table" tags="civitai-table">
+
+<template #html>
+
+```html
+<civitai-table striped hoverable with-border>
+  <table>
+    <thead>
+      <tr><th>Job</th><th>Model</th><th>Status</th><th data-numeric>Cost</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>wf_8f21</td><td>Flux.1 [dev]</td><td><civitai-badge variant="light" color="success">succeeded</civitai-badge></td><td data-numeric>12</td></tr>
+      <tr><td>wf_8f22</td><td>SDXL</td><td><civitai-badge variant="light" color="warning">queued</civitai-badge></td><td data-numeric>4</td></tr>
+      <tr><td>wf_8f23</td><td>SDXL</td><td><civitai-badge variant="light" color="error">failed</civitai-badge></td><td data-numeric>0</td></tr>
+    </tbody>
+  </table>
+</civitai-table>
+```
+
+</template>
+
+</ElementDemo>
+
+## Civitai vocabulary
+
+Defined by `site-elements.js` / `register-site` only: the pieces that make an
+app look like civitai.com. `<civitai-tag>` fires `vote`, `<civitai-reaction>`
+fires `react`, and `<civitai-media-card>` lays them out over an image in named
+slots (`media`, `top-start`, `top-end`, `bottom`). `<civitai-action-button>` is
+the round icon button for those slots.
+
+<ElementDemo title="Civitai vocabulary" tags="civitai-rating-badge civitai-avatar civitai-tag civitai-reaction civitai-action-button civitai-media-card">
+
+<template #html>
+
+```html
+<civitai-stack gap="md">
+  <civitai-group>
+    <civitai-rating-badge rating="pg"></civitai-rating-badge>
+    <civitai-rating-badge rating="pg13"></civitai-rating-badge>
+    <civitai-rating-badge rating="r"></civitai-rating-badge>
+    <civitai-rating-badge rating="x"></civitai-rating-badge>
+    <civitai-avatar name="Jane Q Doe"></civitai-avatar>
+    <civitai-avatar size="lg" name="Sinity" frame="linear-gradient(135deg, #f0a, #0af)"></civitai-avatar>
+  </civitai-group>
+  <civitai-group>
+    <civitai-tag name="wolf" confidence="0.97"></civitai-tag>
+    <civitai-tag name="full moon" vote="1" score="128" show-score></civitai-tag>
+    <civitai-tag name="anime" readonly></civitai-tag>
+  </civitai-group>
+  <civitai-media-card href="#" label="Open image" style="width: 220px">
+    <img slot="media" alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='280'%3E%3Cdefs%3E%3ClinearGradient id='g' x2='1' y2='1'%3E%3Cstop stop-color='%23b98b4a'/%3E%3Cstop offset='1' stop-color='%231b1f2a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='200' height='280' fill='url(%23g)'/%3E%3C/svg%3E" />
+    <civitai-rating-badge slot="top-start" rating="pg"></civitai-rating-badge>
+    <civitai-action-button slot="top-end" label="Remix">
+      <span slot="icon" aria-hidden="true">&#10022;</span>
+    </civitai-action-button>
+    <civitai-reaction slot="bottom" emoji="👍" label="Like" count="13100"></civitai-reaction>
+    <civitai-reaction slot="bottom" emoji="❤️" label="Heart" count="812" reacted></civitai-reaction>
+  </civitai-media-card>
+</civitai-stack>
+```
+
+</template>
+
+</ElementDemo>
+
+## Acting as the viewer
+
+Two elements act rather than display, through
+[`@civitai/sdk`](./guide/sdk), so no bundle includes them — import
+`@civitai/components/civitai-sign-in-button/define` and
+`…/civitai-workflow-button/define`. `<civitai-sign-in-button>` signs the viewer
+in and hides once they are. `<civitai-workflow-button>` prices its `template`,
+submits it on click and shows progress until it finishes; **inside a block, on
+the default token, the orchestrator refuses it** — see
+[Using the elements in a block](./guide/elements#elements-a-block-s-token-cannot-drive).
+The [elements gallery](./elements#acting-as-the-viewer) shows wiring them to the
+real SDK.
+
+The demo hands both a stand-in for the SDK, so pressing them spends nothing and
+signs no one in.
+
+<ElementDemo title="Acting as the viewer" tags="civitai-workflow-button civitai-sign-in-button" sdk>
+
+<template #html>
+
+```html
+<civitai-stack gap="sm">
+  <civitai-group>
+    <civitai-workflow-button label="Bake"></civitai-workflow-button>
+    <civitai-sign-in-button variant="subtle">Sign in with Civitai</civitai-sign-in-button>
+  </civitai-group>
+  <civitai-text size="sm" class="log">Press Bake, then press it again to cancel.</civitai-text>
+</civitai-stack>
+```
+
+</template>
+
+<template #js>
+
+```js
+const log = document.querySelector('.log');
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Stand-ins for initialize() and createSignIn() from @civitai/sdk.
+let canceled = false;
+const app = {
+  requestGrants: async () => true,
+  getToken: async () => 'demo',
+  orchestration: {
+    estimateWorkflow: async () => ({ cost: { total: 185 } }),
+    submitWorkflow: async () => ((canceled = false), { id: 'wf_demo' }),
+    cancelWorkflow: async () => void (canceled = true),
+    async *watchWorkflow() {
+      await wait(800);
+      yield { status: 'scheduled', steps: [] };
+      for (let rate = 0.05; rate <= 1; rate += 0.05) {
+        await wait(300);
+        if (canceled) return yield { status: 'canceled', steps: [] };
+        yield { status: 'processing', steps: [{ status: 'processing', estimatedProgressRate: rate }] };
+      }
+      yield { status: 'succeeded', steps: [] };
+    },
+  },
+};
+
+const button = document.querySelector('civitai-workflow-button');
+button.app = app;
+button.template = { steps: [{ $type: 'textToImage', input: { prompt: 'a red bike' } }] };
+for (const type of ['priced', 'submitted', 'finished', 'canceled', 'error']) {
+  button.addEventListener(type, () => (log.textContent = `workflow-button: ${type}`));
+}
+document.querySelector('civitai-sign-in-button').signIn = {
+  signedIn: false,
+  signIn: async () => (log.textContent = 'sign-in: would leave for Civitai'),
+};
+```
+
+</template>
+
+</ElementDemo>
