@@ -1,6 +1,6 @@
 ---
 title: Component showcase
-description: Every <civitai-*> custom element in @civitai/components, live and themed, component by component — with the CSS-only data-civitai-ui markup as the no-JavaScript fallback where the stylesheet has an equivalent.
+description: Every <civitai-*> custom element in @civitai/components, live and themed, with the CSS-only data-civitai-ui fallback where one exists.
 ---
 
 # Component showcase

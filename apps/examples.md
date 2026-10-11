@@ -1,6 +1,6 @@
 ---
 title: Example apps
-description: The maintained, CI-validated Civitai App examples in civitai-app-starters — what each shows, the scopes its block.manifest.json declares, the hooks it imports and how to run it — plus larger public apps to read after them.
+description: The maintained Civitai App examples in civitai-app-starters — what each shows, its scopes and hooks, and how to run it — plus larger public apps.
 ---
 
 # Example apps
