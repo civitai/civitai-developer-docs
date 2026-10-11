@@ -317,10 +317,16 @@ stylesheet.
 
 ## TextInput
 
-`label`, `description`, `placeholder`, `required`, `disabled`, `readonly` and
-`error` work on every field element, and every field is form-associated —
-`name`, `FormData` and `form.reset()` work as on a native input. Setting `error`
-also marks the field invalid. `<civitai-input-group>` joins fields, buttons and
+`label`, `description`, `required`, `disabled` and `error` work on every field
+element — text-input, textarea, number-input, select, checkbox, switch, slider,
+radio-group and segmented-control — and every field is form-associated: `name`,
+`FormData` and `form.reset()` work as on a native input. Setting `error` also
+marks the field invalid. `placeholder` reaches the input only on
+`<civitai-text-input>`, `<civitai-textarea>` and `<civitai-number-input>`;
+`<civitai-select>` renders it as a disabled first option shown while nothing is
+chosen, and the other fields ignore it. `readonly` works only on
+`<civitai-text-input>` and `<civitai-textarea>` — elsewhere it leaves the control
+editable. `<civitai-input-group>` joins fields, buttons and
 `data-affix` text into one row.
 
 <ElementDemo title="TextInput" tags="civitai-text-input civitai-input-group">

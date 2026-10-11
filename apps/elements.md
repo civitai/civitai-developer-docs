@@ -171,8 +171,10 @@ lays out vertically and `<civitai-group>` horizontally, both with `gap`
 
 ## Text fields
 
-`label`, `description`, `placeholder`, `required`, `disabled`, `readonly` and
-`error` work on every field. `<civitai-input-group>` joins fields, buttons and
+`label`, `description`, `required`, `disabled` and `error` work on every field.
+`placeholder` reaches the input on text-input, textarea and number-input
+(`<civitai-select>` shows it as a disabled first option); `readonly` works only on
+`<civitai-text-input>` and `<civitai-textarea>`. `<civitai-input-group>` joins fields, buttons and
 `data-affix` text into one row.
 
 <ElementDemo title="Text fields" tags="civitai-text-input civitai-number-input civitai-textarea civitai-input-group">
