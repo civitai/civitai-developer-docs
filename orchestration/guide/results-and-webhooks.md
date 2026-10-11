@@ -4,7 +4,7 @@ title: Results & Webhooks
 
 # Results & Webhooks
 
-To learn that a workflow finished, either **poll** [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) until it reaches a terminal state, or register **callbacks** (webhooks) and let the orchestrator push events to you. For anything longer than the [100-second request timeout](./getting-started#_3-poll-if-you-didn-t-wait-inline), prefer webhooks.
+To learn that a workflow finished, either **poll** [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) until it reaches a terminal state, or register **callbacks** (webhooks) and let the orchestrator push events to you. For anything that may outlast [your HTTP client's timeout](./getting-started#_3-poll-if-you-didn-t-wait-inline), prefer webhooks.
 
 ## Registering callbacks
 
@@ -102,7 +102,7 @@ Step events use [`WorkflowStepEvent`](/orchestration/reference/operations/Submit
 
 ## Blobs in results
 
-Output blobs come back with signed `url` fields inside `steps[].output.blobs[]` (in a webhook, under `details`). Those URLs **expire**, typically after a few minutes, and then return `403`. Refetch the workflow, or call [`GetBlob`](/orchestration/reference/operations/GetBlob), for a fresh one; don't cache the URL. To keep the media, download the bytes and store them yourself.
+Each blob object in a step's output carries its own `url` and `urlExpiresAt`; where the blobs sit depends on the step type, e.g. `output.images[]` for `imageGen`, `output.video` for `videoGen`, `output.blobs[]` for `comfy` (in a webhook, under `details`). A URL **expires** at its `urlExpiresAt` and then returns `403`. Refetch the workflow, or call [`GetBlob`](/orchestration/reference/operations/GetBlob), for a fresh one; don't cache the URL. To keep the media, download the bytes and store them yourself.
 
 ## Polling fallback
 

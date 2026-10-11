@@ -56,7 +56,7 @@ Key query parameters:
 | Param | Default | Purpose |
 |-------|---------|---------|
 | `whatif` | `false` | If `true`, validates the workflow and returns the resolved plan without executing it. |
-| `wait` | `0` | Seconds to block waiting for completion inline; keep it under 100 s ([step 3](#_3-poll-if-you-didn-t-wait-inline)). `0` returns immediately with the in-flight workflow. |
+| `wait` | `0` | Seconds to block waiting for completion inline; keep it below your HTTP client's timeout ([step 3](#_3-poll-if-you-didn-t-wait-inline)). `0` returns immediately with the in-flight workflow. |
 
 ## 2. Read the response
 
@@ -85,7 +85,7 @@ Statuses progress through `unassigned` → `preparing` → `scheduled` → `proc
 
 ## 3. Poll if you didn't wait inline
 
-Requests time out at **100 seconds**, and `wait` is not clamped to that, so keep it below 100: if the workflow is still running at 100 s you get a gateway timeout instead of a `202`, so you never receive its `id`, though the workflow keeps running and is charged. A workflow still running when `wait` elapses (most video jobs, large batches, training) comes back `202` with `status: "processing"`; keep its `id` and poll [`GET /v2/consumer/workflows/{workflowId}`](/orchestration/reference/operations/GetWorkflow) until it reaches a terminal state:
+The API doesn't clamp `wait`, but your HTTP client likely has its own request timeout (100 s is a common default), so keep `wait` below it. If the connection closes before the response arrives you get no `id`, though the workflow keeps running and is charged; resubmitting with the same `externalId` returns that workflow instead of starting another. A workflow still running when `wait` elapses (most video jobs, large batches, training) comes back `202` with `status: "processing"`; keep its `id` and poll [`GET /v2/consumer/workflows/{workflowId}`](/orchestration/reference/operations/GetWorkflow) until it reaches a terminal state:
 
 ```http
 GET https://orchestration.civitai.com/v2/consumer/workflows/wf_01HXYZ...
