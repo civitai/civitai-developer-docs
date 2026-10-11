@@ -255,6 +255,15 @@ console.log('copy-spec resolution contract — offline\n');
   fx.cleanup();
 }
 
+// ── 3b. a spec that is not JSON is never written (it could not be scrubbed) ───
+{
+  const fx = makeFixture({ snapshot: '{ "openapi": "3.1.0", "paths": ' });
+  const r = await run(fx, { poison: true });
+  ok(r.rc !== 0, 'an unparseable snapshot fails the run', `rc=${r.rc}\n${r.out}`);
+  ok(!existsSync(fx.dest), 'nothing is written to the destination — an unscrubbed spec never lands');
+  fx.cleanup();
+}
+
 // ── 4. --refresh, healthy server ──────────────────────────────────────────────
 await withServer(
   (req, res) => {
