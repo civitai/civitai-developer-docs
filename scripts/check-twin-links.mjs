@@ -173,7 +173,22 @@ function walk(dir, want = (name) => name.endsWith('.md')) {
 // Served at `/llms-full.txt`, a RELATIVE link in any section resolves against
 // `/`, not against the page it came from — so here a relative link is itself
 // the defect, whatever it happens to resolve to. Root paths must exist.
-// Split independently of the rewriter (no import), for the same reason as above.
+//
+// 🔴 Existence alone cannot tell a WRONG root target from the right one when
+// both pages exist (`../` resolved one directory too high lands on `/`, which
+// exists). So each section must also be byte-identical to the twin its `url:`
+// names: the twins are checked above at both served URLs, and the plugin wrote
+// each section from the same page as its twin, so any divergence means the two
+// rewrite passes disagree. It cannot catch a bug BOTH passes share (they share
+// `sourceDirOf`), and the twin check above has the same existence-only limit;
+// that rule is pinned by the source-dir assertions in
+// `scripts/test-twin-links.mjs`, not by anything in this file.
+//
+// The splitter's boundary regex is the same one `scripts/lib/twin-links.mjs`
+// uses (not imported, so a change to one is a visible diff in the other) — a
+// shared mis-split would fool both, which is why the self-test below pins it
+// on a fixture and the twin-identity check catches a section cut in the wrong
+// place.
 
 /** [{ url, body }] for each section of a bundle. */
 export function bundleSections(text) {
@@ -255,6 +270,10 @@ for (const p of bundleFiles) {
     const key = `${served} § ${url ?? '<no url: header>'}`;
     if (!url || !url.startsWith('/') || !pageExists(DIST, url)) {
       problem(key, `section header url: ${url} does not name a page in the build`);
+    } else if (existsSync(join(DIST, url)) && readFileSync(join(DIST, url), 'utf8') !== body) {
+      problem(key, `section differs from its twin ${url} — the bundle and twin rewrites disagree`);
+    } else if (!existsSync(join(DIST, url))) {
+      problem(key, `section header url: ${url} has no .md twin in the build to compare against`);
     }
     for (const target of linkTargets(body)) {
       if (target.startsWith('#') || target.startsWith('?')) continue;
@@ -322,7 +341,7 @@ if (bundleProblems.size) {
   const dead = all.filter((m) => m.startsWith('DEAD')).length;
   console.error(
     `\ncheck-twin-links: llms-full.txt — ${rel} relative link(s), ${dead} dead root link(s) and ` +
-      `${all.length - rel - dead} bad section header(s) in ${bundleProblems.size} section(s) ` +
+      `${all.length - rel - dead} bad header(s) or twin mismatch(es) in ${bundleProblems.size} section(s) ` +
       `(${bundleChecked} internal links checked across ${sections} sections of ${bundleFiles.length} bundle(s)):\n`,
   );
   const SHOW = 5;
