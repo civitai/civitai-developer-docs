@@ -122,7 +122,8 @@ branch on it.
 - **Your team is marked.** An event sent while the app's owner or an accepted
   collaborator was signed in is recorded as team activity. The analytics hide it
   unless you turn it on.
-- **Aggregates only.** Nobody sees individual events, owners included.
+- **Aggregates only.** The analytics show aggregates only; no page shows
+  individual events, owners included.
 
 ## Limits
 
@@ -133,6 +134,10 @@ branch on it.
 - An event over a limit is dropped in the browser and is **not counted
   anywhere**, and a batch that fails to send is not retried. The numbers you see
   are therefore minimums.
+- The platform also rate-limits events per network address and app, so viewers
+  who share one address (an office or carrier network) share that budget.
+  Events dropped by that limit are not shown either, so the numbers stay
+  minimums.
 
 ## Where you see them
 
