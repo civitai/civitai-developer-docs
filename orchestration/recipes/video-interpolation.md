@@ -102,7 +102,7 @@ Content-Type: application/json
 Defaults apply `interpolationFactor: 2`. The recipe endpoint blocks until the step finishes and returns the step output directly — the `video` blob described in [Reading the result](#reading-the-result).
 
 ::: tip Long clips: use the generic endpoint
-VFIMamba processes frame-by-frame and scales with clip length; a multi-second clip almost always exceeds the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline). Submit through the [generic workflow endpoint](#via-the-generic-workflow-endpoint) with `wait=0`, then poll or [subscribe via webhook](/orchestration/guide/results-and-webhooks).
+VFIMamba processes frame-by-frame and scales with clip length; a multi-second clip almost always outlasts [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline), and the recipe endpoint cancels the run if the client disconnects. Submit through the [generic workflow endpoint](#via-the-generic-workflow-endpoint) with `wait=0`, then poll or [subscribe via webhook](/orchestration/guide/results-and-webhooks).
 :::
 
 ## Via the generic workflow endpoint
@@ -241,7 +241,7 @@ Flipping the order (upscale then interpolate) would produce a 2560×1440 interme
 
 <RecipeRun :body="polishBody" :wait="0" />
 
-Because the combined workflow is guaranteed to exceed the 100-second request limit, submit with `wait=0` and poll — the built-in **Try It** widget does this automatically.
+Because the combined workflow runs for minutes, submit with `wait=0` and poll — the built-in **Try It** widget does this automatically.
 
 ## Reading the result
 

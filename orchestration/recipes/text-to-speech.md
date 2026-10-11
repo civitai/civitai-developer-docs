@@ -332,7 +332,7 @@ Voice cloning via `refAudioUrl` is cheaper per character than picking a built-in
 
 ## Runtime
 
-End-to-end time for one short sentence is typically 60–120 seconds including model load, queue wait, and inference. Longer text scales roughly linearly. That is close to the [request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline), so submit through the [generic workflow endpoint](#via-the-generic-workflow-endpoint) with `wait=0` and poll or subscribe to webhooks ([Submitting work](/orchestration/guide/submitting-work)); the recipe endpoint can return a short clip on a warm node.
+End-to-end time for one short sentence is typically 60–120 seconds including model load, queue wait, and inference. Longer text scales roughly linearly. That can outlast [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline), so submit through the [generic workflow endpoint](#via-the-generic-workflow-endpoint) with `wait=0` and poll or subscribe to webhooks ([Submitting work](/orchestration/guide/submitting-work)); the recipe endpoint can return a short clip on a warm node, but cancels the run if the client disconnects.
 
 ## Troubleshooting
 

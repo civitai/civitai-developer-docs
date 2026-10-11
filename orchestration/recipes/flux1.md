@@ -383,7 +383,7 @@ Standard `imageGen` output: an `images[]` array, one entry per `quantity` ([shap
 | `flux1-kontext` (dev / pro) | 10–30 s depending on BFL queue | `wait=60` usually fine |
 | `flux1-kontext` (max) | 15–60 s | `wait=60` sometimes, fall back to `wait=0` on busy periods |
 
-`quantity > 2` or large dimensions push you toward the 100-second request timeout — submit with `wait=0` and poll instead.
+`quantity > 2` or large dimensions can outlast your HTTP client's timeout — submit with `wait=0` and poll instead.
 
 ## Cost
 

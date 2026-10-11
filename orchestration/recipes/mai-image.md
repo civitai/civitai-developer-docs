@@ -133,7 +133,7 @@ Standard `imageGen` output: an `images[]` array, one entry per `quantity` ([shap
 
 ## Runtime
 
-Single images typically land well inside the `wait=60` long-poll window, so a single `wait=60` POST covers the common case. A `quantity: 4` batch fans out to parallel calls but can still push toward the 100-second request timeout on busy FAL queues — submit those with `wait=0` and poll, or register a webhook.
+Single images typically land well inside the `wait=60` long-poll window, so a single `wait=60` POST covers the common case. A `quantity: 4` batch fans out to parallel calls but can still outlast your HTTP client's timeout on busy FAL queues — submit those with `wait=0` and poll, or register a webhook.
 
 ## Cost
 

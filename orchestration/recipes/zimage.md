@@ -154,7 +154,7 @@ Keep `cfgScale` at `1` and `steps` at `8`–`12`. Pushing either up negates the 
 
 ### Batching with turbo
 
-Turbo's low cost makes it a natural fit for multi-image calls. `quantity` up to `12` is supported on the schema, though you'll generally hit the 100-second request timeout above ~4–6 depending on dimensions:
+Turbo's low cost makes it a natural fit for multi-image calls. `quantity` up to `12` is supported on the schema, though above ~4–6 (depending on dimensions) a call will generally outlast [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline):
 
 ```json
 {

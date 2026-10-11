@@ -482,7 +482,7 @@ Rough ranges on Civitai-hosted infra (warm node, queue permitting):
 | `dev`, `flex` | 10–30 s | `wait=60` usually works for `quantity ≤ 2` |
 | `pro`, `max` | 15–60 s depending on BFL queue | `wait=60` works sometimes; fall back to `wait=0` + polling on busy periods |
 
-Past ~2 images, large dimensions, or `pro`/`max` on a busy queue, you risk hitting the 100 s request timeout — submit with `wait=0` and poll / webhook.
+Past ~2 images, large dimensions, or `pro`/`max` on a busy queue, a call can outlast your HTTP client's timeout — submit with `wait=0` and poll / webhook.
 
 ## Cost
 

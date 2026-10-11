@@ -191,7 +191,7 @@ Standard `imageGen` output: an `images[]` array, one entry per `quantity` ([shap
 |------|-------------------|-----------------------|
 | ≤ 1024×1024 | 10–25 s | `wait=60` fine |
 | 1536×1536 | 20–45 s | `wait=60` often fine; fall back to `wait=0` on busy periods |
-| 2048–4096 per side | 40–90+ s | **Use `wait=0` + polling** — you'll usually exceed the 100-second request timeout otherwise |
+| 2048–4096 per side | 40–90+ s | **Use `wait=0` + polling** — otherwise the call can outlast your HTTP client's timeout |
 
 Combined with `quantity > 2`, high-res outputs cross the timeout quickly. Always poll for anything above ~1.5 megapixels unless you're running a known-fast version.
 

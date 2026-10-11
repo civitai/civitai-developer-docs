@@ -174,7 +174,7 @@ Standard `imageGen` output: an `images[]` array, one entry per `quantity` ([shap
 | `medium` | 5–15 s | `wait=60` is comfortable for `quantity: 1` |
 | `large` | 15–40 s | `wait=60` usually fine; fall back to `wait=0` on busy periods |
 
-Large `quantity` pushes toward the 100-second request timeout — submit with `wait=0` and poll.
+Large `quantity` can outlast your HTTP client's timeout — submit with `wait=0` and poll.
 
 ## Cost
 

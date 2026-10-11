@@ -544,7 +544,7 @@ Standard `imageGen` output: an `images[]` array, one entry per `quantity` ([shap
 | `fal` Qwen2 (create / edit) | 10–30 s | `wait=60` usually fine |
 | `fal` Qwen2 Pro (`proCreateImage` / `proEditImage`) | 20–60 s | `wait=60` sometimes; fall back to `wait=0` on busy periods |
 
-Large `quantity` or atypical aspect ratios push toward the 100-second request timeout — submit with `wait=0` and poll.
+Large `quantity` or atypical aspect ratios can outlast your HTTP client's timeout — submit with `wait=0` and poll.
 
 ## Cost
 

@@ -81,7 +81,7 @@ Unlike most engines here there is no `operation` discriminator — **the mode is
 | First and last frame | both `firstFrameImage` and `lastFrameImage` | ignored |
 | Reference-to-video | any of `referenceImages` (≤9), `referenceVideos` (≤3), `referenceAudios` (≤3) | ignored |
 
-**Default choice**: `resolution: "2K"`, `duration: 5`, `aspectRatio: "16:9"`. Every H3 job exceeds the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — always submit with `wait=0`.
+**Default choice**: `resolution: "2K"`, `duration: 5`, `aspectRatio: "16:9"`. Every H3 job runs for minutes, longer than [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — always submit with `wait=0`.
 
 ## The request shape
 
@@ -259,7 +259,7 @@ The output is H.264 at 2560×1440 in an MP4 container, with an AAC audio track g
 
 ## Runtime
 
-A 5-second 2K clip takes around **three minutes** end to end, and 15-second clips considerably longer — far past the 100-second inline request budget. Submit with `wait=0` and collect the result via a webhook or by polling — see [Results and webhooks](/orchestration/guide/results-and-webhooks).
+A 5-second 2K clip takes around **three minutes** end to end, and 15-second clips considerably longer — longer than your HTTP client's timeout. Submit with `wait=0` and collect the result via a webhook or by polling — see [Results and webhooks](/orchestration/guide/results-and-webhooks).
 
 ## Troubleshooting
 

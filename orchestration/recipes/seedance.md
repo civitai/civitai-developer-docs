@@ -90,7 +90,7 @@ Pick a version with `model`:
 
 **Seedance 2.5** doubles the single-shot length to 30 seconds and triples the reference budget, and is the only version that accepts audio-only input. It drops 1080p in exchange: 1080p is available on `v2` and `v2-mini`, not on `v2.5`.
 
-**Default choice**: `model: "v2"`, `resolution: "720p"`, `duration: 5`, `aspectRatio: "adaptive"`. Every Seedance job exceeds the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — always submit with `wait=0`.
+**Default choice**: `model: "v2"`, `resolution: "720p"`, `duration: 5`, `aspectRatio: "adaptive"`. Every Seedance job runs for minutes, longer than [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — always submit with `wait=0`.
 
 ## The request shape
 
@@ -290,7 +290,7 @@ The output is H.264 in an MP4 container at 24 fps, with an AAC audio track when 
 
 ## Runtime
 
-Well past the 100-second inline request budget, and roughly proportional to duration — a 30-second `v2.5` clip takes considerably longer than a 5-second one. Submit with `wait=0` and collect the result via a webhook or by polling — see [Results and webhooks](/orchestration/guide/results-and-webhooks).
+Minutes, longer than your HTTP client's timeout, and roughly proportional to duration — a 30-second `v2.5` clip takes considerably longer than a 5-second one. Submit with `wait=0` and collect the result via a webhook or by polling — see [Results and webhooks](/orchestration/guide/results-and-webhooks).
 
 ## Troubleshooting
 

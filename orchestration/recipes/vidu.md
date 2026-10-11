@@ -97,7 +97,7 @@ Vidu's video-generation models are available in three engines:
 
 Use `engine: "vidu-q4"` for Q4 image animation and reference-based scenes. Q3 remains available for text-to-video, turbo, and first-last-frame generation.
 
-Submit with `wait=0` and poll for completion because video generation can exceed the [100-second timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline).
+Submit with `wait=0` and poll for completion because video generation can outlast [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline).
 
 ## Vidu (`engine: "vidu"`)
 

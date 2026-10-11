@@ -78,7 +78,7 @@ Two things set it apart from Veo 3:
 - **You don't pick a duration.** The model chooses 3–10 s to fit the prompt. Because of that, the step is **billed on the seconds actually delivered** — see [Cost](#cost).
 - **It's fast.** A 360p clip typically returns in well under a minute; 720p in one to two.
 
-Jobs can exceed the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — submit with `wait=0` (or a short `wait`) and poll or use webhooks.
+Jobs can outlast [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — submit with `wait=0` (or a short `wait`) and poll or use webhooks.
 
 ## Text-to-video
 

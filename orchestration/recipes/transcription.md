@@ -90,7 +90,7 @@ The URL must be **publicly fetchable** AND served by a host that supports HTTP r
 :::
 
 ::: tip Long audio: use the generic endpoint
-Billing is computed per 30 s of audio (minimum 1 unit), and real processing time roughly tracks audio length + queue wait. Anything longer than ~90 s of audio is a candidate for the [generic workflow endpoint](#via-the-generic-workflow-endpoint) with `wait=0` + polling; a multi-minute file will blow past the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline).
+Billing is computed per 30 s of audio (minimum 1 unit), and real processing time roughly tracks audio length + queue wait. Anything longer than ~90 s of audio is a candidate for the [generic workflow endpoint](#via-the-generic-workflow-endpoint) with `wait=0` + polling; a multi-minute file will outlast [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline), and the recipe endpoint cancels the run if the client disconnects.
 :::
 
 ## Via the generic workflow endpoint

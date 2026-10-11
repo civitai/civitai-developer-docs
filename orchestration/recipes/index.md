@@ -148,7 +148,7 @@ These apply to every recipe; each page's own table covers the rest. For an expir
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| Request timed out (`wait` expired), or `202` with a non-terminal status | The job outlasted the [request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) | Submit with `wait=0`, then [poll](/orchestration/guide/results-and-webhooks#polling-fallback) or use a [webhook](/orchestration/guide/results-and-webhooks). |
+| Request timed out (`wait` expired), or `202` with a non-terminal status | The job outlasted `wait` or [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) | Submit with `wait=0`, then [poll](/orchestration/guide/results-and-webhooks#polling-fallback) or use a [webhook](/orchestration/guide/results-and-webhooks). |
 | Step `failed`, `reason = "blocked"` | The prompt or an input hit content moderation (the provider's filter or Civitai's) | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
 
 ### OpenAPI specs

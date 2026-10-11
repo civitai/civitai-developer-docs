@@ -118,7 +118,7 @@ The orchestrator dispatches to the matching input schema (`Wan26FalTextToVideoIn
 
 ## Operations
 
-All examples target production and use `<your-token>` in place of your Bearer token. Request timeout is **100 s** — `wait` is capped accordingly. See [Results & webhooks](/orchestration/guide/results-and-webhooks) for anything longer.
+All examples target production and use `<your-token>` in place of your Bearer token. Keep `wait` below [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline); see [Results & webhooks](/orchestration/guide/results-and-webhooks) for anything longer.
 
 ### text-to-video
 
@@ -270,7 +270,7 @@ These appear on most (version, operation) combinations; the schema for your chos
 |-------|----------------|-------|
 | `resolution` | `720p`, `1080p` (plus `480p` on v3.0) | 1080p costs more and takes longer. |
 | `aspectRatio` | `16:9`, `9:16`, `1:1` | Vertical for reels/shorts. v3.0 text-to-video also takes `4:3` / `3:4`; v3.0 image-to-video takes none — the ratio comes from the source image. |
-| `duration` | `5`, `10` (seconds) | Longer clips push you past the 100 s `wait` cap — use webhooks. |
+| `duration` | `5`, `10` (seconds) | Longer clips can outlast your HTTP client's timeout — use webhooks. |
 | `enablePromptExpansion` | `true` \| `false` | Let the model expand short prompts. Disable for reproducibility, or on v3.0 to cut 20–60 s of latency. |
 | `enableSafetyChecker` | `true` (default) | Disable only if you handle moderation yourself. Not accepted on v3.0. |
 | `audioUrl` / `audioSetting` | URL or `auto` | Attach background audio (2.6 / 2.7) or drive audio inference (2.7 edit). Not on v3.0. |
@@ -302,7 +302,7 @@ Standard `videoGen` output: a single `video` blob ([shape and URL expiry](/orche
 
 ## Long-running jobs
 
-WAN jobs routinely run longer than 100 s (any 1080p clip ≥ 10 s; reference-to-video; edit-video). `wait=90` is a best-effort inline attempt; past that, prefer a [webhook](/orchestration/guide/results-and-webhooks) (`workflow:succeeded` / `workflow:failed`), or poll `GET /v2/consumer/workflows/{workflowId}` on a 5 s → 10 s → 30 s cadence.
+WAN jobs routinely run for minutes (any 1080p clip ≥ 10 s; reference-to-video; edit-video), longer than [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline). Submit with `wait=0`, then prefer a [webhook](/orchestration/guide/results-and-webhooks) (`workflow:succeeded` / `workflow:failed`), or poll `GET /v2/consumer/workflows/{workflowId}` on a 5 s → 10 s → 30 s cadence.
 
 ## Troubleshooting
 

@@ -120,7 +120,7 @@ To scrape many URLs from a search, combine with [webSearch](/orchestration/recip
 | Static page | 1–5 s | `wait=30` |
 | JavaScript-heavy page | 5–20 s | `wait=30` |
 
-For anything past the 100 s request timeout, use webhooks — see [Results & webhooks](/orchestration/guide/results-and-webhooks).
+For anything that may outlast your HTTP client's timeout, submit with `wait=0` and use webhooks — see [Results & webhooks](/orchestration/guide/results-and-webhooks).
 
 ## Cost
 

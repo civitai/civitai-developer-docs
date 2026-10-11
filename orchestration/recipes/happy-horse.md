@@ -260,7 +260,7 @@ Standard `videoGen` output: a single `video` blob ([shape and URL expiry](/orche
 
 ## Long-running jobs
 
-Happy-Horse jobs typically complete in 2–6 minutes (longer for `videoEdit` and 1080p) — all past the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline). Submit with `wait=0`, then prefer a [webhook](/orchestration/guide/results-and-webhooks) (`workflow:succeeded` / `workflow:failed`) or poll `GET /v2/consumer/workflows/{workflowId}` on a 10 s → 30 s → 60 s cadence.
+Happy-Horse jobs typically complete in 2–6 minutes (longer for `videoEdit` and 1080p), longer than [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline). Submit with `wait=0`, then prefer a [webhook](/orchestration/guide/results-and-webhooks) (`workflow:succeeded` / `workflow:failed`) or poll `GET /v2/consumer/workflows/{workflowId}` on a 10 s → 30 s → 60 s cadence.
 
 ## Troubleshooting
 

@@ -172,7 +172,7 @@ Blob URLs expire — see [Reading results](/orchestration/recipes/#reading-resul
 
 ## Runtime
 
-Execution is dominated by a fixed cost: the segmentation mask always runs at 1024×1024 regardless of source size, so wall time moves only slightly with resolution — roughly 5 s of GPU execution plus ~0.6 s per megapixel of source, before queue and container overhead. A single request returns well within the request timeout.
+Execution is dominated by a fixed cost: the segmentation mask always runs at 1024×1024 regardless of source size, so wall time moves only slightly with resolution — roughly 5 s of GPU execution plus ~0.6 s per megapixel of source, before queue and container overhead. A single request returns within a typical HTTP client timeout.
 
 Resubmitting the same image + format typically serves the previous output from cache — see [Workflows → Result caching](/orchestration/guide/workflows#result-caching).
 

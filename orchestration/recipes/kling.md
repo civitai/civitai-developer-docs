@@ -76,7 +76,7 @@ Kuaishou's Kling model family, available in two generations through the `videoGe
 
 **Default choice**: `engine: "kling-v3"` with `operation: "text-to-video"`. For speed + cost, use `mode: "Standard"`; for highest quality, `mode: "Professional"`.
 
-All Kling jobs exceed the [100-second timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — always submit with `wait=0` and handle results via webhooks or polling.
+Kling jobs run for minutes, longer than [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — always submit with `wait=0` and handle results via webhooks or polling.
 
 ## Kling (original)
 

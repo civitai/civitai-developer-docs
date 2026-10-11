@@ -233,7 +233,7 @@ Typical claim duration (`job.startedAt` → `job.completedAt`) with `quantity: 1
 | `ernie` (standard) | 832×1216 / 20 steps | ~27 s |
 | `turbo` | 1024² / 8 steps | ~13 s |
 
-`wait=60` covers single-image calls comfortably. For `quantity > 1`, larger dimensions, or high `steps` counts, compute + queue wait typically runs past the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — submit with `wait=60` and re-issue `GET /v2/consumer/workflows/{id}?wait=60` on a loop until the response is terminal (see [Submitting work → Query parameters](/orchestration/guide/submitting-work#query-parameters)), or register a webhook.
+`wait=60` covers single-image calls comfortably. For `quantity > 1`, larger dimensions, or high `steps` counts, compute + queue wait can outlast [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — submit with `wait=60` and re-issue `GET /v2/consumer/workflows/{id}?wait=60` on a loop until the response is terminal (see [Submitting work → Query parameters](/orchestration/guide/submitting-work#query-parameters)), or register a webhook.
 
 ## Troubleshooting
 

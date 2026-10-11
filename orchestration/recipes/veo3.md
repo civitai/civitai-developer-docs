@@ -80,7 +80,7 @@ Google's Veo 3 video generation model, available in two releases (`3.0` and `3.1
 
 **Default choice**: `version: "3.1"`, `mode: "standard"` for maximum quality. Use `mode: "fast"` for iterating; `mode: "lite"` for rapid prototyping or high-volume tasks.
 
-All Veo 3 jobs exceed the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — always submit with `wait=0`.
+Veo 3 jobs run for minutes, longer than [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — always submit with `wait=0`.
 
 ## Text-to-video
 

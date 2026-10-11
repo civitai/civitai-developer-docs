@@ -132,7 +132,7 @@ Identical queries are cached for a while, so repeating the same search is fast a
 | Search only | 1–5 s | `wait=30` |
 | With `scrapeFormats` | 5–30 s | `wait=60` |
 
-For anything past the 100 s request timeout, use webhooks — see [Results & webhooks](/orchestration/guide/results-and-webhooks).
+For anything that may outlast your HTTP client's timeout, submit with `wait=0` and use webhooks — see [Results & webhooks](/orchestration/guide/results-and-webhooks).
 
 ## Cost
 

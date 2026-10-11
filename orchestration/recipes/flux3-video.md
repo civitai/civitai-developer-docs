@@ -325,7 +325,7 @@ Standard `videoGen` output ([shape and URL expiry](/orchestration/recipes/#readi
 
 ## Long-running jobs
 
-FLUX-3 jobs typically take a few minutes, longer at 1080p and at higher durations; drafts are substantially faster. All exceed the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline): submit with `wait=0`, then prefer a [webhook](/orchestration/guide/results-and-webhooks) (`workflow:succeeded` / `workflow:failed`) or poll `GET /v2/consumer/workflows/{workflowId}` on a 10 s → 30 s → 60 s cadence.
+FLUX-3 jobs typically take a few minutes, longer at 1080p and at higher durations; drafts are substantially faster. All outlast [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline): submit with `wait=0`, then prefer a [webhook](/orchestration/guide/results-and-webhooks) (`workflow:succeeded` / `workflow:failed`) or poll `GET /v2/consumer/workflows/{workflowId}` on a 10 s → 30 s → 60 s cadence.
 
 ## Troubleshooting
 

@@ -71,7 +71,7 @@ Content-Type: application/json
 Defaults apply `scaleFactor: 2`. The recipe endpoint blocks until the step finishes and returns the step output directly — the `video` blob described in [Reading the result](#reading-the-result).
 
 ::: tip Long clips: use the generic endpoint
-FlashVSR on a multi-second clip almost always exceeds the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline). Submit through the [generic workflow endpoint](#via-the-generic-workflow-endpoint) with `wait=0`, then poll or [subscribe via webhook](/orchestration/guide/results-and-webhooks).
+FlashVSR on a multi-second clip almost always outlasts [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline), and the recipe endpoint cancels the run if the client disconnects. Submit through the [generic workflow endpoint](#via-the-generic-workflow-endpoint) with `wait=0`, then poll or [subscribe via webhook](/orchestration/guide/results-and-webhooks).
 :::
 
 ## Via the generic workflow endpoint
@@ -165,7 +165,7 @@ The most common two-step video flow — generate at a manageable resolution, the
 
 <RecipeRun :body="chainBody" :wait="0" />
 
-Because the combined workflow easily runs past the 100-second request limit, submit with `wait=0` and poll — the built-in **Try It** widget does this automatically.
+Because the combined workflow runs for minutes, submit with `wait=0` and poll — the built-in **Try It** widget does this automatically.
 
 ## Reading the result
 

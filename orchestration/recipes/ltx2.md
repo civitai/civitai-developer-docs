@@ -139,7 +139,7 @@ Arbitrary third-party URLs (e.g. `raw.githubusercontent.com`, `cdn.jsdelivr.net`
 
 ## Operations
 
-All examples target production and use `<your-token>` in place of your Bearer token. LTX2 jobs typically exceed the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — submit with `wait=0` and handle completion via webhooks or polling.
+All examples target production and use `<your-token>` in place of your Bearer token. LTX2 jobs typically outlast [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — submit with `wait=0` and handle completion via webhooks or polling.
 
 ### createVideo
 
