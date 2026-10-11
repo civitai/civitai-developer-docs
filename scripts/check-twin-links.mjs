@@ -34,13 +34,17 @@
 // ALSO `llms-full.txt` (see "llms-full.txt bundles" below): the plugin's
 // concatenation of every page, where a relative link is a defect outright.
 //
+// ALSO that nothing from `INTERNAL_DIRS` (`claudedocs/`, `appblocks-snapshots/`)
+// is published on any surface — see "internal-only source directories" below.
+//
 // 🔴 A ZERO HERE MUST NOT BE A VACUOUS PASS. `PARSER_SELF_TEST` runs on every
 // invocation (the matcher must find exactly the links a fixture plants), and
 // floors on the twin and link counts catch a glob or matcher that has gone to
 // nothing.
 
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, relative, sep } from 'node:path';
 
 const DIST = process.argv[2] ?? '.vitepress/dist';
 const ORIGIN = 'https://developer.civitai.com';
@@ -286,6 +290,119 @@ for (const p of bundleFiles) {
   }
 }
 
+// ── internal-only source directories are not published ──────────────────────
+//
+// 🔴 THE GAP THIS CLOSES. Two directories hold files that are not documentation:
+// `claudedocs/` (internal handoff notes for the people working on this repo) and
+// `appblocks-snapshots/` (committed generator INPUTS — `MARKUP.md` feeds
+// /apps/reference/components). Nothing excluded either, so
+// `claudedocs/handoff-docs-showcase-coverage.md` (added in #137) and
+// `appblocks-snapshots/MARKUP.md` each shipped as a page, a `.md` twin,
+// local-search entries, an `/llms.txt` link and an `/llms-full.txt` section —
+// and every check here passed, because their links all resolved.
+// `.vitepress/config.mts` now lists both in `srcExclude` (measured on
+// claudedocs/ with vitepress-plugin-llms 1.12.0: that alone removes every
+// surface; the plugin's `ignoreFiles` alone still published the page, its
+// chunks and its search entries) and, as belt-and-braces, in `ignoreFiles`.
+//
+// Each surface is matched STRUCTURALLY (a dist path, a chunk/hashmap key, a
+// link target, a section header, a search-index route), never as a bare
+// substring: the build bakes absolute source paths into some chunks, so a
+// checkout whose directory name happens to contain a listed name must not trip
+// it, and prose that merely NAMES `appblocks-snapshots/MARKUP.md` in a code
+// span (apps/reference/index.md does) is not a leak. `LEAK_SELF_TEST` below
+// plants one leak per surface per listed dir in a fixture dist, plus
+// look-alikes, and requires exactly the planted set back — so a surface whose
+// matcher has gone blind fails here instead of passing.
+export const INTERNAL_DIRS = ['claudedocs', 'appblocks-snapshots'];
+
+/** Every published trace of a source dir in `dist`, as "surface: detail" strings. */
+export function internalLeaks(dist, dirs) {
+  const leaks = [];
+  const has = (p) => existsSync(join(dist, p));
+  const files = (sub) => (has(sub) ? walk(join(dist, sub), () => true) : []);
+  for (const dir of dirs) {
+    for (const p of files(dir)) leaks.push(`page/twin: /${relative(dist, p).split(sep).join('/')}`);
+    const chunk = `${dir}_`; // VitePress names a page chunk after its source path, `/` -> `_`
+    for (const name of has('assets') ? readdirSync(join(dist, 'assets')) : []) {
+      if (name.startsWith(chunk)) leaks.push(`page chunk: /assets/${name}`);
+    }
+    if (has('hashmap.json')) {
+      for (const k of Object.keys(JSON.parse(readFileSync(join(dist, 'hashmap.json'), 'utf8')))) {
+        if (k.startsWith(chunk)) leaks.push(`hashmap.json key: ${k}`);
+      }
+    }
+    if (has('llms.txt')) {
+      for (const t of linkTargets(readFileSync(join(dist, 'llms.txt'), 'utf8'))) {
+        if (internalPath(t, '/llms.txt')?.startsWith(`/${dir}/`)) leaks.push(`llms.txt entry: ${t}`);
+      }
+    }
+    for (const p of walk(dist, (n) => n === 'llms-full.txt')) {
+      const served = `/${relative(dist, p).split(sep).join('/')}`;
+      for (const { url } of bundleSections(readFileSync(p, 'utf8'))) {
+        if (url?.startsWith(`/${dir}/`)) leaks.push(`${served} section: ${url}`);
+      }
+    }
+    const routeRe = new RegExp(`"/${dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/[^"#]*`, 'g');
+    for (const p of files('assets/chunks').filter((f) => /@localSearchIndex[^/]*\.js$/.test(f))) {
+      const routes = new Set(readFileSync(p, 'utf8').match(routeRe) ?? []);
+      for (const r of routes) leaks.push(`search index (${relative(dist, p)}): ${r.slice(1)}`);
+    }
+  }
+  return leaks.sort();
+}
+
+{
+  const fx = mkdtempSync(join(tmpdir(), 'check-twin-links-leaks-'));
+  try {
+    const put = (p, text) => {
+      mkdirSync(dirname(join(fx, p)), { recursive: true });
+      writeFileSync(join(fx, p), text);
+    };
+    const want = [];
+    const hashmap = { 'apps_x.md': 'a' };
+    const llms = ['- [X](/apps/x.md)'];
+    const full = ['---\nurl: /apps/x.md\n---\n# X\n'];
+    const search = ['"1":"/apps/x#a"'];
+    const lookalike = [];
+    INTERNAL_DIRS.forEach((d, i) => {
+      put(`${d}/n${i}.html`, '<html></html>');
+      put(`assets/${d}_n${i}.md.h.js`, '');
+      hashmap[`${d}_n${i}.md`] = 'b';
+      llms.push(`- [N](/${d}/n${i}.md)`, `- [Y](/apps/not-${d}/y.md)`);
+      full.push(`---\nurl: /${d}/n${i}.md\n---\n# N\n`);
+      search.push(`"${i + 2}":"/${d}/n${i}#goal"`, `"${i + 50}":"/apps/x-${d}/z"`);
+      // A baked-in absolute path and a code-span mention are not leaks.
+      lookalike.push(`/home/u/repo-no-${d}/${d}/z.ts`, `\`${d}/MARKUP.md\``);
+      want.push(
+        `/llms-full.txt section: /${d}/n${i}.md`,
+        `hashmap.json key: ${d}_n${i}.md`,
+        `llms.txt entry: /${d}/n${i}.md`,
+        `page chunk: /assets/${d}_n${i}.md.h.js`,
+        `page/twin: /${d}/n${i}.html`,
+        `search index (assets/chunks/@localSearchIndexroot.q.js): /${d}/n${i}`,
+      );
+    });
+    put('apps/x.md', `---\nurl: /apps/x.md\n---\n# X\n${lookalike.join(' ')}\n`);
+    put('assets/apps_x.md.abc.js', `import ${JSON.stringify(lookalike[0])};`);
+    put('hashmap.json', JSON.stringify(hashmap));
+    put('llms.txt', `${llms.join('\n')}\n${lookalike.join(' ')}\n`);
+    put('llms-full.txt', full.join('\n---\n\n'));
+    put('assets/chunks/@localSearchIndexroot.q.js', `const t={${search.join(',')}};`);
+    const got = internalLeaks(fx, INTERNAL_DIRS);
+    want.sort();
+    if (got.join('|') !== want.join('|')) {
+      console.error('check-twin-links: LEAK_SELF_TEST failed — an internal-dir surface matcher is broken.');
+      console.error(`  want: ${want.join('\n        ')}\n  got:  ${got.join('\n        ')}`);
+      process.exit(2);
+    }
+  } finally {
+    rmSync(fx, { recursive: true, force: true });
+  }
+}
+
+const leaks = internalLeaks(DIST, INTERNAL_DIRS);
+
 if (!bundleFiles.some((p) => relative(DIST, p) === 'llms-full.txt')) {
   console.error(`check-twin-links: no ${join(DIST, 'llms-full.txt')} — the llms plugin did not emit the bundle.`);
   process.exit(1);
@@ -356,6 +473,19 @@ if (bundleProblems.size) {
       'against its SOURCE page\'s directory — `<dir>/index.md` is headed `url: /<dir>.md` but resolves against `<dir>/`.',
   );
 }
+if (leaks.length) {
+  failed = true;
+  console.error(
+    `\ncheck-twin-links: ${leaks.length} published trace(s) of internal-only source dir(s) ` +
+      `${INTERNAL_DIRS.map((d) => `${d}/`).join(', ')}:\n`,
+  );
+  for (const l of leaks) console.error(`  ${l}`);
+  console.error(
+    '\ncheck-twin-links: these directories hold internal notes and generator inputs, not documentation.\n' +
+      'List them in .vitepress/config.mts `srcExclude` (that is what keeps the page, twin, search entry,\n' +
+      'llms.txt entry and llms-full.txt section out) and in the llms plugin\'s `ignoreFiles`.',
+  );
+}
 if (failed) process.exit(1);
 
 console.log(
@@ -365,4 +495,8 @@ console.log(
 console.log(
   `check-twin-links: OK — llms-full.txt: ${bundleChecked} internal link(s) across ${sections} section(s) of ` +
     `${bundleFiles.length} bundle(s), 0 relative, 0 dead.`,
+);
+console.log(
+  `check-twin-links: OK — no page, twin, chunk, search entry, llms.txt entry or llms-full.txt section from ` +
+    `${INTERNAL_DIRS.map((d) => `${d}/`).join(', ')} (6 surfaces each, self-tested).`,
 );
