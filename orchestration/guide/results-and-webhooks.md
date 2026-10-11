@@ -102,7 +102,7 @@ Step events use [`WorkflowStepEvent`](/orchestration/reference/operations/Submit
 
 ## Blobs in results
 
-Each blob object in a step's output carries its own `url` and `urlExpiresAt`; where the blobs sit depends on the step type, e.g. `output.images[]` for `imageGen`, `output.video` for `videoGen`, `output.blobs[]` for `comfy` (in a webhook, under `details`). A URL **expires** at its `urlExpiresAt` and then returns `403`. Refetch the workflow, or call [`GetBlob`](/orchestration/reference/operations/GetBlob), for a fresh one; don't cache the URL. To keep the media, download the bytes and store them yourself.
+Each blob object in a step's output carries its own `url` and `urlExpiresAt`; where the blobs sit depends on the step type, e.g. `output.images[]` for `imageGen`, `output.video` for `videoGen`, `output.blobs[]` for `comfy` (in a webhook, under `details`). A signed URL stops working once it passes its `urlExpiresAt` (a public-tier URL may have none). Refetch the workflow, or call [`GetBlob`](/orchestration/reference/operations/GetBlob), for a fresh one; don't cache the URL. To keep the media, download the bytes and store them yourself.
 
 ## Polling fallback
 

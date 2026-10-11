@@ -85,7 +85,7 @@ Statuses progress through `unassigned` → `preparing` → `scheduled` → `proc
 
 ## 3. Poll if you didn't wait inline
 
-The API doesn't clamp `wait`, but your HTTP client likely has its own request timeout (100 s is a common default), so keep `wait` below it. If the connection closes before the response arrives you get no `id`, though the workflow keeps running and is charged; resubmitting with the same `externalId` returns that workflow instead of starting another. A workflow still running when `wait` elapses (most video jobs, large batches, training) comes back `202` with `status: "processing"`; keep its `id` and poll [`GET /v2/consumer/workflows/{workflowId}`](/orchestration/reference/operations/GetWorkflow) until it reaches a terminal state:
+The API doesn't clamp `wait`, but your HTTP client likely has its own request timeout (100 s is a common default), so keep `wait` below it. If the connection closes before the response arrives you get no `id`, though the workflow keeps running and is charged; resubmitting with the same `externalId` returns that workflow as it currently stands (a `200` even while it is still running, so check `status`) instead of starting another. A workflow still running when `wait` elapses (most video jobs, large batches, training) comes back `202` with `status: "processing"`; keep its `id` and poll [`GET /v2/consumer/workflows/{workflowId}`](/orchestration/reference/operations/GetWorkflow) until it reaches a terminal state:
 
 ```http
 GET https://orchestration.civitai.com/v2/consumer/workflows/wf_01HXYZ...
