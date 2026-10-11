@@ -245,7 +245,7 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 |---|---|
 | `useAppStorage` | `/api/v1/blocks/app-storage/{get,set,delete,list,quota}` — block-token only |
 | `useAppWorkflows` | `POST /api/v1/blocks/workflows/query` |
-| `useBlockAnalytics` | **Nothing to replace** — see the note below |
+| `useBlockAnalytics` | **Keep** — a bridge message with no route. Its events are recorded once your manifest declares them; `@civitai/sdk`'s `app.host.track()` sends the same message (from 0.11.0, not yet published). See the note below |
 | `useBlockBreakpoint` | Local — element measurement, keep as is |
 | `useBlockContext` | **Keep** — the handshake payload arrives over the bridge and has no route |
 | `useBlockResize` | **Keep** — host UI; only the host can size your frame |
@@ -288,11 +288,24 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 | `useViewer` | `GET /api/v1/blocks/me`. Keeping the hook is not free: it is a `GET_VIEWER` bridge round trip on mount, not a snapshot read — but it is the authoritative self-read, where `useBlockContext().viewer` is the coarser `BLOCK_INIT` snapshot |
 | `useWildcardPack` | **Not carried** |
 
-::: info `useBlockAnalytics` loses nothing
-It emits `TRACK_EVENT`, which has **no host-side sink on either host** — the
-events are dropped today. The call sites are already no-ops, so removing the hook
-costs you nothing that was working. A no-op shim is a fine way to avoid touching
-every call site at once.
+::: warning Keep your `track()` calls — and declare the events
+`useBlockAnalytics()` sends `TRACK_EVENT`, and **both hosts forward it**: your
+events reach your app's analytics. An earlier version of this page said the
+calls were no-ops and could be deleted. That is no longer true, and deleting
+them loses data.
+
+Two things to do when you port:
+
+- **Declare every event** under `analytics.events` in your manifest. Only
+  declared events, with declared properties of the declared type, are recorded;
+  an undeclared event is counted as a drop and its name is not stored.
+- **Move the calls, don't drop them.** `TRACK_EVENT` has no REST route. If you
+  are moving to `@civitai/sdk`, `app.host.track(eventName, properties)` sends
+  the same message, but it is added in `@civitai/sdk` 0.11.0, which is not yet
+  published to npm. Until then keep `useBlockAnalytics()` for these calls.
+
+See [Custom events](./custom-events) for the declaration, the limits and where
+the numbers show up.
 :::
 
 ### Reading and writing
@@ -470,7 +483,7 @@ Document these as gaps; do not design around them yet.
 |---|---|
 | `useImageUpload` / `OPEN_IMAGE_UPLOAD` | No REST twin, and deliberately so — it raises host UI. `@civitai/sdk` exposes it as `host.openImageUpload` (since 0.3.0, either credential), which is the same bridge message behind a different package. |
 | `usePublishGenerationOutputs` | Same shape, and staying on the bridge by design — host chrome is the consent control. `@civitai/sdk`'s `host.publishGenerationOutputs` (also 0.3.0) is the same message. |
-| `useBlockAnalytics` | No sink anywhere; already a no-op. |
+| `useBlockAnalytics` / `TRACK_EVENT` | No REST twin — a fire-and-forget bridge message, recorded only when the manifest declares the event. `@civitai/sdk` carries it as `host.track` from 0.11.0 (not yet published). See [Custom events](./custom-events). |
 | Anonymous app-storage reads | REST returns 403 where the bridge resolved a read to `null`; handle both. |
 | `useBuzzAccounts`, `useBuzzTransactions`, `useDailyCompensation`, `useWildcardPack` | Not carried. |
 
