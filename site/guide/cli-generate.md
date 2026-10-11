@@ -8,9 +8,8 @@ sources:
 # Generating images from the CLI
 
 `civitai generate "<prompt>"` runs a text-to-image generation on Civitai's
-generator from your terminal. It is part of the same
-[`civitai` CLI](./cli) you use to browse and download — but unlike every read
-command, this one **spends money**.
+generator from the [`civitai` CLI](./cli). Unlike every read command, it
+**spends money**.
 
 ::: danger This spends real Buzz and cannot be undone
 A submitted generation is charged the moment the orchestrator accepts it, and
@@ -19,29 +18,24 @@ nothing local calls that back — not `--timeout`, not Ctrl-C, not
 server's cost estimator and spends nothing.
 :::
 
-For the flag list, `civitai generate --help` and the generated
-[CLI reference](../../apps/reference/cli) are the authority. This page is about
-the money contract and the failure modes.
+For the flag list, see `civitai generate --help` and the generated
+[CLI reference](../../apps/reference/cli). This page covers the money contract
+and the failure modes.
 
 ## What the CLI can and cannot tell you about a charge
 
-The CLI reports **two different things**, and keeping them apart is the whole
-point:
-
 - **Your account Buzz ledger is not readable from here.** `civitai buzz`
-  reports a *balance*, not a history, so a balance alone cannot settle "did
-  *this* run come back" unless you noted it beforehand. Where no per-workflow
-  record is available the CLI says exactly that and points you at your
+  shows a *balance*, not a history, so it cannot settle "did *this* run come
+  back" unless you noted the balance beforehand. Where no per-workflow record is
+  available the CLI says so and points you at your
   [transaction history](https://civitai.com/user/transactions).
 - **One workflow's own transactions often *are* in the payload.** When they
   are, `civitai workflows get <id>` — and `civitai generate` on a failed run —
-  print each `debit` and `credit` the server recorded for that workflow, and
-  the net. See
+  print each `debit` and `credit` and the net; see
   [Buzz transactions for one workflow](./cli-workflows#buzz-transactions-for-one-workflow).
 
-The CLI does **not** tell you a charge stands, and does **not** tell you it was
-refunded. The server re-prices a failed or cancelled run by the share of its
-outputs that never landed; the CLI still promises no *amount*, because the
+The CLI never says a charge stands or was refunded. The server re-prices a
+failed or cancelled run by the share of outputs that never landed, so the
 amount depends on how far the run got.
 
 ## The shape of a session
@@ -85,19 +79,10 @@ carry them and is refused — and re-running plain `civitai login` will not fix
 that. `civitai whoami` shows the capability as **Spend Buzz (AI Services)**.
 See [CLI credentials and scopes](./cli-auth).
 
-The one exception is `--print-input`, which assembles the graph and exits
-before the estimator, the submit and the balance read. Two caveats, and they
-are **not** the same caveat:
-
-- `--print-input` **with `--image`** does need a credential, because it uploads
-  each local file first and that upload is authenticated.
-- `--print-input` **with `--checkpoint` or `--lora`** needs none — the
-  model-version lookup is a public read — but it is **not offline**: that
-  lookup is a real request, and with no network it fails (exit `5`) rather than
-  printing a graph.
-
-So only a **bare** `--print-input` needs neither a credential nor a network.
-See [Raw generation graphs](./cli-generation-graphs).
+`--print-input` is the exception: it exits before the estimator, the submit
+and the balance read. Only a **bare** `--print-input` needs neither a
+credential nor a network — with `--image` or `--checkpoint`/`--lora` it does
+not; see [What `--print-input` touches](./cli-generation-graphs#what-print-input-touches).
 
 ## `--max-cost` is an estimate check, not a spending cap
 
@@ -110,8 +95,8 @@ and `--max-cost` cannot claw the difference back.
 :::
 
 `--max-cost` compares that estimate against your number and refuses **locally**
-before submitting. It catches a `--quantity` typo. That is all it can do. Do
-not run an unattended loop believing it caps spend. (The per-API-key
+before submitting. It catches a `--quantity` typo, and nothing more — do not
+run an unattended loop believing it caps spend. (The per-API-key
 `buzzLimit` on your account does not bind this path either — the generator
 meters a separate server-minted subject, not your key.)
 
@@ -129,42 +114,32 @@ to **stderr**, so `--json` keeps stdout machine-clean.
 plus `--image` and `--ecosystem` — those two are covered in
 [Choosing a model](./cli-generate-models).
 
-The generator is **permissive, not a validator**. It returns HTTP 200 for
+The generator is **permissive, not a validator** — it returns HTTP 200 for
 things it silently changes:
 
-- An out-of-range `--quantity` is **clamped** with no error — asking for 40
-  charges you for the server's limit. The CLI warns when you cross its own
-  advisory threshold, then sends your value anyway; the clamp is the server's,
-  and the CLI does not enforce a maximum of its own.
+- An out-of-range `--quantity` is **clamped** with no error, so asking for 40
+  charges for the server's limit. The CLI warns past its own advisory threshold
+  but sends your value; it enforces no maximum.
 - `steps: 0` and `cfgScale: 0` are *accepted* and price a degenerate, cheaper,
-  wrong job — which is exactly why those are **not** exposed as flags.
-- A checkpoint id that does not exist is accepted, the ecosystem default is
-  **silently substituted**, and you are billed for it.
+  wrong job — which is why `seed`, `steps`, `cfgScale` and `sampler` have **no
+  flags**. Set them in the graph instead, which is also the only route to a
+  **reproducible** run; see [Raw generation graphs](./cli-generation-graphs).
+- A nonexistent checkpoint id is accepted, the ecosystem default is **silently
+  substituted**, and you are billed for it.
 
 So `--checkpoint` and every `--lora` is resolved against the public
-model-version API **before** anything is submitted: a bad id becomes a hard
-local *not found* (exit `4`) instead of a wrong charge, and the confirmation
-echoes the resolved **model name** so you approve a name rather than an
-integer.
+model-version API **before** submitting: a bad id is a local *not found* (exit
+`4`) instead of a wrong charge, and the confirmation shows the resolved **model
+name**, not an integer.
 
-`--model` is deliberately absent, and the asymmetry is real:
-`civitai download --model` takes a **model** id, while `--checkpoint` here
-takes a **version** id.
-
-::: tip `seed`, `steps`, `cfgScale` and `sampler` have no flags at all
-The `steps: 0` behaviour above is why: a flag whose unset value could reach the
-request would buy a broken run at a discount. They are still reachable —
-through the graph, not a flag — and the graph is the only route to a
-**reproducible** run, because the seed lives there. See
-[Raw generation graphs](./cli-generation-graphs).
-:::
+`--model` is deliberately absent: `civitai download --model` takes a **model**
+id, while `--checkpoint` here takes a **version** id.
 
 ## Waiting, downloading, and re-attaching
 
-By default `generate` **waits** for the job to finish and writes every
-deliverable output into `--out-dir` (default `.`) as
-`<workflow-id>-<n>.<ext>`. `--force` overwrites existing files; without it a
-collision is refused *before any bytes move*.
+By default `generate` **waits** and writes every deliverable output into
+`--out-dir` (default `.`) as `<workflow-id>-<n>.<ext>`. An existing file is
+refused *before any bytes move* unless you pass `--force`.
 
 ### Naming the files
 
@@ -181,11 +156,10 @@ The default is `{workflow}-{n}{ext}`, so `--out-name 'cat-{n}{ext}'` writes
 `cat-1.jpeg`, `cat-2.jpeg`, … into `--out-dir`.
 
 ::: warning The rendered name must be a plain file name inside `--out-dir`
-A path separator, a leading `/`, or a `..` is **refused, not stripped** —
-silently sanitising a traversal writes a file you did not ask for under a name
-you did not choose. An unknown placeholder and a template that renders to
-nothing are refused too. All of these are **usage errors (exit 2) raised before
-the job is priced or submitted**, so a bad template costs nothing:
+A path separator, a leading `/` or a `..` is **refused, not stripped**, as are
+an unknown placeholder and a template that renders to nothing. All are
+**usage errors (exit 2) raised before pricing**, so a bad template costs
+nothing:
 
 ```console
 $ civitai generate "a cat" --out-name 'sub/dir{ext}' --dry-run
@@ -198,93 +172,83 @@ $ echo $?
 ```
 :::
 
-A template that would give **two outputs the same name** — one with no `{n}` on
-a multi-image run — is refused before any byte is downloaded, and `--force`
-does *not* override it: there is no earlier file to replace, only the run's own
-other output, and the presigned URLs spent getting it are not re-issued.
-Include `{n}` for a batch. A single-output run with a fixed name is fine.
+A template that would give **two outputs the same name** (no `{n}` on a
+multi-image run) is refused before any byte is downloaded, and `--force` does
+*not* override it — there is no earlier file to replace, and the presigned URLs
+are not re-issued. A single-output run with a fixed name is fine.
 
 ### Not waiting
 
 - `--no-wait` submits, prints the workflow id and exits `0`.
-- `--no-download` waits and prints the output URLs instead of writing files.
-  One row on **stdout** per **deliverable** output that came back **with a
-  URL**, the CLI's own number and the URL separated by a tab, so `cut -f2` is
-  the intended read. The number is that output's position within the
-  deliverable list, so it skips an output the server returned without a URL — a
-  gap in the numbering is the CLI's own, not a dropped row. The URL is the **server's**, so it is flattened to
-  one line and one tab-separated field first: a presigned URL cannot add a
-  numbered row of its own, or an extra field, to that listing.
-- `--timeout` bounds how long the CLI waits, and defaults to **30m**. That is
-  deliberately generous: the wait has to outlast the **queue**, not just the
-  execution. A healthy job can sit in `scheduled` for more than **10 minutes**
-  before execution begins, so a shorter default walks away from
-  a run that has already been charged.
+- `--no-download` waits and prints one `n<TAB>url` row on **stdout** per
+  deliverable output that came back with a URL; `cut -f2` gives the URLs. `n` is
+  the output's position in the deliverable list, so an output returned without
+  a URL leaves a gap in the numbering rather than a dropped row. The URL is
+  flattened to one line and one field first, so it cannot add a row or field of
+  its own.
+- `--timeout` bounds how long the CLI waits, and defaults to **30m**: the wait
+  has to outlast the **queue**, where a healthy job can sit in `scheduled` for
+  more than **10 minutes** before it runs, and a shorter default would walk
+  away from a run that has already been charged.
 - `civitai workflows get <workflow-id>` shows a workflow at any time. It is the
   re-attach path for every case where the CLI stopped early, and it spends
   nothing.
 
 ::: danger `--timeout` stops *waiting*. It does not stop the *job*.
 When the deadline passes — or you press Ctrl-C — the generation keeps running
-server-side, and finishes and bills exactly as if you had stayed. Neither case
-cancels anything. Both exit **non-zero**, print the workflow id, the
-idempotency key and the exact `civitai workflows get …` command, and never
-report success.
-
-`civitai workflows cancel` is the only thing that stops the remaining work; see
-[Cancelling](./cli-workflows#cancelling-a-workflow) for what that does to the
-charge.
+server-side and bills exactly as if you had stayed. Both exit **non-zero** and
+print the workflow id, the idempotency key and the exact
+`civitai workflows get …` command. Only `civitai workflows cancel` stops the
+remaining work; see [Cancelling](./cli-workflows#cancelling-a-workflow) for what
+that does to the charge.
 :::
 
 ### Output URLs are presigned and expire
 
-Download promptly; re-read the workflow for fresh links. The blob fetch
-deliberately carries **no credential** — the URL is already authorized, and
-attaching your full-scope API key to it would hand 25 unrelated permissions to
-a request that needs none. A 401 from one of these URLs means the signature is
-wrong or expired; no credential fixes it, and the CLI does not retry it with
-one.
+The links in a workflow — on screen, from `--no-download` and in `--json` — are
+short-lived signatures, not durable addresses. Download promptly, and re-run
+`civitai workflows get <id>` for fresh links rather than caching old ones.
+Fetch them with **no** `Authorization` header: the URL is already authorized,
+and the CLI deliberately attaches nothing (your full-scope API key would hand
+25 unrelated permissions to a request that needs none). A 401/403 from one of
+these URLs means the signature is wrong or expired; no credential fixes it,
+and the CLI does not retry with one.
 
 ### Fewer results than you paid for
 
-A finished workflow can contain fewer usable results than you paid for. An
-output can be blocked by moderation, never land, or be one you hid on the
-website. Those are filtered out of the download — and **reported, with the
-reason**, plus an explicit note when the count differs from `--quantity`.
-Silently writing three files for a four-image job is the failure this exists to
-prevent. If *every* output is filtered out the command exits non-zero.
+An output can be blocked by moderation, never land, or be one you hid on the
+website. Those are filtered out of the download and **reported, with the
+reason**, plus a note when the count differs from `--quantity`. If *every*
+output is filtered out the command exits non-zero.
 
 ### Crash safety
 
-The orchestrator's idempotency key is written to a `pending/<key>.json` file
-under the CLI's config directory — `~/.config/civitai/` on Linux,
+The orchestrator's idempotency key is written to `pending/<key>.json` under the
+CLI's config directory — `~/.config/civitai/` on Linux,
 `~/Library/Application Support/civitai/` on macOS — **before** the request is
-sent, because the money moves server-side even if the process dies mid-POST. Idempotency is
-always on — there is no flag to enable it.
+sent, because the money moves server-side even if the process dies mid-POST.
+Idempotency is always on.
 
 If a submit's reply never arrives, re-run with `--external-id <key>`: the
 orchestrator dedupes on it and returns the **pre-existing** workflow instead of
-charging again. It answers a duplicate with HTTP `200`, not a `409`, so
-re-attachment is inferred locally rather than read off a status code.
-`--external-id` **overrides** the key the CLI would have minted; it does not
-switch idempotency on.
+charging again. It answers a duplicate with HTTP `200`, not `409`, so
+re-attachment is inferred locally. `--external-id` **overrides** the minted
+key; it does not switch idempotency on.
 
 ### Polling cadence
 
 The status poll starts at 5s, backs off exponentially to a cap, and backs off
-harder on a `429`. That floor is not tunable downward: the workflow read
-proxies straight through to the orchestrator with no cache and no server-side
-rate limit, so the CLI's own restraint is the only thing between it and a 429
-storm.
+harder on a `429`. The floor is not tunable downward: the workflow read has no
+cache and no server-side rate limit, so the CLI's own restraint is what
+prevents a 429 storm.
 
 ## Exit codes
 
-`generate` follows the CLI's global exit-code table with one deliberate
-refinement. The API answers several very different failures with the same HTTP
-status, and the generic mapping would send a script down the wrong path — in
-particular a caller who is out of Buzz, muted, or hitting a server-side outage
-must **never** be told to re-run `civitai login`. Those cases therefore exit
-`1` (generic), not `3` (auth) or `2` (usage).
+`generate` follows the CLI's global exit-code table with one refinement: the
+API answers very different failures with the same HTTP status, and a caller
+who is out of Buzz, muted, or hitting a server-side outage must **never** be
+told to re-run `civitai login`. Those exit `1` (generic), not `3` (auth) or `2`
+(usage).
 
 ::: danger An exit code does not tell you whether you were charged
 Every failure above the divider happens *before* anything is submitted, so
@@ -315,9 +279,8 @@ re-attach with `civitai workflows get <workflow-id>` instead of re-submitting.
 | The workflow finished `failed` / `expired` / `canceled` | `1` |
 | The workflow succeeded but every output was filtered out (blocked / unavailable / hidden) | `1` |
 
-A substitution that appears **only on the submit reply** is reported and is in
-`--json`, but exits `0`: by then the charge has happened, and failing would
-strand a result you paid for.
+A substitution that appears **only on the submit reply** is reported but exits
+`0` — see [`--fail-on-substitution`](./cli-generate-models#refusing-instead-fail-on-substitution).
 
 ## Where to go next
 
