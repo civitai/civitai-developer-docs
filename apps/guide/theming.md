@@ -242,9 +242,38 @@ between React 18 and 19; read the element's `value` docstring
 (`@civitai/components/dist/elements/field-base.d.ts`) and test against the
 React major you ship.
 
-<!-- Maintainers: do not characterise starting-value / reset behaviour here
-     without measuring BOTH React majors in the peer range in a real browser.
-     Four earlier attempts were each wrong on one major. -->
+<!-- 🔴 DO NOT DERIVE A FIFTH VERSION OF THE PARAGRAPH THAT USED TO SIT HERE.
+     Four consecutive audit rounds each found the PREVIOUS round's replacement
+     wrong. Every one was a confident explanation of how to get a reset-correct
+     default, written under pressure to supply a reason:
+       1. "React's `defaultValue` is a DOM attribute the element never reads" —
+          the conclusion held, the mechanism was wrong: React 18 treats
+          `defaultValue` as a RESERVED prop and never writes it at all.
+       2. "write the `<civitai-*>` tag so it lands as an attribute" — true on
+          React 18, FALSE on React 19 (property when the element has one), and
+          BOTH majors are in `@civitai/components-react`'s peer range.
+       3. "`value` reflects only on `civitai-checkbox`, so for the fields the
+          property is all there is" — wrong twice. It reflects on five elements
+          (checkbox, switch, tabs, menu-item, progress), and the follow-on was
+          false outright: `CivitaiField` declares `value: {}`, so the ATTRIBUTE is
+          observed on every field element — `field-base.d.ts` says "The `value`
+          ATTRIBUTE is the default, as on a native input". What the fields lack is
+          REFLECTION (property -> attribute), which is a different thing. That
+          draft also told the reader to derive the list from
+          `custom-elements.json`, which cannot settle it: the manifest carries no
+          `CivitaiField` declaration, so it lists no `value` on the fields.
+       4. "no React route gives you one — set the attribute yourself,
+          `ref={(el) => el?.setAttribute('value', '30')}`" — wrong twice again. A
+          raw tag under React 18 both sets the attribute and survives re-renders,
+          so a working React route does exist there; and the inline-arrow ref
+          REPRODUCES the defect this callout warns about, because @lit/react
+          forwards the user ref through `useCallback(cb, [r])` — a new arrow each
+          render detaches and reattaches, re-running setAttribute and re-asserting
+          the stale value.
+     The verified claim is the first paragraph above, measured twice in a real
+     browser. Everything past it was a characterisation nobody had measured across
+     both React majors. If you need to document defaults, MEASURE the major you
+     ship first and say which one you measured. -->
 
 
 The props come from the element classes: `CivitaiButton` takes `variant` / `size` /

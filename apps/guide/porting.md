@@ -104,9 +104,10 @@ workflow routes** (`estimate`/`submit`/`poll`/`cancel` **and `query`**) and
 `models`, `images`, `gated-images`, `generation-resources`, `tools`, `tip`,
 `tip-allowance` and the three `collections` routes.
 
-**If your app uses app storage, it cannot use `auth: "oauth"` today** — manifest
-validation does not yet refuse the pair, so it fails at runtime as a 401 on
-every read and write, and `@civitai/sdk` does not annotate it.
+**If your app uses app storage, it cannot use `auth: "oauth"` today.** Submit
+refuses the pair (the server's manifest validator), but `civitai app validate`
+does not check it locally. Left unrefused, every storage read and write would
+401 as soon as a viewer signs in.
 
 **If your block generates, stay on the host-proxied workflow routes.** They
 carry the per-call Buzz budget, the per-viewer and per-app daily caps, the
@@ -293,8 +294,8 @@ page the whole board. There is no bridge-hook equivalent, and none is planned.
 GET /api/v1/blocks/shared-storage/list?limit=50&mine=true
 ```
 
-- **Values:** `true` or `false` (the whole board — the same as omitting it).
-  Anything else is a `400`, including **`?mine=` with an empty value** (how most
+- **Values:** `true` filters to the viewer's rows; `false` means the whole
+  board, the same as omitting the key. Anything else is a `400`, including **`?mine=` with an empty value** (how most
   query-string helpers serialise an unset field or `undefined`), a bare `?mine`,
   the key sent twice, and `1`/`yes`/`TRUE`. Drop the key when the filter is off.
 - **It composes** with `prefix`, `limit` and pagination; the envelope, cursor

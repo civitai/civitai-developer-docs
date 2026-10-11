@@ -209,10 +209,24 @@ from an allowlist, and naming one in the strict body schema is a rejection.
 **The whole `customComfy` path is page-token-only — both arms.** A model-bound
 token is rejected on estimate and submit before either arm is inspected.
 
-<!-- Maintainers: do not characterise WHO can submit — enumerate the refusals
-     from `blocks.router.ts` or say nothing (five earlier drafts were wrong).
-     `maxBuzz` is an INLINE-arm field; on the recipe arm the ceiling comes from
-     the registry, so any sentence naming `maxBuzz` must say which arm. -->
+<!-- 🔴 FIVE DRAFTS OF THE NEXT PARAGRAPH HAVE BEEN WRONG. Recorded so nobody
+     writes a sixth: (1) "app developers only" — no such check exists on this
+     path; (2) "the inline arm is ADDITIONALLY page-token-only" — the recipe arm
+     is too; (3) "nothing stands between a viewer and a submit except your own
+     code" — then named three platform gates in the next clause; (4) "there is no
+     per-viewer gate" — the server runs at least four viewer-keyed checks before
+     either arm is inspected; (5) listed "a positive `buzzBudget` that covers
+     your maxBuzz" as a VIEWER property — it is minted from the app's own
+     manifest (`page.buzzBudgetPerGen`, default 10), and that comparison is a
+     static check AFTER the arm is chosen, not one of the pre-arm viewer gates.
+     If you are tempted to characterise WHO can submit, don't: enumerate the
+     refusals from `blocks.router.ts` instead, or say nothing. Every draft above
+     was written while fixing the one before it — the failure mode is supplying a
+     reason under pressure, so prefer deleting a claim to rewording it.
+     🔴 SEPARATE TRAP in the budget sentence below: `maxBuzz` is an INLINE-ARM
+     body field, so any sentence naming it must say which arm it means. This
+     section covers BOTH arms, and on the recipe arm the ceiling comes from the
+     registry (`recipe.budgetFor(params)`), not from a `maxBuzz` the app wrote. -->
 
 Several platform gates run **before** either arm is inspected, each a refusal
 your app must handle: the viewer must be **signed in**, **enabled for Apps**
@@ -362,7 +376,8 @@ Comfy on Civitai is **post-paid with a hard ceiling**:
    **settles down to the real runtime** — a fast job costs less than the ceiling;
    the reservation only bounds the maximum.
 
-Show the `estimate()` value as an estimate, and read the final
+The ceiling is a worst case, not a target to size `buzzBudgetPerGen` from. Show
+the `estimate()` value as an estimate, and read the final
 `result.cost.total` on completion.
 
 ### On the inline arm, `maxBuzz` is also the timeout in seconds

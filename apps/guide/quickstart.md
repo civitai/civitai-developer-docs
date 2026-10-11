@@ -276,7 +276,8 @@ spending: [Local dev loop](./local-dev).
 The harness's parent origin (`http://localhost:5186` in `page-money`) and
 `VITE_BLOCK_ALLOWED_PARENT_ORIGINS` **must match**, or `BLOCK_INIT` is dropped
 and the block hangs on "Loading…". The key is set in `.env.development` (only a
-comment in `.env.example`), and a stale copy in `.env.development.local` wins
+comment in `.env.example`, so a `.env` copied from it won't carry the key), and
+a stale copy in `.env.development.local` wins
 over it. Auto-setup writes only `VITE_LIVE_BLOCK_TOKEN` and `CIVITAI_HOST_KEY`.
 :::
 

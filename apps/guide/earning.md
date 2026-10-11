@@ -65,7 +65,9 @@ const platformShare = priceBuzz - appOwnerShare;
    sum to `priceBuzz` exactly (a database constraint enforces it), so **the
    rounding goes to the platform**. At a price of `10` you keep `7`, exactly
    70/30; at `11` you keep `floor(7.7) = 7` and the platform `4` — an effective
-   **63.6%**. For the exact ratio, price in multiples of 10.
+   **63.6%**. For the exact ratio, price in multiples of 10. The share is its own
+   constant, not an alias of the cosmetic shop's creator share, even where the
+   numbers agree.
 2. **The floor price is 2, derived from the share:**
 
    ```ts
@@ -353,7 +355,8 @@ never reversed.
 
 **You cannot earn this fee from yourself.** If the viewer is the app owner, the
 fee is refused before any money moves. It is also refused on a *private run*
-(a delisted or suspended app's bundle served for review).
+(a delisted or suspended app's bundle served for review). The goods rail's
+self-purchase refusal is an independent check, not this one — test both.
 
 ---
 

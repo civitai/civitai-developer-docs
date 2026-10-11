@@ -18,11 +18,9 @@ can fill it in **while your app is in review** and it goes live the day the app
 is approved.
 
 ::: danger Media carries forward on APPROVAL only
-**Withdrawing** the submission, or a moderator **rejecting** a first-version
-submission, deletes the listing and everything on it — icon, cover, and every
-screenshot with its caption (see
-[Changing the bundle while a request is still pending](./review-and-deploy#changing-the-bundle-while-a-request-is-still-pending)).
-Do not hand-caption a gallery on a submission you may withdraw.
+Withdrawing or rejection of a first-version submission deletes the listing and
+all its media — see
+[Changing the bundle while a request is still pending](./review-and-deploy#changing-the-bundle-while-a-request-is-still-pending).
 :::
 
 ## The publish floor
