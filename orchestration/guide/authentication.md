@@ -20,6 +20,6 @@ All requests go to `https://orchestration.civitai.com`.
 
 ## Try It in the docs
 
-Paste your token via **Token** in the navbar (top right) to use the **Run** widgets under examples. It's stored in your browser's `localStorage` and never leaves it except in the `Authorization` header sent to `orchestration.civitai.com`. A Run widget can **preview cost** (`whatif=true`, per-currency Buzz breakdown) or **submit** (`wait=90`, then polls [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) until terminal) and renders generated images and videos inline.
+Paste your token via **Token** in the navbar (top right) to use the **Run** widgets under examples. It's stored only in your browser's `localStorage` and sent only in the `Authorization` header of requests you run from this site's widgets, to the URL shown in that request. A Run widget can **preview cost** (`whatif=true`, per-currency Buzz breakdown) or **submit** (`wait=90`, then polls [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) until terminal) and renders generated images and videos inline.
 
 Reference operation pages have their own OpenAPI playground with a separate auth field, which also persists across reloads.

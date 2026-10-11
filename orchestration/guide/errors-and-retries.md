@@ -93,5 +93,5 @@ The orchestrator retries transient failures on your callback endpoint automatica
 ## Common gotchas
 
 - **Blob URLs 403 after a few minutes.** The signed URL expired; this isn't a failure. Get a fresh one as described in [Blobs in results](./results-and-webhooks#blobs-in-results).
-- **`202` after `wait=90`.** The workflow didn't finish within the [100-second request timeout](./getting-started#_3-poll-if-you-didn-t-wait-inline); continue via webhooks or polling.
+- **`202` after `wait=90`.** The workflow didn't finish within those 90 s (`wait` must stay under the [100-second request timeout](./getting-started#_3-poll-if-you-didn-t-wait-inline)); continue via webhooks or polling.
 - **Step `canceled` unexpectedly.** Check whether another process called [`DeleteWorkflow`](/orchestration/reference/operations/DeleteWorkflow). The orchestrator only cancels on request or when a step it depends on failed.

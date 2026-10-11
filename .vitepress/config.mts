@@ -505,7 +505,7 @@ export default withMermaid({
       llmstxt({
         description: 'Civitai developer docs: the Orchestration API (AI generation workflows), the Civitai Site API and OAuth, Civitai Apps (apps that run inside civitai.com), and MCP servers.',
         details:
-          'Orchestration covers authenticating, submitting workflows, getting results by polling or webhooks, and one recipe per step type. ' +
+          'Orchestration covers authenticating, submitting workflows, getting results by polling or webhooks, and recipes per model or engine. ' +
           'Its reference pages are generated from a committed snapshot of the v2-consumers OpenAPI spec.',
         // NOT the routed `sidebar` object — see `dedupeSidebarGroups` above: the
         // plugin flattens every key, so an aliased array emits its groups twice.

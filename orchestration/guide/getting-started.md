@@ -56,7 +56,7 @@ Key query parameters:
 | Param | Default | Purpose |
 |-------|---------|---------|
 | `whatif` | `false` | If `true`, validates the workflow and returns the resolved plan without executing it. |
-| `wait` | `0` | Seconds to block waiting for completion inline, capped at 100 s ([step 3](#_3-poll-if-you-didn-t-wait-inline)). `0` returns immediately with the in-flight workflow. |
+| `wait` | `0` | Seconds to block waiting for completion inline; keep it under 100 s ([step 3](#_3-poll-if-you-didn-t-wait-inline)). `0` returns immediately with the in-flight workflow. |
 
 ## 2. Read the response
 
@@ -85,7 +85,7 @@ Statuses progress through `unassigned` → `preparing` → `scheduled` → `proc
 
 ## 3. Poll if you didn't wait inline
 
-Requests time out at **100 seconds**, so `wait` can never exceed that. A workflow still running by then (most video jobs, large batches, training) comes back `202` with `status: "processing"`; keep its `id` and poll [`GET /v2/consumer/workflows/{workflowId}`](/orchestration/reference/operations/GetWorkflow) until it reaches a terminal state:
+Requests time out at **100 seconds**, and `wait` is not clamped to that, so keep it below 100: a longer `wait` ends in the timeout rather than a response. A workflow still running when `wait` elapses (most video jobs, large batches, training) comes back `202` with `status: "processing"`; keep its `id` and poll [`GET /v2/consumer/workflows/{workflowId}`](/orchestration/reference/operations/GetWorkflow) until it reaches a terminal state:
 
 ```http
 GET https://orchestration.civitai.com/v2/consumer/workflows/wf_01HXYZ...

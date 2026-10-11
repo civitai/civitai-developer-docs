@@ -115,7 +115,7 @@ By default a workflow is retained for 30 days after it reaches a terminal state,
 Set `"ephemeral": true` on the submission body to opt out: the workflow is never written to long-term storage, and the only way to receive its results is a callback or a synchronous `wait`:
 
 ```http
-POST https://orchestration.civitai.com/v2/consumer/workflows?wait=120
+POST https://orchestration.civitai.com/v2/consumer/workflows?wait=90
 Content-Type: application/json
 
 {

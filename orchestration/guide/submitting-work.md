@@ -9,7 +9,7 @@ There are two ways to submit a workflow:
 1. **Generic** — [`POST /v2/consumer/workflows`](/orchestration/reference/operations/SubmitWorkflow) with a `steps` array and polymorphic `$type` on each step. Use it to chain steps, mix step types, attach callbacks, tags, metadata or `upgradeMode`, or when your SDK handles the discriminator itself.
 2. **Per-recipe** — `POST /v2/consumer/recipes/{recipe}` with a single typed body (no `$type`). Each recipe wraps a single-step workflow. Use it when you only run one step type and want the simplest typed body — e.g. [`InvokeChatCompletionStepTemplate`](/orchestration/reference/operations/InvokeChatCompletionStepTemplate), [`InvokeComfyStepTemplate`](/orchestration/reference/operations/InvokeComfyStepTemplate), etc.
 
-Both return the same [`Workflow`](/orchestration/reference/operations/GetWorkflow), and you can mix them freely.
+The generic path returns a [`Workflow`](/orchestration/reference/operations/GetWorkflow); a recipe returns only its step's output. You can mix them freely.
 
 ## The generic path
 
@@ -54,7 +54,7 @@ Everything in the table lives alongside `steps`. See the full [`WorkflowTemplate
 
 | Param | Default | Purpose |
 |-------|---------|---------|
-| `wait` | `0` | Seconds to block waiting for the workflow to finish, capped by the [100-second request timeout](./getting-started#_3-poll-if-you-didn-t-wait-inline). If it is still running then, you get a `202`. |
+| `wait` | `0` | Seconds to block waiting for the workflow to finish; keep it under the [100-second request timeout](./getting-started#_3-poll-if-you-didn-t-wait-inline). If it is still running then, you get a `202`. |
 | `whatif` | `false` | If `true`, validates and resolves the workflow (provider, estimated cost, required resources) without actually running it. Great for CI smoke tests and cost previews. |
 | `hideMatureContent` | `false` | If `true`, mature blobs on the response won't include a `url`. Useful for rendering in user-facing UIs without re-checking policy per-blob. |
 
@@ -116,7 +116,7 @@ If the workflow was paid with blue or green Buzz (SFW) but the generated content
 ## The per-recipe path
 
 ```http
-POST https://orchestration.civitai.com/v2/consumer/recipes/chatCompletion?whatif=false&wait=60
+POST https://orchestration.civitai.com/v2/consumer/recipes/chatCompletion?whatif=false
 Authorization: Bearer <your-token>
 Content-Type: application/json
 
@@ -131,9 +131,9 @@ Content-Type: application/json
 Each `/v2/consumer/recipes/{recipe}` endpoint builds a single-step workflow for you, so:
 
 - The request body is the step's `input` schema directly — no `$type`, no `steps` array.
-- `whatif`, `wait`, `hideMatureContent` still apply.
-- Callbacks, tags, metadata and `upgradeMode` aren't expressible here — use the generic path for those.
-- The response is still a full [`Workflow`](/orchestration/reference/operations/GetWorkflow).
+- The query parameters are `whatif`, `allowMatureContent`, `experimental`, `ephemeral` and `tier`. There is no `wait` or `hideMatureContent`, and no callbacks, tags, metadata or `upgradeMode` — use the generic path for those.
+- The call blocks until the workflow finishes (there is no `202`), and the workflow is canceled if the connection drops first. Use the generic path for anything that may exceed the [100-second request timeout](./getting-started#_3-poll-if-you-didn-t-wait-inline).
+- The response is the step's output (e.g. `ChatCompletionOutput`), not a `Workflow`.
 
 ## Updating and querying
 
@@ -152,4 +152,4 @@ Resource `availability.status` includes `queued`: a resource waiting in a downlo
 `queuePosition`) reports `queued`, while `unavailable` means "eligible, but nothing is fetching it".
 Clients that exhaustively match on `status` must handle both.
 
-For step-level updates (e.g. rewriting `input` before execution, if still `unassigned`), use [`UpdateWorkflowStep`](/orchestration/reference/operations/UpdateWorkflowStep) / [`PatchWorkflowStep`](/orchestration/reference/operations/PatchWorkflowStep).
+[`UpdateWorkflowStep`](/orchestration/reference/operations/UpdateWorkflowStep) / [`PatchWorkflowStep`](/orchestration/reference/operations/PatchWorkflowStep) update a step's `metadata` (the only field they accept) in any state; a step's `input` can't be changed.

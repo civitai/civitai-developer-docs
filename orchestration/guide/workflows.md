@@ -99,7 +99,7 @@ information is sent as [`Deprecation`](https://www.rfc-editor.org/rfc/rfc9745) a
 that return only a step's output. Once `retiresAt` passes, submitting the deprecated option fails with a
 `400` naming the replacement.
 
-You can amend a step, e.g. fix its `input`, while it is still `unassigned` via [`UpdateWorkflowStep`](/orchestration/reference/operations/UpdateWorkflowStep) / [`PatchWorkflowStep`](/orchestration/reference/operations/PatchWorkflowStep).
+[`UpdateWorkflowStep`](/orchestration/reference/operations/UpdateWorkflowStep) / [`PatchWorkflowStep`](/orchestration/reference/operations/PatchWorkflowStep) update a step's `metadata` in any state; they accept no other field, so `input` can't be changed.
 
 ## Jobs
 
