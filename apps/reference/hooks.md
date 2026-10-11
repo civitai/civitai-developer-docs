@@ -2,9 +2,9 @@
 title: Hooks reference
 description: Every @civitai/blocks-react hook — signature, example and README notes, generated from the published package.
 sources:
-  - npm:@civitai/blocks-react@0.65.2/dist/index.d.ts
-  - npm:@civitai/blocks-react@0.65.2#README
-  - npm:@civitai/app-sdk@0.60.0/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.67.1/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.67.1#README
+  - npm:@civitai/app-sdk@0.63.0/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
 
@@ -692,7 +692,8 @@ publish another.
 
 🔴 **No arm of `sources` takes a URL.** Name a workflow from this app's own
 subqueue plus indexes into its outputs, or `Image` ids from a previous
-`usePublishGenerationOutputs()` publish. The server re-verifies both — ownership,
+`usePublishGenerationOutputs()` publish or `useUploadImageBytes()` upload. The
+server re-verifies both — ownership,
 this app's provenance marker, and that the image is not already in a post.
 
 ⚠️ **Posting a published image removes it from this app's own grid.** The
@@ -1199,6 +1200,115 @@ if (img) {
 }
 ```
 
+**`useUploadImageBytes`**
+
+```ts
+useUploadImageBytes(): UseUploadImageBytes
+```
+
+Upload an image the block **produced in the tab** (a healed PNG, an edited render), with no picker, so the app can then post it. Returns `{ upload }`. `upload(bytes, { filename? })` resolves with the same moderated image a picked `useImageUpload()` upload returns (`imageId`, `nsfwLevel`, `contentRating`, `url`). That `imageId` is postable by this app through `useCreatePostFromApp()` as a `{ kind: 'published', imageIds }` source. - 🔴 **Page apps only.** A slot (model) block's host has no handler for it. The host answers an unhandled request at once with its generic refusal, so on a slot `upload` rejects immediately with `unsupported on this host` rather than waiting out the 10-minute timeout. - 🔴 **Requires `posts:write:self`.** The server refuses the upload without it, and this hook does not prompt. Ask for the scope first with `useRequestConsent()` and upload only once `useBlockToken().scopes` holds it (the example below), because the upload runs before the `createPost()` call that would otherwise prompt. - **Images only:** PNG, WebP or JPEG by magic bytes. Anything else is refused with `file type is not allowed`. The host names the stored file from the sniffed type, whatever `filename` says. - **The cap is 40 MiB.** The hook refuses a larger buffer before sending it, with the host's error `file exceeds the maximum upload size`. The host also allows at most 3 uploads and 80 MiB per 60 seconds per page, and replies `busy` past that. - **The upload is blocking.** The host replies once the image is scanned, so allow for a wait of up to a few minutes. An image above the SFW ceiling or flagged by the scan is refused with the scan's message. - Pass an `ArrayBuffer` (`await blob.arrayBuffer()`). A `Blob`, a `Uint8Array` or an empty buffer is refused with `invalid image-upload request`. The buffer is copied, not transferred. `upload` **rejects** with the host's error string on every refusal: the ones above, `no block token`, or a server message passed through verbatim (the missing scope, the posting flag, page-only, a rate limit, the scan). It rejects with `the host returned no uploaded image` if the reply carries neither an image nor an error. If no reply arrives within 10 minutes it rejects with a `RequestTimeoutError`; the host may still have stored the image, so retrying after a timeout can create a duplicate. The hook ships in `@civitai/blocks-react` 0.67.0, and the `bytes` payload type it sends is in `@civitai/app-sdk` 0.62.0. What the upload does and does not give you on civitai.com: - 🔴 **Generation metadata embedded in the file is not read.** The posted image has no generation details (prompt, resources, sampler settings), whatever the PNG or JPEG carries. In the example below the healed pixels are posted, and the metadata the app repaired is not shown on the post. - 🔴 **Each uploaded image goes into exactly one post.** Once a post holds it, `createPost()` refuses that `imageId` with `an image is not available to post`. To post the same picture again, upload it again. - **An uploaded image never appears in `useGatedImages()`.** That read returns only what the app published with `usePublishGenerationOutputs()`. Keep the `imageId` and `url` that `upload` resolves with if you need to show it. - **A post holds at most 20 images and names at most 10 sources.** Past 20 images the server refuses with `a post may contain at most 20 images`. - **Posting from apps is still being rolled out.** A viewer who does not have it yet is refused with `posting from apps is not enabled`, and the refusal arrives from `upload` as well as from `createPost()`. Handle it as an ordinary error branch, not as a bug in your app. - **Creating the post needs an account with a verified email or a linked sign-in provider.** Other account checks apply too: onboarding must be finished, the account must not be brand new, and it must not be muted or banned. `upload` refuses a banned account but checks none of the rest, so a viewer can upload and then be refused at `createPost()`. - **Server-side limits also apply**, to the upload and to the post, beyond the host's per-page window above. A `busy` reply or a rate-limit error such as `Rate limit exceeded, please retry shortly.` means wait and retry.
+
+```tsx
+import {
+  CreatePostError,
+  useBlockToken,
+  useCreatePostFromApp,
+  useRequestConsent,
+  useUploadImageBytes,
+} from '@civitai/blocks-react';
+
+function PostHealedButton({ healed }: { healed: Blob }) {
+  const { scopes } = useBlockToken();
+  const { requestConsent } = useRequestConsent();
+  const { upload } = useUploadImageBytes();
+  const { createPost } = useCreatePostFromApp();
+  const canPost = scopes.includes('posts:write:self');
+
+  async function onClick() {
+    if (!canPost) {
+      // Fire-and-forget: this opens the host's consent dialog and returns
+      // nothing. On a grant the host pushes a new token, `scopes` updates and
+      // the button re-renders as "Post". Never upload before that: the server
+      // refuses the upload without the scope.
+      requestConsent({ scopes: ['posts:write:self'] });
+      return;
+    }
+    try {
+      // 1. Bytes made in the tab, uploaded and scanned by the host.
+      const image = await upload(await healed.arrayBuffer(), { filename: 'healed.png' });
+      // 2. Posted through the existing bridge, with its own confirm.
+      const post = await createPost({
+        sources: [{ kind: 'published', imageIds: [image.imageId] }],
+        title: 'Fixed with Metadata Healer',
+      });
+      showToast(`Posted! ${post.url}`);
+    } catch (err) {
+      if (err instanceof CreatePostError && err.declined) return; // the viewer said no
+      showToast((err as Error).message); // e.g. 'busy', 'file type is not allowed'
+    }
+  }
+
+  return <button onClick={onClick}>{canPost ? 'Post' : 'Allow posting'}</button>;
+}
+```
+
+```md
+Under `createMockHost` / `Harness` the host's checks run in the host's order:
+the cap, then the window, then the type. `uploadImageBytesResult` sets the
+image an accepted upload returns, `uploadImageBytesError` forces a refusal
+(for example `block lacks posts:write:self scope`), and `onUploadImageBytes`
+reports what was accepted. The mock's `CREATE_POST_FROM_APP` checks a
+`published` source with the server's rule and refusal strings, but not its
+data. Production accepts the viewer's own images that this app stamped and that
+are not in a post yet, including ones from earlier sessions. The mock has no
+earlier sessions, so it accepts only ids it issued as postable in this session
+(an accepted bytes upload, or a `PUBLISH_GENERATION_OUTPUTS` reply) plus the
+ids you seed with `createMockHost({ postableImageIds: [...] })`, each in one
+post only. Any other id, a picked `useImageUpload()` id (production leaves it
+unstamped) or an already-posted id is refused with
+`an image is not available to post`. The mock does not model the page-only
+rule, the scope check, the real scan, or an older host's picker. `dev:live` has
+no bytes path: `upload` rejects with `the host returned no uploaded image`.
+```
+
+**`useSaveImage`**
+
+```ts
+useSaveImage(): UseSaveImage
+```
+
+Ask the host to download a file to the viewer's device. **A block cannot download anything itself.** Its sandbox lacks `allow-downloads`, and the validator refuses that token for unverified blocks, so an `<a href="blob:…" download>` click silently does nothing. 🔴 **This hook is the sanctioned way to deliver a file**, including one the block produced in the tab. Pass exactly ONE of three inputs, each gated differently by the host: - **`{ url }`**: the block's own generation output. The host allowlists the origin to the civitai image CDN and refuses any other. - **`{ imageId }`**: an image from another user, read through the same per-viewer gate as `useGatedImages()`. A withheld image is never saved. - **`{ bytes }`**: an `ArrayBuffer` the block made in the tab, such as a healed image or a JSON sidecar. 🔴 **Page apps only.** The host classifies it by CONTENT. It accepts PNG, WebP and JPEG by magic bytes. Anything else must be valid UTF-8 with no NUL byte: it is saved as JSON when it parses and `filename` ends `.json` (any case) once the host has replaced each `?` and `#` with `_`, and as plain text otherwise. A GIF, a zip or other binary is refused with `file type is not allowed`. The host forces the extension from the classified type. The cap is 50 MiB, and the hook refuses a larger buffer before sending it: `file exceeds the maximum save size`. The buffer is copied, not transferred, so you can keep displaying it. 🔴 **On a host that predates the `bytes` variant, `saveImage({ bytes })` rejects with `invalid save-image request`.** The host also replies that when the input is not exactly one variant, or when `bytes` is empty or not an `ArrayBuffer`. Pass `await blob.arrayBuffer()`, not the `Blob` or a `Uint8Array`. The promise resolves once the host has started the download. On any refusal it rejects with the host's error string, which can also be `busy` when too many saves are in flight.
+
+```tsx
+import { useSaveImage } from '@civitai/blocks-react';
+
+const { saveImage } = useSaveImage();
+
+// A file healed in the tab. It never leaves the device except to the viewer's disk.
+const healed: Blob = await healPngMetadata(file);
+await saveImage({ bytes: await healed.arrayBuffer(), filename: 'healed.png' });
+
+// Its JSON sidecar. The .json filename makes valid JSON save as .json rather than .txt.
+const sidecar = new TextEncoder().encode(JSON.stringify(metadata, null, 2));
+try {
+  await saveImage({ bytes: sidecar.slice().buffer, filename: 'healed.json' });
+} catch (err) {
+  // 'invalid save-image request' here means this host cannot save bytes yet.
+  setStatus(`Could not save the sidecar: ${(err as Error).message}`);
+}
+
+// The block's own generation output, or another user's image.
+await saveImage({ url: output.url, filename: 'render.png' });
+await saveImage({ imageId: cell.imageId });
+```
+
+```md
+Under `createMockHost` / `Harness` the `bytes` variant is classified the same
+way. `onSaveBytes` reports what would have been downloaded, and `saveImageError`
+forces a refusal. Pass `saveImageError: 'invalid save-image request'` to test a
+host without the variant. `dev:live` refuses every save.
+```
+
 **`useGenerationResources`**
 
 ```ts
@@ -1582,22 +1692,6 @@ for (const image of images) {
 }
 ```
 
-**`useSaveImage`**
-
-```ts
-useSaveImage(): UseSaveImage
-```
-
-Download an image via the host-mediated `SAVE_IMAGE` → `SAVE_IMAGE_RESULT` bridge. See {@link SaveImageInput} for the url-vs-id security posture.
-
-```tsx
-const { saveImage } = useSaveImage();
-// block's own generation output (origin-allowlisted host-side):
-await saveImage({ url: output.url, filename: 'my-render.png' });
-// a cross-user grid cell (routed through the gated per-viewer read):
-await saveImage({ imageId: cell.imageId });
-```
-
 **`useRunTraining`**
 
 ```ts
@@ -1637,7 +1731,7 @@ Detect a DIRECT (unembedded) top-level load of a block and, after a short grace 
 useNestedDocument(options?: UseNestedDocumentOptions): UseNestedDocument
 ```
 
-Fetch one of your OWN bundled documents and get back a `srcdoc` string with an absolute `\<base href>` injected — the only way a block can embed a nested document of its own. 🔴 PREFER NOT TO NEED THIS. A plain `\<iframe src="/game/index.html">` of your own bundle **cannot load**, and no manifest change fixes it. An engine build (Defold, Unity, Phaser) is a `\<canvas>` plus a JS loader and normally mounts directly into the block's own document, which avoids the whole problem class; reach for this hook only when a separate document is genuinely required. WHY, measured, in ONE place: the header of `@civitai/app-sdk`'s `src/blocks/nestedDocument.ts`. It carries the opaque-origin / `frame-ancestors` / `X-Frame-Options` derivation, the five-row DATED EXTERNAL platform matrix (verified by nothing in this repo — re-measure it if the platform's sandbox tiers or response headers change), and the known limits of the `\<base>` rewrite. Do not restate any of it here: it was duplicated across 11 surfaces with nothing in the repo checking them for agreement, which is exactly how two measured claims in these files' own test headers went stale. 🔴 THE STRING IS NOT SANITIZED. It is your own markup and scripts, verbatim; pass a `src` you control, and put a `sandbox` attribute on the iframe. Changing `src` restarts the fetch and aborts the previous one — `status` goes back to `'loading'` in the SAME render that changes `src`, so no paint ever shows a stale `srcDoc` as `'ready'` beside a new `src`. Unmounting aborts the in-flight fetch, and no state is written after it. A fetch that never settles is bounded: after {@link NESTED_DOCUMENT_TIMEOUT_MS} it is aborted and `status` becomes `'error'` with a message naming the timeout. A timeout is distinguished from the hook's own aborts (unmount, a `src` change) — those stay silent, as they must.
+Fetch one of your OWN bundled documents and get back a `srcdoc` string with an absolute `<base href>` injected — the only way a block can embed a nested document of its own. 🔴 PREFER NOT TO NEED THIS. A plain `<iframe src="/game/index.html">` of your own bundle **cannot load**, and no manifest change fixes it. An engine build (Defold, Unity, Phaser) is a `<canvas>` plus a JS loader and normally mounts directly into the block's own document, which avoids the whole problem class; reach for this hook only when a separate document is genuinely required. WHY, measured, in ONE place: the header of `@civitai/app-sdk`'s `src/blocks/nestedDocument.ts`. It carries the opaque-origin / `frame-ancestors` / `X-Frame-Options` derivation, the five-row DATED EXTERNAL platform matrix (verified by nothing in this repo — re-measure it if the platform's sandbox tiers or response headers change), and the known limits of the `<base>` rewrite. Do not restate any of it here: it was duplicated across 11 surfaces with nothing in the repo checking them for agreement, which is exactly how two measured claims in these files' own test headers went stale. 🔴 THE STRING IS NOT SANITIZED. It is your own markup and scripts, verbatim; pass a `src` you control, and put a `sandbox` attribute on the iframe. Changing `src` restarts the fetch and aborts the previous one — `status` goes back to `'loading'` in the SAME render that changes `src`, so no paint ever shows a stale `srcDoc` as `'ready'` beside a new `src`. Unmounting aborts the in-flight fetch, and no state is written after it. A fetch that never settles is bounded: after {@link NESTED_DOCUMENT_TIMEOUT_MS} it is aborted and `status` becomes `'error'` with a message naming the timeout. A timeout is distinguished from the hook's own aborts (unmount, a `src` change) — those stay silent, as they must.
 
 ````tsx
 ```tsx
@@ -1659,7 +1753,7 @@ reads member-specific fields, so every member except `training` flows through th
 same `estimate → submit → watch` lifecycle shown above. `training` is quoted with
 `estimate()` but run with `useRunTraining()`, and `submit()` refuses it.
 
-As of the pinned `@civitai/app-sdk@0.60.0` the union has four `kind` values, and
+As of the pinned `@civitai/app-sdk@0.63.0` the union has four `kind` values, and
 `kind: 'step'` is itself two arms — five members in all:
 
 | `kind` | what it runs | what your block sends |

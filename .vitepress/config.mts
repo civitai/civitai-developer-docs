@@ -3,6 +3,7 @@ import { useSidebar } from 'vitepress-openapi';
 import llmstxt from 'vitepress-plugin-llms';
 import { withMermaid } from 'vitepress-plugin-mermaid';
 import spec from '../public/openapi/v2-consumers.json' with { type: 'json' };
+import { rewriteTwinLinks } from '../scripts/lib/twin-links.mjs';
 
 const base = '/';
 
@@ -18,7 +19,6 @@ const designSystemSidebar: DefaultTheme.SidebarItem[] = [
   {
     text: 'Design system',
     items: [
-      { text: 'Elements gallery', link: '/apps/elements' },
       { text: 'Component showcase', link: '/apps/showcase' },
       { text: 'Design tokens', link: '/apps/tokens' },
       { text: 'Theming guide', link: '/apps/guide/theming' },
@@ -58,6 +58,7 @@ const appsGuideSidebar: DefaultTheme.SidebarItem[] = [
       { text: 'Moving a block off the bridge', link: '/apps/guide/porting' },
       { text: 'Generating images (text-to-image)', link: '/apps/guide/text-to-image' },
       { text: 'Comfy on Civitai (customComfy)', link: '/apps/guide/comfy-cloud' },
+      { text: 'Posting from an app', link: '/apps/guide/posting' },
       { text: 'Running embedded & direct traffic', link: '/apps/guide/embedding' },
       { text: 'Markup that holds up', link: '/apps/guide/markup' },
       { text: 'Responsive blocks', link: '/apps/guide/responsive' },
@@ -271,7 +272,6 @@ const sidebar: DefaultTheme.Sidebar = {
       ],
     },
   ],
-  '/apps/elements': designSystemSidebar,
   '/apps/showcase': designSystemSidebar,
   '/apps/tokens': designSystemSidebar,
   '/site/guide/': [
@@ -400,6 +400,17 @@ export default withMermaid({
   // dead-link checker doesn't resolve them ahead of time, so we skip them here.
   ignoreDeadLinks: [/^\/orchestration\/reference\/operations\//],
 
+  // 🔴 The llms plugin names a section index's `.md` twin after its directory
+  // (`apps/guide/index.md` -> `/apps/guide.md`, the URL llms.txt advertises) but
+  // keeps the source's RELATIVE links, which then resolve one directory too high
+  // (`./sdk` -> `/apps/sdk`). It has no option for this, so every twin's
+  // relative links are rewritten to root-absolute here, after the plugin wrote
+  // them. See scripts/lib/twin-links.mjs; `check:twin-links` asserts the result.
+  buildEnd(siteConfig) {
+    const { twins, changed } = rewriteTwinLinks(siteConfig.outDir, siteConfig.srcDir);
+    console.log(`twin-links: absolutized relative links in ${changed} of ${twins} .md twin(s)`);
+  },
+
   transformPageData(pageData) {
     const pageTitle = pageData.params?.pageTitle;
     if (typeof pageTitle === 'string' && pageTitle.length > 0) {
@@ -426,7 +437,6 @@ export default withMermaid({
           { text: 'Apps Guide', link: '/apps/guide/' },
           { text: 'Apps Examples', link: '/apps/examples' },
           { text: 'Apps Reference', link: '/apps/reference/' },
-          { text: 'Apps Elements Gallery', link: '/apps/elements' },
           { text: 'Apps Component Showcase', link: '/apps/showcase' },
           { text: 'Apps Design Tokens', link: '/apps/tokens' },
         ],

@@ -58,6 +58,13 @@
   color: var(--civitai-color-text);
   font-family: var(--civitai-font);
 }
+/* At phone width the 1.75rem gutter alone pushed the pagination and table demos
+   past the preview's edge (measured at 390px: 8px and 5px). */
+@media (max-width: 480px) {
+  .cds-preview {
+    padding: 1rem;
+  }
+}
 
 /* Two UNLAYERED resets on this site clobber the design system's LAYERED styling:
      1. VitePress's native-form-control reset (button/input/textarea → transparent
@@ -76,39 +83,15 @@
    badge/card/loader/alert borders stripped) — the VitePress chrome, which has no
    `[data-civitai-ui]`, is never touched. */
 .cds-preview [data-civitai-ui],
-.cds-preview [data-civitai-ui-control] {
+.cds-preview [data-civitai-ui-control],
+/* The contract's child <button>s carry their own attribute, not
+   `data-civitai-ui`, so the VitePress button reset stripped their padding —
+   measured: the CSS-only segmented control rendered its segments flush,
+   "GridListMap". */
+.cds-preview [data-civitai-ui-segment],
+.cds-preview [data-civitai-ui-alert-close],
+.cds-preview [data-civitai-ui-toast-close] {
   all: revert-layer;
-}
-
-.cds-demo__toolbar {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.4rem 0.6rem;
-  border-top: 1px solid var(--vp-c-divider);
-  background: var(--vp-c-bg-soft);
-}
-
-.cds-tab {
-  appearance: none;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--vp-c-text-2);
-  font-size: 0.78rem;
-  font-weight: 600;
-  font-family: var(--vp-font-family-base);
-  padding: 0.3rem 0.7rem;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background-color 0.15s, color 0.15s;
-}
-.cds-tab:hover {
-  color: var(--vp-c-text-1);
-  background: var(--vp-c-default-soft);
-}
-.cds-tab[aria-selected='true'] {
-  color: var(--vp-c-brand-1);
-  background: var(--vp-c-brand-soft);
 }
 
 .cds-demo__code {

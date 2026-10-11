@@ -4,8 +4,8 @@ description: The Civitai Apps mental model — block, install, slot, page apps v
 sources:
   - civitai:docs/features/app-blocks.md
   - civitai:src/components/AppBlocks/hostHandlerParity.ts#INVENTORY
-  - npm:@civitai/app-sdk@0.60.0/blocks#BlockInitPayload
-  - npm:@civitai/blocks-react@0.65.2#README
+  - npm:@civitai/app-sdk@0.63.0/blocks#BlockInitPayload
+  - npm:@civitai/blocks-react@0.67.1#README
 ---
 
 # Concepts
@@ -163,7 +163,8 @@ is a request, because nothing about it needs host chrome.
   preview, the write echoes the count from that preview, and the host refuses on
   mismatch. A plain REST equivalent would let a block draw its own confirmation
   inside an iframe, with nothing binding what the viewer saw to what gets
-  written. That removes a consent control rather than relocating it.
+  written. That removes a consent control rather than relocating it. The
+  [posting guide](./posting) covers what an app can post and how.
 
 ### What the API answers
 

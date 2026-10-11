@@ -73,6 +73,11 @@ source the manifest validator and the token minter read.
 - **Per-op assertions.** Storage scopes are asserted per operation (a read scope
   can't perform a write) on the server side, independent of what the token
   carries.
+- **`posts:write:self` covers more than the table row says.** It also gates
+  the in-tab image upload (`useUploadImageBytes()`), and it lets an app post
+  the images it uploaded that way as well as its generation results. The
+  upload does not prompt for the scope, so request it first. See
+  [Posting from an app](../guide/posting).
 
 If a scope you declare isn't approved, granted, or in-context, the corresponding
 host call fails closed — design your app to degrade gracefully.

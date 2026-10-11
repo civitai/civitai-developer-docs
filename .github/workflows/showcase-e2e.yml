@@ -1,0 +1,98 @@
+name: showcase-e2e
+
+# Runs scripts/test-showcase-e2e.mjs — the browser E2E for /apps/showcase and
+# /apps/tokens — against the BUILT site in a real headless Chromium. Until this
+# workflow it ran in no job: it needs a browser, and every other job here is
+# browserless. What only it can see: an element that never upgrades (undefined
+# tag, zero-size preview), a demo whose #js throws, a console error, the
+# design-system CSS leaking into the VitePress chrome, light/dark token
+# re-resolution, and horizontal overflow at a 390px phone width. The offline
+# check:showcase-coverage (appblocks-md-regions.yml) grades only what the page
+# SPELLS, never what it renders.
+#
+# PATH-FILTERED, AND THEREFORE NOT A REQUIRED CHECK. A path-filtered required
+# check leaves every PR touching none of these paths BLOCKED forever (see
+# build-site.yml / appblocks-snippets.yml for the measurement). Before adding
+# `showcase-e2e` to the required set, remove the `paths:` filters below.
+#
+# The filter is the set of inputs the tested pages' rendering depends on: every
+# page the test opens (showcase.md, tokens.md, and index.md as the 390px width
+# control), the theme components that render their demos, the site config, the
+# pinned design-system packages (package.json / package-lock.json), and the test.
+on:
+  pull_request:
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'apps/showcase.md'
+      - 'apps/tokens.md'
+      - 'apps/index.md'
+      - '.vitepress/theme/**'
+      - '.vitepress/config.mts'
+      - 'scripts/test-showcase-e2e.mjs'
+      - '.github/workflows/showcase-e2e.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'apps/showcase.md'
+      - 'apps/tokens.md'
+      - 'apps/index.md'
+      - '.vitepress/theme/**'
+      - '.vitepress/config.mts'
+      - 'scripts/test-showcase-e2e.mjs'
+      - '.github/workflows/showcase-e2e.yml'
+  workflow_dispatch: {}
+
+# LEAST PRIVILEGE — see appblocks-cli.yml for the full reasoning. Checkout,
+# install, build, a local preview server and a local browser: no upload, no
+# comment, no push, no `gh` call.
+permissions:
+  contents: read
+
+jobs:
+  showcase-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # The browser build matching the INSTALLED playwright-core (the repo
+      # depends on playwright-core only, so its own CLI is the one whose
+      # browser revision is guaranteed to match). --with-deps adds the system
+      # libraries Chromium needs on the runner. The script finds this build
+      # through playwright-core's own `chromium.executablePath()`.
+      - name: Install Chromium
+        run: npx --no-install playwright-core install --with-deps chromium
+
+      # Same hermetic build as build-site.yml: `prebuild` runs copy:spec +
+      # gen:appblocks, pinned to the committed snapshots.
+      - name: Build the site
+        env:
+          APPBLOCKS_SNAPSHOT_ONLY: '1'
+        run: npm run build
+
+      # SHOWCASE_E2E_REQUIRE_BROWSER=1 turns the script's "no Chromium → SKIP,
+      # exit 0" (meant for a contributor's browserless machine) into a failure,
+      # so this job can never report green without having opened a page.
+      #
+      # PLAYWRIGHT_CHROMIUM_PATH pins the build installed above. Without it the
+      # script would take the runner image's own `google-chrome` from PATH first
+      # — a browser whose version moves with the image, not with the lockfile.
+      # The script prints the `Chromium:` path it launched.
+      - name: Showcase browser E2E (light, dark, 390px)
+        env:
+          SHOWCASE_E2E_REQUIRE_BROWSER: '1'
+        run: |
+          PLAYWRIGHT_CHROMIUM_PATH="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")"
+          export PLAYWRIGHT_CHROMIUM_PATH
+          npm run test:showcase:e2e
