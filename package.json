@@ -29,6 +29,7 @@
     "test:appblocks:cli": "node scripts/test-appblocks-cli.mjs",
     "test:refresh-cli-snapshot": "node scripts/test-refresh-cli-snapshot.mjs",
     "test:copy-spec": "node scripts/test-copy-spec.mjs",
+    "check:spec-scrub": "node scripts/check-spec-scrub.mjs",
     "check:agent-setup": "node scripts/check-agent-setup.mjs",
     "check:example-apps": "node scripts/check-example-apps.mjs",
     "notify:drift": "node scripts/drift-notify.mjs",
