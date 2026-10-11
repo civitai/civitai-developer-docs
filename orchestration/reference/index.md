@@ -22,7 +22,7 @@ Most consumer integrations only touch three operations:
 - [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — poll a single workflow
 - [`QueryWorkflows`](/orchestration/reference/operations/QueryWorkflows) — list / filter workflows
 
-The left sidebar is grouped by OpenAPI tag. Recipes have per-endpoint variants (one per job type) if you prefer the typed surface over the polymorphic `SubmitWorkflow` body.
+The sidebar is grouped by OpenAPI tag. Recipes offer one typed endpoint per job type as an alternative to the polymorphic `SubmitWorkflow` body.
 
 ## Rate limits & quotas
 

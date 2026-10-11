@@ -394,7 +394,7 @@ const llmsSidebar = dedupeSidebarGroups(sidebar).filter((g) => !isOperationsOnly
 
 export default withMermaid({
   title: 'Civitai Developer',
-  description: 'Developer documentation for Civitai APIs — orchestration, SDKs, and more.',
+  description: 'Docs for the Civitai Orchestration API, Site API, OAuth, Apps and MCP servers.',
   base,
   head: [
     ['link', { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }],
@@ -504,10 +504,10 @@ export default withMermaid({
     },
     plugins: [
       llmstxt({
-        description: 'Civitai developer documentation — orchestration API (submit AI workflows: video, image, audio, text via a single contract that races multiple providers), the Civitai site API, MCP servers for both, plus SDKs and related developer tooling.',
+        description: 'Civitai developer docs: the Orchestration API (AI generation workflows), the Civitai Site API and OAuth, Civitai Apps (apps that run inside civitai.com), and MCP servers.',
         details:
-          'Orchestration section covers the consumer-facing REST API: authenticating, submitting workflows, polling / receiving webhooks for results, and using each recipe (videoGen/WAN, imageGen/Flux, upscalers, transcription, TTS, prompt enhancement). ' +
-          'Reference pages are generated from a committed snapshot of the v2-consumers OpenAPI specification, refreshed when the snapshot is updated.',
+          'Orchestration covers authenticating, submitting workflows, getting results by polling or webhooks, and recipes per model or engine. ' +
+          'Its reference pages are generated from a committed snapshot of the v2-consumers OpenAPI spec.',
         // NOT the routed `sidebar` object — see `dedupeSidebarGroups` above: the
         // plugin flattens every key, so an aliased array emits its groups twice.
         sidebar: llmsSidebar,
