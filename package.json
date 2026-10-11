@@ -51,6 +51,8 @@
     "check:showcase-coverage": "node scripts/check-showcase-coverage.mjs",
     "check:built-site": "node scripts/check-built-site.mjs",
     "check:agent-md": "node scripts/check-agent-md.mjs",
+    "check:twin-links": "node scripts/check-twin-links.mjs",
+    "test:twin-links": "node scripts/test-twin-links.mjs",
     "test:tokens:drift": "node scripts/test-tokens-drift.mjs",
     "test:showcase:e2e": "node scripts/test-showcase-e2e.mjs"
   },

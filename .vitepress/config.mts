@@ -3,6 +3,7 @@ import { useSidebar } from 'vitepress-openapi';
 import llmstxt from 'vitepress-plugin-llms';
 import { withMermaid } from 'vitepress-plugin-mermaid';
 import spec from '../public/openapi/v2-consumers.json' with { type: 'json' };
+import { rewriteTwinLinks } from '../scripts/lib/twin-links.mjs';
 
 const base = '/';
 
@@ -398,6 +399,17 @@ export default withMermaid({
   // The dynamic operations routes are generated from [operationId].paths.js — the
   // dead-link checker doesn't resolve them ahead of time, so we skip them here.
   ignoreDeadLinks: [/^\/orchestration\/reference\/operations\//],
+
+  // 🔴 The llms plugin names a section index's `.md` twin after its directory
+  // (`apps/guide/index.md` -> `/apps/guide.md`, the URL llms.txt advertises) but
+  // keeps the source's RELATIVE links, which then resolve one directory too high
+  // (`./sdk` -> `/apps/sdk`). It has no option for this, so every twin's
+  // relative links are rewritten to root-absolute here, after the plugin wrote
+  // them. See scripts/lib/twin-links.mjs; `check:twin-links` asserts the result.
+  buildEnd(siteConfig) {
+    const { twins, changed } = rewriteTwinLinks(siteConfig.outDir, siteConfig.srcDir);
+    console.log(`twin-links: absolutized relative links in ${changed} of ${twins} .md twin(s)`);
+  },
 
   transformPageData(pageData) {
     const pageTitle = pageData.params?.pageTitle;
