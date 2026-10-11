@@ -4,7 +4,7 @@ title: Tools, prompts, and resources
 
 # Tools, prompts, and resources
 
-The server publishes live schemas through `tools/list`, `prompts/list` and `resources/templates/list`, so your client always sees the current parameters. This page summarizes what's there.
+This page summarizes the server's catalog; your client always sees the current parameters through `tools/list`, `prompts/list` and `resources/templates/list`.
 
 ## Tools
 

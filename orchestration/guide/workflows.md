@@ -4,13 +4,13 @@ title: Workflows
 
 # Workflows
 
-The orchestrator has three nested concepts. Most of what you do lives at the top two; the third is mostly useful for diagnostics.
+The orchestrator has three nested concepts. You mostly work with the first two; jobs are mostly useful for diagnostics.
 
 - **Workflow** — what you submit. A container with metadata, tags, payment rules, and one or more steps. Identified by a `workflowId`.
 - **Step** — a unit of work inside a workflow. Each step has a `$type` (the step type — `imageGen`, `videoGen`, `transcription`, …) and an `input`, and produces one or more outputs.
-- **Job** — a unit of work the step needs done. A step may emit zero, one, or many jobs — that's up to the step. Providers race to claim each job (only compatible providers compete), and the winning provider executes it. You don't schedule jobs directly.
+- **Job** — a unit of work the step needs done. A step emits zero, one or many. Compatible providers race to claim each job and the winner runs it; you don't schedule jobs directly.
 
-(*A **recipe** is a separate concept: a typed convenience endpoint at `/v2/consumer/recipes/{name}` that wraps a single-step workflow so callers who only need one step type can skip the polymorphic `$type`. See [Submitting Work → The per-recipe path](./submitting-work#the-per-recipe-path).*)
+(*A **recipe** is a typed endpoint at `/v2/consumer/recipes/{name}` that wraps a single-step workflow, without the polymorphic `$type`. See [The per-recipe path](./submitting-work#the-per-recipe-path).*)
 
 ```mermaid
 graph LR
@@ -23,15 +23,15 @@ graph LR
 
 ## Workflows
 
-A workflow is what you `POST` to [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow). It lives from submission until it hits a terminal status, after which it remains queryable via [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) for audit and result retrieval.
+A workflow is what you `POST` to [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow). After it reaches a terminal status it stays queryable via [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) (for [30 days](./results-and-webhooks#ephemeral-workflows), unless ephemeral).
 
 Key fields on a returned [`Workflow`](/orchestration/reference/operations/GetWorkflow):
 
 | Field | What it tells you |
 |-------|-------------------|
-| `id` | Opaque workflow ID (prefixed `wf_`). Use everywhere you reference this workflow. |
+| `id` | Opaque workflow ID (prefixed `wf_`). |
 | `status` | Current lifecycle state — see [Status lifecycle](#status-lifecycle). |
-| `steps` | Array of [`WorkflowStep`](/orchestration/reference/operations/GetWorkflow) objects — the actual work and results. |
+| `steps` | Array of [`WorkflowStep`](/orchestration/reference/operations/GetWorkflow) objects: the work and its results. |
 | `createdAt` / `startedAt` / `completedAt` | Timing. `startedAt` is null until the orchestrator begins execution; `completedAt` is null until terminal. |
 | `cost` / `transactions` | What was charged, broken down by Buzz currency — see [Submitting Work → Payments](./submitting-work#payments-buzz). |
 | `tags` | Indexed strings you can filter by via [`QueryWorkflows`](/orchestration/reference/operations/QueryWorkflows). |
@@ -40,11 +40,11 @@ Key fields on a returned [`Workflow`](/orchestration/reference/operations/GetWor
 | `callbacks` | Registered webhooks — see [Results & webhooks](./results-and-webhooks). |
 | `downloadPriority` | Which lane resources this workflow needs are downloaded in — see [Download priority](#download-priority). |
 
-Submitted-only fields (`upgradeMode`, `allowMatureContent`, `currencies`, `experimental`, `arguments`) come back on the response as well so you can see what policy the workflow ran under.
+The submission fields `upgradeMode`, `allowMatureContent`, `currencies`, `experimental` and `arguments` are echoed back too.
 
 ## Steps
 
-Each entry in `steps` is a [`WorkflowStep`](/orchestration/reference/operations/GetWorkflow). Steps are how you express *what* to do; the `$type` discriminator picks the step type and the `input` schema.
+Each entry in `steps` is a [`WorkflowStep`](/orchestration/reference/operations/GetWorkflow). Its `$type` picks the step type and therefore the `input` schema.
 
 ```json
 {
@@ -59,11 +59,11 @@ Each entry in `steps` is a [`WorkflowStep`](/orchestration/reference/operations/
 
 | Field | Purpose |
 |-------|---------|
-| `$type` | The step type. Switches which `input` schema applies. See the [API reference](/orchestration/reference/) for the full set (`imageGen`, `videoGen`, `imageUpscaler`, `transcription`, `textToSpeech`, `chatCompletion`, `comfy`, …). |
-| `name` | Optional step name. Needed if another step wants to refer to this one. Defaults to the array index (`"0"`, `"1"`, …). |
-| `input` | Payload specific to the step type — the bulk of a real request. |
+| `$type` | The step type. See the [API reference](/orchestration/reference/) for the full set (`imageGen`, `videoGen`, `imageUpscaler`, `transcription`, `textToSpeech`, `chatCompletion`, `comfy`, …). |
+| `name` | Optional; lets another step refer to this one. Defaults to the array index (`"0"`, `"1"`, …). |
+| `input` | Payload specific to the step type. |
 | `priority` | Scheduling hint (`low`, `normal`, `high`). Higher priority jumps the queue, subject to your tier. |
-| `timeout` | ISO 8601 duration — maximum time this step may run before the orchestrator marks it `expired`. |
+| `timeout` | ISO 8601 duration; the step is marked `expired` if it runs longer. |
 | `retries` | Maximum retry count before declaring the step `failed`. Each retry may claim a different provider. |
 
 On a fetched workflow, each step also carries:
@@ -72,14 +72,14 @@ On a fetched workflow, each step also carries:
 |-------|-------------------|
 | `status` | Per-step status. A workflow's overall status rolls up from its steps. |
 | `jobs` | The concrete jobs the orchestrator ran for this step. |
-| `estimatedProgressRate` | `0.0`–`1.0` estimate of how far along the step is — see [How `estimatedProgressRate` is calculated](#how-estimatedprogressrate-is-calculated) below. Null if the step hasn't started. |
+| `estimatedProgressRate` | `0.0`–`1.0` progress estimate ([how it's calculated](#how-estimatedprogressrate-is-calculated)). Null if the step hasn't started. |
 | `startedAt` / `completedAt` | Step-level timing. |
 | `metadata` | Step-scoped metadata you attached. |
-| `warnings` | Non-fatal notices about the step, such as a deprecated model. Omitted when there are none — see [Warnings](#warnings). |
+| `warnings` | Non-fatal notices, such as a deprecated model. Omitted when there are none — see [Warnings](#warnings). |
 
 ### Warnings
 
-A step that runs fine today but will stop working later carries a `warnings` array. Each entry has a
+A step that will stop working later carries a `warnings` array. Each entry has a
 machine-readable `code`, a human-readable `message`, and — for deprecations — `deprecatedAt`,
 `retiresAt` and a suggested `replacement`:
 
@@ -99,50 +99,41 @@ information is sent as [`Deprecation`](https://www.rfc-editor.org/rfc/rfc9745) a
 that return only a step's output. Once `retiresAt` passes, submitting the deprecated option fails with a
 `400` naming the replacement.
 
-You can amend a step before it starts running via [`UpdateWorkflowStep`](/orchestration/reference/operations/UpdateWorkflowStep) / [`PatchWorkflowStep`](/orchestration/reference/operations/PatchWorkflowStep) — useful for fixing an `input` mistake while the workflow is still `unassigned`.
+[`UpdateWorkflowStep`](/orchestration/reference/operations/UpdateWorkflowStep) / [`PatchWorkflowStep`](/orchestration/reference/operations/PatchWorkflowStep) update a step's `metadata` in any state; they accept no other field, so `input` can't be changed.
 
 ## Jobs
 
-A job is a single unit of work the step needs done. A step decides how many jobs to emit — **zero, one, or many** — based on its inputs (e.g. a batch-of-4 image generation emits four jobs; a single ChatCompletion emits one; a validation-only step may emit zero). Each emitted job is published to the provider pool; compatible providers race to claim it, and the winner runs it.
+A step emits **zero, one, or many** jobs based on its inputs: a batch-of-4 image generation emits four, a single ChatCompletion one, a validation-only step possibly none. Compatible providers race to claim each job, and the winner runs it.
 
-Most consumer code can ignore the jobs array and just look at step-level status and output — but jobs are where you see *why* something failed, how long it queued, and which provider actually ran it.
+Most code can ignore `jobs` and read step-level status and output; jobs show *why* something failed, how long it queued, and which provider ran it.
 
 | Field | Purpose |
 |-------|---------|
 | `id` | Internal job ID (for support / logs). |
 | `status` | Same enum as workflow/step. |
-| `queuePosition` | A job is queued with every compatible provider simultaneously; this field reports the position in **one** of those queues — the provider most likely to claim the job next. A different provider may still win the race. |
-| `cost` | A relative **complexity** score for this job — like a query-planner cost, with no absolute unit. A cost of `4` is roughly twice as complex as a cost of `2`. This is *not* what you get charged: Buzz charges live on the workflow's `transactions` / `cost` ([Payments](./submitting-work#payments-buzz)). |
+| `queuePosition` | A job is queued with every compatible provider at once; this is its position in **one** of those queues, the provider most likely to claim it next. Another provider may still win. |
+| `cost` | A relative **complexity** score with no unit, like a query-planner cost: `4` is roughly twice `2`. *Not* what you're charged — that's the workflow's `transactions` / `cost` ([Payments](./submitting-work#payments-buzz)). |
 | `estimatedProgressRate` | `0.0`–`1.0` progress estimate — see [How `estimatedProgressRate` is calculated](#how-estimatedprogressrate-is-calculated). |
-| `reason` / `blockedReason` | On failure, why — surfaced into step status as well. See [Errors & retries → Step-level failures](./errors-and-retries#step-level-failures). |
+| `reason` / `blockedReason` | On failure, why (also surfaced on the step). See [Errors & retries → Step-level failures](./errors-and-retries#step-level-failures). |
 
-Multiple jobs on a step can come from two distinct sources:
+Multiple jobs on a step come from one of two sources:
 
-- **Fan-out**: the step legitimately needs multiple units of work (e.g. a batch generating N images emits N jobs). All of them must succeed for the step to succeed.
-- **Retries**: if `retries > 0` and a job fails transiently, the orchestrator emits a replacement job. The step succeeds as soon as the retry succeeds.
+- **Fan-out**: the step needs several units of work (a batch of N images emits N jobs). All must succeed for the step to succeed.
+- **Retries**: if `retries > 0` and a job fails transiently, a replacement job is emitted. The step succeeds as soon as the retry does.
 
-You can tell these apart by looking at the jobs' timing and `reason` — retry jobs appear after a failed sibling, fan-out jobs run in parallel from the start.
+Retry jobs appear after a failed sibling; fan-out jobs run in parallel from the start.
 
 ### How `estimatedProgressRate` is calculated
 
-`estimatedProgressRate` is derived, not reported. The orchestrator combines two numbers:
-
-- **Job cost** — the relative complexity score on the job (see above).
-- **Worker throughput** — the recorded cost-per-second the worker has been completing on recent jobs.
-
-Progress is `elapsed × throughput / cost`, clamped to `0.0`–`1.0`. It's useful for driving progress bars and ETAs, but treat it as a hint: cost estimation isn't perfect and real-world throughput varies by job shape, so actual completion can arrive earlier or later than the estimate suggests.
+`estimatedProgressRate` is derived, not reported: `elapsed × throughput / cost`, clamped to `0.0`–`1.0`, where `cost` is the job's complexity score and throughput is the cost-per-second the worker completed on recent jobs. Use it for progress bars and ETAs, but as a hint: real completion can come earlier or later.
 
 ## Dependencies & parallelism
 
-By default the orchestrator runs as much as it can at the same time:
-
-- **Steps run concurrently** unless one depends on another.
-- **Jobs run concurrently** within a step unless one depends on another.
-- A step's jobs don't start until the step's dependencies have resolved. A step may even emit **more jobs asynchronously while it's still in progress** — `jobs` is not a fixed set you can count at the start.
+Steps run concurrently unless one depends on another, and so do the jobs within a step. A step's jobs start once its dependencies resolve, and a step may emit **more jobs while it's in progress**, so `jobs` is not a fixed set you can count at the start.
 
 ### What creates a dependency
 
-A dependency is created when one step *consumes the output of another*. Anywhere a step's `input` accepts a value, you can substitute a reference object instead:
+A dependency is created when one step *consumes the output of another*. Anywhere a step's `input` accepts a value, you can use a reference instead:
 
 ```json
 {
@@ -151,7 +142,7 @@ A dependency is created when one step *consumes the output of another*. Anywhere
 }
 ```
 
-The orchestrator resolves the reference at runtime and wires up the edge automatically.
+The orchestrator resolves it at runtime and wires up the edge.
 
 ```json
 {
@@ -173,7 +164,7 @@ The orchestrator resolves the reference at runtime and wires up the edge automat
 }
 ```
 
-`hero-4k` now depends on `hero`; it stays `unassigned` until `hero` reaches `succeeded`, then the `image` field is populated with the resolved URL. If `hero` fails, `hero-4k` is canceled.
+`hero-4k` stays `unassigned` until `hero` succeeds, then `image` gets the resolved URL. If `hero` fails, `hero-4k` is canceled.
 
 **Source names** in `$ref`:
 
@@ -182,7 +173,7 @@ The orchestrator resolves the reference at runtime and wires up the edge automat
 - `"$arguments"` to read from workflow-level arguments (see below).
 - A loop variable inside `repeat`-style steps (e.g. `"frame"` if the loop is bound `as: "frame"`).
 
-The exact `path` available depends on the source step's output schema — see each step type's reference page for the shape.
+The available `path`s follow the source step's output schema (see its reference page).
 
 ### Inserting a reference into text
 
@@ -216,7 +207,7 @@ Add `format` to a reference to put the resolved value inside a longer string. `{
 }
 ```
 
-The model only writes the part that changes, and the fixed wording stays exactly as you wrote it.
+The model writes only the part that changes; the fixed wording stays as you wrote it.
 
 - **Placeholders:** `{0}` is the only placeholder and can appear more than once. Write a literal brace as <code v-pre>{{</code> or <code v-pre>}}</code>. A `format` that isn't a string, has no `{0}`, or has any other unescaped brace is rejected when you submit the workflow.
 - **Values:** a string is inserted as-is, and a number or boolean as its JSON text. An object or array is inserted as JSON, and a missing or `null` value inserts nothing.
@@ -225,7 +216,7 @@ The model only writes the part that changes, and the fixed wording stays exactly
 
 ### Workflow arguments
 
-The workflow-level `arguments` field lets you template values that steps reference. Define the shape once, submit many instances with different argument values:
+The workflow-level `arguments` field holds values steps reference, so one workflow template can be submitted many times with different arguments:
 
 ```json
 {
@@ -245,25 +236,15 @@ The workflow-level `arguments` field lets you template values that steps referen
 }
 ```
 
-This is what makes saved workflows useful — your UI or SDK can ship a stable workflow template and only change `arguments` per submission.
-
 ## Deduplication & caching
 
-The orchestrator tries not to charge you twice for the same work. Two mechanisms help, both with caveats.
+Deduplication and result caching keep you from paying twice for the same work. Both are **best-effort cost optimizations** with undocumented exceptions (some step types, parameter combinations and account states bypass them), so don't build correctness on them: for exactly-once semantics, track your own `workflowId`s.
 
-### Workflow deduplication
-
-Submitting a workflow whose steps and arguments exactly match one you already submitted typically gets **deduplicated** — you'll receive a reference to the existing workflow instead of a new one spinning up. Useful for idempotent retries on your side.
+**Deduplication.** Resubmitting a workflow whose steps and arguments exactly match an earlier one typically returns a reference to the existing workflow instead of starting a new one.
 
 ### Result caching
 
-Step outputs are cached when the step's inputs are deterministic enough to replay. On submission, if the orchestrator can resolve a step's output purely from cache, it serves the cached result and **doesn't charge you Buzz for that step**.
-
-Cache entries have a finite lifetime — typically around 30 days, but that's not guaranteed. An eviction between submissions means the second run pays full price.
-
-### Caveats
-
-Both mechanisms have **undocumented exceptions** — certain step types, parameter combinations, or account states bypass dedup / cache. Don't build correctness guarantees on top of them; treat them purely as a cost optimization. If you need exactly-once semantics, track your own `workflowId`s on your side.
+Step outputs are cached when the step's inputs are deterministic enough to replay. A step resolved purely from cache serves the cached result and is **not charged**. Entries typically live around 30 days, not guaranteed; after an eviction the run pays full price.
 
 ## Status lifecycle
 
@@ -278,20 +259,17 @@ unassigned → preparing → scheduled → processing ──▶ succeeded
 ```
 
 - `unassigned` — submitted, not yet routed to a provider
-- `preparing` — assigned to a worker that is still downloading the required models/resources; work can't start until they're all local. While preparing, the step's `estimatedProgressRate` reflects download progress (0–1), and its `preparation` object lists every resource being waited on with a queue position and ETA — see [Download priority](#download-priority). Expect this state when a workflow uses models that aren't already cached on the fleet.
+- `preparing` — assigned to a worker that is still downloading required models/resources not already cached on the fleet. `estimatedProgressRate` reflects download progress, and the step's `preparation` object lists each awaited resource with a queue position and ETA — see [Download priority](#download-priority).
 - `scheduled` — waiting in the queue of a worker that has all required resources ready
 - `processing` — actively running; `estimatedProgressRate` now reflects generation progress
-- `succeeded` / `failed` / `expired` / `canceled` — **terminal**; status will not change again
+- `succeeded` / `failed` / `expired` / `canceled` — **terminal**; status will not change again (webhook delivery [enforces this](./results-and-webhooks#delivery-semantics))
 
-A workflow can move back and forth between `preparing` and `scheduled` (e.g. when it's reassigned to a different worker) — treat both as "queued, not started".
-
-Terminal states are documented and webhook delivery enforces the invariant — see [Results & webhooks → Delivery semantics](./results-and-webhooks#delivery-semantics). Workflow status rolls up from step status: all steps succeeded → workflow succeeded; any step failed / expired / canceled → workflow does the same.
+A workflow can move back and forth between `preparing` and `scheduled` (e.g. when reassigned to another worker); treat both as "queued, not started". Workflow status rolls up from steps: all succeeded → succeeded; any failed / expired / canceled → the workflow does the same.
 
 ## Download priority
 
-Any model is submittable, whether or not the fleet already holds it. When it doesn't, the resource
-is downloaded from origin first — free, but you wait behind everyone else. `downloadPriority`
-decides which queue you wait in.
+Any model is submittable. If the fleet doesn't hold it yet, it is downloaded from origin first —
+free, but you wait behind everyone else. `downloadPriority` decides which queue you wait in.
 
 | Lane | Who gets it |
 |------|-------------|
@@ -302,9 +280,9 @@ decides which queue you wait in.
 Omit `downloadPriority` and it is derived from your membership. You may only ever set it to `high`;
 `normal` and `low` are rejected with a `400`, and a workflow cannot be moved back down once boosted.
 
-Each lane has its own concurrency, so a boosted download does not queue behind slower traffic. One
-payer's boost lifts the resource for everyone waiting on it — but every workflow that needs a cold
-resource pays its own charge.
+Each lane has its own concurrency, so a boosted download doesn't queue behind slower traffic. One payer's boost
+lifts the resource for everyone waiting on it, but every workflow that needs a cold resource pays
+its own charge.
 
 ### What it costs
 
