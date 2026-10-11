@@ -53,10 +53,9 @@ WORKFLOW ID                STATUS     CREATED                   COST  OUTPUTS
     Please try again with different inputs.
 ```
 
-That gives up strictly-one-line-per-workflow, deliberately: `--json` is the
-scripting contract and the table is not. Not every workflow has an account
-recorded — nothing is printed for those, and the absence is the server's, not
-the CLI's.
+This gives up one-line-per-workflow on purpose: `--json` is the scripting
+contract, the table is not. A workflow with no recorded account prints nothing
+extra — the absence is the server's, not the CLI's.
 
 ## What the server says went wrong
 
@@ -73,76 +72,36 @@ The server reported:
   - Could not generate images with the given prompts and images. Please try again with different inputs.
 ```
 
-The heading is *"The server reported"* rather than *"Why it failed"* on
-purpose: the CLI prints the record whatever the workflow's status, and it has
-not established that the orchestrator populates it only on failure.
+It is printed whatever the workflow's status. What it is **not**:
 
-Five things it is **not**:
-
-- **It is not this CLI's opinion.** The text is the server's. Nothing here
-  classifies it, matches on its wording, or maps it to a list of known messages
-  — so a message the platform adds tomorrow arrives intact rather than being
-  swallowed by a stale table.
-- **It is not quite byte-for-byte, on the terminal.** Before printing any
-  server-supplied text the CLI removes escape and control bytes plus every
-  character Unicode marks **default-ignorable** — zero-width spaces and
-  joiners, the bidi overrides that reverse the order a line is *displayed* in,
-  the variation selectors (except the one that keeps an emoji looking like an
-  emoji) — plus two runes that paint nothing while Unicode files them as a
-  symbol and a mark, and four Hangul *fillers* that paint nothing while Unicode
-  files them as letters. Punctuation, accents, CJK, emoji, ordinary letters and
-  right-to-left *script* survive, as do the format characters Unicode says must
-  be drawn.
-
-  ::: warning The strip is not free
-  Every removed character is invisible on its own, but some of them change how
-  their **neighbours** are drawn: an emoji built from a zero-width joiner
-  renders as its components, a subdivision flag falls back to 🏴, and text that
-  uses the join controls to make a distinction loses it — Persian/Arabic
-  (`می‌روم` renders joined), Malayalam (the chillu `ണ്‍` becomes `ണ്`, a
-  different letter), Devanagari, Bengali, Tamil, Kannada, Sinhala and
-  Mongolian. **`--json` is not filtered at all** — it is a raw passthrough, so
-  a script sees exactly what the server sent.
-  :::
-
-- **It is not applied to the prompt you typed.** The filter is for text the
-  server sent. Your prompt, your negative prompt, `--aspect-ratio`,
-  `--ecosystem`, the paths you pass to `--image` / `--input`, and the ids you
-  give `workflows cancel` are all echoed back exactly as typed — most
-  importantly on the confirmation screen before a spend, which has to show what
-  will really be sent. Away from that screen some values you supply *are*
-  filtered anyway. Two of those are documented: a value read out of an `--input`
-  *file* is filtered like server text (a graph file can come from anywhere), and
-  `civitai download` filters the path it reports even when you set it with
-  `--out`, because the same variable usually holds a filename the **server**
-  chose. They are not the whole set — see
+- **Not this CLI's opinion.** The text is the server's; nothing classifies it or
+  matches it against known messages, so a new message arrives intact.
+- **Not byte-for-byte on the terminal.** Escape, control and invisible
+  formatting characters are removed first, which can change how some joined
+  scripts and ZWJ emoji render — the exact set is in
   [What a table cell can contain](./cli-output#what-a-table-cell-can-contain).
-- **It is not always there.** Some failures record nothing. In that case the
-  error says so instead — *"the orchestrator often supplies no failure reason,
-  so it may not say why"*. That is the server's answer, not a gap in the CLI, and
-  there is no further detail to go and look for.
-- **It is not a statement about your Buzz.** Whether a charge stands, is
-  re-priced or comes back is decided server-side and reported separately — see
+  `--json` is not filtered at all.
+- **Not applied to your prompt.** Your prompt, negative prompt,
+  `--aspect-ratio`, `--ecosystem` and the ids you give `workflows cancel` never
+  go through the filter. Paths you name are exact on the
+  confirmation screen before a spend but filtered in some other lines; the
+  value-by-value rules are in the same section.
+- **Not always there.** Some failures record nothing, and the error then says
+  *"the orchestrator often supplies no failure reason, so it may not say why"*.
+  That is the server's answer; there is no further detail to look for.
+- **Not a statement about your Buzz.** Charges are reported separately — see
   [Buzz transactions for one workflow](#buzz-transactions-for-one-workflow).
 
 ### The two commands can word the same failure differently
 
-Neither is the CLI's doing. `workflows list` reads the platform's *normalized*
-feed, which runs each message through a server-side sanitiser that names the
-provider — *"Google Gemini: Could not generate images…"*. `workflows get` reads
-the orchestrator's raw workflow, where the same message has no such prefix. So
-the list can be the more specific of the two.
-
-It can also be the **less** specific one, and that is the half worth knowing
-when you are debugging. The same sanitiser *replaces* any message it cannot
-vouch for — one carrying a URL, a path, a stack frame, an infra name, or
-running past 300 characters or one line — with a generic *"… reported a system
-error"*. `workflows get` applies none of that, so where the two disagree the
-raw one can be the more informative.
-
-**When a failure is worth chasing, read both.** The CLI reproduces neither
-transform; it prints what each endpoint sent, less the invisible characters
-described above.
+`workflows list` reads the platform's *normalized* feed, whose server-side
+sanitiser prefixes the provider (*"Google Gemini: Could not generate images…"*)
+— but also **replaces** any message it cannot vouch for (one carrying a URL, a
+path, a stack frame, an infra name, or running past 300 characters or one line)
+with a generic *"… reported a system error"*. `workflows get` reads the
+orchestrator's raw workflow and applies none of that. So either can be the more
+informative: **when a failure is worth chasing, read both.** The CLI reproduces
+neither transform.
 
 ## Cancelling a workflow
 
@@ -150,54 +109,45 @@ described above.
 Buzz is charged **up front**, when the orchestrator schedules the run.
 Cancelling stops the steps that have not finished; the orchestrator then
 **re-prices the workflow against the work it actually did** and settles the
-difference against what it took. What the run already delivered is billed: a
-step that had already finished keeps its full cost, and a job a worker has
-already started and cannot interrupt runs to completion and is billed for.
+difference. A step that had already finished keeps its full cost, and a job a
+worker has already started and cannot interrupt runs to completion and is
+billed.
 
-So cancel a job because you no longer want its *output*. How much of the charge
-that leaves you paying depends on how far the run had got — the settlement is
-server-side and happens once the workflow reaches its final state, not when the
-command returns, and **this CLI never sees your account Buzz ledger**, so
-`cancel` itself reports no figure.
-
-(This is also why `--timeout` and Ctrl-C deliberately do **not** cancel: they
-stop the wait, not the job.)
+So cancel because you no longer want the *output*. What you end up paying
+depends on how far the run got; settlement happens server-side once the
+workflow reaches its final state, not when the command returns, and `cancel`
+itself reports no figure. (This is also why `--timeout` and Ctrl-C do **not**
+cancel: they stop the wait, not the job.)
 :::
 
-Once the workflow reaches its final state, `civitai workflows get <id>` shows
-the transactions the server recorded for it — see
-[below](#buzz-transactions-for-one-workflow). Otherwise settle it against your
+Once the workflow is final, `civitai workflows get <id>` shows the transactions
+the server recorded for it — see
+[below](#buzz-transactions-for-one-workflow) — or check your
 [transaction history](https://civitai.com/user/transactions).
 
 ### The confirmation gate
 
-`cancel` **asks for confirmation**, matching `civitai generate` and
-`civitai app submit`. It is the one irreversible action here — it throws away
-whatever the run has not produced yet — so it is gated the same way:
+`cancel` **asks for confirmation**, like `civitai generate` and
+`civitai app submit`, because it throws away whatever the run has not produced
+yet:
 
 - `--yes` / `-y` proceeds without prompting;
 - an interactive terminal prints what is lost and prompts; the default is
   **no**, so a bare Enter aborts;
-- a **non-interactive** shell without `--yes` **refuses** rather than
-  cancelling silently. Scripts must pass `--yes` explicitly.
+- a **non-interactive** shell without `--yes` is **refused**.
 
-Nothing is cancelled when the confirmation is refused — the gate runs before
-any request goes out.
+The gate runs before any request goes out, so a refusal cancels nothing.
 
 ### An unknown id is refused, not reported as cancelled
 
 The cancel procedure answers the same empty success for a typo as for a real
 workflow, so `cancel` reads the workflow back first. An unknown id exits **`4`**
-— the same code `civitai workflows get` gives it — and **no cancel request is
-sent at all**.
-
-If that read fails for any *other* reason — a timeout, a 5xx, a rate limit, an
-auth failure — the cancel **is** still sent, because a flaky read must never be
-what stops you halting a job that is spending your Buzz.
-
-Between the read and the cancel a workflow can reach a final status on its own.
-That is harmless: cancelling a finished workflow is a server-side no-op, and it
-does not delete a succeeded workflow's outputs.
+(as `civitai workflows get` does) and **no cancel request is sent**. If that
+read fails for any *other* reason — a timeout, a 5xx, a rate limit, an auth
+failure — the cancel **is** still sent, so a flaky read never stops you halting
+a job that is spending your Buzz. Cancelling a workflow that finished in the
+meantime is a server-side no-op and does not delete a succeeded workflow's
+outputs.
 
 ## Buzz transactions for one workflow
 
@@ -213,17 +163,13 @@ Buzz transactions for this workflow (2 recorded)
   net     0
 ```
 
-**These are entries the server returned, not a rule the CLI is asserting.** The
-block reports what is recorded against *this* workflow id and nothing more —
-`net` is simply `debit` minus `credit` over the rows above it. It is **not**
-your account balance (`civitai buzz` reports that), it is **not** your account
-transaction history, and it does not tell you what a failure or a cancel does
-in general.
-
-Where the payload carries no record, the CLI says so and points you at your
-[transaction history](https://civitai.com/user/transactions) instead. An absent
-record is *"nothing to report"*, never *"no money moved"* — and by the same
-rule, `net 0` is not a statement that no money moved.
+These are the entries the server recorded against *this* workflow id;
+`net` is `debit` minus `credit` over them. It is **not** your account balance
+(`civitai buzz` reports that) or your transaction history, and it does not say
+what a failure or cancel does in general. Where the payload carries no record,
+the CLI says so and points at your
+[transaction history](https://civitai.com/user/transactions). Neither an absent
+record nor `net 0` means "no money moved".
 
 A transaction `type` this build does not recognise makes the net
 **unreportable** rather than dropping the entry out of the arithmetic:
@@ -235,8 +181,8 @@ Buzz transactions for this workflow (3 recorded)
   net    (not computed)
 ```
 
-`--json` is unaffected: it has always passed the raw payload through, including
-the `transactions` object with every field this CLI does not model.
+`--json` passes the raw `transactions` object through, including every field
+this CLI does not model.
 
 ## Where to go next
 

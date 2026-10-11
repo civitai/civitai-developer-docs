@@ -1,6 +1,6 @@
 ---
 title: CLI credentials and scopes
-description: civitai login's OAuth device flow versus a personal API key, why a default browser login cannot spend Buzz, the --scopes generate opt-in, and how to read civitai whoami's tri-state capabilities from a script.
+description: Which civitai CLI credential can do what — the OAuth device flow, the --scopes generate opt-in, a personal API key — and how to read civitai whoami from a script.
 sources:
   - go:github.com/civitai/cli
 ---
@@ -134,12 +134,9 @@ server-side and are not visible to the CLI.
 
 ## `whoami --json`
 
-::: danger `--json` is a stable, *curated* identity object
-It is **not** the server's raw `/api/v1/me` body. It is a hand-built projection
-of fourteen keys, and the two the server sends that never appear are **`email`
-and `emailVerified`**. Those are PII this command does not print, so passing
-the body through would be a privacy regression, not a fix.
-:::
+`--json` is a stable, curated object of fourteen keys, **not** the server's raw
+`/api/v1/me` body. The only two fields the server sends that never appear are
+the PII fields **`email` and `emailVerified`**.
 
 ```json
 {
@@ -163,34 +160,28 @@ the body through would be a privacy regression, not a fix.
 ### The account profile is `null` when unreported, never `""` / `false` / `[]`
 
 `tier`, `status`, `isMember` and `subscriptions` are `null` when the server did
-not report them. The CLI will not fabricate a value the server did not send, so
-a script must test for `null` before reading any of the four. `subscriptions`
-is a list of strings: `[]` means reported and empty, `null` means not reported.
+not report them — the CLI never fabricates a value — so test for `null` before
+reading any of them. `subscriptions` is a list of strings: `[]` means reported
+and empty. The four come from one strict parse, so if *any* arrives in an
+unexpected shape, **all four** become `null` (identity and capabilities still
+print normally).
 
-::: warning The four degrade together
-They come from one strict parse, so if *any* of them arrives in an unexpected
-shape, **all four** become `null` rather than some of them being dropped
-silently — `whoami` still prints your identity and capabilities normally.
-:::
-
-`isMember` is the one worth branching on: a member and a free account do not
-see the same usable generation ecosystems, so it predicts whether
-`civitai generate`'s defaults are even available to this credential.
+`isMember` is the one worth branching on: members and free accounts see
+different usable generation ecosystems, so it predicts whether
+`civitai generate`'s defaults are available to this credential.
 
 ### Two fields carry a third state
 
 - **`canSubmitApps` is `true` / `false` / `null`.** `null` means *unknowable*
-  (the two rows in the table above), and a consumer must not read it as
-  `false`: a script doing `if (!j.canSubmitApps)` treats `null` the same as
-  `false` and will report a dead end that may not exist. Test
+  (the two `unknown` rows in the table above). `if (!j.canSubmitApps)` treats it
+  as `false` and reports a dead end that may not exist — test
   `j.canSubmitApps === null` first.
 - **`scopes` is a list, `[]`, or `null`.** `null` means the scope mask was not
-  reported (`scopesKnown: false`); `[]` means the mask **was** reported and had
-  no bits set.
+  reported (`scopesKnown: false`); `[]` means it was reported with no bits set.
 
-`scopesKnown` disambiguates `canReadBalance` and `canSpend`, which stay plain
-booleans: when it is `false`, both are `false` because nothing is known, not
-because the capability was denied.
+`canReadBalance` and `canSpend` stay plain booleans: when `scopesKnown` is
+`false`, both are `false` because nothing is known, not because the capability
+was denied.
 
 ## Where to go next
 
