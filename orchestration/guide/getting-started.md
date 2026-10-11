@@ -18,8 +18,6 @@ const helloBody = {
 
 # Quick start
 
-This page walks you through submitting your first workflow, inspecting the result, and polling for completion.
-
 ## Prerequisites
 
 - A Civitai API token (Bearer).
@@ -57,8 +55,8 @@ Key query parameters:
 
 | Param | Default | Purpose |
 |-------|---------|---------|
-| `whatif` | `false` | If `true`, validates the workflow and returns the resolved plan without executing. Great for CI smoke tests. |
-| `wait` | `0` | Seconds to block waiting for completion inline. `0` returns immediately with the in-flight workflow. Capped by the **100-second request timeout** — if the workflow hasn't finished by then, the response returns with `status: "processing"` and you continue via polling or webhooks. |
+| `whatif` | `false` | If `true`, validates the workflow and returns the resolved plan without executing it. |
+| `wait` | `0` | Seconds to block waiting for completion inline, capped at 100 s ([step 3](#_3-poll-if-you-didn-t-wait-inline)). `0` returns immediately with the in-flight workflow. |
 
 ## 2. Read the response
 
@@ -87,20 +85,18 @@ Statuses progress through `unassigned` → `preparing` → `scheduled` → `proc
 
 ## 3. Poll if you didn't wait inline
 
-Server requests time out at **100 seconds**, so any workflow longer than that — most video jobs, large batches, training — will return still `processing`. Poll [`GET /v2/consumer/workflows/{workflowId}`](/orchestration/reference/operations/GetWorkflow) until it reaches a terminal state:
+Requests time out at **100 seconds**, so `wait` can never exceed that. A workflow still running by then (most video jobs, large batches, training) comes back `202` with `status: "processing"`; keep its `id` and poll [`GET /v2/consumer/workflows/{workflowId}`](/orchestration/reference/operations/GetWorkflow) until it reaches a terminal state:
 
 ```http
 GET https://orchestration.civitai.com/v2/consumer/workflows/wf_01HXYZ...
 Authorization: Bearer <your-token>
 ```
 
-A reasonable loop is: 2 s, 5 s, 10 s, 15 s, then 30 s thereafter. Most image jobs finish in under 30 s; video jobs can take several minutes.
-
-Production integrations should use webhooks instead of polling — see [Results & webhooks](./results-and-webhooks).
+Back off between polls ([suggested cadence](./results-and-webhooks#polling-fallback)): most image jobs finish in under 30 s, video jobs can take several minutes. Production integrations should use [webhooks](./results-and-webhooks) instead.
 
 ## 4. Consume outputs
 
-Step outputs are typically **blobs**. Each blob comes back with a signed `url` you can fetch directly. Blob URLs expire; re-fetch the workflow (or call [`GetBlob`](/orchestration/reference/operations/GetBlob)) to refresh.
+Step outputs are typically **blobs**, each with a signed `url` you can fetch directly. The URL expires; see [Blobs in results](./results-and-webhooks#blobs-in-results) for refreshing it.
 
 ## What's next
 
