@@ -31,6 +31,9 @@
 // inside a fenced code block or an inline code span. Anchors on an existing page
 // are NOT validated — this asserts the PAGE exists.
 //
+// ALSO `llms-full.txt` (see "llms-full.txt bundles" below): the plugin's
+// concatenation of every page, where a relative link is a defect outright.
+//
 // 🔴 A ZERO HERE MUST NOT BE A VACUOUS PASS. `PARSER_SELF_TEST` runs on every
 // invocation (the matcher must find exactly the links a fixture plants), and
 // floors on the twin and link counts catch a glob or matcher that has gone to
@@ -153,15 +156,65 @@ const SELF_TEST_WANT = ['./ref', './a', '../b#h', './c d', './i.png', '/r', 'htt
 
 // ── main ─────────────────────────────────────────────────────────────────────
 
-function walk(dir) {
+function walk(dir, want = (name) => name.endsWith('.md')) {
   const out = [];
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const p = join(dir, e.name);
-    if (e.isDirectory()) out.push(...walk(p));
-    else if (e.isFile() && e.name.endsWith('.md')) out.push(p);
+    if (e.isDirectory()) out.push(...walk(p, want));
+    else if (e.isFile() && want(e.name)) out.push(p);
   }
   return out;
 }
+
+// ── llms-full.txt bundles ────────────────────────────────────────────────────
+//
+// The plugin concatenates every page into `llms-full.txt`: each page gets a
+// `---\nurl: /x.md\n---` header and the pages are joined with `\n---\n\n`.
+// Served at `/llms-full.txt`, a RELATIVE link in any section resolves against
+// `/`, not against the page it came from — so here a relative link is itself
+// the defect, whatever it happens to resolve to. Root paths must exist.
+//
+// 🔴 Existence alone cannot tell a WRONG root target from the right one when
+// both pages exist (`../` resolved one directory too high lands on `/`, which
+// exists). So each section must also be byte-identical to the twin its `url:`
+// names: the twins are checked above at both served URLs, and the plugin wrote
+// each section from the same page as its twin, so any divergence means the two
+// rewrite passes disagree. It cannot catch a bug BOTH passes share (they share
+// `sourceDirOf`), and the twin check above has the same existence-only limit;
+// that rule is pinned by the source-dir assertions in
+// `scripts/test-twin-links.mjs`, not by anything in this file.
+//
+// The splitter's boundary regex is the same one `scripts/lib/twin-links.mjs`
+// uses (not imported, so a change to one is a visible diff in the other) — a
+// shared mis-split would fool both, which is why the self-test below pins it
+// on a fixture and the twin-identity check catches a section cut in the wrong
+// place.
+
+/** [{ url, body }] for each section of a bundle. */
+export function bundleSections(text) {
+  return text.split(/\n---\n\n(?=---\nurl:)/).map((body) => {
+    const m = body.match(/^---\n(?:[^\n]*\n)*?url:\s*['"]?([^'"\n]+?)['"]?\s*\n/);
+    return { url: m ? m[1] : null, body };
+  });
+}
+
+{
+  const fixture = [
+    '---\nurl: /a.md\n---\n# A\n[x](./x)\n',
+    '---\nurl: /b/c.md\ndescription: d\n---\n# C\n---\nnot a header\n',
+    "---\nurl: '/d.md'\n---\n# D\n",
+  ].join('\n---\n\n');
+  const got = bundleSections(fixture).map((s) => s.url).join('|');
+  if (got !== '/a.md|/b/c.md|/d.md') {
+    console.error(`check-twin-links: BUNDLE_SELF_TEST failed — the llms-full splitter is broken (got ${got}).`);
+    process.exit(2);
+  }
+}
+
+// Floors for the bundle, far below today's counts (135 sections / 1,400+
+// internal links on the build of 28e9e5c).
+const MIN_SECTIONS = 50;
+const MIN_BUNDLE_LINKS = 300;
 
 if (!existsSync(DIST)) {
   console.error(`check-twin-links: no build output at ${DIST} — run \`npm run build\` first.`);
@@ -200,6 +253,51 @@ for (const p of walk(DIST)) {
   }
 }
 
+// Every llms-full.txt the build emitted (today only the root one; the plugin
+// writes per-directory bundles too when its `experimental.depth` is raised).
+const bundleFiles = walk(DIST, (name) => name === 'llms-full.txt');
+let sections = 0;
+let bundleChecked = 0;
+const bundleProblems = new Map(); // `${bundleUrl} § ${sectionUrl}` -> [problem]
+const problem = (key, msg) => {
+  if (!bundleProblems.has(key)) bundleProblems.set(key, []);
+  bundleProblems.get(key).push(msg);
+};
+for (const p of bundleFiles) {
+  const served = `/${relative(DIST, p).split(sep).join('/')}`;
+  for (const { url, body } of bundleSections(readFileSync(p, 'utf8'))) {
+    sections++;
+    const key = `${served} § ${url ?? '<no url: header>'}`;
+    if (!url || !url.startsWith('/') || !pageExists(DIST, url)) {
+      problem(key, `section header url: ${url} does not name a page in the build`);
+    } else if (existsSync(join(DIST, url)) && readFileSync(join(DIST, url), 'utf8') !== body) {
+      problem(key, `section differs from its twin ${url} — the bundle and twin rewrites disagree`);
+    } else if (!existsSync(join(DIST, url))) {
+      problem(key, `section header url: ${url} has no .md twin in the build to compare against`);
+    }
+    for (const target of linkTargets(body)) {
+      if (target.startsWith('#') || target.startsWith('?')) continue;
+      const path = internalPath(target, served);
+      if (path === null) continue;
+      bundleChecked++;
+      if (!target.startsWith('/')) problem(key, `RELATIVE ${target}  ->  ${path} (from ${served})`);
+      else if (!pageExists(DIST, path)) problem(key, `DEAD ${target}`);
+    }
+  }
+}
+
+if (!bundleFiles.some((p) => relative(DIST, p) === 'llms-full.txt')) {
+  console.error(`check-twin-links: no ${join(DIST, 'llms-full.txt')} — the llms plugin did not emit the bundle.`);
+  process.exit(1);
+}
+if (sections < MIN_SECTIONS || bundleChecked < MIN_BUNDLE_LINKS) {
+  console.error(
+    `check-twin-links: found ${sections} llms-full section(s) and ${bundleChecked} internal link(s) in them; ` +
+      `expected at least ${MIN_SECTIONS} and ${MIN_BUNDLE_LINKS}. That is a BROKEN SEARCH, not a clean result.`,
+  );
+  process.exit(1);
+}
+
 if (twins < MIN_TWINS || checked < MIN_LINKS) {
   console.error(
     `check-twin-links: found ${twins} twin(s) and ${checked} internal link resolution(s); expected at least ` +
@@ -236,9 +334,35 @@ if (broken.size) {
       'too high — scripts/lib/twin-links.mjs (VitePress `buildEnd`) is what absolutizes them.',
   );
 }
+if (bundleProblems.size) {
+  failed = true;
+  const all = [...bundleProblems.values()].flat();
+  const rel = all.filter((m) => m.startsWith('RELATIVE')).length;
+  const dead = all.filter((m) => m.startsWith('DEAD')).length;
+  console.error(
+    `\ncheck-twin-links: llms-full.txt — ${rel} relative link(s), ${dead} dead root link(s) and ` +
+      `${all.length - rel - dead} bad header(s) or twin mismatch(es) in ${bundleProblems.size} section(s) ` +
+      `(${bundleChecked} internal links checked across ${sections} sections of ${bundleFiles.length} bundle(s)):\n`,
+  );
+  const SHOW = 5;
+  for (const [key, list] of [...bundleProblems].sort()) {
+    console.error(`  ${key}  (${list.length})`);
+    for (const l of list.slice(0, SHOW)) console.error(`      ${l}`);
+    if (list.length > SHOW) console.error(`      … and ${list.length - SHOW} more`);
+  }
+  console.error(
+    '\ncheck-twin-links: a relative link in llms-full.txt resolves against the BUNDLE\'s URL, not the page it\n' +
+      'came from. scripts/lib/twin-links.mjs (VitePress `buildEnd`, rewriteLlmsFull) absolutizes each section\n' +
+      'against its SOURCE page\'s directory — `<dir>/index.md` is headed `url: /<dir>.md` but resolves against `<dir>/`.',
+  );
+}
 if (failed) process.exit(1);
 
 console.log(
   `check-twin-links: OK — ${checked} internal link resolution(s) (${relativeChecked} written relative) across ` +
     `${twins} twins and their served URLs all reach an existing page; all ${advertised.length} /llms.txt URLs exist.`,
+);
+console.log(
+  `check-twin-links: OK — llms-full.txt: ${bundleChecked} internal link(s) across ${sections} section(s) of ` +
+    `${bundleFiles.length} bundle(s), 0 relative, 0 dead.`,
 );
