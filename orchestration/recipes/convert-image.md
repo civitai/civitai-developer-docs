@@ -264,7 +264,7 @@ Blob URLs expire — see [Reading results](/orchestration/recipes/#reading-resul
 
 ## Public output
 
-`"public": true` stores the result in a bucket that serves it directly. The returned `url` is then unsigned and permanent for the blob's lifetime, and `urlExpiresAt` is `null`:
+`"public": true` stores the result in a bucket that serves it directly. The returned `url` is then unsigned and permanent for the blob's lifetime, and `urlExpiresAt`, if set, is when the object is scheduled for deletion:
 
 ```json
 {
