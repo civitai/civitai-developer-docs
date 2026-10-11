@@ -222,17 +222,10 @@ on any route wired to accept it, which today means one general route,
 `/api/v1/models/{id}`. It does **not** reach `/api/v1/me`; blocks read the viewer
 from `/api/v1/blocks/me`.
 
-::: warning `auth: "oauth"` is live, and it is a trade
-The host mints a real OAuth access token for a manifest declaring `auth: "oauth"`,
-in production. What it buys is the general `/api/v1`
-surface, the orchestrator and the MCP.
-
-What it costs is **22 of the block REST routes** — app storage, shared storage,
-the five workflow routes and `user-checkpoint/set` all re-verify the raw bearer as
-a block JWS, which an OAuth access token is not. So an app that uses app storage
-cannot declare `auth: "oauth"` today, and an app that generates should stay on the
-host-proxied workflow routes. The full trade, and the field's reference, are on
-the [manifest reference](../reference/manifest).
+::: warning `auth: "oauth"` is a trade
+It gives up **22 block routes**, including app storage, shared storage and the
+generation workflow routes — see
+[choosing your credential](./porting#auth-field).
 :::
 
 ## Next
