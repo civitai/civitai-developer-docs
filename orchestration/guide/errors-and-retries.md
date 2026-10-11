@@ -82,7 +82,7 @@ The `reason` and `blockedReason` fields on failed jobs are the best hint at *why
 | `no_provider_available` | No provider can run this job with the given inputs (unusual resolution, unsupported duration, restricted region, etc.). | Relax inputs, try another `provider`/`version`, or retry later. |
 | `blocked` | The job was blocked by content moderation. `blockedReason` explains further. | Don't retry the same input; rework the prompt or image. |
 | `timeout` / `expired` | Job exceeded its internal deadline. | Safe to resubmit — possibly with a smaller workload. |
-| `canceled` | Someone (you or an operator) canceled the workflow via [`DeleteWorkflow`](/orchestration/reference/operations/DeleteWorkflow). | No retry unless you actually want to re-run it. |
+| `canceled` | The workflow was canceled, usually via [`DeleteWorkflow`](/orchestration/reference/operations/DeleteWorkflow); see [Step `canceled` unexpectedly](#common-gotchas) for the other causes. | No retry unless you actually want to re-run it. |
 
 When `reason` is absent, the failure is generic — safe to retry once with the same body.
 
@@ -92,6 +92,6 @@ The orchestrator retries transient failures on your callback endpoint automatica
 
 ## Common gotchas
 
-- **Blob URL stopped working.** Check its `urlExpiresAt`: past it a signed URL is rejected, which isn't a failure (for a public-tier URL it means the object was deleted). Get a fresh one as described in [Blobs in results](./results-and-webhooks#blobs-in-results).
+- **Blob URL stopped working.** Check its `urlExpiresAt`: past it a signed URL is rejected, which isn't a failure Get a fresh one as described in [Blobs in results](./results-and-webhooks#blobs-in-results). For a public-tier URL it means the object was deleted: refetching returns the same URL with `available: false`, so regenerate it.
 - **`202` after `wait=90`.** The workflow didn't finish within those 90 s (keep `wait` below [your HTTP client's timeout](./getting-started#_3-poll-if-you-didn-t-wait-inline)); continue via webhooks or polling.
-- **Step `canceled` unexpectedly.** Check whether another process called [`DeleteWorkflow`](/orchestration/reference/operations/DeleteWorkflow). The orchestrator only cancels on request, when a per-recipe endpoint's caller disconnects, or when a step it depends on failed.
+- **Step `canceled` unexpectedly.** Check whether another process called [`DeleteWorkflow`](/orchestration/reference/operations/DeleteWorkflow). The orchestrator also cancels on its own when a per-recipe endpoint's caller disconnects, when a step it depends on failed, or when your Buzz runs out (before the work is scheduled, or mid-run for a runtime-billed custom Comfy step).
