@@ -2,7 +2,7 @@
 title: Message bridge reference
 description: The full postMessage protocol between a Civitai App and its host — payloads, directions, request/reply pairing, and page-only messages.
 sources:
-  - npm:@civitai/app-sdk@0.63.0/blocks#messages.d.ts
+  - npm:@civitai/app-sdk@0.64.0/blocks#messages.d.ts
   - civitai:src/components/AppBlocks/hostHandlerParity.ts#INVENTORY
 ---
 
@@ -216,6 +216,28 @@ reply `ESTIMATE_RESULT`:
 {
     requestId: string;
     snapshot: BlockWorkflowSnapshot;
+}
+```
+
+**`ESTIMATE_WORKFLOW_BATCH`** — block → host · request → reply
+
+payload:
+
+```ts
+{
+    requestId: string;
+    bodies: WorkflowBody[];
+}
+```
+
+reply `ESTIMATE_BATCH_RESULT`:
+
+```ts
+{
+    requestId: string;
+    snapshots?: BlockWorkflowSnapshot[];
+    aggregate?: BlockEstimateBatchAggregate;
+    error?: string;
 }
 ```
 
@@ -537,6 +559,16 @@ payload:
     resourceType: BlockResourcePickerType;
     /** Optional base-model family hint (ecosystem key or baseModel name). */
     baseModelGroup?: string;
+    /**
+     * Ask for SEVERAL resources in one picker session. LoRA only — the host
+     * refuses it with a Checkpoint. `max` is a whole number ≥ 1; the host
+     * clamps anything above 5 (the `additionalResources` cap) to 5. The
+     * reply is then `selectedResources`, not `selected`. OMIT the key for
+     * a single pick: its absence is what keeps that path unchanged.
+     */
+    multiple?: {
+        max: number;
+    };
 }
 ```
 
@@ -546,6 +578,8 @@ reply `RESOURCE_PICKER_RESULT`:
 {
     requestId: string;
     selected?: BlockResourceInfo;
+    selectedResources?: BlockResourceInfo[];
+    error?: string;
 }
 ```
 
@@ -710,6 +744,7 @@ reply `SHARED_APPEND_RESULT`:
     requestId: string;
     key: string;
     error?: string;
+    rateLimit?: SharedStorageRateLimit;
 }
 ```
 
@@ -819,6 +854,7 @@ reply `SHARED_REPORT_RESULT`:
     requestId: string;
     ok?: boolean;
     error?: string;
+    rateLimit?: SharedStorageRateLimit;
 }
 ```
 
@@ -840,6 +876,7 @@ reply `SHARED_UNVOTE_RESULT`:
     requestId: string;
     count: number;
     error?: string;
+    rateLimit?: SharedStorageRateLimit;
 }
 ```
 
@@ -862,6 +899,7 @@ reply `SHARED_UPDATE_RESULT`:
     requestId: string;
     ok?: boolean;
     error?: string;
+    rateLimit?: SharedStorageRateLimit;
 }
 ```
 
@@ -883,6 +921,7 @@ reply `SHARED_VOTE_RESULT`:
     requestId: string;
     count: number;
     error?: string;
+    rateLimit?: SharedStorageRateLimit;
 }
 ```
 
@@ -905,6 +944,7 @@ reply `SHARED_WITHDRAW_RESULT`:
     ok?: boolean;
     deleted?: boolean;
     error?: string;
+    rateLimit?: SharedStorageRateLimit;
 }
 ```
 

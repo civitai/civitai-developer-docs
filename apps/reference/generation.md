@@ -2,8 +2,8 @@
 title: Generation bridge reference
 description: The field-level generation contract — the WorkflowBody union, the useBuzzWorkflow lifecycle (incl. cancel), and the BlockWorkflowSnapshot result — generated from the published SDK type JSDoc.
 sources:
-  - npm:@civitai/app-sdk@0.63.0/blocks#WorkflowBody
-  - npm:@civitai/blocks-react@0.67.1#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.64.0/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.68.0#useBuzzWorkflow
 ---
 
 # Generation bridge reference
@@ -310,7 +310,7 @@ The host-mediated view of an orchestrator workflow that an iframe block receives
 |---|---|---|
 | `workflowId` | `string` |  |
 | `status` | `'pending' \| 'processing' \| 'succeeded' \| 'failed' \| 'expired' \| 'canceled'` |  |
-| `cost?` | `{ total: number; }` |  |
+| `cost?` | ``{ /** Whole Buzz. Includes {@link authorFee} whenever that field is present. */ total: number; /** * The part of `total` that is the app author's per-generation fee, in whole * Buzz — so `total - authorFee` is the generation's own price. Display only: * it is the amount the host added into `total` for this reply. * * - **A number** wherever `total` was built from a fee quote: the * `estimate()` result for a `textToImage` or registered-`step` body, and * the refusal `submit()` resolves for those kinds when a budget, spend cap * or rate limit refuses the quoted price. **`0` means a fee was looked up * and none applies** to this request. * - **Absent** when the total is not itemised: a host that predates the * field; every snapshot of a submitted workflow (`submit` success, `poll`, * `cancel` — its total is the realized generation cost and the fee is a * separate charge); the registered-`step` `submit()` refusal for a missing * orchestrator price quote, which refuses before any fee is looked up; and * the kinds that price no fee (`customComfy`, pass-through `step`, * `training`). **Do not read absent as `0`** — show `total` on its own. */ authorFee?: number; }`` |  |
 | `imageUrls?` | `string[]` |  |
 | `error?` | `string` |  |
 | `spentAccountType?` | `BuzzAccountType` | The Buzz pool that was the PRIMARY FUNDER of this generation — i.e. the account with the LARGEST debit, which the host stamps onto the workflow snapshot server-side. This is NOT necessarily "the paid account": a generation covered mostly by free/earned Buzz reports `spentAccountType: 'blue'`. Populated by the host from the Phase-1 backend `spentAccountType` field; absent when the host predates it or no spend occurred. Informational only — surface it (e.g. "funded from your yellow balance") but don't gate on it. |
