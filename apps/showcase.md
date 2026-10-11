@@ -9,7 +9,8 @@ A live tour of **`@civitai/components`**, component by component. Every section
 leads with the **`<civitai-*>` custom element** — the default way to build a
 Civitai App's UI, and what `civitai app init` scaffolds. The elements style
 themselves in shadow DOM, inject the `@civitai/theme` tokens on first use and
-carry their own keyboard and ARIA behaviour.
+carry their own keyboard and ARIA behaviour, so they work the same in plain
+HTML, React, Vue, Svelte or Blazor.
 
 Where the package's stylesheet has the same component, a collapsed
 **CSS-only / no-JS** panel under the element shows it as hand-written
@@ -21,21 +22,38 @@ navigation and ARIA state are yours to write. A few sections carry no such panel
 Every preview is rendered from the code shown under it and follows the site's
 light/dark switch.
 
-::: tip Setup
-**Elements** — one script tag, or one import with a bundler:
+## Setup
+
+**Elements, no build step** — one script tag:
 
 ```html
 <script type="module" src="https://cdn.jsdelivr.net/npm/@civitai/components/site-elements.js"></script>
+
+<civitai-button variant="filled">Generate</civitai-button>
+```
+
+`site-elements.js` is the generic kit plus the Civitai vocabulary (rating
+badges, tags, reactions, media cards); `elements.js` is the generic kit alone.
+Neither defines `<civitai-sign-in-button>` or `<civitai-workflow-button>` — see
+[Acting as the viewer](#acting-as-the-viewer). Building a Civitai App?
+[Using the elements in a block](./guide/elements#register-the-elements) has the
+table of which import defines which elements, and the token limits that apply
+inside a block.
+
+**Elements, with a bundler:**
+
+```bash
+npm install @civitai/components
 ```
 
 ```ts
-import '@civitai/components/register-site';
+import '@civitai/components/register-site'; // all but the two viewer elements, or:
+import '@civitai/components/civitai-button/define'; // one element at a time
 ```
 
-That defines every element except `<civitai-sign-in-button>` and
-`<civitai-workflow-button>` — see [Acting as the viewer](#acting-as-the-viewer).
-In a block, [Using the elements in a block](./guide/elements#register-the-elements)
-has which import defines which elements.
+**React** — `@civitai/components-react` wraps these same elements as typed
+components, with props and events from the element classes — see
+[Themed components in React](./guide/theming#themed-components-in-react).
 
 **CSS-only** — load the tokens and the component stylesheet (order-independent),
 then set `data-theme="light"` or `data-theme="dark"` on any ancestor:
@@ -46,10 +64,21 @@ then set `data-theme="light"` or `data-theme="dark"` on any ancestor:
 ```
 
 The markup contract is in the [Components reference](/apps/reference/components).
-:::
 
-Using React? `@civitai/components-react` wraps these same elements as typed
-components — see [Themed components in React](./guide/theming#themed-components-in-react).
+### How the elements behave
+
+| | |
+|---|---|
+| **Attributes and properties** | Every attribute mirrors a property, kebab-cased: `full-width` ⇄ `fullWidth`. |
+| **Lists of options** | `select`, `segmented-control`, `radio-group`, `tabs` and `breadcrumb` take their items as a `data` **property**, since an attribute cannot carry an array. |
+| **Events** | `change` is re-dispatched from the host. Richer events (`vote`, `react`, `select`, `open`) carry a `detail`. |
+| **Forms** | Field elements are form-associated: `name`, `FormData`, `required`, `form.reset()`, `type="submit"` and Enter-to-submit all work. Setting `error` also makes the field invalid. |
+| **Theme** | Set `data-theme="light"` or `"dark"` on any ancestor. With neither, the OS preference wins. |
+| **Styling** | Override any `--civitai-*` token, or reach inside with `::part(...)`. |
+
+The full contract — every tag, attribute, property, event, slot and part — is
+the package's generated
+[`custom-elements.json`](https://cdn.jsdelivr.net/npm/@civitai/components/custom-elements.json).
 
 ## Button
 
@@ -340,6 +369,11 @@ editable. `<civitai-input-group>` joins fields, buttons and
   <civitai-input-group>
     <civitai-text-input aria-label="Search models" placeholder="Search models"></civitai-text-input>
     <civitai-button>Search</civitai-button>
+  </civitai-input-group>
+  <civitai-input-group>
+    <civitai-number-input aria-label="Tip" value="100" min="1"></civitai-number-input>
+    <span data-affix>Buzz</span>
+    <civitai-button>Tip</civitai-button>
   </civitai-input-group>
 </civitai-stack>
 ```
@@ -1365,18 +1399,26 @@ the round icon button for those slots.
 ## Acting as the viewer
 
 Two elements act rather than display, through
-[`@civitai/sdk`](./guide/sdk), so no bundle includes them — import
-`@civitai/components/civitai-sign-in-button/define` and
-`…/civitai-workflow-button/define`. `<civitai-sign-in-button>` signs the viewer
-in and hides once they are. `<civitai-workflow-button>` prices its `template`,
-submits it on click and shows progress until it finishes; **inside a block, on
-the default token, the orchestrator refuses it** — see
-[Using the elements in a block](./guide/elements#elements-a-block-s-token-cannot-drive).
-The [elements gallery](./elements#acting-as-the-viewer) shows wiring them to the
-real SDK.
+[`@civitai/sdk`](./guide/sdk), so no bundle includes them — not
+`site-elements.js`, not `register-site` — and the SDK stays out of apps that do
+not need it. Import `@civitai/components/civitai-sign-in-button/define` and
+`…/civitai-workflow-button/define`.
+
+- **`<civitai-sign-in-button>`** signs the viewer in. Inside civitai.com it asks
+  the host; an app of its own hands it `createSignIn()`'s result as `signIn`. It
+  hides once the viewer is signed in.
+- **`<civitai-workflow-button>`** prices its `template` as soon as it has one
+  (`Bake for 185 Buzz`), submits it on click, and shows progress until it
+  finishes. A second press offers to cancel. It fires `priced`, `submitted`,
+  `progress`, `finished`, `canceled` and `error`. Pass it a signed-in `app`
+  from `@civitai/sdk`; left out, it calls `initialize()` itself. It runs the
+  workflow through `app.orchestration`, so **inside a block, on the default
+  token, the orchestrator refuses it** — see
+  [Using the elements in a block](./guide/elements#elements-a-block-s-token-cannot-drive).
 
 The demo hands both a stand-in for the SDK, so pressing them spends nothing and
-signs no one in.
+signs no one in. [Wiring them to the real SDK](#wiring-them-to-the-real-sdk) is
+below it.
 
 <ElementDemo title="Acting as the viewer" tags="civitai-workflow-button civitai-sign-in-button" sdk>
 
@@ -1437,3 +1479,35 @@ document.querySelector('civitai-sign-in-button').signIn = {
 </template>
 
 </ElementDemo>
+
+### Wiring them to the real SDK
+
+In an app of your own, import both by path and pass the SDK's own objects —
+here a client from `createSignIn()`, since `initialize()` with no arguments
+waits for a civitai.com host:
+
+```ts
+import type { CivitaiWorkflowButton } from '@civitai/components/civitai-workflow-button';
+import '@civitai/components/civitai-workflow-button/define';
+import { createSignIn, initialize } from '@civitai/sdk';
+
+const auth = await createSignIn({ clientId, scopes: ['ai:write:budgeted'] });
+const button = document.querySelector<CivitaiWorkflowButton>('civitai-workflow-button')!;
+button.app = await initialize(auth);
+button.template = {
+  steps: [{
+    $type: 'textToImage',
+    input: { model: 'urn:air:sdxl:checkpoint:civitai:101055@128078', prompt: 'a red bike', cfgScale: 7, seed: 42 },
+  }],
+};
+```
+
+## Contributing
+
+The source lives in
+[`civitai-app-starters/packages/civitai-components`](https://github.com/civitai/civitai-app-starters/tree/main/packages/civitai-components).
+To change an element, its playground runs it from source with hot reload:
+
+```bash
+pnpm --filter @civitai/components dev
+```
