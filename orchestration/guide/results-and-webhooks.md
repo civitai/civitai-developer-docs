@@ -102,7 +102,7 @@ Step events use [`WorkflowStepEvent`](/orchestration/reference/operations/Submit
 
 ## Blobs in results
 
-Each blob object in a step's output carries its own `url` and `urlExpiresAt`; where the blobs sit depends on the step type, e.g. `output.images[]` for `imageGen`, `output.video` for `videoGen`, `output.blobs[]` for `comfy` (in a webhook, under `details`). A signed URL stops working once it passes its `urlExpiresAt` (a public-tier URL is unsigned: its `urlExpiresAt`, if set, is when the object is scheduled for deletion, not when a signature lapses). Refetch the workflow, or call [`GetBlob`](/orchestration/reference/operations/GetBlob), for a fresh one (a deleted public-tier object comes back with the same URL and `available: false`); don't cache the URL. To keep the media, download the bytes and store them yourself.
+Each blob object in a step's output carries its own `url` and `urlExpiresAt`; where the blobs sit depends on the step type, e.g. `output.images[]` for `imageGen`, `output.video` for `videoGen`, `output.blobs[]` for `comfy` (in a webhook, under `details`). A signed URL stops working once it passes its `urlExpiresAt` (a public-tier URL is unsigned: its `urlExpiresAt`, if set, is when the object is scheduled for deletion, not when a signature lapses). Refetch the workflow, or call [`GetBlob`](/orchestration/reference/operations/GetBlob), for a fresh one (a deleted public-tier object can't be refetched; regenerate it); don't cache the URL. To keep the media, download the bytes and store them yourself.
 
 ## Polling fallback
 

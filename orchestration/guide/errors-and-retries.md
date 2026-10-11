@@ -92,6 +92,6 @@ The orchestrator retries transient failures on your callback endpoint automatica
 
 ## Common gotchas
 
-- **Blob URL stopped working.** Check its `urlExpiresAt`: past it a signed URL is rejected, which isn't a failure Get a fresh one as described in [Blobs in results](./results-and-webhooks#blobs-in-results). For a public-tier URL it means the object was deleted: refetching returns the same URL with `available: false`, so regenerate it.
+- **Blob URL stopped working.** Check its `urlExpiresAt`: past it a signed URL is rejected, which isn't a failure. Get a fresh one as described in [Blobs in results](./results-and-webhooks#blobs-in-results). For a public-tier URL it means the object was deleted; refetching won't bring it back, so regenerate it.
 - **`202` after `wait=90`.** The workflow didn't finish within those 90 s (keep `wait` below [your HTTP client's timeout](./getting-started#_3-poll-if-you-didn-t-wait-inline)); continue via webhooks or polling.
 - **Step `canceled` unexpectedly.** Check whether another process called [`DeleteWorkflow`](/orchestration/reference/operations/DeleteWorkflow). The orchestrator also cancels on its own when a per-recipe endpoint's caller disconnects, when a step it depends on failed, or when your Buzz runs out (before the work is scheduled, or mid-run for a runtime-billed custom Comfy step).
