@@ -274,7 +274,7 @@ costPerStep = 0.9   (dev and schnell)
 floor: never less than 80% of the default-configuration price
 ```
 
-`epochs` is the number of saved checkpoints delivered (range `1`–`200`; when omitted, `round(steps / 200)`); each adds 20 Buzz of storage. With both `steps` and `epochs` omitted the run is **2000 steps / 10 epochs** (the examples above send `steps: 2000`, which also resolves to 10 epochs) → `2000 × 0.9 + 10 × 20 = 1800 + 200 = 2000 Buzz`. The **floor** is 80% of the default price (1600 Buzz).
+`epochs` is the number of saved checkpoints delivered (range `1`–`200`; when omitted, `steps / 200` rounded to the nearest whole number, with a `.5` going to the even neighbour, so `steps: 2500` gives `12`); each adds 20 Buzz of storage. With both `steps` and `epochs` omitted the run is **2000 steps / 10 epochs** (the examples at the top of the page send `steps: 2000`, which also resolves to 10 epochs) → `2000 × 0.9 + 10 × 20 = 1800 + 200 = 2000 Buzz`. The **floor** is 80% of the default price (1600 Buzz).
 
 | Configuration | Buzz |
 |---------------|------|

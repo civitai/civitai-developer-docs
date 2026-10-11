@@ -246,9 +246,9 @@ costPerStep = 0.75   (ltx2 and ltx23)
 floor: never less than 80% of the default-configuration price
 ```
 
-`epochs` is the number of saved checkpoints delivered (range `1`–`200`; when omitted, `round(steps / 200)`); **each adds 50 Buzz** — LTX preview samples are videos and costly to compute. With both `steps` and `epochs` omitted the run is **3000 steps / 10 epochs** → `3000 × 0.75 + 10 × 50 = 2250 + 500 = 2750 Buzz`. The **floor** is 80% of that price (2200 Buzz).
+`epochs` is the number of saved checkpoints delivered (range `1`–`200`; when omitted, `steps / 200` rounded to the nearest whole number, with a `.5` going to the even neighbour, so `steps: 2500` gives `12`); **each adds 50 Buzz** — LTX preview samples are videos and costly to compute. With both `steps` and `epochs` omitted the run is **3000 steps / 10 epochs** → `3000 × 0.75 + 10 × 50 = 2250 + 500 = 2750 Buzz`. The **floor** is 80% of that price (2200 Buzz).
 
-The examples above send `steps: 3000` with no `epochs`, so they get `round(3000 / 200) = 15` epochs: `15 × (200 × 0.75 + 50) = 15 × 200 = 3000 Buzz`. Send `epochs: 10` alongside `steps: 3000` to get the 2750 price.
+The examples at the top of the page send `steps: 3000` with no `epochs`, so they get `round(3000 / 200) = 15` epochs: `15 × (200 × 0.75 + 50) = 15 × 200 = 3000 Buzz`. Send `epochs: 10` alongside `steps: 3000` to get the 2750 price.
 
 | Configuration | Buzz (training only) |
 |---------------|---------------------|

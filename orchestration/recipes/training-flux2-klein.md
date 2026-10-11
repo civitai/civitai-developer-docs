@@ -387,7 +387,7 @@ costPerStep = 0.20 (4b), 0.45 (9b)
 floor: never less than 80% of the default-configuration price
 ```
 
-`epochs` is the number of saved checkpoints delivered (range `1`–`200`; when omitted, `round(steps / 200)`); each adds 10 Buzz of storage. With both `steps` and `epochs` omitted the run is **2000 steps / 10 epochs** (the examples above send `steps: 2000`, which also resolves to 10 epochs):
+`epochs` is the number of saved checkpoints delivered (range `1`–`200`; when omitted, `steps / 200` rounded to the nearest whole number, with a `.5` going to the even neighbour, so `steps: 2500` gives `12`); each adds 10 Buzz of storage. With both `steps` and `epochs` omitted the run is **2000 steps / 10 epochs** (the examples above send `steps: 2000`, which also resolves to 10 epochs):
 
 - `4b`: `2000 × 0.20 + 10 × 10 = 400 + 100 = 500 Buzz` (floor 400)
 - `9b`: `2000 × 0.45 + 10 × 10 = 900 + 100 = 1000 Buzz` (floor 800)

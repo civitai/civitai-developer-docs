@@ -412,7 +412,7 @@ costPerStep = 0.20   (sdxl and sd1)
 floor: never less than 80% of the default-configuration price
 ```
 
-`epochs` is the number of saved checkpoints delivered (range `1`–`200`; when omitted, `round(steps / 200)`); each adds 10 Buzz of storage. The SD1 example above sends `steps: 4000` with no `epochs`, so it gets 20 epochs: `4000 × 0.20 + 20 × 10 = 1000 Buzz`. The default run is **2000 steps / 10 epochs**, which lands the price on the familiar number:
+`epochs` is the number of saved checkpoints delivered (range `1`–`200`; when omitted, `steps / 200` rounded to the nearest whole number, with a `.5` going to the even neighbour, so `steps: 2500` gives `12`); each adds 10 Buzz of storage. The SD1 example above sends `steps: 4000` with no `epochs`, so it gets 20 epochs: `4000 × 0.20 + 20 × 10 = 1000 Buzz`. The default run is **2000 steps / 10 epochs**, which lands the price on the familiar number:
 
 ```
 2000 × 0.20 + 10 × 10 = 400 + 100 = 500 Buzz
