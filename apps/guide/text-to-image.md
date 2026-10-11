@@ -809,7 +809,7 @@ change, and none of them depends on the app's spend tier.
 | Upload burst | **3 uploads and 80 MiB / 60 s** (a rolling window, kept by the host page) | one open page of your app, so one viewer's tab | `upload()` **rejects**, `busy`. Nothing was stored. Wait and try again |
 | Upload rate | **60 uploads / hour** (rolling) | the **viewer** | `upload()` **rejects** with a rate-limit message |
 | Image allowance | **60 images / 300 s**. One upload spends 1, one post spends 1 per image in it, and `usePublishGenerationOutputs()` spends 1 per image | the **block instance**. For a page app that is **one instance shared by every viewer of the app** | the call **rejects**, `Rate limit exceeded, please retry shortly.` |
-| Posts | **3 posts / hour** | the **block instance**, so for a page app **every viewer together** | `createPost()` **rejects** (`CreatePostError`, no `code`), `Rate limit exceeded, please retry shortly.` No post was created |
+| Posts | **3 posts / hour** | the **viewer**, within one block instance. On a page app every viewer has their own 3 | `createPost()` **rejects** (`CreatePostError`, no `code`), `Rate limit exceeded, please retry shortly.` No post was created |
 | Posts, app-wide | **300 posts / hour** | the **app** | the same rejection |
 | Images per post | **1–20**, from at most **10** sources | one `createPost()` | `createPost()` **rejects**, `a post may contain at most 20 images`. Nothing is trimmed to fit |
 
@@ -818,10 +818,11 @@ are fixed windows, not sliding ones.
 
 Three things follow from how these are counted:
 
-- **3 posts an hour is the allowance for your whole page app, not for one
-  viewer.** If three viewers post in the same hour, the fourth is refused
-  until the window ends. Posting has to be something a viewer does on purpose
-  with a finished result. Show a refusal as "try again later"; do not retry on
+- **3 posts an hour is each viewer's allowance; the app-wide ceiling is 300.**
+  One viewer's posts do not use up another's, but every viewer of your app
+  draws on the same 300 an hour and the same image allowance. A viewer's
+  fourth post in the same hour is refused until the window ends. Posting has
+  to be something a viewer does on purpose with a finished result. Show a refusal as "try again later"; do not retry on
   a timer.
 - **A post counts once the viewer has confirmed it, even if the server then
   refuses it.** Refusals after the confirmation spend one of the 3: the set of

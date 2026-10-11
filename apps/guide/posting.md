@@ -2,9 +2,9 @@
 title: Posting from an app
 description: Publish a post to the viewer's Civitai profile from a page app, from the app's own generation outputs or from an image the app produced in the browser tab and uploaded. The two source kinds, the upload-then-post flow, the requirements, the limits, and how to test it with the mock host.
 sources:
-  - npm:@civitai/blocks-react@0.67.0#useCreatePostFromApp
-  - npm:@civitai/blocks-react@0.67.0#useUploadImageBytes
-  - npm:@civitai/app-sdk@0.62.0/blocks#BlockCreatePostRequest
+  - npm:@civitai/blocks-react@0.67.1#useCreatePostFromApp
+  - npm:@civitai/blocks-react@0.67.1#useUploadImageBytes
+  - npm:@civitai/app-sdk@0.63.0/blocks#BlockCreatePostRequest
   - civitai:src/server/routers/blocks.router.ts#createPostFromApp
   - civitai:src/server/routers/blocks.router.ts#persistAppUploadImage
   - civitai:src/server/services/blocks/block-post.logic.ts
@@ -320,8 +320,9 @@ list. A refusal there, or for a link, comes back as a server message.
 Uploads and posts are rate limited on the server as well, and those numbers
 are in the same
 [posting and image-upload limits](./text-to-image#posting-limits) table. The
-one to design around: **a page app's hourly post allowance is small, and it is
-shared by every viewer of the app.** Make posting a deliberate action the
+one to design around: **each viewer's hourly post allowance is small (3), and
+the image allowance that uploads and posts spend is shared by every viewer of
+a page app.** Make posting a deliberate action the
 viewer takes on a finished result, never something your app does in a loop,
 and show a refusal as "try again later".
 
