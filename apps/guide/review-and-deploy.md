@@ -229,8 +229,10 @@ civitai app listing set-icon ./assets/icon.png    # re-attach the media
 ::: danger Withdrawing a first-version submission deletes that app's store listing
 It deletes the icon, the cover and **every screenshot with its caption**,
 server-side; the CLI cannot opt out. Resubmitting mints an **empty** listing.
-**A moderator rejecting a first-version submission does the same.** Media
-carries forward only on *approval*.
+A moderator *rejecting* a first-version submission keeps the draft listing and
+its media, so a re-submit lands on the same listing; that applies to apps
+listed on civitai.com, while an off-site listing's draft is still deleted on
+rejection.
 
 A withdraw of a subsequent version, whose listing is already **approved**,
 leaves the live listing alone.

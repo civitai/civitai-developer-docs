@@ -17,9 +17,9 @@ The listing is minted as a **draft when you run `civitai app submit`**, so you
 can fill it in **while your app is in review** and it goes live the day the app
 is approved.
 
-::: danger Media carries forward on APPROVAL only
-Withdrawing or rejection of a first-version submission deletes the listing and
-all its media — see
+::: danger Withdrawing a first-version submission deletes its listing
+Withdrawing a first-version submission deletes the listing and all its media
+(a moderator's rejection keeps it, so a re-submit lands on the same listing) — see
 [Changing the bundle while a request is still pending](./review-and-deploy#changing-the-bundle-while-a-request-is-still-pending).
 :::
 

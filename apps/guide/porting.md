@@ -104,9 +104,11 @@ workflow routes** (`estimate`/`submit`/`poll`/`cancel` **and `query`**) and
 `models`, `images`, `gated-images`, `generation-resources`, `tools`, `tip`,
 `tip-allowance` and the three `collections` routes.
 
-**If your app uses app storage, it cannot use `auth: "oauth"` today.** Submit
-refuses the pair (the server's manifest validator), but `civitai app validate`
-does not check it locally. Left unrefused, every storage read and write would
+**If your app uses app storage, it cannot use `auth: "oauth"` today.** The server
+refuses the pair when a moderator approves the version (and on a direct git
+push), not when `civitai app submit` uploads it, and `civitai app validate`
+doesn't check it either — so fix it before submitting, or the request sits in
+review until approval fails. Left unrefused, every storage read and write would
 401 as soon as a viewer signs in.
 
 **If your block generates, stay on the host-proxied workflow routes.** They
