@@ -229,6 +229,7 @@ const advertised = [...llms.matchAll(/\]\((\/[^)\s]+\.md)\)/g)].map((m) => m[1])
 const deadAdvertised = advertised.filter((u) => !pageExists(DIST, u));
 
 let twins = 0;
+const twinUrls = [];
 let checked = 0;
 let relativeChecked = 0;
 const broken = new Map(); // servedUrl -> [target -> resolved]
@@ -240,6 +241,7 @@ for (const p of walk(DIST)) {
   const fm = text.match(/^---\n[\s\S]*?^url:\s*['"]?([^'"\n]+?)['"]?\s*$/m);
   if (!fm || fm[1] !== `/${rel}`) continue;
   twins++;
+  twinUrls.push(`/${rel}`);
   const served = [`/${rel}`, `/${rel.slice(0, -'.md'.length)}/index.md`];
   for (const target of linkTargets(text)) {
     for (const url of served) {
@@ -259,6 +261,7 @@ for (const p of walk(DIST)) {
 // writes per-directory bundles too when its `experimental.depth` is raised).
 const bundleFiles = walk(DIST, (name) => name === 'llms-full.txt');
 let sections = 0;
+const sectionUrls = [];
 let bundleChecked = 0;
 const bundleProblems = new Map(); // `${bundleUrl} § ${sectionUrl}` -> [problem]
 const problem = (key, msg) => {
@@ -269,6 +272,7 @@ for (const p of bundleFiles) {
   const served = `/${relative(DIST, p).split(sep).join('/')}`;
   for (const { url, body } of bundleSections(readFileSync(p, 'utf8'))) {
     sections++;
+    if (url) sectionUrls.push(url);
     const key = `${served} § ${url ?? '<no url: header>'}`;
     if (!url || !url.startsWith('/') || !pageExists(DIST, url)) {
       problem(key, `section header url: ${url} does not name a page in the build`);
@@ -303,6 +307,24 @@ export const unlistedPages = (keys, allow) =>
 }
 const pageKeys = Object.keys(JSON.parse(readFileSync(join(DIST, 'hashmap.json'), 'utf8')));
 const unlisted = unlistedPages(pageKeys, SECTIONS);
+// The llms plugin writes the twins, llms.txt and llms-full.txt itself, so a page it
+// published without VitePress compiling it (e.g. one srcExclude dropped) has no
+// hashmap key. Every URL on those surfaces must map back to one.
+export const orphanUrls = (urls, keys) => {
+  const have = new Set(keys);
+  const stem = (u) => u.slice(1).replace(/\.md$/, '').split('/').join('_').toLowerCase();
+  return [...new Set(urls)].filter((u) => !have.has(`${stem(u)}.md`) && !have.has(`${stem(u)}_index.md`)).sort();
+};
+{
+  const got = orphanUrls(['/index.md', '/apps/guide.md', '/apps/guide/sdk.md', '/notes/x.md', '/apps/MARKUP.md'], [
+    'index.md', 'apps_guide_index.md', 'apps_guide_sdk.md', 'apps_markup.md',
+  ]);
+  if (got.join('|') !== '/notes/x.md') {
+    console.error(`check-twin-links: ORPHAN_SELF_TEST failed — the URL-to-page matcher is broken (got ${got.join('|')}).`);
+    process.exit(2);
+  }
+}
+const orphans = orphanUrls([...twinUrls, ...sectionUrls, ...advertised], pageKeys);
 if (pageKeys.length < MIN_TWINS) {
   console.error(`check-twin-links: hashmap.json lists only ${pageKeys.length} page(s) — a BROKEN SEARCH, not a clean result.`);
   process.exit(1);
@@ -377,6 +399,11 @@ if (bundleProblems.size) {
       'came from. scripts/lib/twin-links.mjs (VitePress `buildEnd`, rewriteLlmsFull) absolutizes each section\n' +
       'against its SOURCE page\'s directory — `<dir>/index.md` is headed `url: /<dir>.md` but resolves against `<dir>/`.',
   );
+}
+if (orphans.length) {
+  failed = true;
+  console.error(`\ncheck-twin-links: ${orphans.length} twin / llms.txt / llms-full.txt URL(s) with no compiled page (hashmap.json key):`);
+  for (const u of orphans) console.error(`  ${u}`);
 }
 if (unlisted.length) {
   failed = true;
