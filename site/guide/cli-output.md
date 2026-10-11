@@ -81,7 +81,8 @@ The human renderers put all of it through one gate:
   `generate`'s `could not read your Buzz balance` warning. Nothing else is
   shortened.
 - **What you typed splits by value, not by screen.** Your prompt, negative
-  prompt and `--ecosystem` never go through the gate. Paths you name are shown
+  prompt, `--aspect-ratio`, `--ecosystem` and the ids you give `workflows
+  cancel` never go through the gate. Paths you name are shown
   exactly on the confirmation screen before a spend, but filtered in several
   other lines that report a path.
 
@@ -106,11 +107,12 @@ that uses the join controls to make a distinction loses it — Persian/Arabic
 letter), Devanagari, Bengali, Tamil, Kannada, Sinhala and Mongolian.
 
 **Values you supplied.** The promise splits by **value**, not by screen. Your
-prompt, your negative prompt and `--ecosystem` never go through the gate. **The
+prompt, your negative prompt, `--aspect-ratio`, `--ecosystem` and the ids you
+give `workflows cancel` never go through the gate. **The
 paths you name are different:** they are echoed exactly on the **confirmation
 screen before a spend**, which has to show what will really be sent, and
-filtered in several of the lines that report a path elsewhere. Other values you
-supply are filtered too, and no surface enumerates the set — these are the
+filtered in several of the lines that report a path elsewhere. Some other values
+you supply are filtered too, and no surface enumerates the set — these are the
 known cases, not its boundary:
 
 1. a value read out of an `--input` **file** is filtered like server text,
