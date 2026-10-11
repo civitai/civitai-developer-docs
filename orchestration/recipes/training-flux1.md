@@ -82,9 +82,7 @@ Train a Flux.1 LoRA on your own image dataset using AI Toolkit. The output LoRA 
 
 The base checkpoint is fixed by `modelVariant` — there's no `model` field to override, so training against another Flux.1 finetune as the base isn't supported.
 
-::: tip Long-running step
-Flux 1 training is the most expensive AI Toolkit image ecosystem (2000 Buzz for the default run) and a typical 2000-step run on a 10-image dataset takes several minutes. Always use `wait=0` and follow up via polling or a webhook — see [Results & webhooks](/orchestration/guide/results-and-webhooks).
-:::
+Flux 1 is the most expensive AI Toolkit image ecosystem (2000 Buzz for the default run); a typical 2000-step run on a 10-image dataset takes several minutes. Submit with `wait=0`. The request fields, training data, continuing a run and live progress are shared by every ecosystem — see the [LoRA training overview](./training).
 
 ## The request shape
 
@@ -101,9 +99,7 @@ Flux 1 training is the most expensive AI Toolkit image ecosystem (2000 Buzz for 
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
-- A training-data zip addressed by an AIR — a Hugging Face file AIR (as below), or a Civitai R2/B2/Spaces AIR or URL. Other hosts are rejected.
-- An accurate `count` of images in the zip
+- A training-data zip addressed by an AIR ([accepted sources](./training#training-data)), with an accurate `count` of images
 
 ## Flux 1 dev (default)
 
@@ -182,76 +178,23 @@ Content-Type: application/json
 
 <RecipeRun :body="flux1SchnellBody" :wait="0" />
 
-## Common parameters {#common-parameters}
+## Flux 1 parameters {#common-parameters}
 
-Shared by both Flux 1 variants. Defaults shown are the effective defaults.
+Fields and defaults not listed here are as in the overview's [common parameters](./training#common-parameters).
 
-| Field | Required | Default | Notes |
-|-------|----------|---------|-------|
-| `engine` | ✅ | — | Always `ai-toolkit`. |
-| `ecosystem` | ✅ | — | Always `flux1` for this page. |
-| `modelVariant` | ✅ | — | `dev` or `schnell`. Determines the base checkpoint. |
-| `steps` | | `2000` | `1`–`10000`. Total training steps. Primary driver of training length and pricing. |
-| `epochs` | | `round(steps / 200)` | `1`–`200`. Number of saved checkpoints delivered, each separately downloadable. When omitted it is derived from `steps` (`10` at the default `2000`). Each adds 20 Buzz of storage. |
-| `batchSize` | | `1` | Fixed at 1 for this ecosystem. |
-| `continueFrom` | | *(none)* | A previously-trained `urn:air:flux1:lora:...` AIR to resume from (see [Continue training](#continue-training)). Must be a Flux 1 LoRA. |
-| `lr` | | `0.0001` | UNet learning rate. Flux 1 is sensitive to high LRs — keep ≤ `0.0005`. |
-| `trainTextEncoder` | | `false` | Flux 1 does not benefit much from text-encoder training. Leave off. |
-| `lrScheduler` | | `cosine` | `constant`, `constant_with_warmup`, `cosine`, `linear`, `step`. |
-| `optimizerType` | | `adamw8bit` | `adamw`, `adamw8bit`, `adam8bit`, `lion`, `lion8bit`, `adafactor`, `adagrad`, `prodigy`, `prodigy8bit`, `automagic`. |
-| `networkDim` | | `16` | `1`–`256`. Flux 1's lower default reflects how compactly Flux LoRAs encode style/character vs. SD-family. |
-| `networkAlpha` | | matches `networkDim` | `1`–`256`. |
-| `noiseOffset` | | `0` | `0`–`1`. |
-| `flipAugmentation` | | `false` | Random horizontal flips. |
-| `shuffleTokens` / `keepTokens` | | `false` / `0` | Caption-tag shuffling. |
-| `triggerWord` | | *(none)* | Activation token. Recommended for character / style LoRAs. |
-| `trainingData.{type, sourceUrl, count}` | ✅ | — | Always `type: "zip"`. |
-| `samples.prompts[]` | | `[]` | Preview prompts rendered at each saved checkpoint using the trained LoRA at strength 1.0. |
-| `samples.negativePrompt` | | *(none)* | — |
-| `samples.cfgScale` | | *(ecosystem default)* | Overrides the CFG / guidance scale used when rendering the preview samples. |
-| `samples.strength` | | `1.0` | Trained-LoRA weight applied in the preview samples. |
-
-## Continue training / train further {#continue-training}
-
-To resume from a Flux 1 LoRA you already trained instead of starting from the BFL base, set `continueFrom` to that LoRA's AIR. The new run starts from those weights and the new epochs build on top:
-
-```json
-{
-  "$type": "training",
-  "input": {
-    "engine": "ai-toolkit",
-    "ecosystem": "flux1",
-    "modelVariant": "dev",
-    "continueFrom": "urn:air:flux1:lora:civitai:<id>@<version>",
-    "steps": 1000
-  }
-}
-```
-
-`continueFrom` must point at a LoRA of the **same ecosystem** (`flux1`) as the model being trained — a mismatched ecosystem is rejected.
+| Field | Flux 1 default | Notes |
+|-------|----------------|-------|
+| `modelVariant` | ✅ required | `dev` or `schnell`. Determines the base checkpoint. |
+| `epochs` | `round(steps / 200)` | Each adds **20 Buzz** of storage. |
+| `batchSize` | `1` | Fixed at 1 for this ecosystem. |
+| `continueFrom` | *(none)* | A Flux 1 LoRA (`urn:air:flux1:lora:...`) to resume from. |
+| `lr` | `0.0001` | Flux 1 is sensitive to high LRs — keep ≤ `0.0005`. |
+| `trainTextEncoder` | `false` | Flux 1 does not benefit much from text-encoder training. Leave off. |
+| `networkDim` | `16` | Flux 1's lower default reflects how compactly Flux LoRAs encode style/character vs. SD-family. |
 
 ## Reading the result
 
-Same envelope as the other training recipes — see [SDXL/SD1 → Reading the result](./training-sdxl-sd1#reading-the-result) for the full shape. The relevant bit:
-
-```json
-{
-  "output": {
-    "moderationStatus": "Approved",
-    "epochs": [
-      {
-        "epochNumber": 1,
-        "model": { "id": "blob_...", "url": "https://.../epoch_1.safetensors" },
-        "samples": [{ "id": "blob_...", "url": "https://.../sample_0.jpeg" }]
-      }
-    ]
-  }
-}
-```
-
-The `model` blob is your trained LoRA — download it (URLs are signed and expire), or use the blob URL directly with [Flux 1 image generation](./flux1) by referencing its AIR in the `loras` field.
-
-Training can also be watched while it runs — with `"trace": "events"` (or `"logs"`) each `epochs[].traceUrl` is a tail-able stream of logs and step progress. See [SDXL/SD1 → Live progress & logs](./training-sdxl-sd1#live-progress).
+The [standard training output](./training#reading-the-result): each saved epoch's Flux 1 LoRA blob plus sample images. Use the LoRA in [Flux 1 image generation](./flux1) by referencing its AIR in the `loras` field.
 
 ## Runtime
 
@@ -262,11 +205,9 @@ Per-step wall time on a 10-image dataset, default settings:
 | `dev` | ~0.3–0.7 s | 10–30 min |
 | `schnell` | ~0.3–0.7 s | 10–30 min |
 
-Always use `wait=0`.
-
 ## Cost
 
-Training is billed per **step** plus a flat per-**epoch** storage surcharge, with a price floor:
+The [training cost formula](./training#cost) with Flux 1 rates:
 
 ```
 price = steps × costPerStep + epochs × 20        (rounded)
@@ -274,7 +215,7 @@ costPerStep = 0.9   (dev and schnell)
 floor: never less than 80% of the default-configuration price
 ```
 
-`epochs` is the number of saved checkpoints delivered (range `1`–`200`; when omitted, `steps / 200` rounded to the nearest whole number, with a `.5` going to the even neighbour, so `steps: 2500` gives `12`); each adds 20 Buzz of storage. With both `steps` and `epochs` omitted the run is **2000 steps / 10 epochs** (the examples at the top of the page send `steps: 2000`, which also resolves to 10 epochs) → `2000 × 0.9 + 10 × 20 = 1800 + 200 = 2000 Buzz`. The **floor** is 80% of the default price (1600 Buzz).
+Each epoch adds 20 Buzz of storage. With both `steps` and `epochs` omitted the run is **2000 steps / 10 epochs** (the examples at the top of the page send `steps: 2000`, which also resolves to 10 epochs) → `2000 × 0.9 + 10 × 20 = 1800 + 200 = 2000 Buzz`. The **floor** is 80% of the default price (1600 Buzz).
 
 | Configuration | Buzz |
 |---------------|------|
@@ -282,24 +223,24 @@ floor: never less than 80% of the default-configuration price
 | `steps: 1000`, `epochs: 10` | 1600 + samples (floor) |
 | `steps: 2000`, `epochs: 20` | 2200 + samples (+200 for 10 more checkpoints) |
 
-Sample-prompt rendering is billed separately at the appropriate Flux 1 generation rate. Run with `whatif=true` (the **Preview cost** button on the widgets above) to see the exact pre-flight charge.
+Sample-prompt rendering is billed separately at the appropriate Flux 1 generation rate. Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 ## Troubleshooting
+
+`steps` out of range, an unresolvable `sourceUrl`, a `count` mismatch and a rejected dataset are covered in the [overview's troubleshooting](./training#troubleshooting).
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `400` with "modelVariant required" | Missing `modelVariant` field | Set to `"dev"` or `"schnell"`. |
-| `400` with "steps out of range" | `steps` outside `1`–`10000` | Cap at 10000. |
-| `400` with "uses a resource which could not be resolved" | The zip behind `sourceUrl` is gone, private, or the signed URL expired | Re-upload it, or point `sourceUrl` at an AIR pinned to an immutable revision. |
 | Trained LoRA underbaked | Too few steps for dataset, or `lr` too low | Raise `steps` to 1500–2500 for character LoRAs; keep `lr` at `0.0001`–`0.0003`. |
 | Trained LoRA overfits | Too many steps / too high `networkDim` | Lower `steps`, drop `networkDim` to 8–12. |
-| Step `failed`, output `moderationStatus: "Rejected"` | Dataset failed content moderation | Replace flagged images. |
 
 ## Related
 
+- [LoRA training overview](./training) — shared parameters, training data, live progress and cost formula
 - [SDXL & SD1 LoRA training](./training-sdxl-sd1) — cheaper, classic SD ecosystems
 - [Flux 2 Klein LoRA training](./training-flux2-klein) — current Flux generation, including image-edit training
 - [Flux 1 image generation](./flux1) — use a trained LoRA via `loras: { "<lora-air>": 1.0 }`
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — handling long-running training jobs
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) / [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
-- [Endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/training/openapi.yaml)
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
+- [`training` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/training/openapi.yaml)

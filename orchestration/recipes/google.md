@@ -86,7 +86,7 @@ Routes to Google's image-generation APIs (Vertex AI / Gemini API). Four models, 
 | `nano-banana-pro` | Gemini 2.5 Pro Image | Same shape as `nano-banana-2` for most purposes; pro tier for premium output. |
 | `imagen4` | Imagen 4 | Google's dedicated image model (not Gemini-based). Natural-language + negative prompt, fewer aspect ratios, 1K only. |
 
-**Default choice for new integrations**: `model: "nano-banana-2"`. It's fast, capable, supports editing via `images[]`, and has the widest aspect-ratio and resolution range. Step up to `nano-banana-pro` for hero-shot quality; drop down to `nano-banana-2-lite` when speed and cost matter more than the 2K/4K tiers; reach for `imagen4` when you specifically want Google's older Imagen family semantics (negative prompts, stricter aspect-ratio set).
+**Default choice**: `model: "nano-banana-2"`. It's fast, capable, supports editing via `images[]`, and has the widest aspect-ratio and resolution range. Step up to `nano-banana-pro` for hero-shot quality; drop down to `nano-banana-2-lite` when speed and cost matter more than the 2K/4K tiers; reach for `imagen4` when you specifically want Google's older Imagen family semantics (negative prompts, stricter aspect-ratio set).
 
 ::: tip Gemini vs Google
 The `gemini` engine ([Gemini image generation](./gemini)) exposes the same Gemini 2.5 Flash Image product as `model: "2.5-flash"` via the direct Gemini API, with a slightly different input shape. Pick based on which API semantics you prefer — this page covers the `google` engine.
@@ -94,7 +94,6 @@ The `gemini` engine ([Gemini image generation](./gemini)) exposes the same Gemin
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
 - For image editing: one or more source image URLs, data URLs, or Base64 strings (Nano Banana only — Imagen 4 is create-only)
 
 ## nano-banana-2 (default — Gemini 2.5 Flash Image)
@@ -273,25 +272,7 @@ No editing. No `resolution` picker — outputs are always 1K.
 
 ## Reading the result
 
-All Google models emit the standard `imageGen` output:
-
-```json
-{
-  "status": "succeeded",
-  "steps": [{
-    "name": "0",
-    "$type": "imageGen",
-    "status": "succeeded",
-    "output": {
-      "images": [
-        { "id": "blob_...", "url": "https://.../signed.png" }
-      ]
-    }
-  }]
-}
-```
-
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL.
+Standard `imageGen` output: an `images[]` array, one entry per `quantity` ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 ## Runtime
 
@@ -309,7 +290,7 @@ Enable `wait=0` + polling for batches above `numImages: 2`, 4K output, or Pro ti
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 Flat per-image pricing by model, `resolution`, and grounding toggles:
 
@@ -343,6 +324,8 @@ Examples:
 
 ## Troubleshooting
 
+Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](/orchestration/recipes/#common-troubleshooting). Timeouts here usually mean large `numImages`, 4K resolution, or the Pro tier on a busy queue; `blocked` comes from Google's content filter.
+
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `400` with unknown property `quantity` | Sent `quantity` instead of `numImages` | Google uses `numImages`; OpenAI / Flux use `quantity`. Easy to mix up. |
@@ -351,17 +334,14 @@ Examples:
 | `400` with "images is not a valid property" on Imagen 4 | Imagen 4 is create-only | Switch to `nano-banana-2` or `nano-banana-pro` for editing. |
 | `400` with "images maxItems" | More than 10 reference images on Nano Banana | Trim to 10. |
 | Output seems disconnected from reality (wrong year of events, nonexistent place) | No search grounding | Set `enableWebSearch: true` (or `enableGoogleSearch: true`) on `nano-banana-2`. |
-| Request timed out (`wait` expired) | Large `numImages`, 4K resolution, or Pro tier on busy queue | Resubmit with `wait=0` and poll. |
-| Step `failed`, `reason = "blocked"` | Google's content filter | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Gemini image generation](./gemini) — Gemini 2.5 Flash Image via the direct Gemini API (alternate routing to Nano Banana)
 - [OpenAI image generation](./openai) — alternative commercial tier
 - [Flux 2](./flux2) / [Flux 1](./flux1) / [Qwen](./qwen) — open-weights alternatives on Civitai-hosted workers
 - [Image upscaling](./image-upscaler) — chain after `imageGen` for higher-res output
 - [Prompt enhancement](./prompt-enhancement) — LLM-rewrite a prompt before feeding it in via `$ref`
 - Full parameter catalog: the `Imagen4ImageGenInput`, `NanoBananaProImageGenInput`, `NanoBanana2ImageGenInput`, `NanoBanana2LiteImageGenInput` schemas in the [API reference](/orchestration/reference/)
-- [`imageGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `imageGen` surface
+- [`imageGen` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml)

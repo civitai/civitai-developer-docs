@@ -79,11 +79,10 @@ For video workloads, see [WAN video generation](./wan) — shares the engine, di
 | `v2.5` | Newer v2.5 release. Simpler knob set than v2.2. |
 | `v2.7` | Latest release. Simpler knob set than v2.2. |
 
-**Default choice for new integrations**: `version: "v2.2"`, `provider: "fal"`. Step up to `v2.5` or `v2.7` when you want the newer output, drop to `v2.2-5b` for lower-cost generation with the `shift` control.
+**Default choice**: `version: "v2.2"`, `provider: "fal"`. Step up to `v2.5` or `v2.7` when you want the newer output, drop to `v2.2-5b` for lower-cost generation with the `shift` control.
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
 - No checkpoint URN — the ecosystem ships its own models per version
 
 ## v2.2 (default)
@@ -229,25 +228,7 @@ Pick `v2.7` for the latest, `v2.5` if you've validated it against your workload 
 
 ## Reading the result
 
-All WAN versions emit the standard `imageGen` output:
-
-```json
-{
-  "status": "succeeded",
-  "steps": [{
-    "name": "0",
-    "$type": "imageGen",
-    "status": "succeeded",
-    "output": {
-      "images": [
-        { "id": "blob_...", "url": "https://.../signed.png" }
-      ]
-    }
-  }]
-}
-```
-
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL.
+Standard `imageGen` output: an `images[]` array, one entry per `quantity` ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 ## Runtime
 
@@ -264,7 +245,7 @@ Submit `wait=0` + poll for large `quantity` or busy periods.
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 Flat per-image pricing by `version`, with LoRA usage doubling the base on `v2.2`:
 
@@ -289,6 +270,8 @@ Dimensions (`imageSize` enum), `steps`, and `acceleration` don't change the Buzz
 
 ## Troubleshooting
 
+Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](/orchestration/recipes/#common-troubleshooting).
+
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `400` with "version must be one of" | Typo or using a WAN video version number | Use `v2.2`, `v2.2-5b`, `v2.5`, or `v2.7`. |
@@ -297,15 +280,12 @@ Dimensions (`imageSize` enum), `steps`, and `acceleration` don't change the Buzz
 | `400` with "shift is not a valid property" | Only `v2.2-5b` exposes `shift` | Remove the field on other versions. |
 | `400` with "imageSize must be one of" | Sent width/height like other ecosystems | WAN uses a fixed enum — pick `square_hd`, `landscape_16_9`, etc. Use a different engine (Flux 2, Qwen, etc.) if you need arbitrary dimensions. |
 | LoRA has no effect | Wrong AIR URN, or incompatible ecosystem | WAN LoRAs must be tagged for the WAN ecosystem and compatible with the version you're running. |
-| Request timed out (`wait` expired) | Large `quantity` or busy provider queue | Resubmit with `wait=0` and poll. |
-| Step `failed`, `reason = "blocked"` | Prompt hit content moderation | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [WAN video generation](./wan) — WAN for videoGen (same engine, different operation)
 - [Flux 2](./flux2) / [Qwen](./qwen) / [SDXL](./sdxl) — open-weights / sdcpp alternatives with width/height control
 - [Image upscaling](./image-upscaler) — chain after `imageGen` for higher-res output
 - Full parameter catalog: the `Wan22FalImageGenInput`, `Wan225bFalImageGenInput`, `Wan25FalImageGenInput`, `Wan27FalImageGenInput` schemas in the [API reference](/orchestration/reference/)
-- [`imageGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `imageGen` surface
+- [`imageGen` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml)

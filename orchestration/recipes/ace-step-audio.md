@@ -94,11 +94,10 @@ All values come from Comfy-Org's [`ace_step_1.5_ComfyUI_files`](https://huggingf
 
 Turbo variants are distilled to converge in 8 steps with CFG effectively off (`1.0`). Non-turbo base / SFT variants expect the full 50-step schedule with classifier-free guidance on (around `4`) — submitting them with the default `steps: 8` / `cfg: 1.0` produces underbaked output.
 
-**Default choice for new integrations**: omit `diffusionModel` entirely. The 2B turbo AIO file is the default and is what Civitai's workers are consistently warm on. Reach for an XL split-file override only when the default fidelity isn't enough and you can tolerate a slow first-submission while the worker pulls the additional files.
+**Default choice**: omit `diffusionModel` entirely. The 2B turbo AIO file is the default and is what Civitai's workers are consistently warm on. Reach for an XL split-file override only when the default fidelity isn't enough and you can tolerate a slow first-submission while the worker pulls the additional files.
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
 - A `musicDescription` — a short, genre-prefixed style blurb (e.g. `"Neo-Soul: warm Rhodes, brush kit, introspective"`)
 - A `lyrics` string — structured with section markers (`[Verse]`, `[Chorus]`, `[Bridge]`, …). Use `""` for pure instrumentals (and set `vocalWeight: 0.0` / `instrumentalWeight: 1.0`)
 - A `seed` — any integer; same seed + same input reproduces the track deterministically
@@ -276,9 +275,9 @@ For backend integrations that can't hold a connection, register a webhook URL an
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
-Cost is driven purely by `duration` — a flat base charge plus a per-second factor. Nothing else in the input affects price (model variant, BPM, cover image, instrumental weights, lyrics length are all free).
+Only `duration` affects the price — a flat base charge plus a per-second factor. Model variant, BPM, key, time signature, language, cover image, instrumental / vocal weights and lyrics length are all free.
 
 ```
 total = 1 + duration × 0.1
@@ -294,9 +293,9 @@ total = 1 + duration × 0.1
 
 Non-integer totals (e.g. `duration: 15` → `2.5`) are not rounded: `cost.total` carries them unchanged.
 
-Cover images, key, BPM, time signature, language, and instrumental / vocal weights don't affect Buzz price — ACE-Step bills flat-plus-per-second on duration only.
-
 ## Troubleshooting
+
+Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](/orchestration/recipes/#common-troubleshooting).
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
@@ -304,7 +303,6 @@ Cover images, key, BPM, time signature, language, and instrumental / vocal weigh
 | `400` with `"musicDescription is required"` / `"lyrics is required"` / `"seed is required"` | Missing one of the three required fields. `lyrics: ""` is valid; the field itself must still be present. | Include every required field explicitly. |
 | `400` with `"Unable to analyze … file"` on the cover image | `cover.imageUrl` pointed at a host that rejected the orchestrator's fetch (range requests, UA block, ALB cookie gating) | Use a Civitai CDN URL, or generate the cover with an `imageGen` step and `$ref` its output. |
 | Output has scat-like placeholder vocals on an "instrumental" track | `lyrics: ""` but `vocalWeight` left at default `0.9` | Set `vocalWeight: 0.0` (and ideally `instrumentalWeight: 1.0`) whenever `lyrics` is empty. |
-| Step `failed`, `reason = "blocked"` | Content moderation on the description / lyrics / cover image | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
 | Workflow stuck in `scheduled` for >60 s on an XL `diffusionModel` override | No warm worker has the split-file checkpoint yet; the first submission of a given XL variant triggers a download | Keep polling with `?wait=60`; subsequent submissions in the same hour land on the now-warm worker in ~15 s. |
 | Request timed out (`wait=60` returned non-terminal) | Cold XL variant, capacity pressure, or `duration` near 190 s on a busy shard | Re-issue `GET /v2/consumer/workflows/{id}?wait=60` until the response is terminal. |
 
@@ -319,4 +317,4 @@ Cover images, key, BPM, time signature, language, and instrumental / vocal weigh
 - [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism) — for chaining an `imageGen` cover generator into this step
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — handling long-running submissions (cold XL variants, webhooks)
 - Full parameter catalog: the `AceStepAudioInput` schema in the [API reference](/orchestration/reference/)
-- [Endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/aceStepAudio/openapi.yaml) — standalone OpenAPI 3.1 YAML for this endpoint
+- [`aceStepAudio` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/aceStepAudio/openapi.yaml)

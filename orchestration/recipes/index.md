@@ -73,8 +73,9 @@ These are **Orchestration REST API** recipes — you hold a Bearer token and POS
 
 ## Training
 
-Train a LoRA on your own dataset using AI Toolkit. You control training length with `steps`, the number of saved checkpoints with `epochs`, and can resume from an existing LoRA with `continueFrom`. All training runs are async — submit with `wait=0` and follow up via polling or a webhook; `trace: "events"` adds a tail-able log/step stream on each epoch. Cost is `steps × costPerStep + epochs × a per-epoch surcharge` with an 80%-of-default floor (rates vary per ecosystem — see each page); use `whatif=true` to preview the exact charge.
+Train a LoRA on your own dataset using AI Toolkit. You control training length with `steps`, the number of saved checkpoints with `epochs`, and can resume from an existing LoRA with `continueFrom`. All training runs are async — submit with `wait=0`. Cost is `steps × costPerStep + epochs × a per-epoch surcharge` with an 80%-of-default floor (rates vary per ecosystem).
 
+- [LoRA training overview](./training) — what every ecosystem shares: parameters, training data (zip or uploaded blobs), continuing a run, live `trace` logs, the cost formula
 - [SDXL & SD1 LoRA training](./training-sdxl-sd1) — classic Stable Diffusion ecosystems (500 Buzz default); cheapest pick for first fine-tunes
 - [Flux 1 LoRA training](./training-flux1) — Flux.1 Dev or Schnell (2000 Buzz default); higher quality, fixed BFL base checkpoints
 - [Flux 2 Klein LoRA training](./training-flux2-klein) — Flux 2 Klein 4b / 9b (500 / 1000 Buzz default), including image-edit training mode with control reference images
@@ -83,5 +84,73 @@ Train a LoRA on your own dataset using AI Toolkit. You control training length w
 - [Chroma / ERNIE / Qwen / Z-Image LoRA training](./training-other-image) — five smaller image ecosystems consolidated into one page; each section is independently runnable
 
 ::: tip Copy-paste runnable
-All recipes target `https://orchestration.civitai.com` and use `<your-token>` as a placeholder for your Bearer token. Drop them into curl, HTTPie, VS Code's REST Client, or any tool that speaks HTTP.
+All recipes target `https://orchestration.civitai.com` and use `<your-token>` as a placeholder for your Bearer token — an orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites)). Drop them into curl, HTTPie, VS Code's REST Client, or any tool that speaks HTTP.
 :::
+
+## Common to every recipe
+
+Each recipe page documents only what is specific to it. This section covers what they all share.
+
+### Reading results {#reading-results}
+
+A result arrives in the workflow envelope that [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) returns or a [webhook](/orchestration/guide/results-and-webhooks) delivers. Most generation recipes emit one of two output shapes.
+
+`imageGen` emits an `images[]` array, one entry per `quantity`. `nsfwLevel` carries the moderation classification applied to the output:
+
+```json
+{
+  "status": "succeeded",
+  "steps": [{
+    "name": "0",
+    "$type": "imageGen",
+    "status": "succeeded",
+    "output": {
+      "images": [
+        {
+          "id": "aa6e7228-68cd-4d15-b4d7-5005b2bfbac6-0.jpg",
+          "width": 1024,
+          "height": 1024,
+          "url": "https://orchestration.civitai.com/v2/consumer/blobs/…?sig=…",
+          "urlExpiresAt": "2027-04-15T17:18:54.3195353Z",
+          "previewUrl": "https://orchestration.civitai.com/v2/consumer/blobs/…?sig=…",
+          "previewUrlExpiresAt": "2027-04-15T17:18:54.3196735Z",
+          "available": true,
+          "nsfwLevel": "pg13"
+        }
+      ],
+      "errors": []
+    }
+  }]
+}
+```
+
+`videoGen` emits a single `video` blob:
+
+```json
+{
+  "status": "succeeded",
+  "steps": [{
+    "name": "0",
+    "$type": "videoGen",
+    "status": "succeeded",
+    "output": {
+      "video": { "id": "blob_...", "url": "https://.../signed.mp4" }
+    }
+  }]
+}
+```
+
+Blob URLs (`url`, `previewUrl`) are signed and expire at `urlExpiresAt` — see [Blobs in results](/orchestration/guide/results-and-webhooks#blobs-in-results).
+
+### Troubleshooting {#common-troubleshooting}
+
+These apply to every recipe; each page's own table covers the rest. For an expired blob URL, see [Errors & retries → Common gotchas](/orchestration/guide/errors-and-retries#common-gotchas).
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| Request timed out (`wait` expired), or `202` with a non-terminal status | The job outlasted `wait` or [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) | Submit with `wait=0`, then [poll](/orchestration/guide/results-and-webhooks#polling-fallback) or use a [webhook](/orchestration/guide/results-and-webhooks). |
+| Step `failed`, `reason = "blocked"` | The prompt or an input hit content moderation (the provider's filter or Civitai's) | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
+
+### OpenAPI specs
+
+Each per-recipe endpoint publishes a standalone OpenAPI 3.1 YAML at `https://orchestration.civitai.com/v2/consumer/recipes/<recipe>/openapi.yaml` (for example [`imageGen`](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml)), ready to import into Postman, Insomnia or OpenAPI Generator. `<recipe>` is the name in the recipe's `POST /v2/consumer/recipes/<recipe>` endpoint (e.g. `videoGen`, `training`, `transcription`).

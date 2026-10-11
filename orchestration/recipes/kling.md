@@ -74,9 +74,9 @@ Kuaishou's Kling model family, available in two generations through the `videoGe
 | `kling` | `v1`, `v1.5`, `v1.6`, `v2`, `v2.5-turbo` | Original Kling. Text-to-video and image-to-video. |
 | `kling-v3` | *(version-agnostic)* | Kling V3. Five operations including video-to-video and reference-to-video. Duration in seconds (3–15). |
 
-**Default choice for new integrations**: `engine: "kling-v3"` with `operation: "text-to-video"`. For speed + cost, use `mode: "Standard"`; for highest quality, `mode: "Professional"`.
+**Default choice**: `engine: "kling-v3"` with `operation: "text-to-video"`. For speed + cost, use `mode: "Standard"`; for highest quality, `mode: "Professional"`.
 
-All Kling jobs exceed the [100-second timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — always submit with `wait=0` and handle results via webhooks or polling.
+Kling jobs run for minutes, longer than [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — always submit with `wait=0` and handle results via webhooks or polling.
 
 ## Kling (original)
 
@@ -322,28 +322,11 @@ Examples at `duration: 5`:
 
 ## Reading the result
 
-```json
-{
-  "status": "succeeded",
-  "steps": [{
-    "name": "0",
-    "$type": "videoGen",
-    "status": "succeeded",
-    "output": {
-      "video": { "id": "blob_...", "url": "https://.../signed.mp4" }
-    }
-  }]
-}
-```
-
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL.
+Standard `videoGen` output: a single `video` blob ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 ## Long-running jobs
 
-Kling V3 Standard at 5 s typically completes in 2–5 minutes; Professional and longer durations take longer. Always use `wait=0` and handle via:
-
-- **Webhooks** (recommended): `type: ["workflow:succeeded", "workflow:failed"]` — see [Results & webhooks](/orchestration/guide/results-and-webhooks)
-- **Polling**: `GET /v2/consumer/workflows/{workflowId}` on a 10 s → 30 s → 60 s cadence
+Kling V3 Standard at 5 s typically completes in 2–5 minutes; Professional and longer durations take longer. Submit with `wait=0`, then prefer a [webhook](/orchestration/guide/results-and-webhooks) (`workflow:succeeded` / `workflow:failed`) or poll `GET /v2/consumer/workflows/{workflowId}` on a 10 s → 30 s → 60 s cadence.
 
 ## Troubleshooting
 
@@ -358,8 +341,7 @@ Kling V3 Standard at 5 s typically completes in 2–5 minutes; Professional and 
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — production result handling
 - [WAN video generation](./wan) — comparable open-source alternative
 - [Veo 3 video generation](./veo3) — Google alternative for commercial-grade video

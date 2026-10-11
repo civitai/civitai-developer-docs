@@ -80,15 +80,14 @@ Common uses:
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
 - An ecosystem slug matching your downstream generation step (see [Ecosystems](#ecosystems))
 
 ## The simplest request
 
-Inline, synchronous — safe to use `wait=60` since the LLM call typically finishes in a few seconds:
+Inline and synchronous — the LLM call typically finishes in a few seconds:
 
 ```http
-POST https://orchestration.civitai.com/v2/consumer/recipes/promptEnhancement?wait=60
+POST https://orchestration.civitai.com/v2/consumer/recipes/promptEnhancement
 Authorization: Bearer <your-token>
 Content-Type: application/json
 
@@ -224,7 +223,7 @@ The highest-leverage pattern is to drop `promptEnhancement` in front of an `imag
 }
 ```
 
-The `{ "$ref": "enhance", "path": "output.enhancedPrompt" }` reference creates a dependency — `hero` doesn't start until `enhance` succeeds, and its `prompt` field is filled in with the rewritten text at runtime. See [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism).
+`hero` waits for `enhance` to succeed; the `$ref` then fills its `prompt` with the rewritten text ([Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism)).
 
 <RecipeRun :body="chainBody" />
 
@@ -268,7 +267,7 @@ Fields:
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 Flat-rate:
 
@@ -280,7 +279,7 @@ That's it — prompt length, ecosystem, `temperature`, `instruction`, and whethe
 
 ## Runtime
 
-LLM-backed, usually 2–10 s per call including queue wait. Safe to use `wait=60` (or even `wait=30`) and get the result inline. Cost is a flat base of 1.0 per call regardless of prompt length — unlike generative steps, there's no per-pixel or per-second multiplier.
+LLM-backed, usually 2–10 s per call including queue wait. The recipe endpoint returns the result inline. Cost is a flat base of 1.0 per call regardless of prompt length — unlike generative steps, there's no per-pixel or per-second multiplier.
 
 ## Troubleshooting
 
@@ -291,12 +290,12 @@ LLM-backed, usually 2–10 s per call including queue wait. Safe to use `wait=60
 | Output doesn't match the ecosystem style (e.g. Flux-style prose on an SD1 request) | Unknown `ecosystem` slug falling through to a generic template | Use the same slug as the downstream generation step, and verify the spelling. |
 | `instruction` not respected | Instruction too long, contradictory, or buried in prose | Keep it to one short directive. "Under 20 words" beats a paragraph. |
 | `enhancedNegativePrompt` is `null` | No `negativePrompt` was sent | Include a `negativePrompt` in the input if you need one back. |
-| Request timed out (`wait` expired) | Rare — the LLM call shouldn't take >10 s on a warm node | Resubmit with `wait=0` and poll, or retry once. |
+| Request timed out (`wait` expired) | Rare — the LLM call shouldn't take >10 s on a warm node | Retry once, or resubmit through the [generic workflow endpoint](#via-the-generic-workflow-endpoint) with `wait=0` and poll. |
 
 ## Related
 
 - [`InvokePromptEnhancementStepTemplate`](/orchestration/reference/operations/InvokePromptEnhancementStepTemplate) — the per-recipe endpoint
-- [Endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/promptEnhancement/openapi.yaml) — standalone OpenAPI 3.1 YAML for this endpoint, ready to import into Postman / Insomnia / OpenAPI Generator
+- [`promptEnhancement` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/promptEnhancement/openapi.yaml)
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — generic path for chaining
 - [Flux 2](./flux2) / [Flux 1](./flux1) image generation, [WAN video generation](./wan), [LTX2 video generation](./ltx2) — downstream generation recipes that take the rewritten prompt
 - [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism) — feeding `output.enhancedPrompt` through `$ref`

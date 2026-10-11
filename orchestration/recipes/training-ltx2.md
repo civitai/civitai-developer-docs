@@ -74,9 +74,7 @@ Train a Lightricks LTX video LoRA on a small set of source video clips using AI 
 
 The base checkpoint is fixed by `ecosystem`; there's no `model` field on the input.
 
-::: tip Long-running step
-Video training is the slowest training mode on the platform — video needs a longer run, so the LTX **default is 3000 steps** (vs 2000 for image ecosystems). Always use `wait=0` and follow up via webhook or polling.
-:::
+Video training is the slowest training mode on the platform — video needs a longer run, so the LTX **default is 3000 steps** (vs 2000 for image ecosystems). Submit with `wait=0`. The request fields, training data, continuing a run and live progress are shared by every ecosystem — see the [LoRA training overview](./training).
 
 ## The request shape
 
@@ -92,9 +90,7 @@ Video training is the slowest training mode on the platform — video needs a lo
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
-- A training-data zip of images, video clips, or a mix — addressed by an AIR, as in [the image recipes](./training-flux1#prerequisites)
-- An accurate `count` of items in the zip
+- A training-data zip of images, video clips, or a mix — addressed by an AIR ([accepted sources](./training#training-data)), with an accurate `count` of items
 
 ## LTX2
 
@@ -173,57 +169,24 @@ Content-Type: application/json
 
 <RecipeRun :body="ltx23Body" :wait="0" />
 
-## Common parameters {#common-parameters}
+## LTX parameters {#common-parameters}
 
-Defaults shown are the effective defaults for both LTX ecosystems.
+Defaults apply to both LTX ecosystems. Fields and defaults not listed here are as in the overview's [common parameters](./training#common-parameters).
 
-| Field | Required | Default | Notes |
-|-------|----------|---------|-------|
-| `engine` | ✅ | — | Always `ai-toolkit`. |
-| `ecosystem` | ✅ | — | `ltx2` or `ltx23`. |
-| `steps` | | `3000` | `1`–`10000`. Total training steps. Primary driver of training length and pricing. Video needs a longer run, hence the higher default. |
-| `epochs` | | `round(steps / 200)` | `1`–`200`. Number of saved checkpoints delivered, each separately downloadable. When omitted it is derived from `steps` (`15` for `steps: 3000`); `10` if `steps` is omitted too. **Each adds 50 Buzz** — LTX preview samples are videos and costly to compute. |
-| `batchSize` | | `1` | Fixed at 1 for this ecosystem. |
-| `continueFrom` | | *(none)* | A previously-trained `urn:air:ltx2:lora:...` / `urn:air:ltx23:lora:...` AIR to resume from (see [Continue training](#continue-training)). Must be a LoRA of the same ecosystem. |
-| `lr` | | `0.0001` | LTX2 examples often use `0.0002`; LTX 2.3 typically `0.0001`. |
-| `trainTextEncoder` | | `false` | Leave off — LTX text encoder is not retrained by AI Toolkit. |
-| `lrScheduler` | | `cosine` | `constant`, `constant_with_warmup`, `cosine`, `linear`, `step`. |
-| `optimizerType` | | `adamw8bit` | See SDXL/SD1 page for full enum. |
-| `networkDim` | | `32` | `1`–`256`. |
-| `networkAlpha` | | matches `networkDim` | `1`–`256`. |
-| `noiseOffset` | | `0` | `0`–`1`. |
-| `flipAugmentation` | | `false` | Random horizontal flips. |
-| `shuffleTokens` / `keepTokens` | | `false` / `0` | Caption-tag shuffling. |
-| `triggerWord` | | *(none)* | Activation token. |
-| `trainingData.{type, sourceUrl, count}` | ✅ | — | `type: "zip"`. Images, video clips, or a mix; the example uses an image dataset. |
-| `samples.prompts[]` | | `[]` | Preview videos rendered at each saved checkpoint. |
-| `samples.negativePrompt` | | *(none)* | — |
-| `samples.cfgScale` | | *(ecosystem default)* | Overrides the CFG / guidance scale used when rendering the preview samples. |
-| `samples.strength` | | `1.0` | Trained-LoRA weight applied in the preview samples. |
-
-## Continue training / train further {#continue-training}
-
-To resume from an LTX LoRA you already trained instead of starting from the base checkpoint, set `continueFrom` to that LoRA's AIR. The new run starts from those weights and the new epochs build on top:
-
-```json
-{
-  "$type": "training",
-  "input": {
-    "engine": "ai-toolkit",
-    "ecosystem": "ltx2",
-    "continueFrom": "urn:air:ltx2:lora:civitai:<id>@<version>",
-    "steps": 1500
-  }
-}
-```
-
-`continueFrom` must point at a LoRA of the **same ecosystem** as the model being trained (an `ltx2` LoRA for `ecosystem: "ltx2"`, an `ltx23` LoRA for `ecosystem: "ltx23"`) — a mismatched ecosystem is rejected.
+| Field | LTX default | Notes |
+|-------|-------------|-------|
+| `steps` | `3000` | Video needs a longer run, hence the higher default. |
+| `epochs` | `round(steps / 200)` | `15` for `steps: 3000`; `10` if `steps` is omitted too. **Each adds 50 Buzz** — LTX preview samples are videos and costly to compute. |
+| `batchSize` | `1` | Fixed at 1 for this ecosystem. |
+| `continueFrom` | *(none)* | A LoRA of the same ecosystem (`urn:air:ltx2:lora:...` / `urn:air:ltx23:lora:...`) to resume from. |
+| `lr` | `0.0001` | LTX2 examples often use `0.0002`; LTX 2.3 typically `0.0001`. |
+| `trainTextEncoder` | `false` | Leave off — LTX text encoder is not retrained by AI Toolkit. |
+| `trainingData` | ✅ | Images, video clips, or a mix; the example uses an image dataset. |
+| `samples.prompts[]` | `[]` | Preview videos rendered at each saved checkpoint. |
 
 ## Reading the result
 
-Same envelope as the other training recipes — see [SDXL/SD1 → Reading the result](./training-sdxl-sd1#reading-the-result). Each saved checkpoint yields a video LoRA `.safetensors` blob plus any sample `.mp4` files. Use the trained LoRA in [LTX2 video generation](./ltx2) by referencing it in the workflow's `loras` field.
-
-Training can also be watched while it runs — with `"trace": "events"` (or `"logs"`) each `epochs[].traceUrl` is a tail-able stream of logs and step progress. See [SDXL/SD1 → Live progress & logs](./training-sdxl-sd1#live-progress).
+The [standard training output](./training#reading-the-result): each saved checkpoint yields a video LoRA `.safetensors` blob plus any sample `.mp4` files. Use the trained LoRA in [LTX2 video generation](./ltx2) by referencing it in the workflow's `loras` field.
 
 ## Runtime
 
@@ -234,11 +197,9 @@ Wall time, default settings on a 4-clip dataset:
 | `ltx2` | ~1–2 min | 30–60 min for 3000 steps |
 | `ltx23` | ~2–3 min | 60–90 min for 3000 steps |
 
-Always use `wait=0`.
-
 ## Cost
 
-Training is billed per **step** plus a flat per-**epoch** storage surcharge, with a price floor. LTX defaults to **3000 steps** (video needs a longer run):
+The [training cost formula](./training#cost) with LTX rates:
 
 ```
 price = steps × costPerStep + epochs × 50        (rounded)
@@ -246,7 +207,7 @@ costPerStep = 0.75   (ltx2 and ltx23)
 floor: never less than 80% of the default-configuration price
 ```
 
-`epochs` is the number of saved checkpoints delivered (range `1`–`200`; when omitted, `steps / 200` rounded to the nearest whole number, with a `.5` going to the even neighbour, so `steps: 2500` gives `12`); **each adds 50 Buzz** — LTX preview samples are videos and costly to compute. With both `steps` and `epochs` omitted the run is **3000 steps / 10 epochs** → `3000 × 0.75 + 10 × 50 = 2250 + 500 = 2750 Buzz`. The **floor** is 80% of that price (2200 Buzz).
+Each epoch adds 50 Buzz. With both `steps` and `epochs` omitted the run is **3000 steps / 10 epochs** → `3000 × 0.75 + 10 × 50 = 2250 + 500 = 2750 Buzz`. The **floor** is 80% of that price (2200 Buzz).
 
 The examples at the top of the page send `steps: 3000` with no `epochs`, so they get `round(3000 / 200) = 15` epochs: `15 × (200 × 0.75 + 50) = 15 × 200 = 3000 Buzz`. Send `epochs: 10` alongside `steps: 3000` to get the 2750 price.
 
@@ -256,23 +217,24 @@ The examples at the top of the page send `steps: 3000` with no `epochs`, so they
 | LTX2 / LTX 2.3, `steps: 3000`, `epochs: 20` | 3250 + samples (+500 for 10 more checkpoints) |
 | LTX2 / LTX 2.3, `steps: 2000`, `epochs: 10` | 2200 + samples (floor) |
 
-Sample-prompt rendering uses LTX2 video-generation rates and is billed separately. Run with `whatif=true` to see the exact pre-flight charge.
+Sample-prompt rendering uses LTX2 video-generation rates and is billed separately. Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 ## Troubleshooting
 
+`steps` out of range, an unresolvable `sourceUrl`, a `count` mismatch and a rejected dataset are covered in the [overview's troubleshooting](./training#troubleshooting).
+
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| `400` with "uses a resource which could not be resolved" | The zip behind `sourceUrl` is gone, private, or the signed URL expired | Re-upload it, or point `sourceUrl` at an AIR pinned to an immutable revision. |
 | Step `failed` with VRAM-related error | Resolution × clip length too high | Lower `resolution` (e.g. to `512`), shorten clips. |
 | Training cost surprises you | Video defaults to 3000 steps, so the floor is higher than image ecosystems | Check `whatif=true` before submitting. Lowering `steps`/`epochs` saves at most 20% (the floor). |
 | Trained LoRA produces no motion | Too few steps / static reference clips | Raise `steps`, ensure clips show the motion you want learned. |
-| Step `failed`, `moderationStatus: "Rejected"` | Dataset failed content moderation | Replace flagged clips. |
 
 ## Related
 
+- [LoRA training overview](./training) — shared parameters, training data, live progress and cost formula
 - [Wan video LoRA training](./training-wan) — Wan video LoRA training (preview)
 - [LTX2 video generation](./ltx2) — use a trained LoRA in LTX2 inference
 - [Flux 2 Klein LoRA training](./training-flux2-klein) — image-side counterpart
 - [Results & webhooks](/orchestration/guide/results-and-webhooks)
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) / [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
-- [Endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/training/openapi.yaml)
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
+- [`training` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/training/openapi.yaml)

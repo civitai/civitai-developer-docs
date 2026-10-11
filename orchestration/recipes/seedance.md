@@ -90,7 +90,7 @@ Pick a version with `model`:
 
 **Seedance 2.5** doubles the single-shot length to 30 seconds and triples the reference budget, and is the only version that accepts audio-only input. It drops 1080p in exchange: 1080p is available on `v2` and `v2-mini`, not on `v2.5`.
 
-**Default choice**: `model: "v2"`, `resolution: "720p"`, `duration: 5`, `aspectRatio: "adaptive"`. Every Seedance job exceeds the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — always submit with `wait=0`.
+**Default choice**: `model: "v2"`, `resolution: "720p"`, `duration: 5`, `aspectRatio: "adaptive"`. Every Seedance job runs for minutes, longer than [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — always submit with `wait=0`.
 
 ## The request shape
 
@@ -253,7 +253,7 @@ Image limits: 300–6000 px per side, aspect ratio between 0.4 and 2.5, ≤30 MB
 
 ## Cost
 
-Billed per second in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Billed per second. Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 ```
 total = ratePerSecond × duration
@@ -284,28 +284,13 @@ Failed generations and clips rejected by BytePlus's content review are not charg
 
 ## Reading the result
 
-Same as any `videoGen` step — a single `video` blob:
-
-```json
-{
-  "steps": [{
-    "output": {
-      "video": {
-        "id": "…",
-        "url": "https://orchestration.civitai.com/v2/consumer/blobs/…"
-      }
-    }
-  }]
-}
-```
-
-The blob URL is signed and expires — refetch the workflow with [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) for a fresh one rather than storing it.
+Standard `videoGen` output: a single `video` blob ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 The output is H.264 in an MP4 container at 24 fps, with an AAC audio track when `generateAudio` is on.
 
 ## Runtime
 
-Well past the 100-second inline request budget, and roughly proportional to duration — a 30-second `v2.5` clip takes considerably longer than a 5-second one. Submit with `wait=0` and collect the result via a webhook or by polling — see [Results and webhooks](/orchestration/guide/results-and-webhooks).
+Minutes, longer than your HTTP client's timeout, and roughly proportional to duration — a 30-second `v2.5` clip takes considerably longer than a 5-second one. Submit with `wait=0` and collect the result via a webhook or by polling — see [Results and webhooks](/orchestration/guide/results-and-webhooks).
 
 ## Troubleshooting
 

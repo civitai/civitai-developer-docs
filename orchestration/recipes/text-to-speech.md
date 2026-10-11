@@ -103,16 +103,15 @@ Output is an Ogg Vorbis audio blob.
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
 - Text to synthesise (English or Chinese work best; language auto-detected by default)
 - *For voice cloning only:* a short reference audio clip URL (≤ ~10 s clean speech) and, ideally, its transcript
 
 ## The simplest request
 
-Built-in speaker, auto-detected language, `wait=0` because TTS typically runs longer than the synchronous 100-second window:
+Built-in speaker, auto-detected language. The recipe endpoint blocks until the step finishes; for anything slow, see [Runtime](#runtime):
 
 ```http
-POST https://orchestration.civitai.com/v2/consumer/recipes/textToSpeech?wait=0
+POST https://orchestration.civitai.com/v2/consumer/recipes/textToSpeech
 Authorization: Bearer <your-token>
 Content-Type: application/json
 
@@ -127,11 +126,7 @@ Content-Type: application/json
 
 <RecipeRun :body="recipeBody" path="/v2/consumer/recipes/textToSpeech" :wait="0" />
 
-The response (after polling to `succeeded`) is a full [`Workflow`](/orchestration/reference/operations/GetWorkflow) whose step carries an `audioBlob` with a signed streaming URL.
-
-::: tip Use `wait=0` for TTS
-End-to-end processing for a single sentence is ~60–120 s including model load and queue wait. Short clips can sneak in under `wait=30` on a warm node, but relying on it is brittle — `wait=0` + polling is the safe default.
-:::
+It returns the step output directly — an `audioBlob` with a signed streaming URL.
 
 ## Via the generic workflow endpoint
 
@@ -224,7 +219,7 @@ Guidance for the reference:
 - **Length**: 5–15 seconds of clean speech works best. Longer clips don't help and may time out.
 - **Quality**: single speaker, minimal background noise, no music. Podcast intros or call-recording noise floor drop quality noticeably.
 - **`refText` accuracy**: transcribe the reference exactly — including punctuation and capitalisation — or skip it via `xVectorOnlyMode: true`.
-- **Reach**: the `refAudioUrl` must be fetchable by the orchestrator the same way [transcription's `mediaUrl`](./transcription#choosing-a-source-url) is. CDN-served files are safe; sites that inject per-request session state break the streaming fetch.
+- **Reach**: the `refAudioUrl` must be fetchable by the orchestrator the same way [transcription's `mediaUrl`](./transcription#the-simplest-request) is. CDN-served files are safe; sites that inject per-request session state break the streaming fetch.
 
 ### `xVectorOnlyMode: true` — skip the reference transcript
 
@@ -315,7 +310,7 @@ Blob URLs are signed and expire — store the audio locally or call [`GetBlob`](
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 Character-based with a minimum floor, multiplied by 2.6 when a built-in speaker is used:
 
@@ -337,9 +332,11 @@ Voice cloning via `refAudioUrl` is cheaper per character than picking a built-in
 
 ## Runtime
 
-End-to-end time for one short sentence is typically 60–120 seconds including model load, queue wait, and inference. Longer text scales roughly linearly. **Always submit with `wait=0`** and poll or subscribe to webhooks; `wait=30` synchronous calls will usually time out.
+End-to-end time for one short sentence is typically 60–120 seconds including model load, queue wait, and inference. Longer text scales roughly linearly. That can outlast [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline), so submit through the [generic workflow endpoint](#via-the-generic-workflow-endpoint) with `wait=0` and poll or subscribe to webhooks ([Submitting work](/orchestration/guide/submitting-work)); the recipe endpoint can return a short clip on a warm node, but cancels the run if the client disconnects.
 
 ## Troubleshooting
+
+Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](/orchestration/recipes/#common-troubleshooting).
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
@@ -349,13 +346,11 @@ End-to-end time for one short sentence is typically 60–120 seconds including m
 | Voice cloning output sounds robotic | Reference clip is too noisy, too short, or contains multiple speakers | Supply a cleaner 5–15 s single-speaker reference. |
 | Voice cloning ignores the reference entirely | `refAudioUrl` couldn't be fetched by the worker (cookie-gated host, 403, redirect loop) | Host the reference on a CDN / S3 direct / GitHub raw URL. |
 | Prosody doesn't match `instruct` | The directive is too long or contradictory with the speaker's natural register | Keep `instruct` short and specific; try a different built-in speaker. |
-| Request timed out (`wait` expired) | Synthesis too slow to finish in the synchronous window | Resubmit with `wait=0` and poll, or register a webhook. |
-| Step `failed`, `reason = "blocked"` | Text or reference audio hit content moderation | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
 
 ## Related
 
 - [`InvokeTextToSpeechStepTemplate`](/orchestration/reference/operations/InvokeTextToSpeechStepTemplate) — the per-recipe endpoint
-- [Endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/textToSpeech/openapi.yaml) — standalone OpenAPI 3.1 YAML for this endpoint, ready to import into Postman / Insomnia / OpenAPI Generator
+- [`textToSpeech` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/textToSpeech/openapi.yaml)
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — generic path for chaining
 - [Multi-speaker dialogue](./multi-speaker-dialogue) — overlay several TTS clips for debate, interview, or audio-drama scenes (uses the `composeMedia` step)
 - [Transcription](./transcription) — the inverse: audio → text

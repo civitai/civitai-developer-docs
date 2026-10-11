@@ -112,11 +112,10 @@ The orchestrator routes OpenAI image requests to OpenAI's hosted APIs via the `i
 | `dall-e-3` | `createImage` only | Stand-alone `natural` vs `vivid` style control, `standard` / `hd` quality, up to 1792 px. |
 | `dall-e-2` | `createImage` / `editImage` | Legacy. Only supports square outputs (256² / 512² / 1024²) and 1000-char prompts. Use only for compatibility reasons. |
 
-**Default choice for new integrations**: `model: "gpt-image-2"`. It's OpenAI's latest flagship with flexible output dimensions and mask-based editing. Fall back to `gpt-image-1.5` if you need `background` control or prefer the fixed `size` enum; `gpt-image-1` for transparent backgrounds or `quantity > 4`; `dall-e-3` for style-controlled vivid output; avoid `dall-e-2` unless you specifically need it.
+**Default choice**: `model: "gpt-image-2"`. It's OpenAI's latest flagship with flexible output dimensions and mask-based editing. Fall back to `gpt-image-1.5` if you need `background` control or prefer the fixed `size` enum; `gpt-image-1` for transparent backgrounds or `quantity > 4`; `dall-e-3` for style-controlled vivid output; avoid `dall-e-2` unless you specifically need it.
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
 - For `editImage`: one or more source image URLs, data URLs, or Base64 strings
 - For `gpt-image-2` mask-based edits: a mask image whose fully transparent pixels (alpha = 0) indicate the region to edit
 
@@ -355,25 +354,7 @@ Supports `editImage` with `image` (a single source string, not an array), but ho
 
 ## Reading the result
 
-All models emit the standard `imageGen` output:
-
-```json
-{
-  "status": "succeeded",
-  "steps": [{
-    "name": "0",
-    "$type": "imageGen",
-    "status": "succeeded",
-    "output": {
-      "images": [
-        { "id": "blob_...", "url": "https://.../signed.png" }
-      ]
-    }
-  }]
-}
-```
-
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL.
+Standard `imageGen` output: an `images[]` array, one entry per `quantity` ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 ## Runtime
 
@@ -389,7 +370,7 @@ OpenAI's API queue is the dominant factor — Civitai routes your request straig
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 ### gpt-image-2 (size-aware)
 
@@ -436,6 +417,8 @@ For the older models `size`, `background`, and `style` don't change the Buzz pri
 
 ## Troubleshooting
 
+Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](/orchestration/recipes/#common-troubleshooting). Timeouts here usually mean `hd` on DALL·E 3 during busy periods; `blocked` comes from OpenAI's content filter or Civitai moderation.
+
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `400` with "size must be one of" | Sent `1536x1024` to DALL·E 3 (it wants `1792x1024`) or `1792x1024` to GPT-Image | Match the size enum for the model you're using — the tables above list each model's allowed set. |
@@ -444,17 +427,14 @@ For the older models `size`, `background`, and `style` don't change the Buzz pri
 | `400` with "prompt too long" on `dall-e-2` | DALL·E 2's 1000-char prompt cap | Trim the prompt or move to a newer model. |
 | Output is unexpectedly stylised on DALL·E 3 | `style: "vivid"` default | Set `style: "natural"` for closer-to-prompt output. |
 | Output is PNG when you wanted JPEG | Transparent backgrounds force PNG | Set `background: "opaque"` if you want JPEG, or leave `outputFormat` unset and accept whatever OpenAI returns. |
-| Request timed out (`wait` expired) | Large `quantity` or `hd` on DALL·E 3 during busy periods | Resubmit with `wait=0` and poll. |
-| Step `failed`, `reason = "blocked"` | OpenAI's content filter or Civitai moderation | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Google image generation](./google) — alternative commercial tier with Imagen 4 and Nano Banana
 - [Gemini image generation](./gemini) — Google's Gemini 2.5 Flash Image direct-API route
 - [Flux 2](./flux2) / [Flux 1](./flux1) / [Qwen](./qwen) — open-weights alternatives on Civitai-hosted workers
 - [Image upscaling](./image-upscaler) — chain after `imageGen` for higher-res output
 - [Prompt enhancement](./prompt-enhancement) — LLM-rewrite a prompt before feeding it in via `$ref`
 - Full parameter catalog: the `OpenAIGpt2CreateImageInput`, `OpenAIGpt2EditImageInput`, `OpenAIGpt1CreateImageInput`, `OpenAIGpt1EditImageInput`, `OpenAIGpt15CreateImageInput`, `OpenAIGpt15EditImageInput`, `OpenAIDallE3CreateImageGenInput`, `OpenAIDallE2CreateImageGenInput`, `OpenAIDallE2EditImageInput` schemas in the [API reference](/orchestration/reference/)
-- [`imageGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `imageGen` surface
+- [`imageGen` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml)

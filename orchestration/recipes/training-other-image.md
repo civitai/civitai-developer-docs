@@ -180,11 +180,7 @@ Five smaller image-LoRA ecosystems share this page: each has its own `ecosystem`
 | `zimageturbo` | `ostris/Z-Image-De-Turbo` (+ Z-Image-Turbo extras) | 1000 Buzz | Z-Image Turbo LoRAs (cheap, fast inference) |
 | `zimagebase` | `Tongyi-MAI/Z-Image` | 1000 Buzz | Z-Image base LoRAs |
 
-Each ecosystem has its own subsection with a runnable example. The shared schema lives in [Common parameters](#common-parameters); ecosystem-specific quirks are in each subsection.
-
-::: tip Long-running step
-Always submit with `wait=0`. These ecosystems run anywhere from a fraction of a second per step (Z-Image Turbo) to ~1s/step (Chroma/Qwen). See [Results & webhooks](/orchestration/guide/results-and-webhooks).
-:::
+Each ecosystem has its own subsection with a runnable example; the request fields, training data, continuing a run and live progress are shared by every ecosystem — see the [LoRA training overview](./training). Submit with `wait=0`: these run from a fraction of a second per step (Z-Image Turbo) to ~1s/step (Chroma/Qwen).
 
 ## The request shape
 
@@ -200,9 +196,7 @@ Always submit with `wait=0`. These ecosystems run anywhere from a fraction of a 
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
-- A training-data zip addressed by an AIR — a Hugging Face file AIR (as below), or a Civitai R2/B2/Spaces AIR or URL. Other hosts are rejected.
-- An accurate `count` of images in the zip
+- A training-data zip addressed by an AIR ([accepted sources](./training#training-data)), with an accurate `count` of images
 
 ## Chroma
 
@@ -249,7 +243,7 @@ Content-Type: application/json
 
 <RecipeRun :body="chromaBody" :wait="0" />
 
-Chroma defaults: `networkDim: 16`, `optimizerType: adamw8bit`, `trainTextEncoder: false`, `lrScheduler: cosine`. Default price 2000 Buzz.
+Chroma defaults: `networkDim: 16`, `optimizerType: adamw8bit`, `trainTextEncoder: false`, `lrScheduler: constant`. Default price 2000 Buzz.
 
 ## ERNIE
 
@@ -291,7 +285,7 @@ Content-Type: application/json
 
 <RecipeRun :body="ernieBody" :wait="0" />
 
-ERNIE defaults: `networkDim: 32`, `optimizerType: adamw8bit`, `trainTextEncoder: false`, `lrScheduler: cosine`. Default price 1000 Buzz.
+ERNIE defaults: `networkDim: 32`, `optimizerType: adamw8bit`, `trainTextEncoder: false`, `lrScheduler: constant`. Default price 1000 Buzz.
 
 ## Qwen
 
@@ -344,7 +338,7 @@ Content-Type: application/json
 
 <RecipeRun :body="qwenBody" :wait="0" />
 
-Qwen defaults: `networkDim: 16`, `optimizerType: adamw8bit`, `trainTextEncoder: false`, `lrScheduler: cosine`. Default price 2000 Buzz.
+Qwen defaults: `networkDim: 16`, `optimizerType: adamw8bit`, `trainTextEncoder: false`, `lrScheduler: constant`. Default price 2000 Buzz.
 
 ## Z-Image Turbo
 
@@ -431,60 +425,27 @@ Content-Type: application/json
 
 Z-Image Base defaults: `networkDim: 32`, `optimizerType: automagic` (overridden), `lr: 0.000001` (overridden), `trainTextEncoder: false`. Default price 1000 Buzz.
 
-## Common parameters {#common-parameters}
+## Parameters {#common-parameters}
 
-Defaults shown are the effective defaults; per-ecosystem deviations are noted above.
+Fields and defaults not listed here (or in each subsection above) are as in the overview's [common parameters](./training#common-parameters).
 
-| Field | Required | Default | Notes |
-|-------|----------|---------|-------|
-| `engine` | ✅ | — | Always `ai-toolkit`. |
-| `ecosystem` | ✅ | — | One of: `chroma`, `ernie`, `qwen`, `zimageturbo`, `zimagebase`. |
-| `version` | (qwen only) | `latest` | `latest`, `2509`, `2512`. Selects the Qwen-Image base release. |
-| `steps` | | `2000` | `1`–`10000`. Total training steps. Primary driver of training length and pricing. |
-| `epochs` | | `round(steps / 200)` | `1`–`200`. Number of saved checkpoints delivered, each separately downloadable. When omitted it is derived from `steps` (`10` at the default `2000`). Each adds 10 Buzz of storage. |
-| `batchSize` | | `1` | Defaults to 1. For Z-Image and ERNIE, raise it up to the ecosystem maximum (**2**) to train faster at the cost of more GPU memory; a larger batch needs fewer steps. For Chroma and Qwen it is fixed at 1. Values above the max are clamped. |
-| `continueFrom` | | *(none)* | A previously-trained LoRA AIR (`urn:air:<ecosystem>:lora:...`) to resume from (see [Continue training](#continue-training)). Must be a LoRA of the same ecosystem. |
-| `lr` | | `0.0001` | UNet learning rate. |
-| `trainTextEncoder` | | `false` | All five ecosystems leave the text encoder frozen. |
-| `lrScheduler` | | `cosine` | `constant`, `constant_with_warmup`, `cosine`, `linear`, `step`. |
-| `optimizerType` | | `adamw8bit` (`automagic` for Z-Image Base) | Full enum on the [SDXL/SD1 page](./training-sdxl-sd1#common-parameters). |
-| `networkDim` | | `32` (`16` for Chroma / Qwen) | `1`–`256`. |
-| `networkAlpha` | | matches `networkDim` | `1`–`256`. |
-| `noiseOffset` | | `0` | `0`–`1`. |
-| `flipAugmentation` | | `false` | Random horizontal flips. |
-| `shuffleTokens` / `keepTokens` | | `false` / `0` | Caption-tag shuffling. |
-| `triggerWord` | | *(none)* | Activation token. Recommended for character / style LoRAs on Chroma, Z-Image. |
-| `trainingData.{type, sourceUrl, count}` | ✅ | — | `type: "zip"`. |
-| `samples.prompts[]` | | `[]` | Preview prompts rendered at each saved checkpoint with the trained LoRA. |
-| `samples.negativePrompt` | | *(none)* | — |
-| `samples.cfgScale` | | *(ecosystem default)* | Overrides the CFG / guidance scale used when rendering the preview samples. |
-| `samples.strength` | | `1.0` | Trained-LoRA weight applied in the preview samples. |
-
-## Continue training / train further {#continue-training}
-
-To resume from a LoRA you already trained instead of starting from the base checkpoint, set `continueFrom` to that LoRA's AIR. The new run starts from those weights and the new epochs build on top:
-
-```json
-{
-  "$type": "training",
-  "input": {
-    "engine": "ai-toolkit",
-    "ecosystem": "chroma",
-    "continueFrom": "urn:air:chroma:lora:civitai:<id>@<version>",
-    "steps": 1000
-  }
-}
-```
-
-`continueFrom` must point at a LoRA of the **same ecosystem** as the model being trained (a `chroma` LoRA for `ecosystem: "chroma"`, a `qwen` LoRA for `ecosystem: "qwen"`, and so on) — a mismatched ecosystem is rejected.
+| Field | Default | Notes |
+|-------|---------|-------|
+| `ecosystem` | ✅ required | One of: `chroma`, `ernie`, `qwen`, `zimageturbo`, `zimagebase`. |
+| `version` | `latest` (qwen only) | `latest`, `2509`, `2512`. Selects the Qwen-Image base release. |
+| `epochs` | `round(steps / 200)` | Each adds 10 Buzz of storage. |
+| `batchSize` | `1` | For Z-Image and ERNIE, up to **2**; for Chroma and Qwen it is fixed at 1. |
+| `continueFrom` | *(none)* | A LoRA of the same ecosystem (`urn:air:<ecosystem>:lora:...`, e.g. a `chroma` LoRA for `ecosystem: "chroma"`) to resume from. |
+| `trainTextEncoder` | `false` | All five ecosystems leave the text encoder frozen. |
+| `optimizerType` | `adamw8bit` (`automagic` for Z-Image Base) | |
+| `networkDim` | `32` (`16` for Chroma / Qwen) | |
+| `triggerWord` | *(none)* | Recommended for character / style LoRAs on Chroma, Z-Image. |
 
 ## Reading the result
 
-Same envelope as the other training recipes — see [SDXL/SD1 → Reading the result](./training-sdxl-sd1#reading-the-result). Each saved checkpoint yields a `.safetensors` LoRA blob plus any sample images.
+The [standard training output](./training#reading-the-result): each saved checkpoint yields a `.safetensors` LoRA blob plus any sample images.
 
 The trained LoRA is usable in the corresponding generation recipe — Chroma LoRAs in any Chroma workflow, ERNIE LoRAs in [ERNIE image generation](./ernie), Qwen LoRAs in [Qwen image generation](./qwen), Z-Image LoRAs in [Z-Image generation](./zimage).
-
-Training can also be watched while it runs — with `"trace": "events"` (or `"logs"`) each `epochs[].traceUrl` is a tail-able stream of logs and step progress. See [SDXL/SD1 → Live progress & logs](./training-sdxl-sd1#live-progress).
 
 ## Runtime
 
@@ -498,18 +459,16 @@ Per-step wall time, default settings on a 10-image dataset:
 | `zimageturbo` | ~0.1–0.25 s | 2–8 min for 2000 steps |
 | `zimagebase` | ~0.1–0.25 s | 2–8 min for 2000 steps |
 
-Always use `wait=0`.
-
 ## Cost
 
-Training is billed per **step** plus a flat per-**epoch** storage surcharge, with a price floor:
+The [training cost formula](./training#cost) with these ecosystems' rates:
 
 ```
 price = steps × costPerStep + epochs × 10        (rounded)
 floor: never less than 80% of the default-configuration price
 ```
 
-`epochs` is the number of saved checkpoints delivered (range `1`–`200`; when omitted, `steps / 200` rounded to the nearest whole number, with a `.5` going to the even neighbour, so `steps: 2500` gives `12`); each adds 10 Buzz of storage. Every ecosystem on this page defaults to 2000 steps, so with both `steps` and `epochs` omitted the run is **2000 steps / 10 epochs**, which lands each ecosystem on its default price (the examples at the top of the page send `steps: 2000`, which also resolves to 10 epochs). Lowering `steps` or `epochs` can save at most 20% (the floor).
+Each epoch adds 10 Buzz of storage. Every ecosystem on this page defaults to 2000 steps, so with both `steps` and `epochs` omitted the run is **2000 steps / 10 epochs**, which lands each ecosystem on its default price (the examples at the top of the page send `steps: 2000`, which also resolves to 10 epochs).
 
 | Ecosystem | `costPerStep` | Default price (2000 steps, 10 epochs) | Floor (80%) |
 |-----------|---------------|----------------------------------------|-------------|
@@ -519,9 +478,11 @@ floor: never less than 80% of the default-configuration price
 | `zimageturbo` | 0.45 | 1000 | 800 |
 | `zimagebase` | 0.45 | 1000 | 800 |
 
-Sample-prompt rendering is billed separately at each ecosystem's image-generation rate. Use `whatif=true` (the **Preview cost** button on the widgets above) to confirm exact charges before submitting.
+Sample-prompt rendering is billed separately at each ecosystem's image-generation rate. Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 ## Troubleshooting
+
+`steps` out of range, an unresolvable `sourceUrl`, a `count` mismatch and a rejected dataset are covered in the [overview's troubleshooting](./training#troubleshooting).
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
@@ -530,14 +491,14 @@ Sample-prompt rendering is billed separately at each ecosystem's image-generatio
 | Z-Image Base: `optimizerType` you set seems ignored | Intentional — the server overrides it to `automagic` | Use Z-Image Turbo if you need full optimizer control. |
 | Trained LoRA underbaked | Too few steps / too low `lr` | Raise `steps` (these ecosystems often need more steps than SDXL); keep `lr` ≤ `5e-4`. |
 | Trained LoRA overcooked | Too many steps or `networkDim` too high | Drop `networkDim` to 16, lower `steps`. |
-| Step `failed`, `moderationStatus: "Rejected"` | Dataset failed content moderation | Replace flagged images. |
 
 ## Related
 
+- [LoRA training overview](./training) — shared parameters, training data, live progress and cost formula
 - [SDXL & SD1 LoRA training](./training-sdxl-sd1) — classic Stable Diffusion ecosystems
 - [Flux 1 LoRA training](./training-flux1) / [Flux 2 Klein LoRA training](./training-flux2-klein) — Flux family
 - [Wan video LoRA training](./training-wan) / [LTX2 video LoRA training](./training-ltx2) — video LoRAs
 - Generation recipes for these ecosystems: [Z-Image](./zimage), [Qwen](./qwen), [ERNIE](./ernie)
 - [Results & webhooks](/orchestration/guide/results-and-webhooks)
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) / [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
-- [Endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/training/openapi.yaml)
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
+- [`training` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/training/openapi.yaml)

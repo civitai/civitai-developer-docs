@@ -45,7 +45,6 @@ Routes to xAI's Grok image API. Two operations — `createImage` and `editImage`
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
 - For `editImage`: 1–3 source images (URLs, data URLs, or Base64)
 
 ## Text-to-image (`createImage`)
@@ -141,25 +140,7 @@ Edit operations don't take an `aspectRatio` — the output resolution follows th
 
 ## Reading the result
 
-Standard `imageGen` output — an `images[]` array, one per `quantity`:
-
-```json
-{
-  "status": "succeeded",
-  "steps": [{
-    "name": "0",
-    "$type": "imageGen",
-    "status": "succeeded",
-    "output": {
-      "images": [
-        { "id": "blob_...", "url": "https://.../signed.png" }
-      ]
-    }
-  }]
-}
-```
-
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL.
+Standard `imageGen` output: an `images[]` array, one entry per `quantity` ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 ## Runtime
 
@@ -167,7 +148,7 @@ xAI's API queue is the dominant factor. Typical wall time 10–30 s per image. `
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 Flat per-image pricing by operation:
 
@@ -189,23 +170,22 @@ Aspect ratio and reference count don't affect Grok's Buzz price — the provider
 
 ## Troubleshooting
 
+Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](/orchestration/recipes/#common-troubleshooting). `blocked` comes from xAI's content filter.
+
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `400` with "aspectRatio must be one of" | Ratio outside the accepted enum (e.g. `21:9`) | Pick a close equivalent from the table above — `20:9` is the closest cinematic wide. |
 | `400` with "images minItems" on edit | Empty `images[]` on `editImage` | Include 1–3 source images. |
 | `400` with "images maxItems" | More than 3 source images | Trim to 3. |
 | `400` with "quantity must be ≤ 4" | Requested more than 4 in one call | Split into multiple submissions or use a different engine with a higher cap (OpenAI gpt-image-1 goes up to 10, Seedream up to 12). |
-| Request timed out (`wait` expired) | Large `quantity` or busy xAI queue | Resubmit with `wait=0` and poll. |
-| Step `failed`, `reason = "blocked"` | xAI content filter | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [OpenAI image generation](./openai) — alternative commercial tier
 - [Google image generation](./google) / [Gemini](./gemini) — alternative commercial tier
 - [Flux 2](./flux2) / [Qwen](./qwen) / [SDXL](./sdxl) — open-weights / sdcpp alternatives on Civitai-hosted workers
 - [Image upscaling](./image-upscaler) — chain after `imageGen` for higher-res output
 - [Prompt enhancement](./prompt-enhancement) — LLM-rewrite a prompt before feeding it in via `$ref`
 - Full parameter catalog: the `GrokCreateImageGenInput` and `GrokEditImageGenInput` schemas in the [API reference](/orchestration/reference/)
-- [`imageGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `imageGen` surface
+- [`imageGen` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml)

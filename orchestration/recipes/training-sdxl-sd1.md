@@ -89,9 +89,9 @@ Train a Stable Diffusion LoRA on your own image dataset using AI Toolkit. This p
 
 Both are the cheapest training ecosystems on the platform — good first pick when iterating on dataset choice or hyperparameters before stepping up to a more expensive model family. SDXL is the better default for new fine-tunes; SD1 is mostly useful when you specifically need a SD 1.5 LoRA (e.g. to deploy onto an existing SD 1.5 product).
 
-## The request shape
+The request shape, [training data](./training#training-data) (zip or uploaded blobs), [common parameters](./training#common-parameters), [continuing a run](./training#continue-training) and [live progress](./training#live-progress) are shared by every ecosystem — see the [LoRA training overview](./training). This page covers the SD-family-specific fields (`model`, `minSnrGamma`, `triggerWord`, default text-encoder behavior). Submit with `wait=0`; the widgets below preview cost only.
 
-Every training request is a single `training` step with an `engine` and `ecosystem` selector:
+## The request shape
 
 ```json
 {
@@ -102,23 +102,6 @@ Every training request is a single `training` step with an `engine` and `ecosyst
   }
 }
 ```
-
-The input shape is shared with the other AI Toolkit ecosystems — see [Common parameters](#common-parameters) below. The fields documented here are the SD-family-specific ones (`model`, `minSnrGamma`, `triggerWord`, default text-encoder behavior).
-
-::: tip Long-running step
-Training takes minutes to hours depending on dataset size and `steps`. Always submit with `wait=0` and follow up with polling or a webhook — see [Results & webhooks](/orchestration/guide/results-and-webhooks). The `<RecipeRun>` widgets below preview cost via `whatif=true` so you can see the price without kicking off an actual training run.
-:::
-
-## Prerequisites
-
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
-- A training-data zip that `sourceUrl` can address. `sourceUrl` is an AIR, so the accepted forms are:
-  - A Hugging Face file AIR — `urn:air:other:other:huggingface:{repo}@{revision}/{path}`, as the examples below use. Pin a commit sha rather than `main` so the reference can't move.
-  - A Civitai storage AIR or URL — R2 (`urn:air:other:other:civitai-r2:{bucket}@{key}`, or the equivalent `*.r2.cloudflarestorage.com` URL), Backblaze B2, or DigitalOcean Spaces
-  - No hosted zip? Upload each image through `POST /v2/consumer/blobs` and pass them as `trainingData.items` instead — see [Training data as blobs](#blobs-training-data).
-
-  A URL on any other host is rejected: nothing maps it to an AIR.
-- An accurate `count` of images in the zip — used for batch sizing
 
 ## SDXL
 
@@ -178,7 +161,11 @@ SDXL-specific fields:
 | `triggerWord` | *(none)* | string | Optional prompt token that activates the trained LoRA. Recommended for character / style LoRAs. |
 | `trainTextEncoder` | `true` | bool | SDXL benefits noticeably from text-encoder training. Disable to halve memory cost at the price of prompt-following quality. |
 | `textEncoderLr` | `5e-5` | `0`–`1` | Only used when `trainTextEncoder: true`. |
-| `optimizerType` | `adafactor` | see [enum](#common-parameters) | `adafactor` is the SDXL house default; `adamw8bit` works too if you have memory headroom. |
+| `optimizerType` | `adafactor` | see [enum](./training#common-parameters) | `adafactor` is the SDXL house default; `adamw8bit` works too if you have memory headroom. |
+| `noiseOffset` | `0.1` | `0`–`1` | |
+| `lr` | `0.0001` | `0`–`1` | `0.0005` is typical for character/style LoRAs on SDXL. |
+| `batchSize` | `1` | up to **4** | Same maximum for SDXL and SD1. |
+| `continueFrom` | *(none)* | `urn:air:sdxl:lora:...` | Must be an SDXL LoRA (an SD1 LoRA for `sd1`). |
 
 ## SD1
 
@@ -233,178 +220,22 @@ SD1-specific fields are a subset of the SDXL list — same `model` / `minSnrGamm
 | `optimizerType` | `adamw8bit` | `adafactor` |
 | `noiseOffset` | `0` | `0.1` |
 
-## Common parameters {#common-parameters}
-
-These apply to every AI Toolkit training input regardless of ecosystem. Defaults shown are the effective defaults for SDXL; some ecosystems override individual defaults (the SD1 / SDXL differences above are the main examples).
-
-| Field | Required | Default | Notes |
-|-------|----------|---------|-------|
-| `engine` | ✅ | — | Always `ai-toolkit` for these recipes. |
-| `ecosystem` | ✅ | — | `sdxl` or `sd1` for this page. |
-| `steps` | | `2000` | `1`–`10000`. Total training steps. Primary driver of training length and pricing (see [Cost](#cost)). |
-| `epochs` | | `round(steps / 200)` | `1`–`200`. Number of saved checkpoints delivered, each separately downloadable. When omitted it is derived from `steps` (`10` at the default `2000`). Each adds 10 Buzz of storage (see [Cost](#cost)). |
-| `batchSize` | | `1` | Defaults to 1. Raise it up to the ecosystem maximum (**4** for both SDXL and SD1) to train faster at the cost of more GPU memory; a larger batch needs fewer steps. Values above the max are clamped. |
-| `continueFrom` | | *(none)* | A previously-trained `urn:air:sdxl:lora:...` / `urn:air:sd1:lora:...` AIR to resume from (see [Continue training](#continue-training)). Must be a LoRA of the same ecosystem. |
-| `lr` | | `0.0001` | `0`–`1`. UNet learning rate. `0.0005` is typical for character/style LoRAs on SDXL. |
-| `textEncoderLr` | | — | Only used when `trainTextEncoder: true`. SDXL/SD1 default to `5e-5`. |
-| `trainTextEncoder` | | `true` (SDXL/SD1) | Train CLIP alongside the diffuser. |
-| `lrScheduler` | | `cosine` | `constant`, `constant_with_warmup`, `cosine`, `linear`, `step`. |
-| `optimizerType` | | `adafactor` (SDXL) / `adamw8bit` (SD1) | `adamw`, `adamw8bit`, `adam8bit`, `lion`, `lion8bit`, `adafactor`, `adagrad`, `prodigy`, `prodigy8bit`, `automagic`. |
-| `networkDim` | | `32` | `1`–`256`. LoRA rank. Higher = more capacity, larger LoRA file. |
-| `networkAlpha` | | matches `networkDim` | `1`–`256`. Scales the effective learning rate via `alpha / dim`. |
-| `noiseOffset` | | `0.1` (SDXL) / `0` (SD1) | `0`–`1`. Adds noise during training to improve dark/bright sample handling. |
-| `flipAugmentation` | | `false` | Random horizontal flips. Useful for symmetric subjects. |
-| `shuffleTokens` | | `false` | Randomize caption-tag order. |
-| `keepTokens` | | `0` | `0`–`10`. When `shuffleTokens: true`, keep the first N tokens fixed. |
-| `triggerWord` | | *(none)* | Activation token recommended for character/style LoRAs. |
-| `trainingData.type` | ✅ | — | `zip` or `blobs` (see [Training data as blobs](#blobs-training-data)). |
-| `trainingData.sourceUrl` | ✅ (zip) | — | Hugging Face file AIR, or a Civitai R2/B2/Spaces AIR or URL. |
-| `trainingData.count` | ✅ (zip) | — | Number of images in the zip. |
-| `trainingData.items[]` | ✅ (blobs) | — | Up to 1000 `{ air, caption? }` objects referencing consumer-uploaded blobs. |
-| `samples.prompts[]` | | `[]` | Up to a handful of preview prompts rendered at each saved checkpoint with the trained LoRA at strength 1.0. Empty entries are skipped. |
-| `samples.negativePrompt` | | *(none)* | Applied to all sample prompts. |
-| `samples.cfgScale` | | *(ecosystem default)* | Overrides the CFG / guidance scale used when rendering the preview samples. |
-| `samples.strength` | | `1.0` | Trained-LoRA weight applied in the preview samples. |
-
-## Training data as blobs {#blobs-training-data}
-
-If you don't have your dataset hosted as a zip, upload each image individually through [`UploadConsumerBlob`](/orchestration/reference/operations/UploadConsumerBlob) (`POST /v2/consumer/blobs`) and pass the returned blobs as `trainingData.items`. Every image goes through per-asset moderation on upload — which is why the blob endpoint accepts images but not zips.
-
-```http
-POST https://orchestration.civitai.com/v2/consumer/blobs
-Authorization: Bearer <your-token>
-Content-Type: image/jpeg
-
-< ./cat-01.jpg
-```
-
-The response's `id` is the blob key. Reference it in any of three equivalent forms — the bare key, the blob URL from the response, or the AIR urn `urn:air:other:other:orchestrator:blob@<id>`:
-
-```json
-{
-  "$type": "training",
-  "input": {
-    "engine": "ai-toolkit",
-    "ecosystem": "sdxl",
-    "steps": 2000,
-    "trainingData": {
-      "type": "blobs",
-      "items": [
-        { "air": "urn:air:other:other:orchestrator:blob@<id1>" },
-        { "air": "<id2>", "caption": "catz sitting on a windowsill, looking at viewer" },
-        { "air": "<id3>", "caption": "catz curled up asleep on a red blanket" }
-      ]
-    }
-  }
-}
-```
-
-Rules and behavior:
-
-- `items` are objects with a required `air` and an optional `caption` (max 1024 characters). Captions serve the same role as the `.txt` sidecar files in a training zip; items without one fall back to the trigger word / default caption.
-- At most **1000 items**, each referenced blob at most once. Any media type the blob endpoint accepts works (`jpg`, `png`, `webp`, `mp4`, `webm`, `mp3`, `wav`) — use images for the SD family, videos for video ecosystems like WAN/LTX, audio for ACE-Step.
-- There is no `count` field — the item count is `items.length`.
-- Uploaded blobs are retained for ~30 days (each re-upload or training submission refreshes the clock), so upload and train within the same session or at least the same month.
-- Item order matters for training-run dedup: resubmitting the same set in a different order is treated as a new training run.
-
-## Continue training / train further {#continue-training}
-
-To resume from a LoRA you already trained instead of starting from the base checkpoint, set `continueFrom` to that LoRA's AIR. The new run starts from those weights and the new epochs build on top:
-
-```json
-{
-  "$type": "training",
-  "input": {
-    "engine": "ai-toolkit",
-    "ecosystem": "sdxl",
-    "continueFrom": "urn:air:sdxl:lora:civitai:<id>@<version>",
-    "steps": 1000
-  }
-}
-```
-
-`continueFrom` must point at a LoRA of the **same ecosystem** as the model being trained (an SDXL LoRA for `ecosystem: "sdxl"`, an SD1 LoRA for `ecosystem: "sd1"`). A mismatched ecosystem is rejected.
-
 ## Reading the result
 
-Submitting with `wait=0` returns immediately with `status: processing`. Poll [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) (or use a webhook — see [Results & webhooks](/orchestration/guide/results-and-webhooks)) until the step settles. The step reports an `epochs[]` array with one entry per saved epoch (set by `epochs`; when it is omitted, `round(steps / 200)`, and `10` if neither is set) — where `model.available` tells you whether that checkpoint has been saved yet. Each available entry contains the trained LoRA blob and any sample images:
-
-```json
-{
-  "status": "succeeded",
-  "steps": [{
-    "name": "0",
-    "$type": "training",
-    "status": "succeeded",
-    "output": {
-      "moderationStatus": "Approved",
-      "epochs": [
-        {
-          "epochNumber": 1,
-          "model": { "id": "blob_...", "url": "https://.../epoch_1.safetensors" },
-          "samples": [
-            { "id": "blob_...", "url": "https://.../sample_0.jpeg" },
-            { "id": "blob_...", "url": "https://.../sample_1.jpeg" }
-          ]
-        },
-        { "epochNumber": 2, "model": { "...": "..." }, "samples": [] }
-      ]
-    }
-  }]
-}
-```
-
-The blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL when downloading the trained LoRA.
-
-`moderationStatus` reflects safety review of the dataset: `Approved` is the green-light case. `Rejected` means the run was halted because the dataset failed moderation.
-
-## Live progress & logs {#live-progress}
-
-Training runs for minutes to hours, so the output also lets you watch it *while* it runs:
-
-**`epochs[].traceUrl`** — opt in with `"trace": "events"` (or `"logs"`) on the input and each epoch gets a live, tail-able stream. `epochs[]` always lists every epoch of the run: a pending or training epoch has `model.available: false` and no samples yet, and its `traceUrl` is where to watch it (epochs served from an existing checkpoint have no trace):
-
-```json
-"epochs": [
-  { "epochNumber": 1, "model": { "id": "…", "available": true, "url": "https://…" }, "samples": [ … ],
-    "traceUrl": "https://orchestration.civitai.com/v2/consumer/streaming-blobs/training-...-epoch-1-trace.ndjson" },
-  { "epochNumber": 2, "model": { "id": "…", "available": false }, "samples": [],
-    "traceUrl": "https://orchestration.civitai.com/v2/consumer/streaming-blobs/training-...-epoch-2-trace.ndjson" }
-]
-```
-
-Only treat an epoch as downloadable when `model.available` is true. `GET` a trace with a streaming client (`curl -N`, `fetch` + `ReadableStream`); it stays open while that epoch trains and ends when its job does, so follow the run by moving to the next epoch's trace as each one closes. The two modes differ only in what is written:
-
-- `"logs"` — plain text (`text/plain`): one line per line of the trainer's console output, nothing else. The same shape as customComfy's `trace: "logs"`.
-- `"events"` — [NDJSON](https://github.com/ndjson/ndjson-spec) (`application/x-ndjson`): each line is one JSON object with a unix-millisecond `t`, a `type` and the `epoch`:
-
-| `type` | Fields | Notes |
-|--------|--------|-------|
-| `attempt` | `jobId`, `claimId` | First line of every upload; a second one means the job was retried on a new worker |
-| `phase` | `phase` | What the worker is doing: `loading_base_model`, `creating_session`, `copying_previous_epoch`, `running`, `uploading`, … |
-| `log` | `message` | One line of the trainer's console output (progress-bar redraws are filtered out) |
-| `step` | `step`, `maxSteps`, `epochStepsRemaining`, `secondsPerStep` | Sampled about every 2 s, so consecutive lines may skip steps; `secondsPerStep` is the average since training started and `null` until a few steps are in |
-| `epoch` | `checkpointPath` | The checkpoint for this epoch was written; the upload follows |
-| `error` | `message` | The job failed — the reason, since you'd otherwise only see `status: failed` |
-
-To render an ETA from the stream: `nextEpochIn ≈ epochStepsRemaining × secondsPerStep` and `remaining ≈ (maxSteps − step) × secondsPerStep`.
-
-A few things to expect: a trace URL answers `404` until its worker has written the first line (retry with backoff rather than treating it as final); if the worker falls behind on upload it drops the oldest queued lines, so resync on the next newline instead of assuming a gap-free sequence; a few log lines can go missing if the worker has to re-attach to the trainer's log stream; and a job retried on another worker continues into the same stream after a fresh `attempt` line.
+The [standard training output](./training#reading-the-result): an `epochs[]` array with each saved checkpoint's SDXL / SD1 LoRA `.safetensors` blob and sample images, plus the dataset's `moderationStatus`. Use the LoRA in [SDXL](./sdxl) or [SD1](./sd1) image generation via `loras: { "<lora-air>": 1.0 }`.
 
 ## Runtime
 
-Training is highly variable and depends on `steps`. Always use `wait=0`.
+Training is highly variable and depends on `steps`.
 
 | Ecosystem | Per-step wall time (15 imgs, default settings) | Typical full run |
 |-----------|------------------------------------------------|------------------|
 | `sdxl` | ~0.3–0.5 s | 5–15 min for 2000 steps |
 | `sd1` | ~0.1–0.2 s | 3–10 min for 4000 steps (SD1 is much faster per step) |
 
-Queue time on busy days can dominate — use the workflow's `events[]` to see when the step actually started.
-
 ## Cost
 
-Training is billed per **step** plus a flat per-**epoch** storage surcharge, with a price floor:
+The [training cost formula](./training#cost) with SDXL / SD1 rates:
 
 ```
 price = steps × costPerStep + epochs × 10        (rounded)
@@ -412,15 +243,13 @@ costPerStep = 0.20   (sdxl and sd1)
 floor: never less than 80% of the default-configuration price
 ```
 
-`epochs` is the number of saved checkpoints delivered (range `1`–`200`; when omitted, `steps / 200` rounded to the nearest whole number, with a `.5` going to the even neighbour, so `steps: 2500` gives `12`); each adds 10 Buzz of storage. The SD1 example above sends `steps: 4000` with no `epochs`, so it gets 20 epochs: `4000 × 0.20 + 20 × 10 = 1000 Buzz`. The default run is **2000 steps / 10 epochs**, which lands the price on the familiar number:
+Each epoch adds 10 Buzz of storage. The SD1 example above sends `steps: 4000` with no `epochs`, so it gets 20 epochs: `4000 × 0.20 + 20 × 10 = 1000 Buzz`. The default run is **2000 steps / 10 epochs**, which lands the price on the familiar number:
 
 ```
 2000 × 0.20 + 10 × 10 = 400 + 100 = 500 Buzz
 ```
 
-The **floor** is 80% of the default price (400 Buzz for both SDXL and SD1) — lowering `steps` or `epochs` can save at most 20%.
-
-Sample-prompt rendering is billed separately at standard SDXL / SD1 image-generation rates. Use `whatif=true` (the default for the **Preview cost** button on the `<RecipeRun>` widgets above) to see the exact pre-flight charge before committing.
+The **floor** is 80% of the default price (400 Buzz for both SDXL and SD1). Sample-prompt rendering is billed separately at standard SDXL / SD1 image-generation rates. Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 | Configuration | Buzz |
 |---------------|------|
@@ -430,22 +259,21 @@ Sample-prompt rendering is billed separately at standard SDXL / SD1 image-genera
 
 ## Troubleshooting
 
+`steps` out of range, an unresolvable `sourceUrl`, a `count` mismatch and a rejected dataset are covered in the [overview's troubleshooting](./training#troubleshooting).
+
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| `400` with "steps out of range" | `steps` outside `1`–`10000` | The hard cap is 10000. For longer SD1 runs (rare), submit multiple training workflows and chain them. |
 | `400` with "model not found" | `model` URN points at a checkpoint that isn't the right ecosystem (e.g. an SD1 model on `ecosystem: "sdxl"`) | Use a `urn:air:sdxl:checkpoint:...` AIR for SDXL; `urn:air:sd1:checkpoint:...` for SD1. |
-| `400` with "uses a resource which could not be resolved" | The zip behind `sourceUrl` is gone, private, or the signed URL expired | Re-upload it, or point `sourceUrl` at an AIR pinned to an immutable revision. |
-| `400` with "count mismatch" | `trainingData.count` doesn't match the actual image count in the zip | Inspect the zip contents and update `count`. |
-| Step `failed`, output `moderationStatus: "Rejected"` | Dataset failed automated content moderation | Replace flagged images and resubmit. Don't retry the same dataset. |
 | Trained LoRA looks under-trained | Too few steps for the dataset | Raise `steps`; or increase `lr`. |
 | Trained LoRA overfits / memorizes | Too many steps, dim too high, or alpha = dim with high `lr` | Lower `steps`, drop `networkDim` to 16–24, or set `networkAlpha` to half of `networkDim`. |
 
 ## Related
 
+- [LoRA training overview](./training) — shared parameters, training data, live progress and cost formula
 - [Flux 1 LoRA training](./training-flux1) — open-weights Flux LoRAs at higher quality and higher cost
 - [Flux 2 Klein LoRA training](./training-flux2-klein) — current Flux generation
 - [Chroma / ERNIE / Qwen / Z-Image LoRA training](./training-other-image) — smaller image ecosystems
 - [SDXL image generation](./sdxl) / [SD1 image generation](./sd1) — use a trained LoRA via `loras: { "<lora-air>": 1.0 }`
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — handling long-running training jobs
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) / [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — the operations behind the examples here
-- [Endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/training/openapi.yaml) — standalone OpenAPI 3.1 YAML for the `training` endpoint
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
+- [`training` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/training/openapi.yaml)

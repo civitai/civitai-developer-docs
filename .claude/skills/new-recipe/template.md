@@ -110,7 +110,7 @@ Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/or
 |---|---|---|
 | {{V1}} | {{TIME}} | `wait={{N}}` |
 
-For anything past the 100 s request timeout, use webhooks — see [Results & webhooks](/orchestration/guide/results-and-webhooks).
+For anything that may outlast your HTTP client's timeout, submit with `wait=0` and use webhooks — see [Results & webhooks](/orchestration/guide/results-and-webhooks).
 
 ## Cost
 

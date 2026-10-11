@@ -176,11 +176,10 @@ Qwen is Alibaba's image-generation family. The orchestrator exposes three invoca
 | `qwen` | `3.0-pro`, `2.0-pro`, `2.0` | The full Alibaba-hosted catalog, including the newest releases | `createImage` / `editImage`. Explicit `width`/`height`. No LoRA support. |
 | `fal` | `qwen2` | The Qwen-Image-2 tier under a stable, FAL-shaped request | `createImage` / `proCreateImage` / `editImage` / `proEditImage`. `imageSize` enum instead of width/height. No LoRA support. |
 
-**Default choice for new integrations**: `engine: "sdcpp"`, `ecosystem: "qwen"`, `model: "20b"`. Reach for `engine: "qwen"` when you want a model Civitai doesn't host itself — Qwen-Image 3.0 Pro or 2.0 Pro.
+**Default choice**: `engine: "sdcpp"`, `ecosystem: "qwen"`, `model: "20b"`. Reach for `engine: "qwen"` when you want a model Civitai doesn't host itself — Qwen-Image 3.0 Pro or 2.0 Pro.
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
 - For `editImage` / `createVariant`: one or more source image URLs, data URLs, or Base64 strings
 
 ## sdcpp — Qwen-Image 20B (default path)
@@ -533,25 +532,7 @@ Swap to `proEditImage` for the Pro tier variant.
 
 ## Reading the result
 
-Both engines emit the standard `imageGen` output — an `images[]` array, one entry per `quantity`:
-
-```json
-{
-  "status": "succeeded",
-  "steps": [{
-    "name": "0",
-    "$type": "imageGen",
-    "status": "succeeded",
-    "output": {
-      "images": [
-        { "id": "blob_...", "url": "https://.../signed.jpeg" }
-      ]
-    }
-  }]
-}
-```
-
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL.
+Standard `imageGen` output: an `images[]` array, one entry per `quantity` ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 ## Runtime
 
@@ -563,11 +544,11 @@ Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/or
 | `fal` Qwen2 (create / edit) | 10–30 s | `wait=60` usually fine |
 | `fal` Qwen2 Pro (`proCreateImage` / `proEditImage`) | 20–60 s | `wait=60` sometimes; fall back to `wait=0` on busy periods |
 
-Large `quantity` or atypical aspect ratios push toward the 100-second request timeout — submit with `wait=0` and poll.
+Large `quantity` or atypical aspect ratios can outlast your HTTP client's timeout — submit with `wait=0` and poll.
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 **sdcpp Qwen-Image 20B** — per-pixel + per-step scaling, with `editImage` carrying a flat higher base:
 
@@ -602,6 +583,8 @@ total = base × quantity
 
 ## Troubleshooting
 
+Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](/orchestration/recipes/#common-troubleshooting). Timeouts here usually mean the Pro tier on a busy queue.
+
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `400` with "ecosystem must be qwen" | Typo | Lowercase `"qwen"` — not `"Qwen"` or `"qwen2"` (that's the fal `model`, not the sdcpp ecosystem). |
@@ -613,16 +596,13 @@ total = base × quantity
 | `400` with "images maxItems" | More than 10 source images on sdcpp `editImage`, or more than 3 on fal `editImage` | Trim the array. |
 | LoRA has no effect | Only the sdcpp path supports LoRAs | Switch to `engine: "sdcpp"`, `ecosystem: "qwen"`. |
 | Output ignores the prompt | `cfgScale` too low (Qwen wants ~2.5, far below SD1/SDXL's 7) or `enablePromptExpansion` rewriting your carefully-tuned text | Bump `cfgScale` toward 4 on sdcpp; set `enablePromptExpansion: false` on fal. |
-| Request timed out (`wait` expired) | Large `quantity`, Pro tier on busy queue | Resubmit with `wait=0` and poll. |
-| Step `failed`, `reason = "blocked"` | Prompt or input image hit content moderation | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Flux 2](./flux2) / [Flux 1](./flux1) image generation — alternative open-weights families
 - [SDXL](./sdxl) / [SD1](./sd1) image generation — classic Stable Diffusion ecosystems
 - [Image upscaling](./image-upscaler) — chain after `imageGen` for higher-res output
 - [Prompt enhancement](./prompt-enhancement) — LLM-rewrite a prompt before feeding it in via `$ref`
 - Full parameter catalog: the `Qwen20b<Operation>Input` (sdcpp), `QwenApiCreateImageGenInput` / `QwenApiEditImageGenInput` (qwen) and `Qwen2<Operation>FalImageGenInput` / `Qwen2Pro<Operation>FalImageGenInput` (fal) schemas in the [API reference](/orchestration/reference/)
-- [`imageGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `imageGen` surface; import into Postman / OpenAPI Generator
+- [`imageGen` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml)

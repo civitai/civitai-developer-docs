@@ -45,7 +45,6 @@ Common uses:
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
 - A source image — URL, data URL, or Base64 string
 
 ## The simplest request
@@ -53,7 +52,7 @@ Common uses:
 Use the per-recipe endpoint when you're processing one image and don't need webhooks or multi-step chaining:
 
 ```http
-POST https://orchestration.civitai.com/v2/consumer/recipes/imageBackgroundRemoval?wait=60
+POST https://orchestration.civitai.com/v2/consumer/recipes/imageBackgroundRemoval
 Authorization: Bearer <your-token>
 Content-Type: application/json
 
@@ -68,7 +67,7 @@ The defaults produce a PNG with the alpha channel carrying the cutout. The recip
 
 ## Via the generic workflow endpoint
 
-Equivalent request through [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — use this path when you need webhooks, tags, or to chain with other steps:
+The same request through [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow), for webhooks, tags or chaining:
 
 ```http
 POST https://orchestration.civitai.com/v2/consumer/workflows?wait=60
@@ -133,7 +132,7 @@ Produce an image and strip its background in a single submission:
 }
 ```
 
-The `{ "$ref": "hero", "path": "output.images[0].url" }` reference creates a dependency — `hero-cutout` doesn't start until `hero` succeeds, and its `image` field is filled in with the generated image's signed URL at runtime. See [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism) for the full reference syntax.
+`hero-cutout` waits for `hero` to succeed; the `$ref` then fills its `image` with the generated image's signed URL ([Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism)).
 
 <RecipeRun :body="chainBody" />
 
@@ -169,17 +168,17 @@ Fields:
 - **`image`** — the cutout blob (singular — the step always returns exactly one image). `width` and `height` match the source image; background removal never resizes.
 - **`available`** — `false` until the worker has uploaded the result; on a terminal `succeeded` workflow it's `true`.
 
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL.
+Blob URLs expire — see [Reading results](/orchestration/recipes/#reading-results).
 
 ## Runtime
 
-Execution is dominated by a fixed cost: the segmentation mask always runs at 1024×1024 regardless of source size, so wall time moves only slightly with resolution — roughly 5 s of GPU execution plus ~0.6 s per megapixel of source, before queue and container overhead. A single request comfortably fits `wait=60`.
+Execution is dominated by a fixed cost: the segmentation mask always runs at 1024×1024 regardless of source size, so wall time moves only slightly with resolution — roughly 5 s of GPU execution plus ~0.6 s per megapixel of source, before queue and container overhead. A single request returns within a typical HTTP client timeout.
 
 Resubmitting the same image + format typically serves the previous output from cache — see [Workflows → Result caching](/orchestration/guide/workflows#result-caching).
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 Cost tracks estimated runtime, which is floor-dominated — source resolution moves the price only slightly:
 
@@ -210,9 +209,8 @@ The `format` choice doesn't affect the Buzz price.
 ## Related
 
 - [`InvokeImageBackgroundRemovalStepTemplate`](/orchestration/reference/operations/InvokeImageBackgroundRemovalStepTemplate) — the per-recipe endpoint
-- [Endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageBackgroundRemoval/openapi.yaml) — standalone OpenAPI 3.1 YAML for this endpoint, ready to import into Postman / Insomnia / OpenAPI Generator
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — generic path for chaining
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`imageBackgroundRemoval` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageBackgroundRemoval/openapi.yaml)
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) (generic path, for chaining) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Image conversion](./convert-image) — resize the cutout or convert formats
 - [Image upscaling](./image-upscaler) — enlarge before or after cutting out
 - [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism) — how the `$ref` references work
