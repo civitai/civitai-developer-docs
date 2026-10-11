@@ -117,3 +117,13 @@ jobs:
       # ended in a submit rejection the reference could not explain.
       - name: goods.items per-entry table documents every schema key
         run: npm run check:goods-item-parity
+
+      # Same class again: a hand-written page's key set pinned against the
+      # pinned package it shows. apps/showcase.md must demo every element in
+      # @civitai/components' custom-elements.json (chip + rendered in one
+      # <ElementDemo>), keep a CSS-only fallback for every stylesheet component,
+      # and keep those fallbacks secondary. Offline — it reads the installed
+      # package and one committed page — therefore blocking. Without it, an
+      # element added upstream ships with no demo and nothing says so.
+      - name: Showcase demos every element (and every CSS-only fallback)
+        run: npm run check:showcase-coverage

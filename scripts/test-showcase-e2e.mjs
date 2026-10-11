@@ -11,11 +11,19 @@
  *      family: filled Button `background-color`, Badge pill radius, Card
  *      surface, Loader circle, Alert tint, the labeled inputs. Toggling the
  *      site theme re-resolves the tokens in place (dark values differ).
- *   4. <ComponentDemo> behaviour — the HTML/React toggle switches panels, and
- *      the live preview renders the passed HTML.
+ *   4. <ComponentDemo> behaviour — the CSS-only preview renders the passed HTML.
+ *   6. <ElementDemo> upgrade — in light AND dark, every `<civitai-*>` element
+ *      on the page is DEFINED, every demo's preview has a non-zero box, every
+ *      tag a demo names in its chips renders at least one visible instance
+ *      (bar HIDDEN_BY_DESIGN), no demo's #js threw, and the page logged no
+ *      console error. Then at a 390px phone viewport: no horizontal page
+ *      overflow.
  *   2. Snippet accuracy (HTML↔preview) — the sequence of `data-civitai-ui`
  *      values in the SHOWN html source equals the sequence in the live preview
  *      DOM (the preview is derived from the shown html; this guards that link).
+ *
+ * The CSS-only demos sit in collapsed `::: details` panels; the suite opens every
+ * panel before measuring, because a closed panel's content has no layout box.
  *   5. Site-chrome non-regression — importing the design-system CSS did NOT
  *      restyle the VitePress chrome: no `[data-civitai-ui]` leaks into nav/
  *      sidebar, the chrome font resolves from `--vp-font-family-base` (NOT the
@@ -23,7 +31,6 @@
  *      property has been shadowed by a `--civitai-*` value.
  *
  * Token-gallery drift is a separate, browserless check: `test:tokens:drift`.
- * React-snippet typecheck accuracy is covered by `test:snippets:appblocks`.
  *
  * USAGE
  *   npm run build && npm run test:showcase:e2e
@@ -98,6 +105,83 @@ async function waitForServer(url, timeoutMs = 30000) {
 
 /* ────────────────────────────── theme helpers ────────────────────────────── */
 
+/** Open every collapsed `<details>` (the CSS-only panels): a closed panel's
+ *  content has no layout box, so sizes measured inside it read 0. */
+async function openAllDetails(page) {
+  await page.evaluate(() => document.querySelectorAll('.vp-doc details').forEach((d) => (d.open = true)));
+}
+
+/** Elements a demo names that render nothing until the reader acts (a closed
+ *  dialog, a menu's items, an empty toast region). Being DEFINED is still
+ *  asserted for them; only the visible-instance check skips them. */
+const HIDDEN_BY_DESIGN = new Set([
+  'civitai-modal',
+  'civitai-confirm-dialog',
+  'civitai-toast-region',
+  'civitai-menu-item',
+  'civitai-menu-label',
+]);
+
+/** Measure every <ElementDemo> on the page. */
+async function measureElementDemos(page) {
+  return page.evaluate((hidden) => {
+    const hiddenSet = new Set(hidden);
+    const out = [];
+    for (const demo of document.querySelectorAll('.cds-demo')) {
+      const preview = demo.querySelector('.cds-element-preview');
+      if (!preview) continue;
+      const title = demo.querySelector('.cds-demo__title')?.firstChild?.textContent?.trim();
+      const chips = [...demo.querySelectorAll('.cds-demo__tag')].map((c) => c.textContent.replace(/[<>]/g, ''));
+      const all = [...preview.querySelectorAll('*')].filter((el) => el.localName.startsWith('civitai-'));
+      const undefinedTags = [...new Set(all.filter((el) => !customElements.get(el.localName)).map((el) => el.localName))];
+      const box = preview.getBoundingClientRect();
+      const invisibleChips = chips.filter((tag) => {
+        if (hiddenSet.has(tag)) return false;
+        return ![...preview.querySelectorAll(tag)].some((el) => {
+          const r = el.getBoundingClientRect();
+          return r.width > 0 && r.height > 0;
+        });
+      });
+      out.push({
+        title,
+        chips,
+        elements: all.length,
+        undefinedTags,
+        width: Math.round(box.width),
+        height: Math.round(box.height),
+        invisibleChips,
+        jsError: demo.querySelector('.cds-demo__error')?.textContent ?? '',
+        theme: preview.getAttribute('data-theme'),
+      });
+    }
+    return out;
+  }, [...HIDDEN_BY_DESIGN]);
+}
+
+function assertElementDemos(label, demos, wantTheme) {
+  const upgraded = demos.filter((d) => d.undefinedTags.length === 0 && d.width > 0 && d.height > 0);
+  check(
+    `${label}: every <ElementDemo> upgraded (all civitai-* defined, non-zero preview) — ${upgraded.length}/${demos.length}`,
+    demos.length > 0 && upgraded.length === demos.length,
+    demos
+      .filter((d) => !upgraded.includes(d))
+      .map((d) => `${d.title}: undefined=[${d.undefinedTags}] ${d.width}x${d.height}`)
+      .join('; '),
+  );
+  const elementCount = demos.reduce((n, d) => n + d.elements, 0);
+  check(`${label}: civitai-* instances inside element previews > 0`, elementCount > 0, `instances=${elementCount}`);
+  const invisible = demos.filter((d) => d.invisibleChips.length);
+  check(
+    `${label}: every chip tag renders a visible instance in its demo`,
+    invisible.length === 0,
+    invisible.map((d) => `${d.title}: ${d.invisibleChips.join(',')}`).join('; '),
+  );
+  const thrown = demos.filter((d) => d.jsError);
+  check(`${label}: no demo #js threw`, thrown.length === 0, thrown.map((d) => `${d.title}: ${d.jsError}`).join('; '));
+  const wrongTheme = demos.filter((d) => d.theme !== wantTheme);
+  check(`${label}: every element preview data-theme === ${wantTheme}`, wrongTheme.length === 0, wrongTheme.map((d) => d.title).join(', '));
+}
+
 /** Force the site into a known appearance via localStorage + reload, then wait
  *  for hydration to fill the first live preview. */
 async function setAppearance(page, dark) {
@@ -112,6 +196,7 @@ async function setAppearance(page, dark) {
     dark,
     { timeout: 15000 },
   );
+  await openAllDetails(page);
 }
 
 /** Toggle dark mode the way a USER does — clicking the appearance switch — so we
@@ -148,6 +233,11 @@ async function run() {
     await waitForServer(`${BASE}/apps/showcase.html`);
     browser = await chromium.launch({ executablePath: exe, args: ['--no-sandbox'] });
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    const consoleErrors = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => consoleErrors.push(String(err)));
 
     /* ---------- LIGHT ---------- */
     await page.goto(`${BASE}/apps/showcase`, { waitUntil: 'networkidle' });
@@ -240,42 +330,20 @@ async function run() {
     await page.screenshot({ path: join(SHOT_DIR, 'showcase-light.png'), fullPage: true });
 
     /* ---------- ComponentDemo behaviour (light) ---------- */
-    const visibleFn = (el) => !!el && getComputedStyle(el).display !== 'none';
-    const before = await page.evaluate((visSrc) => {
-      const visible = eval(`(${visSrc})`);
-      const d = document.querySelector('.cds-demo');
+    const firstCss = await page.evaluate(() => {
+      const d = document.querySelector('[data-testid="cds-preview"]')?.closest('.cds-demo');
       return {
-        html: visible(d.querySelector('[data-testid="cds-code-html"]')),
-        react: visible(d.querySelector('[data-testid="cds-code-react"]')),
-        previewHasUi: !!d.querySelector('[data-testid="cds-preview"] [data-civitai-ui]'),
+        hasCode: !!d?.querySelector('[data-testid="cds-code-html"] pre code'),
+        previewHasUi: !!d?.querySelector('[data-testid="cds-preview"] [data-civitai-ui]'),
+        reactTabs: document.querySelectorAll('[data-testid="cds-tab-react"]').length,
       };
-    }, visibleFn.toString());
-    check('ComponentDemo: HTML panel shown first', before.html === true && before.react === false, JSON.stringify(before));
-    check('ComponentDemo: live preview rendered the passed HTML', before.previewHasUi === true);
+    });
+    check('ComponentDemo: live preview rendered the passed HTML', firstCss.hasCode && firstCss.previewHasUi, JSON.stringify(firstCss));
+    eq('ComponentDemo: no React source tab on the page', firstCss.reactTabs, 0);
 
-    // Click the React tab of the first demo (real async click → Vue re-renders).
-    await page.click('.cds-demo [data-testid="cds-tab-react"]');
-    await page.waitForFunction(
-      () => {
-        const d = document.querySelector('.cds-demo');
-        const rp = d.querySelector('[data-testid="cds-code-react"]');
-        return rp && getComputedStyle(rp).display !== 'none';
-      },
-      { timeout: 5000 },
-    );
-    const after = await page.evaluate((visSrc) => {
-      const visible = eval(`(${visSrc})`);
-      const d = document.querySelector('.cds-demo');
-      return {
-        html: visible(d.querySelector('[data-testid="cds-code-html"]')),
-        react: visible(d.querySelector('[data-testid="cds-code-react"]')),
-        reactSelected: d.querySelector('[data-testid="cds-tab-react"]').getAttribute('aria-selected'),
-      };
-    }, visibleFn.toString());
-    check('ComponentDemo: clicking React tab swaps panels', after.react === true && after.html === false, JSON.stringify(after));
-    eq('ComponentDemo: React tab becomes aria-selected', after.reactSelected, 'true');
-    // Restore the HTML tab for the subsequent snippet-accuracy read.
-    await page.click('.cds-demo [data-testid="cds-tab-html"]');
+    /* ---------- ElementDemo upgrade (light) ---------- */
+    const lightElements = await measureElementDemos(page);
+    assertElementDemos('light', lightElements, 'light');
 
     /* ---------- Snippet accuracy: shown HTML ↔ live preview ---------- */
     const parity = await page.evaluate(() => {
@@ -283,6 +351,7 @@ async function run() {
         Array.from(root.querySelectorAll('[data-civitai-ui]')).map((el) => el.getAttribute('data-civitai-ui'));
       const out = [];
       for (const demoEl of document.querySelectorAll('.cds-demo')) {
+        if (!demoEl.querySelector('[data-testid="cds-code-html"]')) continue; // an <ElementDemo>
         const codeEl = demoEl.querySelector('[data-testid="cds-code-html"] pre code');
         const preview = demoEl.querySelector('[data-testid="cds-preview"]');
         // Extract the data-civitai-ui values from the shown snippet TEXT via regex —
@@ -373,7 +442,10 @@ async function run() {
     });
     eq('dark: preview container data-theme re-resolved', dark.previewTheme, 'dark');
     eq('dark: filled Button background === rgb(25, 113, 194)', dark.btnBg, 'rgb(25, 113, 194)');
-    eq('dark: Card surface === rgb(26, 27, 30)', dark.cardBg, 'rgb(26, 27, 30)');
+    // A card paints the SURFACE token (#25262B in dark), not the body (#1A1B1E).
+    // This expected the body colour and was red on every run; in light both
+    // tokens are #fefefe, so the light twin above cannot tell them apart.
+    eq('dark: Card surface === rgb(37, 38, 43)', dark.cardBg, 'rgb(37, 38, 43)');
     check('dark: button re-resolved to a DIFFERENT value than light', dark.btnBg !== light.btnBg, `light=${light.btnBg} dark=${dark.btnBg}`);
     // Render integrity (dark) — the border reset was theme-agnostic, so re-assert
     // the restored borders re-resolve to the dark tokens.
@@ -385,7 +457,90 @@ async function run() {
     check('dark: Badge outline variant keeps a visible border (>=1px)', dark.outlineBorderW >= 1, `w=${dark.outlineBorderW}px`);
     check('dark: Loader keeps a non-empty ring (box>0 and ring border>0)', dark.loaderBox && dark.loaderRingW > 0, `box=${dark.loaderBox} ring=${dark.loaderRingW}px`);
 
+    /* ---------- ElementDemo upgrade (dark, after a reload in dark) ---------- */
+    await setAppearance(page, true);
+    const darkElements = await measureElementDemos(page);
+    assertElementDemos('dark', darkElements, 'dark');
+
     await page.screenshot({ path: join(SHOT_DIR, 'showcase-dark.png'), fullPage: true });
+
+    /* ---------- Phone width (390px): no horizontal page overflow ---------- */
+    // CONTROL: the VitePress navbar itself overflows a 390px viewport by a few px
+    // on EVERY page (measured on origin/main's /apps/: scrollWidth 394 — the
+    // hamburger's container), which is site chrome, not the showcase. So the
+    // assertion is: the showcase overflows no further than a demo-free page, and
+    // no demo box crosses the viewport edge.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${BASE}/apps/`, { waitUntil: 'networkidle' });
+    const chromeScrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+    await page.goto(`${BASE}/apps/showcase`, { waitUntil: 'networkidle' });
+    for (const dark of [false, true]) {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await setAppearance(page, dark);
+      const phone = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        innerWidth: window.innerWidth,
+        widest: [...document.querySelectorAll('.vp-doc .cds-demo')]
+          .map((d) => Math.round(d.getBoundingClientRect().right))
+          .reduce((a, b) => Math.max(a, b), 0),
+        // A preview whose CONTENT (shadow roots included) runs past its own
+        // right edge is clipped on a phone even when the page does not scroll.
+        clipped: [...document.querySelectorAll('.cds-preview')]
+          .map((pr) => {
+            const edge = pr.getBoundingClientRect().right;
+            let max = 0;
+            const walk = (root) => {
+              for (const el of root.querySelectorAll('*')) {
+                const r = el.getBoundingClientRect();
+                if (r.width && r.height) max = Math.max(max, r.right);
+                if (el.shadowRoot) walk(el.shadowRoot);
+              }
+            };
+            walk(pr);
+            const title = pr.closest('.cds-demo')?.querySelector('.cds-demo__title')?.firstChild?.textContent?.trim();
+            return { title, over: Math.round(max - edge) };
+          })
+          .filter((x) => x.over > 0),
+      }));
+      check(
+        `phone 390px (${dark ? 'dark' : 'light'}): no preview's content runs past its edge`,
+        phone.clipped.length === 0,
+        phone.clipped.map((c) => `${c.title} +${c.over}px`).join('; '),
+      );
+      check(
+        `phone 390px (${dark ? 'dark' : 'light'}): no horizontal overflow beyond the site chrome's own`,
+        phone.scrollWidth <= Math.max(phone.innerWidth, chromeScrollWidth) && phone.widest <= phone.innerWidth,
+        `scrollWidth=${phone.scrollWidth} (demo-free /apps/: ${chromeScrollWidth}) innerWidth=${phone.innerWidth} widestDemoRight=${phone.widest}`,
+      );
+      const phoneElements = await measureElementDemos(page);
+      const upgraded = phoneElements.filter((d) => d.undefinedTags.length === 0 && d.width > 0 && d.height > 0);
+      check(
+        `phone 390px (${dark ? 'dark' : 'light'}): every <ElementDemo> upgraded — ${upgraded.length}/${phoneElements.length}`,
+        phoneElements.length > 0 && upgraded.length === phoneElements.length,
+      );
+      await page.screenshot({ path: join(SHOT_DIR, `showcase-phone-${dark ? 'dark' : 'light'}.png`), fullPage: true });
+    }
+    await page.setViewportSize({ width: 1280, height: 900 });
+
+    // CONTROL: the site chrome (the navbar's token pill) makes credentialed
+    // calls to civitai.com that a non-civitai origin rejects with CORS errors on
+    // EVERY page. Load a page with no demos and subtract what it logs, so the
+    // assertion is about errors the showcase adds — and print the control's
+    // count so a zero here is never read alone.
+    const control = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    const controlErrors = [];
+    control.on('console', (msg) => msg.type() === 'error' && controlErrors.push(msg.text()));
+    control.on('pageerror', (err) => controlErrors.push(String(err)));
+    await control.goto(`${BASE}/apps/`, { waitUntil: 'networkidle' });
+    await control.waitForTimeout(1500);
+    await control.close();
+    const chromeNoise = new Set(controlErrors);
+    const added = consoleErrors.filter((e) => !chromeNoise.has(e));
+    check(
+      `showcase: no console errors beyond the demo-free control page (control /apps/ logged ${controlErrors.length}, showcase ${consoleErrors.length})`,
+      added.length === 0,
+      added.slice(0, 5).join(' | '),
+    );
 
     /* ---------- Token gallery (light + dark screenshots) ---------- */
     await page.goto(`${BASE}/apps/tokens`, { waitUntil: 'networkidle' });

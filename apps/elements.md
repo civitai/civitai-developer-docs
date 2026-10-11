@@ -14,9 +14,10 @@ Every demo below is live: the preview is rendered from the code shown under it,
 and it follows the site's light/dark switch.
 
 ::: tip Elements or markup?
-This page covers the **elements**. The [Component showcase](./showcase) covers
-the other way to consume the package: hand-written `data-civitai-ui` markup over
-a stylesheet. Pick the elements unless you need zero JavaScript.
+Pick the elements unless you need zero JavaScript. The
+[Component showcase](./showcase) walks the same elements component by component,
+each with its CSS-only `data-civitai-ui` markup — the no-JavaScript fallback over
+a stylesheet — where one exists.
 :::
 
 ## Setup
