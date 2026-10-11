@@ -35,9 +35,11 @@
  * USAGE
  *   npm run build && npm run test:showcase:e2e
  *   Chromium resolution order: $PLAYWRIGHT_CHROMIUM_PATH, $CHROMIUM_PATH,
- *   `chromium`/`chromium-browser`/`google-chrome` on PATH. If none is found the
- *   suite prints SKIP and exits 0 (so browserless CI doesn't hard-fail); run it
- *   on a host with Chromium for the real gate.  Screenshots (light+dark) are
+ *   `chromium`/`chromium-browser`/`google-chrome` on PATH, then the browser
+ *   `npx playwright-core install chromium` downloaded for the installed
+ *   playwright-core. If none is found the suite prints SKIP and exits 0 — unless
+ *   SHOWCASE_E2E_REQUIRE_BROWSER=1 (set by .github/workflows/showcase-e2e.yml),
+ *   which makes a missing browser a failure.  Screenshots (light+dark) are
  *   written to $SHOWCASE_SHOT_DIR (default: ./.showcase-shots).
  */
 import { spawn, spawnSync } from 'node:child_process';
@@ -62,6 +64,16 @@ function resolveChromium() {
     const r = spawnSync('command', ['-v', bin], { shell: true, encoding: 'utf8' });
     const p = (r.stdout || '').trim();
     if (p && existsSync(p)) return p;
+  }
+  // Last: the build `npx playwright-core install chromium` downloaded for THIS
+  // playwright-core version — how CI gets a browser (showcase-e2e.yml). Asked of
+  // playwright-core itself, so the path tracks the pinned version; it throws or
+  // names a missing file when nothing was installed.
+  try {
+    const managed = chromium.executablePath();
+    if (managed && existsSync(managed)) return managed;
+  } catch {
+    /* no managed browser */
   }
   return null;
 }
@@ -218,6 +230,12 @@ async function run() {
   mkdirSync(SHOT_DIR, { recursive: true });
   const exe = resolveChromium();
   if (!exe) {
+    // In CI a missing browser is a broken job, not a skip: a SKIP exits 0 and
+    // would read as a green E2E that never opened a page.
+    if (process.env.SHOWCASE_E2E_REQUIRE_BROWSER === '1') {
+      console.error('FAIL — no Chromium found and SHOWCASE_E2E_REQUIRE_BROWSER=1 (run `npx playwright-core install chromium`).');
+      process.exit(1);
+    }
     console.log('SKIP — no Chromium found (set PLAYWRIGHT_CHROMIUM_PATH / CHROMIUM_PATH or install chromium).');
     process.exit(0);
   }
