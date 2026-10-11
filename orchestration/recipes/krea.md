@@ -58,11 +58,10 @@ const styleRefBody = {
 
 Krea v2 is Krea's text-to-image family, hosted through FAL. The orchestrator exposes both tiers — **medium** for fast everyday generation and **large** for higher-quality hero shots — under a single `engine: "fal"`, `model: "krea2"` entry, with a `size` field selecting the tier.
 
-**Default choice for new integrations**: `size: "medium"`. Step up to `size: "large"` when quality matters more than throughput or cost.
+**Default choice**: `size: "medium"`. Step up to `size: "large"` when quality matters more than throughput or cost.
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
 - For `imageStyleReferences`: one or more publicly-accessible image URLs
 
 ## Tiers
@@ -166,25 +165,7 @@ Style references trigger a small price premium — see [Cost](#cost).
 
 ## Reading the result
 
-Krea emits the standard `imageGen` output — an `images[]` array with one entry per `quantity`:
-
-```json
-{
-  "status": "succeeded",
-  "steps": [{
-    "name": "0",
-    "$type": "imageGen",
-    "status": "succeeded",
-    "output": {
-      "images": [
-        { "id": "blob_...", "url": "https://.../signed.jpeg" }
-      ]
-    }
-  }]
-}
-```
-
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL.
+Standard `imageGen` output: an `images[]` array, one entry per `quantity` ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 ## Runtime
 
@@ -197,7 +178,7 @@ Large `quantity` pushes toward the 100-second request timeout — submit with `w
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 | Tier | Without style refs | With `imageStyleReferences` |
 |------|--------------------|----------------------------|
@@ -208,6 +189,8 @@ Total = `base × quantity`. Style references add a flat 6.5 Buzz / image regardl
 
 ## Troubleshooting
 
+Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](/orchestration/recipes/#common-troubleshooting).
+
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `400` with "size must be one of" | Typo in `size` | Lowercase `"medium"` or `"large"` — no other values are accepted. |
@@ -217,17 +200,14 @@ Total = `base × quantity`. Style references add a flat 6.5 Buzz / image regardl
 | `400` with "strength out of range" | `strength` outside `[-2, 2]` | Krea clamps to `[-2.0, 2.0]`; default `1.0` is a safe baseline. |
 | Style reference fetch fails | URL is private or expired | Krea fetches each `imageUrl` server-side from FAL — make sure it's publicly reachable. |
 | Output ignores the prompt | `creativity` too high | Drop to `low` or `raw` for stricter prompt adherence. |
-| Request timed out (`wait` expired) | Large `quantity` or busy FAL queue | Resubmit with `wait=0` and poll. |
-| Step `failed`, `reason = "blocked"` | Prompt or reference image hit content moderation | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Flux 2](./flux2) / [Flux 1](./flux1) image generation — alternative open-weights families with LoRA support
 - [Qwen](./qwen) image generation — when you need editing or LoRAs
 - [MAI Image 2.5](./mai-image) image generation — sibling FAL-hosted text-to-image (no editing, seeds, or style refs)
 - [Image upscaling](./image-upscaler) — chain after `imageGen` for higher-res output
 - [Prompt enhancement](./prompt-enhancement) — LLM-rewrite a prompt before feeding it in via `$ref`
 - Full parameter catalog: `Krea2CreateFalImageGenInput` in the [API reference](/orchestration/reference/)
-- [`imageGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `imageGen` surface
+- [`imageGen` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml)

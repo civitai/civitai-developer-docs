@@ -253,7 +253,7 @@ Image limits: 300–6000 px per side, aspect ratio between 0.4 and 2.5, ≤30 MB
 
 ## Cost
 
-Billed per second in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Billed per second. Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 ```
 total = ratePerSecond × duration
@@ -284,22 +284,7 @@ Failed generations and clips rejected by BytePlus's content review are not charg
 
 ## Reading the result
 
-Same as any `videoGen` step — a single `video` blob:
-
-```json
-{
-  "steps": [{
-    "output": {
-      "video": {
-        "id": "…",
-        "url": "https://orchestration.civitai.com/v2/consumer/blobs/…"
-      }
-    }
-  }]
-}
-```
-
-The blob URL is signed and expires — refetch the workflow with [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) for a fresh one rather than storing it.
+Standard `videoGen` output: a single `video` blob ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 The output is H.264 in an MP4 container at 24 fps, with an AAC audio track when `generateAudio` is on.
 

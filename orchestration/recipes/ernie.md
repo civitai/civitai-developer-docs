@@ -77,7 +77,6 @@ Leave `cfgScale: 1` on `turbo` — it's a distilled model and doesn't respond to
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
 - No checkpoint URN required — both variants ship with built-in diffuser / VAE / text encoder
 
 ## Standard (`model: "ernie"`)
@@ -195,40 +194,11 @@ Everything else (`prompt`, `negativePrompt`, dimensions, `sampler`, `scheduler`,
 
 ## Reading the result
 
-ERNIE emits the standard `imageGen` output — an `images[]` array, one entry per `quantity`:
-
-```json
-{
-  "status": "succeeded",
-  "steps": [{
-    "$type": "imageGen",
-    "name": "$0",
-    "status": "succeeded",
-    "output": {
-      "images": [
-        {
-          "id": "aa6e7228-68cd-4d15-b4d7-5005b2bfbac6-0.jpg",
-          "width": 1024,
-          "height": 1024,
-          "url": "https://orchestration.civitai.com/v2/consumer/blobs/…?sig=…",
-          "urlExpiresAt": "2027-04-15T17:18:54.3195353Z",
-          "previewUrl": "https://orchestration.civitai.com/v2/consumer/blobs/…?sig=…",
-          "previewUrlExpiresAt": "2027-04-15T17:18:54.3196735Z",
-          "available": true,
-          "nsfwLevel": "pg13"
-        }
-      ],
-      "errors": []
-    }
-  }]
-}
-```
-
-`url` and `previewUrl` are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL. The `nsfwLevel` field carries the moderation classification applied to the output.
+Standard `imageGen` output: an `images[]` array, one entry per `quantity` ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 Per-pixel + per-step scaling against 1024² and the variant's default step count:
 
@@ -267,6 +237,8 @@ Typical claim duration (`job.startedAt` → `job.completedAt`) with `quantity: 1
 
 ## Troubleshooting
 
+Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](/orchestration/recipes/#common-troubleshooting).
+
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `400` with "operation must be createImage" | Passed `editImage` or `createVariant` | ERNIE only supports `createImage`. Use [Qwen](./qwen) or [Flux 2 Klein](./flux2#klein-createvariant-img2img) for img2img / edit. |
@@ -276,12 +248,10 @@ Typical claim duration (`job.startedAt` → `job.completedAt`) with `quantity: 1
 | Standard output ignores the prompt | `cfgScale` too low | Bump toward `4`–`6`. `cfgScale: 1` on standard barely steers the model. |
 | LoRA silently has no effect | Wrong AIR URN, or ecosystem mismatch | Only `urn:air:ernie:lora:…` LoRAs work here. Verify the URN on the LoRA's Civitai page. |
 | Request timed out (`wait` expired) | Large `quantity`, atypical dimensions, or high `steps` | Resubmit and resume with a `GET …?wait=60` loop, or register a webhook. |
-| Step `failed`, `reason = "blocked"` | Prompt hit content moderation | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Qwen image generation](./qwen) — alternative with edit + variant operations and LoRA support
 - [Flux 2 image generation](./flux2) — higher-fidelity general-purpose alternative with `createVariant`
 - [Z-Image generation](./zimage) — the other distilled, extremely cheap + fast image recipe (sdcpp-based)
@@ -289,4 +259,4 @@ Typical claim duration (`job.startedAt` → `job.completedAt`) with `quantity: 1
 - [Image upscaling](./image-upscaler) — chain after `imageGen` for higher-res output
 - [Prompt enhancement](./prompt-enhancement) — LLM-rewrite a prompt before feeding it in via `$ref`
 - Full parameter catalog: `ComfyErnieStandardCreateImageGenInput` and `ComfyErnieTurboCreateImageGenInput` in the [API reference](/orchestration/reference/)
-- [`imageGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `imageGen` surface; import into Postman / OpenAPI Generator
+- [`imageGen` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml)

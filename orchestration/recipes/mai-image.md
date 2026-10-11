@@ -48,11 +48,7 @@ const batchBody = {
 
 MAI Image 2.5 is Microsoft's text-to-image model, hosted through FAL. The orchestrator exposes it as a single `engine: "fal"`, `model: "maiImage"`, `operation: "createImage"` entry — text-to-image only, with no editing, seed, or style-reference inputs.
 
-**Default choice for new integrations**: leave `aspectRatio` at `"auto"` and let the model pick a composition-appropriate ratio, or pin one of the eleven supported ratios when you need a specific shape.
-
-## Prerequisites
-
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
+**Default choice**: leave `aspectRatio` at `"auto"` and let the model pick a composition-appropriate ratio, or pin one of the eleven supported ratios when you need a specific shape.
 
 ## Text-to-image
 
@@ -133,25 +129,7 @@ Set `quantity` up to `4` for multiple images from one step. Each image is a sepa
 
 ## Reading the result
 
-MAI emits the standard `imageGen` output — an `images[]` array with one entry per `quantity`:
-
-```json
-{
-  "status": "succeeded",
-  "steps": [{
-    "name": "0",
-    "$type": "imageGen",
-    "status": "succeeded",
-    "output": {
-      "images": [
-        { "id": "blob_...", "url": "https://.../signed.jpeg" }
-      ]
-    }
-  }]
-}
-```
-
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL.
+Standard `imageGen` output: an `images[]` array, one entry per `quantity` ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 ## Runtime
 
@@ -159,7 +137,7 @@ Single images typically land well inside the `wait=60` long-poll window, so a si
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 MAI bills a flat rate per generated image:
 
@@ -176,21 +154,20 @@ Aspect ratio and output format don't affect MAI's Buzz price — the provider ch
 
 ## Troubleshooting
 
+Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](/orchestration/recipes/#common-troubleshooting).
+
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `400` with "prompt" length error | Prompt under 3 or over 5000 characters | Keep the prompt within 3–5000 characters. |
 | `400` with "aspectRatio must be one of" | Invalid aspect ratio | Pick one of the listed ratios (or `auto`) — MAI doesn't accept width/height. |
 | `400` with "quantity" range error | `quantity` outside `1`–`4` | MAI caps batches at 4 images per step. |
-| Request timed out (`wait` expired) | Large `quantity` or busy FAL queue | Resubmit with `wait=0` and poll. |
-| Step `failed`, `reason = "blocked"` | Prompt hit content moderation | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Krea v2](./krea) / [Qwen](./qwen) image generation — sibling FAL-hosted text-to-image families (Qwen adds editing and LoRAs)
 - [Flux 2](./flux2) / [Flux 1](./flux1) image generation — open-weights families with LoRA support
 - [Image upscaling](./image-upscaler) — chain after `imageGen` for higher-res output
 - [Prompt enhancement](./prompt-enhancement) — LLM-rewrite a prompt before feeding it in via `$ref`
 - Full parameter catalog: `MaiImageCreateFalImageGenInput` in the [API reference](/orchestration/reference/)
-- [`imageGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `imageGen` surface
+- [`imageGen` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml)

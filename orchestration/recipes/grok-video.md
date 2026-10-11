@@ -177,30 +177,15 @@ For `edit-video`, cost uses the **analyzed source video duration** (capped at 8 
 
 ## Reading the result
 
-```json
-{
-  "status": "succeeded",
-  "steps": [{
-    "name": "0",
-    "$type": "videoGen",
-    "status": "succeeded",
-    "output": {
-      "video": { "id": "blob_...", "url": "https://.../signed.mp4" }
-    }
-  }]
-}
-```
-
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL.
+Standard `videoGen` output: a single `video` blob ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 ## Long-running jobs
 
-Grok video typically completes in 1–4 minutes. Use `wait=0` + polling or webhooks:
-
-- **Webhooks** (recommended): `type: ["workflow:succeeded", "workflow:failed"]` — see [Results & webhooks](/orchestration/guide/results-and-webhooks)
-- **Polling**: `GET /v2/consumer/workflows/{workflowId}` every 10–30 s
+Grok video typically completes in 1–4 minutes. Submit with `wait=0`, then prefer a [webhook](/orchestration/guide/results-and-webhooks) (`workflow:succeeded` / `workflow:failed`) or poll `GET /v2/consumer/workflows/{workflowId}` every 10–30 s.
 
 ## Troubleshooting
+
+Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](/orchestration/recipes/#common-troubleshooting). `blocked` comes from xAI's content policy.
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
@@ -209,12 +194,10 @@ Grok video typically completes in 1–4 minutes. Use `wait=0` + polling or webho
 | `400` with "aspectRatio must be one of" on image-to-video | Sent an unsupported ratio | Image-to-video additionally accepts `"auto"` but has the same seven explicit ratios as t2v. |
 | Cost higher than expected on edit-video | Source video longer than requested duration | Input is truncated to 8 s; cost is based on the actual analyzed length. |
 | Step `failed`, `reason = "no_provider_available"` | No Grok worker available | Retry shortly. |
-| Step `failed`, `reason = "blocked"` | xAI content policy | Don't retry the same input. |
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — production result handling
 - [Grok image generation](./grok) — Grok for images
 - [Kling video generation](./kling) — comparable commercial video model

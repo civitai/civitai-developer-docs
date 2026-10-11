@@ -73,7 +73,6 @@ Common uses:
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
 - A source image — URL, data URL, or Base64 string
 
 ## The simplest request
@@ -96,7 +95,7 @@ That's it — the defaults run the 4x-Remacri upscaler once. The response is a f
 
 ## Via the generic workflow endpoint
 
-Equivalent request through [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — use this path when you need webhooks, tags, or to chain with other steps:
+The same request through [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow), for webhooks, tags or chaining:
 
 ```http
 POST https://orchestration.civitai.com/v2/consumer/workflows?wait=60
@@ -175,7 +174,7 @@ One of the most common two-step workflows — produce at native resolution, then
 }
 ```
 
-The `{ "$ref": "hero", "path": "output.images[0].url" }` reference creates a dependency — `hero-4k` doesn't start until `hero` succeeds, and the upscaler's `image` field is filled in with the generated image's signed URL at runtime. See [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism) for the full reference syntax.
+`hero-4k` waits for `hero` to succeed; the `$ref` then fills its `image` with the generated image's signed URL ([Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism)).
 
 <RecipeRun :body="chainBody" />
 
@@ -257,11 +256,11 @@ A successful `imageUpscaler` step emits a single upscaled image blob:
 
 Note: `imageUpscaler` output is `blob` (singular), not `blobs[]` — the step always returns exactly one image.
 
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) to get a fresh URL.
+Blob URLs expire — see [Reading results](/orchestration/recipes/#reading-results).
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 Cost scales with input pixel area and the total scale factor applied by `numberOfRepeats`:
 
@@ -287,18 +286,19 @@ A single pass (`numberOfRepeats: 1`) with the default 4x-Remacri on a ~1-megapix
 
 ## Troubleshooting
 
+Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](/orchestration/recipes/#common-troubleshooting).
+
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `400` with "image could not be loaded" | URL not publicly reachable, or data URL malformed | Make sure the URL is fetchable without auth; re-encode the Base64 payload. |
 | `400` with "numberOfRepeats out of range" | Value outside `1`–`3` | Clamp client-side. |
 | Output looks soft / painterly | Default model mismatch for this content | Specify a content-appropriate `model` AIR (anime-tuned for illustration, face-aware for portraits, etc.). |
 | Output has halos or ringing | `numberOfRepeats` too aggressive for the source | Drop to a single pass; or pre-denoise the source. |
-| Step `failed`, `reason = "blocked"` | Source image hit content moderation | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
 
 ## Related
 
 - [`InvokeImageUpscalerStepTemplate`](/orchestration/reference/operations/InvokeImageUpscalerStepTemplate) — the per-recipe endpoint
-- [Endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageUpscaler/openapi.yaml) — standalone OpenAPI 3.1 YAML for this endpoint, ready to import into Postman / Insomnia / OpenAPI Generator
+- [`imageUpscaler` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageUpscaler/openapi.yaml)
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — generic path for chaining
 - [Video upscaling](./video-upscaler) — the `videoUpscaler` equivalent for video
 - [Image background removal](./image-background-removal) — cut out the subject before or after upscaling

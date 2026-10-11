@@ -65,13 +65,12 @@ Seedream is ByteDance's image-generation family. Single engine, multiple version
 | `v4.5` | **Default** — refined v4, better detail. Returned when `version` is omitted. |
 | `v5.0-lite` | Latest fast tier — lighter than v4.5 with similar output characteristics for most workloads. |
 
-**Default choice for new integrations**: `version: "v4.5"` (also the API default when the field is omitted). Use `v4` when you want lower cost with slightly less detail; try `v5.0-lite` for faster / cheaper output on the newest release.
+**Default choice**: `version: "v4.5"` (also the API default when the field is omitted). Use `v4` when you want lower cost with slightly less detail; try `v5.0-lite` for faster / cheaper output on the newest release.
 
 Unlike most image engines exposed here, Seedream uses plain `width` / `height` (not an enum) and accepts very large outputs — up to 4096 px per side.
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
 - For image editing: one or more source image URLs, data URLs, or Base64 strings
 
 ## Text-to-image
@@ -184,25 +183,7 @@ Up to 10 reference images per call.
 
 ## Reading the result
 
-Standard `imageGen` output — an `images[]` array, one per `quantity`:
-
-```json
-{
-  "status": "succeeded",
-  "steps": [{
-    "name": "0",
-    "$type": "imageGen",
-    "status": "succeeded",
-    "output": {
-      "images": [
-        { "id": "blob_...", "url": "https://.../signed.png" }
-      ]
-    }
-  }]
-}
-```
-
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL.
+Standard `imageGen` output: an `images[]` array, one entry per `quantity` ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 ## Runtime
 
@@ -216,7 +197,7 @@ Combined with `quantity > 2`, high-res outputs cross the timeout quickly. Always
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 Flat per-image pricing by `version`:
 
@@ -241,19 +222,18 @@ Dimensions and `images[]` count don't change Seedream's Buzz price — the provi
 
 ## Troubleshooting
 
+Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](/orchestration/recipes/#common-troubleshooting). Timeouts here usually mean high-resolution output; `blocked` comes from Seedream's content filter.
+
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `400` with "version must be one of" | Typo or unsupported version slug | Use `v3`, `v4`, `v4.5`, or `v5.0-lite` (note the `v` prefix). |
 | `400` with "width/height out of range" | Below 256 or above 4096 | Clamp to `256`–`4096`. |
 | `400` with "images maxItems" | More than 10 source images on edit | Trim to 10. |
 | Output too saturated / painterly | `guidanceScale` too high | Seedream prefers `2`–`3` — values above 5 typically degrade output. |
-| Request timed out (`wait` expired) | High-res output, large quantity, or busy queue | Resubmit with `wait=0` and poll. |
-| Step `failed`, `reason = "blocked"` | Seedream content filter | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Google image generation](./google) — commercial alternative with Nano Banana + Imagen 4
 - [OpenAI image generation](./openai) — commercial alternative with GPT-Image + DALL·E
 - [Flux 2](./flux2) / [Qwen](./qwen) / [SDXL](./sdxl) — open-weights / sdcpp alternatives on Civitai-hosted workers
@@ -261,4 +241,4 @@ Dimensions and `images[]` count don't change Seedream's Buzz price — the provi
 - [Prompt enhancement](./prompt-enhancement) — LLM-rewrite a prompt before feeding it in via `$ref`
 - [Seedance video generation](./seedance) — the video counterpart from the same provider, also called directly against BytePlus
 - Full parameter catalog: the `SeedreamImageGenInput` schema in the [API reference](/orchestration/reference/)
-- [`imageGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `imageGen` surface
+- [`imageGen` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml)

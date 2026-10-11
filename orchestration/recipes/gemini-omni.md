@@ -206,31 +206,15 @@ Because the model decides the length, the exact charge isn't known up front:
 
 ## Reading the result
 
-```json
-{
-  "status": "succeeded",
-  "cost": { "base": 1600, "total": 1600 },
-  "steps": [{
-    "name": "0",
-    "$type": "videoGen",
-    "status": "succeeded",
-    "output": {
-      "video": { "id": "blob_...", "url": "https://.../signed.mp4" }
-    }
-  }]
-}
-```
-
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL.
+Standard `videoGen` output: a single `video` blob ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 ## Long-running jobs
 
-360p usually completes in under a minute; 720p in one to two; 4K can take several. Use `wait=0` + polling or webhooks:
-
-- **Webhooks** (recommended): `type: ["workflow:succeeded", "workflow:failed"]` — see [Results & webhooks](/orchestration/guide/results-and-webhooks)
-- **Polling**: `GET /v2/consumer/workflows/{workflowId}` every 10–30 s
+360p usually completes in under a minute; 720p in one to two; 4K can take several. Submit with `wait=0`, then prefer a [webhook](/orchestration/guide/results-and-webhooks) (`workflow:succeeded` / `workflow:failed`) or poll `GET /v2/consumer/workflows/{workflowId}` every 10–30 s.
 
 ## Troubleshooting
+
+Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](/orchestration/recipes/#common-troubleshooting). `blocked` comes from Google's content policy.
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
@@ -238,13 +222,11 @@ Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/or
 | `400` "must be one of 16:9, 9:16" | Unsupported aspect ratio | Omni is landscape or portrait only; no `1:1`. |
 | `400` on `images` | More than six images | Pass at most six. |
 | Clip is shorter than expected | The model chose the length | Ask for it in the prompt ("a ten-second continuous shot"); you're only billed for what came back. |
-| Step `failed`, `reason = "blocked"` | Google content policy | Don't retry the same input. |
 | Step `failed`, `reason = "no_provider_available"` | Google API queue busy | Retry shortly. |
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — production result handling
 - [Veo 3 video generation](./veo3) — Google's other video model, with fixed durations and tiers
 - [Google image generation](./google) — Nano Banana / Imagen 4 for stills

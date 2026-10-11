@@ -136,7 +136,7 @@ Flux 2 is Black Forest Labs' latest image-generation family. The orchestrator ex
 | `pro` | Commercial tier — routed through BFL's provider | Supports `createImage` / `editImage`. No LoRAs. |
 | `max` | Top commercial tier — premium hero shots | Supports `createImage` / `editImage`. Slowest + most expensive. |
 
-**Default choice for new integrations**: `model: "klein"`, `modelVersion: "4b"`. Upgrade to `9b` when you want more fidelity on the same variant, step to `dev` for open-weights Flux 2 with the official sampler, or `pro` / `max` for BFL-managed commercial output.
+**Default choice**: `model: "klein"`, `modelVersion: "4b"`. Upgrade to `9b` when you want more fidelity on the same variant, step to `dev` for open-weights Flux 2 with the official sampler, or `pro` / `max` for BFL-managed commercial output.
 
 ## The request shape
 
@@ -161,7 +161,6 @@ The native `flux2` engine exposes `createImage` and `editImage` on every model. 
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
 - For `editImage` / `createVariant` operations: one or more source image URLs, data URLs, or Base64 strings
 
 ## Klein (default)
@@ -470,25 +469,7 @@ For `editImage` operations, add `images[]` (up to 2 entries on Klein) — HTTP(S
 
 ## Reading the result
 
-A successful `imageGen` step emits an `images[]` array — one entry per `quantity`:
-
-```json
-{
-  "status": "succeeded",
-  "steps": [{
-    "name": "0",
-    "$type": "imageGen",
-    "status": "succeeded",
-    "output": {
-      "images": [
-        { "id": "blob_...", "url": "https://.../signed.jpeg" }
-      ]
-    }
-  }]
-}
-```
-
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL.
+Standard `imageGen` output: an `images[]` array, one entry per `quantity` ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 ## Runtime
 
@@ -505,7 +486,7 @@ Past ~2 images, large dimensions, or `pro`/`max` on a busy queue, you risk hitti
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` to preview the exact charge before submitting; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 **Klein** — driven by `modelVersion`, `steps`, and `cfgScale`:
 
@@ -526,6 +507,8 @@ total    = base × quantity
 
 ## Troubleshooting
 
+Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](/orchestration/recipes/#common-troubleshooting). Timeouts here usually mean `max`/`pro` on a busy queue.
+
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `400` with "prompt must be less than 1000" | Too long | Trim; 500 chars is plenty for most prompts. |
@@ -534,17 +517,14 @@ total    = base × quantity
 | `400` with "createVariant is not a valid operation" on Klein / Dev (native `flux2` engine) | Native `flux2` engine only exposes `createImage` + `editImage` | Use `engine: "sdcpp"` + `ecosystem: "flux2Klein"` or `"flux2Dev"` to access `createVariant`. See [Klein createVariant](#klein-createvariant-img2img) or [Dev createVariant](#dev-createvariant-img2img-via-sdcpp). |
 | `400` with "LoRA not found" | AIR URN wrong or model private / not published | Verify the URN on the model's Civitai page. |
 | Output ignores the prompt | `enablePromptExpansion: true` with a short prompt; or guidance too low | Set `enablePromptExpansion: false` and/or raise `cfgScale` (Klein) / `guidanceScale` (dev, flex). |
-| Request timed out (`wait` expired) | Large `quantity`, `max`/`pro` on a busy queue | Resubmit with `wait=0` and poll. |
-| Step `failed`, `reason = "blocked"` | Prompt or input image hit content moderation | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Flux 1 image generation](./flux1) — classic Flux.1 family (sdcpp, Comfy, Kontext editing)
 - [FLUX-3 video generation](./flux3-video) — the Flux family's video model (`videoGen`, `engine: "flux"`)
 - [Image upscaling](./image-upscaler) — chain after `imageGen` for higher-res output
 - [Prompt enhancement](./prompt-enhancement) — LLM-rewrite a prompt before feeding it in via `$ref`
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — handling longer runs
 - Full parameter catalog: the `Flux2<Model><Operation>Input` and `Flux2KleinSdCpp<Operation>Input` schemas in the [API reference](/orchestration/reference/)
-- [`imageGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `imageGen` surface; import into Postman / OpenAPI Generator
+- [`imageGen` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml)

@@ -124,7 +124,7 @@ For anything past the 100 s request timeout, use webhooks — see [Results & web
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz).
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 | Operation | Buzz |
 |---|---|
@@ -140,8 +140,7 @@ Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact 
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Web search](/orchestration/recipes/web-search) — find pages first, optionally scraping every result
 - [Chat completion](/orchestration/recipes/chat-completion#server-executed-web-search) — let the model fetch pages itself via `civitai:web_search`
 - Full parameter catalog: the `WebScrapeInput` schema in the [API reference](/orchestration/reference/)

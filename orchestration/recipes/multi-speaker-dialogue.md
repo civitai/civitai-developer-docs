@@ -156,8 +156,8 @@ The `composeMedia` step overlays multiple media elements on a single timeline, e
 The same step composes video: add a `canvas` and the elements are scaled, stacked, and overlaid into an MP4/WebM (e.g. a music track over a clip, or picture-in-picture). See [Compose media (video)](./compose-media-video). This page focuses on the audio-only form.
 :::
 
-::: tip Why not a multi-speaker TTS engine?
-Qwen3 TTS synthesises one continuous utterance per request with no silence-injection or speaker switching. Asking the model to "say A, then pause, then say B" produces unpredictable prosody. Generating each line as its own short, clean TTS step and overlaying them with `composeMedia` keeps every utterance natural while letting you place them anywhere on the output timeline — including overlapping intervals, which is the only way to get genuine cross-talk.
+::: tip Why one TTS step per line?
+Qwen3 TTS synthesises one continuous utterance per request, with no pauses or speaker switching — asking it to "say A, then pause, then say B" produces unpredictable prosody. One clean TTS step per line, overlaid with `composeMedia`, keeps every utterance natural and lets lines overlap, the only way to get genuine cross-talk.
 :::
 
 ## How it composes

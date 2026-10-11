@@ -81,7 +81,6 @@ Common uses:
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
 - A source video URL — publicly fetchable by the orchestrator (Civitai CDN URLs work directly)
 
 ## The simplest request
@@ -108,7 +107,7 @@ VFIMamba processes frame-by-frame and scales with clip length; a multi-second cl
 
 ## Via the generic workflow endpoint
 
-Equivalent request through [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — use this path when you need webhooks, tags, or to chain with other steps:
+The same request through [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow), for webhooks, tags or chaining:
 
 ```http
 POST https://orchestration.civitai.com/v2/consumer/workflows?wait=0
@@ -184,7 +183,7 @@ The most common two-step flow — generate a short clip at the model's native FP
 }
 ```
 
-The `{ "$ref": "clip", "path": "output.video.url" }` reference creates a dependency — `clip-smooth` doesn't start until `clip` succeeds, and the interpolator's `video` field is filled in with the generated clip's signed URL at runtime. See [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism) for the full reference syntax.
+`clip-smooth` waits for `clip` to succeed; the `$ref` then fills its `video` with the generated clip's signed URL ([Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism)).
 
 <RecipeRun :body="chainBody" :wait="0" />
 
@@ -270,11 +269,11 @@ A successful `videoInterpolation` step emits a single video blob at the same res
 
 Note: `videoInterpolation` output is `video` (singular VideoBlob), not a collection. The reported `width` / `height` mirror the source — interpolation only changes frame count, not pixel dimensions.
 
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) to get a fresh URL.
+Blob URLs expire — see [Reading results](/orchestration/recipes/#reading-results).
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 VFIMamba's cost scales with input pixel-frame volume, with a fixed overhead per call:
 
@@ -302,6 +301,8 @@ VFIMamba's runtime scales roughly linearly with **input-frame-count × resolutio
 
 ## Troubleshooting
 
+Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](/orchestration/recipes/#common-troubleshooting).
+
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `400` with "video could not be loaded" | URL not publicly reachable | Make sure the URL is fetchable without auth; avoid signed URLs that expire quickly. |
@@ -310,13 +311,11 @@ VFIMamba's runtime scales roughly linearly with **input-frame-count × resolutio
 | `400` with "interpolationFactor out of range" | Value outside `2`–`3` | Clamp client-side. VFIMamba only supports 2× or 3×. |
 | `400` with "Unable to analyze video file" | Source couldn't be probed (corrupt, wrong container, network error during probe) | Check the URL resolves and serves valid MP4/WebM; re-upload if the source is corrupt. |
 | Output has artifacts / ghosting on fast motion | `interpolationFactor: 3` too aggressive for high-motion content | Drop to `2`, or pre-stabilize the source. |
-| Step `failed`, `reason = "blocked"` | Source video hit content moderation | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
-| Request timed out (`wait` expired) | VFIMamba too slow to finish in the synchronous window | Resubmit with `wait=0` and poll, or register a webhook. |
 
 ## Related
 
 - [`InvokeVideoInterpolationStepTemplate`](/orchestration/reference/operations/InvokeVideoInterpolationStepTemplate) — the per-recipe endpoint
-- [Endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/videoInterpolation/openapi.yaml) — standalone OpenAPI 3.1 YAML for this endpoint, ready to import into Postman / Insomnia / OpenAPI Generator
+- [`videoInterpolation` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/videoInterpolation/openapi.yaml)
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — generic path for chaining
 - [Video upscaling](./video-upscaler) — the `videoUpscaler` recipe for increasing resolution
 - [WAN video generation](./wan) — generate clips to feed into this recipe

@@ -219,6 +219,7 @@ const sidebar: DefaultTheme.Sidebar = {
     {
       text: 'Training',
       items: [
+        { text: 'LoRA training overview', link: '/orchestration/recipes/training' },
         { text: 'SDXL & SD1 LoRA training', link: '/orchestration/recipes/training-sdxl-sd1' },
         { text: 'Flux 1 LoRA training', link: '/orchestration/recipes/training-flux1' },
         { text: 'Flux 2 Klein LoRA training', link: '/orchestration/recipes/training-flux2-klein' },

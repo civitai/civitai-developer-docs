@@ -65,7 +65,6 @@ Common uses:
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
 - A publicly-fetchable audio or video URL (`.mp3`, `.wav`, `.m4a`, `.mp4` with an audio track, etc.). Civitai CDN URLs work directly.
 
 ## The simplest request
@@ -96,7 +95,7 @@ Billing is computed per 30 s of audio (minimum 1 unit), and real processing time
 
 ## Via the generic workflow endpoint
 
-Equivalent request through [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — use this path when you need webhooks, tags, or to chain with other steps:
+The same request through [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow), for webhooks, tags or chaining:
 
 ```http
 POST https://orchestration.civitai.com/v2/consumer/workflows?wait=0
@@ -139,8 +138,6 @@ Auto-detection is reliable on clear speech but can flip on short clips, heavily 
 ```
 
 <RecipeRun :body="languageHintBody" :wait="0" />
-
-The detected (or forced) language is returned in `output.language` — note it comes back as the full English name (`"English"`, `"Japanese"`, …), not the ISO code you passed in.
 
 ## Context hints for accuracy
 
@@ -208,7 +205,7 @@ Fields:
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 Duration-based with a minimum floor of 1:
 
@@ -232,6 +229,8 @@ Real-time-factor (processing time ÷ audio length) is well below 1 on Qwen3-ASR 
 
 ## Troubleshooting
 
+Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](/orchestration/recipes/#common-troubleshooting).
+
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `400` with "Unable to analyze audio file: … Failed to read frame size: Could not seek to N" | The host doesn't honor HTTP range requests or injects per-request session state (AWS ALB cookies, etc.), so ffprobe's streaming seek fails | Use a CDN-served file (jsdelivr, GitHub raw, S3 direct, Civitai CDN) instead. |
@@ -240,13 +239,11 @@ Real-time-factor (processing time ÷ audio length) is well below 1 on Qwen3-ASR 
 | `output.language` is wrong | Auto-detection failed on a short / noisy clip | Set `language` explicitly. |
 | Proper nouns / jargon misspelled | Model hasn't seen the term often | Add a `context` string describing the subject matter and vocabulary. |
 | Empty or partial transcript | Audio contains long silence, music, or very low-level speech | Trim silence / pre-normalize audio; confirm speech is actually audible at a reasonable volume. |
-| Request timed out (`wait` expired) | Audio too long to finish in the synchronous window | Resubmit with `wait=0` and poll, or register a webhook. |
-| Step `failed`, `reason = "blocked"` | Audio hit content moderation | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
 
 ## Related
 
 - [`InvokeTranscriptionStepTemplate`](/orchestration/reference/operations/InvokeTranscriptionStepTemplate) — the per-recipe endpoint
-- [Endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/transcription/openapi.yaml) — standalone OpenAPI 3.1 YAML for this endpoint, ready to import into Postman / Insomnia / OpenAPI Generator
+- [`transcription` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/transcription/openapi.yaml)
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — generic path for chaining
 - [Text-to-speech](./text-to-speech) — the inverse: text → audio
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — handling long-running workflows

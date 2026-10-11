@@ -365,28 +365,11 @@ The quote rounds up to whole Buzz. Use a workflow cost preview for the final cha
 
 ## Reading the result
 
-```json
-{
-  "status": "succeeded",
-  "steps": [{
-    "name": "0",
-    "$type": "videoGen",
-    "status": "succeeded",
-    "output": {
-      "video": { "id": "blob_...", "url": "https://.../signed.mp4" }
-    }
-  }]
-}
-```
-
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL.
+Standard `videoGen` output: a single `video` blob ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 ## Long-running jobs
 
-Completion time depends on provider load, duration and resolution. Use `wait=0` with polling or webhooks:
-
-- **Webhooks** (recommended): `type: ["workflow:succeeded", "workflow:failed"]` — see [Results & webhooks](/orchestration/guide/results-and-webhooks)
-- **Polling**: `GET /v2/consumer/workflows/{workflowId}` every 10–30 s
+Completion time depends on provider load, duration and resolution. Submit with `wait=0`, then prefer a [webhook](/orchestration/guide/results-and-webhooks) (`workflow:succeeded` / `workflow:failed`) or poll `GET /v2/consumer/workflows/{workflowId}` every 10–30 s.
 
 ## Troubleshooting
 
@@ -402,8 +385,7 @@ Completion time depends on provider load, duration and resolution. Use `wait=0` 
 ## Related
 
 - Public input schemas: `ViduQ4ImageToVideoInput` and `ViduQ4ReferenceToVideoInput`.
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — production result handling
 - [WAN video generation](./wan) — comparable alternative
 - [Kling video generation](./kling) — another commercial video model

@@ -80,7 +80,6 @@ Common uses:
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
 - An ecosystem slug matching your downstream generation step (see [Ecosystems](#ecosystems))
 
 ## The simplest request
@@ -224,7 +223,7 @@ The highest-leverage pattern is to drop `promptEnhancement` in front of an `imag
 }
 ```
 
-The `{ "$ref": "enhance", "path": "output.enhancedPrompt" }` reference creates a dependency — `hero` doesn't start until `enhance` succeeds, and its `prompt` field is filled in with the rewritten text at runtime. See [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism).
+`hero` waits for `enhance` to succeed; the `$ref` then fills its `prompt` with the rewritten text ([Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism)).
 
 <RecipeRun :body="chainBody" />
 
@@ -268,7 +267,7 @@ Fields:
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 Flat-rate:
 
@@ -296,7 +295,7 @@ LLM-backed, usually 2–10 s per call including queue wait. Safe to use `wait=60
 ## Related
 
 - [`InvokePromptEnhancementStepTemplate`](/orchestration/reference/operations/InvokePromptEnhancementStepTemplate) — the per-recipe endpoint
-- [Endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/promptEnhancement/openapi.yaml) — standalone OpenAPI 3.1 YAML for this endpoint, ready to import into Postman / Insomnia / OpenAPI Generator
+- [`promptEnhancement` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/promptEnhancement/openapi.yaml)
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — generic path for chaining
 - [Flux 2](./flux2) / [Flux 1](./flux1) image generation, [WAN video generation](./wan), [LTX2 video generation](./ltx2) — downstream generation recipes that take the rewritten prompt
 - [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism) — feeding `output.enhancedPrompt` through `$ref`

@@ -109,7 +109,7 @@ LTX2 is Lightricks' open video-generation model family. The orchestrator exposes
 | `ltx2.3` | `22b-dev`, `22b-distilled` | `createVideo`, `firstLastFrameToVideo`, `editVideo`, `extendVideo`, `videoToVideo`, `audioToVideo` | Current release. Adds style transfer (`videoToVideo`) and audio-driven talking-head generation (`audioToVideo`). |
 | `ltx2` | `19b-dev`, `19b-distilled` | `createVideo`, `firstLastFrameToVideo`, `editVideo`, `extendVideo` | Previous release. Still supported. |
 
-**Default choice for new integrations**: `engine: "ltx2.3"`, `model: "22b-distilled"` for speed, `"22b-dev"` for maximum quality.
+**Default choice**: `engine: "ltx2.3"`, `model: "22b-distilled"` for speed, `"22b-dev"` for maximum quality.
 
 ## The request shape
 
@@ -322,30 +322,11 @@ Shared across most (engine, operation) combinations. The per-variant schema in t
 
 ## Reading the result
 
-Same as any `videoGen` step — a single `video` blob per clip:
-
-```json
-{
-  "status": "succeeded",
-  "steps": [{
-    "name": "0",
-    "$type": "videoGen",
-    "status": "succeeded",
-    "output": {
-      "video": { "id": "blob_...", "url": "https://.../signed.mp4" }
-    }
-  }]
-}
-```
-
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL.
+Standard `videoGen` output: a single `video` blob ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 ## Long-running jobs
 
-LTX2.3 `22b-dev` at 1280×720 / 5 s typically runs 2–5 minutes; `editVideo` and `audioToVideo` can go longer. All of these exceed the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline), so prefer `wait=0` and:
-
-- **Webhooks** (recommended): register a callback with `type: ["workflow:succeeded", "workflow:failed"]` — see [Results & webhooks](/orchestration/guide/results-and-webhooks)
-- **Polling**: `GET /v2/consumer/workflows/{workflowId}` on a 10 s → 30 s → 60 s cadence
+LTX2.3 `22b-dev` at 1280×720 / 5 s typically runs 2–5 minutes; `editVideo` and `audioToVideo` can go longer. Submit with `wait=0`, then prefer a [webhook](/orchestration/guide/results-and-webhooks) (`workflow:succeeded` / `workflow:failed`) or poll `GET /v2/consumer/workflows/{workflowId}` on a 10 s → 30 s → 60 s cadence.
 
 ## Troubleshooting
 
@@ -359,7 +340,7 @@ LTX2.3 `22b-dev` at 1280×720 / 5 s typically runs 2–5 minutes; `editVideo` an
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 All LTX2 / LTX2.3 variants use the same formula — pixel volume × a per-pixel rate × a steps multiplier:
 
@@ -382,9 +363,8 @@ total = ceil(pixelVolumeInMP × 0.0008 × 1000 × 1.5 × stepsMultiplier)
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — production-ready result handling
 - [WAN video generation](./wan) — comparable recipe for the WAN model family
 - Full parameter catalog: the `ComfyLtx23<Operation>Input` and `ComfyLtx2<Operation>Input` schemas in the [API reference](/orchestration/reference/)
-- [`videoGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/videoGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `videoGen` surface (WAN, LTX2, Flux, etc.); import into Postman / OpenAPI Generator
+- [`videoGen` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/videoGen/openapi.yaml)
