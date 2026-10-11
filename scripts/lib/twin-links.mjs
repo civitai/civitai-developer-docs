@@ -157,12 +157,12 @@ export function frontmatterUrl(text) {
   return m ? m[1] : null;
 }
 
-function walk(dir) {
+function walk(dir, want = (name) => name.endsWith('.md')) {
   const out = [];
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const p = join(dir, e.name);
-    if (e.isDirectory()) out.push(...walk(p));
-    else if (e.isFile() && e.name.endsWith('.md')) out.push(p);
+    if (e.isDirectory()) out.push(...walk(p, want));
+    else if (e.isFile() && want(e.name)) out.push(p);
   }
   return out;
 }
@@ -200,4 +200,71 @@ export function rewriteTwinLinks(outDir, srcDir) {
     }
   }
   return { twins, changed };
+}
+
+// ── llms-full.txt ────────────────────────────────────────────────────────────
+//
+// 🔴 THE SAME BUG, ONE FILE. The plugin also concatenates every page into
+// `llms-full.txt` (`generateLLMsFullTxt`): each page is `matter.stringify`d
+// with a `url:` header and the pages are joined with `\n---\n\n`. Bodies keep
+// their source's RELATIVE links verbatim, and the file is served at
+// `/llms-full.txt`, so EVERY relative link resolves against `/` — not only an
+// index page's. Measured on the build of 28e9e5c: 796 relative internal links
+// in 117 of 135 sections. The bundle is written in the plugin's
+// `generateBundle`, before `buildEnd` (on that build the bundle still held
+// every original relative link after the twin pass had run), so it holds the
+// ORIGINAL links, not the twins' rewritten ones.
+//
+// 🔴 Each section resolves against its SOURCE page's directory, NOT the
+// directory of its `url:` header: `apps/guide/index.md` is headed
+// `url: /apps/guide.md` but its links were written against `apps/guide/`.
+// `sourceDirOf` is the one rule for that mapping, shared with the twins.
+
+/** Bundle sections start at offset 0 and after every `\n---\n\n` that precedes a `---\nurl:` header. */
+const SECTION_BOUNDARY = /\n---\n\n(?=---\nurl:)/g;
+
+/**
+ * Split an `llms-full.txt` bundle into its sections. Each section keeps its
+ * own trailing separator, so `sections.join('') === text`.
+ */
+export function splitBundle(text) {
+  const starts = [0];
+  for (const m of text.matchAll(SECTION_BOUNDARY)) starts.push(m.index + m[0].length);
+  return starts.map((s, k) => text.slice(s, starts[k + 1] ?? text.length));
+}
+
+/**
+ * Rewrite every section of a bundle against its source page's directory.
+ * Throws — failing the build — on a section with no `url:` header, a header
+ * that is not a root `.md` path, or one with no (or an ambiguous) source page.
+ */
+export function absolutizeBundle(text, srcDir) {
+  const sections = splitBundle(text);
+  const out = sections.map((section, k) => {
+    const url = frontmatterUrl(section);
+    if (!url) throw new Error(`llms-full section ${k + 1} has no url: frontmatter header`);
+    if (!url.startsWith('/') || !url.endsWith('.md')) {
+      throw new Error(`llms-full section ${k + 1} header url: ${url} is not a site-root .md path`);
+    }
+    return absolutizeLinks(section, sourceDirOf(url.slice(1), srcDir));
+  });
+  return { text: out.join(''), sections: sections.length };
+}
+
+/** Post-build pass over every `llms-full.txt` in `outDir`. Returns counts for the build log. */
+export function rewriteLlmsFull(outDir, srcDir) {
+  let bundles = 0;
+  let sections = 0;
+  let changed = 0;
+  for (const p of walk(outDir, (name) => name === 'llms-full.txt')) {
+    const text = readFileSync(p, 'utf8');
+    const r = absolutizeBundle(text, srcDir);
+    bundles++;
+    sections += r.sections;
+    if (r.text !== text) {
+      writeFileSync(p, r.text);
+      changed++;
+    }
+  }
+  return { bundles, sections, changed };
 }

@@ -3,7 +3,7 @@ import { useSidebar } from 'vitepress-openapi';
 import llmstxt from 'vitepress-plugin-llms';
 import { withMermaid } from 'vitepress-plugin-mermaid';
 import spec from '../public/openapi/v2-consumers.json' with { type: 'json' };
-import { rewriteTwinLinks } from '../scripts/lib/twin-links.mjs';
+import { rewriteLlmsFull, rewriteTwinLinks } from '../scripts/lib/twin-links.mjs';
 
 const base = '/';
 
@@ -406,9 +406,17 @@ export default withMermaid({
   // (`./sdk` -> `/apps/sdk`). It has no option for this, so every twin's
   // relative links are rewritten to root-absolute here, after the plugin wrote
   // them. See scripts/lib/twin-links.mjs; `check:twin-links` asserts the result.
+  // The same pass covers `llms-full.txt`, where the plugin concatenates every
+  // page — served at `/llms-full.txt`, so EVERY relative link in it resolved
+  // against `/`. Each section is resolved against its SOURCE page's directory.
   buildEnd(siteConfig) {
     const { twins, changed } = rewriteTwinLinks(siteConfig.outDir, siteConfig.srcDir);
     console.log(`twin-links: absolutized relative links in ${changed} of ${twins} .md twin(s)`);
+    const full = rewriteLlmsFull(siteConfig.outDir, siteConfig.srcDir);
+    console.log(
+      `twin-links: absolutized relative links in ${full.changed} of ${full.bundles} llms-full.txt bundle(s) ` +
+        `(${full.sections} section(s))`,
+    );
   },
 
   transformPageData(pageData) {
