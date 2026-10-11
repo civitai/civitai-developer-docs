@@ -2,8 +2,8 @@
 title: Moving a block off the bridge
 description: Replace a block's postMessage data calls with /api/v1/blocks/* REST calls — what each credential reaches, which routes an OAuth token gives up, a hook-by-hook replacement table, and where the route is now the wider surface, taking parameters no bridge hook exposes (shared storage's mine filter).
 sources:
-  - npm:@civitai/blocks-react@0.67.1/dist/index.d.ts
-  - npm:@civitai/sdk@0.10.2/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.68.0/dist/index.d.ts
+  - npm:@civitai/sdk@0.11.0/dist/index.d.ts
   - civitai-app-starters:packages/civitai-sdk/BREAKING.md
   - civitai:public/schemas/app-block/v1.json#auth
   - civitai:src/pages/api/v1/blocks
@@ -245,7 +245,8 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 |---|---|
 | `useAppStorage` | `/api/v1/blocks/app-storage/{get,set,delete,list,quota}` — block-token only |
 | `useAppWorkflows` | `POST /api/v1/blocks/workflows/query` |
-| `useBlockAnalytics` | **Keep** — a bridge message with no route. Its events are recorded once your manifest declares them; `@civitai/sdk`'s `app.host.track()` sends the same message (from 0.11.0, not yet published). See the note below |
+| `useBatchEstimate` | **No route yet** — `ESTIMATE_WORKFLOW_BATCH` is a bridge message, and no `/api/v1/blocks/*` route prices a batch. Over REST, price each body with `POST /api/v1/blocks/workflows/estimate` |
+| `useBlockAnalytics` | **Keep** — a bridge message with no route. Its events are recorded once your manifest declares them; `@civitai/sdk`'s `app.host.track()` sends the same message (from 0.11.0). See the note below |
 | `useBlockBreakpoint` | Local — element measurement, keep as is |
 | `useBlockContext` | **Keep** — the handshake payload arrives over the bridge and has no route |
 | `useBlockResize` | **Keep** — host UI; only the host can size your frame |
@@ -301,8 +302,7 @@ Two things to do when you port:
   an undeclared event is counted as a drop and its name is not stored.
 - **Move the calls, don't drop them.** `TRACK_EVENT` has no REST route. If you
   are moving to `@civitai/sdk`, `app.host.track(eventName, properties)` sends
-  the same message, but it is added in `@civitai/sdk` 0.11.0, which is not yet
-  published to npm. Until then keep `useBlockAnalytics()` for these calls.
+  the same message (`@civitai/sdk` 0.11.0 or later).
 
 See [Custom events](./custom-events) for the declaration, the limits and where
 the numbers show up.
@@ -483,7 +483,7 @@ Document these as gaps; do not design around them yet.
 |---|---|
 | `useImageUpload` / `OPEN_IMAGE_UPLOAD` | No REST twin, and deliberately so — it raises host UI. `@civitai/sdk` exposes it as `host.openImageUpload` (since 0.3.0, either credential), which is the same bridge message behind a different package. |
 | `usePublishGenerationOutputs` | Same shape, and staying on the bridge by design — host chrome is the consent control. `@civitai/sdk`'s `host.publishGenerationOutputs` (also 0.3.0) is the same message. |
-| `useBlockAnalytics` / `TRACK_EVENT` | No REST twin — a fire-and-forget bridge message, recorded only when the manifest declares the event. `@civitai/sdk` carries it as `host.track` from 0.11.0 (not yet published). See [Custom events](./custom-events). |
+| `useBlockAnalytics` / `TRACK_EVENT` | No REST twin — a fire-and-forget bridge message, recorded only when the manifest declares the event. `@civitai/sdk` carries it as `host.track` from 0.11.0. See [Custom events](./custom-events). |
 | Anonymous app-storage reads | REST returns 403 where the bridge resolved a read to `null`; handle both. |
 | `useBuzzAccounts`, `useBuzzTransactions`, `useDailyCompensation`, `useWildcardPack` | Not carried. |
 

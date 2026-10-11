@@ -2,11 +2,11 @@
 title: The @civitai/sdk client
 description: What a block does with @civitai/sdk — initialize(), what app.onChange fires on (token rotations included, hence build the view once and update it in place), app.host.autoResize (model slots only), app.site, app.requestGrants and its four outcomes, and the idempotency key every money call needs.
 sources:
-  - npm:@civitai/sdk@0.10.2/dist/index.d.ts
-  - npm:@civitai/sdk@0.10.2/dist/app/index.d.ts
-  - npm:@civitai/sdk@0.10.2/dist/host/index.d.ts
-  - npm:@civitai/sdk@0.10.2#README
-  - npm:@civitai/app-sdk@0.63.0/blocks#isValidBlockIdempotencyKey
+  - npm:@civitai/sdk@0.11.0/dist/index.d.ts
+  - npm:@civitai/sdk@0.11.0/dist/app/index.d.ts
+  - npm:@civitai/sdk@0.11.0/dist/host/index.d.ts
+  - npm:@civitai/sdk@0.11.0#README
+  - npm:@civitai/app-sdk@0.64.0/blocks#isValidBlockIdempotencyKey
   - civitai:src/pages/api/v1/blocks/workflows/submit.ts
 ---
 
@@ -243,7 +243,7 @@ async function askConsent(app: BlockAppClient, scopes: Scope[]): Promise<boolean
 ```
 
 `Scope` is a typed union, so a misspelt scope fails to compile. In
-`@civitai/sdk@0.10.2` it does **not** include the goods scopes
+`@civitai/sdk@0.11.0` it does **not** include the goods scopes
 (`goods:purchase:self`, `goods:read:self`) or `apps:store:items:write`, so
 asking for one needs a cast: `'goods:purchase:self' as Scope`. (The sub-listings
 scope is consent-exempt, so there is nothing to ask for.)

@@ -2,9 +2,9 @@
 title: Hooks reference
 description: Every @civitai/blocks-react hook — signature, example and README notes, generated from the published package.
 sources:
-  - npm:@civitai/blocks-react@0.67.1/dist/index.d.ts
-  - npm:@civitai/blocks-react@0.67.1#README
-  - npm:@civitai/app-sdk@0.63.0/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.68.0/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.68.0#README
+  - npm:@civitai/app-sdk@0.64.0/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
 
@@ -336,7 +336,7 @@ if (priced) {
 }
 ```
 
-```md
+````md
 **Status semantics** (gotcha #8/#9/#10):
 
 - `status === 'confirming'` is **IDLE** (estimate landed, user reviewing the
@@ -433,6 +433,46 @@ if (priced) {
   prices a cache hit at 0). `estimate` resolves it; only a non-numeric
   `cost.total` rejects.
 
+#### Showing the app fee: `cost.authorFee`
+
+`cost.total` is what the viewer pays and **already includes the app author's
+per-generation fee**. `cost.authorFee` is that fee on its own, in whole Buzz, so
+`total - authorFee` is the generation's price. It is display only.
+
+```tsx
+import type { BlockWorkflowSnapshot, WorkflowBody } from '@civitai/app-sdk/blocks';
+
+const { estimate } = useBuzzWorkflow();
+declare const body: WorkflowBody;
+
+function priceLine(cost: NonNullable<BlockWorkflowSnapshot['cost']>): string {
+  // Absent = not itemised. Show the total alone; do NOT treat it as a 0 fee.
+  if (cost.authorFee === undefined) return `${cost.total} Buzz`;
+  // 0 = a fee was looked up and none applies to this request.
+  if (cost.authorFee === 0) return `${cost.total} Buzz (no app fee)`;
+  const generation = cost.total - cost.authorFee;
+  return `${cost.total} Buzz (generation ${generation} + app fee ${cost.authorFee})`;
+}
+
+const quote = await estimate(body); // rejects without a usable price — see above
+if (quote.cost) showPrice(priceLine(quote.cost));
+```
+
+| `cost.authorFee` | Means | Where |
+|---|---|---|
+| a number `> 0` | that much of `total` is the app fee | `estimate()` for a `textToImage` or registered-`step` body, and the refusal `submit()` resolves for those kinds when a budget, spend cap or rate limit refuses the quoted price |
+| `0` | a fee was looked up and none applies to this request | the same replies |
+| absent | the total is **not itemised** | a host that predates the field; every snapshot of a submitted workflow (`submit` success, `poll`, `cancel`), whose `total` is the generation's realized cost with the fee charged separately; the registered-`step` `submit()` refusal for a missing orchestrator price quote, which refuses before any fee is looked up; and `customComfy`, pass-through `step` and `training` quotes, which price no fee |
+
+- **Against an older host the field is simply absent.** Nothing else changes:
+  `total` has the same value with or without it, so an app that never reads
+  `authorFee` is unaffected.
+- **Test all three locally** with the mock host's `generation.authorFee`
+  (`createMockHost({ generation: { costPerGen: 40, authorFee: 5 } })`, or
+  `?authorFee=5` in the dev harness): a number itemises it, the default `0`
+  reports `authorFee: 0`, and `authorFee: false` (`?authorFee=off`) leaves it
+  out, as an older host does.
+
 > **Estimate must mirror submit** (gotcha #59): build the params for `estimate`
 > with the *exact* same logic as `submit` — same seed decision especially. The
 > orchestrator whatif prices a cache hit (identical workflow) at 0 and a fresh
@@ -444,6 +484,171 @@ if (priced) {
 > stops spending Buzz. Before that, cancel was client-side only (stop polling). If
 > your installed version predates 0.5.0, do the client-side half and add the
 > `cancel(...)` call after upgrading.
+````
+
+**`useBatchEstimate`**
+
+```ts
+useBatchEstimate(): UseBatchEstimate
+```
+
+```md
+Price a grid of generations in one request. `estimateBatch(bodies)` takes a list
+of workflow bodies, each exactly what `useBuzzWorkflow().estimate()` takes, and
+resolves with one cell per body, in order, plus the run total. Returns
+`{ estimateBatch, pending, result, error }`.
+
+- **One request against the estimate allowance** however many cells it carries.
+  On a page app that allowance is shared by every viewer of the app and by the
+  host's other reads for it, so a 16-cell grid priced cell by cell used 16 of it.
+- **At most 16 bodies per call** (`BATCH_ESTIMATE_MAX_CELLS`). Price a larger grid
+  in several calls.
+- **Cells are metered too**, against an allowance of their own that is shared
+  the same way (on a page app, by every viewer of the app), so a batch is not a
+  way around the estimate allowance. A call over either limit is refused whole:
+  it rejects with `BatchEstimateError` code `'failed'`. Retry in a few seconds.
+- **Every rule of a single estimate applies to each cell.** A cell that one
+  `estimate()` would reject comes back as `ok: false` with the same
+  `WorkflowEstimateError`, and the other cells still price.
+- **`kind: 'training'` bodies are refused per cell.** Estimate a training run
+  with `useBuzzWorkflow().estimate()`.
+- **Estimate only.** Nothing is submitted and no Buzz is held or spent. There is
+  no batch submit, watch or cancel. Submit each cell with
+  `useBuzzWorkflow().submit()`, which asks the viewer and checks the budget per
+  cell. `aggregate.total` is a quote, not a lock: each cell is priced again when
+  it is submitted.
+
+`aggregate.total` sums the cells that priced. It covers the whole grid only when
+`aggregate.pricedCells === aggregate.cellCount`; otherwise show it as a partial
+total.
+
+**The host bounds the time one call takes.** If its budget runs out, the call
+still resolves: the cells that priced are returned, and every other cell is
+`ok: false` with `timedOut: true`. Show those cells as unavailable and let the
+viewer retry later. Branch on `timedOut`, not on `snapshot.error`: the host's
+wording is not a contract.
+
+`estimateBatch` rejects with `BatchEstimateError` only when the whole call
+failed. Branch on `err.code`:
+
+| `code` | Meaning | What to do |
+|---|---|---|
+| `'unsupported'` | The host answered `unsupported on this host`. | Price each cell with `estimate()`. |
+| `'timeout'` | No reply in time. A host that supports the batch replies within its own time budget, well inside the default wait, so this usually means a slow host, not an old one. | Show the estimate as unavailable and retry later. **Do not** fall back to one `estimate()` per cell: that sends up to 16 more estimates at a host that is already slow. |
+| `'invalid-request'` | Empty list, or more than 16 bodies. Refused before sending. | Fix the list. |
+| `'failed'` | Any other whole-call refusal: the scope, a rate limit, review preview. The reason is on `err.hostError`; log it, don't render it. | Show your own copy and retry later. |
+
+A 2 × 2 grid (two prompts × two checkpoints), falling back to per-cell estimates
+only on a host that answers `'unsupported'`:
+```
+
+```tsx
+import { useState } from 'react';
+import type { WorkflowBody } from '@civitai/app-sdk/blocks';
+import {
+  BatchEstimateError,
+  useBatchEstimate,
+  useBuzzWorkflow,
+  WorkflowEstimateError,
+} from '@civitai/blocks-react';
+
+const PROMPTS = ['a lighthouse at dusk', 'a lighthouse in fog'];
+const CHECKPOINTS = [
+  { modelId: 101, modelVersionId: 1001 },
+  { modelId: 202, modelVersionId: 2002 },
+];
+
+/** One cell's quote: a price, or why it has none. */
+type CellQuote = { total: number } | { unavailable: string };
+
+export function GridQuote() {
+  const { estimateBatch } = useBatchEstimate();
+  const { estimate } = useBuzzWorkflow();
+  const [quotes, setQuotes] = useState<CellQuote[]>([]);
+  const [runTotal, setRunTotal] = useState<number | null>(null);
+
+  const bodies: WorkflowBody[] = PROMPTS.flatMap((prompt) =>
+    CHECKPOINTS.map((cp) => ({ kind: 'textToImage' as const, ...cp, params: { prompt } })),
+  );
+
+  // Your copy, chosen by `code` (and, for a batch cell, `timedOut`). Never
+  // render or match `err.message` or `snapshot.error`.
+  const why = (err: WorkflowEstimateError, timedOut = false) =>
+    timedOut
+      ? 'Price not ready, try again shortly'
+      : err.code === 'no-cost'
+        ? 'No price for this cell'
+        : 'This cell cannot run';
+
+  async function priceGrid() {
+    try {
+      const { cells, aggregate } = await estimateBatch(bodies);
+      setQuotes(
+        cells.map((c) => (c.ok ? { total: c.cost.total } : { unavailable: why(c.error, c.timedOut) })),
+      );
+      setRunTotal(aggregate.pricedCells === aggregate.cellCount ? aggregate.total : null);
+      return;
+    } catch (err) {
+      if (!(err instanceof BatchEstimateError)) throw err;
+      if (err.code !== 'unsupported') {
+        // 'timeout' is a slow host, not an old one: never fan out per cell here.
+        setQuotes([]);
+        setRunTotal(null);
+        return; // show "pricing unavailable, try again" in your UI
+      }
+    }
+    // This host has no batch estimate: one estimate() per cell, as before.
+    const fallback: CellQuote[] = [];
+    for (const body of bodies) {
+      try {
+        const snapshot = await estimate(body);
+        fallback.push({ total: snapshot.cost!.total });
+      } catch (err) {
+        if (!(err instanceof WorkflowEstimateError)) throw err;
+        fallback.push({ unavailable: why(err) });
+      }
+    }
+    setQuotes(fallback);
+    const priced = fallback.filter((q): q is { total: number } => 'total' in q);
+    setRunTotal(
+      priced.length === fallback.length ? priced.reduce((sum, q) => sum + q.total, 0) : null,
+    );
+  }
+
+  return (
+    <div>
+      <button onClick={() => void priceGrid()}>Price grid</button>
+      <ul>
+        {quotes.map((q, i) => (
+          <li key={i}>{'total' in q ? `${q.total} Buzz` : q.unavailable}</li>
+        ))}
+      </ul>
+      {runTotal !== null && <p>Run total: {runTotal} Buzz</p>}
+    </div>
+  );
+}
+```
+
+```md
+The fallback spends one request of the shared allowance per cell, which is why
+the batch exists. Each submit stays per cell: call `submit(bodies[i])` for each
+cell the viewer confirms.
+
+A host that predates the batch message never replies, so the call ends in
+`'timeout'` after the full wait. Only if your app must support such a host,
+detect it with a deliberate probe: send a one-body batch once with a short
+`{ timeoutMs }`, and treat only that probe's `'timeout'` as "no batch support".
+Any other `'timeout'` is a slow host.
+
+**Mock host:** `createMockHost` and `Harness` price each cell exactly as they
+price one `estimate()` of that body (`costPerGen` and `failEstimate` apply per
+cell). Set `generation.batchEstimate` to `'unsupported'` to test the fallback,
+or to `'silent'` to test a call that never gets a reply (pass a short
+`timeoutMs` in a test). Set `generation.batchEstimateTimedOutCells` to a list
+of cell indices to answer those cells the way the host does when its time
+budget runs out (`ok: false`, `timedOut: true`). **`dev:live`** forwards the call to civitai.com, so against
+a civitai.com that predates the batch procedure it rejects with `'failed'`
+rather than `'unsupported'`.
 ```
 
 **`useBuzzPurchase`**
@@ -1102,6 +1307,68 @@ await shared.unvote(key);
 await shared.withdraw(key);                            // remove my own entry
 ```
 
+````md
+#### Shared-storage write limits
+
+Every write is budgeted per **(viewer, app)** on the server. One viewer
+exhausting their budget in your app costs them nothing in another app, and
+re-minting the block token does not reset it.
+
+| Writes | Budget |
+|---|---|
+| `append` + `update` (one shared budget) | a **burst of 10**, refilling **1 every 6 minutes**, and a **daily bucket of 50**, refilling continuously (one every ~29 minutes). A write needs a token from both. |
+| — writes the server **refused** (moderation block, the 50-entry cap, quota, not found, …) | also charged to a **rejection bucket of 10**, refilling **1 every 30 minutes**. No `append`/`update` is accepted while it is empty. Concurrent refused writes can drive it into debt, down to −10, which has to refill first. |
+| `vote` + `unvote` | 30 a minute, shared |
+| `withdraw` | 30 a minute |
+| `report` | 20 a day |
+
+Only writes that **land** spend the `append`/`update` budget: a write that fails
+without landing gets its token back. The few failures the platform marks as its
+own fault are refunded without a rejection charge too.
+
+> The `append`/`update` budget above goes live with the next civitai.com
+> release. Until then the live limit is a fixed window of **20 posts + edits a
+> day** per (viewer, app). The vote, withdraw and report limits, and the retry
+> metadata below, are already live.
+
+A write refused for budget arrives with retry metadata, and the hook rejects with
+**`SharedStorageRateLimitError`**. It extends the plain `Error` every other
+refusal is thrown as, so existing `catch` code keeps working, and `.message` is
+still the server's text (`Too many submissions — retry in 312s`, or `votes`,
+`withdrawals`, `reports`). Branch on the class to render the wait instead of
+parsing the message:
+
+```tsx
+import { SharedStorageRateLimitError, useSharedStorage } from '@civitai/blocks-react';
+
+const shared = useSharedStorage();
+try {
+  await shared.append({ title: 'Add dark mode' });
+} catch (err) {
+  if (err instanceof SharedStorageRateLimitError) {
+    // err.retryAt: ISO-8601 instant a retry can succeed; err.retryAfterSeconds: whole seconds, ≥ 1.
+    const at = new Date(err.retryAt).toLocaleTimeString();
+    showNotice(`You're posting fast. Try again at ${at}.`);
+  } else {
+    throw err;
+  }
+}
+```
+
+- **Don't retry before `retryAt`.** A refused retry gets nothing, and once the
+  budget is empty every attempt is refused until it refills.
+- **Absent metadata is not "retry now".** A host that predates it, or a refusal
+  that is not a rate limit, throws the plain `Error`. The hook also ignores a
+  malformed `rateLimit` and throws the plain `Error`, rather than hand you
+  something you would render.
+- On the wire the refusal reply is `{ requestId, error, rateLimit?: { retryAfterSeconds, retryAt } }`
+  (type `SharedStorageRateLimit` in `@civitai/app-sdk/blocks`) on the six write
+  replies.
+- `createMockHost({ shared: { rateLimitNext: 1, rateLimit: { retryAfterSeconds: 312 } } })`
+  refuses the next write this way, so you can test the branch locally
+  (`setScenario({ shared: { rateLimitNext } })` arms it mid-session).
+````
+
 **`useCheckpointPicker`**
 
 ```ts
@@ -1148,7 +1415,7 @@ if (isModelSlotContext(context) && context.checkpoint) {
 useResourcePicker(): UseResourcePicker
 ```
 
-Drive the platform resource picker for page blocks — `'Checkpoint' | 'LORA'`. The viewer searches in host chrome; the block only ever sees the one resource it picked. DISCOVERY ONLY — the returned `versionId` is re-validated + re-priced server-side at estimate/submit. 🔴 **OMIT `baseModelGroup` BY DEFAULT, and never pass a HARDCODED ecosystem.** It is an ecosystem-family FILTER, not a label: the host hides every resource outside the family you pass, so a literal ecosystem string makes the viewer's own valid LoRAs invisible and the picker look empty or broken. Omit it for an unconstrained pick and the viewer sees everything of that type. Pass it ONLY when the block already holds a chosen checkpoint the pick has to match, and then DERIVE it from that checkpoint (`checkpoint.baseModel`). For stack and matrix apps that pair LoRAs with a checkpoint, this is the recommended pattern: a derived family keeps incompatible LoRAs out of the picker. This hook is PAGE-ONLY, and a page slot has no `context.checkpoint` (that field lives on `ModelSlotContext` alone), so the family comes from `BlockResourceInfo.baseModel`, the `baseModel` of a Checkpoint a picker returned earlier. For a complete multi-LoRA app, see [`starters/examples/generate-studio`](https://github.com/civitai/civitai-app-starters/tree/main/starters/examples/generate-studio): `src/components/ModelSection.tsx` opens the picker once per LoRA slot, up to `MAX_LORAS`, with a `baseModelGroup` derived from the selected checkpoint, and `keepCompatibleLoras` (`src/studio/setup.ts`) re-filters the stack when the checkpoint changes, dropping LoRAs made for another family.
+Drive the platform resource picker for page blocks — `'Checkpoint' | 'LORA'`. The viewer searches in host chrome; the block only ever sees what the viewer picked: one resource, or with `multiple` the few LoRAs they chose. DISCOVERY ONLY — a returned `versionId` is re-validated + re-priced server-side at estimate/submit. 🔴 **OMIT `baseModelGroup` BY DEFAULT, and never pass a HARDCODED ecosystem.** It is an ecosystem-family FILTER, not a label: the host hides every resource outside the family you pass, so a literal ecosystem string makes the viewer's own valid LoRAs invisible and the picker look empty or broken. Omit it for an unconstrained pick and the viewer sees everything of that type. Pass it ONLY when the block already holds a chosen checkpoint the pick has to match, and then DERIVE it from that checkpoint (`checkpoint.baseModel`). For stack and matrix apps that pair LoRAs with a checkpoint, this is the recommended pattern: a derived family keeps incompatible LoRAs out of the picker. This hook is PAGE-ONLY, and a page slot has no `context.checkpoint` (that field lives on `ModelSlotContext` alone), so the family comes from `BlockResourceInfo.baseModel`, the `baseModel` of a Checkpoint a picker returned earlier. For a complete multi-LoRA app, see [`starters/examples/generate-studio`](https://github.com/civitai/civitai-app-starters/tree/main/starters/examples/generate-studio): `src/components/ModelSection.tsx` fills one LoRA slot per picker session, up to `MAX_LORAS`, with a `baseModelGroup` derived from the selected checkpoint, and `keepCompatibleLoras` (`src/studio/setup.ts`) re-filters the stack when the checkpoint changes, dropping LoRAs made for another family. To fill several slots in ONE session, use `multiple` (below).
 
 ```tsx
 const { open } = useResourcePicker();
@@ -1174,6 +1441,45 @@ if (checkpoint) {
   });
 }
 ```
+
+**Several LoRAs in one session — `multiple: { max }`.** The viewer stages up to
+`max` LoRAs in the picker and confirms once; `open` resolves with a **list**, in
+the order the viewer picked them, instead of a single resource. Dismissing
+resolves with `[]`.
+
+```tsx
+const { open } = useResourcePicker();
+
+const loras = await open({ resourceType: 'LORA', multiple: { max: 3 } });
+// [] when dismissed; otherwise up to 3 BlockResourceInfo, in pick order
+const additionalResources = loras.map((lora) => ({
+  modelVersionId: lora.versionId,
+  strength: lora.strength ?? 1,
+}));
+```
+
+- **LoRA only.** `multiple` with `resourceType: 'Checkpoint'` is a type error and
+  rejects at runtime — it is never quietly treated as a single pick.
+- **`max` is a whole number of at least 1, capped at 5** (the cap on
+  `additionalResources`, exported as `RESOURCE_PICKER_MULTIPLE_MAX`). A larger
+  value is clamped to 5; `0`, a negative or a fraction rejects.
+- **`baseModelGroup` works the same** — pass the family derived from the
+  checkpoint the block holds and every LoRA offered matches it.
+- **Each entry is the same `BlockResourceInfo`** a single pick returns, and every
+  id is still re-validated at estimate/submit.
+- **Without `multiple`, nothing changes**: `open` resolves with one resource or
+  `null`, exactly as before.
+- **On a host that predates multi-select** the viewer gets the single-pick
+  picker, and `open` still resolves with a list: of the one LoRA they picked, or
+  `[]`. The result does not say which kind of host answered, so a one-item
+  list is not a signal to open the picker again: on a current host it means the
+  viewer chose one. Let the viewer add more with their own action instead.
+
+With the mock host — `createMockHost` or `Harness` from
+`@civitai/blocks-react/testing` — a `multiple` request resolves with two curated
+LoRAs by default. Pass `cannedMultiPicks: [...]` to choose the list (it is cut to
+the request's `max`), or `cannedMultiPicks: null` for a dismissed picker. The mock
+answers a raw `multiple` + Checkpoint request with the host's error.
 ````
 
 **`useImageUpload`**
@@ -1449,12 +1755,60 @@ produces from the call a block actually makes.
 useBlockAnalytics(): UseBlockAnalytics
 ```
 
-Fire-and-forget event tracking into the host's analytics pipeline.
+Custom events for your app's analytics panel. Fire-and-forget: no reply, no acknowledgement.
 
 ```tsx
 const { track } = useBlockAnalytics();
-track('generate_clicked', { modelId });
+track('generate_clicked', { mode: 'txt2img', batch: 4 });
 ```
+
+````md
+🔴 **Only what your manifest DECLARES is recorded.** Declare every event, and
+every property it carries, under `analytics.events` in `block.manifest.json`.
+Events are accepted against the APPROVED manifest, so a reviewer sees what your
+app tracks:
+
+```json
+"analytics": {
+  "events": {
+    "generate_clicked": {
+      "description": "User pressed Generate",
+      "properties": {
+        "mode": { "type": "enum", "values": ["txt2img", "img2img"] },
+        "batch": { "type": "number" },
+        "advanced": { "type": "boolean" }
+      }
+    }
+  }
+}
+```
+
+| You send | Production |
+|---|---|
+| A declared event, declared properties of the declared type | Recorded |
+| An event the manifest does not declare | Counted as a drop; its name and properties are not stored |
+| A property the event does not declare | Dropped; the rest of the event is recorded |
+| A value of the wrong type, or a string that is not one of the enum's values | Dropped; the rest of the event is recorded |
+
+- **Types are `enum`, `number` and `boolean`.** There is no free-text string, so
+  a prompt, an email or a username cannot be recorded. A `number` is not
+  range-limited: do not use one to carry an identifier.
+- **Names** are lowercase snake_case (a letter, then up to 63 of `a-z`, `0-9`,
+  `_`). At most 50 events per app and 10 properties per event.
+- **Limits.** Each mount of your app may send 10 events a second and 500 in
+  total, in bodies of at most 32 KiB. An event over a limit is dropped in the
+  browser and counted nowhere, so the panel's numbers are floors.
+- **Where.** Events are recorded only from the production site.
+- **What owners see.** Aggregates in the app's analytics panel: per declared
+  event, counts, unique signed-in viewers and property breakdowns. Signed-out
+  viewers are counted as events, never identified. The team's own activity is
+  excluded by default. Individual events are never shown.
+
+**Check it locally.** Pass your manifest to `createLiveHost` (see
+[`/live`](#in-a-devlive-harness)); in `dev:live` the console then warns once per
+undeclared event, undeclared property, or value of the wrong type. Every
+`starters/examples/*` harness does this.
+````
 
 **`useRequestSignIn`**
 
@@ -1753,7 +2107,7 @@ reads member-specific fields, so every member except `training` flows through th
 same `estimate → submit → watch` lifecycle shown above. `training` is quoted with
 `estimate()` but run with `useRunTraining()`, and `submit()` refuses it.
 
-As of the pinned `@civitai/app-sdk@0.63.0` the union has four `kind` values, and
+As of the pinned `@civitai/app-sdk@0.64.0` the union has four `kind` values, and
 `kind: 'step'` is itself two arms — five members in all:
 
 | `kind` | what it runs | what your block sends |

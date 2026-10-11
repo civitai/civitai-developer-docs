@@ -2,7 +2,7 @@
 title: Custom events (analytics)
 description: Send custom analytics events from an app — declare each event and its properties under analytics.events in the manifest, send them with useBlockAnalytics().track() or app.host.track(), what the platform records and drops, the per-mount limits, and where owners see the aggregates.
 sources:
-  - npm:@civitai/blocks-react@0.67.1#useBlockAnalytics
+  - npm:@civitai/blocks-react@0.68.0#useBlockAnalytics
   - civitai-app-starters:packages/civitai-blocks-react/src/hooks/useBlockAnalytics.ts
   - civitai-app-starters:packages/civitai-sdk/README.md#custom-events
   - civitai-app-starters:packages/civitai-sdk/BREAKING.md#TRACK_EVENT
@@ -90,16 +90,11 @@ With [`@civitai/sdk`](./sdk), use `app.host.track(eventName, properties)`. It
 sends the same message (`TRACK_EVENT`) and is recorded the same way.
 
 ```ts
-// @ts-skip-snippet: app.host.track is added in @civitai/sdk 0.11.0, newer than the version these docs pin
 const app = await initialize();
 app.host.track('generate_clicked', { mode: 'txt2img', batch: 4 });
 ```
 
-::: warning `app.host.track` needs the next `@civitai/sdk` release
-`app.host.track` is added in `@civitai/sdk` 0.11.0, which is not yet published
-to npm. The published 0.10.x has no `track`. Until 0.11.0 is out, send events
-with `useBlockAnalytics()`.
-:::
+`app.host.track` needs `@civitai/sdk` 0.11.0 or later; 0.10.x has no `track`.
 
 Both calls are **fire-and-forget**. They return nothing, there is no reply, and
 nothing tells your app whether an event was recorded, so never wait for one or
@@ -157,12 +152,11 @@ many were dropped.
 
 ## Check your events locally
 
-`dev:live` records nothing, but it can tell you what production would drop. In
-the next `@civitai/blocks-react` release (0.68.0, not yet published to npm),
-`createLiveHost` takes your manifest: pass your imported `block.manifest.json`
-as `createLiveHost({ blockToken, manifest })`. The console then warns once for
-each undeclared event, undeclared property, or value of the wrong type. A valid
-event logs nothing.
+`dev:live` records nothing, but it can tell you what production would drop. From
+`@civitai/blocks-react` 0.68.0, `createLiveHost` takes your manifest: pass your
+imported `block.manifest.json` as `createLiveHost({ blockToken, manifest })`.
+The console then warns once for each undeclared event, undeclared property, or
+value of the wrong type. A valid event logs nothing.
 
 ## Next
 
