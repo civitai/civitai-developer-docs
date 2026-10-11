@@ -122,7 +122,7 @@ Fields and defaults not listed here are as in the overview's [common parameters]
 | `lr` | `0.0001` | `0.0002` is a typical override for video; see example. |
 | `trainTextEncoder` | `false` | Leave off — Wan training does not benefit from text-encoder updates. |
 | `triggerWord` | *(none)* | Some video ecosystems reject `triggerWord` — leave it empty if you see schema rejections. |
-| `trainingData` | ✅ | `type: "zip"`. Images, video clips, or a mix; the example uses an image dataset. |
+| `trainingData` | ✅ | Images, video clips, or a mix; the example uses an image dataset. |
 | `samples.prompts[]` | `[]` | Preview videos rendered at each saved checkpoint with the trained LoRA. |
 
 ## Reading the result

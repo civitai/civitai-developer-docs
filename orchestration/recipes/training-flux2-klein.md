@@ -304,7 +304,7 @@ Fields and defaults not listed here are as in the overview's [common parameters]
 | `lr` | `0.0001` | Klein is sensitive to high LRs — keep in `1e-4`–`5e-4`. |
 | `trainTextEncoder` | `false` | Klein uses Qwen-3 as its text encoder; AI Toolkit does not train it. Leave `false`. |
 | `networkDim` | `32` | Klein LoRAs are typically `16`–`32`. |
-| `trainingData.count` | ✅ | For edit training, `count` should equal the number of `main/` entries. |
+| `trainingData.count` | ✅ (zip) | For edit training, `count` should equal the number of `main/` entries. |
 | `samples.sourceImages[]` | `[]` | Edit-training only — reference images for sample renders. |
 
 ## Reading the result

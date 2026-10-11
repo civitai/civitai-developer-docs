@@ -140,22 +140,17 @@ A result arrives in the workflow envelope that [`GetWorkflow`](/orchestration/re
 }
 ```
 
-Blob URLs (`url`, `previewUrl`) are signed and expire. Refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL rather than caching one, and download the bytes if you need to keep them — see [Blobs in results](/orchestration/guide/results-and-webhooks#blobs-in-results).
-
-### Cost
-
-Recipes bill in Buzz, recorded on the workflow's `transactions`. Submit with `whatif=true` to preview the exact charge without running anything; [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) covers currency selection.
+Blob URLs (`url`, `previewUrl`) are signed and expire at `urlExpiresAt` — see [Blobs in results](/orchestration/guide/results-and-webhooks#blobs-in-results).
 
 ### Troubleshooting {#common-troubleshooting}
 
-These apply to every recipe; each page's own table covers the rest.
+These apply to every recipe; each page's own table covers the rest. For an expired blob URL, see [Errors & retries → Common gotchas](/orchestration/guide/errors-and-retries#common-gotchas).
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| Request timed out (`wait` expired), or `202` with a non-terminal status | The job outlasted the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — typically a large `quantity`, large or atypical dimensions, high `steps`, a premium tier, or a busy provider queue | Resubmit with `wait=0` and poll [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow), or register a [webhook](/orchestration/guide/results-and-webhooks). |
+| Request timed out (`wait` expired), or `202` with a non-terminal status | The job outlasted the [request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) | Submit with `wait=0`, then [poll](/orchestration/guide/results-and-webhooks#polling-fallback) or use a [webhook](/orchestration/guide/results-and-webhooks). |
 | Step `failed`, `reason = "blocked"` | The prompt or an input hit content moderation (the provider's filter or Civitai's) | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
-| Blob URL `403` after a few minutes | The signed URL expired | Refetch the workflow, or call [`GetBlob`](/orchestration/reference/operations/GetBlob), for a fresh URL. |
 
 ### OpenAPI specs
 
-Each per-recipe endpoint publishes a standalone OpenAPI 3.1 YAML at `https://orchestration.civitai.com/v2/consumer/recipes/<recipe>/openapi.yaml` (for example [`imageGen`](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml)), ready to import into Postman, Insomnia or OpenAPI Generator. Each recipe's Related section links its own.
+Each per-recipe endpoint publishes a standalone OpenAPI 3.1 YAML at `https://orchestration.civitai.com/v2/consumer/recipes/<recipe>/openapi.yaml` (for example [`imageGen`](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml)), ready to import into Postman, Insomnia or OpenAPI Generator. `<recipe>` is the name in the recipe's `POST /v2/consumer/recipes/<recipe>` endpoint (e.g. `videoGen`, `training`, `transcription`).

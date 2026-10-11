@@ -57,7 +57,7 @@ Common uses:
 Use the per-recipe endpoint when you're upscaling a single video and don't need webhooks or multi-step chaining:
 
 ```http
-POST https://orchestration.civitai.com/v2/consumer/recipes/videoUpscaler?wait=0
+POST https://orchestration.civitai.com/v2/consumer/recipes/videoUpscaler
 Authorization: Bearer <your-token>
 Content-Type: application/json
 
@@ -68,10 +68,10 @@ Content-Type: application/json
 
 <RecipeRun :body="recipeBody" path="/v2/consumer/recipes/videoUpscaler" :wait="0" />
 
-Defaults apply `scaleFactor: 2`. The response is a full [`Workflow`](/orchestration/reference/operations/GetWorkflow) whose single step carries the upscaled video blob.
+Defaults apply `scaleFactor: 2`. The recipe endpoint blocks until the step finishes and returns the step output directly — the `video` blob described in [Reading the result](#reading-the-result).
 
-::: tip Use `wait=0` for video
-FlashVSR on a multi-second clip almost always exceeds the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline). Submit with `wait=0`, then poll or [subscribe via webhook](/orchestration/guide/results-and-webhooks).
+::: tip Long clips: use the generic endpoint
+FlashVSR on a multi-second clip almost always exceeds the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline). Submit through the [generic workflow endpoint](#via-the-generic-workflow-endpoint) with `wait=0`, then poll or [subscribe via webhook](/orchestration/guide/results-and-webhooks).
 :::
 
 ## Via the generic workflow endpoint
@@ -226,7 +226,7 @@ Always run `whatif=true` before a large upscale — the polynomial grows fast on
 
 ## Runtime
 
-FlashVSR is GPU-heavy and scales with both source resolution *and* duration. A 5-second 720p clip at `scaleFactor: 2` typically takes a few minutes end-to-end including queue time; `scaleFactor: 4` can easily be 10×+ that. Always submit with `wait=0` plus [webhooks or polling](/orchestration/guide/results-and-webhooks) — a synchronous `wait=90` will almost always time out on real inputs.
+FlashVSR is GPU-heavy and scales with both source resolution *and* duration. A 5-second 720p clip at `scaleFactor: 2` typically takes a few minutes end-to-end including queue time; `scaleFactor: 4` can easily be 10×+ that. Submit through the [generic workflow endpoint](#via-the-generic-workflow-endpoint) with `wait=0` plus [webhooks or polling](/orchestration/guide/results-and-webhooks) — a synchronous call will almost always time out on real inputs.
 
 ## Troubleshooting
 

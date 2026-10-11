@@ -181,7 +181,7 @@ Defaults apply to both LTX ecosystems. Fields and defaults not listed here are a
 | `continueFrom` | *(none)* | A LoRA of the same ecosystem (`urn:air:ltx2:lora:...` / `urn:air:ltx23:lora:...`) to resume from. |
 | `lr` | `0.0001` | LTX2 examples often use `0.0002`; LTX 2.3 typically `0.0001`. |
 | `trainTextEncoder` | `false` | Leave off — LTX text encoder is not retrained by AI Toolkit. |
-| `trainingData` | ✅ | `type: "zip"`. Images, video clips, or a mix; the example uses an image dataset. |
+| `trainingData` | ✅ | Images, video clips, or a mix; the example uses an image dataset. |
 | `samples.prompts[]` | `[]` | Preview videos rendered at each saved checkpoint. |
 
 ## Reading the result

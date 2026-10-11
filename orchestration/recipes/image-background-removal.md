@@ -52,7 +52,7 @@ Common uses:
 Use the per-recipe endpoint when you're processing one image and don't need webhooks or multi-step chaining:
 
 ```http
-POST https://orchestration.civitai.com/v2/consumer/recipes/imageBackgroundRemoval?wait=60
+POST https://orchestration.civitai.com/v2/consumer/recipes/imageBackgroundRemoval
 Authorization: Bearer <your-token>
 Content-Type: application/json
 
@@ -172,7 +172,7 @@ Blob URLs expire — see [Reading results](/orchestration/recipes/#reading-resul
 
 ## Runtime
 
-Execution is dominated by a fixed cost: the segmentation mask always runs at 1024×1024 regardless of source size, so wall time moves only slightly with resolution — roughly 5 s of GPU execution plus ~0.6 s per megapixel of source, before queue and container overhead. A single request comfortably fits `wait=60`.
+Execution is dominated by a fixed cost: the segmentation mask always runs at 1024×1024 regardless of source size, so wall time moves only slightly with resolution — roughly 5 s of GPU execution plus ~0.6 s per megapixel of source, before queue and container overhead. A single request returns well within the request timeout.
 
 Resubmitting the same image + format typically serves the previous output from cache — see [Workflows → Result caching](/orchestration/guide/workflows#result-caching).
 

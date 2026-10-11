@@ -243,7 +243,7 @@ Content-Type: application/json
 
 <RecipeRun :body="chromaBody" :wait="0" />
 
-Chroma defaults: `networkDim: 16`, `optimizerType: adamw8bit`, `trainTextEncoder: false`, `lrScheduler: cosine`. Default price 2000 Buzz.
+Chroma defaults: `networkDim: 16`, `optimizerType: adamw8bit`, `trainTextEncoder: false`, `lrScheduler: constant`. Default price 2000 Buzz.
 
 ## ERNIE
 
@@ -285,7 +285,7 @@ Content-Type: application/json
 
 <RecipeRun :body="ernieBody" :wait="0" />
 
-ERNIE defaults: `networkDim: 32`, `optimizerType: adamw8bit`, `trainTextEncoder: false`, `lrScheduler: cosine`. Default price 1000 Buzz.
+ERNIE defaults: `networkDim: 32`, `optimizerType: adamw8bit`, `trainTextEncoder: false`, `lrScheduler: constant`. Default price 1000 Buzz.
 
 ## Qwen
 
@@ -338,7 +338,7 @@ Content-Type: application/json
 
 <RecipeRun :body="qwenBody" :wait="0" />
 
-Qwen defaults: `networkDim: 16`, `optimizerType: adamw8bit`, `trainTextEncoder: false`, `lrScheduler: cosine`. Default price 2000 Buzz.
+Qwen defaults: `networkDim: 16`, `optimizerType: adamw8bit`, `trainTextEncoder: false`, `lrScheduler: constant`. Default price 2000 Buzz.
 
 ## Z-Image Turbo
 

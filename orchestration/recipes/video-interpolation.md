@@ -88,7 +88,7 @@ Common uses:
 Use the per-recipe endpoint when you just want to smooth one clip and don't need webhooks or multi-step chaining:
 
 ```http
-POST https://orchestration.civitai.com/v2/consumer/recipes/videoInterpolation?wait=0
+POST https://orchestration.civitai.com/v2/consumer/recipes/videoInterpolation
 Authorization: Bearer <your-token>
 Content-Type: application/json
 
@@ -99,10 +99,10 @@ Content-Type: application/json
 
 <RecipeRun :body="recipeBody" path="/v2/consumer/recipes/videoInterpolation" :wait="0" />
 
-Defaults apply `interpolationFactor: 2`. The response is a full [`Workflow`](/orchestration/reference/operations/GetWorkflow) whose single step carries the smoothed video blob.
+Defaults apply `interpolationFactor: 2`. The recipe endpoint blocks until the step finishes and returns the step output directly — the `video` blob described in [Reading the result](#reading-the-result).
 
-::: tip Use `wait=0` for video
-VFIMamba processes frame-by-frame and scales with clip length; a multi-second clip almost always exceeds the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline). Submit with `wait=0`, then poll or [subscribe via webhook](/orchestration/guide/results-and-webhooks).
+::: tip Long clips: use the generic endpoint
+VFIMamba processes frame-by-frame and scales with clip length; a multi-second clip almost always exceeds the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline). Submit through the [generic workflow endpoint](#via-the-generic-workflow-endpoint) with `wait=0`, then poll or [subscribe via webhook](/orchestration/guide/results-and-webhooks).
 :::
 
 ## Via the generic workflow endpoint
@@ -297,7 +297,7 @@ total = C0 + C1 × pixelFrameProduct
 
 ## Runtime
 
-VFIMamba's runtime scales roughly linearly with **input-frame-count × resolution**. A 5-second 720p clip at 24 FPS (120 frames) at `interpolationFactor: 2` generates ~120 new frames and typically takes a couple of minutes end-to-end including queue time. `interpolationFactor: 3` does ~2× the work. Always submit with `wait=0` plus [webhooks or polling](/orchestration/guide/results-and-webhooks); a synchronous `wait=90` will time out on most realistic inputs.
+VFIMamba's runtime scales roughly linearly with **input-frame-count × resolution**. A 5-second 720p clip at 24 FPS (120 frames) at `interpolationFactor: 2` generates ~120 new frames and typically takes a couple of minutes end-to-end including queue time. `interpolationFactor: 3` does ~2× the work. Submit through the [generic workflow endpoint](#via-the-generic-workflow-endpoint) with `wait=0` plus [webhooks or polling](/orchestration/guide/results-and-webhooks); a synchronous call will time out on most realistic inputs.
 
 ## Troubleshooting
 

@@ -80,7 +80,7 @@ Common uses:
 Use the per-recipe endpoint when you're just upscaling one image and don't need webhooks or multi-step chaining:
 
 ```http
-POST https://orchestration.civitai.com/v2/consumer/recipes/imageUpscaler?wait=60
+POST https://orchestration.civitai.com/v2/consumer/recipes/imageUpscaler
 Authorization: Bearer <your-token>
 Content-Type: application/json
 
@@ -91,7 +91,7 @@ Content-Type: application/json
 
 <RecipeRun :body="recipeBody" path="/v2/consumer/recipes/imageUpscaler" :wait="60" />
 
-That's it — the defaults run the 4x-Remacri upscaler once. The response is a full [`Workflow`](/orchestration/reference/operations/GetWorkflow) whose single step carries the upscaled blob.
+That's it — the defaults run the 4x-Remacri upscaler once. The recipe endpoint blocks until the step finishes and returns the step output directly — the `blob` described in [Reading the result](#reading-the-result).
 
 ## Via the generic workflow endpoint
 
@@ -282,7 +282,7 @@ Upscaling is one of the cheapest operations exposed — even aggressive stacked 
 
 ## Runtime
 
-A single pass (`numberOfRepeats: 1`) with the default 4x-Remacri on a ~1-megapixel input usually completes in 5–15 s and fits inside `wait=60`. Multiple repeats stack both runtime *and* output size — `numberOfRepeats: 3` with a 4× model produces a 64× enlargement, which will exceed the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) and is rarely what you actually want. Use `wait=0` plus webhooks/polling for anything beyond one pass, and keep the total scale in mind before cranking `numberOfRepeats`.
+A single pass (`numberOfRepeats: 1`) with the default 4x-Remacri on a ~1-megapixel input usually completes in 5–15 s and returns well within the request timeout. Multiple repeats stack both runtime *and* output size — `numberOfRepeats: 3` with a 4× model produces a 64× enlargement, which will exceed the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) and is rarely what you actually want. Use the [generic workflow endpoint](#via-the-generic-workflow-endpoint) with `wait=0` plus webhooks/polling for anything beyond one pass, and keep the total scale in mind before cranking `numberOfRepeats`.
 
 ## Troubleshooting
 

@@ -108,10 +108,10 @@ Output is an Ogg Vorbis audio blob.
 
 ## The simplest request
 
-Built-in speaker, auto-detected language, `wait=0` (see [Runtime](#runtime)):
+Built-in speaker, auto-detected language. The recipe endpoint blocks until the step finishes; for anything slow, see [Runtime](#runtime):
 
 ```http
-POST https://orchestration.civitai.com/v2/consumer/recipes/textToSpeech?wait=0
+POST https://orchestration.civitai.com/v2/consumer/recipes/textToSpeech
 Authorization: Bearer <your-token>
 Content-Type: application/json
 
@@ -126,7 +126,7 @@ Content-Type: application/json
 
 <RecipeRun :body="recipeBody" path="/v2/consumer/recipes/textToSpeech" :wait="0" />
 
-The response (after polling to `succeeded`) is a full [`Workflow`](/orchestration/reference/operations/GetWorkflow) whose step carries an `audioBlob` with a signed streaming URL.
+It returns the step output directly — an `audioBlob` with a signed streaming URL.
 
 ## Via the generic workflow endpoint
 
@@ -219,7 +219,7 @@ Guidance for the reference:
 - **Length**: 5–15 seconds of clean speech works best. Longer clips don't help and may time out.
 - **Quality**: single speaker, minimal background noise, no music. Podcast intros or call-recording noise floor drop quality noticeably.
 - **`refText` accuracy**: transcribe the reference exactly — including punctuation and capitalisation — or skip it via `xVectorOnlyMode: true`.
-- **Reach**: the `refAudioUrl` must be fetchable by the orchestrator the same way [transcription's `mediaUrl`](./transcription#choosing-a-source-url) is. CDN-served files are safe; sites that inject per-request session state break the streaming fetch.
+- **Reach**: the `refAudioUrl` must be fetchable by the orchestrator the same way [transcription's `mediaUrl`](./transcription#the-simplest-request) is. CDN-served files are safe; sites that inject per-request session state break the streaming fetch.
 
 ### `xVectorOnlyMode: true` — skip the reference transcript
 
@@ -332,7 +332,7 @@ Voice cloning via `refAudioUrl` is cheaper per character than picking a built-in
 
 ## Runtime
 
-End-to-end time for one short sentence is typically 60–120 seconds including model load, queue wait, and inference. Longer text scales roughly linearly. **Always submit with `wait=0`** and poll or subscribe to webhooks; a `wait=30` call can succeed for a short clip on a warm node but will usually time out.
+End-to-end time for one short sentence is typically 60–120 seconds including model load, queue wait, and inference. Longer text scales roughly linearly. That is close to the [request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline), so submit through the [generic workflow endpoint](#via-the-generic-workflow-endpoint) with `wait=0` and poll or subscribe to webhooks ([Submitting work](/orchestration/guide/submitting-work)); the recipe endpoint can return a short clip on a warm node.
 
 ## Troubleshooting
 

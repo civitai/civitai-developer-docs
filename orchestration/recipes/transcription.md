@@ -72,7 +72,7 @@ Common uses:
 Use the per-recipe endpoint when you just need the text from one piece of audio:
 
 ```http
-POST https://orchestration.civitai.com/v2/consumer/recipes/transcription?wait=0
+POST https://orchestration.civitai.com/v2/consumer/recipes/transcription
 Authorization: Bearer <your-token>
 Content-Type: application/json
 
@@ -83,14 +83,14 @@ Content-Type: application/json
 
 <RecipeRun :body="recipeBody" path="/v2/consumer/recipes/transcription" :wait="0" />
 
-Defaults: language is auto-detected, word-level timestamps are returned. The response is a full [`Workflow`](/orchestration/reference/operations/GetWorkflow) whose single step carries the transcript in `output.text`.
+Defaults: language is auto-detected, word-level timestamps are returned. The recipe endpoint blocks until the step finishes and returns the step output directly — the transcript is in `text`.
 
 ::: tip Choosing a source URL
 The URL must be **publicly fetchable** AND served by a host that supports HTTP range requests and consistent responses across requests — ffprobe streams + seeks rather than downloading the whole file. Sites that inject per-request session cookies (common on `wp-content/uploads` endpoints behind AWS ALBs) often break the seek and fail with `Failed to read frame size: Could not seek to N`. CDN-served files (jsdelivr, GitHub raw, S3 without redirect) are safe defaults; the Civitai CDN works directly.
 :::
 
-::: tip Use `wait=0` for long audio
-Billing is computed per 30 s of audio (minimum 1 unit), and real processing time roughly tracks audio length + queue wait. Anything longer than ~90 s of audio is a candidate for `wait=0` + polling; a multi-minute file will blow past the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline).
+::: tip Long audio: use the generic endpoint
+Billing is computed per 30 s of audio (minimum 1 unit), and real processing time roughly tracks audio length + queue wait. Anything longer than ~90 s of audio is a candidate for the [generic workflow endpoint](#via-the-generic-workflow-endpoint) with `wait=0` + polling; a multi-minute file will blow past the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline).
 :::
 
 ## Via the generic workflow endpoint
@@ -225,7 +225,7 @@ Transcription is the cheapest speech path Civitai exposes — every 30 seconds o
 
 ## Runtime
 
-Real-time-factor (processing time ÷ audio length) is well below 1 on Qwen3-ASR — a 5-minute recording typically finishes in well under a minute of server-side compute, plus queue wait. Plan for `wait=0` + polling on anything beyond ~90 s of audio.
+Real-time-factor (processing time ÷ audio length) is well below 1 on Qwen3-ASR — a 5-minute recording typically finishes in well under a minute of server-side compute, plus queue wait. Plan for the [generic workflow endpoint](#via-the-generic-workflow-endpoint) with `wait=0` + polling on anything beyond ~90 s of audio.
 
 ## Troubleshooting
 

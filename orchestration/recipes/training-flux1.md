@@ -191,7 +191,6 @@ Fields and defaults not listed here are as in the overview's [common parameters]
 | `lr` | `0.0001` | Flux 1 is sensitive to high LRs — keep ≤ `0.0005`. |
 | `trainTextEncoder` | `false` | Flux 1 does not benefit much from text-encoder training. Leave off. |
 | `networkDim` | `16` | Flux 1's lower default reflects how compactly Flux LoRAs encode style/character vs. SD-family. |
-| `trainingData.type` | `zip` | Always `type: "zip"`. |
 
 ## Reading the result
 

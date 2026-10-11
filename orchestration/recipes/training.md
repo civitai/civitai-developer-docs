@@ -90,7 +90,7 @@ These apply to every AI Toolkit training input. Each ecosystem page lists the de
 | `lr` | | `0.0001` | `0`–`1`. UNet learning rate. |
 | `textEncoderLr` | | — | Only used when `trainTextEncoder: true`. |
 | `trainTextEncoder` | | `false` | Train the text encoder alongside the diffuser. Only SDXL/SD1 default to `true`. |
-| `lrScheduler` | | `cosine` | `constant`, `constant_with_warmup`, `cosine`, `linear`, `step`. |
+| `lrScheduler` | | `constant` | `constant`, `constant_with_warmup`, `cosine`, `linear`, `step`. |
 | `optimizerType` | | `adamw8bit` | `adamw`, `adamw8bit`, `adam8bit`, `lion`, `lion8bit`, `adafactor`, `adagrad`, `prodigy`, `prodigy8bit`, `automagic`. |
 | `networkDim` | | `32` | `1`–`256`. LoRA rank. Higher = more capacity, larger LoRA file. |
 | `networkAlpha` | | matches `networkDim` | `1`–`256`. Scales the effective learning rate via `alpha / dim`. |
@@ -155,7 +155,7 @@ Submitting with `wait=0` returns immediately with `status: processing`. Poll [`G
 }
 ```
 
-The blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL when downloading the trained LoRA. To use the LoRA, pass its AIR under `loras` in the matching generation recipe (each ecosystem page links it).
+Blob URLs expire — see [Blobs in results](/orchestration/guide/results-and-webhooks#blobs-in-results). To use the LoRA, pass its AIR under `loras` in the matching generation recipe (each ecosystem page links it).
 
 `moderationStatus` reflects safety review of the dataset: `Approved` is the green-light case. `Rejected` means the run was halted because the dataset failed moderation.
 
