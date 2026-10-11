@@ -19,7 +19,7 @@ them with [`@civitai/sdk`](./sdk) and nothing else.
 This page covers only what is specific to a block: which import defines which
 elements, theming from the host, and the elements whose credentials a block
 cannot supply. Every element — live, with its attributes, events and copy-paste
-markup — is in the [elements gallery](../elements).
+markup — is in the [component showcase](../showcase).
 
 ## Register the elements
 
