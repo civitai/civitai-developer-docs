@@ -36,7 +36,7 @@
  *      sibling, refresh) by scripts/lib/spec-scrub.mjs, against a synthetic
  *      fixture with LITERAL expected output — while a refresh still writes the
  *      committed snapshot VERBATIM. A scrub rule that matches nothing WARNS
- *      (exit 0, bytes untouched) and is fatal only under --strict (exit 2).
+ *      (exit 0, bytes untouched); check:spec-scrub is what fails on it in CI.
  *
  * Every case runs the REAL scripts/copy-spec.mjs bytes, copied into a temporary
  * fixture repo so the snapshot/sibling/destination paths it derives from its own
@@ -416,6 +416,8 @@ const RESIDUE = {
       get: {
         tags: ['Keep'],
         operationId: 'KeepMe',
+        // A rewrite rule landing in a SUMMARY, not a description.
+        summary: 'Keep. Reads Civitai.Orchestration.Grains.Fx.FixtureInput.Image.',
         parameters: [
           {
             name: 'air',
@@ -446,19 +448,21 @@ const RESIDUE = {
         type: 'object',
         properties: {
           step: ref('WorkflowStep'),
-          lostBlobsRefund: { description: 'Net buzz refunded for deliverable blobs lost in the 2026-06-12 storage incident. Null = not yet checked.' },
+          lostBlobsRefund: { description: 'Net buzz refunded for deliverable blobs lost in the 2026-06-12 storage incident. Null = not yet checked, 0 = intact.' },
           ephemeral: { description: 'Not persisted to telemetry/STORE; in-flight state lives only in grain state and nothing remains once terminal.' },
           deletedAt: { description: 'Soft delete: the telemetry document is kept until its TTL for operators, but consumer reads treat the workflow as gone.' },
           externalId: { description: 'Idempotency key, stored as `"{userId}-{clientValue}"` so the unique index is single-field yet per-user.\nSee Civitai.Orchestration.Grains.Fx.WorkflowTemplate.ExternalId.' },
           forceRefunded: { description: 'Whether force-refunded.\nPrevents re-charging on grain recovery.' },
-          useWorkers: { description: 'Opt-into using the widget controller exclusively' },
+          useWorkers: { description: 'Opt-into using the spine controller exclusively' },
+          // A different controller name is NOT relabelled: the rule matches one exact sentence.
+          useOtherWorkers: { description: 'Opt-into using the widget controller exclusively' },
           comfyImage: { description: 'Image as an AIR\n(e.g. `urn:air:oci:image:example:org/image@v1`). Null = worker default.' },
           labelOverrides: { description: 'Overrides merge with the\ndefaults from the FixtureOptionsGrain for the given mode.' },
           strength: { description: 'Ignored without Civitai.Orchestration.Grains.Fx.FixtureInput.Image.' },
           kind: { description: 'Reports Civitai.Orchestration.Grains.Fx.OtherInput instead.' },
           other: { description: 'See Civitai.Orchestration.Api.Fx.Missing.Thing.' },
           // The older, longer upstream wording of the same four fields.
-          lostBlobsRefund2: { description: 'Refunded because blobs were lost in the 2026-06-12 storage\nincident (vX wrote blobs to the wrong store). Null = not yet checked.' },
+          lostBlobsRefund2: { description: 'Net buzz refunded because deliverable blobs were lost in the 2026-06-12 storage\nincident (vX wrote blobs to the wrong store). Null = not yet\nchecked, 0 = checked and intact.' },
           ephemeral2: { description: 'When true, this workflow is not persisted to telemetry/STORE.\nIn-flight state lives only in FRAMEWORK grain state (CACHE); once the workflow\nreaches a terminal state the grain clears its state and no record remains.' },
           deletedAt2: { description: 'Soft delete: the telemetry document is kept\n(until its natural TTL) so operators can still inspect it in the dashboard, but\nconsumer reads and queries treat the workflow as gone.' },
           externalId2: { description: 'Key. Stored as `"{userId}-{clientValue}"`\nso the partial unique index can be single-field while still scoping\nuniqueness per-user. See Civitai.Orchestration.Grains.Fx.WorkflowTemplate.ExternalId.' },
@@ -481,10 +485,10 @@ const RESIDUE = {
   },
 };
 const RESIDUE_TEXT = JSON.stringify(RESIDUE, null, 2);
-const RESIDUE_RE = /Civitai\.Orchestration\.|\bgrain\b|OptionsGrain|telemetry|incident|oci:image:example|getting-started\/ai-resource-identifier/i;
+const RESIDUE_RE = /Civitai\.Orchestration\.|\bgrain\b|OptionsGrain|telemetry|2026-06-12|wrong store|oci:image:example|getting-started\/ai-resource-identifier/i;
 // Positive control: the residue pattern must see every residue kind in the INPUT,
 // or "no residue survives" below is a zero that cannot go red.
-for (const probe of ['Civitai.Orchestration.X', 'in grain state', 'FixtureOptionsGrain', 'telemetry', 'storage incident', 'oci:image:example', 'getting-started/ai-resource-identifier']) {
+for (const probe of ['Civitai.Orchestration.X', 'in grain state', 'FixtureOptionsGrain', 'telemetry', '2026-06-12', 'wrong store', 'oci:image:example', 'getting-started/ai-resource-identifier']) {
   ok(RESIDUE_RE.test(probe) && RESIDUE_TEXT.includes(probe.replace(/^in /, '').replace('Civitai.Orchestration.X', 'Civitai.Orchestration.')), `residue pattern sees "${probe}" and the fixture carries it`);
 }
 
@@ -513,18 +517,19 @@ function assertScrubbed(dest, label) {
   ok(JSON.stringify(out.tags.map((t) => t.name)) === '["Keep","Recipes","Unused"]', `${label}: only the tag the drops emptied is removed`, JSON.stringify(out.tags));
   const p = out.components.schemas.KeepOut.properties;
   const want = {
-    lostBlobsRefund: 'Net buzz refunded for deliverable blobs lost after the workflow completed. Null = not yet checked.',
+    lostBlobsRefund: 'Net buzz refunded for deliverable blobs lost during a past storage incident. Null = not checked (most workflows), 0 = intact.',
     ephemeral: 'Not retained: nothing remains once the workflow reaches a terminal state.',
     deletedAt: 'Soft delete: consumer reads treat the workflow as gone.',
     externalId: 'Idempotency key, stored as `"{userId}-{clientValue}"`, so it is unique per user.',
     forceRefunded: 'Whether force-refunded.\nPrevents re-charging if the workflow is recovered.',
-    useWorkers: 'Opt into running exclusively on Civitai-managed Comfy workers.',
+    useWorkers: 'When set, restricts the job to (true) or away from (false) a dedicated pool of Comfy workers.',
+    useOtherWorkers: 'Opt-into using the widget controller exclusively',
     comfyImage: 'Image as an AIR. Null = worker default.',
     labelOverrides: 'Overrides merge with the\ndefaults for the given mode.',
     strength: 'Ignored without `image`.',
     kind: 'Reports `OtherInput` instead.',
     other: 'See Thing.',
-    lostBlobsRefund2: 'Refunded because blobs were lost after the workflow completed. Null = not yet checked.',
+    lostBlobsRefund2: 'Net buzz refunded because deliverable blobs were lost during a past storage incident. Null = not checked (most workflows), 0 = checked and intact.',
     ephemeral2: 'When true, this workflow is not retained: nothing remains once it reaches a terminal state.',
     deletedAt2: 'Soft delete: consumer reads and queries treat the workflow as gone.',
     externalId2: 'Key. Stored as `"{userId}-{clientValue}"`, so it is unique per user.',
@@ -532,6 +537,11 @@ function assertScrubbed(dest, label) {
   for (const [k, v] of Object.entries(want)) {
     ok(p[k].description === v, `${label}: ${k} description rewritten`, `got ${JSON.stringify(p[k].description)}`);
   }
+  ok(
+    out.paths['/v2/keep'].get.summary === 'Keep. Reads `image`.',
+    `${label}: text rules also rewrite an operation summary`,
+    `got ${JSON.stringify(out.paths['/v2/keep'].get.summary)}`,
+  );
   ok(
     out.paths['/v2/keep'].get.parameters[0].description ===
       'A unique ID. See https://developer.civitai.com/site/guide/air for more info on AIRs.',
@@ -572,7 +582,8 @@ await withServer(
   },
 );
 
-// ── 12. a rule that matches nothing: warn by default, fatal under --strict ────
+// ── 12. a rule that matches nothing WARNS; the build still succeeds ──────────
+// (Failing on a stale rule is check:spec-scrub's job, against the committed snapshot.)
 {
   const fx = makeFixture({ snapshot: SPEC_A });
   const r = await run(fx, { poison: true });
@@ -580,13 +591,8 @@ await withServer(
   ok(/WARNING: scrub rule drop-op:InvalidateUserCache matched nothing/.test(r.out), 'a stale rule is WARNED, by id', r.out);
   ok(/scrub rule text:dotnet-type-names matched nothing/.test(r.out), 'every stale rule is named, text rules included', r.out);
   ok(readFileSync(fx.dest, 'utf8') === SPEC_A, 'a spec nothing matched lands byte-for-byte');
-  const s = await run(fx, { poison: true, args: ['--strict'] });
-  ok(s.rc === 2, '--strict makes a stale rule fatal (exit 2)', `rc=${s.rc}\n${s.out}`);
-  ok(/ERROR: scrub rule drop-step:echo matched nothing/.test(s.out), '--strict names the stale rule', s.out);
-  const e = await run(fx, { poison: true, env: { COPY_SPEC_SCRUB_STRICT: '1' } });
-  ok(e.rc === 2, 'COPY_SPEC_SCRUB_STRICT=1 is the same switch', `rc=${e.rc}`);
-  const all = await run(makeFixture({ snapshot: RESIDUE_TEXT }), { poison: true, args: ['--strict'] });
-  ok(all.rc === 0 && !/matched nothing/.test(all.out), '--strict passes when every rule matched', `rc=${all.rc}\n${all.out}`);
+  const all = await run(makeFixture({ snapshot: RESIDUE_TEXT }), { poison: true });
+  ok(all.rc === 0 && !/matched nothing/.test(all.out), 'no warning when every rule matched', `rc=${all.rc}\n${all.out}`);
   fx.cleanup();
 }
 

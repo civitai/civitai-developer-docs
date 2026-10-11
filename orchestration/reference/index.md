@@ -4,7 +4,7 @@ title: API Reference
 
 # API Reference
 
-Every consumer-facing operation, request schema, and response shape in the Civitai Orchestration API. Pages here are generated from the OpenAPI specification ([`v2-consumers.json`](https://orchestration.civitai.com/openapi/v2-consumers.json)) and stay in sync with the running API on every build.
+Every consumer-facing operation, request schema, and response shape in the Civitai Orchestration API. Pages here are generated from a snapshot of the orchestration API's OpenAPI specification ([`v2-consumers.json`](/openapi/v2-consumers.json)), refreshed periodically.
 
 ## Conventions
 

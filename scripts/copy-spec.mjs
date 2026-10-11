@@ -53,7 +53,6 @@
  * USAGE
  *   npm run copy:spec              # hermetic; snapshot (or sibling) only
  *   npm run copy:spec -- --refresh # re-snapshot from orchestration.civitai.com
- *   npm run copy:spec -- --strict  # exit 2 if a scrub rule matched nothing
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -68,8 +67,6 @@ const refresh = process.argv.includes('--refresh') || process.env.COPY_SPEC_REFR
 
 mkdirSync(dirname(DEST_PATH), { recursive: true });
 
-const strict = process.argv.includes('--strict') || process.env.COPY_SPEC_SCRUB_STRICT === '1';
-
 /**
  * Scrubs `text` (scripts/lib/spec-scrub.mjs) and writes it to the build
  * destination. EVERY resolution path goes through here, so the published spec is
@@ -78,37 +75,28 @@ const strict = process.argv.includes('--strict') || process.env.COPY_SPEC_SCRUB_
  *
  * A rule that matched nothing WARNS and the build continues: it most likely
  * means upstream fixed that item, and a fresh build must not break for that.
- * `--strict` / COPY_SPEC_SCRUB_STRICT=1 makes it fatal; CI's
- * `npm run check:spec-scrub` applies the same strictness to the committed
- * snapshot, which is where a stale rule is meant to be noticed and deleted.
- * A spec that is not valid JSON is landed as-is, unscrubbed, with a warning —
- * the build then fails on the import exactly as it did before this pass.
+ * `npm run check:spec-scrub` is where that becomes a failure: it runs against the
+ * committed snapshot in CI, which is where a stale rule is meant to be noticed
+ * and deleted.
+ *
+ * A spec that is not valid JSON THROWS here rather than landing unscrubbed — the
+ * build could not import it anyway, and nothing unscrubbed is ever written.
  */
 function land(text, from) {
   let out = text;
-  let parsed = null;
-  try {
-    parsed = JSON.parse(text);
-  } catch (err) {
-    console.warn(`[docs] WARNING: spec from ${from} is not valid JSON (${err.message}); landing it unscrubbed`);
+  const { spec, counts, unmatched, removed } = scrubSpec(JSON.parse(text));
+  const changed = Object.values(counts).some((n) => n > 0);
+  if (changed) {
+    const indent = /^\{\s*\n(\s+)"/.exec(text)?.[1] ?? '';
+    out = JSON.stringify(spec, null, indent || undefined) + (text.endsWith('\n') ? '\n' : '');
   }
-
-  if (parsed) {
-    const { spec, counts, unmatched, removed } = scrubSpec(parsed);
-    const changed = Object.values(counts).some((n) => n > 0);
-    if (changed) {
-      const indent = /^\{\s*\n(\s+)"/.exec(text)?.[1] ?? '';
-      out = JSON.stringify(spec, null, indent || undefined) + (text.endsWith('\n') ? '\n' : '');
-    }
-    const n = (k) => removed[k].length;
-    console.log(
-      `[docs] scrub: removed ${n('operations')} operation(s), ${n('schemas')} schema(s), ${n('tags')} tag(s); ` +
-        `${Object.keys(counts).length - unmatched.length}/${Object.keys(counts).length} rule(s) matched`,
-    );
-    for (const id of unmatched) {
-      console.warn(`[docs] ${strict ? 'ERROR' : 'WARNING'}: scrub rule ${id} matched nothing — delete it from scripts/lib/spec-scrub.mjs if upstream fixed this`);
-    }
-    if (strict && unmatched.length) process.exitCode = 2;
+  const n = (k) => removed[k].length;
+  console.log(
+    `[docs] scrub: removed ${n('operations')} operation(s), ${n('schemas')} schema(s), ${n('tags')} tag(s); ` +
+      `${Object.keys(counts).length - unmatched.length}/${Object.keys(counts).length} rule(s) matched`,
+  );
+  for (const id of unmatched) {
+    console.warn(`[docs] WARNING: scrub rule ${id} matched nothing — delete it from scripts/lib/spec-scrub.mjs if upstream fixed this`);
   }
 
   writeFileSync(DEST_PATH, out);

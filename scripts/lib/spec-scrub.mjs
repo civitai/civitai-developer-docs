@@ -41,13 +41,23 @@ export const SCRUB_RULES = {
     {
       id: 'text:incident-date',
       reason: 'dated incident reference',
-      pattern: /lost in the \d{4}-\d{2}-\d{2} storage\s+incident(?: \([^)]*\))?/g,
-      replace: 'lost after the workflow completed',
+      // The refund only ever applied to one past incident; the field stays null for
+      // every workflow outside it, so the rewrite must not read as a general promise.
+      // Second alternative = the older upstream wording in the snapshots of open
+      // PRs #161 / #162 — delete it once those merge or close.
+      pattern:
+        /for deliverable blobs lost in the \d{4}-\d{2}-\d{2} storage incident\. Null = not yet checked,|because deliverable blobs were lost in the \d{4}-\d{2}-\d{2} storage\s+incident \([^)]*\)\. Null = not yet\s+checked,/g,
+      replace: (m) =>
+        m.startsWith('for')
+          ? 'for deliverable blobs lost during a past storage incident. Null = not checked (most workflows),'
+          : 'because deliverable blobs were lost during a past storage incident. Null = not checked (most workflows),',
     },
     {
       id: 'text:ephemeral-storage',
       reason: 'backing-store and runtime names',
-      // Two upstream wordings seen (the committed snapshot and older ones).
+      // Second alternative = the older upstream wording in the snapshots of open
+      // PRs #161 / #162 — delete it once those merge or close (check:spec-scrub
+      // cannot see a dead alternative, only a rule that matches nothing at all).
       pattern:
         /Not persisted to [^;]+; in-flight state lives only in grain state and nothing remains once terminal\.|not persisted to [^.]+\.\s*In-flight state lives only in [^;.]*grain state[^;.]*;\s*once the workflow\s+reaches a terminal state the grain clears its state and no record remains\./g,
       replace: (m) =>
@@ -58,12 +68,16 @@ export const SCRUB_RULES = {
     {
       id: 'text:retention',
       reason: 'operator retention wording',
+      // `[^,]*` also spans the older wording in open PRs #161 / #162; narrow it to
+      // ` until its TTL for operators` once those merge or close.
       pattern: /the telemetry document is kept[^,]*, but\s+consumer reads/g,
       replace: 'consumer reads',
     },
     {
       id: 'text:unique-index',
       reason: 'storage index design',
+      // `(?:partial )?` and `[^.]*` cover the older wording in open PRs #161 / #162;
+      // narrow them once those merge or close.
       pattern: /\s+so the (?:partial )?unique index [^.]*per-user\.\s*See Civitai\.Orchestration\.[\w.]*ExternalId\./g,
       replace: ', so it is unique per user.',
     },
@@ -82,8 +96,8 @@ export const SCRUB_RULES = {
     {
       id: 'text:worker-codename',
       reason: 'internal component name',
-      pattern: /^Opt-into using the \w+ controller exclusively$/g,
-      replace: 'Opt into running exclusively on Civitai-managed Comfy workers.',
+      pattern: /^Opt-into using the spine controller exclusively$/g,
+      replace: 'When set, restricts the job to (true) or away from (false) a dedicated pool of Comfy workers.',
     },
     {
       id: 'text:image-example',
