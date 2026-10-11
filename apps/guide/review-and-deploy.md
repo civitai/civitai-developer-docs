@@ -231,8 +231,8 @@ It deletes the icon, the cover and **every screenshot with its caption**,
 server-side; the CLI cannot opt out. Resubmitting mints an **empty** listing.
 A moderator *rejecting* a first-version submission keeps the draft listing and
 its media, so a re-submit lands on the same listing; that applies to apps
-listed on civitai.com, while an off-site listing's draft is still deleted on
-rejection.
+hosted on `civit.ai`; an off-site app's draft listing is still deleted when it
+is rejected.
 
 A withdraw of a subsequent version, whose listing is already **approved**,
 leaves the live listing alone.
