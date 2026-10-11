@@ -67,3 +67,11 @@ jobs:
 
       - name: Spec resolution contract (offline)
         run: npm run test:copy-spec
+
+      # The scrub copy-spec applies (scripts/lib/spec-scrub.mjs) only WARNS when a
+      # rule matches nothing, so a build never breaks because upstream fixed an
+      # item. Here, against the COMMITTED snapshot, a rule that matches nothing is
+      # a failure — so the re-snapshot PR that picks up an upstream fix is told
+      # which rule to delete. Repo-local (no network), so it gates.
+      - name: Every spec scrub rule still matches the committed snapshot
+        run: npm run check:spec-scrub
