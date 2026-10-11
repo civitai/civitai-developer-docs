@@ -59,6 +59,7 @@ const appsGuideSidebar: DefaultTheme.SidebarItem[] = [
       { text: 'Generating images (text-to-image)', link: '/apps/guide/text-to-image' },
       { text: 'Comfy on Civitai (customComfy)', link: '/apps/guide/comfy-cloud' },
       { text: 'Posting from an app', link: '/apps/guide/posting' },
+      { text: 'Custom events (analytics)', link: '/apps/guide/custom-events' },
       { text: 'Running embedded & direct traffic', link: '/apps/guide/embedding' },
       { text: 'Markup that holds up', link: '/apps/guide/markup' },
       { text: 'Responsive blocks', link: '/apps/guide/responsive' },
