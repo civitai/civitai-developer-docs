@@ -395,7 +395,16 @@ export default withMermaid({
   // which is a MUTATED copy of a file whose entire contract is that it is not
   // mutated. The verbatim copy at /agent-setup/prompt.md was correct either way,
   // which is exactly why this would have gone unnoticed.
-  srcExclude: ['**/CLAUDE.md', '**/README.md', 'orchestration/internals/**', 'public/**'],
+  // Not docs: `claudedocs/` = internal handoff notes; `appblocks-snapshots/` = generator
+  // inputs (read from disk). `check:twin-links` fails on any page outside its allowlist.
+  srcExclude: [
+    '**/CLAUDE.md',
+    '**/README.md',
+    'orchestration/internals/**',
+    'public/**',
+    'claudedocs/**',
+    'appblocks-snapshots/**',
+  ],
   // The dynamic operations routes are generated from [operationId].paths.js — the
   // dead-link checker doesn't resolve them ahead of time, so we skip them here.
   ignoreDeadLinks: [/^\/orchestration\/reference\/operations\//],
