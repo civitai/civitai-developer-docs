@@ -182,7 +182,7 @@ Defaults shown are the effective defaults for both LTX ecosystems.
 | `engine` | ✅ | — | Always `ai-toolkit`. |
 | `ecosystem` | ✅ | — | `ltx2` or `ltx23`. |
 | `steps` | | `3000` | `1`–`10000`. Total training steps. Primary driver of training length and pricing. Video needs a longer run, hence the higher default. |
-| `epochs` | | `10` | `1`–`20`. Number of saved checkpoints delivered, each separately downloadable. **Each adds 50 Buzz** — LTX preview samples are videos and costly to compute. |
+| `epochs` | | `round(steps / 200)` | `1`–`200`. Number of saved checkpoints delivered, each separately downloadable. When omitted it is derived from `steps` (`15` for `steps: 3000`); `10` if `steps` is omitted too. **Each adds 50 Buzz** — LTX preview samples are videos and costly to compute. |
 | `batchSize` | | `1` | Fixed at 1 for this ecosystem. |
 | `continueFrom` | | *(none)* | A previously-trained `urn:air:ltx2:lora:...` / `urn:air:ltx23:lora:...` AIR to resume from (see [Continue training](#continue-training)). Must be a LoRA of the same ecosystem. |
 | `lr` | | `0.0001` | LTX2 examples often use `0.0002`; LTX 2.3 typically `0.0001`. |
@@ -246,7 +246,9 @@ costPerStep = 0.75   (ltx2 and ltx23)
 floor: never less than 80% of the default-configuration price
 ```
 
-`epochs` is the number of saved checkpoints delivered (default `10`, range `1`–`20`); **each adds 50 Buzz** — LTX preview samples are videos and costly to compute. The default run is **3000 steps / 10 epochs** → `3000 × 0.75 + 10 × 50 = 2250 + 500 = 2750 Buzz`. The **floor** is 80% of the default price (2200 Buzz).
+`epochs` is the number of saved checkpoints delivered (range `1`–`200`; when omitted, `round(steps / 200)`); **each adds 50 Buzz** — LTX preview samples are videos and costly to compute. With both `steps` and `epochs` omitted the run is **3000 steps / 10 epochs** → `3000 × 0.75 + 10 × 50 = 2250 + 500 = 2750 Buzz`. The **floor** is 80% of that price (2200 Buzz).
+
+The examples above send `steps: 3000` with no `epochs`, so they get `round(3000 / 200) = 15` epochs: `15 × (200 × 0.75 + 50) = 15 × 200 = 3000 Buzz`. Send `epochs: 10` alongside `steps: 3000` to get the 2750 price.
 
 | Configuration | Buzz (training only) |
 |---------------|---------------------|

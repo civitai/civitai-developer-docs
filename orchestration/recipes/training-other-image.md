@@ -441,7 +441,7 @@ Defaults shown are the effective defaults; per-ecosystem deviations are noted ab
 | `ecosystem` | ✅ | — | One of: `chroma`, `ernie`, `qwen`, `zimageturbo`, `zimagebase`. |
 | `version` | (qwen only) | `latest` | `latest`, `2509`, `2512`. Selects the Qwen-Image base release. |
 | `steps` | | `2000` | `1`–`10000`. Total training steps. Primary driver of training length and pricing. |
-| `epochs` | | `10` | `1`–`20`. Number of saved checkpoints delivered, each separately downloadable. Each adds 10 Buzz of storage. |
+| `epochs` | | `round(steps / 200)` | `1`–`200`. Number of saved checkpoints delivered, each separately downloadable. When omitted it is derived from `steps` (`10` at the default `2000`). Each adds 10 Buzz of storage. |
 | `batchSize` | | `1` | Defaults to 1. For Z-Image and ERNIE, raise it up to the ecosystem maximum (**2**) to train faster at the cost of more GPU memory; a larger batch needs fewer steps. For Chroma and Qwen it is fixed at 1. Values above the max are clamped. |
 | `continueFrom` | | *(none)* | A previously-trained LoRA AIR (`urn:air:<ecosystem>:lora:...`) to resume from (see [Continue training](#continue-training)). Must be a LoRA of the same ecosystem. |
 | `lr` | | `0.0001` | UNet learning rate. |
@@ -509,7 +509,7 @@ price = steps × costPerStep + epochs × 10        (rounded)
 floor: never less than 80% of the default-configuration price
 ```
 
-`epochs` is the number of saved checkpoints delivered (default `10`, range `1`–`20`); each adds 10 Buzz of storage. The default run is **2000 steps / 10 epochs**, which lands each ecosystem on its default price. Lowering `steps` or `epochs` can save at most 20% (the floor).
+`epochs` is the number of saved checkpoints delivered (range `1`–`200`; when omitted, `round(steps / 200)`); each adds 10 Buzz of storage. Every ecosystem on this page defaults to 2000 steps, so with both `steps` and `epochs` omitted the run is **2000 steps / 10 epochs**, which lands each ecosystem on its default price (the examples above send `steps: 2000`, which also resolves to 10 epochs). Lowering `steps` or `epochs` can save at most 20% (the floor).
 
 | Ecosystem | `costPerStep` | Default price (2000 steps, 10 epochs) | Floor (80%) |
 |-----------|---------------|----------------------------------------|-------------|

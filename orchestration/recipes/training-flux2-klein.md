@@ -304,7 +304,7 @@ Defaults shown are the effective defaults for Klein.
 | `modelVariant` | ✅ | — | `4b` or `9b`. |
 | `isEditTraining` | | `false` | When `true`, dataset zip must contain `main/` + `control_*/` subfolders. |
 | `steps` | | `2000` | `1`–`10000`. Total training steps. Primary driver of training length and pricing. |
-| `epochs` | | `10` | `1`–`20`. Number of saved checkpoints delivered, each separately downloadable. Each adds 10 Buzz of storage. |
+| `epochs` | | `round(steps / 200)` | `1`–`200`. Number of saved checkpoints delivered, each separately downloadable. When omitted it is derived from `steps` (`10` at the default `2000`). Each adds 10 Buzz of storage. |
 | `batchSize` | | `1` | Defaults to 1. For `4b`, raise it up to the ecosystem maximum (**2**) to train faster at the cost of more GPU memory; a larger batch needs fewer steps. For `9b` it is fixed at 1. Values above the max are clamped. |
 | `continueFrom` | | *(none)* | A previously-trained `urn:air:flux2:lora:...` AIR to resume from (see [Continue training](#continue-training)). Must be a Klein (flux2) LoRA. |
 | `lr` | | `0.0001` | Klein is sensitive to high LRs — keep in `1e-4`–`5e-4`. |
@@ -387,7 +387,7 @@ costPerStep = 0.20 (4b), 0.45 (9b)
 floor: never less than 80% of the default-configuration price
 ```
 
-`epochs` is the number of saved checkpoints delivered (default `10`, range `1`–`20`); each adds 10 Buzz of storage. The default run is **2000 steps / 10 epochs**:
+`epochs` is the number of saved checkpoints delivered (range `1`–`200`; when omitted, `round(steps / 200)`); each adds 10 Buzz of storage. With both `steps` and `epochs` omitted the run is **2000 steps / 10 epochs** (the examples above send `steps: 2000`, which also resolves to 10 epochs):
 
 - `4b`: `2000 × 0.20 + 10 × 10 = 400 + 100 = 500 Buzz` (floor 400)
 - `9b`: `2000 × 0.45 + 10 × 10 = 900 + 100 = 1000 Buzz` (floor 800)
