@@ -141,9 +141,6 @@ jobs:
       # this build. Also asserts /llms-full.txt, the plugin's concatenation of
       # every page: there a RELATIVE link is itself a defect (it resolves against
       # `/`, not the page it came from — 796 of them on the build of 28e9e5c), and
-      # every root link must reach a page in this build. Also asserts no page,
-      # twin, chunk, search entry, llms.txt entry or llms-full.txt section is
-      # published from `claudedocs/` or `appblocks-snapshots/` (internal notes and
-      # generator inputs that once shipped as pages).
+      # every root link must reach a page in this build. Also: every page is in an allowlisted section.
       - name: Assert every .md twin's and llms-full.txt's links resolve from the URL they are served at
         run: npm run check:twin-links

@@ -395,20 +395,8 @@ export default withMermaid({
   // which is a MUTATED copy of a file whose entire contract is that it is not
   // mutated. The verbatim copy at /agent-setup/prompt.md was correct either way,
   // which is exactly why this would have gone unnoticed.
-  //
-  // Two directories of build-side files that are not documentation:
-  //   `claudedocs/**`           internal handoff notes kept for the people
-  //                             working on this repo;
-  //   `appblocks-snapshots/**`  committed generator INPUTS (`MARKUP.md` feeds
-  //                             /apps/reference/components, which the generator
-  //                             reads from disk, not through VitePress).
-  // Before these entries `claudedocs/handoff-docs-showcase-coverage.md` and
-  // `appblocks-snapshots/MARKUP.md` were each published as a page, a `.md` twin,
-  // search-index entries, an `/llms.txt` link and an `/llms-full.txt` section,
-  // with nothing linking to either. THIS list is what closes it: measured on
-  // claudedocs/ with vitepress-plugin-llms 1.12.0, srcExclude alone removes all,
-  // while the plugin's `ignoreFiles` entry alone still published the page, its
-  // chunks and its search entries. `check:twin-links` asserts none reappear.
+  // Not docs: `claudedocs/` = internal handoff notes; `appblocks-snapshots/` = generator
+  // inputs (read from disk). `check:twin-links` fails on any page outside its allowlist.
   srcExclude: [
     '**/CLAUDE.md',
     '**/README.md',
@@ -507,12 +495,7 @@ export default withMermaid({
         sidebar: llmsSidebar,
         // srcExclude already keeps public/ out of the page set; the llms plugin
         // walks its own file list, so it needs telling separately.
-        // `claudedocs/` and `appblocks-snapshots/` too. Redundant with srcExclude
-        // on plugin 1.12.0 (measured on claudedocs/: srcExclude alone already kept
-        // the twin, the llms.txt entry and the llms-full.txt section out) — kept
-        // so the plugin's own walk is told directly, in case a version stops
-        // honouring srcExclude.
-        ignoreFiles: ['orchestration/reference/operations/**/*.md', 'public/**/*.md', 'claudedocs/**/*.md', 'appblocks-snapshots/**/*.md'],
+        ignoreFiles: ['orchestration/reference/operations/**/*.md', 'public/**/*.md'],
       }),
     ],
   },
