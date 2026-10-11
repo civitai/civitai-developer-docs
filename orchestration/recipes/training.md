@@ -69,7 +69,7 @@ The response's `id` is the blob key. Reference it in any of three equivalent for
 }
 ```
 
-- `items` are objects with a required `air` and an optional `caption` (max 1024 characters). Captions serve the same role as the `.txt` sidecar files in a training zip; items without one fall back to the trigger word / default caption.
+- `items` are objects with a required `air` and an optional `caption` (max 8192 characters). Captions serve the same role as the `.txt` sidecar files in a training zip; items without one fall back to the trigger word / default caption.
 - At most **1000 items**, each referenced blob at most once. Any media type the blob endpoint accepts works (`jpg`, `png`, `webp`, `mp4`, `webm`, `mp3`, `wav`) — use images for the SD family, videos for video ecosystems like WAN/LTX, audio for ACE-Step.
 - There is no `count` field — the item count is `items.length`.
 - Uploaded blobs are retained for ~30 days (each re-upload or training submission refreshes the clock), so upload and train within the same session or at least the same month.
