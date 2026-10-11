@@ -101,7 +101,7 @@ The reference artifacts are produced by `scripts/gen-appblocks-*.mjs` into a git
 
 On a machine with the `civitai` sibling repo checked out, the scopes / messages-parity generators read `civitai@origin/main` directly and fall back to the snapshot only when it is absent, so those snapshots are the CI-hermetic copy, not the live source.
 
-The pinned SDK versions are the `@civitai/*` devDependencies in `package.json` (`@civitai/app-sdk` for messages, scopes metadata and the manifest schema; `@civitai/blocks-react` for hooks). Bumping a pin there is the one-line change that flows through to every SDK-derived page; read versions from `package.json`, not from any page.
+The pinned SDK versions are the `@civitai/*` devDependencies in `package.json` (`@civitai/app-sdk` for messages and the manifest schema; `@civitai/blocks-react` for hooks). Bumping a pin there is the one-line change that flows through to every SDK-derived page; read versions from `package.json`, not from any page.
 
 Drift is detected on the daily `appblocks-drift.yml` schedule: `npm run check:pins` (a pinned SDK devDep lags npm `latest`), `npm run check:snapshots` (a committed snapshot lags the upstream contract) and `npm run check:cli-snapshot` (the committed `--help` capture lags the latest `civitai/cli` release). Separately, `npm run test:appblocks:cli` blocks a PR when the CLI gains an `app` subcommand the generator does not list.
 
