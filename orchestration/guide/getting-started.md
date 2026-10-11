@@ -85,7 +85,7 @@ Statuses progress through `unassigned` → `preparing` → `scheduled` → `proc
 
 ## 3. Poll if you didn't wait inline
 
-Requests time out at **100 seconds**, and `wait` is not clamped to that, so keep it below 100: a longer `wait` ends in the timeout rather than a response. A workflow still running when `wait` elapses (most video jobs, large batches, training) comes back `202` with `status: "processing"`; keep its `id` and poll [`GET /v2/consumer/workflows/{workflowId}`](/orchestration/reference/operations/GetWorkflow) until it reaches a terminal state:
+Requests time out at **100 seconds**, and `wait` is not clamped to that, so keep it below 100: if the workflow is still running at 100 s you get a gateway timeout instead of a `202`, so you never receive its `id`, though the workflow keeps running and is charged. A workflow still running when `wait` elapses (most video jobs, large batches, training) comes back `202` with `status: "processing"`; keep its `id` and poll [`GET /v2/consumer/workflows/{workflowId}`](/orchestration/reference/operations/GetWorkflow) until it reaches a terminal state:
 
 ```http
 GET https://orchestration.civitai.com/v2/consumer/workflows/wf_01HXYZ...
