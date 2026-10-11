@@ -223,6 +223,6 @@ curl -X POST -H "Authorization: Bearer $CIVITAI_TOKEN" \
 
 ::: tip
 The "Try It" widget is GET-only, so this endpoint can only be exercised from a
-shell. Run the curl above (it's idempotent — calling it twice puts the version
+shell. Run the curl above (it's a toggle — calling it twice puts the version
 back).
 :::

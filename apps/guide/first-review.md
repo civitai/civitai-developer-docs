@@ -1,6 +1,6 @@
 ---
 title: First review checklist
-description: A self-runnable checklist to work through before `civitai app submit` — audit every state before polishing, declutter, visual hierarchy, theme, an honest money path, how to batch a submission without losing your store listing, and how to confirm the live build after approval. Distilled from the review feedback that recurred across the first apps built with an AI agent.
+description: A self-runnable checklist to work through before `civitai app submit` — audit every state before polishing, declutter, visual hierarchy, theme, an honest money path, how to batch a submission without losing your store listing, and how to confirm the live build after approval.
 sources:
   - go:github.com/civitai/cli
   - npm:@civitai/theme@0.5.2

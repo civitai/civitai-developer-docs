@@ -29,7 +29,3 @@ The widget supports:
 - **Inline preview** — generated images and videos render in the page once the workflow finishes.
 
 Reference operation pages have their own playground panel from the OpenAPI viewer (with its own auth field — paste once, persists across reloads).
-
-::: info Stub
-Expand once finalized: token scopes, rate limits per tier, rotation policy, how to request elevated access.
-:::

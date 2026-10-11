@@ -157,10 +157,6 @@ Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/or
 
 Single images typically land well inside the `wait=60` long-poll window, so a single `wait=60` POST covers the common case. A `quantity: 4` batch fans out to parallel calls but can still push toward the 100-second request timeout on busy FAL queues — submit those with `wait=0` and poll, or register a webhook.
 
-::: tip Preliminary timings
-MAI Image 2.5 is a fresh addition. Treat the wall-time guidance above as preliminary until the model has steady-state fleet capacity, and re-measure after it has been live for ~24 h.
-:::
-
 ## Cost
 
 Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.

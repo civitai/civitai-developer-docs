@@ -115,7 +115,7 @@ Content-Type: application/json
 
 ## Common parameters {#common-parameters}
 
-Defaults shown are the post-`ApplyDefaults` values for Wan.
+Defaults shown are the effective defaults for Wan.
 
 | Field | Required | Default | Notes |
 |-------|----------|---------|-------|
@@ -123,7 +123,7 @@ Defaults shown are the post-`ApplyDefaults` values for Wan.
 | `ecosystem` | ✅ | — | Always `wan` for this page. |
 | `modelVariant` | ✅ | — | `2.1` or `2.2`. |
 | `steps` | | `2000` | `1`–`10000`. Total training steps. Primary driver of training length. |
-| `epochs` | | `10` | `1`–`20`. Number of saved checkpoints delivered, each separately downloadable. **Each adds 200 Buzz** — Wan's per-epoch preview samples are videos and expensive to compute, so keep the epoch count modest. |
+| `epochs` | | `round(steps / 200)` | `1`–`200`. When omitted it is `steps / 200` rounded to the nearest whole number, with a `.5` going to the even neighbour, so `steps: 2500` gives `12` (`10` at the default `2000`). Number of saved checkpoints delivered, each separately downloadable. **Each adds 200 Buzz** — Wan's per-epoch preview samples are videos and expensive to compute, so keep the epoch count modest. |
 | `batchSize` | | `1` | Fixed at 1 for this ecosystem. |
 | `continueFrom` | | *(none)* | A previously-trained `urn:air:wan:lora:...` AIR to resume from (see [Continue training](#continue-training)). Must be a Wan LoRA. |
 | `lr` | | `0.0001` | `0.0002` is a typical override for video; see example. |
@@ -135,7 +135,7 @@ Defaults shown are the post-`ApplyDefaults` values for Wan.
 | `noiseOffset` | | `0` | `0`–`1`. |
 | `flipAugmentation` | | `false` | Random horizontal flips. |
 | `shuffleTokens` / `keepTokens` | | `false` / `0` | Caption-tag shuffling. |
-| `triggerWord` | | *(none)* | Activation token. Per the source, not all video ecosystems support `triggerWord` — leave empty if you see schema rejections. |
+| `triggerWord` | | *(none)* | Activation token. Some video ecosystems reject `triggerWord` — leave it empty if you see schema rejections. |
 | `trainingData.{type, sourceUrl, count}` | ✅ | — | `type: "zip"`. Images, video clips, or a mix; the example uses an image dataset. |
 | `samples.prompts[]` | | `[]` | Preview videos rendered at each saved checkpoint with the trained LoRA. |
 | `samples.negativePrompt` | | *(none)* | — |
@@ -188,7 +188,7 @@ costPerStep = 0.5   (2.1 and 2.2)
 floor: never less than 80% of the default-configuration price
 ```
 
-Wan's per-epoch surcharge is **200 Buzz** (not 10 like image ecosystems) because each epoch's preview samples are videos and expensive to compute — so most of Wan's cost is in the epoch count, not the step count. The default run is **2000 steps / 10 epochs** → `2000 × 0.5 + 10 × 200 = 1000 + 2000 = 3000 Buzz`. The **floor** is 80% of the default price (2400 Buzz).
+Wan's per-epoch surcharge is **200 Buzz** (not 10 like image ecosystems) because each epoch's preview samples are videos and expensive to compute — so most of Wan's cost is in the epoch count, not the step count. With both `steps` and `epochs` omitted the run is **2000 steps / 10 epochs** (the example at the top of the page sends `steps: 2000`, which also resolves to 10 epochs) → `2000 × 0.5 + 10 × 200 = 1000 + 2000 = 3000 Buzz`. The **floor** is 80% of the default price (2400 Buzz).
 
 Lowering `epochs` saves the most. Sample-prompt rendering itself uses Wan video-generation rates and is billed separately. Run with `whatif=true` to see the exact pre-flight charge.
 
@@ -203,7 +203,7 @@ Lowering `epochs` saves the most. Sample-prompt rendering itself uses Wan video-
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `400` with "modelVariant required" | Missing `modelVariant` | Set to `"2.1"` or `"2.2"`. |
-| Step starts then fails immediately | Preview ecosystem not yet enabled on the routing GPU fleet | Contact Civitai support — Wan training is rolling out. |
+| Step starts then fails immediately | Wan training not yet available for your request | Contact Civitai support. |
 | Step `failed` with VRAM-related error | Resolution × clip length too high for the worker | Lower `resolution` (e.g. to `512`), shorten clips to ≤ 3 seconds. |
 | Trained LoRA produces static / no motion | Too few steps, too few / too short clips | Raise `steps`; ensure clips show the motion you want learned. |
 | Step `failed`, `moderationStatus: "Rejected"` | Dataset failed content moderation | Replace flagged clips. |

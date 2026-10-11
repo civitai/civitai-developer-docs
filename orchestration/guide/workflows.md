@@ -38,7 +38,6 @@ Key fields on a returned [`Workflow`](/orchestration/reference/operations/GetWor
 | `metadata` | Arbitrary JSON you attached at submission (or via [`UpdateWorkflow`](/orchestration/reference/operations/UpdateWorkflow)). Not indexed. |
 | `nsfwLevel` | Content classification, computed from step outputs. |
 | `callbacks` | Registered webhooks — see [Results & webhooks](./results-and-webhooks). |
-
 | `downloadPriority` | Which lane resources this workflow needs are downloaded in — see [Download priority](#download-priority). |
 
 Submitted-only fields (`upgradeMode`, `allowMatureContent`, `currencies`, `experimental`, `arguments`) come back on the response as well so you can see what policy the workflow ran under.

@@ -137,7 +137,7 @@ The `{ "$ref": "hero", "path": "output.images[0].url" }` reference creates a dep
 
 <RecipeRun :body="chainBody" />
 
-For the reverse composition — placing the cutout on a new background, resizing it, or converting formats — chain an [Image conversion](./convert-image) step after this one.
+To resize the cutout or convert its format, chain an [Image conversion](./convert-image) step after this one.
 
 ## Reading the result
 
@@ -213,6 +213,6 @@ The `format` choice doesn't affect the Buzz price.
 - [Endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageBackgroundRemoval/openapi.yaml) — standalone OpenAPI 3.1 YAML for this endpoint, ready to import into Postman / Insomnia / OpenAPI Generator
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — generic path for chaining
 - [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
-- [Image conversion](./convert-image) — resize the cutout, convert formats, or flatten onto a background
+- [Image conversion](./convert-image) — resize the cutout or convert formats
 - [Image upscaling](./image-upscaler) — enlarge before or after cutting out
 - [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism) — how the `$ref` references work

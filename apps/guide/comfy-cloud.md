@@ -37,14 +37,6 @@ custom-node graph).
 | **[recipe](#the-recipe-arm)** | omitted, or `'recipe'` | a registered recipe id + bounded `params` | page apps (closed beta) |
 | **[inline](#the-inline-arm-ship-your-own-graph)** | `'inline'` (required) | **the ComfyUI graph itself**, a declared resource manifest, and a `maxBuzz` ceiling | page apps (closed beta) |
 
-::: danger This page used to say you could not do the second one
-Earlier revisions stated flatly that a block never ships a ComfyUI graph and
-could not bring its own. That was true when the recipe arm was the only one; the
-inline arm shipped afterwards and this page was not updated. A developer working
-against the live feature read the old sentence, believed it over their own
-testing, and concluded the capability did not exist. It does.
-:::
-
 ::: warning Closed beta — access is limited
 Comfy on Civitai is part of the [closed-beta](./) Apps platform and is
 **mod-gated**, and both arms are **page-token-only**. You can scaffold and
@@ -464,7 +456,7 @@ price — and not a target to size `buzzBudgetPerGen` from.
 Surface the `estimate()` value as an estimate in your UI, and read the final
 `result.cost.total` on completion.
 
-### 🔴 On the inline arm, `maxBuzz` is also the timeout in seconds
+### On the inline arm, `maxBuzz` is also the timeout in seconds
 
 The recipe arm gets its ceiling from the registry. On the inline arm **you
 declare it**, and the server derives the step timeout from that same number:
@@ -516,11 +508,8 @@ npm run dev:harness           # mock host — recipe sample runs, no backend
 npm test                      # exercises BOTH body builders
 ```
 
-The inline builder is not on the scaffold's mode toggle yet: the mock host in the
-pinned `@civitai/blocks-react` reads `body.params.accountType` unconditionally
-and an inline body has no `params`, so driving it through the harness throws.
-That is a mock-host bug being fixed, and it does **not** affect live
-civitai.com — the scaffold's README tracks the state and spells out the wiring.
+The inline builder is not on the scaffold's mode toggle yet; the scaffold's
+README spells out the wiring.
 
 Real generation needs closed-beta access (and a page app — `customComfy` is
 page-only on both arms) and `npm run dev:live` / a submitted app; see the

@@ -194,7 +194,7 @@ Aspect ratio and reference count don't affect Grok's Buzz price — the provider
 | `400` with "aspectRatio must be one of" | Ratio outside the accepted enum (e.g. `21:9`) | Pick a close equivalent from the table above — `20:9` is the closest cinematic wide. |
 | `400` with "images minItems" on edit | Empty `images[]` on `editImage` | Include 1–3 source images. |
 | `400` with "images maxItems" | More than 3 source images | Trim to 3. |
-| `400` with "quantity must be ≤ 4" | Requested more than 4 in one call | Split into multiple submissions or use a different engine with a higher cap (Flux / OpenAI gpt-image-1 / Seedream go up to 10–12). |
+| `400` with "quantity must be ≤ 4" | Requested more than 4 in one call | Split into multiple submissions or use a different engine with a higher cap (OpenAI gpt-image-1 goes up to 10, Seedream up to 12). |
 | Request timed out (`wait` expired) | Large `quantity` or busy xAI queue | Resubmit with `wait=0` and poll. |
 | Step `failed`, `reason = "blocked"` | xAI content filter | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
 

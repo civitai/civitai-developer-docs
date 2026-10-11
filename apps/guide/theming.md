@@ -18,7 +18,7 @@ you want the behaviour and ARIA wiring supplied. Either half works in plain HTML
 Svelte, Vue, Solid or vanilla JS, and in React `@civitai/components-react` gives you
 the elements as typed bindings.
 
-🔴 **The two halves are not the same set, and neither contains the other — pick by
+**The two halves are not the same set, and neither contains the other — pick by
 what you need rather than by preference.** Most of the difference runs one way: the
 elements include `modal`, `menu`, `switch` and `table`, none of which has any
 `data-civitai-ui` contract. It runs the other way too, once: `radio` is a sheet
@@ -163,8 +163,7 @@ that ships inside `@civitai/components`. **`MARKUP.md` is the source of truth**
 for hand-written markup, and the `@civitai/components` suites assert its rules
 against `components.css` directly. It is **not** what the React bindings render:
 since `@civitai/components-react@0.9.0` those bind the custom elements, which
-style themselves in shadow DOM, and the `html-vs-react-parity` test that used to
-compare the two arms retired with the layer it compared.
+style themselves in shadow DOM.
 
 ## Plain HTML quickstart
 
@@ -188,14 +187,7 @@ Paint the page from the body/text tokens as shown.
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Civitai design system — plain HTML</title>
 
-    <!-- Pinned CDN URLs — each package at ITS OWN version. Both jsDelivr and
-         unpkg serve `@civitai/<pkg>@<version>/styles.css`; either host works.
-         These carry no `integrity` hash: 2 of the 7 pinned refs on this page
-         once did, and both were WRONG, which blocks the stylesheet outright.
-         Nothing in this repo can check a hand-written hash, so it was removed
-         rather than re-typed. If SRI is wanted here it has to be GENERATED —
-         see scripts/check-design-system-pins.mjs, which already resolves every
-         pinned ref in this file. -->
+    <!-- Pinned CDN URLs, each package at its own version (unpkg or jsDelivr). -->
     <link
       rel="stylesheet"
       href="https://unpkg.com/@civitai/theme@0.5.2/styles.css"
@@ -298,7 +290,7 @@ export function GenerateForm() {
 }
 ```
 
-🔴 **A binding prop is assigned as a PROPERTY on every render.** `@lit/react`'s
+**A binding prop is assigned as a PROPERTY on every render.** `@lit/react`'s
 prop effect carries no dependency array (*"it'll run on every re-render"*) and
 deliberately skips dirty checking, so a hard-coded `value="…"` or `checked` on a
 binding **re-asserts itself and discards what the viewer typed** the next time the
@@ -428,7 +420,7 @@ Prefer a **token override** (a `--civitai-*` custom property) when you want to
 recolor/respace consistently, and an **unlayered rule** when you need a
 structural change to one component. Both compose cleanly with the layer.
 
-🔴 **But the layer argument covers `@civitai/components`' RULES, not the tokens —
+**But the layer argument covers `@civitai/components`' RULES, not the tokens —
 scope a token override, never declare one at `:root`.** `@civitai/theme`'s token
 sheet carries **no cascade layer at all** — measured: zero `@layer` anywhere in
 `@civitai/theme@0.5.2`, against the single `@layer civitai.components` that

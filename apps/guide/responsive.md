@@ -180,10 +180,7 @@ stay on it rather than mixing them in the same layout.
 
 ## What the design system already reflows for you
 
-Since `@civitai/components@0.4.0` you get some of this without writing anything
-(0.4.0 is the arrival version, not the current pin — the releases since have
-changed other things, not this behaviour; the pin itself is in this page's
-`sources:` stamp, which a guard keeps honest):
+Since `@civitai/components@0.4.0` you get some of this without writing anything:
 
 - **`group` wraps by default.** A row of controls that no longer fits reflows
   onto another row instead of overflowing its box, and its children may shrink

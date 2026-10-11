@@ -206,7 +206,7 @@ Always submit with `wait=0`. These ecosystems run anywhere from a fraction of a 
 
 ## Chroma
 
-Trains on the Chroma1-HD base. Uses [`TextToImageV2Job`](/orchestration/reference/) for sample renders; output LoRA is usable wherever Chroma is supported.
+Trains on the Chroma1-HD base. The output LoRA is usable wherever Chroma is supported.
 
 ```http
 POST https://orchestration.civitai.com/v2/consumer/workflows?wait=0
@@ -253,7 +253,7 @@ Chroma defaults: `networkDim: 16`, `optimizerType: adamw8bit`, `trainTextEncoder
 
 ## ERNIE
 
-Trains on Baidu's ERNIE-Image. Comfy-based ecosystem with built-in diffuser. Uses [`ComfyImageGenJob`](/orchestration/reference/) for sample renders.
+Trains on Baidu's ERNIE-Image. Comfy-based ecosystem with built-in diffuser.
 
 ```http
 POST https://orchestration.civitai.com/v2/consumer/workflows?wait=0
@@ -433,7 +433,7 @@ Z-Image Base defaults: `networkDim: 32`, `optimizerType: automagic` (overridden)
 
 ## Common parameters {#common-parameters}
 
-Defaults shown are the post-`ApplyDefaults` values; per-ecosystem deviations are noted above.
+Defaults shown are the effective defaults; per-ecosystem deviations are noted above.
 
 | Field | Required | Default | Notes |
 |-------|----------|---------|-------|
@@ -441,7 +441,7 @@ Defaults shown are the post-`ApplyDefaults` values; per-ecosystem deviations are
 | `ecosystem` | ✅ | — | One of: `chroma`, `ernie`, `qwen`, `zimageturbo`, `zimagebase`. |
 | `version` | (qwen only) | `latest` | `latest`, `2509`, `2512`. Selects the Qwen-Image base release. |
 | `steps` | | `2000` | `1`–`10000`. Total training steps. Primary driver of training length and pricing. |
-| `epochs` | | `10` | `1`–`20`. Number of saved checkpoints delivered, each separately downloadable. Each adds 10 Buzz of storage. |
+| `epochs` | | `round(steps / 200)` | `1`–`200`. Number of saved checkpoints delivered, each separately downloadable. When omitted it is derived from `steps` (`10` at the default `2000`). Each adds 10 Buzz of storage. |
 | `batchSize` | | `1` | Defaults to 1. For Z-Image and ERNIE, raise it up to the ecosystem maximum (**2**) to train faster at the cost of more GPU memory; a larger batch needs fewer steps. For Chroma and Qwen it is fixed at 1. Values above the max are clamped. |
 | `continueFrom` | | *(none)* | A previously-trained LoRA AIR (`urn:air:<ecosystem>:lora:...`) to resume from (see [Continue training](#continue-training)). Must be a LoRA of the same ecosystem. |
 | `lr` | | `0.0001` | UNet learning rate. |
@@ -509,7 +509,7 @@ price = steps × costPerStep + epochs × 10        (rounded)
 floor: never less than 80% of the default-configuration price
 ```
 
-`epochs` is the number of saved checkpoints delivered (default `10`, range `1`–`20`); each adds 10 Buzz of storage. The default run is **2000 steps / 10 epochs**, which lands each ecosystem on its default price. Lowering `steps` or `epochs` can save at most 20% (the floor).
+`epochs` is the number of saved checkpoints delivered (range `1`–`200`; when omitted, `steps / 200` rounded to the nearest whole number, with a `.5` going to the even neighbour, so `steps: 2500` gives `12`); each adds 10 Buzz of storage. Every ecosystem on this page defaults to 2000 steps, so with both `steps` and `epochs` omitted the run is **2000 steps / 10 epochs**, which lands each ecosystem on its default price (the examples at the top of the page send `steps: 2000`, which also resolves to 10 epochs). Lowering `steps` or `epochs` can save at most 20% (the floor).
 
 | Ecosystem | `costPerStep` | Default price (2000 steps, 10 epochs) | Floor (80%) |
 |-----------|---------------|----------------------------------------|-------------|
@@ -527,7 +527,7 @@ Sample-prompt rendering is billed separately at each ecosystem's image-generatio
 |---------|--------------|-----|
 | `400` with "ecosystem unknown" | Typo, or not one of `chroma` / `ernie` / `qwen` / `zimageturbo` / `zimagebase` | Check spelling. |
 | `400` with "version not allowed" (Qwen only) | `version` not one of `latest` / `2509` / `2512` | Use one of the listed values. |
-| Z-Image Base: `optimizerType` you set seems ignored | Intentional — `ApplyDefaults` overrides to `automagic` | Use Z-Image Turbo if you need full optimizer control. |
+| Z-Image Base: `optimizerType` you set seems ignored | Intentional — the server overrides it to `automagic` | Use Z-Image Turbo if you need full optimizer control. |
 | Trained LoRA underbaked | Too few steps / too low `lr` | Raise `steps` (these ecosystems often need more steps than SDXL); keep `lr` ≤ `5e-4`. |
 | Trained LoRA overcooked | Too many steps or `networkDim` too high | Drop `networkDim` to 16, lower `steps`. |
 | Step `failed`, `moderationStatus: "Rejected"` | Dataset failed content moderation | Replace flagged images. |

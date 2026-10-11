@@ -217,8 +217,8 @@ Include `{n}` for a batch. A single-output run with a fixed name is fine.
   numbered row of its own, or an extra field, to that listing.
 - `--timeout` bounds how long the CLI waits, and defaults to **30m**. That is
   deliberately generous: the wait has to outlast the **queue**, not just the
-  execution. A healthy job has been measured sitting in `scheduled` for
-  **11m41s** before execution even began, so a shorter default walks away from
+  execution. A healthy job can sit in `scheduled` for more than **10 minutes**
+  before execution begins, so a shorter default walks away from
   a run that has already been charged.
 - `civitai workflows get <workflow-id>` shows a workflow at any time. It is the
   re-attach path for every case where the CLI stopped early, and it spends
@@ -301,7 +301,7 @@ re-attach with `civitai workflows get <workflow-id>` instead of re-submitting.
 | Not enough Buzz (caught locally against your balance, or reported by the server) | `1` |
 | Account muted, or onboarding incomplete | `1` |
 | Generation disabled server-side | `1` |
-| Prompt refused by content moderation — 🔴 **never retry**, repeated blocked prompts get the account muted | `1` |
+| Prompt refused by content moderation — **never retry**, repeated blocked prompts get the account muted | `1` |
 | The server priced the job but reports `ready: false` (a selected resource is not currently available) | `2` |
 | Estimate above `--max-cost`, an unknown ecosystem, or a resource that resolved fine but is "not enabled for generation" (the ids exist; the *combination* is not runnable — distinct from exit `4`, which means "no such id") | `2` |
 | `--fail-on-substitution` and the **estimate** reported a substituted checkpoint — nothing submitted (see [Silent model substitution](./cli-generate-models#silent-model-substitution)) | `1` |
@@ -310,7 +310,7 @@ re-attach with `civitai workflows get <workflow-id>` instead of re-submitting.
 | `--image` without `--ecosystem` | `2` |
 | No such `--checkpoint` / `--lora` version id | `4` |
 | `civitai workflows get` / `workflows cancel` on an unknown workflow id (a read; spends nothing) | `4` |
-| *— 🔴 submitted: the Buzz is already spent —* | |
+| *— submitted: the Buzz is already spent —* | |
 | `--timeout` expired, or Ctrl-C while waiting — the job **keeps running** server-side and was **not** cancelled | `1` |
 | The workflow finished `failed` / `expired` / `canceled` | `1` |
 | The workflow succeeded but every output was filtered out (blocked / unavailable / hidden) | `1` |

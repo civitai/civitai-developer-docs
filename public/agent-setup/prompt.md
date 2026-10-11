@@ -49,8 +49,8 @@ above; do not report the Homebrew failure as a problem.
 
 ### If the install fails
 
-Two failures were measured on a real machine — not the only ways an install can
-fail. On a third, report the exact error and stop rather than guessing.
+Two common failures are below; they are not the only ways an install can fail.
+On any other, report the exact error and stop rather than guessing.
 
 - **npm fails with `EACCES`, or with `ENOENT` on a `mkdir` under npm's global
   prefix.** The prefix is not writable. This is normal on NixOS, in some
@@ -74,9 +74,8 @@ fail. On a third, report the exact error and stop rather than guessing.
 
 A **successful** npm 11 install still ends with a warning that `@civitai/cli`'s
 `postinstall` is "not yet covered by allowScripts". That is an advisory about a
-future npm policy, not a report that the script was skipped — measured on npm
-11.19, the postinstall ran and the platform binary was on disk before the CLI
-was run once. Do not stop, and do not re-install with an allow-scripts flag.
+future npm policy, not a report that the script was skipped: the postinstall
+still runs. Do not stop, and do not re-install with an allow-scripts flag.
 Step 4 tells you whether the install worked.
 
 ## 3. Configure this agent

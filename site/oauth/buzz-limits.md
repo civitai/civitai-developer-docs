@@ -74,9 +74,7 @@ from "capped by the user". If you need to give a precise message to the
 user, parse `message` defensively.
 
 ::: warning Don't rely on message text for programmatic decisions
-The exact default message string above comes from
-[`throwInsufficientFundsError`](https://github.com/civitai/civitai)'s
-helper and may change. Treat anything beyond the HTTP/RPC code as
+The exact default message string above may change. Treat anything beyond the HTTP/RPC code as
 human-readable only.
 :::
 

@@ -297,9 +297,8 @@ see [choosing between them](#one-image-or-several) below.
 This is the one part of the contract with the sharpest constraints, and they are
 **all server-enforced**, for both fields:
 
-- 🔴 **Page apps only.** A source image is **rejected fail-closed on a
-  model-bound token** — a model-slot block cannot do img2img. This is documented
-  nowhere else; if you copy a page-app img2img example into a `model.*` slot
+- **Page apps only.** A source image is **rejected fail-closed on a
+  model-bound token** — a model-slot block cannot do img2img. If you copy a page-app img2img example into a `model.*` slot
   block you will get a `FORBIDDEN` with no hint why. img2img lives on **page
   apps**.
 - **The checkpoint's ecosystem picks the graph.** SD-family checkpoints get
@@ -354,25 +353,12 @@ source (it is not a public display image).
 ### One image, or several? {#one-image-or-several}
 
 The SDK marks `sourceImage` **`@deprecated`** in favour of `sourceImages`. Read
-that as a signpost, **not** a removal notice, and do not blanket-migrate:
+that as a signpost, **not** a removal notice:
 
 | you want | send | why |
 |---|---|---|
-| exactly one image | **`sourceImage`** | understood by every host. The server normalizes it into a 1-element array, so a 1-element `sourceImages` would produce a **byte-identical** generation — there is nothing to gain by switching, and something to lose (below). The SDK states the alias keeps working **indefinitely**. |
-| two or more images | **`sourceImages`** | the only field that can express it — but see the host caveat below |
-
-::: danger An old host silently strips `sourceImages` — and still bills you
-`sourceImages` needs a host running
-[civitai/civitai#3518](https://github.com/civitai/civitai/pull/3518) or later.
-The text-to-image body schema is **not** `.strict()`, so a host that predates
-#3518 does not reject the field — it **drops it** and runs, and **charges for**,
-a plain text-to-image generation with **no image conditioning at all**. You get a
-successful workflow, real images and a real Buzz charge for a request that
-ignored your input, and there is **no client-side way to detect it**.
-
-Until #3518 is deployed everywhere you target, `sourceImage` (singular) is the
-field that works on both.
-:::
+| exactly one image | **`sourceImage`** | understood by every host. The server normalizes it into a 1-element array, so a 1-element `sourceImages` would produce a **byte-identical** generation, so either field works. The SDK states the alias keeps working **indefinitely**. |
+| two or more images | **`sourceImages`** | the only field that can express it |
 
 Sending **both** fields is rejected as ambiguous, so this is genuinely an
 either/or.
@@ -381,8 +367,8 @@ either/or.
 import { useBuzzWorkflow, useImageUpload } from '@civitai/blocks-react';
 import type { WorkflowBodyTextToImage } from '@civitai/app-sdk/blocks';
 
-// PAGE APP: multi-image edit. Needs a host on civitai/civitai#3518 or later,
-// and a checkpoint whose ecosystem allows more than one image (Qwen: 3).
+// PAGE APP: multi-image edit. Needs a checkpoint whose ecosystem allows more
+// than one image (Qwen: 3).
 export function MultiImageEdit({ modelId, modelVersionId }: { modelId: number; modelVersionId: number }) {
   const { submit } = useBuzzWorkflow();
   const { open } = useImageUpload({ purpose: 'generationSource' });
@@ -425,7 +411,7 @@ you drive:
   the hook's `status` goes to `'done'`, not `'polling'` — so a `workflowId`
   alone does not mean a run started; see
   [refused submits](#refused-submits). The `options` bag
-  carries **`idempotencyKey`** — 🔴 **read
+  carries **`idempotencyKey`** — **read
   [retrying a submit](#retrying-a-submit-safely) before you write any retry
   path**, because a retried submit is how a viewer gets charged twice.
 - **`watch(workflowId, options?)`** — **the one you want.** It owns the polling
@@ -593,7 +579,7 @@ field before it prices anything, so a key outside that class is refused outright
 — a `BAD_REQUEST` / **`400`**. Nothing is queued and nothing is charged, so a
 block that composes its keys this way simply never generates.
 
-🔴 **A colon is the one to watch, and it is excluded deliberately** — not as an
+**A colon is the one to watch, and it is excluded deliberately** — not as an
 oversight you can work around with a different punctuation mark. The host joins
 the parts of its internal per-viewer / per-app dedupe and rate-limit keys with
 `:`, and those joins are only collision-free while your key cannot contain one;

@@ -32,9 +32,7 @@ Every request needs a valid token; requests without one are rejected with `401`.
 
 ### Claude Desktop
 
-Add the server to `~/.claude/config.json` (or use **Settings → Developer → Edit Config**), then restart Claude Desktop:
-
-<McpConfigBlock kind="json" url="https://orchestration.civitai.com/mcp/v2" />
+Claude Desktop connects to a remote server as a **custom connector**, the same way as [claude.ai](#claude-ai) below. Its `claude_desktop_config.json` is for local (command-based) servers, not a remote URL.
 
 ### claude.ai
 
@@ -62,7 +60,7 @@ Any client that speaks Streamable HTTP can connect: point it at `/mcp/v2` and se
 ## Steps and services
 
 - A **step** is what a workflow runs: `imageGen`, `videoGen`, `textToSpeech`, `convertImage` and so on. It's the `$type` in [`POST /v2/consumer/workflows`](/orchestration/reference/operations/SubmitWorkflow).
-- A **service** is one concrete thing a step can do, meaning an engine, model and operation, identified like `image/flux2/klein/createImage/9b`. These are the same ids as [`GET /v2/consumer/services`](/orchestration/reference/operations/ListServices).
+- A **service** is one concrete thing a step can do, meaning an engine, model and operation, identified like `image/flux2/klein/createImage/9b`. These are the same ids as [`GET /v2/services`](/orchestration/reference/operations/ListServices).
 
 ## How an agent uses it
 

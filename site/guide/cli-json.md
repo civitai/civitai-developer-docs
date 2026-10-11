@@ -57,7 +57,7 @@ comes out longer than it went in.
 
 **The second is not.** The API intermittently emits a **raw control byte** — a
 carriage return, most often — inside a `prompt` or `description` string, which
-is not legal JSON and used to fail the whole page. When a page will not decode,
+is not legal JSON. When a page will not decode,
 the CLI rewrites those bytes as their JSON escapes (`\r`, `\u0001`) and decodes
 the repaired body, and **that repaired body is what `--json` prints**. The
 *document* is still the API's — the same strings, the same characters — but the
@@ -66,13 +66,10 @@ rewrite.
 
 ### A username can be entirely digits
 
-A second shape used to fail the same way and is also fixed: a Civitai username
-can be all digits, and such a value was reported arriving as a bare JSON
-**number** (`"username": 2802169344506`, unquoted) rather than a string. One
-such uploader on a page failed the whole page, so `civitai images search`
-printed nothing at all. The CLI now accepts either shape and keeps the digits
-exactly as sent — so treat a username as a **string** in your script even
-though the wire may carry a number.
+A Civitai username can be all digits, and such a value can arrive as a bare JSON
+**number** (`"username": 2802169344506`, unquoted) rather than a string. The CLI
+accepts either shape and keeps the digits exactly as sent, so treat a username
+as a **string** in your script even though the wire may carry a number.
 
 ### When a body still will not decode
 
@@ -143,9 +140,9 @@ esac
 printf '%s' "$q" | jq -r .cost.total
 ```
 
-The `*` arm is the point. An earlier version of this snippet tested
-`[ … = "false" ] && exit 1`, which exits **0** when the key is absent or `jq`
-fails — it read "we could not ask" as "we asked and it was fine".
+The `*` arm is the point: a plain `[ … = "false" ] && exit 1` exits **0** when
+the key is absent or `jq` fails, reading "we could not ask" as "we asked and it
+was fine".
 
 ### `ready` is one-directional {#ready-is-one-directional}
 
@@ -158,8 +155,7 @@ skipped, leaving the flag `true`**.
 It is not a moderation verdict and not a prediction that the job produces an
 image — `--dry-run` therefore prints it as **`Resources ready`**, not
 "Generatable". A run reporting `ready: true` can still be charged and return
-nothing: measured, 8 submits across 3 checkpoints that all quoted `ready: true`
-produced **0** outputs.
+nothing.
 
 So gate on the FALSE direction, as above, and never treat `true` as a success
 predicate.

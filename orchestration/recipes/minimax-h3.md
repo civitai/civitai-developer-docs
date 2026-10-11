@@ -206,7 +206,7 @@ The schema in the [API reference](/orchestration/reference/) is authoritative.
 |---|---|---|
 | `engine` | — ✅ | `"minimax-h3"` |
 | `prompt` | — ✅ | Up to 7000 characters. |
-| `resolution` | `"2K"` | `"2K"` is the only value H3 accepts today; MiniMax has a cheaper 768P tier in flight. H3's 2K is natively generated rather than upscaled. |
+| `resolution` | `"2K"` | `"2K"` is the only value H3 accepts today. H3's 2K is natively generated rather than upscaled. |
 | `duration` | `5` | Integer seconds, 5–15. |
 | `aspectRatio` | `"adaptive"` | `"adaptive"`, `"21:9"`, `"16:9"`, `"4:3"`, `"1:1"`, `"3:4"`, `"9:16"`. Only read for text-to-video, where `adaptive` is not allowed. |
 | `firstFrameImage` | — | Single image used as the opening frame. |
@@ -285,7 +285,7 @@ A 5-second 2K clip takes around **three minutes** end to end, and 15-second clip
 | `400` on a reference-media request | URL not publicly fetchable, or a clip outside the size/duration limits | Check the limits above and that the URL resolves from the public internet. |
 | `400` combining reference media with a frame image | Different MiniMax task types | Use one or the other. |
 | Content-policy rejection | MiniMax's own input review | Rephrase the prompt or swap the source media. Not billed. |
-| Job retries across workers | Provider rate limit | Expected under load — H3 capacity is intentionally throttled. |
+| Job retries across workers | Provider rate limit | Expected under load. |
 
 ## Related
 

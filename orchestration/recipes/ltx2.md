@@ -54,7 +54,7 @@ const editBody = {
       engine: 'ltx2.3', operation: 'editVideo', model: '22b-dev',
       prompt: 'Transform the scene into a cyberpunk aesthetic with neon lighting',
       sourceVideo: sampleVideo,
-      cannyLowThreshold: 100, cannyHighThreshold: 200, guideStrength: 0.7,
+      cannyLowThreshold: 0.4, cannyHighThreshold: 0.8, guideStrength: 0.7,
     },
   }],
 };
@@ -303,7 +303,7 @@ Shared across most (engine, operation) combinations. The per-variant schema in t
 |-------|----------------|-------|
 | `model` | `22b-dev` / `22b-distilled` (2.3); `19b-dev` / `19b-distilled` (2.0) | `-distilled` is faster with slightly lower fidelity; `-dev` is maximum quality. |
 | `width` / `height` | `1280×720`, `720×1280`, `1024×1024` | Vertical for phones: swap to `720×1280`. |
-| `duration` | `3` or `20` seconds | Only these two values are accepted; no intermediate durations. |
+| `duration` | `3`–`20` seconds (2.3); `3` or `5` (2.0) | Whole seconds; default `5`. |
 | `fps` | `24`, `30` | Frame rate of the generated clip. |
 | `guidanceScale` | `3`–`7` | Prompt adherence. Higher = closer to prompt but less creative. |
 | `numInferenceSteps` | `8`–`50` | `20`–`40` is the practical quality sweet spot. More steps = higher quality, longer runtime. |

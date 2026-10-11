@@ -8,7 +8,8 @@ sources:
 # Your store listing
 
 Your **store listing** is the card shoppers see in the
-[`/apps` store](https://civitai.com/apps). It is a different object from your
+[`/apps` store](https://civitai.com/apps), which is still gated while the store is
+pre-GA. It is a different object from your
 app's deployment: an app can be approved, deployed and serving at
 `<slug>.civit.ai` while its listing is still a draft nobody can find. See
 [Deployed is not the same as listed in the store](./review-and-deploy#deployed-is-not-the-same-as-listed-in-the-store).
@@ -387,7 +388,7 @@ Read the code, not the word "refused" — they do **not** share one:
 |---|---|
 | you unpublished the listing yourself — a material change is blocked while it is down | `2` |
 | a moderator removed the listing | `3` |
-| any other failure the server does not classify — including a platform that has not yet applied the migration adding the listing's source-repo column | `1` |
+| any other failure the server does not classify | `1` |
 
 The first is `2` because the server answers `MATERIAL_CHANGE_BLOCKED` as an
 HTTP `400`, which this CLI classifies as a malformed request. In each case the
@@ -458,8 +459,7 @@ falls back to selecting the listing **by slug**. That fallback needs a slug
 selector that is deployed on civitai.com.
 
 If **both** lookups answer *not found*, the CLI says so and points at the
-website. That happens against a Civitai too old to carry the slug selector — an
-older or self-hosted deployment — or for an app with no listing row at all. The
+website. That happens for an app with no listing row at all. The
 message names `civitai app view <slug>`, which still shows the icon and cover the
 listing is serving, and names the App-store listing UI on civitai.com as where
 that media is managed by the account that registered the app. It does not promise

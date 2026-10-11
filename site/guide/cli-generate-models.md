@@ -27,19 +27,15 @@ correct them either; see
 them.
 
 Pairing a checkpoint with an ecosystem it does not belong to is refused by
-**nothing**. Measured once on a live token: a checkpoint version from the SD
-1.5 family, passed with no `--ecosystem`, was submitted beside `ecosystem:
-zImage`, `engine: sdcpp`, `steps: 9`, `cfgScale: 1`. It was charged, queued 15
-minutes, ran 4.5 minutes, and finished `Status: failed` with **0 deliverable
-outputs**. `--dry-run` had reported `Resources ready: true` beforehand. One
-paid observation, not independently reproduced — reproducing it costs Buzz.
+**nothing**. Such a job can be charged, run, and finish `Status: failed` with
+**0 deliverable outputs**, even though `--dry-run` reported
+`Resources ready: true` beforehand.
 
 The two things that look like they should catch it do not:
 
 - the model-version lookup proves the id **exists**, not that it **fits**;
 - `Resources ready` reports resource availability, not coherence. It is
-  [not a promise of output](./cli-json#ready-is-one-directional), and this is a
-  second measured case of `ready: true` preceding zero outputs.
+  [not a promise of output](./cli-json#ready-is-one-directional).
 
 ::: warning Which ecosystem a checkpoint belongs to is server knowledge
 The CLI does not hold it and will not guess. A local copy of server state goes
@@ -56,10 +52,9 @@ unknown value comes back as the server's own `unknown ecosystem` error.
 If you pass a `--checkpoint` version id that is not valid for the model family
 being generated, the server does **not** reject it. It substitutes that
 family's default checkpoint, runs the job, and bills you for **what actually
-ran**. Until recently the reply was indistinguishable from success — a
-nonexistent version id came back `200 OK` at the default price.
+ran**.
 
-The server now reports each swap, and `civitai generate` surfaces it:
+The server reports each swap, and `civitai generate` surfaces it:
 
 ```console
 $ civitai generate "a cat" --ecosystem Flux1Kontext --checkpoint 128713 --dry-run
@@ -152,9 +147,9 @@ Three further limits worth knowing before you build a pipeline on it:
   still fires on the estimate's record, so it still refuses before any spend —
   a raw graph does not disarm it. What the CLI cannot do is relate that record
   to your file: the graph is not interpreted, so nothing local knows which
-  model references it contains. Measured once: a checkpoint named under
-  `resources` was charged and ran a different model version with **no record at
-  all**, so the flag did not fire. Read a silent run as *"nothing was
+  model references it contains. A checkpoint named under `resources`, for
+  example, can be charged and run as a different model version with **no record
+  at all**, so the flag does not fire. Read a silent run as *"nothing was
   reported"*, never as *"nothing was substituted"*.
 
 ## Image-to-image: `--image` and `--ecosystem`
@@ -199,8 +194,7 @@ $ echo $?
 The server promotes a text-to-image job to image-to-image only when the request
 *names an ecosystem*. Without one it **ignores the images, generates from the
 prompt alone, and charges you the full amount** — HTTP 200, no error, no
-warning. Measured: the same graph with and without `images[]` priced
-byte-identically. The refusal above is a check on a flag combination the CLI
+warning. The refusal above is a check on a flag combination the CLI
 owns, and it costs nothing — it fires before any pricing.
 
 ### The workflow on screen still says `txt2img`, and that is correct
@@ -221,7 +215,7 @@ ecosystem do **not** — and for those the images are dropped silently and
 billed.
 
 **The cost estimate cannot tell you which case you are in.** Several
-edit-capable ecosystems price identically with and without images (measured on
+edit-capable ecosystems price identically with and without images (for example
 `Flux1Kontext`, `NanoBanana` and `Seedream`), so a price comparison is not a
 detector. Name an ecosystem you know supports editing.
 :::
@@ -229,8 +223,8 @@ detector. Name an ecosystem you know supports editing.
 ::: warning Too many reference images are silently truncated
 Per-ecosystem limits run from 1 to 7, live only inside the server's per-engine
 graphs, and the extras are dropped *before* any limit check can fire — so the
-server never reports it and the truncated job is billed. Measured on `Qwen`
-(limit 3): 4, 5, 6 and 12 images all priced identically to 3.
+server never reports it and the truncated job is billed. For example, `Qwen`
+accepts 3: sending 4 or more prices exactly as sending 3.
 
 The CLI refuses **more than 7** — one global ceiling, chosen because no
 ecosystem accepts more, so that refusal can never block a valid request — and

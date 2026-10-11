@@ -48,7 +48,7 @@ default configuration; the refusal moved to the two surfaces it is actually abou
 `/api/v1` surface, the orchestrator and the MCP accept it unchanged. That mint is
 enabled in production.
 
-🔴 **But `auth: "oauth"` is a trade, not an upgrade** — it costs you 22 block
+**But `auth: "oauth"` is a trade, not an upgrade** — it costs you 22 block
 routes, app storage among them, and nothing stops you shipping a manifest that
 needs both. Read [choosing your credential](#auth-field) before you declare it.
 
@@ -88,9 +88,9 @@ This is the one people get wrong. After the port your block sends no
 `postMessage` operations — so a mock host is answering a conversation nobody is
 having, and the suite goes green having tested none of the new path.
 
-**The fake has to move to `fetch`.** In the reference port, deleting the `cursor`
-query parameter survived the entire suite, because every fixture fit on one page.
-See [Testing](#testing) below.
+**The fake has to move to `fetch`.** A fake that still answers `postMessage`
+cannot see a request your app gets wrong — a dropped `cursor` parameter, say,
+when every fixture fits on one page. See [Testing](#testing) below.
 
 ## Choose your credential: the manifest's `auth` field {#auth-field}
 
@@ -111,7 +111,7 @@ start calling the block routes.
 
 ::: tip The mint is live — and `block-token` is still the default for a reason
 The host mints a real OAuth access token for a manifest declaring `auth: "oauth"`,
-in production. Verified 2026-09-25.
+in production.
 
 Two things to weigh before you declare it:
 
@@ -119,9 +119,8 @@ Two things to weigh before you declare it:
   of the 38 `/api/v1/blocks/*` routes and on the general `/api/v1/models/{id}`. If
   that is your whole surface, `auth: "oauth"` buys you nothing and costs you the
   routes below.
-- **Nobody has run this in anger yet.** No app in Civitai's own fleet declares
-  `auth: "oauth"`, so the path is live but unexercised. Budget for finding the
-  first rough edge yourself.
+- **This path has little production use yet.** Budget for finding the first
+  rough edge yourself.
 
 **Declare the narrowest scope set you can.** An `auth: "oauth"` block's consent
 surface is new, and the fewer scopes your manifest asks for, the less rides on it.
@@ -140,13 +139,13 @@ credential-agnostic and work on either token: `buzz`, `me`, `models`, `images`,
 `gated-images`, `generation-resources`, `tools`, `tip`, `tip-allowance` and the
 three `collections` routes.
 
-🔴 **If your app uses app storage, it cannot use `auth: "oauth"` today** — and
+**If your app uses app storage, it cannot use `auth: "oauth"` today** — and
 nothing stops you shipping the pair, because manifest validation does not yet
 refuse it. The failure arrives at runtime as an unexplained 401 on every read and
 write. `@civitai/sdk` will not annotate it either: its `auth: "oauth"` hint fires
 only for a block that *holds* a block token, which yours no longer does.
 
-🔴 **If your block generates, stay on the host-proxied workflow routes.** They
+**If your block generates, stay on the host-proxied workflow routes.** They
 carry the per-call Buzz budget, the per-viewer and per-app daily caps, the
 maturity clamp and the `app-block:<appId>` attribution tag. A direct orchestrator
 call keeps only the per-viewer consent budget; the rest have not moved across yet.
@@ -157,8 +156,8 @@ orchestrator directly, and needs none of those 22.
 
 ## The adapter shape
 
-Both ported blocks put a thin per-app layer in `src/platform/` rather than
-calling the API from components. It is worth copying whichever transport you are
+Put a thin per-app layer in `src/platform/` rather than calling the API from
+components. It is worth doing whichever transport you are
 on: it gives you one place to own the token, one place to fake in tests, and it
 keeps wire shapes out of your UI.
 
@@ -176,7 +175,7 @@ export function useApi() {
   const host = useHostOrigin();
   const { raw } = useBlockToken();
 
-  // 🔴 useCallback is load-bearing, not tidiness. A fresh function identity every
+  // useCallback is load-bearing, not tidiness. A fresh function identity every
   // render turns the usual `useEffect(..., [call])` into an unbounded request
   // loop — against money-scoped routes. blocks-react's own useTip does the same.
   return useCallback(
@@ -234,21 +233,12 @@ Every hook `@civitai/blocks-react` exports — the package root, plus
 talked to the platform — it is your own code now, with nothing to replace.
 
 ::: warning Don't trust a hook count — enumerate
-This paragraph used to open "All 37 hooks", and the number is the defect: the
-package outgrows it every release, and a stale count reads as a complete list.
-It said 37 while the package exported 39, and the two it was short of were the
-digital-goods pair (`useGoodPurchase` / `useEntitlements`) — invisible to
-everyone porting off the bridge. Enumerate from the package you actually
-installed rather than trusting any figure written down here:
+The package gains hooks between releases, so enumerate the ones in the version
+you actually installed:
 
 ```bash
 node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).filter(k => k.startsWith('use')).sort().join(' ')))"
 ```
-
-The table below is pinned to that same export set by
-`npm run check:porting-hooks`, which reads it from the installed package's own
-type barrels — so a hook the package gains and this page misses fails a PR
-rather than shipping.
 :::
 
 | Bridge hook | Replacement |
@@ -276,11 +266,11 @@ rather than shipping.
 | `useCreatePostFromApp` | **Stays on the bridge, by design** — see [Posting from an app](./posting) |
 | `useDailyCompensation` | **Not carried** |
 | `useDirectLoad` | **Keep** — see [Embedding](./embedding) |
-| `useDomainMaturity` | No direct equivalent — keep the hook. 🔴 Gate through its derived `isSfw` / `isLevelAllowed`, never on a raw bitmask: `maxBrowsingLevel` is the *domain's* ceiling (identical for every viewer on it, including one whose NSFW setting is off) |
+| `useDomainMaturity` | No direct equivalent — keep the hook. Gate through its derived `isSfw` / `isLevelAllowed`, never on a raw bitmask: `maxBrowsingLevel` is the *domain's* ceiling (identical for every viewer on it, including one whose NSFW setting is off) |
 | `useEntitlements` | `GET /api/v1/blocks/entitlements` — the read half of the goods rail, scope `goods:read:self`. The reply is scoped server-side to your own `appBlockId`, so the scope is consent-EXEMPT and a read-only block needs no purchase power. Revoked entitlements are excluded server-side |
 | `useGatedImages` | `GET /api/v1/blocks/gated-images` |
 | `useGenerationResources` | `GET /api/v1/blocks/generation-resources?ids=` |
-| `useGoodPurchase` | `POST /api/v1/blocks/goods/purchase` — scope `goods:purchase:self` **and** a `goods` entry in your manifest; without both the endpoint answers 404. Same direct-fetch-on-the-validated-origin shape as `useTip`, and the buyer is always the token subject (the block never supplies a user id). 🔴 The platform renders **no** confirmation for the purchase itself, so the confirm UI is yours. Its optional top-up on insufficient funds opens `useBuzzPurchase` — host UI, and the opposite money direction |
+| `useGoodPurchase` | `POST /api/v1/blocks/goods/purchase` — scope `goods:purchase:self` **and** a `goods` entry in your manifest; without both the endpoint answers 404. Same direct-fetch-on-the-validated-origin shape as `useTip`, and the buyer is always the token subject (the block never supplies a user id). The platform renders **no** confirmation for the purchase itself, so the confirm UI is yours. Its optional top-up on insufficient funds opens `useBuzzPurchase` — host UI, and the opposite money direction |
 | `useHostOrigin` | **Keep** — it is the validated base URL every direct fetch needs |
 | `useImageUpload` | **Keep** — host UI. (`@civitai/sdk` has covered it since 0.3.0 as `host.openImageUpload`, usable on either credential — but that is still a bridge message, not a route.) |
 | `useNestedDocument` | Local — fetches one of your own bundled documents into a `srcdoc` string; it never talks to the platform |
@@ -314,7 +304,7 @@ import { useApi } from './platform/useApi';
 
 declare const call: ReturnType<typeof useApi>;
 
-// Read. 🔴 Paging differs per route — shared-storage nests its cursor under
+// Read. Paging differs per route — shared-storage nests its cursor under
 // `metadata`, while app-storage returns a top-level one. Check the route.
 const page = await call<{ items: unknown[]; metadata: { nextCursor?: string } }>(
   'shared-storage/list?limit=50',
@@ -406,10 +396,6 @@ possible. Nothing is withheld from a caller that omits it, and the rows are
 exactly as world-readable either way. The reason it is a boolean rather than a
 `mine=<userId>` form is **YAGNI**: nothing asks for the id form, and widening a
 boolean later is easy where narrowing an id once clients depend on it is not.
-
-The authoritative statement is the `listSharedRows` docblock in the `civitai`
-repo (`src/server/routers/apps-shared.router.ts`), which records the security
-framing it had to retract — read it there rather than re-deriving one here.
 :::
 
 ### Host UI stays on the bridge
@@ -470,7 +456,7 @@ globalThis.fetch = (async (input: RequestInfo | URL) => {
 
 Then assert on `calls` — the **requests your app made**, not just the values it
 rendered. A fixture that fits on one page cannot see a dropped `cursor`
-parameter, which is exactly how that bug survived a full green suite.
+parameter.
 
 Keep your existing mock host for the calls that genuinely remain on the bridge —
 the resource picker, Buzz purchase, sign-in, publishing. Those are still
@@ -485,7 +471,7 @@ Document these as gaps; do not design around them yet.
 | `useImageUpload` / `OPEN_IMAGE_UPLOAD` | No REST twin, and deliberately so — it raises host UI. `@civitai/sdk` exposes it as `host.openImageUpload` (since 0.3.0, either credential), which is the same bridge message behind a different package. |
 | `usePublishGenerationOutputs` | Same shape, and staying on the bridge by design — host chrome is the consent control. `@civitai/sdk`'s `host.publishGenerationOutputs` (also 0.3.0) is the same message. |
 | `useBlockAnalytics` | No sink anywhere; already a no-op. |
-| Anonymous app-storage reads | REST returns 403 where the bridge resolved a read to `null`. Whether that is the intended policy per operation is open as [#5089](https://github.com/civitai/civitai/issues/5089). |
+| Anonymous app-storage reads | REST returns 403 where the bridge resolved a read to `null`; handle both. |
 | `useBuzzAccounts`, `useBuzzTransactions`, `useDailyCompensation`, `useWildcardPack` | Not carried. |
 
 Because of the first two, a block that uploads images or publishes generation

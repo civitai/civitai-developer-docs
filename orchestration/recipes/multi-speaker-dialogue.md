@@ -249,7 +249,7 @@ Each entry is `{ "type": "<name>", ...params }`. The audio-relevant set:
 |--------|--------|-------|
 | `volume` | `db` (float) | Per-element gain in dB. `-3` halves perceived loudness; `-18` is a typical music-bed level. |
 | `fadeIn` | `durationMs` (int) | Linear fade-in applied at the element's resolved start. |
-| `fadeOut` | `durationMs` (int) | Linear fade-out applied at the element's tail (resolved start + duration − duration). |
+| `fadeOut` | `durationMs` (int) | Linear fade-out applied over the last `durationMs` of the element. |
 
 ## Reading the result
 

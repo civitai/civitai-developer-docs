@@ -108,7 +108,7 @@ blue leg can never exceed the proportional amount.
 | `BLOCK_GOOD_MAX_PRICE_BUZZ` | `50_000` | Ceiling on a **single** good, re-checked at purchase time as well as at manifest validation — so an old approved manifest cannot keep charging a price the ceiling has since moved below |
 | `BLOCK_GOOD_MAX_PER_MANIFEST` | `32` | Most goods one manifest may declare |
 
-🔴 **Three of those four rows are kind-blind; one is not.** For a
+**Three of those four rows are kind-blind; one is not.** For a
 `kind: "app_unlock"` good, the share, the floor and the 32-entry catalog cap all
 apply unchanged — an unlock earns the same 70%, cannot be priced below 2, and
 counts toward the same 32. **Only the per-good price ceiling differs**: an unlock
@@ -135,7 +135,7 @@ so the split and its rounding, **described above**, and the
 [refusal reasons](#refusal-reasons-your-app-must-branch-on) below apply to an
 unlock exactly as they do to an ordinary good.
 
-🔴 **The platform does not gate access for you. Your app enforces the gate.** No
+**The platform does not gate access for you. Your app enforces the gate.** No
 platform access check reads an `app_unlock` entitlement today: your block is
 served, and its token issued, the same way whether or not the viewer bought the
 unlock. Selling one does not on its own paywall anything. To charge for access,
@@ -292,7 +292,7 @@ in full.
 
 #### Testing it
 
-🔴 **You cannot buy your own app's goods.** A purchase by the app owner is
+**You cannot buy your own app's goods.** A purchase by the app owner is
 refused `self_purchase` (400, `charge: 'none'`, `retryable: false`). To test
 the unlock end to end, sign in as a **second account** that has enough Buzz.
 Being signed in as the owner with enough Buzz is not enough.
@@ -327,7 +327,7 @@ the catalog of the version it is pinned to. Consequences, all live today:
   your latest approved manifest, so it answers the bare `404` in the no-`reason`
   table below. Render that refusal as "no longer available", not as an error.
 
-🔴 **The obvious `price_changed` remedy does not terminate here.** "Re-read the
+**The obvious `price_changed` remedy does not terminate here.** "Re-read the
 catalog and show the new price" assumes a re-read returns the new price; on a
 pinned install the re-read returns the **pinned** price again, so a UI that
 re-reads and re-submits loops indefinitely on the same refusal. The refusal is
@@ -429,9 +429,9 @@ on each turn would be a per-message toll rather than a fee on a generation.
 
 The rail is two hops:
 
-1. **At submit**, the viewer is debited the fee and one `accrued` row is written
-   to the `block_author_fee_accrual` ledger naming you as the payee.
-2. **Daily**, those rows are summed per **(owner × Buzz type × accrual day)** and
+1. **At submit**, the viewer is debited the fee and an accrual is recorded naming
+   you as the payee.
+2. **Daily**, those accruals are summed per **(owner × Buzz type × accrual day)** and
    the total is minted to you as a *single* credit. You get one credit per
    currency per day, not one per generation. The credit's external id is shaped
    `block-author-fee-<YYYY-MM-DD>-<userId>-<buzzType>`, which is what to quote if
@@ -490,14 +490,14 @@ other:
 - **`charge`** (on the server result) — what this attempt did to the viewer's
   Buzz: `none`, `reversed`, or `unknown`.
 - **`retryable`** — whether an identical retry could reach a *different* verdict.
-  🔴 **It is not derivable from the status class.** Both a pre-charge database
+  **It is not derivable from the status class.** Both a pre-charge database
   failure and a post-charge reversal answer `500` with `charge_failed`, and both
   are retryable; several `409`s are not.
 
 | `reason` | Status | Charged? | Retryable | What your app should do |
 |---|---|---|---|---|
 | `price_over_cap` | `400` | `none` | no | The approved price exceeds the platform ceiling. Ship a new version at a legal price |
-| `price_changed` | `409` | `none` | no | Your UI showed a stale price. Show the refusal's `message` verbatim, re-confirm with the viewer, re-submit **once** with a fresh key. 🔴 Do **not** loop on re-reading the catalog — on a pinned install that returns the stale price forever; see [the pinned-install caveat](#a-pinned-install-can-be-charged-a-price-it-was-never-shown) |
+| `price_changed` | `409` | `none` | no | Your UI showed a stale price. Show the refusal's `message` verbatim, re-confirm with the viewer, re-submit **once** with a fresh key. Do **not** loop on re-reading the catalog — on a pinned install that returns the stale price forever; see [the pinned-install caveat](#a-pinned-install-can-be-charged-a-price-it-was-never-shown) |
 | `self_purchase` | `400` | `none` | no | The buyer is the app owner. Never retryable — see the callout above |
 | `already_owned` | `409` | `none` | no | The viewer already holds a live entitlement. Re-read entitlements and render the owned state |
 | `insufficient_funds` | `400` | `none` | **yes** | Offer a top-up. A retry after the viewer buys Buzz genuinely can succeed |
@@ -507,7 +507,7 @@ other:
 | `charge_failed` | `400` / `500` | `none` or `reversed` | **yes** | Either nothing was charged or it was charged and given straight back. Safe to offer a retry |
 | `charge_unknown` | `503` | `unknown` | **yes** | We cannot say whether Buzz moved. Retry with the **same** idempotency key; do not present it as a clean failure |
 
-🔴 **`reason` is frequently absent, and a `switch` with no `default` will swallow
+**`reason` is frequently absent, and a `switch` with no `default` will swallow
 real failures.** Only the service-level refusals above carry one. The endpoint's
 own refusals answer with `{ error }` and **no `reason` at all**:
 
@@ -545,7 +545,7 @@ them into "permission denied".
 | `context_binding` | `403` | The token carries the scope but the request does not match what it was bound to (wrong model id, an anonymous subject on a self-bound scope, an array-form query param) | Re-request a token for the right context. Not a consent problem |
 | `instance_revoked` | `403` | This install went away, or the publisher was banned | Terminal for this instance. Not a scope or consent issue |
 | `app_not_approved` | `403` | The app block is not approved | Nothing runtime-side to fix; this is the review gate |
-| `permission_state_unavailable` | **`503`** | Permission state could not be read right now | 🔴 **The only retryable one, and the only one that is not a `403`.** Retry shortly. Treating it as a permanent denial takes away access the viewer still has |
+| `permission_state_unavailable` | **`503`** | Permission state could not be read right now | **The only retryable one, and the only one that is not a `403`.** Retry shortly. Treating it as a permanent denial takes away access the viewer still has |
 
 Some refusals on this surface carry **no** `code` at all — an invalid or expired
 block token answers `401`, and an unavailable approval lookup on a route that does
@@ -577,7 +577,7 @@ function BuyButton({ goodId, priceBuzz }: { goodId: string; priceBuzz: number })
       refetch();
       return;
     } catch (err) {
-      // 🔴 ONE place decides whether the key survives, and KEEPING it is the safe
+      // ONE place decides whether the key survives, and KEEPING it is the safe
       // default: an unknown, in-flight or malformed outcome is exactly where a
       // fresh key costs you the replay and the 409 guard, and the server already
       // frees the key itself on any outcome it calls transient. So only discard it
@@ -616,7 +616,7 @@ function BuyButton({ goodId, priceBuzz }: { goodId: string; priceBuzz: number })
             showUncertainNotice(err.message);
             return;
           default:
-            // 🔴 REQUIRED. `reason` is undefined for the 404, the 429, the
+            // REQUIRED. `reason` is undefined for the 404, the 429, the
             // daily-cap 400 and every idempotency refusal.
             showRefusal(err.status, err.message);
             return;
@@ -682,7 +682,7 @@ purchase logic. So a `switch` on `err.reason` cannot see this, and neither can
 one on the scope `code`. Nothing is charged and no entitlement moves; the
 purchase simply never happens.
 
-🔴 **The colon is excluded on purpose**, so swapping it for `.` or `/` does not
+**The colon is excluded on purpose**, so swapping it for `.` or `/` does not
 help — those are outside the class too. The host joins the parts of its internal
 per-viewer / per-app dedupe and rate-limit keys with `:`, and those joins stay
 unambiguous only while none of the parts can contain one; your key is a part.

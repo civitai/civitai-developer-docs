@@ -80,7 +80,7 @@ Train a Flux.1 LoRA on your own image dataset using AI Toolkit. The output LoRA 
 | `dev` (default) | `black-forest-labs/FLUX.1-dev` | Higher fidelity, ~20–28 sampler steps. Good default for most LoRAs. |
 | `schnell` | `black-forest-labs/FLUX.1-schnell` | Faster inference, 4 sampler steps, no CFG. Use when you specifically want a Schnell-targeted LoRA. |
 
-The base checkpoint is fixed by `modelVariant` — there's no `model` field to override. To train on a non-BFL Flux.1 finetune, use the [SDXL & SD1](./training-sdxl-sd1) or [other-image](./training-other-image) ecosystems instead.
+The base checkpoint is fixed by `modelVariant` — there's no `model` field to override, so training against another Flux.1 finetune as the base isn't supported.
 
 ::: tip Long-running step
 Flux 1 training is the most expensive AI Toolkit image ecosystem (2000 Buzz for the default run) and a typical 2000-step run on a 10-image dataset takes several minutes. Always use `wait=0` and follow up via polling or a webhook — see [Results & webhooks](/orchestration/guide/results-and-webhooks).
@@ -184,7 +184,7 @@ Content-Type: application/json
 
 ## Common parameters {#common-parameters}
 
-Shared by both Flux 1 variants. Defaults shown are after `ApplyDefaults`.
+Shared by both Flux 1 variants. Defaults shown are the effective defaults.
 
 | Field | Required | Default | Notes |
 |-------|----------|---------|-------|
@@ -192,7 +192,7 @@ Shared by both Flux 1 variants. Defaults shown are after `ApplyDefaults`.
 | `ecosystem` | ✅ | — | Always `flux1` for this page. |
 | `modelVariant` | ✅ | — | `dev` or `schnell`. Determines the base checkpoint. |
 | `steps` | | `2000` | `1`–`10000`. Total training steps. Primary driver of training length and pricing. |
-| `epochs` | | `10` | `1`–`20`. Number of saved checkpoints delivered, each separately downloadable. Each adds 20 Buzz of storage. |
+| `epochs` | | `round(steps / 200)` | `1`–`200`. Number of saved checkpoints delivered, each separately downloadable. When omitted it is derived from `steps` (`10` at the default `2000`). Each adds 20 Buzz of storage. |
 | `batchSize` | | `1` | Fixed at 1 for this ecosystem. |
 | `continueFrom` | | *(none)* | A previously-trained `urn:air:flux1:lora:...` AIR to resume from (see [Continue training](#continue-training)). Must be a Flux 1 LoRA. |
 | `lr` | | `0.0001` | UNet learning rate. Flux 1 is sensitive to high LRs — keep ≤ `0.0005`. |
@@ -274,7 +274,7 @@ costPerStep = 0.9   (dev and schnell)
 floor: never less than 80% of the default-configuration price
 ```
 
-`epochs` is the number of saved checkpoints delivered (default `10`, range `1`–`20`); each adds 20 Buzz of storage. The default run is **2000 steps / 10 epochs** → `2000 × 0.9 + 10 × 20 = 1800 + 200 = 2000 Buzz`. The **floor** is 80% of the default price (1600 Buzz).
+`epochs` is the number of saved checkpoints delivered (range `1`–`200`; when omitted, `steps / 200` rounded to the nearest whole number, with a `.5` going to the even neighbour, so `steps: 2500` gives `12`); each adds 20 Buzz of storage. With both `steps` and `epochs` omitted the run is **2000 steps / 10 epochs** (the examples at the top of the page send `steps: 2000`, which also resolves to 10 epochs) → `2000 × 0.9 + 10 × 20 = 1800 + 200 = 2000 Buzz`. The **floor** is 80% of the default price (1600 Buzz).
 
 | Configuration | Buzz |
 |---------------|------|

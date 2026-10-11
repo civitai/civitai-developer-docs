@@ -91,7 +91,7 @@ const kleinEditBody = {
       noiseOffset: 0,
       trainingData: {
         type: 'zip',
-        sourceUrl: 'https://blobs-temp.sfo3.digitaloceanspaces.com/flux2_klein_edit_testdata.zip',
+        sourceUrl: 'https://example.com/your-edit-dataset.zip',
         count: 3,
       },
       samples: {
@@ -101,8 +101,8 @@ const kleinEditBody = {
           'a painting of a cat sitting on a windowsill looking outside at a rainy day',
         ],
         sourceImages: [
-          'https://blobs-temp.sfo3.digitaloceanspaces.com/sample-edit-source-1.jpg',
-          'https://blobs-temp.sfo3.digitaloceanspaces.com/sample-edit-source-2.jpg',
+          'https://example.com/your-source-image-1.jpg',
+          'https://example.com/your-source-image-2.jpg',
         ],
       },
     },
@@ -265,7 +265,7 @@ Content-Type: application/json
       "networkAlpha": 32,
       "trainingData": {
         "type": "zip",
-        "sourceUrl": "https://blobs-temp.sfo3.digitaloceanspaces.com/flux2_klein_edit_testdata.zip",
+        "sourceUrl": "https://example.com/your-edit-dataset.zip",
         "count": 3
       },
       "samples": {
@@ -275,8 +275,8 @@ Content-Type: application/json
           "a painting of a cat sitting on a windowsill looking outside at a rainy day"
         ],
         "sourceImages": [
-          "https://blobs-temp.sfo3.digitaloceanspaces.com/sample-edit-source-1.jpg",
-          "https://blobs-temp.sfo3.digitaloceanspaces.com/sample-edit-source-2.jpg"
+          "https://example.com/your-source-image-1.jpg",
+          "https://example.com/your-source-image-2.jpg"
         ]
       }
     }
@@ -284,13 +284,18 @@ Content-Type: application/json
 }
 ```
 
+::: warning Placeholder URLs
+Replace the `https://example.com/…` URLs with your own edit-training zip and reference images before submitting.
+:::
+
+<!-- test-skip: the edit dataset and source images are reader-supplied placeholders -->
 <RecipeRun :body="kleinEditBody" :wait="0" />
 
 `samples.sourceImages` is required for edit training when you want preview samples — the listed URLs become the reference images for the per-checkpoint sample renders.
 
 ## Common parameters {#common-parameters}
 
-Defaults shown are the post-`ApplyDefaults` values for Klein.
+Defaults shown are the effective defaults for Klein.
 
 | Field | Required | Default | Notes |
 |-------|----------|---------|-------|
@@ -299,7 +304,7 @@ Defaults shown are the post-`ApplyDefaults` values for Klein.
 | `modelVariant` | ✅ | — | `4b` or `9b`. |
 | `isEditTraining` | | `false` | When `true`, dataset zip must contain `main/` + `control_*/` subfolders. |
 | `steps` | | `2000` | `1`–`10000`. Total training steps. Primary driver of training length and pricing. |
-| `epochs` | | `10` | `1`–`20`. Number of saved checkpoints delivered, each separately downloadable. Each adds 10 Buzz of storage. |
+| `epochs` | | `round(steps / 200)` | `1`–`200`. Number of saved checkpoints delivered, each separately downloadable. When omitted it is derived from `steps` (`10` at the default `2000`). Each adds 10 Buzz of storage. |
 | `batchSize` | | `1` | Defaults to 1. For `4b`, raise it up to the ecosystem maximum (**2**) to train faster at the cost of more GPU memory; a larger batch needs fewer steps. For `9b` it is fixed at 1. Values above the max are clamped. |
 | `continueFrom` | | *(none)* | A previously-trained `urn:air:flux2:lora:...` AIR to resume from (see [Continue training](#continue-training)). Must be a Klein (flux2) LoRA. |
 | `lr` | | `0.0001` | Klein is sensitive to high LRs — keep in `1e-4`–`5e-4`. |
@@ -382,7 +387,7 @@ costPerStep = 0.20 (4b), 0.45 (9b)
 floor: never less than 80% of the default-configuration price
 ```
 
-`epochs` is the number of saved checkpoints delivered (default `10`, range `1`–`20`); each adds 10 Buzz of storage. The default run is **2000 steps / 10 epochs**:
+`epochs` is the number of saved checkpoints delivered (range `1`–`200`; when omitted, `steps / 200` rounded to the nearest whole number, with a `.5` going to the even neighbour, so `steps: 2500` gives `12`); each adds 10 Buzz of storage. With both `steps` and `epochs` omitted the run is **2000 steps / 10 epochs** (the examples at the top of the page send `steps: 2000`, which also resolves to 10 epochs):
 
 - `4b`: `2000 × 0.20 + 10 × 10 = 400 + 100 = 500 Buzz` (floor 400)
 - `9b`: `2000 × 0.45 + 10 × 10 = 900 + 100 = 1000 Buzz` (floor 800)

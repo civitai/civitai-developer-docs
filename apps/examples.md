@@ -34,8 +34,8 @@ read:
   approved app can still be refused for an account that was never enrolled
   ([kv-storage](#kv-storage)).
 - **Page apps are behind a moderator-only flag.** `/apps/run/<slug>` needs both
-  `appBlocks` and `appBlocksPages`, and `appBlocksPages` is mod-only until a
-  Flipt segment widens it ([page-app](#page-app)).
+  `appBlocks` and `appBlocksPages`, and `appBlocksPages` is currently limited to
+  moderators ([page-app](#page-app)).
 - **Shared storage is flag- and approval-gated.** Every call, reads included,
   needs the `app-blocks-shared-storage` flag (off by default, on for a limited
   cohort), the app must be approved, and the shared scopes are refused under
@@ -402,28 +402,8 @@ working page app with the `civitai` CLI.
 
 ## Keeping this list honest
 
-`npm run check:example-apps` (`scripts/check-example-apps.mjs`) guards this
-page. Its offline half runs on every pull request: the page parses, still names
-at least six repositories and at least nine starters examples, and does not
-contradict itself. The counts in its prose are graded against the links on the
-page, every `#anchor` above must resolve to a section that is still here, and
-every example section must state a scope list in a shape the scheduled half can
-grade.
-
-The scheduled half runs on the daily `appblocks-drift` schedule, because
-upstream changes are unrelated to whatever docs change is in flight. A docs page
-naming eight external repositories rots in a way nobody notices: GitHub
-**301-redirects a renamed repository**, so a plain link check reports a moved
-repository healthy. The guard reads each repository's `full_name` back from the
-API and fails on a mismatch, a 404, a 451 takedown or `archived: true`. It then
-fetches the `block.manifest.json` each section links (for a starters example,
-the one in that example's own directory) and compares its `scopes` array with
-the list stated above, **by set, not order**. Finally it lists
-`starters/examples/` and fails if an example there has no section here. A red
-scheduled run opens a GitHub issue naming what rotted and closes it on the next
-clean run; a run that verified *nothing* opens one too.
-
-The **hook** lists are the one thing on this page nothing re-checks, which is
-why they carry dates rather than a guarantee. The guard asserts each date stamp
-is present, is a real date and is not in the future, and prints the oldest one's
-age on every run.
+A daily check reads back each of the eight external repositories linked here and
+flags one that has been renamed, archived or removed, compares every scope list
+above with that example's `block.manifest.json`, and flags a starters example
+that has no section on this page. The hook lists are checked by hand, which is
+why each carries the date it was last verified.

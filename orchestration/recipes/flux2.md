@@ -130,7 +130,7 @@ Flux 2 is Black Forest Labs' latest image-generation family. The orchestrator ex
 
 | `model` | Best for | Notes |
 |---------|----------|-------|
-| `klein` | **Default** — cheapest and most capable variant for almost every workload | Supports `createImage` / `createVariant` / `editImage`. Two size tiers (`4b` / `9b`). Takes LoRAs. Runs on Civitai infra. |
+| `klein` | **Default** — cheapest and most capable variant for almost every workload | Supports `createImage` / `editImage` (plus `createVariant` via the [sdcpp path](#klein-createvariant-img2img)). Two size tiers (`4b` / `9b`). Takes LoRAs. Runs on Civitai infra. |
 | `dev` | Higher fidelity when Klein isn't enough, with LoRA support | Supports `createImage` / `editImage`. Exposes `guidanceScale` + `numInferenceSteps`. |
 | `flex` | Mid-tier quality, faster than `dev` | Supports `createImage` / `editImage`. Fewer tunable knobs. |
 | `pro` | Commercial tier — routed through BFL's provider | Supports `createImage` / `editImage`. No LoRAs. |
@@ -166,7 +166,7 @@ The native `flux2` engine exposes `createImage` and `editImage` on every model. 
 
 ## Klein (default)
 
-Klein is the cost/capability sweet spot for almost every Flux 2 workload. Cheap enough to generate at scale, capable enough for production output, and the only variant that supports `createVariant`. Two size tiers:
+Klein is the cost/capability sweet spot for almost every Flux 2 workload. Cheap enough to generate at scale, capable enough for production output, and (with Dev) one of the two variants that support `createVariant`, via the sdcpp path. Two size tiers:
 
 | `modelVersion` | Typical use |
 |----------------|-------------|
@@ -507,7 +507,7 @@ Past ~2 images, large dimensions, or `pro`/`max` on a busy queue, you risk hitti
 
 Billed in Buzz on the workflow's `transactions`. Use `whatif=true` to preview the exact charge before submitting; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
 
-**Klein** (`Flux2KleinSdCppImageGenInput.CalculateCost`) — driven by `modelVersion`, `steps`, and `cfgScale`:
+**Klein** — driven by `modelVersion`, `steps`, and `cfgScale`:
 
 ```
 base     = stepCost × steps × (editImages + 1) × (cfgScale == 1 ? 1 : 2)

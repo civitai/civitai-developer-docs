@@ -408,7 +408,7 @@ Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/or
 
 Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
 
-**sdcpp path** (`Flux1SdCppImageGenInput.CalculateCost`):
+**sdcpp path**:
 
 ```
 base  = 0.5 × steps × (editImages + 1) × (cfgScale == 1 ? 1 : 2)
@@ -422,7 +422,7 @@ total = base × quantity
 | `createVariant`, `quantity: 1` | ~28 |
 | `editImage` with 1 reference | ~56 |
 
-**Comfy path** (`ComfyFlux1ImageGenInput.CalculateCost`) — per-pixel + per-step scaling:
+**Comfy path** — per-pixel + per-step scaling:
 
 ```
 total = 8 × (width × height / 1024²) × (steps / 20) × quantity

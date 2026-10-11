@@ -58,7 +58,7 @@ Key query parameters:
 | Param | Default | Purpose |
 |-------|---------|---------|
 | `whatif` | `false` | If `true`, validates the workflow and returns the resolved plan without executing. Great for CI smoke tests. |
-| `wait` | `0` | Seconds to block waiting for completion inline. `0` returns immediately with a pending workflow. Capped by the **100-second request timeout** — if the workflow hasn't finished by then, the response returns with `status: "processing"` and you continue via polling or webhooks. |
+| `wait` | `0` | Seconds to block waiting for completion inline. `0` returns immediately with the in-flight workflow. Capped by the **100-second request timeout** — if the workflow hasn't finished by then, the response returns with `status: "processing"` and you continue via polling or webhooks. |
 
 ## 2. Read the response
 
@@ -83,7 +83,7 @@ The response is the **Workflow** object — the same object you get back from [`
 }
 ```
 
-Statuses progress through: `pending` → `processing` → (`succeeded` | `failed` | `canceled`).
+Statuses progress through `unassigned` → `preparing` → `scheduled` → `processing`, ending in one of the terminal states `succeeded`, `failed`, `expired` or `canceled` (see [Status lifecycle](./workflows#status-lifecycle)).
 
 ## 3. Poll if you didn't wait inline
 

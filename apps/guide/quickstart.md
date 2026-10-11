@@ -268,7 +268,7 @@ access `civitai app submit` needs. **Neither waits for your app to be reviewed, 
 even submitted:** the dev-token mint accepts a brand-new slug with no app row at
 all and reads the scopes from your local `block.manifest.json`.
 
-🔴 **For `dev:live`, generating for real needs two things, and author access is
+**For `dev:live`, generating for real needs two things, and author access is
 only the first.** The token must be minted from a credential carrying the **AI
 Services** scopes — `civitai login --scopes generate`, or a full-scope personal
 API key. A *default* `civitai login` can submit an app and **cannot spend**, so
@@ -463,7 +463,8 @@ That flow is gated to approved builders during the closed beta. To request acces
 ## Store-listing media
 
 Your **store listing** is the card shoppers see in the
-[`/apps` store](https://civitai.com/apps). It is created as a **draft the moment
+[`/apps` store](https://civitai.com/apps), which is still gated while the store is
+pre-GA. It is created as a **draft the moment
 you run `civitai app submit`** — not at approval — so you can set its media
 **while your app is still in review**. Whatever you attach carries forward when a
 moderator approves the app, so the listing can go live the same day it's approved

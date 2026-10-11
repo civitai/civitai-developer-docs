@@ -235,14 +235,14 @@ SD1-specific fields are a subset of the SDXL list — same `model` / `minSnrGamm
 
 ## Common parameters {#common-parameters}
 
-These apply to every AI Toolkit training input regardless of ecosystem. Defaults shown are the post-`ApplyDefaults` values for SDXL; some ecosystems override individual defaults (the SD1 / SDXL differences above are the main examples).
+These apply to every AI Toolkit training input regardless of ecosystem. Defaults shown are the effective defaults for SDXL; some ecosystems override individual defaults (the SD1 / SDXL differences above are the main examples).
 
 | Field | Required | Default | Notes |
 |-------|----------|---------|-------|
 | `engine` | ✅ | — | Always `ai-toolkit` for these recipes. |
 | `ecosystem` | ✅ | — | `sdxl` or `sd1` for this page. |
 | `steps` | | `2000` | `1`–`10000`. Total training steps. Primary driver of training length and pricing (see [Cost](#cost)). |
-| `epochs` | | `10` | `1`–`20`. Number of saved checkpoints delivered, each separately downloadable. Each adds 10 Buzz of storage (see [Cost](#cost)). |
+| `epochs` | | `round(steps / 200)` | `1`–`200`. Number of saved checkpoints delivered, each separately downloadable. When omitted it is derived from `steps` (`10` at the default `2000`). Each adds 10 Buzz of storage (see [Cost](#cost)). |
 | `batchSize` | | `1` | Defaults to 1. Raise it up to the ecosystem maximum (**4** for both SDXL and SD1) to train faster at the cost of more GPU memory; a larger batch needs fewer steps. Values above the max are clamped. |
 | `continueFrom` | | *(none)* | A previously-trained `urn:air:sdxl:lora:...` / `urn:air:sd1:lora:...` AIR to resume from (see [Continue training](#continue-training)). Must be a LoRA of the same ecosystem. |
 | `lr` | | `0.0001` | `0`–`1`. UNet learning rate. `0.0005` is typical for character/style LoRAs on SDXL. |
@@ -327,7 +327,7 @@ To resume from a LoRA you already trained instead of starting from the base chec
 
 ## Reading the result
 
-Submitting with `wait=0` returns immediately with `status: processing`. Poll [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) (or use a webhook — see [Results & webhooks](/orchestration/guide/results-and-webhooks)) until the step settles. The step reports an `epochs[]` array with one entry per epoch — the number of epochs is derived from `steps` — where `model.available` tells you whether that checkpoint has been saved yet. Each available entry contains the trained LoRA blob and any sample images:
+Submitting with `wait=0` returns immediately with `status: processing`. Poll [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) (or use a webhook — see [Results & webhooks](/orchestration/guide/results-and-webhooks)) until the step settles. The step reports an `epochs[]` array with one entry per saved epoch (set by `epochs`; when it is omitted, `round(steps / 200)`, and `10` if neither is set) — where `model.available` tells you whether that checkpoint has been saved yet. Each available entry contains the trained LoRA blob and any sample images:
 
 ```json
 {
@@ -412,7 +412,7 @@ costPerStep = 0.20   (sdxl and sd1)
 floor: never less than 80% of the default-configuration price
 ```
 
-`epochs` is the number of saved checkpoints delivered (default `10`, range `1`–`20`); each adds 10 Buzz of storage. The default run is **2000 steps / 10 epochs**, which lands the price on the familiar number:
+`epochs` is the number of saved checkpoints delivered (range `1`–`200`; when omitted, `steps / 200` rounded to the nearest whole number, with a `.5` going to the even neighbour, so `steps: 2500` gives `12`); each adds 10 Buzz of storage. The SD1 example above sends `steps: 4000` with no `epochs`, so it gets 20 epochs: `4000 × 0.20 + 20 × 10 = 1000 Buzz`. The default run is **2000 steps / 10 epochs**, which lands the price on the familiar number:
 
 ```
 2000 × 0.20 + 10 × 10 = 400 + 100 = 500 Buzz

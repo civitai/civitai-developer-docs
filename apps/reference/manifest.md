@@ -113,7 +113,7 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
   |---|---|---|---|
   | `id` | `string` | required | `^[a-z0-9][a-z0-9_-]*$`, 1–64 chars. Unique within the manifest. |
   | `title` | `string` | required | 1–80 chars. Shown to the viewer at purchase. |
-  | `priceBuzz` | `integer` | required | **2–50000** whole Buzz for a `"good"`. 🔴 An `"app_unlock"` is capped at **5000**, not 50000 — see below. |
+  | `priceBuzz` | `integer` | required | **2–50000** whole Buzz for a `"good"`. An `"app_unlock"` is capped at **5000**, not 50000 — see below. |
   | `description` | `string` | optional | ≤ 500 chars. |
   | `kind` | `"good" \| "app_unlock"` | optional | Defaults to `"good"`. Not merely a label: `"app_unlock"` carries three extra rules, below. |
   | `justification` | `string` | **required for `"app_unlock"`**, optional otherwise | 1–500 chars (`BLOCK_GOOD_JUSTIFICATION_MAX_LENGTH`), measured **after trimming**. Review metadata only — shown to the moderator, never to the viewer, and never copied onto the entitlement. |
@@ -192,10 +192,10 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
   - `"oauth"` is an opaque OAuth access token for the block's own client, which
     ordinary `/api/v1` routes accept as a viewer bearer.
 
-  `"oauth"` is **live in production** (verified 2026-09-25), and it is a trade
+  `"oauth"` is **live in production**, and it is a trade
   rather than an upgrade.
 
-  🔴 **`"oauth"` gives up 22 of the block REST routes.** Not for want of
+  **`"oauth"` gives up 22 of the block REST routes.** Not for want of
   identity — an OAuth token resolves to the same `(app, viewer)` claims. The
   reason is that those routes **re-verify the raw bearer as a block JWS** in
   their service layer, and an OAuth access token is not one. That covers app
@@ -206,12 +206,11 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
   block routes work on either credential.
 
   So declare `"oauth"` when your app calls `/api/v1`, the orchestrator or the MCP
-  directly and needs none of those 22. 🔴 **An app that uses app storage cannot
+  directly and needs none of those 22. **An app that uses app storage cannot
   use `"oauth"` today** — and validation does not yet refuse the pair, so the
   failure surfaces at runtime rather than at `civitai app validate`. An app that
   generates should stay on `block-token` and the host-proxied workflow routes.
-  Nothing in Civitai's own fleet declares `"oauth"` yet, so expect to be the
-  first to exercise it. See
+  This path has little production use yet. See
   [Porting → choose your credential](../guide/porting#auth-field).
 
 ### Sizing `page.buzzBudgetPerGen`

@@ -253,7 +253,7 @@ Video compositions carry a small compositing charge scaled by the number of elem
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| Job fails at the worker | No GPU-capable worker advertised the `composeMedia` capability | Ensure the target environment runs media workers with compose-media enabled. |
+| Job fails at the worker | No worker was available to run `composeMedia` | Retry later; contact Civitai support if it persists. |
 | `400` validation error, "is not an AIR-resolvable resource" | An element `url` is a direct third-party URL | Reference a prior step via `$ref`, or use a Civitai resource/blob URL — external URLs aren't supported yet. |
 | An element you expected on-screen is only audible | Its URL is an audio file (or it has no video stream), so it is mixed, not drawn | Supply a video URL for elements you want on the canvas. |
 | Inset is letterboxed inside its box | `fit: contain` preserves aspect ratio | Use `fit: cover` to fill the inset (cropping overflow), or size the box to the clip's aspect. |

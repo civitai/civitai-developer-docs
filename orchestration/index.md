@@ -1,4 +1,6 @@
 ---
+title: Civitai Orchestration
+description: Submit AI workflows (video, image, audio, text) to the Civitai orchestrator through one API, and get results back.
 layout: home
 
 hero:

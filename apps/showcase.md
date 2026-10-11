@@ -73,7 +73,7 @@ The markup contract is in the [Components reference](/apps/reference/components)
 | **Lists of options** | `select`, `segmented-control`, `radio-group`, `tabs` and `breadcrumb` take their items as a `data` **property**, since an attribute cannot carry an array. |
 | **Events** | `change` is re-dispatched from the host. Richer events (`vote`, `react`, `select`, `open`) carry a `detail`. |
 | **Forms** | Field elements are form-associated: `name`, `FormData`, `required`, `form.reset()`, `type="submit"` and Enter-to-submit all work. Setting `error` also makes the field invalid. |
-| **Theme** | Set `data-theme="light"` or `"dark"` on any ancestor. With neither, the OS preference wins. |
+| **Theme** | Set `data-theme="light"` or `"dark"` on any ancestor. With neither, the dark palette applies. |
 | **Styling** | Override any `--civitai-*` token, or reach inside with `::part(...)`. |
 
 The full contract — every tag, attribute, property, event, slot and part — is
