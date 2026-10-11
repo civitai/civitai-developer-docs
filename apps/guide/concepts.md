@@ -163,7 +163,8 @@ is a request, because nothing about it needs host chrome.
   preview, the write echoes the count from that preview, and the host refuses on
   mismatch. A plain REST equivalent would let a block draw its own confirmation
   inside an iframe, with nothing binding what the viewer saw to what gets
-  written. That removes a consent control rather than relocating it.
+  written. That removes a consent control rather than relocating it. The
+  [posting guide](./posting) covers what an app can post and how.
 
 ### What the API answers
 
