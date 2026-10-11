@@ -15,15 +15,18 @@ name: showcase-e2e
 # build-site.yml / appblocks-snippets.yml for the measurement). Before adding
 # `showcase-e2e` to the required set, remove the `paths:` filters below.
 #
-# The filter is the set of inputs the page's rendering depends on: the page,
-# the theme components that render its demos, the site config, the pinned
-# design-system packages (package.json / package-lock.json), and the test.
+# The filter is the set of inputs the tested pages' rendering depends on: every
+# page the test opens (showcase.md, tokens.md, and index.md as the 390px width
+# control), the theme components that render their demos, the site config, the
+# pinned design-system packages (package.json / package-lock.json), and the test.
 on:
   pull_request:
     paths:
       - 'package.json'
       - 'package-lock.json'
       - 'apps/showcase.md'
+      - 'apps/tokens.md'
+      - 'apps/index.md'
       - '.vitepress/theme/**'
       - '.vitepress/config.mts'
       - 'scripts/test-showcase-e2e.mjs'
@@ -34,6 +37,8 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - 'apps/showcase.md'
+      - 'apps/tokens.md'
+      - 'apps/index.md'
       - '.vitepress/theme/**'
       - '.vitepress/config.mts'
       - 'scripts/test-showcase-e2e.mjs'
