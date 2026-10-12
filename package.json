@@ -48,6 +48,7 @@
     "check:boot-skeleton": "node scripts/check-boot-skeleton.mjs",
     "check:md-regions": "node scripts/check-appblocks-md.mjs",
     "check:porting-hooks": "node scripts/check-porting-hook-coverage.mjs",
+    "check:direct-fetch-hooks": "node scripts/check-direct-fetch-hooks.mjs",
     "check:goods-item-parity": "node scripts/check-goods-item-parity.mjs",
     "check:showcase-coverage": "node scripts/check-showcase-coverage.mjs",
     "check:built-site": "node scripts/check-built-site.mjs",
