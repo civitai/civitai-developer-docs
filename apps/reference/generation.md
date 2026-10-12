@@ -382,8 +382,10 @@ orchestrator**, not a thin proxy in front of it. The body your block sends is a
 rejected at the wire schema — in the host, **before** any orchestrator call is
 made.
 
-There are four `kind` values, and `kind: 'step'` is itself two arms — five
-members, and they are the whole surface:
+There are five `kind` values, and `kind: 'step'` is itself two arms — six
+members, and they are the whole surface. (`workflow` is the newest: its types
+ship in the next `@civitai/app-sdk` release, so the generated tables above do
+not list it yet.)
 
 | `kind` | what it addresses | how you name the model |
 |---|---|---|
@@ -392,6 +394,12 @@ members, and they are the whole surface:
 | `step` (`step` present) | a **server-registered** orchestrator step (`convert-image`, `chat-completion`) | a registered `step` id |
 | `step` (`step` omitted) | an orchestrator step type **named directly**, with `input` forwarded unmodified | the orchestrator's own `$type` — not a Civitai id |
 | `training` | an ai-toolkit **LoRA training** run on a dataset of the viewer's own images | a base-model key from Civitai's training catalog (`model`), plus the `datasetId` that `usePrepareTrainingDataset()` returned |
+| `workflow` | **up to 8 orchestrator steps submitted as one workflow**, a later step reading an earlier step's result through a `{ $ref, path }` reference | each step's own `$type`, as on the pass-through arm |
+
+`workflow` is the multi-step member: the same denylist as the pass-through arm
+runs on every step, references may only point at `$arguments` or an earlier
+step, and there is no `maxBuzz` (the ceiling is the per-generation budget × the
+number of steps). The guide is [Multi-step workflows](../guide/workflows).
 
 `training` ships behind the host flag **`app-blocks-training-kind`**, which is
 **off by default** and evaluated **per viewer**; where it is off, every training
@@ -455,7 +463,11 @@ That arm is deliberately *less* bounded than the registry, not unbounded.
 with their own error and a case-insensitive match. A `$type` being absent from
 that set is not a promise that it will run — only that the host will forward it;
 the orchestrator's own per-`$type` validation is what decides, and it runs after
-the spend reservation rather than at the wire.
+the spend reservation rather than at the wire. One `$type` is refused on this
+arm by shape rather than by the denylist: `repeat`, which may only iterate an
+array in a body's own `arguments`, and this arm has none. To repeat a step, or
+to feed one step's result into another, send a
+[multi-step workflow](../guide/workflows) (`kind: 'workflow'`).
 
 Below `0.43.0` the SDK has no type for this arm, so a pass-through body cannot be
 expressed without casting — that is a typing floor, not a host one.

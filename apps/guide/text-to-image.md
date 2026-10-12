@@ -614,7 +614,10 @@ every user until you ship a new manifest version. See
 
 There is **no batch submit**. A grid or matrix app (one generation per cell)
 makes one `submit()` per cell, and every limit
-below applies to each of those calls on its own. Two hooks cover the rest of a
+below applies to each of those calls on its own. (To chain steps into **one**
+generation, where a later step reads an earlier one's result, use a
+[multi-step workflow](./workflows) instead; it is one submit, counted per step
+against the limits below.) Two hooks cover the rest of a
 grid:
 
 - [`useBatchEstimate()`](../reference/hooks#hook-useBatchEstimate) prices up to
@@ -632,12 +635,12 @@ values depend on the app's spend tier. Every app starts on `standard`.
 
 | Limit | Value | Keyed on | Tier | What your app sees when it trips |
 |---|---|---|---|---|
-| Per-call budget | price + author fee ≤ `page.buzzBudgetPerGen`. Default **10** when the manifest omits it; anything above **1,000** is clamped to 1,000 | one `submit()` | no | `submit()` **resolves**: `status: 'failed'`, `workflowId: 'failed'`, `cost.total`, `error: 'insufficient buzz budget: …'`. Nothing charged |
+| Per-call budget | price + author fee ≤ `page.buzzBudgetPerGen` (for a [`kind: 'workflow'`](./workflows#what-it-costs) body, that budget × its number of steps). Default **10** when the manifest omits it; anything above **1,000** is clamped to 1,000 | one `submit()` | no | `submit()` **resolves**: `status: 'failed'`, `workflowId: 'failed'`, `cost.total`, `error: 'insufficient buzz budget: …'`. Nothing charged |
 | Images per submit | `quantity` **1–4** | one `submit()` | no | the body fails validation, so `submit()` **rejects** (`WorkflowSubmitError`, `code: 'exception'`). Nothing charged |
 | Estimate rate | **150 requests / 10 s** | the **block instance**. For a page app that is **one instance shared by every viewer of the app**; for a model-slot block it is one installed instance. The same allowance also covers `cancel()`, `useAppWorkflows()` and the host's own reads for your block (viewer, Buzz balance, image and model lookups) | no | `estimate()` **rejects** (`WorkflowEstimateError`, message `Rate limit exceeded, please retry shortly.`). Nothing charged. A refused `cancel()` **resolves** with `status: 'processing'`: the cancel was not sent, so call it again |
 | Poll rate | **1,200 requests / 60 s** | the block instance **and** the viewer | no | the poll **resolves** with `status: 'processing'` and no new data. `watch()` keeps looping and picks up the real status on a later poll. Nothing lost, nothing charged |
 | Submit request rate | **none** | n/a | n/a | n/a. Submits are bounded by the spend limits below instead |
-| App generation velocity | **120 accepted submits / 60 s** on `standard` (`trusted`: 600, `platform`: 3,000). One submit counts once, whatever its `quantity` | the **app**: every viewer and every install together | **yes** | `submit()` **resolves**: `status: 'failed'`, `workflowId: 'failed'`, `cost.total`, `error: 'app generation rate limit reached: …'`. Nothing charged |
+| App generation velocity | **120 accepted submits / 60 s** on `standard` (`trusted`: 600, `platform`: 3,000). One submit counts once, whatever its `quantity`; a [`kind: 'workflow'`](./workflows#limits) submit counts once per step, and a `repeat` once per iteration | the **app**: every viewer and every install together | **yes** | `submit()` **resolves**: `status: 'failed'`, `workflowId: 'failed'`, `cost.total`, `error: 'app generation rate limit reached: …'`. Nothing charged |
 | App daily spend | **5,000,000 Buzz / UTC day** on `standard` and `trusted` (`platform`: 25,000,000) | the **app**: every viewer together | **yes** | `submit()` **resolves** failed, `error: 'app daily spend cap reached: …'`. Nothing charged |
 | Viewer daily spend | **50,000 Buzz / UTC day** | the **viewer**, across **all** their apps | no | `submit()` **resolves** failed, `error: 'daily Buzz cap reached: … daily cap is 50000'`. Nothing charged |
 | Viewer's consent budget | whatever the viewer set for your app when they granted spend (optional, at most 50,000 / UTC day) | the viewer **and** your app | no | `submit()` **resolves** failed, with an `error` naming that budget. Nothing charged |
@@ -873,6 +876,7 @@ Real Buzz generation needs closed-beta access; see the
 - [Generation bridge reference](../reference/generation) — the generated field-level contract.
 - [What the bridge can and cannot do](../reference/generation#what-the-bridge-can-and-cannot-do) — the boundary vs the orchestrator, and what to do when a model isn't reachable.
 - [Comfy on Civitai (customComfy)](./comfy-cloud) — the recipe-gated ComfyUI path.
+- [Multi-step workflows](./workflows) — chain orchestrator steps in one generation (`kind: 'workflow'`).
 - [Posting from an app](./posting) — publish a result to the viewer's profile.
 - [Hooks reference](../reference/hooks) · [Messages reference](../reference/messages).
 - [Scopes](../reference/scopes) — `ai:write:budgeted`. · [Manifest](../reference/manifest) — `page.buzzBudgetPerGen`.

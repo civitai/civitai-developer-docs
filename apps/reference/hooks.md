@@ -57,7 +57,8 @@ The `useBuzzWorkflow` entry below is generated from the package README, whose
 example sends a `kind: 'textToImage'` body. That is **one member** of the
 `WorkflowBody` union, not the whole surface — the same hook also submits
 ComfyUI workflows (`kind: 'customComfy'`) and registered orchestrator steps
-(`kind: 'step'`). See [Workflow bodies: the `kind` union](#workflow-bodies-the-kind-union)
+(`kind: 'step'`), and chains several steps as one generation (`kind: 'workflow'`,
+see [Multi-step workflows](../guide/workflows)). See [Workflow bodies: the `kind` union](#workflow-bodies-the-kind-union)
 below before concluding a capability is missing.
 :::
 
@@ -2236,7 +2237,8 @@ same `estimate → submit → watch` lifecycle shown above. `training` is quoted
 `estimate()` but run with `useRunTraining()`, and `submit()` refuses it.
 
 As of the pinned `@civitai/app-sdk@0.65.0` the union has four `kind` values, and
-`kind: 'step'` is itself two arms — five members in all:
+`kind: 'step'` is itself two arms — five members in all. The next SDK release
+adds a fifth `kind`, `workflow`, listed last:
 
 | `kind` | what it runs | what your block sends |
 |---|---|---|
@@ -2245,6 +2247,7 @@ As of the pinned `@civitai/app-sdk@0.65.0` the union has four `kind` values, and
 | `step` (`step` present) | a **server-registered orchestrator step** (`convert-image`, `chat-completion`) | a registered `step` id + bounded `params` |
 | `step` (`step` omitted) | an orchestrator step type **named directly**, `input` forwarded unmodified | a `$type` + `input` + a `maxBuzz` amount — a reservation, **not** a spend ceiling |
 | `training` | an ai-toolkit **LoRA training** run on a dataset of the viewer's own images | a `datasetId` from `usePrepareTrainingDataset()` + a base-model key + `params`; the `quoteId` from the estimate on the run |
+| `workflow` | **up to 8 orchestrator steps as one generation**, a later step reading an earlier one's result | `steps` (each a `$type` + `input`, where any value may be a `{ $ref, path }` reference) + optional `arguments`; no `maxBuzz`. See [Multi-step workflows](../guide/workflows) |
 
 `training` is a page-app flow behind a host flag that ships off; its availability,
 money rules and the three hooks it uses are under
