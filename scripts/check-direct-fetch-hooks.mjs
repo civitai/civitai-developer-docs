@@ -31,16 +31,27 @@ const PAGE = 'apps/reference/hooks.md';
 // The bullet wraps across lines, so the name span may contain newlines.
 const LIST_LINE = /^- \*\*Direct-fetch hooks — ([\s\S]+?)\.\*\*/m;
 
-/** Strip block comments and whole-line `//` comments, then look for `fetch(`
- * not preceded by an identifier char or `.` (so `refetch(` / `deps.fetch(` do
- * not count). A trailing `// … fetch(` would over-report — loudly, never silently. */
+/** Does a hook module call the network itself?
+ *
+ * WHAT IS MATCHED, after stripping `/* … *\/` block comments and whole-line `//`
+ * comments:
+ *   - a bare `fetch(` — not preceded by an identifier char or `.`, so `refetch(`
+ *     and `deps.fetch(` do not count;
+ *   - `globalThis.fetch(`, `window.fetch(` and `self.fetch(`.
+ * A trailing `// … fetch(` comment is not stripped and would over-report —
+ * loudly, never silently.
+ *
+ * WHAT IS NOT DETECTED: a hook that reaches the network through a shared helper
+ * module (an import that calls `fetch` for it), or through an aliased or injected
+ * fetch (`const f = fetch; f(…)`, `deps.fetch(…)`). Only the hook's own file is
+ * scanned. Such a hook passes this check while being a direct-fetch hook. */
 export function callsFetch(src) {
   const code = src
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .split('\n')
     .filter((l) => !/^\s*\/\//.test(l))
     .join('\n');
-  return /(^|[^A-Za-z0-9_$.])fetch\(/m.test(code);
+  return /(^|[^A-Za-z0-9_$.])fetch\(|\b(globalThis|window|self)\.fetch\(/m.test(code);
 }
 
 export function pageList(page) {
