@@ -613,7 +613,7 @@ every user until you ship a new manifest version. See
 ## Running many generations (limits and fan-out) {#limits}
 
 There is **no batch submit**. A grid or matrix app (one generation per cell)
-makes one `submit()` per cell, each submitted on its own, and every limit
+makes one `submit()` per cell, and every limit
 below applies to each of those calls on its own. Two hooks cover the rest of a
 grid:
 
