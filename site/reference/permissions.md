@@ -28,7 +28,7 @@ for a specific user.
 | `entityIds` | comma-separated integers | — | The IDs to check. Required. |
 | `entityType` | `ModelVersion` | `ModelVersion` | The kind of entity. Currently only model versions are supported. |
 | `permission` | `Generate` | `Generate` | Which permission to check. Currently only `Generate` is supported. |
-| `userId` | integer | — | Run the check on behalf of this user instead of the token's owner. Useful for partner integrations that broker requests for many users. |
+| `userId` | integer | — | Run the check for this user (anonymous when omitted). Useful for partner integrations that broker requests for many users. |
 
 ### Response
 

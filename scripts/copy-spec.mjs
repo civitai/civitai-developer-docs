@@ -39,6 +39,12 @@
  * Only when all three come up empty does this fail — and then it fails in
  * milliseconds with a message that names each place it looked.
  *
+ * SCRUB: whichever source wins, the spec is passed through
+ * `scripts/lib/spec-scrub.mjs` before it is written to public/openapi/ — a
+ * docs-side stopgap for items the upstream source should not publish. The
+ * snapshot itself is never scrubbed (a refresh re-writes it verbatim). See that
+ * file for the rules table and how a stale rule surfaces.
+ *
  * STALENESS is handled where this repo already handles upstream freshness: a
  * SCHEDULED drift check (`npm run check:spec-drift`, wired into
  * appblocks-drift.yml), never a PR gate. Same doctrine as `check:snapshots` and
@@ -49,9 +55,10 @@
  *   npm run copy:spec -- --refresh # re-snapshot from orchestration.civitai.com
  */
 
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
+import { scrubSpec } from './lib/spec-scrub.mjs';
 import { DEST_PATH, SIBLING_PATH, SNAPSHOT_PATH, SPEC_URL, fetchSpec, repoRoot, specHost } from './spec-util.mjs';
 
 const rel = (p) => (p.startsWith(repoRoot) ? p.slice(repoRoot.length + 1) : p);
@@ -60,10 +67,40 @@ const refresh = process.argv.includes('--refresh') || process.env.COPY_SPEC_REFR
 
 mkdirSync(dirname(DEST_PATH), { recursive: true });
 
-/** Writes `text` to the build destination and reports it. */
+/**
+ * Scrubs `text` (scripts/lib/spec-scrub.mjs) and writes it to the build
+ * destination. EVERY resolution path goes through here, so the published spec is
+ * scrubbed whichever source won — the snapshot itself stays a verbatim upstream
+ * copy.
+ *
+ * A rule that matched nothing WARNS and the build continues: it most likely
+ * means upstream fixed that item, and a fresh build must not break for that.
+ * `npm run check:spec-scrub` is where that becomes a failure: it runs against the
+ * committed snapshot in CI, which is where a stale rule is meant to be noticed
+ * and deleted.
+ *
+ * A spec that is not valid JSON THROWS here rather than landing unscrubbed — the
+ * build could not import it anyway, and nothing unscrubbed is ever written.
+ */
 function land(text, from) {
-  writeFileSync(DEST_PATH, text);
-  console.log(`[docs] ${rel(DEST_PATH)} <- ${from} (${text.length} bytes)`);
+  let out = text;
+  const { spec, counts, unmatched, removed } = scrubSpec(JSON.parse(text));
+  const changed = Object.values(counts).some((n) => n > 0);
+  if (changed) {
+    const indent = /^\{\s*\n(\s+)"/.exec(text)?.[1] ?? '';
+    out = JSON.stringify(spec, null, indent || undefined) + (text.endsWith('\n') ? '\n' : '');
+  }
+  const n = (k) => removed[k].length;
+  console.log(
+    `[docs] scrub: removed ${n('operations')} operation(s), ${n('schemas')} schema(s), ${n('tags')} tag(s); ` +
+      `${Object.keys(counts).length - unmatched.length}/${Object.keys(counts).length} rule(s) matched`,
+  );
+  for (const id of unmatched) {
+    console.warn(`[docs] WARNING: scrub rule ${id} matched nothing — delete it from scripts/lib/spec-scrub.mjs if upstream fixed this`);
+  }
+
+  writeFileSync(DEST_PATH, out);
+  console.log(`[docs] ${rel(DEST_PATH)} <- ${from} (${out.length} bytes)`);
 }
 
 if (refresh) {
@@ -82,7 +119,7 @@ if (refresh) {
         : `[docs] snapshot already current: ${rel(SNAPSHOT_PATH)}`,
     );
     land(res.text, SPEC_URL);
-    process.exit(0);
+    process.exit();
   }
 
   // Deliberately NOT fatal. The refresh is an extra, and the snapshot below is
@@ -93,15 +130,13 @@ if (refresh) {
 }
 
 if (existsSync(SIBLING_PATH)) {
-  copyFileSync(SIBLING_PATH, DEST_PATH);
-  console.log(`[docs] ${rel(DEST_PATH)} <- sibling orchestration checkout ${SIBLING_PATH}`);
-  process.exit(0);
+  land(readFileSync(SIBLING_PATH, 'utf8'), `sibling orchestration checkout ${SIBLING_PATH}`);
+  process.exit();
 }
 
 if (existsSync(SNAPSHOT_PATH)) {
-  copyFileSync(SNAPSHOT_PATH, DEST_PATH);
-  console.log(`[docs] ${rel(DEST_PATH)} <- committed snapshot ${rel(SNAPSHOT_PATH)}`);
-  process.exit(0);
+  land(readFileSync(SNAPSHOT_PATH, 'utf8'), `committed snapshot ${rel(SNAPSHOT_PATH)}`);
+  process.exit();
 }
 
 // Fast and legible: this is a broken checkout, not a broken internet, and the

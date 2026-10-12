@@ -76,9 +76,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick));
       />
       <p class="auth-bar__hint">
         Auto-filled when you're signed into <code>civitai.com</code> in this
-        browser. Stored in localStorage and only sent to Civitai domains
-        (<code>orchestration.civitai.com</code>, <code>civitai.com</code>)
-        from the interactive widgets on this site.
+        browser. Stored only in this browser (localStorage), and sent only
+        with the requests you run from this site's interactive widgets, to the
+        URL shown in that request.
       </p>
       <div class="auth-bar__actions">
         <button type="button" class="auth-bar__btn" @click="open = false">Cancel</button>

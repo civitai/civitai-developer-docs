@@ -1,19 +1,16 @@
 ---
 title: Raw generation graphs
-description: civitai generate --print-input and --input — the only route to seed, steps, cfgScale and sampler, what the CLI refuses in a raw graph, and the four things a passthrough cannot protect you from.
+description: Use civitai generate --print-input and --input to set seed, steps, cfgScale and sampler in a raw generation graph, and what the CLI refuses or cannot check there.
 sources:
   - go:github.com/civitai/cli
 ---
 
 # Raw generation graphs
 
-`civitai generate`'s content flags cover the common job. Everything else the
-generator understands lives in the **generation graph** — the JSON document
-those flags assemble. That includes **`seed`, `steps`, `cfgScale` and
-`sampler`**, none of which has a flag: a seed set in the graph is the only way
-to reproduce a run, and the graph is the only way to raise cfg or move steps.
-
-You can write that document yourself.
+`civitai generate`'s flags assemble a **generation graph** — a JSON document
+you can also write yourself. It is the only route to **`seed`, `steps`,
+`cfgScale` and `sampler`**, which have no flags: a seed in the graph is the
+only way to reproduce a run.
 
 ::: danger A raw graph is submitted as written
 `--input` is a **passthrough**. The CLI does not interpret your graph, so
@@ -55,27 +52,22 @@ $ civitai generate "a cat" --quantity 2 --aspect-ratio 1:1 --print-input
 }
 ```
 
-Note what is **absent**: there is no `seed`, no `steps`, no `cfgScale`, no
-`sampler`. The CLI never writes a key you did not set, because an explicit zero
-is a real, accepted, *wrong* job — `steps: 0` prices a degenerate cheaper run
-at HTTP 200. An unset key is simply not in the payload, and the server supplies
-its own behaviour. Add only the keys you actually want to control.
+There is no `seed`, `steps`, `cfgScale` or `sampler`: the CLI never writes a
+key you did not set, because an explicit zero is a real, accepted, *wrong* job
+(`steps: 0` prices a degenerate cheaper run at HTTP 200). Add only the keys you
+want to control.
 
 `--print-input`'s output is a valid `--input` document by construction. That
-round-trip is the point of the pair, and it is what replaces a
-`--set some.path=value` expression language the CLI deliberately does not have:
-a wrong type in such an expression is accepted by the server silently and
-billed, while an edited file is inspectable before it is sent.
+round trip replaces a `--set some.path=value` expression language the CLI
+deliberately does not have: a wrong type in such an expression is accepted
+silently and billed, while an edited file can be inspected before it is sent.
 
 ## What `--print-input` touches
 
-`--print-input` reaches **no money seam**: not the submit, not the cost
-estimator, not the balance read. With `--checkpoint` or `--lora` it does still
-make the public model-version *read* those flags always make — that lookup
-supplies `model.type`, which graph `resources[]` entries require, so skipping
-it would print a document `--input` could not submit.
-
-With `--image` it uploads each local file first, and that upload is
+`--print-input` reaches **no money seam** — not the submit, the cost
+estimator or the balance read. But `--checkpoint`/`--lora` still trigger the
+public model-version read (it supplies `model.type`, which `resources[]`
+entries require), and `--image` uploads each local file, which is
 authenticated. So:
 
 - **bare `--print-input`** — no credential, no network;
@@ -96,14 +88,11 @@ $ echo $?
 2
 ```
 
-The server's content audit reads the top-level `prompt` node, and it rebuilds
-what it inspects from *declared* graph nodes — so a graph carrying its prompt
-somewhere else is a shape this CLI will not send. Widening `--input` to the
-other workflows is gated on server-side work, not on the next workflow looking
-like it would work.
-
-Note that this is about the workflow the *file declares*. Image-to-image via
-`--image` still sends `workflow: "txt2img"` and is unaffected; see
+The server's content audit rebuilds what it inspects from *declared* graph
+nodes and reads the top-level `prompt`, so a graph carrying its prompt elsewhere
+is a shape this CLI will not send. Widening `--input` waits on server-side work.
+This is about the workflow the *file declares*: image-to-image via `--image`
+still sends `workflow: "txt2img"`; see
 [Choosing a model](./cli-generate-models#image-to-image-image-and-ecosystem).
 
 ### 2. Envelope keys are refused, not ignored
@@ -119,31 +108,19 @@ $ echo $?
 2
 ```
 
-A file setting `civitaiTip` would charge a tip that **`--dry-run` structurally
-cannot show you** — the estimator prices a strictly smaller request and is
-never sent tips at all — so the file is rejected rather than quietly cleaned
-up. `externalId` is on the list for a different reason: it is the idempotency
-key the CLI mints per submit, and a file supplying its own would collide with
-the crash-safety record. Use `--external-id` instead.
+Tips are refused rather than stripped because `--dry-run` **structurally
+cannot show them** — the estimator is never sent tips. `externalId` is refused
+because it is the per-submit idempotency key the CLI mints for crash safety;
+use `--external-id` instead.
 
 ### 3. Keys the CLI does not model are passed through, with a warning that claims nothing
 
-The warning says the key is not modelled *here* and was not checked *here*. It
-is **not** a claim that the key is invalid, and **not** a claim that the server
-ignores it. The CLI does not carry a copy of the server's node registry, so it
-cannot tell those apart.
-
-What the key does — **including what it costs** — is the server's answer.
-`--dry-run` prices the graph with your key included, so the estimate is where a
-price effect would show; nothing local can predict one. Check the spelling.
-
-::: danger This warning used to assert the opposite, and it was wrong
-It said an undeclared key "returns HTTP 200, prices the same, and simply has no
-effect". A graph carrying `"priority": "high"` drew that sentence and then
-priced at **28**, with a `fixed → priority 20` component three lines below it,
-against **8** for `normal`. The key was honoured, it tripled the price, and the
-warning would have talked you out of the one change that clears a slow queue.
-:::
+The warning says only that the key is not modelled or checked *here* — not
+that it is invalid, and not that the server ignores it; the CLI has no copy of
+the server's node registry. What the key does, **including what it costs**, is
+the server's answer, and `--dry-run` prices the graph with it included. For
+example, an undeclared `"priority": "high"` is honoured and raises the price.
+Check the spelling.
 
 ### 4. No model-id safety net
 
@@ -155,20 +132,11 @@ bare id is a `400`, and a *wrong* type is silently accepted.
 
 ### 5. `--fail-on-substitution` works here, but its reach is not knowable from here
 
-Every *execution* flag still applies, this one included. It fires on the
-estimate's substitution record, so it refuses before any spend just as it does
-on the flag path. The limit is that a raw graph is not interpreted, so the CLI
-cannot tell you which model references your file contains, or which of them a
-record would name.
-
-One measured case — a checkpoint named under `resources` — was charged and ran
-a different version with **no record at all**. The command warns about exactly
-this whenever the two flags appear together, unconditionally and without
-reading your file, because deciding *which* graphs to warn about would mean
-vendoring which keys the server reports on.
-
-Read a silent run as *"nothing was reported"*, never as *"nothing was
-substituted"*.
+It still refuses before any spend, but the CLI cannot relate the server's
+substitution record to the model references in your file, and some
+substitutions carry no record at all. The command warns about this whenever the
+two flags appear together. See
+[`--fail-on-substitution`](./cli-generate-models#refusing-instead-fail-on-substitution).
 
 ## Which flags `--input` accepts
 
@@ -183,15 +151,12 @@ $ echo $?
 ```
 
 The refused set is `--negative-prompt`, `--quantity`, `--aspect-ratio`,
-`--checkpoint`, `--lora`, `--image` and `--ecosystem` — there is no predictable
-answer to "does `--lora` append to or replace the file's `resources`?", so the
-combination is a usage error rather than a guess. Put those values in the file
-instead.
-
-Every *execution* flag still applies: `--dry-run`, `--yes`, `--max-cost`,
-`--json`, `--no-wait`, `--timeout`, `--out-dir`, `--out-name`, `--no-download`,
-`--force`, `--external-id` and `--fail-on-substitution`, with the coverage
-caveat above.
+`--checkpoint`, `--lora`, `--image` and `--ecosystem` — "does `--lora` append
+to or replace the file's `resources`?" has no predictable answer, so put those
+values in the file instead. Every *execution* flag still applies: `--dry-run`,
+`--yes`, `--max-cost`, `--json`, `--no-wait`, `--timeout`, `--out-dir`,
+`--out-name`, `--no-download`, `--force`, `--external-id` and
+`--fail-on-substitution` (with the caveat above).
 
 A file that is not a JSON object is a usage error too:
 

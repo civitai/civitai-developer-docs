@@ -3,10 +3,10 @@ title: Quickstart
 description: Scaffold a Civitai App with the civitai CLI — web components and @civitai/sdk by default, React on request — run it against the local mock host, and build it.
 sources:
   - go:github.com/civitai/cli#app
-  - npm:@civitai/sdk@0.10.2/dist/index.d.ts
+  - npm:@civitai/sdk@0.11.0/dist/index.d.ts
   - npm:@civitai/components@0.9.2/custom-elements.json
-  - npm:@civitai/blocks-react@0.67.1#README
-  - npm:@civitai/app-sdk@0.63.0/vite#blockManifestPlugin
+  - npm:@civitai/blocks-react@0.68.0#README
+  - npm:@civitai/app-sdk@0.64.0/vite#blockManifestPlugin
 ---
 
 # Quickstart
@@ -263,58 +263,30 @@ civitai app dev-token my-app --spend --budget 250 --env >> .env.development.loca
 npm run dev:live
 ```
 
-Both that and `civitai app dev-tunnel` need closed-beta author access — the same
-access `civitai app submit` needs. **Neither waits for your app to be reviewed, or
-even submitted:** the dev-token mint accepts a brand-new slug with no app row at
-all and reads the scopes from your local `block.manifest.json`.
-
-🔴 **For `dev:live`, generating for real needs two things, and author access is
-only the first.** The token must be minted from a credential carrying the **AI
-Services** scopes — `civitai login --scopes generate`, or a full-scope personal
-API key. A *default* `civitai login` can submit an app and **cannot spend**, so
-`--spend` on its own still mints read-only and `dev:live` refuses with `block
-lacks ai:write:budgeted scope`.
-
-Both flags above are load-bearing. `--env` is what writes `VITE_LIVE_BLOCK_TOKEN`
-into `.env.development.local`; without it `dev:live` has no token and fail-safes to
-a setup notice rather than generating. And on an unsubmitted app the server grants
-a flat **50** Buzz per generation — your manifest's `page.buzzBudgetPerGen` is not
-read, because there is no submitted manifest to read — which the default
-scaffold's own sample exceeds, so `--budget` is not optional there.
-
-That last point is why the CLI route above is the one to follow. The setup notice
-`dev:live` shows also offers a one-click **Set up automatically** button, which
-mints and writes the token for you — but it cannot pass a budget, so it lands on
-the flat 50 and the scaffold's own sample then fails with `insufficient buzz
-budget`. Use it for a sample that fits 50; otherwise mint from the command line.
-
-⚠️ **`dev-tunnel` is narrower than `dev:live` for real generation on an app you
-have never submitted.** That path has a third, spend-specific gate, and it is
-open to fewer people than author access is; when it is closed the app still
-renders but cannot spend. If you want real generation before submitting, use
-`dev:live`. See [Local dev loop](./local-dev).
+This needs closed-beta author access, but not a reviewed or even submitted app.
+Spending also needs a credential with the **AI Services** scopes
+(`civitai login --scopes generate`); a default login mints read-only. Both flags
+matter: `--env` writes the token, and `--budget` lifts the flat **50** Buzz
+per-generation budget an unsubmitted app gets, which the scaffold's own sample
+exceeds — so don't use the setup notice's **Set up automatically** button for
+it, which cannot pass a budget. Details, and why `dev-tunnel` is narrower for
+spending: [Local dev loop](./local-dev).
 
 ::: warning Match the harness origin
-The harness pins a parent origin (`http://localhost:5186` in the shipped
-`page-money` template), and so does `VITE_BLOCK_ALLOWED_PARENT_ORIGINS`. They
-**must match**, or the transport's origin allowlist drops `BLOCK_INIT` and the
-block hangs on "Loading…". If your block never leaves the loading state, check
-that the two agree. The key is set in `.env.development`, and is only a *comment*
-in `.env.example` — so a `.env` you made from that file will not carry it. Vite
-merges `.env` → `.env.local` → `.env.development` → `.env.development.local` with
-the later file winning, so a stale copy in `.env.development.local` outranks the
-shipped one. Auto-setup will not fix that for you: it writes only
-`VITE_LIVE_BLOCK_TOKEN` and `CIVITAI_HOST_KEY`, and leaves any origins line
-alone.
+The harness's parent origin (`http://localhost:5186` in `page-money`) and
+`VITE_BLOCK_ALLOWED_PARENT_ORIGINS` **must match**, or `BLOCK_INIT` is dropped
+and the block hangs on "Loading…". The key is set in `.env.development` (only a
+comment in `.env.example`, so a `.env` copied from it won't carry the key), and
+a stale copy in `.env.development.local` wins
+over it. Auto-setup writes only `VITE_LIVE_BLOCK_TOKEN` and `CIVITAI_HOST_KEY`.
 :::
 
 ### Read the block
 
-The `src/App.tsx` you already have is a working estimate → consent → submit →
-poll app **with tests that import it** — don't overwrite it. What every block
-does first is read what the host delivered with `useBlockContext()` and gate its
-UI on `ready`, because the context fields are sentinel-empty until `BLOCK_INIT`
-lands. That shape, minimally:
+Your `src/App.tsx` is a working generation app **with tests that import it** —
+don't overwrite it. Every block first reads what the host delivered with
+`useBlockContext()` and gates its UI on `ready` (the fields are empty until
+`BLOCK_INIT` lands). Minimally:
 
 ```tsx
 import { useBlockContext } from '@civitai/blocks-react';
@@ -348,37 +320,16 @@ export function App() {
 }
 ```
 
-::: warning Don't reach for `ModelSlotContext` here
-`ModelSlotContext` is the **model-slot** narrowing: its `slotId` is typed
-`'model.sidebar_top' | 'model.below_images' | 'model.actions_extra'`, and it
-carries `modelId` / `modelVersionId` / `modelName`. A page app is a different
-surface — the host sends `slotId: 'app.page'` and **none** of those model
-fields — so casting a page context to `ModelSlotContext` compiles happily and
-then reads `undefined` at runtime. It is the same page-vs-model-slot confusion
-as `useBlockResize` below. Reach for `ModelSlotContext` only on the model
-slots, where it is [genuinely correct](./text-to-image#the-happy-path).
+::: warning Model-slot types and hooks don't apply to a page app
+A page context has `slotId: 'app.page'` and **no** model fields, so casting it
+to `ModelSlotContext` compiles and then reads `undefined` — use that type only
+on [model slots](./text-to-image#the-happy-path). Likewise `useBlockResize` is
+inert here: a page app is mounted full-viewport and the host ignores
+`RESIZE_IFRAME` (it is honoured on model slots, clamped to
+`iframe.minHeight`/`maxHeight`). See [Responsive blocks](./responsive).
 :::
 
-::: tip `useBlockResize` does nothing on a page app
-`civitai app init` scaffolds a **page** app (`block.manifest.json` declares a
-`page` key), and a page app is rendered by the host's `PageBlockHost`, which
-mounts the iframe **full-viewport** (`flex: 1`, `width: 100%`) and subscribes to
-no `RESIZE_IFRAME` handler at all. `useBlockResize` still runs its
-`ResizeObserver` and still posts the message — the host simply ignores it, so
-your app is sized by the surface, not by its content. It is fire-and-forget, so
-nothing hangs; it is just inert.
-
-Reach for it on the **model-slot** surface, where `IframeHost` does handle
-`RESIZE_IFRAME` and clamps the height to your manifest's
-`iframe.minHeight` / `iframe.maxHeight`. (`iframe.resizable` in the manifest
-schema still describes itself in size-to-content terms; on a page app that
-wording does not apply.)
-
-Sizing your block to whatever box it lands in — on either surface — is
-[Responsive blocks](./responsive).
-:::
-
-A few things this snippet establishes as habits:
+Habits this snippet establishes:
 
 - **Gate on `ready`.** Nothing in `context` / `viewer` is trustworthy before it.
 - **`viewer` can be `null`** — that's an anonymous viewer, not an error.
@@ -415,18 +366,9 @@ replace the array**, or you drop the plugins your app needs to build at all:
 ```
 
 It fails the build with a plain `Error` whose message leads with the offending
-field — `block.manifest.json is invalid [scopes]: …`. The plugin catches
-`BlockManifestError` and re-throws deliberately, because Vite prints the message
-and not the error's own properties, so a `.field` you branched on would be
-invisible.
-
-::: tip Validating outside Vite
-`defineBlock` used to live on `@civitai/app-sdk/blocks`. It moved to
-`@civitai/app-sdk/manifest`, a **Node-only** subpath — it compiles the vendored
-canonical schema with Ajv, which needs `node:fs` and so cannot sit on the
-browser-facing surface. Reach for it in a Node script; in a Vite app use the
-plugin above.
-:::
+field — `block.manifest.json is invalid [scopes]: …` (Vite prints only the
+message). Outside Vite, use `defineBlock` from `@civitai/app-sdk/manifest`, a
+**Node-only** subpath.
 
 ## Submitting (closed beta)
 
@@ -462,17 +404,10 @@ That flow is gated to approved builders during the closed beta. To request acces
 
 ## Store-listing media
 
-Your **store listing** is the card shoppers see in the
-[`/apps` store](https://civitai.com/apps). It is created as a **draft the moment
-you run `civitai app submit`** — not at approval — so you can set its media
-**while your app is still in review**. Whatever you attach carries forward when a
-moderator approves the app, so the listing can go live the same day it's approved
-instead of waiting on a second round-trip.
-
-A listing has a hard **publish floor**: it needs an **icon** and a **cover**
-before it can go live. Screenshots (up to 8) are optional. You attach all of them
-with the `civitai app listing` command group, run from your app directory (it
-resolves the app from `block.manifest.json`, or pass `--slug`):
+Your **store listing** is created as a draft when you run `civitai app submit`,
+so you can set its media **while your app is in review**. It needs an **icon**
+and a **cover** before it can go live; screenshots (up to 8) are optional. Run
+these from your app directory (or pass `--slug`):
 
 ```bash
 civitai app listing status                       # what's attached + what's missing vs the publish floor
@@ -483,20 +418,8 @@ civitai app listing rm-screenshot alsc_01H...    # remove one by its id (from `s
 civitai app listing reorder alsc_02 alsc_01 alsc_03   # pass ALL screenshot ids in the new order
 ```
 
-Each command ingests a local image, waits for the content scan, and attaches it —
-the same pipeline the web submit form uses. Run `civitai app listing status` any
-time to see what's attached and what's still blocking publish.
-
-::: warning Editing a LIVE listing opens a revision
-Once your listing is **approved and live**, attaching or changing media opens a
-**revision** that goes back to moderator review — your live listing is untouched
-until the revision is approved. Pass `--changelog "..."` to describe the change
-(the `set-*` / `add-screenshot` commands accept it), and `-y` to skip the
-revision confirmation prompt.
-:::
-
-See the [CLI reference](../reference/cli) for every `app listing` subcommand and
-flag.
+Image requirements, what changes once the listing is live, and release gating
+are in [Your store listing](./store-listing).
 
 ## Next
 

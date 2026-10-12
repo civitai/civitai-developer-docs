@@ -96,7 +96,7 @@ WAN is an open video-generation model family. The orchestrator exposes every shi
 | `v2.2` | `fal`, `comfy` | `text-to-video`, `image-to-video` | Only version with a native ComfyUI path. Supports LoRAs + Turbo mode. |
 | `v2.1` | `fal`, `civitai` | `text-to-video`, `image-to-video` | Legacy — prefer 2.6+ unless you specifically need Civitai-hosted inference. |
 
-**Default choice for new integrations**: `version: "v2.6"`, `provider: "fal"`.
+**Default choice**: `version: "v2.6"`, `provider: "fal"`.
 
 ## The request shape
 
@@ -118,7 +118,7 @@ The orchestrator dispatches to the matching input schema (`Wan26FalTextToVideoIn
 
 ## Operations
 
-All examples target production and use `<your-token>` in place of your Bearer token. Request timeout is **100 s** — `wait` is capped accordingly. See [Results & webhooks](/orchestration/guide/results-and-webhooks) for anything longer.
+All examples target production and use `<your-token>` in place of your Bearer token. Keep `wait` below [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline); see [Results & webhooks](/orchestration/guide/results-and-webhooks) for anything longer.
 
 ### text-to-video
 
@@ -270,7 +270,7 @@ These appear on most (version, operation) combinations; the schema for your chos
 |-------|----------------|-------|
 | `resolution` | `720p`, `1080p` (plus `480p` on v3.0) | 1080p costs more and takes longer. |
 | `aspectRatio` | `16:9`, `9:16`, `1:1` | Vertical for reels/shorts. v3.0 text-to-video also takes `4:3` / `3:4`; v3.0 image-to-video takes none — the ratio comes from the source image. |
-| `duration` | `5`, `10` (seconds) | Longer clips push you past the 100 s `wait` cap — use webhooks. |
+| `duration` | `5`, `10` (seconds) | Longer clips can outlast your HTTP client's timeout — use webhooks. |
 | `enablePromptExpansion` | `true` \| `false` | Let the model expand short prompts. Disable for reproducibility, or on v3.0 to cut 20–60 s of latency. |
 | `enableSafetyChecker` | `true` (default) | Disable only if you handle moderation yourself. Not accepted on v3.0. |
 | `audioUrl` / `audioSetting` | URL or `auto` | Attach background audio (2.6 / 2.7) or drive audio inference (2.7 edit). Not on v3.0. |
@@ -298,45 +298,25 @@ Legacy self-hosted path. Accepts explicit `model` AIRs and `width`/`height` inst
 
 ## Reading the result
 
-On success each `videoGen` step emits a single `video` blob:
-
-```json
-{
-  "id": "wf_01HXYZ...",
-  "status": "succeeded",
-  "steps": [{
-    "name": "0",
-    "$type": "videoGen",
-    "status": "succeeded",
-    "output": {
-      "video": { "id": "blob_...", "url": "https://.../signed.mp4" }
-    }
-  }]
-}
-```
-
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL; don't cache them long-term. Download and store the bytes yourself if you need durable storage.
+Standard `videoGen` output: a single `video` blob ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 ## Long-running jobs
 
-WAN jobs routinely run longer than 100 s (any 1080p clip ≥ 10 s; reference-to-video; edit-video). The [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) means `wait` is capped — use `wait=90` for a best-effort inline attempt, then fall back to:
-
-- **Webhooks** (preferred): register a callback with `type: ["workflow:succeeded", "workflow:failed"]` — see [Results & webhooks](/orchestration/guide/results-and-webhooks)
-- **Polling**: `GET /v2/consumer/workflows/{workflowId}` on a 5 s → 10 s → 30 s cadence
+WAN jobs routinely run for minutes (any 1080p clip ≥ 10 s; reference-to-video; edit-video), longer than [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline). Submit with `wait=0`, then prefer a [webhook](/orchestration/guide/results-and-webhooks) (`workflow:succeeded` / `workflow:failed`), or poll `GET /v2/consumer/workflows/{workflowId}` on a 5 s → 10 s → 30 s cadence.
 
 ## Troubleshooting
+
+Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](/orchestration/recipes/#common-troubleshooting).
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `400` with unknown field | Field isn't valid for this `(version, provider, operation)` combo | Check the specific input schema via [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — `Wan26FalTextToVideoInput`, `Wan30TextToVideoInput`, and so on. |
 | Step `failed`, `error.code = "no_provider"` | No capacity for that resolution/duration on the chosen provider | Retry, drop to 720p, or switch provider. |
-| `workflow:processing` after `wait=90` returns | Job ran past the 100 s timeout | Expected — continue via webhook or poll. |
-| Blob URL `403` after a few minutes | Signed URL expired | Refetch the workflow to get a fresh URL. |
 | Reference prompt ignored | `@VideoN` tokens missing or misnumbered | Tokens are 1-indexed and must match items in `referenceVideoUrls`. |
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 WAN video pricing varies by `version`, `provider`, `resolution`, and acceleration flags. All the numbers below are per **single video** (not per second per clip unless noted).
 
@@ -440,9 +420,8 @@ For new integrations on `v2.6` / `v2.7` at 720p × 5 s with no LoRAs, expect **~
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — production-ready result handling
 - Full parameter catalog: the `Wan…Input` schemas in the [API reference](/orchestration/reference/) (e.g. `Wan26FalTextToVideoInput`, `Wan27FalEditVideoInput`, `Wan30TextToVideoInput`)
 - [MiniMax H3](./minimax-h3) — 2K native video with first/last-frame and reference video + audio
-- [`videoGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/videoGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `videoGen` surface (WAN, LTX2, Flux, etc.); import into Postman / OpenAPI Generator
+- [`videoGen` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/videoGen/openapi.yaml)

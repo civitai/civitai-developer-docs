@@ -29,7 +29,7 @@ generations on your own account.
 - [CLI](./cli) — install it, then the read and download commands.
 - [CLI credentials and scopes](./cli-auth) — OAuth vs a personal API key, and
   why a default browser login cannot spend Buzz.
-- [Generating images from the CLI](./cli-generate) — 🔴 spends real Buzz. The
+- [Generating images from the CLI](./cli-generate) — **spends real Buzz**. The
   money contract, `--dry-run`, `--max-cost`, waiting and downloading.
 - [Choosing a model](./cli-generate-models) — `--checkpoint` vs `--ecosystem`,
   silent model substitution, and image-to-image.

@@ -1,3 +1,8 @@
+---
+title: Design tokens
+description: Every --civitai-* design token from @civitai/theme, with its light and dark value, and how to consume tokens.
+---
+
 # Design tokens
 
 The design system is built on a small set of **semantic design tokens** shipped

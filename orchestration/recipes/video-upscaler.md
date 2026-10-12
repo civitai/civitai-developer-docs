@@ -50,7 +50,6 @@ Common uses:
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
 - A source video URL — publicly fetchable by the orchestrator (Civitai CDN URLs work directly)
 
 ## The simplest request
@@ -58,7 +57,7 @@ Common uses:
 Use the per-recipe endpoint when you're upscaling a single video and don't need webhooks or multi-step chaining:
 
 ```http
-POST https://orchestration.civitai.com/v2/consumer/recipes/videoUpscaler?wait=0
+POST https://orchestration.civitai.com/v2/consumer/recipes/videoUpscaler
 Authorization: Bearer <your-token>
 Content-Type: application/json
 
@@ -69,15 +68,15 @@ Content-Type: application/json
 
 <RecipeRun :body="recipeBody" path="/v2/consumer/recipes/videoUpscaler" :wait="0" />
 
-Defaults apply `scaleFactor: 2`. The response is a full [`Workflow`](/orchestration/reference/operations/GetWorkflow) whose single step carries the upscaled video blob.
+Defaults apply `scaleFactor: 2`. The recipe endpoint blocks until the step finishes and returns the step output directly — the `video` blob described in [Reading the result](#reading-the-result).
 
-::: tip Use `wait=0` for video
-FlashVSR on a multi-second clip almost always exceeds the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline). Submit with `wait=0`, then poll or [subscribe via webhook](/orchestration/guide/results-and-webhooks).
+::: tip Long clips: use the generic endpoint
+FlashVSR on a multi-second clip almost always outlasts [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline), and the recipe endpoint cancels the run if the client disconnects. Submit through the [generic workflow endpoint](#via-the-generic-workflow-endpoint) with `wait=0`, then poll or [subscribe via webhook](/orchestration/guide/results-and-webhooks).
 :::
 
 ## Via the generic workflow endpoint
 
-Equivalent request through [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — use this path when you need webhooks, tags, or to chain with other steps:
+The same request through [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow), for webhooks, tags or chaining:
 
 ```http
 POST https://orchestration.civitai.com/v2/consumer/workflows?wait=0
@@ -162,11 +161,11 @@ The most common two-step video flow — generate at a manageable resolution, the
 }
 ```
 
-The `{ "$ref": "clip", "path": "output.video.url" }` reference creates a dependency — `clip-hd` doesn't start until `clip` succeeds, and the upscaler's `video` field is filled in with the generated clip's signed URL at runtime. See [Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism) for the full reference syntax.
+`clip-hd` waits for `clip` to succeed; the `$ref` then fills its `video` with the generated clip's signed URL ([Workflows → Dependencies](/orchestration/guide/workflows#dependencies-parallelism)).
 
 <RecipeRun :body="chainBody" :wait="0" />
 
-Because the combined workflow easily runs past the 100-second request limit, submit with `wait=0` and poll — the built-in **Try It** widget does this automatically.
+Because the combined workflow runs for minutes, submit with `wait=0` and poll — the built-in **Try It** widget does this automatically.
 
 ## Reading the result
 
@@ -194,11 +193,11 @@ A successful `videoUpscaler` step emits a single upscaled video blob:
 
 Note: `videoUpscaler` output is `video` (singular VideoBlob with `width` / `height`), not a collection — the step always returns exactly one clip.
 
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) to get a fresh URL.
+Blob URLs expire — see [Reading results](/orchestration/recipes/#reading-results).
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 `videoUpscaler` uses an empirical polynomial fit to real FlashVSR runtimes — cost scales with both the input pixel-frame product and the `scaleFactor`:
 
@@ -227,9 +226,11 @@ Always run `whatif=true` before a large upscale — the polynomial grows fast on
 
 ## Runtime
 
-FlashVSR is GPU-heavy and scales with both source resolution *and* duration. A 5-second 720p clip at `scaleFactor: 2` typically takes a few minutes end-to-end including queue time; `scaleFactor: 4` can easily be 10×+ that. Always submit with `wait=0` plus [webhooks or polling](/orchestration/guide/results-and-webhooks) — a synchronous `wait=90` will almost always time out on real inputs.
+FlashVSR is GPU-heavy and scales with both source resolution *and* duration. A 5-second 720p clip at `scaleFactor: 2` typically takes a few minutes end-to-end including queue time; `scaleFactor: 4` can easily be 10×+ that. Submit through the [generic workflow endpoint](#via-the-generic-workflow-endpoint) with `wait=0` plus [webhooks or polling](/orchestration/guide/results-and-webhooks) — a synchronous call will almost always time out on real inputs.
 
 ## Troubleshooting
+
+Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](/orchestration/recipes/#common-troubleshooting).
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
@@ -238,13 +239,11 @@ FlashVSR is GPU-heavy and scales with both source resolution *and* duration. A 5
 | `400` with "scaleFactor out of range" | Value outside `2`–`4` | Clamp client-side. FlashVSR doesn't support `1×` (identity) or >`4×`. |
 | `400` with "Unable to analyze video file" | Source couldn't be probed (corrupt, wrong container, network error during probe) | Check the URL resolves and serves valid MP4/WebM; re-upload if the source is corrupt. |
 | Step `failed`, step-level `reason` mentions unsupported codec | Unusual container or codec in source | Transcode the source to H.264 MP4 first (see the [`transcode` recipe](/orchestration/reference/operations/InvokeTranscodeStepTemplate)), then upscale. |
-| Step `failed`, `reason = "blocked"` | Source video hit content moderation | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
-| Request timed out (`wait` expired) | FlashVSR too slow to finish in the synchronous window | Resubmit with `wait=0` and poll, or register a webhook. |
 
 ## Related
 
 - [`InvokeVideoUpscalerStepTemplate`](/orchestration/reference/operations/InvokeVideoUpscalerStepTemplate) — the per-recipe endpoint
-- [Endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/videoUpscaler/openapi.yaml) — standalone OpenAPI 3.1 YAML for this endpoint, ready to import into Postman / Insomnia / OpenAPI Generator
+- [`videoUpscaler` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/videoUpscaler/openapi.yaml)
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — generic path for chaining
 - [Image upscaling](./image-upscaler) — the `imageUpscaler` equivalent for images
 - [WAN video generation](./wan) — generate clips to feed into this recipe

@@ -48,7 +48,7 @@ echo "https://auth.civitai.com/api/auth/oauth/authorize?$(cat <<EOF | tr -d '\n'
 response_type=code
 &client_id=$CIVITAI_CLIENT_ID
 &redirect_uri=$REDIRECT_URI
-&scope=98305
+&scope=114689
 &state=$STATE
 &code_challenge=$CHALLENGE
 &code_challenge_method=S256

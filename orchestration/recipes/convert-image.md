@@ -64,7 +64,7 @@ const pngBody = {
 
 # Image conversion
 
-`convertImage` is a utility step for format conversion, resizing, and blurring. It applies zero or more transforms in order, then encodes the result to the requested format. Cost is a flat **1 Buzz** regardless of image size, number of transforms, or output format.
+`convertImage` is a utility step for format conversion, resizing, and blurring. It applies zero or more transforms in order, then encodes the result to the requested format. Cost is a flat **1 Buzz** ([Cost](#cost)).
 
 ## The request shape
 
@@ -260,11 +260,11 @@ JPEG and PNG are inherently single-frame. Animated source images (GIF, animated 
 }
 ```
 
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL.
+Blob URLs expire — see [Reading results](/orchestration/recipes/#reading-results).
 
 ## Public output
 
-`"public": true` stores the result in a bucket that serves it directly. The returned `url` is then unsigned and permanent for the blob's lifetime, and `urlExpiresAt` is `null`:
+`"public": true` stores the result in a bucket that serves it directly. The returned `url` is then unsigned and permanent for the blob's lifetime, and `urlExpiresAt`, if set, is when the object is scheduled for deletion:
 
 ```json
 {
@@ -304,6 +304,9 @@ Flat **1 Buzz** per step — regardless of source image size, number of transfor
       "$type": "imageGen",
       "input": {
         "engine": "flux2",
+        "model": "klein",
+        "operation": "createImage",
+        "modelVersion": "4b",
         "prompt": "A photorealistic cat sitting in a sunny garden"
       }
     },
@@ -311,7 +314,7 @@ Flat **1 Buzz** per step — regardless of source image size, number of transfor
       "name": "convert",
       "$type": "convertImage",
       "input": {
-        "image": { "$ref": "gen.output.images[0].url" },
+        "image": { "$ref": "gen", "path": "output.images[0].url" },
         "transforms": [{ "type": "resize", "targetWidth": 1024 }],
         "output": { "format": "webp", "quality": 90 }
       }
@@ -334,8 +337,7 @@ Flat **1 Buzz** per step — regardless of source image size, number of transfor
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Image upscaling](./image-upscaler) — chain upscaling before `convertImage` for high-res output in a target format
 - [Image background removal](./image-background-removal) — produce a transparent cutout, then chain `convertImage` to resize or re-encode it
 - [Prompt enhancement](./prompt-enhancement) — another 1-Buzz utility step

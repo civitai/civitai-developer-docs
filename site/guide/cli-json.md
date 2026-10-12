@@ -1,6 +1,6 @@
 ---
 title: Scripting the CLI with --json
-description: What civitai --json guarantees and what it does not — pure-JSON stdout, errors on stderr, the body repair that changes bytes without changing the document, and why generation payloads follow different rules.
+description: What civitai --json guarantees for scripts — pure-JSON stdout, errors on stderr, re-indented and repaired bodies, and the generation payload's caveats.
 sources:
   - go:github.com/civitai/cli
 ---
@@ -8,43 +8,34 @@ sources:
 # Scripting the CLI with `--json`
 
 Every read subcommand of the [`civitai` CLI](./cli) takes `--json`, which
-prints the `/api/v1/...` REST response **as the API shaped it** — not a
-CLI-invented shape. So the field schema is exactly the public Site API's; keep
-the [REST field reference](../reference/) open (e.g.
-[models](../reference/models),
-[model-versions](../reference/model-versions)) rather than
-reverse-engineering fields with `jq keys`.
+prints the `/api/v1/...` REST response **as the API shaped it**, so the field
+schema is the public Site API's — keep the [REST field reference](../reference/)
+open (e.g. [models](../reference/models),
+[model-versions](../reference/model-versions)) rather than reverse-engineering
+fields with `jq keys`.
 
-The **read-path recipes** — the `--cursor` deep-paging loop, silencing the
-update nag for clean pipeline output, the SHA256-case and embedded
-`modelVersions` gotchas, and a worked search-then-download example — are on the
-[CLI guide](./cli#scripting-with-json). What is below is how `--json` treats
-the bytes, and the generation and `app` payloads, which are not Site API REST
-shapes.
+The read-path recipes — `--cursor` deep paging, silencing the update nag, the
+SHA256-case and embedded `modelVersions` gotchas, and a search-then-download
+example — are on the [CLI guide](./cli#scripting-with-json). This page covers
+how `--json` treats the bytes, and the generation and `app` payloads, which are
+not Site API shapes.
 
 ## Two properties make the output safe to pipe
 
 - **`--json` stdout is pure JSON, and never styled.** Nothing else is written to
-  stdout, so `… --json | jq -e .` always parses — and no colour setting can put
-  an escape sequence in it, because `--json` does not pass through the
-  presentation layer at all
+  stdout, so `… --json | jq -e .` always parses, at any colour setting
   ([`--json` is never styled](./cli-output#json-is-never-styled)).
-- **Errors go to stderr with a non-zero exit.** A failed call writes the error
-  to **stderr**, exits non-zero, and prints **nothing to stdout**, so `jq`
-  never sees error prose. For example
-  `civitai model-versions get 999999999 --json` exits `4` with
+- **Errors go to stderr with a non-zero exit**, and **nothing** goes to stdout.
+  For example `civitai model-versions get 999999999 --json` exits `4` with
   `Error: not found (404): Model not found` on stderr and an empty stdout.
 
-**Safe to pipe is not safe to print.** Neither property sanitises anything: the
-escape-stripping and one-line flattening the **human** renderers apply do
-**not** run on `--json`, so a script that prints a server-supplied string from
-`--json` onto a terminal has to sanitise it itself. What the human renderers
-strip, and where, is stated precisely on
-[What a table cell can contain](./cli-output#what-a-table-cell-can-contain).
+**Safe to pipe is not safe to print.** The escape-stripping and flattening the
+human renderers apply ([What a table cell can contain](./cli-output#what-a-table-cell-can-contain))
+do **not** run on `--json`, so a script that prints a server-supplied string
+onto a terminal must sanitise it itself.
 
-Both properties hold for `civitai generate` and `civitai workflows …` too — but
-their payloads are not Site API shapes. See
-[Generation `--json`](#generation-json) below.
+Both properties hold for `civitai generate` and `civitai workflows …` too; see
+[Generation `--json`](#generation-json).
 
 ## It passes through the DOCUMENT, not the BYTES
 
@@ -52,27 +43,20 @@ their payloads are not Site API shapes. See
 Two things change the bytes without changing the document.
 :::
 
-**The first is cosmetic: the output is re-indented**, so a compact API body
-comes out longer than it went in.
-
-**The second is not.** The API intermittently emits a **raw control byte** — a
-carriage return, most often — inside a `prompt` or `description` string, which
-is not legal JSON and used to fail the whole page. When a page will not decode,
-the CLI rewrites those bytes as their JSON escapes (`\r`, `\u0001`) and decodes
-the repaired body, and **that repaired body is what `--json` prints**. The
-*document* is still the API's — the same strings, the same characters — but the
-bytes are not. A page that decodes as sent is passed through with no such
-rewrite.
+**The output is re-indented**, so a compact API body comes out longer than it
+went in. **And control bytes are repaired:** the API intermittently emits a raw
+control byte — most often a carriage return — inside a `prompt` or
+`description` string, which is not legal JSON. When a page will not decode, the
+CLI rewrites those bytes as JSON escapes (`\r`, `\u0001`), decodes the repaired
+body, and **prints the repaired body**. The *document* — the strings and
+characters — is still the API's; the bytes are not. A page that decodes as sent
+is passed through unrepaired.
 
 ### A username can be entirely digits
 
-A second shape used to fail the same way and is also fixed: a Civitai username
-can be all digits, and such a value was reported arriving as a bare JSON
-**number** (`"username": 2802169344506`, unquoted) rather than a string. One
-such uploader on a page failed the whole page, so `civitai images search`
-printed nothing at all. The CLI now accepts either shape and keeps the digits
-exactly as sent — so treat a username as a **string** in your script even
-though the wire may carry a number.
+A username can arrive as a bare JSON **number**
+(`"username": 2802169344506`) rather than a string. The CLI keeps the digits
+exactly as sent; treat `username` as a **string** in your script.
 
 ### When a body still will not decode
 
@@ -108,23 +92,11 @@ writer. Reading it once per change is fine.
 Generation has no REST route, so these are not Site API shapes and there is no
 field reference page for them.
 
-**The two byte changes apply differently here, so take them one at a time.**
-The output is **re-indented** exactly as above, so it is no more diffable or
-hashable than the read group's. But the **repair never runs on a generation
-reply** — it is applied by the read SDK's own decode step, and the generation
-client decodes with the standard library, so nothing rewrites a control byte
-there.
-
-Two further caveats have bitten people, and neither shows up as an error.
-
-### Output URLs are presigned and EXPIRE
-
-The links in a workflow payload are short-lived signatures, not durable
-addresses. A pipeline that stores them and fetches later gets a 401/403 from
-the storage host that **no credential can fix** — re-run
-`civitai workflows get <id>` for fresh links instead of caching the old ones.
-Fetch them with **no** `Authorization` header; they are already authorized, and
-the CLI deliberately attaches nothing to them.
+The output is **re-indented** as above, but the control-byte **repair never
+runs on a generation reply** (it belongs to the read SDK's decode step; the
+generation client uses the standard library). Output URLs in these payloads are
+presigned and expire — see
+[Output URLs are presigned and expire](./cli-generate#output-urls-are-presigned-and-expire).
 
 ### `--json` still exits 0 when resources are unavailable
 
@@ -143,43 +115,30 @@ esac
 printf '%s' "$q" | jq -r .cost.total
 ```
 
-The `*` arm is the point. An earlier version of this snippet tested
-`[ … = "false" ] && exit 1`, which exits **0** when the key is absent or `jq`
-fails — it read "we could not ask" as "we asked and it was fine".
+The `*` arm is the point: a plain `[ … = "false" ] && exit 1` exits **0** when
+the key is absent or `jq` fails.
 
 ### `ready` is one-directional {#ready-is-one-directional}
 
 ::: danger `ready: true` is not a success predicate
-`ready` reports only that the resources this job needs are currently
-available. The server computes it as "every job's queue position reports
-`support: available`", and **a job carrying no queue position at all is
-skipped, leaving the flag `true`**.
-
-It is not a moderation verdict and not a prediction that the job produces an
-image — `--dry-run` therefore prints it as **`Resources ready`**, not
-"Generatable". A run reporting `ready: true` can still be charged and return
-nothing: measured, 8 submits across 3 checkpoints that all quoted `ready: true`
-produced **0** outputs.
-
-So gate on the FALSE direction, as above, and never treat `true` as a success
-predicate.
+`ready` reports only that the resources the job needs are currently available:
+the server sets it from every job's queue position reporting
+`support: available`, and **a job with no queue position is skipped, leaving
+the flag `true`**. It is not a moderation verdict and not a prediction of
+output — `--dry-run` prints it as **`Resources ready`** — and a `ready: true`
+run can still be charged and return nothing. Gate on the FALSE direction only.
 :::
 
-The only thing that settles whether a job produced output is the finished
-workflow (`civitai workflows get <id>`), and `civitai generate` exits non-zero
-when it waited and got no deliverable output.
-
-**What `ready: false` gets you is a LOCAL refusal.** `civitai generate` reads
-the flag and refuses to submit; no server-side enforcement of it is known.
-Treat it as this CLI's own pre-flight, not as a promise about what the server
-would have done.
+Only the finished workflow (`civitai workflows get <id>`) settles whether a job
+produced output; `civitai generate` exits non-zero when it waited and got no
+deliverable output. `ready: false` gets you a **local** refusal —
+`civitai generate` will not submit — with no known server-side enforcement.
 
 ### Cost keys are an open map
 
-`cost.factors` and `cost.fixed` are server-owned and passed through
-**verbatim**, so treat them as an open map rather than a fixed set. The same
-goes for `modelSubstitutions` and the `transactions` object: the CLI passes
-through every field it does not model.
+`cost.factors`, `cost.fixed`, `modelSubstitutions` and the `transactions`
+object are server-owned and passed through **verbatim**, including fields the
+CLI does not model. Treat them as open maps.
 
 ## Where to go next
 

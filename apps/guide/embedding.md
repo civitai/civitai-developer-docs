@@ -1,10 +1,10 @@
 ---
 title: Running embedded & handling direct traffic
-description: Why a Civitai App runs embedded in the civitai.com host, why you should always share the /apps/run/<slug> route, how <BlockGate> makes a direct visit to the bare subdomain degrade gracefully instead of hanging, and what manifest.bootSkeleton makes the run host stand down.
+description: Why a Civitai App runs embedded in civitai.com, why to share the /apps/run/<slug> route, and how <BlockGate> and manifest.bootSkeleton handle a direct visit.
 sources:
-  - npm:@civitai/blocks-react@0.67.1/dist/transport/directLoad.d.ts
-  - npm:@civitai/blocks-react@0.67.1/dist/ui/BlockGate.d.ts
-  - npm:@civitai/blocks-react@0.67.1/dist/hooks/useDirectLoad.d.ts
+  - npm:@civitai/blocks-react@0.68.0/dist/transport/directLoad.d.ts
+  - npm:@civitai/blocks-react@0.68.0/dist/ui/BlockGate.d.ts
+  - npm:@civitai/blocks-react@0.68.0/dist/hooks/useDirectLoad.d.ts
   - civitai:src/components/AppBlocks/PageBlockHost.tsx
 ---
 
@@ -25,7 +25,10 @@ That split has one sharp edge worth designing for from day one.
 **not** a URL you point users at. If someone opens the bare `<slug>.civit.ai`
 directly (a top-level navigation — a shared link, a pasted URL, a social-card
 crawl), there is no parent host to send `BLOCK_INIT`. Your `ready` gate never
-flips, and the block sits on its loading state **forever**.
+flips, and the block sits on its loading state **forever**. (For a page app the
+platform redirects such a navigation to the run route at the edge — see
+[Platform edge behavior](#platform-edge-behavior-for-context) — but design as if
+a direct hit can still reach your bundle.)
 
 ::: tip The one rule
 **Always link and share the `civitai.com/apps/run/<slug>` route — never the bare
@@ -220,19 +223,13 @@ Civitai-side decision, so design your skeleton to guess: paint from
 
 ### Removing it — this is per-framework, and React is the exception
 
-How the skeleton *goes away* depends entirely on what mounts over it.
-
 - **React** — `createRoot(container).render(...)` **clears the container's
-  existing children** before its first commit, so the skeleton removes itself
-  with **no cleanup code at all**. Measured, React 19 + jsdom: the container
-  went from holding only the skeleton to holding only the app.
-- **Svelte 5** — `mount(App, { target })` **appends, and does not clear.**
-  Measured, Svelte 5 + jsdom: after mount the target held the skeleton *and*
-  the app, in that order. Svelte apps need an explicit removal step.
+  existing children**, so the skeleton removes itself with **no cleanup code**.
+- **Svelte 5** — `mount(App, { target })` **appends, and does not clear**, so
+  Svelte apps need an explicit removal step.
 - **Anything else** — **React's behaviour does not generalise; assume any other
-  framework appends until you have measured it.** The measurement is one
-  assertion in a jsdom test: mount over a container that already holds the
-  marker, then check whether the marker is still there.
+  framework appends until you have measured it.** One jsdom assertion settles
+  it: mount over a container holding the marker, then check the marker is gone.
 
 When you do need to remove it, do so immediately after the mount call:
 

@@ -91,7 +91,7 @@ const kleinEditBody = {
       noiseOffset: 0,
       trainingData: {
         type: 'zip',
-        sourceUrl: 'https://blobs-temp.sfo3.digitaloceanspaces.com/flux2_klein_edit_testdata.zip',
+        sourceUrl: 'https://example.com/your-edit-dataset.zip',
         count: 3,
       },
       samples: {
@@ -101,8 +101,8 @@ const kleinEditBody = {
           'a painting of a cat sitting on a windowsill looking outside at a rainy day',
         ],
         sourceImages: [
-          'https://blobs-temp.sfo3.digitaloceanspaces.com/sample-edit-source-1.jpg',
-          'https://blobs-temp.sfo3.digitaloceanspaces.com/sample-edit-source-2.jpg',
+          'https://example.com/your-source-image-1.jpg',
+          'https://example.com/your-source-image-2.jpg',
         ],
       },
     },
@@ -121,9 +121,7 @@ Train a Flux 2 Klein LoRA for use with the [Flux 2 image generation](./flux2) re
 
 The base checkpoint is fixed by `modelVariant`; there is no `model` field on the input. Set `isEditTraining: true` to train an editing LoRA — the dataset zip layout changes (see [Edit training](#edit-training)).
 
-::: tip Long-running step
-Always submit with `wait=0`. Klein training runs at a fraction of a second per step on a 10-image dataset; a typical 2000-step run lands in single-digit minutes for `4b`, longer for `9b`.
-:::
+Submit with `wait=0`: a typical 2000-step run lands in single-digit minutes for `4b`, longer for `9b`. The request fields, training data, continuing a run and live progress are shared by every ecosystem — see the [LoRA training overview](./training).
 
 ## The request shape
 
@@ -141,8 +139,7 @@ Always submit with `wait=0`. Klein training runs at a fraction of a second per s
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
-- A training-data zip addressed by an AIR — a Hugging Face file AIR (as below), or a Civitai R2/B2/Spaces AIR or URL:
+- A training-data zip addressed by an AIR ([accepted sources](./training#training-data)):
   - For standard training: a flat zip of training images
   - For [edit training](#edit-training): a zip with `main/`, `control_1/`, `control_2/`, `control_3/` subfolders
 
@@ -265,7 +262,7 @@ Content-Type: application/json
       "networkAlpha": 32,
       "trainingData": {
         "type": "zip",
-        "sourceUrl": "https://blobs-temp.sfo3.digitaloceanspaces.com/flux2_klein_edit_testdata.zip",
+        "sourceUrl": "https://example.com/your-edit-dataset.zip",
         "count": 3
       },
       "samples": {
@@ -275,8 +272,8 @@ Content-Type: application/json
           "a painting of a cat sitting on a windowsill looking outside at a rainy day"
         ],
         "sourceImages": [
-          "https://blobs-temp.sfo3.digitaloceanspaces.com/sample-edit-source-1.jpg",
-          "https://blobs-temp.sfo3.digitaloceanspaces.com/sample-edit-source-2.jpg"
+          "https://example.com/your-source-image-1.jpg",
+          "https://example.com/your-source-image-2.jpg"
         ]
       }
     }
@@ -284,63 +281,35 @@ Content-Type: application/json
 }
 ```
 
+::: warning Placeholder URLs
+Replace the `https://example.com/…` URLs with your own edit-training zip and reference images before submitting.
+:::
+
+<!-- test-skip: the edit dataset and source images are reader-supplied placeholders -->
 <RecipeRun :body="kleinEditBody" :wait="0" />
 
 `samples.sourceImages` is required for edit training when you want preview samples — the listed URLs become the reference images for the per-checkpoint sample renders.
 
-## Common parameters {#common-parameters}
+## Klein parameters {#common-parameters}
 
-Defaults shown are the post-`ApplyDefaults` values for Klein.
+Fields and defaults not listed here are as in the overview's [common parameters](./training#common-parameters).
 
-| Field | Required | Default | Notes |
-|-------|----------|---------|-------|
-| `engine` | ✅ | — | Always `ai-toolkit`. |
-| `ecosystem` | ✅ | — | Always `flux2klein` for this page. |
-| `modelVariant` | ✅ | — | `4b` or `9b`. |
-| `isEditTraining` | | `false` | When `true`, dataset zip must contain `main/` + `control_*/` subfolders. |
-| `steps` | | `2000` | `1`–`10000`. Total training steps. Primary driver of training length and pricing. |
-| `epochs` | | `10` | `1`–`20`. Number of saved checkpoints delivered, each separately downloadable. Each adds 10 Buzz of storage. |
-| `batchSize` | | `1` | Defaults to 1. For `4b`, raise it up to the ecosystem maximum (**2**) to train faster at the cost of more GPU memory; a larger batch needs fewer steps. For `9b` it is fixed at 1. Values above the max are clamped. |
-| `continueFrom` | | *(none)* | A previously-trained `urn:air:flux2:lora:...` AIR to resume from (see [Continue training](#continue-training)). Must be a Klein (flux2) LoRA. |
-| `lr` | | `0.0001` | Klein is sensitive to high LRs — keep in `1e-4`–`5e-4`. |
-| `trainTextEncoder` | | `false` | Klein uses Qwen-3 as its text encoder; AI Toolkit does not train it. Leave `false`. |
-| `lrScheduler` | | `cosine` | `constant`, `constant_with_warmup`, `cosine`, `linear`, `step`. |
-| `optimizerType` | | `adamw8bit` | See SDXL/SD1 page for full enum. |
-| `networkDim` | | `32` | `1`–`256`. Klein LoRAs are typically `16`–`32`. |
-| `networkAlpha` | | matches `networkDim` | `1`–`256`. |
-| `noiseOffset` | | `0` | `0`–`1`. |
-| `flipAugmentation` | | `false` | Random horizontal flips. |
-| `shuffleTokens` / `keepTokens` | | `false` / `0` | Caption-tag shuffling. |
-| `triggerWord` | | *(none)* | Activation token. |
-| `trainingData.{type, sourceUrl, count}` | ✅ | — | `type: "zip"`. For edit training, `count` should equal the number of `main/` entries. |
-| `samples.prompts[]` | | `[]` | Preview prompts rendered at each saved checkpoint. |
-| `samples.negativePrompt` | | *(none)* | — |
-| `samples.cfgScale` | | *(ecosystem default)* | Overrides the CFG / guidance scale used when rendering the preview samples. |
-| `samples.strength` | | `1.0` | Trained-LoRA weight applied in the preview samples. |
-| `samples.sourceImages[]` | | `[]` | Edit-training only — reference images for sample renders. |
-
-## Continue training / train further {#continue-training}
-
-To resume from a Klein LoRA you already trained instead of starting from the base checkpoint, set `continueFrom` to that LoRA's AIR. The new run starts from those weights and the new epochs build on top:
-
-```json
-{
-  "$type": "training",
-  "input": {
-    "engine": "ai-toolkit",
-    "ecosystem": "flux2klein",
-    "modelVariant": "4b",
-    "continueFrom": "urn:air:flux2:lora:civitai:<id>@<version>",
-    "steps": 1000
-  }
-}
-```
-
-`continueFrom` must point at a LoRA of the **same ecosystem** (a Klein / `flux2` LoRA) as the model being trained — a mismatched ecosystem is rejected.
+| Field | Klein default | Notes |
+|-------|---------------|-------|
+| `modelVariant` | ✅ required | `4b` or `9b`. |
+| `isEditTraining` | `false` | When `true`, dataset zip must contain `main/` + `control_*/` subfolders. |
+| `epochs` | `round(steps / 200)` | Each adds 10 Buzz of storage. |
+| `batchSize` | `1` | For `4b`, up to **2**; for `9b` it is fixed at 1. |
+| `continueFrom` | *(none)* | A Klein (`urn:air:flux2:lora:...`) LoRA to resume from. |
+| `lr` | `0.0001` | Klein is sensitive to high LRs — keep in `1e-4`–`5e-4`. |
+| `trainTextEncoder` | `false` | Klein uses Qwen-3 as its text encoder; AI Toolkit does not train it. Leave `false`. |
+| `networkDim` | `32` | Klein LoRAs are typically `16`–`32`. |
+| `trainingData.count` | ✅ (zip) | For edit training, `count` should equal the number of `main/` entries. |
+| `samples.sourceImages[]` | `[]` | Edit-training only — reference images for sample renders. |
 
 ## Reading the result
 
-Same envelope as the other training recipes — see [SDXL/SD1 → Reading the result](./training-sdxl-sd1#reading-the-result). Each saved checkpoint yields a Klein LoRA `.safetensors` blob plus any sample images.
+The [standard training output](./training#reading-the-result): each saved checkpoint yields a Klein LoRA `.safetensors` blob plus any sample images.
 
 To use the trained LoRA, register it on Civitai (or reference its blob URN directly) and pass it under `loras` in a [Flux 2 Klein generation](./flux2#klein-default) request:
 
@@ -358,8 +327,6 @@ To use the trained LoRA, register it on Civitai (or reference its blob URN direc
 }
 ```
 
-Training can also be watched while it runs — with `"trace": "events"` (or `"logs"`) each `epochs[].traceUrl` is a tail-able stream of logs and step progress. See [SDXL/SD1 → Live progress & logs](./training-sdxl-sd1#live-progress).
-
 ## Runtime
 
 Per-step wall time, default settings on a 10-image dataset:
@@ -370,11 +337,9 @@ Per-step wall time, default settings on a 10-image dataset:
 | `9b` | ~0.3–0.6 s | 10–30 min for 2000 steps |
 | `4b` + `isEditTraining` | ~0.2–0.5 s | 5–15 min for 2000 steps |
 
-Always use `wait=0`.
-
 ## Cost
 
-Training is billed per **step** plus a flat per-**epoch** storage surcharge, with a price floor:
+The [training cost formula](./training#cost) with Klein rates:
 
 ```
 price = steps × costPerStep + epochs × 10        (rounded)
@@ -382,12 +347,10 @@ costPerStep = 0.20 (4b), 0.45 (9b)
 floor: never less than 80% of the default-configuration price
 ```
 
-`epochs` is the number of saved checkpoints delivered (default `10`, range `1`–`20`); each adds 10 Buzz of storage. The default run is **2000 steps / 10 epochs**:
+Each epoch adds 10 Buzz of storage. With both `steps` and `epochs` omitted the run is **2000 steps / 10 epochs** (the examples at the top of the page send `steps: 2000`, which also resolves to 10 epochs):
 
 - `4b`: `2000 × 0.20 + 10 × 10 = 400 + 100 = 500 Buzz` (floor 400)
 - `9b`: `2000 × 0.45 + 10 × 10 = 900 + 100 = 1000 Buzz` (floor 800)
-
-The **floor** is 80% of the default price — lowering `steps` or `epochs` can save at most 20%.
 
 | Configuration | Buzz |
 |---------------|------|
@@ -396,9 +359,11 @@ The **floor** is 80% of the default price — lowering `steps` or `epochs` can s
 | Klein `9b`, default (`steps: 2000`, `epochs: 10`) | 1000 + samples |
 | Klein `9b`, `steps: 1000`, `epochs: 10` | 800 + samples (floor) |
 
-Sample-prompt rendering is billed separately at Klein image-generation rates (~8 Buzz per sample for `4b`, ~16 for `9b`). Run with `whatif=true` to see exact charges.
+Sample-prompt rendering is billed separately at Klein image-generation rates (~8 Buzz per sample for `4b`, ~16 for `9b`). Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 ## Troubleshooting
+
+`steps` out of range, an unresolvable `sourceUrl`, a `count` mismatch and a rejected dataset are covered in the [overview's troubleshooting](./training#troubleshooting).
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
@@ -407,13 +372,13 @@ Sample-prompt rendering is billed separately at Klein image-generation rates (~8
 | Step `failed` mentioning "training data validation" | Edit-training zip filenames don't match across `main/` and `control_*/` | Ensure the same basenames appear in `main/` and at least one `control_*/` folder. |
 | Trained LoRA underbaked | Too few steps / too low `lr` | Raise `steps` to 1500–2500; keep `lr` ≤ `5e-4`. |
 | Trained LoRA overcooked / broken samples | `lr` too high | Drop `lr` to `1e-4`–`2e-4`. |
-| Step `failed`, `moderationStatus: "Rejected"` | Dataset failed content moderation | Replace flagged images. |
 
 ## Related
 
+- [LoRA training overview](./training) — shared parameters, training data, live progress and cost formula
 - [Flux 1 LoRA training](./training-flux1) — open-weights Flux LoRAs (Dev / Schnell)
 - [SDXL & SD1 LoRA training](./training-sdxl-sd1) — cheaper SD-family ecosystems
 - [Flux 2 image generation](./flux2) — use a trained Klein LoRA via `loras: { ... }` on `model: "klein"`
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — handling long-running training jobs
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) / [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
-- [Endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/training/openapi.yaml)
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
+- [`training` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/training/openapi.yaml)

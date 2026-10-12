@@ -81,7 +81,7 @@ Unlike most engines here there is no `operation` discriminator — **the mode is
 | First and last frame | both `firstFrameImage` and `lastFrameImage` | ignored |
 | Reference-to-video | any of `referenceImages` (≤9), `referenceVideos` (≤3), `referenceAudios` (≤3) | ignored |
 
-**Default choice**: `resolution: "2K"`, `duration: 5`, `aspectRatio: "16:9"`. Every H3 job exceeds the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — always submit with `wait=0`.
+**Default choice**: `resolution: "2K"`, `duration: 5`, `aspectRatio: "16:9"`. Every H3 job runs for minutes, longer than [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — always submit with `wait=0`.
 
 ## The request shape
 
@@ -206,7 +206,7 @@ The schema in the [API reference](/orchestration/reference/) is authoritative.
 |---|---|---|
 | `engine` | — ✅ | `"minimax-h3"` |
 | `prompt` | — ✅ | Up to 7000 characters. |
-| `resolution` | `"2K"` | `"2K"` is the only value H3 accepts today; MiniMax has a cheaper 768P tier in flight. H3's 2K is natively generated rather than upscaled. |
+| `resolution` | `"2K"` | `"2K"` is the only value H3 accepts today. H3's 2K is natively generated rather than upscaled. |
 | `duration` | `5` | Integer seconds, 5–15. |
 | `aspectRatio` | `"adaptive"` | `"adaptive"`, `"21:9"`, `"16:9"`, `"4:3"`, `"1:1"`, `"3:4"`, `"9:16"`. Only read for text-to-video, where `adaptive` is not allowed. |
 | `firstFrameImage` | — | Single image used as the opening frame. |
@@ -220,7 +220,7 @@ Image limits: 256–5760 px per side, aspect ratio between 0.4 and 2.5, ≤30 MB
 
 ## Cost
 
-Billed per second in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Billed per second. Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 ```
 total = 170 × (duration + referenceVideoSeconds) + 52 × max(0, referenceImages − 5)
@@ -253,28 +253,13 @@ Failed generations and clips rejected by MiniMax's content review are not charge
 
 ## Reading the result
 
-Same as any `videoGen` step — a single `video` blob:
-
-```json
-{
-  "steps": [{
-    "output": {
-      "video": {
-        "id": "…",
-        "url": "https://orchestration.civitai.com/v2/consumer/blobs/…"
-      }
-    }
-  }]
-}
-```
-
-The blob URL is signed and expires — refetch the workflow with [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) for a fresh one rather than storing it.
+Standard `videoGen` output: a single `video` blob ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 The output is H.264 at 2560×1440 in an MP4 container, with an AAC audio track generated alongside the video. A 5-second clip is roughly 6 MB.
 
 ## Runtime
 
-A 5-second 2K clip takes around **three minutes** end to end, and 15-second clips considerably longer — far past the 100-second inline request budget. Submit with `wait=0` and collect the result via a webhook or by polling — see [Results and webhooks](/orchestration/guide/results-and-webhooks).
+A 5-second 2K clip takes around **three minutes** end to end, and 15-second clips considerably longer — longer than your HTTP client's timeout. Submit with `wait=0` and collect the result via a webhook or by polling — see [Results and webhooks](/orchestration/guide/results-and-webhooks).
 
 ## Troubleshooting
 
@@ -285,7 +270,7 @@ A 5-second 2K clip takes around **three minutes** end to end, and 15-second clip
 | `400` on a reference-media request | URL not publicly fetchable, or a clip outside the size/duration limits | Check the limits above and that the URL resolves from the public internet. |
 | `400` combining reference media with a frame image | Different MiniMax task types | Use one or the other. |
 | Content-policy rejection | MiniMax's own input review | Rephrase the prompt or swap the source media. Not billed. |
-| Job retries across workers | Provider rate limit | Expected under load — H3 capacity is intentionally throttled. |
+| Job retries across workers | Provider rate limit | Expected under load. |
 
 ## Related
 

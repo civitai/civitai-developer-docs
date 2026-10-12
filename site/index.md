@@ -26,8 +26,7 @@ is a terminal tool for a civitai.com user, not the partner orchestrator API.
 - **[Guide](./guide/)** — authentication, pagination, error handling, and the
   AIR (AI Resource Identifier) format.
 - **[Reference](./reference/)** — per-resource documentation for every public
-  endpoint (models, images, articles, collections, creators, tags, users),
-  sourced directly from the current Next.js handlers.
+  endpoint (models, images, articles, collections, creators, tags, users).
 - **[CLI](./guide/cli)** — search, fetch and download from the terminal with
   the `civitai` CLI. Also the home of the CLI's
   [credentials](./guide/cli-auth) and

@@ -10,7 +10,14 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { absolutizeLinks, rewriteTwinLinks, sourceDirOf } from './lib/twin-links.mjs';
+import {
+  absolutizeBundle,
+  absolutizeLinks,
+  rewriteLlmsFull,
+  rewriteTwinLinks,
+  sourceDirOf,
+  splitBundle,
+} from './lib/twin-links.mjs';
 
 let n = 0;
 function eq(actual, expected, name) {
@@ -89,6 +96,48 @@ try {
   eq(readFileSync(join(out, 'apps/guide.md'), 'utf8'), '---\nurl: /apps/guide.md\n---\n[s](/apps/guide/sdk)\n', 'index twin');
   eq(readFileSync(join(out, 'apps/guide/sdk.md'), 'utf8'), "---\nurl: '/apps/guide/sdk.md'\n---\n[i](/apps/guide/)\n", 'page twin');
   eq(readFileSync(join(out, 'agent-setup/prompt.md'), 'utf8'), prompt, 'non-twin untouched');
+
+  // ── llms-full.txt: every section resolves against its SOURCE directory ──────
+  // The index section's header dir (`/apps/` from `url: /apps/guide.md`) differs
+  // from its source dir (`apps/guide/`): resolving against the header gives
+  // `/apps/sdk`, the exact bug #194 fixed for the twins.
+  const sec = (url, body, extra = '') => `---\nurl: ${url}\n${extra}---\n${body}`;
+  const bundle = [
+    sec('/apps/guide.md', '# Guide\n[s](./sdk) and [r](../reference/hooks#x)\n```md\n[f](./fenced)\n```\n`[c](./code)`\n', "description: 'g'\n"),
+    sec('/apps/guide/sdk.md', '# SDK\n[i](./)\n---\n[g](./concepts)\n'),
+    sec('/index.md', '# Home\n[a](./apps/)\n'),
+  ].join('\n---\n\n');
+  const split = splitBundle(bundle);
+  eq(split.length, 3, 'bundle section count');
+  eq(split.join(''), bundle, 'split round-trips byte-for-byte');
+  const want = [
+    sec('/apps/guide.md', '# Guide\n[s](/apps/guide/sdk) and [r](/apps/reference/hooks#x)\n```md\n[f](./fenced)\n```\n`[c](./code)`\n', "description: 'g'\n"),
+    sec('/apps/guide/sdk.md', '# SDK\n[i](/apps/guide/)\n---\n[g](/apps/guide/concepts)\n'),
+    sec('/index.md', '# Home\n[a](/apps/)\n'),
+  ].join('\n---\n\n');
+  writeFileSync(join(src, 'index.md'), '# home');
+  const ab = absolutizeBundle(bundle, src);
+  eq(ab.sections, 3, 'absolutizeBundle section count');
+  eq(ab.text, want, 'index section resolves against its source dir, not its header dir');
+  assert.ok(!ab.text.includes('](/apps/sdk)'), 'header-dir resolution must not appear');
+  n++;
+
+  // A header with no source page, an ambiguous one, or no header at all fails loudly.
+  assert.throws(() => absolutizeBundle(sec('/apps/nope.md', '[a](./b)\n'), src), /no source page/);
+  assert.throws(() => absolutizeBundle(sec('/apps/reference.md', '[a](./b)\n'), src), /ambiguous/);
+  assert.throws(() => absolutizeBundle('# no header\n[a](./b)\n', src), /no url: frontmatter/);
+  assert.throws(() => absolutizeBundle(sec('https://e.com/x.md', '[a](./b)\n'), src), /not a site-root \.md path/);
+  n += 4;
+
+  // rewriteLlmsFull rewrites every llms-full.txt in outDir and nothing else.
+  writeFileSync(join(out, 'llms-full.txt'), bundle);
+  writeFileSync(join(out, 'apps/llms-full.txt'), sec('/apps/guide/sdk.md', '[g](./concepts)\n'));
+  writeFileSync(join(out, 'llms.txt'), '- [x](./y)\n');
+  const rf = rewriteLlmsFull(out, src);
+  eq(JSON.stringify(rf), JSON.stringify({ bundles: 2, sections: 4, changed: 2 }), 'rewriteLlmsFull counts');
+  eq(readFileSync(join(out, 'llms-full.txt'), 'utf8'), want, 'root bundle rewritten');
+  eq(readFileSync(join(out, 'apps/llms-full.txt'), 'utf8'), sec('/apps/guide/sdk.md', '[g](/apps/guide/concepts)\n'), 'sub-dir bundle rewritten');
+  eq(readFileSync(join(out, 'llms.txt'), 'utf8'), '- [x](./y)\n', 'llms.txt untouched');
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

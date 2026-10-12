@@ -3,7 +3,7 @@ import { useSidebar } from 'vitepress-openapi';
 import llmstxt from 'vitepress-plugin-llms';
 import { withMermaid } from 'vitepress-plugin-mermaid';
 import spec from '../public/openapi/v2-consumers.json' with { type: 'json' };
-import { rewriteTwinLinks } from '../scripts/lib/twin-links.mjs';
+import { rewriteLlmsFull, rewriteTwinLinks } from '../scripts/lib/twin-links.mjs';
 
 const base = '/';
 
@@ -59,6 +59,7 @@ const appsGuideSidebar: DefaultTheme.SidebarItem[] = [
       { text: 'Generating images (text-to-image)', link: '/apps/guide/text-to-image' },
       { text: 'Comfy on Civitai (customComfy)', link: '/apps/guide/comfy-cloud' },
       { text: 'Posting from an app', link: '/apps/guide/posting' },
+      { text: 'Custom events (analytics)', link: '/apps/guide/custom-events' },
       { text: 'Running embedded & direct traffic', link: '/apps/guide/embedding' },
       { text: 'Markup that holds up', link: '/apps/guide/markup' },
       { text: 'Responsive blocks', link: '/apps/guide/responsive' },
@@ -219,6 +220,7 @@ const sidebar: DefaultTheme.Sidebar = {
     {
       text: 'Training',
       items: [
+        { text: 'LoRA training overview', link: '/orchestration/recipes/training' },
         { text: 'SDXL & SD1 LoRA training', link: '/orchestration/recipes/training-sdxl-sd1' },
         { text: 'Flux 1 LoRA training', link: '/orchestration/recipes/training-flux1' },
         { text: 'Flux 2 Klein LoRA training', link: '/orchestration/recipes/training-flux2-klein' },
@@ -372,11 +374,28 @@ export function dedupeSidebarGroups(config: DefaultTheme.Sidebar): DefaultTheme.
   return groups;
 }
 
-const llmsSidebar = dedupeSidebarGroups(sidebar);
+/**
+ * True when every link under a sidebar group points at a generated operation
+ * page. Those pages are in the llms plugin's `ignoreFiles` (their `.md` twins do
+ * not exist), so the plugin emitted each such group as a run of blank lines
+ * under `### Reference` in `llms.txt`. The orchestration reference stays listed
+ * through its Overview page, which is not dropped.
+ */
+function isOperationsOnlyGroup(item: DefaultTheme.SidebarItem): boolean {
+  const links: string[] = [];
+  const walk = (i: DefaultTheme.SidebarItem) => {
+    if (i.link) links.push(i.link);
+    for (const child of i.items ?? []) walk(child);
+  };
+  walk(item);
+  return links.length > 0 && links.every((l) => l.startsWith('/orchestration/reference/operations/'));
+}
+
+const llmsSidebar = dedupeSidebarGroups(sidebar).filter((g) => !isOperationsOnlyGroup(g));
 
 export default withMermaid({
   title: 'Civitai Developer',
-  description: 'Developer documentation for Civitai APIs — orchestration, SDKs, and more.',
+  description: 'Docs for the Civitai Orchestration API, Site API, OAuth, Apps and MCP servers.',
   base,
   head: [
     ['link', { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }],
@@ -395,7 +414,16 @@ export default withMermaid({
   // which is a MUTATED copy of a file whose entire contract is that it is not
   // mutated. The verbatim copy at /agent-setup/prompt.md was correct either way,
   // which is exactly why this would have gone unnoticed.
-  srcExclude: ['**/CLAUDE.md', '**/README.md', 'orchestration/internals/**', 'public/**'],
+  // Not docs: `claudedocs/` = internal handoff notes; `appblocks-snapshots/` = generator
+  // inputs (read from disk). `check:twin-links` fails on any page outside its allowlist.
+  srcExclude: [
+    '**/CLAUDE.md',
+    '**/README.md',
+    'orchestration/internals/**',
+    'public/**',
+    'claudedocs/**',
+    'appblocks-snapshots/**',
+  ],
   // The dynamic operations routes are generated from [operationId].paths.js — the
   // dead-link checker doesn't resolve them ahead of time, so we skip them here.
   ignoreDeadLinks: [/^\/orchestration\/reference\/operations\//],
@@ -406,9 +434,17 @@ export default withMermaid({
   // (`./sdk` -> `/apps/sdk`). It has no option for this, so every twin's
   // relative links are rewritten to root-absolute here, after the plugin wrote
   // them. See scripts/lib/twin-links.mjs; `check:twin-links` asserts the result.
+  // The same pass covers `llms-full.txt`, where the plugin concatenates every
+  // page — served at `/llms-full.txt`, so EVERY relative link in it resolved
+  // against `/`. Each section is resolved against its SOURCE page's directory.
   buildEnd(siteConfig) {
     const { twins, changed } = rewriteTwinLinks(siteConfig.outDir, siteConfig.srcDir);
     console.log(`twin-links: absolutized relative links in ${changed} of ${twins} .md twin(s)`);
+    const full = rewriteLlmsFull(siteConfig.outDir, siteConfig.srcDir);
+    console.log(
+      `twin-links: absolutized relative links in ${full.changed} of ${full.bundles} llms-full.txt bundle(s) ` +
+        `(${full.sections} section(s))`,
+    );
   },
 
   transformPageData(pageData) {
@@ -469,10 +505,10 @@ export default withMermaid({
     },
     plugins: [
       llmstxt({
-        description: 'Civitai developer documentation — orchestration API (submit AI workflows: video, image, audio, text via a single contract that races multiple providers), the Civitai site API, MCP servers for both, plus SDKs and related developer tooling.',
+        description: 'Civitai developer docs: the Orchestration API (AI generation workflows), the Civitai Site API and OAuth, Civitai Apps (apps that run inside civitai.com), and MCP servers.',
         details:
-          'Orchestration section covers the consumer-facing REST API: authenticating, submitting workflows, polling / receiving webhooks for results, and using each recipe (videoGen/WAN, imageGen/Flux, upscalers, transcription, TTS, prompt enhancement). ' +
-          'Reference pages are generated from the v2-consumers OpenAPI specification and stay in sync with the live API on every build.',
+          'Orchestration covers authenticating, submitting workflows, getting results by polling or webhooks, and recipes per model or engine. ' +
+          'Its reference pages are generated from a committed snapshot of the v2-consumers OpenAPI spec.',
         // NOT the routed `sidebar` object — see `dedupeSidebarGroups` above: the
         // plugin flattens every key, so an aliased array emits its groups twice.
         sidebar: llmsSidebar,

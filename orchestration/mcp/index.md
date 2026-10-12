@@ -6,7 +6,7 @@ title: MCP Server
 
 The orchestrator is also a remote [Model Context Protocol](https://modelcontextprotocol.io) server. Any MCP client, such as Claude Desktop, claude.ai, Claude Code, Cursor or VS Code, can run the same workflows as the [REST API](/orchestration/guide/getting-started): images, video, audio, music, upscaling, conversion, tagging and every other step.
 
-Instead of one tool per task, the server has a few generic tools. The agent finds a service, asks for the exact input that service accepts, and runs it. New engines, models and steps show up without any change to the MCP server.
+Instead of one tool per task, a few generic tools let the agent find a service, get its exact input, and run it, so new engines, models and steps appear without any change to the MCP server.
 
 This is the **generation** MCP. To browse models and images, post, comment, react, or message on civitai.com, use the separate [Civitai (site) MCP](/site/mcp/).
 
@@ -24,17 +24,13 @@ The MCP server uses the **same Civitai API key** as the [REST API](/orchestratio
 
 <McpConfigBlock kind="header" url="https://orchestration.civitai.com/mcp/v2" />
 
-If you've set your Civitai token in the navbar (top-right), the snippets on this page are pre-filled with it. Otherwise they show a `YOUR_CIVITAI_API_KEY` placeholder.
-
-Every request needs a valid token; requests without one are rejected with `401`. Calls run as your account, so Buzz is charged to it and workflows show up in `list_workflows`.
+The snippets on this page are pre-filled with the token you set in the navbar, or show a `YOUR_CIVITAI_API_KEY` placeholder. Requests without a valid token get `401`. Calls run as your account: Buzz is charged to it and workflows show up in `list_workflows`.
 
 ## Connecting
 
 ### Claude Desktop
 
-Add the server to `~/.claude/config.json` (or use **Settings → Developer → Edit Config**), then restart Claude Desktop:
-
-<McpConfigBlock kind="json" url="https://orchestration.civitai.com/mcp/v2" />
+Claude Desktop connects to a remote server as a **custom connector**, the same way as [claude.ai](#claude-ai) below. Its `claude_desktop_config.json` is for local (command-based) servers, not a remote URL.
 
 ### claude.ai
 
@@ -62,7 +58,7 @@ Any client that speaks Streamable HTTP can connect: point it at `/mcp/v2` and se
 ## Steps and services
 
 - A **step** is what a workflow runs: `imageGen`, `videoGen`, `textToSpeech`, `convertImage` and so on. It's the `$type` in [`POST /v2/consumer/workflows`](/orchestration/reference/operations/SubmitWorkflow).
-- A **service** is one concrete thing a step can do, meaning an engine, model and operation, identified like `image/flux2/klein/createImage/9b`. These are the same ids as [`GET /v2/consumer/services`](/orchestration/reference/operations/ListServices).
+- A **service** is one concrete thing a step can do, meaning an engine, model and operation, identified like `image/flux2/klein/createImage/9b`. These are the same ids as [`GET /v2/services`](/orchestration/reference/operations/ListServices).
 
 ## How an agent uses it
 

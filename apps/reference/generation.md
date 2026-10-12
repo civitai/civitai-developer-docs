@@ -2,8 +2,8 @@
 title: Generation bridge reference
 description: The field-level generation contract — the WorkflowBody union, the useBuzzWorkflow lifecycle (incl. cancel), and the BlockWorkflowSnapshot result — generated from the published SDK type JSDoc.
 sources:
-  - npm:@civitai/app-sdk@0.63.0/blocks#WorkflowBody
-  - npm:@civitai/blocks-react@0.67.1#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.64.0/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.68.0#useBuzzWorkflow
 ---
 
 # Generation bridge reference
@@ -310,7 +310,7 @@ The host-mediated view of an orchestrator workflow that an iframe block receives
 |---|---|---|
 | `workflowId` | `string` |  |
 | `status` | `'pending' \| 'processing' \| 'succeeded' \| 'failed' \| 'expired' \| 'canceled'` |  |
-| `cost?` | `{ total: number; }` |  |
+| `cost?` | ``{ /** Whole Buzz. Includes {@link authorFee} whenever that field is present. */ total: number; /** * The part of `total` that is the app author's per-generation fee, in whole * Buzz — so `total - authorFee` is the generation's own price. Display only: * it is the amount the host added into `total` for this reply. * * - **A number** wherever `total` was built from a fee quote: the * `estimate()` result for a `textToImage` or registered-`step` body, and * the refusal `submit()` resolves for those kinds when a budget, spend cap * or rate limit refuses the quoted price. **`0` means a fee was looked up * and none applies** to this request. * - **Absent** when the total is not itemised: a host that predates the * field; every snapshot of a submitted workflow (`submit` success, `poll`, * `cancel` — its total is the realized generation cost and the fee is a * separate charge); the registered-`step` `submit()` refusal for a missing * orchestrator price quote, which refuses before any fee is looked up; and * the kinds that price no fee (`customComfy`, pass-through `step`, * `training`). **Do not read absent as `0`** — show `total` on its own. */ authorFee?: number; }`` |  |
 | `imageUrls?` | `string[]` |  |
 | `error?` | `string` |  |
 | `spentAccountType?` | `BuzzAccountType` | The Buzz pool that was the PRIMARY FUNDER of this generation — i.e. the account with the LARGEST debit, which the host stamps onto the workflow snapshot server-side. This is NOT necessarily "the paid account": a generation covered mostly by free/earned Buzz reports `spentAccountType: 'blue'`. Populated by the host from the Phase-1 backend `spentAccountType` field; absent when the host predates it or no spend occurred. Informational only — surface it (e.g. "funded from your yellow balance") but don't gate on it. |
@@ -549,11 +549,12 @@ substituted silently:
   a source image on Qwen comes back as `2558804`.
 
 In both, it looks like success: the workflow succeeds, images render, and you are
-billed for a checkpoint you did not ask for. The swap is recorded server-side on
-the workflow snapshot as `modelSubstitutions` (`requested` / `applied` /
-`reason`), but that field is not part of the SDK's `BlockWorkflowSnapshot` type
-yet — so don't build on reading it. The tell is behavioural: the output ignores
-your source image, or doesn't look like the version you named.
+billed for a checkpoint you did not ask for. The swap is reported on the
+`textToImage` snapshot's `modelSubstitutions` field (see
+`BlockWorkflowSnapshot` above: `requested` / `applied` /
+`reason`, omitted when nothing was substituted), so read it on the estimate and
+on the result. The other tell is behavioural: the output ignores your source
+image, or doesn't look like the version you named.
 
 **The fix is in your body, not in a support request**: send a source image
 whenever you mean to edit, and name the version that belongs to the mode you
@@ -668,32 +669,13 @@ of 1.
 
 #### Which field to send today
 
-`sourceImages` is the current field, but "always use the current field" is the
-wrong rule here, because of one asymmetry:
-
-::: danger An old host STRIPS `sourceImages` and still bills you
-`sourceImages` requires a host running
-[civitai/civitai#3518](https://github.com/civitai/civitai/pull/3518) or later.
-The text-to-image body schema is **not** `.strict()`, so a host that predates
-#3518 does **not** error on the field — it **silently strips it** and runs, and
-**bills**, a plain text-to-image generation with **no image conditioning at
-all**. There is no client-side way to detect that: you get a successful workflow,
-real images, and a real Buzz charge for a generation that ignored your input.
-
-`sourceImage` (singular) is understood by **both** old and new hosts.
-:::
-
-So:
-
-- **One image → send `sourceImage`.** It is marked `@deprecated`, but the SDK
-  states the alias keeps working **indefinitely** (every deployed block and
+- **One image → either field.** `sourceImage` is marked `@deprecated`, but the
+  SDK states the alias keeps working **indefinitely** (every deployed block and
   these docs ship it), and the server normalizes it into a 1-element array, so a
   1-element `sourceImages` array produces a **byte-identical** generation. The
   deprecation is a signpost toward the array, not a removal notice.
-- **Two or more images → send `sourceImages`**, and only against a host you know
-  runs #3518 or later. Until #3518 is deployed everywhere you target, that is
-  the trade you are making: `sourceImages` is the only way to express the
-  request, and an older host answers it by silently doing something else.
+- **Two or more images → send `sourceImages`**, the only way to express the
+  request.
 - **Never both**, in either direction — that is rejected as ambiguous.
 
 These are bounded by the union's shape, not by configuration:
@@ -778,7 +760,7 @@ to opt out of it.
 
 ### `idempotencyKey` — the validated charset {#idempotency-key-charset}
 
-🔴 **`^[A-Za-z0-9_-]{1,64}$`.** Letters, digits, `_` and `-`, 1 to 64
+**`^[A-Za-z0-9_-]{1,64}$`.** Letters, digits, `_` and `-`, 1 to 64
 characters — and the host validates it on the way in, before the whatIf
 preflight prices anything. A key outside that class is refused:
 

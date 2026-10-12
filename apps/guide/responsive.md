@@ -1,8 +1,8 @@
 ---
 title: Responsive blocks
-description: The width your block measures is the slot the host gave it, not the device — so a media query inside a block is already a container query. Covers the --civitai-bp-* scale, useBlockBreakpoint(), the em-vs-px breakpoint trap, and what the design system already reflows for you.
+description: Making a block fit the slot the host gives it — the --civitai-bp-* scale, useBlockBreakpoint(), the em-vs-px breakpoint trap, and what the design system reflows for you.
 sources:
-  - npm:@civitai/blocks-react@0.67.1#useBlockBreakpoint
+  - npm:@civitai/blocks-react@0.68.0#useBlockBreakpoint
   - npm:@civitai/theme@0.5.2#breakpoints
   - npm:@civitai/components@0.9.2
 ---
@@ -22,21 +22,16 @@ the browser window. So a media query written inside a block is *already* a
 container query against your slot. You do not need `@container` to get that
 behaviour, and you cannot use a media query to ask about the device.
 
-Measured in headless Chromium 152 (host page held at 1440×900 for both runs;
-only the iframe box changed):
+With the host page fixed at 1440×900 and only the iframe box changing:
 
 | iframe box | `matchMedia('(max-width: 500px)')` | `100vw` | `100vh` / `100dvh` / `100svh` / `100lvh` |
 |---|---|---|---|
 | 430 × 320 | `true` | `430px` | `320px` |
 | 900 × 640 | `false` | `900px` | `640px` |
 
-One thing falls out of that table:
-
-- **`dvh`, `svh`, `lvh` and `vh` are the same number here.** Those units differ
-  only when browser chrome expands and retracts over the viewport, and an
-  iframe has none. Reach for `100dvh` if you like the habit — inside a block it
-  buys you nothing over `100vh`, and neither one is the height of the user's
-  phone.
+**`dvh`, `svh`, `lvh` and `vh` are the same number here** — they differ only
+when browser chrome expands over the viewport, and an iframe has none. Neither
+is the height of the user's phone.
 
 ## …and slot width is not monotonic in viewport width
 
@@ -171,19 +166,14 @@ different set of numbers:
 | `lg` | **1184px** | 1200px (75em) |
 | `xl` | **1440px** | 1408px (88em) |
 
-They agree on `sm` and nowhere else. That single coincidence is what makes this
-expensive: a spot-check at `sm` passes against the completely wrong scale, so
-"I verified it" and "it is right" come apart. If you use Mantine inside your
-block, its `hiddenFrom` / `visibleFrom` props are on the em scale while
-`--civitai-bp-*` and `useBlockBreakpoint()` are on the px one — pick one and
-stay on it rather than mixing them in the same layout.
+They agree only on `sm`, so a spot-check at `sm` passes against the wrong
+scale. Mantine's `hiddenFrom` / `visibleFrom` are on the em scale;
+`--civitai-bp-*` and `useBlockBreakpoint()` are on the px one — don't mix them
+in one layout.
 
 ## What the design system already reflows for you
 
-Since `@civitai/components@0.4.0` you get some of this without writing anything
-(0.4.0 is the arrival version, not the current pin — the releases since have
-changed other things, not this behaviour; the pin itself is in this page's
-`sources:` stamp, which a guard keeps honest):
+Since `@civitai/components@0.4.0` you get some of this without writing anything:
 
 - **`group` wraps by default.** A row of controls that no longer fits reflows
   onto another row instead of overflowing its box, and its children may shrink

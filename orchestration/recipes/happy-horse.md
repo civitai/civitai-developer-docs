@@ -69,7 +69,7 @@ The Happy-Horse video model. The operations below cover the common video workflo
 | `videoEdit` | **v1.0 only** | `sourceVideo`, `prompt` | Re-paint or restyle an existing clip; optional reference images guide the look. |
 | `referenceToVideo` | v1.0, v1.1 | `prompt`, `images` (1–9) | Subject-consistent generation using up to 9 character references. Cite them as `character1`…`character9` in the prompt. |
 
-**Default choice**: `version: "v1.1"`, `resolution: "1080p"`, `duration: 5`. All Happy-Horse jobs exceed the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — always submit with `wait=0`.
+**Default choice**: `version: "v1.1"`, `resolution: "1080p"`, `duration: 5`.
 
 ## Versions
 
@@ -228,7 +228,7 @@ Shared across operations unless noted. The per-operation schema in the [API refe
 
 ## Cost
 
-Billed per output second in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Billed per output second. Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 ```
 total = buzzPerSecond × duration
@@ -256,30 +256,11 @@ Example v1.0 totals at `duration: 5`: **910** / **1 820** (non-edit), **1 820** 
 
 ## Reading the result
 
-Same as any `videoGen` step — a single `video` blob:
-
-```json
-{
-  "status": "succeeded",
-  "steps": [{
-    "name": "0",
-    "$type": "videoGen",
-    "status": "succeeded",
-    "output": {
-      "video": { "id": "blob_...", "url": "https://.../signed.mp4" }
-    }
-  }]
-}
-```
-
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL.
+Standard `videoGen` output: a single `video` blob ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 ## Long-running jobs
 
-Happy-Horse jobs typically complete in 2–6 minutes (longer for `videoEdit` and 1080p). All exceed the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — submit with `wait=0` and:
-
-- **Webhooks** (recommended): register a callback with `type: ["workflow:succeeded", "workflow:failed"]` — see [Results & webhooks](/orchestration/guide/results-and-webhooks).
-- **Polling**: `GET /v2/consumer/workflows/{workflowId}` on a 10 s → 30 s → 60 s cadence.
+Happy-Horse jobs typically complete in 2–6 minutes (longer for `videoEdit` and 1080p), longer than [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline). Submit with `wait=0`, then prefer a [webhook](/orchestration/guide/results-and-webhooks) (`workflow:succeeded` / `workflow:failed`) or poll `GET /v2/consumer/workflows/{workflowId}` on a 10 s → 30 s → 60 s cadence.
 
 ## Troubleshooting
 
@@ -295,11 +276,10 @@ Happy-Horse jobs typically complete in 2–6 minutes (longer for `videoEdit` and
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — production result handling
 - [Veo 3 video generation](./veo3) — comparable commercial multi-mode video model
 - [Kling video generation](./kling) — another commercial multi-mode video model
 - [FLUX-3 video generation](./flux3-video) — BFL's multi-operation video model with keyframe control and a draft/enhance loop
 - Full parameter catalog: the `HappyHorseV1<Operation>Input` (v1.0) and `HappyHorseV1_1<Operation>Input` (v1.1) schemas in the [API reference](/orchestration/reference/)
-- [`videoGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/videoGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `videoGen` surface
+- [`videoGen` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/videoGen/openapi.yaml)

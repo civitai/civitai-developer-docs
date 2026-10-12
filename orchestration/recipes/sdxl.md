@@ -105,13 +105,12 @@ SDXL is Stable Diffusion XL — the higher-resolution successor to SD1. Native r
 | `sdcpp` (ecosystem `sdxl`) | **Default** — Stable Diffusion C++ on Civitai workers | `sampleMethod` + `schedule` sdcpp enums, textual-inversion embeddings, `uCache` mode. |
 | `comfy` (ecosystem `sdxl`) | When you specifically need ComfyUI sampler/scheduler enums or a Comfy-only feature | `sampler` + `scheduler` Comfy enums, `denoiseStrength` (vs sdcpp's `strength`) on variants. |
 
-**Default choice for new integrations**: `engine: "sdcpp"`, `ecosystem: "sdxl"`. Reach for `comfy` only when you specifically need a ComfyUI-exclusive sampler (`dpmpp_2m`, `dpmpp_sde`, etc.) or scheduler (`karras`).
+**Default choice**: `engine: "sdcpp"`, `ecosystem: "sdxl"`. Reach for `comfy` only when you specifically need a ComfyUI-exclusive sampler (`dpmpp_2m`, `dpmpp_sde`, etc.) or scheduler (`karras`).
 
 Both engines support `createImage` and `createVariant` (img2img). Neither supports `editImage` — use [Flux 1 Kontext](./flux1#flux1-kontext-managed-editing-tier) or [Flux 2 Klein](./flux2#klein-createvariant-img2img) if you need prompt-driven editing.
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
 - An SDXL checkpoint AIR URN — browse the [Civitai SDXL catalog](https://civitai.com/models?baseModels=SDXL+1.0)
 - For `createVariant`: a source image URL
 
@@ -292,25 +291,7 @@ Comfy also supports `createVariant` with `image` (plain string URL) + `denoiseSt
 
 ## Reading the result
 
-Both engines emit the standard `imageGen` output — an `images[]` array, one entry per `quantity`:
-
-```json
-{
-  "status": "succeeded",
-  "steps": [{
-    "name": "0",
-    "$type": "imageGen",
-    "status": "succeeded",
-    "output": {
-      "images": [
-        { "id": "blob_...", "url": "https://.../signed.jpeg" }
-      ]
-    }
-  }]
-}
-```
-
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL.
+Standard `imageGen` output: an `images[]` array, one entry per `quantity` ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 ## Runtime
 
@@ -318,7 +299,7 @@ SDXL at 1024×1024 typically finishes in 10–25 s (sdcpp) or 15–35 s (comfy).
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 Both engines use the same per-pixel / per-step shape — different reference values:
 
@@ -341,6 +322,8 @@ Atypical aspect ratios still bill by total pixel area, so a 2:1 panorama at the 
 
 ## Troubleshooting
 
+Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](/orchestration/recipes/#common-troubleshooting).
+
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `400` with "model must match AIR pattern" | Passed a bare model ID or version slug | Use a full AIR URN: `urn:air:sdxl:checkpoint:civitai:<modelId>@<versionId>`. |
@@ -349,16 +332,13 @@ Atypical aspect ratios still bill by total pixel area, so a 2:1 panorama at the 
 | Output has duplicated subjects / mirrored-twin composition | Aspect ratio too far from 1:1 at fixed megapixel count | Stick to well-behaved SDXL ratios: 1024², 1152×896, 1344×768, 1536×640, and mirrors thereof. |
 | Turbo/LCM checkpoint produces mush | `cfgScale` / `steps` tuned for base SDXL | Turbo/LCM want `cfgScale: 1`–`2` and `steps: 4`–`8`. |
 | LoRA has no visible effect | Wrong AIR URN, model private / not published, or ecosystem mismatch | Verify the URN on the LoRA's Civitai page; only SDXL-tagged LoRAs work on the `sdxl` ecosystem. |
-| Request timed out (`wait` expired) | Large `quantity`, atypical dimensions, busy worker | Resubmit with `wait=0` and poll. |
-| Step `failed`, `reason = "blocked"` | Prompt hit content moderation | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [SD1 image generation](./sd1) — the 512×512 predecessor with the same two-engine pattern
 - [Flux 2](./flux2) / [Flux 1](./flux1) image generation — newer families with stronger prompt adherence
 - [Image upscaling](./image-upscaler) — chain after `imageGen` for higher-res output
 - [Prompt enhancement](./prompt-enhancement) — LLM-rewrite a prompt before feeding it in via `$ref` (use `ecosystem: "sdxl"` on the enhancer)
 - Full parameter catalog: the `SdxlCreateImageGenInput` / `SdxlVariantImageGenInput` / `ComfySdxlCreateImageGenInput` / `ComfySdxlVariantImageGenInput` schemas in the [API reference](/orchestration/reference/)
-- [`imageGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `imageGen` surface; import into Postman / OpenAPI Generator
+- [`imageGen` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml)

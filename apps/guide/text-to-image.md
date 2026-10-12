@@ -1,9 +1,9 @@
 ---
 title: Generating images (text-to-image)
-description: The primary App Blocks generation path — submit a text-to-image WorkflowBody, add LoRAs, do img2img (page-only), and read the result — with the server-enforced field contract and the page-vs-model rules stated in full.
+description: The primary App Blocks generation path — submit a text-to-image WorkflowBody, add LoRAs, do img2img (page apps only), handle refusals and limits, and read the result.
 sources:
-  - npm:@civitai/app-sdk@0.63.0/blocks#WorkflowBodyTextToImage
-  - npm:@civitai/blocks-react@0.67.1#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.64.0/blocks#WorkflowBodyTextToImage
+  - npm:@civitai/blocks-react@0.68.0#useBuzzWorkflow
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockTextToImageBodySchema
 ---
 
@@ -11,17 +11,13 @@ sources:
 
 Text-to-image is the **primary** generation path for an App Block: your block
 sends a small, bounded `WorkflowBody`, and the host builds the generation graph,
-prices it, spends the viewer's Buzz, and streams back the images. Your block
-never holds an orchestrator token — the host brokers every call from Civitai's
-side of the iframe boundary.
+prices it, spends the viewer's Buzz, and returns the images. Your block never
+holds an orchestrator token.
 
-This guide is the narrative companion to the generated
-[generation bridge reference](../reference/generation): it walks the body shape,
-LoRA stacking, img2img, the estimate → submit → watch → cancel lifecycle, and
-**what you get back** — and states the **page-vs-model** rules that are enforced
-server-side but easy to trip over. For the ComfyUI path — a server-owned graph
-you invoke by name, **or your own graph shipped inline** — see
-[Comfy on Civitai](./comfy-cloud) instead.
+This is the narrative companion to the generated
+[generation bridge reference](../reference/generation). For the ComfyUI path —
+a server-owned graph invoked by name, **or your own graph shipped inline** — see
+[Comfy on Civitai](./comfy-cloud).
 
 ::: warning Closed beta — mod-gated
 Like the rest of the [Apps platform](./), generation is **mod-gated** during the
@@ -217,12 +213,10 @@ The resource picker returns **one** resource per `open()`. An app that layers
 several LoRAs (a stack, or a matrix of LoRA × weight) opens it **once per
 slot** and keeps the picks in its own state.
 
-The hook reference says to **omit `baseModelGroup` by default**, and that still
-holds for an unconstrained pick (the checkpoint picker below passes none, so the
-viewer can switch family). A LoRA slot is the case where you do pass it:
-it must stay inside the family of the checkpoint already chosen, so pass
-`baseModelGroup`, **derived** from that checkpoint's `baseModel` at the moment
-you open the picker. Never pass a hardcoded ecosystem string.
+Omit `baseModelGroup` for an unconstrained pick (the checkpoint picker below
+passes none, so the viewer can switch family). A LoRA slot must stay in the
+chosen checkpoint's family, so pass `baseModelGroup` **derived** from that
+checkpoint's `baseModel` when you open the picker — never a hardcoded string.
 
 ```tsx
 import { useCheckpointPicker, useResourcePicker } from '@civitai/blocks-react';
@@ -287,34 +281,25 @@ re-filter.
 
 ## Image-to-image (`sourceImage` / `sourceImages`) — page apps only
 
-Add a source image to turn the request into **img2img**: the block bridge emits
-an `img2img` graph instead of `txt2img`, seeded from your image. There are two
-fields for this and the SDK ships both — `sourceImage` (a single
-`{ url, width, height }`) and `sourceImages` (an array of them, for multi-image
-conditioning). Which one to send is a real decision, not a style preference:
-see [choosing between them](#one-image-or-several) below.
+Add a source image to turn the request into **img2img**, seeded from your
+image. There are two fields — `sourceImage` (one `{ url, width, height }`) and
+`sourceImages` (an array, for multi-image conditioning); see
+[which to send](#one-image-or-several). The constraints are **all
+server-enforced**, for both fields:
 
-This is the one part of the contract with the sharpest constraints, and they are
-**all server-enforced**, for both fields:
-
-- 🔴 **Page apps only.** A source image is **rejected fail-closed on a
-  model-bound token** — a model-slot block cannot do img2img. This is documented
-  nowhere else; if you copy a page-app img2img example into a `model.*` slot
-  block you will get a `FORBIDDEN` with no hint why. img2img lives on **page
-  apps**.
+- **Page apps only.** A source image is **rejected fail-closed on a
+  model-bound token** — a `model.*` slot block gets a `FORBIDDEN` with no hint
+  why.
 - **The checkpoint's ecosystem picks the graph.** SD-family checkpoints get
   plain `img2img` ("Image Variations"); edit-capable ecosystems get
-  `img2img:edit`. A checkpoint whose ecosystem supports neither is rejected
-  fail-closed. The full ecosystem list — and the limits these fields cannot be
-  argued out of (Civitai-hosted URLs only, 64–2048 per side, a **per-ecosystem**
-  cap on how many images, never both fields at once) — is in
+  `img2img:edit`; anything else is rejected. The ecosystem list and the hard
+  limits (64–2048 per side, a **per-ecosystem** image cap, never both fields)
+  are in
   [what the source-image fields can and cannot do](../reference/generation#what-sourceimage-can-and-cannot-do).
-- **Civitai-hosted URL only.** `url` must resolve to a Civitai-controlled host —
-  an arbitrary remote URL is rejected (SSRF guard). The way to get a qualifying
-  URL is the host's image-upload bridge with `purpose: 'generationSource'`,
-  which returns an unscanned private `{ url, width, height }`. In the array form
-  **every element** is validated this way — one bad element rejects the whole
-  body.
+- **Civitai-hosted URL only** — an arbitrary remote URL is rejected. Get one
+  from the host's image-upload bridge with `purpose: 'generationSource'`, which
+  returns an unscanned private `{ url, width, height }`. In the array form one
+  bad element rejects the whole body.
 
 ```tsx
 import { useBuzzWorkflow, useImageUpload } from '@civitai/blocks-react';
@@ -346,43 +331,27 @@ export function Img2Img({ modelId, modelVersionId }: { modelId: number; modelVer
 }
 ```
 
-The `generationSource` upload is an **unscanned private input** by contract — the
-orchestrator scans it at generation time, so the moderation stamp is the
-gen-time scan, not a pre-crossing one. That is the correct posture for an edit
-source (it is not a public display image).
+The `generationSource` upload is scanned by the orchestrator at generation
+time, not before.
 
 ### One image, or several? {#one-image-or-several}
 
-The SDK marks `sourceImage` **`@deprecated`** in favour of `sourceImages`. Read
-that as a signpost, **not** a removal notice, and do not blanket-migrate:
+The SDK marks `sourceImage` **`@deprecated`** in favour of `sourceImages` — a
+signpost, **not** a removal notice:
 
 | you want | send | why |
 |---|---|---|
-| exactly one image | **`sourceImage`** | understood by every host. The server normalizes it into a 1-element array, so a 1-element `sourceImages` would produce a **byte-identical** generation — there is nothing to gain by switching, and something to lose (below). The SDK states the alias keeps working **indefinitely**. |
-| two or more images | **`sourceImages`** | the only field that can express it — but see the host caveat below |
+| exactly one image | **`sourceImage`** | understood by every host. The server normalizes it into a 1-element array, so a 1-element `sourceImages` would produce a **byte-identical** generation, so either field works. The SDK states the alias keeps working **indefinitely**. |
+| two or more images | **`sourceImages`** | the only field that can express it |
 
-::: danger An old host silently strips `sourceImages` — and still bills you
-`sourceImages` needs a host running
-[civitai/civitai#3518](https://github.com/civitai/civitai/pull/3518) or later.
-The text-to-image body schema is **not** `.strict()`, so a host that predates
-#3518 does not reject the field — it **drops it** and runs, and **charges for**,
-a plain text-to-image generation with **no image conditioning at all**. You get a
-successful workflow, real images and a real Buzz charge for a request that
-ignored your input, and there is **no client-side way to detect it**.
-
-Until #3518 is deployed everywhere you target, `sourceImage` (singular) is the
-field that works on both.
-:::
-
-Sending **both** fields is rejected as ambiguous, so this is genuinely an
-either/or.
+Sending **both** fields is rejected as ambiguous.
 
 ```tsx
 import { useBuzzWorkflow, useImageUpload } from '@civitai/blocks-react';
 import type { WorkflowBodyTextToImage } from '@civitai/app-sdk/blocks';
 
-// PAGE APP: multi-image edit. Needs a host on civitai/civitai#3518 or later,
-// and a checkpoint whose ecosystem allows more than one image (Qwen: 3).
+// PAGE APP: multi-image edit. Needs a checkpoint whose ecosystem allows more
+// than one image (Qwen: 3).
 export function MultiImageEdit({ modelId, modelVersionId }: { modelId: number; modelVersionId: number }) {
   const { submit } = useBuzzWorkflow();
   const { open } = useImageUpload({ purpose: 'generationSource' });
@@ -409,9 +378,8 @@ export function MultiImageEdit({ modelId, modelVersionId }: { modelId: number; m
 
 ## The lifecycle — estimate, submit, watch, cancel
 
-`useBuzzWorkflow()` orchestrates a deliberate estimate → confirm → submit →
-watch dance. Nothing starts on its own — you drive each step — but once a
-workflow is running, `watch()` owns the polling loop for you. The full return is
+`useBuzzWorkflow()` runs estimate → confirm → submit → watch. You drive each
+step; once a workflow is running, `watch()` owns the polling loop. Full return
 in the [reference](../reference/generation#bridge-useBuzzWorkflow); the members
 you drive:
 
@@ -424,22 +392,18 @@ you drive:
   also resolves — with `status: 'failed'` and a placeholder `workflowId`, and
   the hook's `status` goes to `'done'`, not `'polling'` — so a `workflowId`
   alone does not mean a run started; see
-  [refused submits](#refused-submits). The `options` bag
-  carries **`idempotencyKey`** — 🔴 **read
-  [retrying a submit](#retrying-a-submit-safely) before you write any retry
-  path**, because a retried submit is how a viewer gets charged twice.
+  [refused submits](#refused-submits). The `options` bag carries
+  **`idempotencyKey`** — **read [retrying a submit](#retrying-a-submit-safely)
+  before writing any retry path**, or a viewer can be charged twice.
 - **`watch(workflowId, options?)`** — **the one you want.** It owns the polling
-  loop, resolves with the **terminal** snapshot, and calls `onUpdate` with every
-  intermediate one. The loop is sequential and non-overlapping by construction —
-  exactly one request per watched workflow is ever in flight.
-- **`poll(workflowId)`** — a single host round-trip. The low-level primitive,
-  for callers that genuinely want to drive their own cadence; you call it on a
-  backoff until the snapshot is terminal
+  loop (one request in flight per workflow), resolves with the **terminal**
+  snapshot, and calls `onUpdate` with every intermediate one.
+- **`poll(workflowId)`** — a single host round-trip, for driving your own
+  cadence; call it on a backoff until the snapshot is terminal
   (`succeeded | failed | canceled | expired`).
-- **`cancel(workflowId)`** — a **real server-side orchestrator cancel** (not
-  just client-side untracking), so a running workflow stops spending Buzz. The
-  host re-derives ownership from the viewer's token, so you can only cancel
-  workflows the viewer owns. Resolves with the (now-canceled) snapshot.
+- **`cancel(workflowId)`** — a **real server-side orchestrator cancel**, so the
+  workflow stops spending Buzz. Only workflows the viewer owns can be canceled.
+  Resolves with the (now-canceled) snapshot.
 
 ```tsx
 import { useEffect } from 'react';
@@ -483,37 +447,28 @@ the other exception: an unconfirmed training submission comes back with the
 refunded either. (Training never goes through `submit()`; it runs through
 `useRunTraining()`.)
 
-A resolved refusal reports a **limit**, not the viewer's balance: a price over
-your per-generation budget (see [Budget model](#budget-model)), a daily spend
-cap, the per-app rate limit or daily cap, a temporary "unavailable" deny, or a
-missing price quote. The server checks those against the token, its counters
-or a quote, and never against the viewer's wallet. Buying Buzz raises none of
-them, so do not answer a resolved refusal with
-`useBuzzPurchase().openPurchaseModal()`.
+A resolved refusal reports a **limit**, never the viewer's balance: a price
+over your per-generation budget (see [Budget model](#budget-model)), a daily
+spend cap, the per-app rate limit or daily cap, a temporary "unavailable" deny,
+or a missing price quote. Buying Buzz raises none of them, so do not answer one
+with `useBuzzPurchase().openPurchaseModal()`.
 
-**Running out of Buzz is a rejection, not a refusal.** The host never checks
-the viewer's balance itself. The generation service does, and when the balance
-is too low the submit throws on the host. The block gets a reply with no
-`cost`, and `submit()` **rejects** with a `WorkflowSubmitError` whose `code` is
-`'exception'`. That is the one case where a top-up can help, but the rejection
-alone **cannot tell you it happened**. `'exception'` also covers review
-preview, a lost response, an idempotency conflict and a network error, and only
-`err.snapshot.error`'s text differs, which is server-authored and not a
-contract. Offering a top-up on every `'exception'` would tell a viewer with a
-full wallet they are low on Buzz.
+**Running out of Buzz is a rejection, not a refusal.** `submit()` **rejects**
+with a `WorkflowSubmitError` whose `code` is `'exception'` — but `'exception'`
+also covers review preview, a lost response, an idempotency conflict and a
+network error, distinguishable only by `err.snapshot.error`'s server-authored
+text. So the rejection alone cannot tell you the viewer is short.
 
-So decide from the **balance**, not the rejection. The happy path reads it with
+Decide from the **balance** instead. The happy path reads it with
 [`useBuzzBalance()`](../reference/hooks#hook-useBuzzBalance) and offers
-`openPurchaseModal()` only when the Buzz the block can actually **spend** is
-below the quoted `cost.total`. A block spends `blue` plus **one** paid pool,
-chosen by the domain's maturity **ceiling**: `green` on an SFW ceiling, `yellow`
-on a mature one. It never spends both, so an SFW block cannot spend `yellow`,
-and adding all three pools together would hide a real shortfall. The snippet
-reads the ceiling as `maxBrowsingLevel` from
-[`useDomainMaturity()`](../reference/hooks#hook-useDomainMaturity) and tests it
-with `isSfwCeiling` from `@civitai/app-sdk/blocks`. An unknown ceiling counts as
-SFW, exactly as it does on the server. Two look-alikes must **not** choose the
-pool:
+`openPurchaseModal()` only when the Buzz the block can **spend** is below the
+quoted `cost.total`. A block spends `blue` plus **one** paid pool, chosen by the
+domain's maturity **ceiling** — `green` on an SFW ceiling, `yellow` on a mature
+one, never both — so do not add all three pools. Read the ceiling as
+`maxBrowsingLevel` from
+[`useDomainMaturity()`](../reference/hooks#hook-useDomainMaturity) and test it
+with `isSfwCeiling` from `@civitai/app-sdk/blocks` (an unknown ceiling counts as
+SFW, as on the server). Two look-alikes must **not** choose the pool:
 - **`domain` is informational only.** On civitai.red a block can be told
   `domain: 'blue'` while its ceiling is fully mature, and the server then
   spends `yellow`.
@@ -521,31 +476,22 @@ pool:
   setting, which is right for deciding what to *show* but not what the server
   *spends*.
 
-Reading the balance needs the **`buzz:read:self`** scope. Declare it in your
-manifest's `scopes`. It is **not** consent-exempt, so the viewer must also
-grant it, and `useBuzzBalance()` does not ask for it on its own. The read is
-also refused for a viewer who is not signed in. In either case `balance` stays
-`null`, and the happy path shows a generic "Could not start the generation"
-with **no** top-up offer. That is the cost of the
-fallback: a viewer who really is short, in a block without the grant, gets no
-purchase prompt. The alternative, offering one on every `'exception'`, is
-wrong for everyone else.
+Reading the balance needs the **`buzz:read:self`** scope, which is **not**
+consent-exempt (`useBuzzBalance()` does not request it) and is refused for a
+signed-out viewer. Without it `balance` stays `null`, and the happy path shows a
+generic "Could not start the generation" with **no** top-up offer.
 
-Other rejections: a pass-through training step the orchestrator would not quote
-is refused **without** a `cost`, so it rejects too. The
+A pass-through training step the orchestrator would not quote also rejects
+(no `cost`). The
 [`useBuzzWorkflow` reference](../reference/generation#bridge-useBuzzWorkflow)
-states the same model from the SDK's own doc comments. It has the complete list
-of resolved refusals, each `WorkflowSubmitError` `code` and what it says about
-money, and the spendable-balance rule for a top-up.
+lists every resolved refusal and each `WorkflowSubmitError` `code` with what it
+says about money.
 
 ### Retrying a submit safely — `idempotencyKey` {#retrying-a-submit-safely}
 
-A retry is the one place a block can spend the viewer's Buzz **twice for one
-generation**, and it is invisible from the client: if the submit succeeded
-server-side and only the *response* was lost (a timeout, a dropped connection),
-a naive retry starts a second paid workflow.
-
-`submit()`'s second argument exists for exactly that:
+If a submit succeeded server-side but its *response* was lost (a timeout, a
+dropped connection), a naive retry starts a second paid workflow. `submit()`'s
+second argument prevents that:
 
 ```tsx
 import { useBuzzWorkflow } from '@civitai/blocks-react';
@@ -580,40 +526,14 @@ export function useSubmitWithRetry() {
   collapsed as if one were a retry of the other.
 
 ::: danger The key's charset is validated — `^[A-Za-z0-9_-]{1,64}$`
-**Letters, digits, `_` and `-` only, 1–64 characters.** The host validates the
-field before it prices anything, so a key outside that class is refused outright:
-
-```json
-{ "code": "invalid_format", "format": "regex",
-  "pattern": "/^[A-Za-z0-9_-]{1,64}$/",
-  "path": ["idempotencyKey"],
-  "message": "Invalid string: must match pattern /^[A-Za-z0-9_-]{1,64}$/" }
-```
-
-— a `BAD_REQUEST` / **`400`**. Nothing is queued and nothing is charged, so a
-block that composes its keys this way simply never generates.
-
-🔴 **A colon is the one to watch, and it is excluded deliberately** — not as an
-oversight you can work around with a different punctuation mark. The host joins
-the parts of its internal per-viewer / per-app dedupe and rate-limit keys with
-`:`, and those joins are only collision-free while your key cannot contain one;
-a colon-bearing key could cross into a neighbouring key's namespace. So `.`,
-`/`, `|`, `#`, spaces and every other separator are **also** rejected — the
-allowed class is the whole contract. Use **`-`** or `_` when you need to
-concatenate parts, as the example above does.
-
-The **64**-character bound is derived too: the host builds the identifier it
-hands the orchestrator out of your key plus a prefix, and the orchestrator
-enforces its own `^[A-Za-z0-9_-]+$` over at most 128 characters. 64 keeps the
-worst case inside that.
-
-**Safe**: `` `gen-${cellId}` ``, `crypto.randomUUID()` (36 chars, `[0-9a-f-]`).
-**Not safe**: `` `gen:${cellId}` ``, `React.useId()` — `useId` returns a
-colon-wrapped value such as `:R0:` and will 400.
-
-The same charset governs every idempotency key the platform takes — the REST
-`POST /api/v1/blocks/workflows/submit` body (where it is **required**),
-`useGoodPurchase().purchase()` and `useTip().tip()`. Full rationale:
+**Letters, digits, `_` and `-` only, 1–64 characters** — so no `:`, `.`, `/`
+or spaces; join parts with `-` or `_`. **Safe**: `` `gen-${cellId}` ``,
+`crypto.randomUUID()`. **Not safe**: `` `gen:${cellId}` ``, `React.useId()`
+(it returns a colon-wrapped value such as `:R0:`). A key outside the class is
+refused `BAD_REQUEST` / **`400`** before anything is priced, so nothing is
+charged — and nothing ever generates. The same charset applies to every
+idempotency key the platform takes; the error shapes and the reasons for `:`
+and 64 are in
 [`idempotencyKey` — the validated charset](../reference/generation#idempotency-key-charset).
 :::
 

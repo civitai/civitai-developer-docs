@@ -48,9 +48,7 @@ Train a [WAN](./wan) video LoRA on a small set of source video clips using AI To
 | `2.1` | Wan 2.1 (14B) | 3000 Buzz |
 | `2.2` | Wan 2.2 (14B-A14B) | 3000 Buzz |
 
-::: tip Long-running step
-Video training is the slowest training mode on the platform — a 2000-step run on a 4-clip dataset takes many minutes. Always use `wait=0` and follow up via webhook or polling.
-:::
+Video training is the slowest training mode on the platform — a 2000-step run on a 4-clip dataset takes many minutes. Submit with `wait=0`. The request fields, training data, continuing a run and live progress are shared by every ecosystem — see the [LoRA training overview](./training).
 
 ## The request shape
 
@@ -67,9 +65,7 @@ Video training is the slowest training mode on the platform — a 2000-step run 
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
-- A training-data zip of images, video clips, or a mix — addressed by an AIR, as in [the image recipes](./training-flux1#prerequisites). Keep clips to a few seconds at a similar resolution.
-- An accurate `count` of items in the zip
+- A training-data zip of images, video clips, or a mix — addressed by an AIR ([accepted sources](./training#training-data)), with an accurate `count` of items. Keep clips to a few seconds at a similar resolution.
 
 ## Wan 2.1 / 2.2
 
@@ -113,59 +109,25 @@ Content-Type: application/json
 
 <RecipeRun :body="wan21Body" :wait="0" />
 
-## Common parameters {#common-parameters}
+## Wan parameters {#common-parameters}
 
-Defaults shown are the post-`ApplyDefaults` values for Wan.
+Fields and defaults not listed here are as in the overview's [common parameters](./training#common-parameters).
 
-| Field | Required | Default | Notes |
-|-------|----------|---------|-------|
-| `engine` | ✅ | — | Always `ai-toolkit`. |
-| `ecosystem` | ✅ | — | Always `wan` for this page. |
-| `modelVariant` | ✅ | — | `2.1` or `2.2`. |
-| `steps` | | `2000` | `1`–`10000`. Total training steps. Primary driver of training length. |
-| `epochs` | | `10` | `1`–`20`. Number of saved checkpoints delivered, each separately downloadable. **Each adds 200 Buzz** — Wan's per-epoch preview samples are videos and expensive to compute, so keep the epoch count modest. |
-| `batchSize` | | `1` | Fixed at 1 for this ecosystem. |
-| `continueFrom` | | *(none)* | A previously-trained `urn:air:wan:lora:...` AIR to resume from (see [Continue training](#continue-training)). Must be a Wan LoRA. |
-| `lr` | | `0.0001` | `0.0002` is a typical override for video; see example. |
-| `trainTextEncoder` | | `false` | Leave off — Wan training does not benefit from text-encoder updates. |
-| `lrScheduler` | | `cosine` | `constant`, `constant_with_warmup`, `cosine`, `linear`, `step`. |
-| `optimizerType` | | `adamw8bit` | See SDXL/SD1 page for full enum. |
-| `networkDim` | | `32` | `1`–`256`. |
-| `networkAlpha` | | matches `networkDim` | `1`–`256`. |
-| `noiseOffset` | | `0` | `0`–`1`. |
-| `flipAugmentation` | | `false` | Random horizontal flips. |
-| `shuffleTokens` / `keepTokens` | | `false` / `0` | Caption-tag shuffling. |
-| `triggerWord` | | *(none)* | Activation token. Per the source, not all video ecosystems support `triggerWord` — leave empty if you see schema rejections. |
-| `trainingData.{type, sourceUrl, count}` | ✅ | — | `type: "zip"`. Images, video clips, or a mix; the example uses an image dataset. |
-| `samples.prompts[]` | | `[]` | Preview videos rendered at each saved checkpoint with the trained LoRA. |
-| `samples.negativePrompt` | | *(none)* | — |
-| `samples.cfgScale` | | *(ecosystem default)* | Overrides the CFG / guidance scale used when rendering the preview samples. |
-| `samples.strength` | | `1.0` | Trained-LoRA weight applied in the preview samples. |
-
-## Continue training / train further {#continue-training}
-
-To resume from a Wan LoRA you already trained instead of starting from the base checkpoint, set `continueFrom` to that LoRA's AIR. The new run starts from those weights and the new epochs build on top:
-
-```json
-{
-  "$type": "training",
-  "input": {
-    "engine": "ai-toolkit",
-    "ecosystem": "wan",
-    "modelVariant": "2.1",
-    "continueFrom": "urn:air:wan:lora:civitai:<id>@<version>",
-    "steps": 1000
-  }
-}
-```
-
-`continueFrom` must point at a LoRA of the **same ecosystem** (a Wan LoRA) as the model being trained — a mismatched ecosystem is rejected.
+| Field | Wan default | Notes |
+|-------|-------------|-------|
+| `modelVariant` | ✅ required | `2.1` or `2.2`. |
+| `epochs` | `round(steps / 200)` | **Each adds 200 Buzz** — Wan's per-epoch preview samples are videos and expensive to compute, so keep the epoch count modest. |
+| `batchSize` | `1` | Fixed at 1 for this ecosystem. |
+| `continueFrom` | *(none)* | A Wan LoRA (`urn:air:wan:lora:...`) to resume from. |
+| `lr` | `0.0001` | `0.0002` is a typical override for video; see example. |
+| `trainTextEncoder` | `false` | Leave off — Wan training does not benefit from text-encoder updates. |
+| `triggerWord` | *(none)* | Some video ecosystems reject `triggerWord` — leave it empty if you see schema rejections. |
+| `trainingData` | ✅ | Images, video clips, or a mix; the example uses an image dataset. |
+| `samples.prompts[]` | `[]` | Preview videos rendered at each saved checkpoint with the trained LoRA. |
 
 ## Reading the result
 
-Same envelope as the other training recipes — see [SDXL/SD1 → Reading the result](./training-sdxl-sd1#reading-the-result). Each saved checkpoint yields a video LoRA `.safetensors` blob plus any sample `.mp4` files. The trained LoRA is usable in [WAN video generation](./wan) by referencing it in the `loras` field.
-
-Training can also be watched while it runs — with `"trace": "events"` (or `"logs"`) each `epochs[].traceUrl` is a tail-able stream of logs and step progress. See [SDXL/SD1 → Live progress & logs](./training-sdxl-sd1#live-progress).
+The [standard training output](./training#reading-the-result): each saved checkpoint yields a video LoRA `.safetensors` blob plus any sample `.mp4` files. The trained LoRA is usable in [WAN video generation](./wan) by referencing it in the `loras` field.
 
 ## Runtime
 
@@ -176,11 +138,9 @@ Wall time, default settings on a 4-clip dataset:
 | `2.1` | ~1–3 min | 20–60 min for 2000 steps |
 | `2.2` | ~1–3 min | 20–60 min for 2000 steps |
 
-Always use `wait=0`.
-
 ## Cost
 
-Training is billed per **step** plus a flat per-**epoch** storage surcharge, with a price floor:
+The [training cost formula](./training#cost) with Wan rates:
 
 ```
 price = steps × costPerStep + epochs × 200       (rounded)
@@ -188,9 +148,9 @@ costPerStep = 0.5   (2.1 and 2.2)
 floor: never less than 80% of the default-configuration price
 ```
 
-Wan's per-epoch surcharge is **200 Buzz** (not 10 like image ecosystems) because each epoch's preview samples are videos and expensive to compute — so most of Wan's cost is in the epoch count, not the step count. The default run is **2000 steps / 10 epochs** → `2000 × 0.5 + 10 × 200 = 1000 + 2000 = 3000 Buzz`. The **floor** is 80% of the default price (2400 Buzz).
+Wan's per-epoch surcharge is **200 Buzz** (not 10 like image ecosystems) because each epoch's preview samples are videos and expensive to compute — so most of Wan's cost is in the epoch count, not the step count. With both `steps` and `epochs` omitted the run is **2000 steps / 10 epochs** (the example at the top of the page sends `steps: 2000`, which also resolves to 10 epochs) → `2000 × 0.5 + 10 × 200 = 1000 + 2000 = 3000 Buzz`. The **floor** is 80% of the default price (2400 Buzz).
 
-Lowering `epochs` saves the most. Sample-prompt rendering itself uses Wan video-generation rates and is billed separately. Run with `whatif=true` to see the exact pre-flight charge.
+Lowering `epochs` saves the most. Sample-prompt rendering itself uses Wan video-generation rates and is billed separately. Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 | Configuration | Buzz (training only) |
 |---------------|---------------------|
@@ -200,19 +160,21 @@ Lowering `epochs` saves the most. Sample-prompt rendering itself uses Wan video-
 
 ## Troubleshooting
 
+`steps` out of range, an unresolvable `sourceUrl`, a `count` mismatch and a rejected dataset are covered in the [overview's troubleshooting](./training#troubleshooting).
+
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `400` with "modelVariant required" | Missing `modelVariant` | Set to `"2.1"` or `"2.2"`. |
-| Step starts then fails immediately | Preview ecosystem not yet enabled on the routing GPU fleet | Contact Civitai support — Wan training is rolling out. |
+| Step starts then fails immediately | Wan training not yet available for your request | Contact Civitai support. |
 | Step `failed` with VRAM-related error | Resolution × clip length too high for the worker | Lower `resolution` (e.g. to `512`), shorten clips to ≤ 3 seconds. |
 | Trained LoRA produces static / no motion | Too few steps, too few / too short clips | Raise `steps`; ensure clips show the motion you want learned. |
-| Step `failed`, `moderationStatus: "Rejected"` | Dataset failed content moderation | Replace flagged clips. |
 
 ## Related
 
+- [LoRA training overview](./training) — shared parameters, training data, live progress and cost formula
 - [LTX2 video LoRA training](./training-ltx2) — Lightricks LTX video LoRA training (also video, less expensive previews on LTX2.3)
 - [WAN video generation](./wan) — use a trained LoRA in WAN inference
 - [Flux 2 Klein LoRA training](./training-flux2-klein) — image-side counterpart
 - [Results & webhooks](/orchestration/guide/results-and-webhooks)
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) / [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
-- [Endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/training/openapi.yaml)
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
+- [`training` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/training/openapi.yaml)

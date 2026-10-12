@@ -163,28 +163,11 @@ Actual cost varies with GPU load and model.
 
 ## Reading the result
 
-```json
-{
-  "status": "succeeded",
-  "steps": [{
-    "name": "0",
-    "$type": "videoGen",
-    "status": "succeeded",
-    "output": {
-      "video": { "id": "blob_...", "url": "https://.../signed.mp4" }
-    }
-  }]
-}
-```
-
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL.
+Standard `videoGen` output: a single `video` blob ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 ## Long-running jobs
 
-HunyuanVideo is compute-heavy. Expect 5–30 minutes depending on resolution, duration, and steps. Use `wait=0` + polling or webhooks:
-
-- **Webhooks** (recommended): `type: ["workflow:succeeded", "workflow:failed"]` — see [Results & webhooks](/orchestration/guide/results-and-webhooks)
-- **Polling**: `GET /v2/consumer/workflows/{workflowId}` every 30–60 s
+HunyuanVideo is compute-heavy. Expect 5–30 minutes depending on resolution, duration, and steps. Submit with `wait=0`, then prefer a [webhook](/orchestration/guide/results-and-webhooks) (`workflow:succeeded` / `workflow:failed`) or poll `GET /v2/consumer/workflows/{workflowId}` every 30–60 s.
 
 ## Troubleshooting
 
@@ -198,8 +181,7 @@ HunyuanVideo is compute-heavy. Expect 5–30 minutes depending on resolution, du
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — production result handling
 - [LTX2 video generation](./ltx2) — another Comfy-based open video model, generally faster
 - [WAN video generation](./wan) — another Comfy/FAL open video model with broad operation support

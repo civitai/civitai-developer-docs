@@ -122,13 +122,12 @@ Flux 1 is Black Forest Labs' original open-weights family (Dev / Schnell plus th
 | `comfy` (ecosystem `flux1`) | When you specifically need ComfyUI sampler knobs | Full sampler/scheduler enum control, LoRA support, checkpoint via AIR URN. Picks a heavier worker than sdcpp — reach for this only if you need a Comfy-specific sampler. |
 | `flux1-kontext` (ecosystem `flux1`) | Image editing / prompt-based edits via BFL's managed Kontext API | `dev` / `pro` / `max` tiers; the `ecosystem` field isn't in the request body but the endpoint lives in the same ecosystem internally |
 
-**Default choice for new integrations**: `engine: "sdcpp"`, `ecosystem: "flux1"`. Sdcpp's defaults handle the component models for you, so you only need to pick a diffuser. Reach for `comfy` when you need a specific Comfy sampler; use `flux1-kontext` when you want BFL's managed editor.
+**Default choice**: `engine: "sdcpp"`, `ecosystem: "flux1"`. Sdcpp's defaults handle the component models for you, so you only need to pick a diffuser. Reach for `comfy` when you need a specific Comfy sampler; use `flux1-kontext` when you want BFL's managed editor.
 
 If you're starting fresh and don't need Flux.1 specifically, consider [Flux 2](./flux2) — cleaner schema, better quality, same orchestration-side usage.
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
 - A Flux.1 diffuser AIR URN (for sdcpp / comfy paths) — browse the [Civitai Flux 1.D catalog](https://civitai.com/models?baseModels=Flux.1+D)
 - For `createVariant` / `editImage` / Kontext editing: one or more source image URLs
 
@@ -373,25 +372,7 @@ Kontext-specific parameters:
 
 ## Reading the result
 
-All Flux 1 paths emit the standard `imageGen` output — an `images[]` array, one entry per `quantity`:
-
-```json
-{
-  "status": "succeeded",
-  "steps": [{
-    "name": "0",
-    "$type": "imageGen",
-    "status": "succeeded",
-    "output": {
-      "images": [
-        { "id": "blob_...", "url": "https://.../signed.jpeg" }
-      ]
-    }
-  }]
-}
-```
-
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL.
+Standard `imageGen` output: an `images[]` array, one entry per `quantity` ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 ## Runtime
 
@@ -402,13 +383,13 @@ Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/or
 | `flux1-kontext` (dev / pro) | 10–30 s depending on BFL queue | `wait=60` usually fine |
 | `flux1-kontext` (max) | 15–60 s | `wait=60` sometimes, fall back to `wait=0` on busy periods |
 
-`quantity > 2` or large dimensions push you toward the 100-second request timeout — submit with `wait=0` and poll instead.
+`quantity > 2` or large dimensions can outlast your HTTP client's timeout — submit with `wait=0` and poll instead.
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
-**sdcpp path** (`Flux1SdCppImageGenInput.CalculateCost`):
+**sdcpp path**:
 
 ```
 base  = 0.5 × steps × (editImages + 1) × (cfgScale == 1 ? 1 : 2)
@@ -422,7 +403,7 @@ total = base × quantity
 | `createVariant`, `quantity: 1` | ~28 |
 | `editImage` with 1 reference | ~56 |
 
-**Comfy path** (`ComfyFlux1ImageGenInput.CalculateCost`) — per-pixel + per-step scaling:
+**Comfy path** — per-pixel + per-step scaling:
 
 ```
 total = 8 × (width × height / 1024²) × (steps / 20) × quantity
@@ -442,6 +423,8 @@ Multiply by `quantity`. No per-step / per-pixel scaling since Kontext doesn't ex
 
 ## Troubleshooting
 
+Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](/orchestration/recipes/#common-troubleshooting). Timeouts here usually mean Kontext `max` on a busy queue.
+
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `400` with unknown property | Field not valid for this `engine` (e.g. `sampler` on sdcpp, `sampleMethod` on comfy, `loras` on `flux1-kontext`) | Match the schema for your chosen engine — see the tables above. |
@@ -451,16 +434,13 @@ Multiply by `quantity`. No per-step / per-pixel scaling since Kontext doesn't ex
 | Output ignores the prompt on Flux.1 | `cfgScale` too low or prompt too short | Raise `cfgScale` toward 4; add lighting / composition / camera cues. |
 | LoRA silently has no effect | Wrong AIR URN, unpublished / private model | Verify the URN on the LoRA's Civitai page; strengths outside `0.0`–`2.0` may also be clamped. |
 | Kontext edit returns a generation unrelated to the source | `images[]` URL not reachable by BFL | Use a CDN-served URL (Civitai CDN works); see the source-URL notes in [Transcription → Choosing a source URL](./transcription). |
-| Request timed out (`wait` expired) | Large `quantity`, Kontext `max` on a busy queue | Resubmit with `wait=0` and poll. |
-| Step `failed`, `reason = "blocked"` | Prompt or input image hit content moderation | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Flux 2 image generation](./flux2) — newer Flux family with a cleaner schema, higher quality
 - [Image upscaling](./image-upscaler) — chain after `imageGen` for higher-res output
 - [Prompt enhancement](./prompt-enhancement) — LLM-rewrite a prompt before feeding it in via `$ref` (use `ecosystem: "flux1"` on the enhancer)
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — handling longer runs
 - Full parameter catalog: the `Flux1SdCpp<Operation>Input`, `ComfyFlux1<Operation>Input`, `Flux1Kontext<Model>ImageGenInput` schemas in the [API reference](/orchestration/reference/)
-- [`imageGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `imageGen` surface; import into Postman / OpenAPI Generator
+- [`imageGen` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml)

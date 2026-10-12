@@ -1,6 +1,6 @@
 ---
 title: Using the civitai-* elements in a block
-description: What a block needs to use the <civitai-*> custom elements from @civitai/components — which register import or CDN bundle defines which elements (40 / 45 / 47), the two SDK-backed elements, theming from the host, and why <civitai-chat> does not run on a block's default token.
+description: Using the <civitai-*> custom elements in a block — which import defines which elements, the SDK-backed elements, theming from the host, and <civitai-chat>.
 sources:
   - npm:@civitai/components@0.9.2/custom-elements.json
   - npm:@civitai/components@0.9.2/dist/elements/register.js

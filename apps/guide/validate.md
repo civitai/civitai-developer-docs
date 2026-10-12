@@ -1,6 +1,6 @@
 ---
 title: What `civitai app validate` proves
-description: The local validator is a best-effort mirror of the platform's approve-time checks — what it really covers, the lockfile rule, the BLOCK_READY advisory and its two tiers, and the exact --json result shape a CI job must branch on.
+description: What the local civitai app validate covers of the platform's approve-time checks — the lockfile rule, the BLOCK_READY advisory, and the --json result shape for CI.
 sources:
   - go:github.com/civitai/cli
 ---
@@ -8,14 +8,12 @@ sources:
 # What `civitai app validate` proves
 
 `civitai app validate` is a **best-effort LOCAL mirror** of the platform's
-approve-time validator. Running it before you
-[submit](./review-and-deploy) catches most of what a moderator's build would
-catch, in a second, on your machine.
+approve-time validator: run before you [submit](./review-and-deploy), it
+catches most of what a moderator's build would.
 
 ::: danger The server is the source of truth
-Passing `validate` locally is a strong pre-check, **not a guarantee of
-approval**. Some rules exist only server-side, and a local answer is always a
-copy of a moving target.
+Passing `validate` is **not a guarantee of approval** — some rules exist only
+server-side.
 :::
 
 ## What it actually checks
@@ -36,12 +34,11 @@ not reproduced at all.
 
 ## The lockfile rule
 
-This is the one **build-time** rule `validate` mirrors, because the failure it
-prevents is otherwise an opaque server-side "build failed".
-
-**Your committed lockfile must match the package manager the platform derives
-from `buildCommand`.** The platform build installs *strictly* from the lockfile
-— there is no registry re-resolve fallback — so:
+The one **build-time** rule `validate` mirrors, because its failure is
+otherwise an opaque server-side "build failed": **your committed lockfile must
+match the package manager the platform derives from `buildCommand`.** The
+platform build installs *strictly* from the lockfile, with no registry
+re-resolve fallback:
 
 | `buildCommand` | required lockfile |
 | --- | --- |
@@ -56,22 +53,14 @@ platform never installs for them, and they are never flagged.
 ### The lockfile also has to *be* one
 
 A `package-lock.json` must parse as JSON and declare a numeric
-`"lockfileVersion"` of 1 or more; a `pnpm-lock.yaml` or `yarn.lock` must be
-non-empty.
+`"lockfileVersion"` of 1 or more (stricter than `npm ci`, which tolerates a
+`0`, string, `null` or missing key — shapes npm never writes); a
+`pnpm-lock.yaml` or `yarn.lock` must be non-empty.
 
-That version rule is deliberately **stricter than `npm ci` measures** — npm
-states it as a precondition but will happily install from an otherwise-intact
-lockfile whose version key is `0`, a string, `null` or absent. `validate` keeps
-it because npm never *writes* those shapes, so a file carrying one was made by
-hand.
-
-An **empty** lockfile fails the platform build exactly like a missing one, so
+An **empty** lockfile fails the platform build like a missing one, so
 `touch package-lock.json` is not a fix — run the package manager and commit
-what it writes.
-
-If the lockfile cannot be read, or is implausibly large, `validate` says
-nothing rather than guessing: it never blocks a submit on a file it could not
-inspect.
+what it writes. A lockfile that cannot be read, or is implausibly large, is
+never flagged.
 
 ## The `BLOCK_READY` advisory
 
@@ -79,88 +68,47 @@ inspect.
 declares a `page` surface and **nothing your app loads posts `BLOCK_READY`**,
 it says so.
 
-That is the shape of an app scaffolded before the templates were fixed — it
-renders perfectly everywhere you can look locally and is replaced by a failure
-card in the real host. It is a **warning, never an error**: unlike the lockfile
-rule (where the platform build provably dies), this one infers *runtime*
-behaviour from *static text* and can be wrong, so it must not fail a correct
-project.
+Such an app renders fine locally and is replaced by a failure card in the real
+host. It is a **warning, never an error** — it infers runtime behaviour from
+static text and can be wrong — so it exits `0` unless you pass `--strict`.
+`civitai app submit` prints the same warnings and does not block on them.
 
 ::: warning Copying `civitai-host.js` in is only half the fix
-A browser never fetches a file nothing references, so the emitter has to be
-*loaded* too — a `<script src="./civitai-host.js"></script>` in `index.html`,
-or an `import './civitai-host.js';` at the top of the entry module `index.html`
-loads.
-
-Earlier releases of this check looked only for the *text* `BLOCK_READY`
-anywhere in your tree, so an unreferenced copy silenced it and a still-broken
-app validated clean. It now resolves what your `index.html` actually loads.
+The emitter has to be *loaded* too — a
+`<script src="./civitai-host.js"></script>` in `index.html`, or an
+`import './civitai-host.js';` at the top of the entry module `index.html`
+loads. An unreferenced copy does not satisfy the check.
 :::
-
-Four things follow.
 
 ### It checks REACHABILITY where it can, and says when it can't
 
 Starting at `index.html` it follows every `<script src>`, inline module and
 `import` it can resolve, and asks whether any of *those* files posts the
-message. When that resolution is complete you get a precise finding —
-including "you have an emitter, but nothing loads it".
+message — so it can report "you have an emitter, but nothing loads it".
 
-When it **isn't** — no `index.html` at your project root, a bundler alias
-(`import '@/…'`), a reference to a file that isn't there, an import chain
-deeper than it follows — it falls back to scanning your whole tree for the
-text, and the warning **says so in as many words**: *"it did NOT check that the
-file is loaded"*.
+When it cannot resolve the graph — no `index.html` at your project root, a
+bundler alias (`import '@/…'`), a missing file, an import chain deeper than it
+follows — it falls back to scanning the whole tree for the text, and the
+warning says *"it did NOT check that the file is loaded"*. In that mode an
+unreferenced emitter silences the warning and leaves the app broken.
 
-Read that sentence as it is written. In that mode, adding the emitter without
-referencing it will silence the warning and leave the app broken.
+What else to know:
 
-### A dependency that acks ends the check
-
-Today that is **`@civitai/blocks-react`, and nothing else**. Its iframe
-transport acks internally and the literal never appears in your `src/`, so a
-`page-money` app is never flagged.
-
-This is an *exact* list, not the `@civitai/` scope: `@civitai/app-sdk` is the
-server-side SDK and no runtime code in it posts `BLOCK_READY`, and
-`@civitai/theme` / `@civitai/components` are CSS. Depending on those does not
-give you the handshake, so it does not silence the check either.
-
-### It reads source only
-
-Never `node_modules`, never the conventional build directories (`dist`,
-`build`, `out`, …), and never a `.md` file — a README *describing* the
-handshake is not an implementation of it. Comments are stripped too, so a
-comment naming `BLOCK_READY` does not satisfy it. A `src` that is a **symlink**
-into a shared package *is* followed.
-
-### It stays quiet when it cannot see the whole project
-
-An unreadable file, a file over 2 MiB, a very large tree, or a directory
-holding only a manifest all mean "we could not look" — reported as nothing,
-never as a finding. Likewise a project whose entry graph can't be resolved
-*and* which contains the literal somewhere: quiet, deliberately, because
-warning at a correct project is the more expensive mistake.
-
-### If it fires on a project you know is correct
-
-Your ack arrives from a bundled dependency, or from a file type this scan
-doesn't open — it is a false alarm, and it never blocks (exit `0`) unless you
-pass `--strict`.
-
-What it proves stays narrow even at its strongest: that a file your
-`index.html` really loads *mentions* the message. **It cannot prove the ack
-ever fires**; only the real host can.
-
-`civitai app submit` prints the same warnings before it uploads, and likewise
-does not block on them.
-
-::: warning If you already run `civitai app validate --strict` in CI
-This advisory can turn a previously-green project red — which is what
-`--strict` asks for. If it is a false alarm for your project, drop `--strict`
-or add the ack, and please open an issue: a warning at a correct project is a
-bug in the check, not something you should have to work around.
-:::
+- **`@civitai/blocks-react` is the only dependency that counts as an ack** — its
+  iframe transport acks internally, so a `page-money` app is never flagged.
+  `@civitai/app-sdk`, `@civitai/theme` and `@civitai/components` do not post
+  `BLOCK_READY` and do not silence it.
+- **It reads source only** — never `node_modules`, build directories (`dist`,
+  `build`, `out`, …) or `.md` files, and comments are stripped. A `src` that is
+  a **symlink** into a shared package *is* followed.
+- **It stays quiet when it cannot see the whole project** — an unreadable file,
+  a file over 2 MiB, a very large tree, a directory holding only a manifest, or
+  an unresolvable entry graph whose tree contains the literal somewhere.
+- **It cannot prove the ack ever fires** — at best, that a file `index.html`
+  loads *mentions* the message.
+- **False alarm** (your ack comes from a bundled dependency, or a file type it
+  doesn't open)? Under `--strict` in CI, drop `--strict` or add the ack, and
+  please open an issue.
 
 ## The `--json` result shape
 
@@ -173,34 +121,22 @@ bug in the check, not something you should have to work around.
 }
 ```
 
-Two guarantees, both of which an earlier release broke:
+- **`field` is on every finding, never `null` or empty**, semantic findings
+  included (sandbox, justification and money-path rules).
+- **It uses dotted paths** — `blockId`, `iframe.sandbox`, `scopes[1]`,
+  `targets[0].slotId`, `scopeJustifications.<scope>`. **If your scripts match
+  `/`-prefixed fields (`/blockId`), update them.**
 
-- **`field` is present on every finding, and is never `null` or empty.** It
-  used to be recovered by parsing the message text, which worked only for the
-  JSON Schema errors — so every *semantic* finding (the sandbox rules, the
-  justification rules, the money-path warnings: the ones a local pre-check
-  exists for) arrived as `"field": null`, and grouping by field in CI silently
-  dropped them. Findings now carry their field from where they are produced.
-- **One notation: dotted paths.** `blockId`, `iframe.sandbox`, `scopes[1]`,
-  `targets[0].slotId`, `scopeJustifications.<scope>` — the same way the
-  human-readable messages and the schema name fields. Earlier releases mixed
-  JSON Pointer (`/blockId`, `/scopes/1`) into `--json` while the text output
-  used dotted; **if you were matching on `/`-prefixed fields, update your
-  scripts.**
-
-Two findings have no single manifest field, and say so explicitly rather than
-omitting the key:
+Two findings have no single manifest field:
 
 | `field` | meaning |
 | --- | --- |
 | `(root)` | the manifest **document** — it is missing, unparseable, or the schema reports a violation at the top level (e.g. `missing properties 'blockId', 'version', …`). |
 | `(project)` | **repository state outside the manifest** — the committed lockfile, or the source tree the `BLOCK_READY` advisory reads. No manifest edit alone resolves these. |
 
-`ok` already accounts for `--strict`: it is `false` when there are hard errors,
-and also when `--strict` is passed and there are warnings. The process exit
-code matches, and the JSON goes to **stdout** while the failure is reported on
-**stderr** — so `civitai app validate --json | jq` works on a project that
-fails *validation*.
+`ok` is `false` on hard errors, and on warnings under `--strict`; the exit code
+matches. The JSON goes to **stdout** and the failure to **stderr**, so
+`civitai app validate --json | jq` works on a project that fails *validation*.
 
 ### A refused path emits no object at all
 
@@ -208,8 +144,8 @@ fails *validation*.
 This object is written only when validation actually produced a result.
 :::
 
-A path that does **not exist**, or that is not a directory, is a mistake about
-the invocation: it writes **nothing** to stdout and exits `2`.
+A path that does **not exist**, or is not a directory, writes **nothing** to
+stdout and exits `2`.
 
 ```console
 $ civitai app validate ./definitely-not-here --json
@@ -218,22 +154,13 @@ $ echo $?
 2
 ```
 
-It used to print `{"ok": false, "dir": "/nope", "errors": [ … ]}` and exit `1`
-— a fabricated validation result, complete with a finding about a manifest
-nobody could have written.
+A project directory the CLI cannot **stat** (unreadable, or a path component
+below it is not a directory), or an internal schema failure, produces no result
+either: no object, exit `1`.
 
-A failure that produces **no validation result at all** likewise emits no
-object and exits `1`: a project directory the CLI cannot **stat** (it is
-unreadable, or a component of the path below it is not a directory), and in
-principle an internal schema failure, which is a directory the CLI *can* read
-that still yields nothing to print.
-
-::: tip An unreadable `block.manifest.json` is not one of those cases
-It is a validation *verdict*, and the object is printed in full with a single
-`(root)` finding carrying the `permission denied` message. The distinction is
-how far the CLI got before it stopped: it could not read your *manifest*, which
-is something to report about the project; it could not read the *directory*,
-which is nothing at all.
+::: tip An unreadable `block.manifest.json` is a verdict, not one of those cases
+The object is printed in full, with a single `(root)` finding carrying the
+`permission denied` message.
 :::
 
 | exit | stdout |
@@ -245,10 +172,8 @@ which is nothing at all.
 ### Reading it from a script
 
 ::: danger `jq -e` is the wrong tool for reading `ok`
-It exits `1` on a JSON `false`, which is indistinguishable from its exit code
-for a missing key — so the obvious one-liner reports a *failing but perfectly
-well-formed* result as "no result", which is the one distinction this whole
-section exists to draw.
+It exits `1` on a JSON `false` and on a missing key alike, so it cannot tell a
+failing result from no result.
 :::
 
 Test for an empty string instead, and read `ok` as a value:
@@ -267,13 +192,6 @@ case $rc in
     ;;
 esac
 ```
-
-## The durable fix
-
-A server-side `civitai app validate` endpoint calling the real validator — the
-faithful contract — with this schema published as the syntactic half. Until
-that exists, vendoring is on purpose: a local answer is *cheaper* than a
-round-trip, and for validation a stale local copy is a cost worth paying.
 
 ## Where to go next
 

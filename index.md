@@ -27,7 +27,7 @@ features:
     link: /apps/
     linkText: Build an app
   - title: OAuth
-    details: Let users sign into your app with their Civitai account. Authorization code + PKCE, scoped tokens, refresh, and per-app buzz spend caps.
+    details: Let users sign into your app with their Civitai account. Authorization code + PKCE, scoped tokens, refresh, and per-app Buzz spend caps.
     link: /site/oauth/
     linkText: Integrate OAuth
   - title: Recipes

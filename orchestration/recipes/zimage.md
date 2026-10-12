@@ -99,7 +99,6 @@ Both share the same `engine: "sdcpp"`, `ecosystem: "zImage"` invocation — they
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
 - No checkpoint URN needed — the ecosystem ships its own models; you pick between `base` and `turbo` via the `model` field
 
 ## The request shape
@@ -155,7 +154,7 @@ Keep `cfgScale` at `1` and `steps` at `8`–`12`. Pushing either up negates the 
 
 ### Batching with turbo
 
-Turbo's low cost makes it a natural fit for multi-image calls. `quantity` up to `12` is supported on the schema, though you'll generally hit the 100-second request timeout above ~4–6 depending on dimensions:
+Turbo's low cost makes it a natural fit for multi-image calls. `quantity` up to `12` is supported on the schema, though above ~4–6 (depending on dimensions) a call will generally outlast [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline):
 
 ```json
 {
@@ -279,25 +278,7 @@ Both `turbo` and `base` share the same schema — only defaults differ. See the 
 
 ## Reading the result
 
-A successful `imageGen` step emits an `images[]` array — one entry per `quantity`:
-
-```json
-{
-  "status": "succeeded",
-  "steps": [{
-    "name": "0",
-    "$type": "imageGen",
-    "status": "succeeded",
-    "output": {
-      "images": [
-        { "id": "blob_...", "url": "https://.../signed.jpeg" }
-      ]
-    }
-  }]
-}
-```
-
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL.
+Standard `imageGen` output: an `images[]` array, one entry per `quantity` ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 ## Runtime
 
@@ -310,7 +291,7 @@ Turbo's cost advantage shows up most clearly in batch mode — `quantity: 4` on 
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 Same per-pixel / per-step shape for both variants — different base cost and reference step count:
 
@@ -330,6 +311,8 @@ Examples:
 
 ## Troubleshooting
 
+Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](/orchestration/recipes/#common-troubleshooting).
+
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `400` with unknown property | Field not valid for the ecosystem (e.g. `guidanceScale` — that's a Flux knob, not sdcpp) | Z-Image uses the sdcpp knob names: `cfgScale`, `steps`, `sampleMethod`, `schedule`. |
@@ -340,15 +323,13 @@ Examples:
 | Base output ignores the prompt | `cfgScale` too low or prompt too short | Raise `cfgScale` toward `5`; add lighting / composition cues. |
 | LoRA silently has no effect | Wrong AIR URN, unpublished / private model, wrong ecosystem | Verify the URN on the LoRA's Civitai page; Z-Image LoRAs must be tagged for the `zImage` ecosystem. |
 | Request timed out (`wait` expired) | Large `quantity`, large dimensions, or cold worker | Resubmit with `wait=0` and poll. Turbo is less likely to time out than base for the same dimensions. |
-| Step `failed`, `reason = "blocked"` | Prompt hit content moderation | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Flux 2 image generation](./flux2) — higher-fidelity alternative with createVariant / editImage support
 - [Flux 1 image generation](./flux1) — other sdcpp-hosted Flux ecosystem
 - [Image upscaling](./image-upscaler) — chain after `imageGen` for higher-res output
 - [Prompt enhancement](./prompt-enhancement) — LLM-rewrite a prompt before feeding it in via `$ref`
 - Full parameter catalog: the `ZImageBaseCreateImageGenInput` and `ZImageTurboCreateImageGenInput` schemas in the [API reference](/orchestration/reference/)
-- [`imageGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `imageGen` surface; import into Postman / OpenAPI Generator
+- [`imageGen` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml)

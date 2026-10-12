@@ -1,6 +1,6 @@
 ---
 title: App Store sub-listings
-description: How an app publishes items its viewers made — one generator, one preset — as their own cards in the /apps store, under the viewer's name. The apps:store:items:write scope, the three block REST routes, their limits and error codes, and the moderator review every item goes through.
+description: Publishing items your viewers make as their own /apps store cards — the apps:store:items:write scope, the three REST routes, limits, error codes and review.
 sources:
   - civitai:src/pages/api/v1/blocks/sub-listings/upsert.ts
   - civitai:src/pages/api/v1/blocks/sub-listings/withdraw.ts
@@ -12,7 +12,7 @@ sources:
 # App Store sub-listings
 
 An app can place individual items it contains into the
-[`/apps` store](https://civitai.com/apps) as **their own cards**, badged
+[`/apps` store](https://civitai.com/apps) (still gated while the store is pre-GA) as **their own cards**, badged
 "in ‹your app›" — **sub-listings** of your app's own listing. A sub-listing is
 something a viewer made inside your app and saved to your app's [shared storage](../reference/scopes) — one generator, one
 preset — and it is published **by that viewer, under their name**. Opening the

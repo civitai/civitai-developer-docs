@@ -4,7 +4,7 @@ title: API Reference
 
 # API Reference
 
-Every consumer-facing operation, request schema, and response shape in the Civitai Orchestration API. Pages here are generated from the OpenAPI specification ([`v2-consumers.json`](https://orchestration.civitai.com/openapi/v2-consumers.json)) and stay in sync with the running API on every build.
+Every consumer-facing operation, request schema, and response shape in the Civitai Orchestration API. Pages here are generated from a snapshot of the orchestration API's OpenAPI specification ([`v2-consumers.json`](/openapi/v2-consumers.json)), refreshed periodically.
 
 ## Conventions
 
@@ -22,7 +22,7 @@ Most consumer integrations only touch three operations:
 - [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — poll a single workflow
 - [`QueryWorkflows`](/orchestration/reference/operations/QueryWorkflows) — list / filter workflows
 
-The left sidebar is grouped by OpenAPI tag — **Workflows**, **WorkflowSteps**, **Recipes**, **Blobs**, **Resources**. Recipes have per-endpoint variants (one per job type) if you prefer the typed surface over the polymorphic `SubmitWorkflow` body.
+The sidebar is grouped by OpenAPI tag. Recipes offer one typed endpoint per job type as an alternative to the polymorphic `SubmitWorkflow` body.
 
 ## Rate limits & quotas
 

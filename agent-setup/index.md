@@ -12,14 +12,14 @@ Copilot, Windsurf, Zed, whatever you use:
 Fetch and execute the appropriate instructions to set me up for Civitai from https://civitai.com/agent-onboarding
 ```
 
-That address is a short alias. It redirects to the raw instruction file at
-`developer.civitai.com`, which is the canonical address and the one linked below
-— the redirect is there so the line above is short enough to say out loud.
+That short address redirects to the raw instruction file at
+`developer.civitai.com`, linked below.
 
 The agent fetches the instructions, installs the
 [Civitai CLI](https://github.com/civitai/cli), runs `civitai agent-setup`, and
-reports what it did. It stops before authentication — the last thing it tells
-you is to run `civitai login` yourself.
+reports what it did. It stops before authentication: the last thing it does is
+show you the sign-in steps for your agent (the `Authentication:` and `Next:`
+sections that `civitai agent-setup` prints) for you to run yourself.
 
 ## What it actually does
 
@@ -28,16 +28,13 @@ you is to run `civitai login` yourself.
 - Registers two remote Civitai MCP servers in *your* agent's own config file —
   `https://mcp.civitai.com/mcp` (the platform) and
   `https://orchestration.civitai.com/mcp` (generation orchestration). The config
-  path and the key name differ per agent, which is exactly why a command does it
-  rather than you. This is the one change that persists outside your project
-  directory: your agent will connect to both hosts on every start.
+  path and key name differ per agent. This is the only change outside your
+  project: your agent will connect to both servers on every start.
 - Verifies the result and prints it.
 
 ## The full prompt
 
-Here is the whole file, exactly as it is served. Nothing is elided: the block
-below is copied from the served file by a script, and a check on every pull
-request fails if the two ever disagree.
+This is the exact file your agent fetches, unabridged.
 
 <!-- BEGIN GENERATED: agent-setup-prompt — verbatim copy of public/agent-setup/prompt.md. Do not edit by hand; run `npm run gen:agent-setup-page`. -->
 
@@ -93,8 +90,8 @@ above; do not report the Homebrew failure as a problem.
 
 ### If the install fails
 
-Two failures were measured on a real machine — not the only ways an install can
-fail. On a third, report the exact error and stop rather than guessing.
+Two common failures are below; they are not the only ways an install can fail.
+On any other, report the exact error and stop rather than guessing.
 
 - **npm fails with `EACCES`, or with `ENOENT` on a `mkdir` under npm's global
   prefix.** The prefix is not writable. This is normal on NixOS, in some
@@ -118,9 +115,8 @@ fail. On a third, report the exact error and stop rather than guessing.
 
 A **successful** npm 11 install still ends with a warning that `@civitai/cli`'s
 `postinstall` is "not yet covered by allowScripts". That is an advisory about a
-future npm policy, not a report that the script was skipped — measured on npm
-11.19, the postinstall ran and the platform binary was on disk before the CLI
-was run once. Do not stop, and do not re-install with an allow-scripts flag.
+future npm policy, not a report that the script was skipped: the postinstall
+still runs. Do not stop, and do not re-install with an allow-scripts flag.
 Step 4 tells you whether the install worked.
 
 ## 3. Configure this agent
@@ -219,11 +215,8 @@ command it tells you to scaffold with — do not pick one yourself.
 
 <!-- END GENERATED: agent-setup-prompt -->
 
-The raw file — the machine copy an agent fetches, byte for byte — is at
+Raw file (served as `text/markdown`, so a browser may download it rather than display it):
 [https://developer.civitai.com/agent-setup/prompt.md](https://developer.civitai.com/agent-setup/prompt.md).
-It is served as `text/markdown` for the benefit of agent fetchers, so a browser
-will offer to save it rather than display it; the text above is the copy meant
-for you to read.
 
 ## If you'd rather do it by hand
 
@@ -231,10 +224,12 @@ for you to read.
 npm install -g @civitai/cli   # or, on macOS only: brew install civitai/tap/civitai
 civitai agent-setup --track app
 civitai agent-setup --check --json
-civitai login
 ```
 
-Then restart your agent so the MCP servers load.
+Then follow the `Authentication:` and `Next:` sections that
+`civitai agent-setup --track app` printed — they are agent-specific, and
+`civitai login` on its own signs in only this CLI, not your agent's MCP servers.
+Restart your agent so the MCP servers load.
 
 Building an app is documented in the [Apps guide](/apps/guide/); the manifest,
 scopes, hooks and CLI are in the [Apps reference](/apps/reference/).

@@ -132,11 +132,11 @@ Identical queries are cached for a while, so repeating the same search is fast a
 | Search only | 1–5 s | `wait=30` |
 | With `scrapeFormats` | 5–30 s | `wait=60` |
 
-For anything past the 100 s request timeout, use webhooks — see [Results & webhooks](/orchestration/guide/results-and-webhooks).
+For anything that may outlast your HTTP client's timeout, submit with `wait=0` and use webhooks — see [Results & webhooks](/orchestration/guide/results-and-webhooks).
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz).
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 | Operation | Buzz |
 |---|---|
@@ -152,8 +152,7 @@ Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact 
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Web scrape](/orchestration/recipes/web-scrape) — fetch a single known URL
 - [Chat completion](/orchestration/recipes/chat-completion#server-executed-web-search) — let the model search the web itself via `civitai:web_search`
 - Full parameter catalog: the `WebSearchInput` schema in the [API reference](/orchestration/reference/)

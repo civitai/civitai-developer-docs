@@ -11,7 +11,7 @@
       "displayName": "Civitai Developer Docs Index (llms.txt)",
       "type": "text/plain",
       "url": "https://developer.civitai.com/llms.txt",
-      "description": "Flat index of every page on this site: one hop from this file to the leaf you need. Read this before fetching llms-full.txt, which is ~1.2 MB.",
+      "description": "Flat index of every page on this site: one hop from this file to the leaf you need. Read this before fetching llms-full.txt, which is ~1.8 MB.",
       "tags": [
         "civitai",
         "documentation",
@@ -27,7 +27,7 @@
       "displayName": "Civitai Developer Docs, Full Text (llms-full.txt)",
       "type": "text/plain",
       "url": "https://developer.civitai.com/llms-full.txt",
-      "description": "Every documentation page concatenated into one file. Large (~1.2 MB); prefer llms.txt and fetch only the leaves it names.",
+      "description": "Every documentation page concatenated into one file. Large (~1.8 MB); prefer llms.txt and fetch only the leaves it names.",
       "tags": [
         "civitai",
         "documentation",

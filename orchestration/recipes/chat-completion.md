@@ -361,7 +361,7 @@ Add a tool of type `civitai:web_search` and the orchestrator runs the tool loop 
 Notes:
 
 - Not supported with `stream: true` — the request is rejected.
-- Available on OpenRouter-routed models. AIR-routed models fail until search-capable workers roll out more widely.
+- Available on OpenRouter-routed models; AIR-routed models don't support it.
 - The loop is bounded (up to 4 tool rounds); each round costs a model call, so expect a few seconds per round. The final response's `usage` includes tokens from the intermediate rounds.
 - Each executed `web_search` / `fetch_page` call adds **1 Buzz** on top of the model-token cost, billed after the run completes — a `whatif=true` preview cannot include it because the number of tool calls is up to the model.
 - `civitai:web_search` can be combined with your own function tools, but if the model calls one of *your* tools the loop stops and the `tool_calls` response is returned to you as usual.

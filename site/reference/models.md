@@ -32,7 +32,7 @@ GET /api/v1/models
 | `types` | `ModelType` or `ModelType[]` | — | One or more of the values from `GET /enums` (`ModelType`). Repeat the param or comma-separate. |
 | `baseModels` | string or string[] | — | Filter by base model (e.g. `SDXL 1.0`, `Flux.1 D`). See `GET /enums` (`BaseModel`). |
 | `checkpointType` | `Standard` \| `Trained` \| `Merge` | — | For checkpoint models only. |
-| `sort` | `Highest Rated` \| `Most Downloaded` \| `Newest` \| ... | `Highest Rated` | See source for full list. |
+| `sort` | `Highest Rated` \| `Most Downloaded` \| `Most Liked` \| `Most Discussed` \| `Most Collected` \| `Most Images` \| `Newest` \| `Oldest` | `Highest Rated` | Any other value is a `400`. |
 | `period` | `AllTime` \| `Year` \| `Month` \| `Week` \| `Day` | `AllTime` | Time window for sort metrics. |
 | `nsfw` | boolean | `false` | If `true`, include mature content. Ignored on SFW-gated regions. |
 | `supportsGeneration` | boolean | — | Only return models supported by on-site generation. |
@@ -111,9 +111,7 @@ Unknown params are silently ignored after Zod parsing; invalid ones return `400`
   ],
   "metadata": {
     "nextCursor": "75363|932023|257749",
-    "nextPage": "https://civitai.com/api/v1/models?limit=100&cursor=...",
-    "currentPage": 1,
-    "pageSize": 100
+    "nextPage": "https://civitai.com/api/v1/models?limit=100&cursor=..."
   }
 }
 ```

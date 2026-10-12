@@ -9,17 +9,13 @@ The **Civitai Vault** is a personal collection of model versions kept on
 behalf of a paid member. It survives even if the original model is deleted
 from the site, so creators can keep using resources they relied on.
 
-::: warning Membership required
-All vault endpoints require an active Civitai membership (`bronze`, `silver`,
-`gold`, or `founder`). Free-tier callers get a `200` response with
-`{"vault": null}` — there is no `403` to distinguish "no membership" from
-"empty vault". Check [`GET /me`](./users#get-the-current-user) for the
-caller's `tier` if you need to gate ahead of time.
-:::
-
-::: warning Authentication
-All vault endpoints require a Civitai API token. Pass it as
-`Authorization: Bearer <token>`. See [Authentication](../guide/authentication).
+::: warning Token and membership required
+All vault endpoints require an API token (`Authorization: Bearer <token>`; see
+[Authentication](../guide/authentication)) and an active membership (`bronze`,
+`silver`, `gold` or `founder`). Free-tier callers get `200 {"vault": null}` —
+there is no `403` to distinguish "no membership" from "empty vault". Check the
+caller's `tier` with [`GET /me`](./users#get-the-current-user) to gate ahead of
+time.
 :::
 
 ## Get or create the vault
@@ -51,8 +47,6 @@ Returns the caller's vault, creating one on first call.
 | `usedStorageKb` | Sum of `modelSizeKb + detailsSizeKb + imagesSizeKb` across all items. |
 | `meta` | Free-form metadata bag. Reserved for future use. |
 | `updatedAt` | When the vault row last changed. |
-
-Free-tier callers get `{"vault": null}` instead.
 
 ### Example
 
@@ -223,6 +217,6 @@ curl -X POST -H "Authorization: Bearer $CIVITAI_TOKEN" \
 
 ::: tip
 The "Try It" widget is GET-only, so this endpoint can only be exercised from a
-shell. Run the curl above (it's idempotent — calling it twice puts the version
+shell. Run the curl above (it's a toggle — calling it twice puts the version
 back).
 :::

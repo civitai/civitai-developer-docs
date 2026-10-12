@@ -4,12 +4,12 @@ title: Submitting Work
 
 # Submitting Work
 
-The orchestrator gives you two ways to submit a workflow:
+There are two ways to submit a workflow:
 
-1. **Generic** — [`POST /v2/consumer/workflows`](/orchestration/reference/operations/SubmitWorkflow) with a `steps` array and polymorphic `$type` on each step. Use when you're chaining steps, mixing step types, or building a typed SDK that handles the discriminator itself.
-2. **Per-recipe** — `POST /v2/consumer/recipes/{recipe}` with a single typed body (no `$type`). Each recipe is a convenience endpoint that wraps a single-step workflow. Use when your integration only runs one step type and you want the cleanest schema surface — e.g. [`InvokeChatCompletionStepTemplate`](/orchestration/reference/operations/InvokeChatCompletionStepTemplate), [`InvokeComfyStepTemplate`](/orchestration/reference/operations/InvokeComfyStepTemplate), etc.
+1. **Generic** — [`POST /v2/consumer/workflows`](/orchestration/reference/operations/SubmitWorkflow) with a `steps` array and polymorphic `$type` on each step. Use it to chain steps, mix step types, attach callbacks, tags, metadata or `upgradeMode`, or when your SDK handles the discriminator itself.
+2. **Per-recipe** — `POST /v2/consumer/recipes/{recipe}` with a single typed body (no `$type`). Each recipe wraps a single-step workflow. Use it when you only run one step type and want the simplest typed body — e.g. [`InvokeChatCompletionStepTemplate`](/orchestration/reference/operations/InvokeChatCompletionStepTemplate), [`InvokeComfyStepTemplate`](/orchestration/reference/operations/InvokeComfyStepTemplate), etc.
 
-Both paths return the same [`Workflow`](/orchestration/reference/operations/GetWorkflow) shape. Pick whichever maps more cleanly to your caller; you can mix freely.
+The generic path returns a [`Workflow`](/orchestration/reference/operations/GetWorkflow); a recipe returns only its step's output. You can mix them freely.
 
 ## The generic path
 
@@ -43,7 +43,7 @@ Everything in the table lives alongside `steps`. See the full [`WorkflowTemplate
 | `callbacks` | Webhooks for lifecycle events — see [Results & webhooks](./results-and-webhooks). |
 | `tags` | Indexed string tags for later lookup via [`QueryWorkflows`](/orchestration/reference/operations/QueryWorkflows). Great for tenant / campaign / user IDs. |
 | `metadata` | Arbitrary JSON attached to the workflow. Not indexed — use for notes, correlation IDs, UI hints. |
-| `arguments` | Reserved for templating values referenced by steps. |
+| `arguments` | Values steps can read via `{ "$ref": "$arguments" }` — see [Workflow arguments](./workflows#workflow-arguments). |
 | `allowMatureContent` | Controls mature-content gating and which Buzz currency pays — see [Payments (Buzz)](#payments-buzz) below. |
 | `experimental` | Marks the workflow as experimental; may relax some guardrails. |
 | `upgradeMode` | How to handle a workflow paid with blue/green Buzz that turns out to produce mature content — see [Payments (Buzz)](#payments-buzz). |
@@ -54,7 +54,7 @@ Everything in the table lives alongside `steps`. See the full [`WorkflowTemplate
 
 | Param | Default | Purpose |
 |-------|---------|---------|
-| `wait` | `0` | Seconds to block waiting for the workflow to finish, capped by the **100-second request timeout**. If the workflow hasn't reached a terminal state by then, you get a `202` with the in-flight workflow — keep the `id` and continue via webhooks or polling. |
+| `wait` | `0` | Seconds to block waiting for the workflow to finish; keep it below [your HTTP client's timeout](./getting-started#_3-poll-if-you-didn-t-wait-inline). If it is still running then, you get a `202`. |
 | `whatif` | `false` | If `true`, validates and resolves the workflow (provider, estimated cost, required resources) without actually running it. Great for CI smoke tests and cost previews. |
 | `hideMatureContent` | `false` | If `true`, mature blobs on the response won't include a `url`. Useful for rendering in user-facing UIs without re-checking policy per-blob. |
 
@@ -71,7 +71,7 @@ Everything in the table lives alongside `steps`. See the full [`WorkflowTemplate
 
 ## Payments (Buzz)
 
-Workflows are paid for with **Buzz**, Civitai's on-platform currency. Buzz balances live on your civitai.com account, not on the workflow — you never pass dollar amounts in the API. Three flavors matter for the orchestrator:
+Workflows are paid for with **Buzz**, Civitai's on-platform currency, from the balances on your civitai.com account; you never pass dollar amounts in the API. There are three currencies:
 
 | Currency | Earned / bought | Valid for |
 |----------|-----------------|-----------|
@@ -81,11 +81,11 @@ Workflows are paid for with **Buzz**, Civitai's on-platform currency. Buzz balan
 
 ### Default charging
 
-If you don't set `currencies`, the orchestrator charges your account in order **blue → green → yellow**, splitting across currencies if needed (e.g. spend all your blue first, top up the remainder with green or yellow). This maximises the value of earned Buzz.
+If you don't set `currencies`, the orchestrator charges your account in order **blue → green → yellow**, splitting across currencies if needed (all your blue first, the remainder from green, then yellow).
 
 ### Restricting to specific currencies
 
-Set `currencies` on the workflow body to cap which accounts can settle it:
+Set `currencies` to limit which accounts can settle the workflow:
 
 ```json
 {
@@ -111,12 +111,12 @@ If the workflow was paid with blue or green Buzz (SFW) but the generated content
 
 ### Previewing cost
 
-Use `whatif=true` to get a cost estimate back without actually running the workflow. The response includes per-currency breakdowns so you can show users what they'd be charged before they commit.
+`whatif=true` returns a cost estimate, broken down per currency, without running the workflow.
 
 ## The per-recipe path
 
 ```http
-POST https://orchestration.civitai.com/v2/consumer/recipes/chatCompletion?whatif=false&wait=60
+POST https://orchestration.civitai.com/v2/consumer/recipes/chatCompletion?whatif=false
 Authorization: Bearer <your-token>
 Content-Type: application/json
 
@@ -128,25 +128,16 @@ Content-Type: application/json
 }
 ```
 
-Each `/v2/consumer/recipes/{recipe}` endpoint is a thin wrapper that builds a single-step workflow for you, so:
+Each `/v2/consumer/recipes/{recipe}` endpoint builds a single-step workflow for you, so:
 
 - The request body is the step's `input` schema directly — no `$type`, no `steps` array.
-- `whatif`, `wait`, `hideMatureContent` still apply.
-- Callbacks aren't expressible here — if you need webhooks, use the generic path.
-- The response is still a full [`Workflow`](/orchestration/reference/operations/GetWorkflow).
-
-## Choosing between them
-
-| Your situation | Use |
-|----------------|-----|
-| Single step type, no callbacks, want a typed request body | Per-recipe |
-| Multiple steps chained (e.g. generate → upscale → transcode) | Generic |
-| Need webhooks, tags, metadata, or upgrade control | Generic |
-| Building an SDK that consumes the polymorphic `steps` array generically | Generic |
+- The query parameters are `whatif`, `allowMatureContent`, `experimental`, `ephemeral` and `tier`. There is no `wait` or `hideMatureContent`, and no callbacks, tags, metadata or `upgradeMode` — use the generic path for those.
+- The call blocks until the workflow finishes (there is no `202`), and the workflow is canceled if the connection drops first. Use the generic path for anything that may outlast [your HTTP client's timeout](./getting-started#_3-poll-if-you-didn-t-wait-inline).
+- The response is the step's output (e.g. `ChatCompletionOutput`), not a `Workflow`.
 
 ## Updating and querying
 
-Once submitted, a workflow is live until it reaches a terminal state. You can:
+After submitting, you can:
 
 - [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — fetch by ID
 - [`QueryWorkflows`](/orchestration/reference/operations/QueryWorkflows) — list by tag, status, date range
@@ -154,13 +145,11 @@ Once submitted, a workflow is live until it reaches a terminal state. You can:
 - [`AddWorkflowTag`](/orchestration/reference/operations/AddWorkflowTag) / [`RemoveWorkflowTag`](/orchestration/reference/operations/RemoveWorkflowTag) — tag maintenance
 - [`DeleteWorkflow`](/orchestration/reference/operations/DeleteWorkflow) — cancel / remove
 
-::: warning Breaking changes
-`UpdateWorkflow` (`PUT`) now returns `200` with the full workflow body instead of `204 No Content`,
-and accepts `?whatif=true` to price a change without applying it.
+`UpdateWorkflow` (`PUT`) returns `200` with the full workflow body, and accepts `?whatif=true` to
+price a change without applying it.
 
-Resource `availability` gained a `queued` status. A resource that previously reported
-`unavailable` with a `queuePosition` now reports `queued`; `unavailable` is left to mean
-"eligible, but nothing is fetching it". Clients that exhaustively match on `status` must handle it.
-:::
+Resource `availability.status` includes `queued`: a resource waiting in a download queue (it carries a
+`queuePosition`) reports `queued`, while `unavailable` means "eligible, but nothing is fetching it".
+Clients that exhaustively match on `status` must handle both.
 
-For step-level updates (e.g. rewriting `input` before execution, if still `unassigned`), use [`UpdateWorkflowStep`](/orchestration/reference/operations/UpdateWorkflowStep) / [`PatchWorkflowStep`](/orchestration/reference/operations/PatchWorkflowStep).
+[`UpdateWorkflowStep`](/orchestration/reference/operations/UpdateWorkflowStep) / [`PatchWorkflowStep`](/orchestration/reference/operations/PatchWorkflowStep) update a step's `metadata` (the only field they accept) in any state; a step's `input` can't be changed.

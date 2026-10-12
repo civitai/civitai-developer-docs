@@ -173,14 +173,13 @@ Qwen is Alibaba's image-generation family. The orchestrator exposes three invoca
 | `engine` | Model | Best for | Notes |
 |----------|-------|----------|-------|
 | `sdcpp` (ecosystem `qwen`) | `20b` | **Default** — Qwen-Image 20B on Civitai workers | `createImage` / `createVariant` / `editImage`. Version picker (`latest`, `2509`, `2512`, `2511`). LoRA support. |
-| `qwen` | `3.0-pro` … `edit` | The full Alibaba-hosted catalog, including the newest releases | `createImage` / `editImage`. Explicit `width`/`height`. No LoRA support. |
+| `qwen` | `3.0-pro`, `2.0-pro`, `2.0` | The full Alibaba-hosted catalog, including the newest releases | `createImage` / `editImage`. Explicit `width`/`height`. No LoRA support. |
 | `fal` | `qwen2` | The Qwen-Image-2 tier under a stable, FAL-shaped request | `createImage` / `proCreateImage` / `editImage` / `proEditImage`. `imageSize` enum instead of width/height. No LoRA support. |
 
-**Default choice for new integrations**: `engine: "sdcpp"`, `ecosystem: "qwen"`, `model: "20b"`. Reach for `engine: "qwen"` when you want a model Civitai doesn't host itself — Qwen-Image 3.0 Pro or 2.0 Pro.
+**Default choice**: `engine: "sdcpp"`, `ecosystem: "qwen"`, `model: "20b"`. Reach for `engine: "qwen"` when you want a model Civitai doesn't host itself — Qwen-Image 3.0 Pro or 2.0 Pro.
 
 ## Prerequisites
 
-- A Civitai orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites))
 - For `editImage` / `createVariant`: one or more source image URLs, data URLs, or Base64 strings
 
 ## sdcpp — Qwen-Image 20B (default path)
@@ -236,7 +235,7 @@ Common sdcpp-qwen parameters:
 |-----------|--------------|-------|
 | `latest` | all ops | Follows whatever release Civitai is currently pinning to. Recommended unless you need reproducibility against a specific release. |
 | `2509` | all ops | September 2025 release snapshot. |
-| `2512` | create / variant | December 2025 release — latest generation-side release at the time of writing. |
+| `2512` | create / variant | December 2025 release. |
 | `2511` | edit | November 2025 release — edit-specific snapshot. |
 
 ```json
@@ -374,22 +373,12 @@ land first. Two operations — `createImage` and `editImage` — with the model 
 | `3.0-pro` | create, edit | 512–2048 per side | 1–6 | Newest generation. Lowest throughput of the family — reserve it for hero shots. |
 | `2.0-pro` | create, edit | 512–2048 per side | 1–6 | Strongest generally-available tier: text rendering, realistic texture, prompt adherence. |
 | `2.0` | create, edit | 512–2048 per side | 1–6 | **Default for `createImage` and `editImage`.** Accelerated; balances quality and throughput. |
-| `max` | create | 5 fixed presets | 1 | **Deprecated** — use `2.0-pro`. Higher realism, fewer artifacts. Text-to-image only. |
-| `plus` | create | 5 fixed presets | 1 | **Deprecated** — use `2.0`. Leans artistic, strong at text-in-image. |
-| `edit-max` | edit | 512–2048 per side | 1–6 | **Deprecated** — use `2.0-pro`. Industrial design, geometric reasoning, character consistency. |
-| `edit-plus` | edit | 512–2048 per side | 1–6 | **Deprecated** — use `2.0`. |
-| `edit` | edit | not settable | 1 | **Deprecated** — use `2.0`. Output matches the input image's shape. |
 
-::: warning Legacy models retire on 2026-10-10
-Alibaba retires `max`, `plus`, `edit-max`, `edit-plus` and `edit` on **2026-10-10 00:00 UTC+8**
-(2026-10-09 16:00 UTC). Until then, workflows using them still run but carry a
-[`modelDeprecated` warning](/orchestration/guide/workflows#warnings) and `Deprecation` / `Sunset`
-response headers; from then on they are rejected with a `400`. `editImage` now defaults to `2.0`.
+::: warning Legacy models are retired
+`max`, `plus`, `edit-max`, `edit-plus` and `edit` were retired on **2026-10-09 16:00 UTC**. A request
+using one is rejected with a `400` that names the replacement: `2.0-pro` for `max` and `edit-max`,
+`2.0` for the others. `editImage` defaults to `2.0`.
 :::
-
-`max` and `plus` accept only Alibaba's fixed presets — `1664×928`, `1472×1104`, `1328×1328`,
-`1104×1472`, `928×1664`. Any other `width`/`height` snaps to whichever preset is closest in aspect
-ratio, so `1024×1024` becomes `1328×1328` rather than erroring.
 
 Omit `width` and `height` entirely to let the model choose: on `createImage` it infers a resolution
 from the prompt, and on `editImage` it matches the input image's aspect ratio at roughly 1024².
@@ -401,7 +390,7 @@ from the prompt, and on `editImage` it matches the input image's aspect ratio at
 | `prompt` | — ✅ | ≤ 5 000 chars | Natural-language works well on Qwen. |
 | `negativePrompt` | *(none)* | ≤ 500 chars | Optional. |
 | `width` / `height` | *(model chooses)* | 512–2048 each | See the sizing rules above. |
-| `quantity` | `1` | `1`–`6`, model-dependent | `max`, `plus` and `edit` generate one image per request. |
+| `quantity` | `1` | `1`–`6` | |
 | `promptExtend` | `true` | boolean | Model-side prompt rewriting. **On by default, and it dominates latency** — measured on `3.0-pro` at 2048×1152: 11 s off vs 98 s on. Set `false` to send your prompt verbatim and generate far faster. |
 | `watermark` | `false` | boolean | Adds Alibaba's "Qwen-Image" watermark bottom-right. |
 | `seed` | random | int32 | Pin for reproducibility. |
@@ -435,7 +424,7 @@ from the prompt, and on `editImage` it matches the input image's aspect ratio at
     "$type": "imageGen",
     "input": {
       "engine": "qwen",
-      "model": "edit-plus",
+      "model": "2.0",
       "operation": "editImage",
       "prompt": "Make it daytime",
       "images": [
@@ -543,25 +532,7 @@ Swap to `proEditImage` for the Pro tier variant.
 
 ## Reading the result
 
-Both engines emit the standard `imageGen` output — an `images[]` array, one entry per `quantity`:
-
-```json
-{
-  "status": "succeeded",
-  "steps": [{
-    "name": "0",
-    "$type": "imageGen",
-    "status": "succeeded",
-    "output": {
-      "images": [
-        { "id": "blob_...", "url": "https://.../signed.jpeg" }
-      ]
-    }
-  }]
-}
-```
-
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL.
+Standard `imageGen` output: an `images[]` array, one entry per `quantity` ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 ## Runtime
 
@@ -573,11 +544,11 @@ Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/or
 | `fal` Qwen2 (create / edit) | 10–30 s | `wait=60` usually fine |
 | `fal` Qwen2 Pro (`proCreateImage` / `proEditImage`) | 20–60 s | `wait=60` sometimes; fall back to `wait=0` on busy periods |
 
-Large `quantity` or atypical aspect ratios push toward the 100-second request timeout — submit with `wait=0` and poll.
+Large `quantity` or atypical aspect ratios can outlast your HTTP client's timeout — submit with `wait=0` and poll.
 
 ## Cost
 
-Billed in Buzz on the workflow's `transactions`. Use `whatif=true` for an exact preview; see [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) for currency selection.
+Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
 **sdcpp Qwen-Image 20B** — per-pixel + per-step scaling, with `editImage` carrying a flat higher base:
 
@@ -605,16 +576,14 @@ total = base × quantity
 
 | `model` | Buzz per image |
 |---------|----------------|
-| `2.0`, `edit-plus`* | **45.5** / **39** |
-| `plus` | **39** |
-| `edit` | **58.5** |
-| `3.0-pro`, `2.0-pro`, `max`, `edit-max` | **97.5** |
-
-\* `2.0` is 45.5; `edit-plus` is 39.
+| `2.0` | **45.5** |
+| `3.0-pro`, `2.0-pro` | **97.5** |
 
 **FAL Qwen2** (`engine: "fal"`) — fixed per operation, per image. `createImage` / `editImage` are cheapest; `proCreateImage` / `proEditImage` cost meaningfully more. Use `whatif=true` to confirm pricing for your shape.
 
 ## Troubleshooting
+
+Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](/orchestration/recipes/#common-troubleshooting). Timeouts here usually mean the Pro tier on a busy queue.
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
@@ -622,22 +591,18 @@ total = base × quantity
 | `400` with "version must be one of" | Picked a version that isn't valid for that operation | Edit supports `latest`/`2509`/`2511`; create + variant support `latest`/`2509`/`2512`. |
 | `400` with unexpected "width/height" error on edit/variant | Dimensions conflict with source resolution | Omit `width`/`height`; they auto-populate from the source. |
 | `400` with "imageSize must be one of" on fal | Arbitrary dimensions on the `fal` path | The `fal` path uses the enum — pick `square_hd`, `landscape_16_9`, etc. Use `engine: "qwen"` or the sdcpp path for arbitrary dimensions. |
-| `400` "does not support custom output dimensions" on `engine: "qwen"` | `width`/`height` sent to `model: "edit"` | That model always matches the input image — omit both fields. |
-| `400` "generates at most 1 image(s)" | `quantity > 1` on `max`, `plus` or `edit` | Those models return a single image per request; submit multiple steps instead. |
+| `400` "Model '…' was retired on …" on `engine: "qwen"` | A retired model (`max`, `plus`, `edit-max`, `edit-plus`, `edit`) | Use the replacement the message names (`2.0` or `2.0-pro`). |
 | Prompt visibly rewritten before generation | `promptExtend` defaults to `true` on `engine: "qwen"` | Set `promptExtend: false` to send it verbatim. |
 | `400` with "images maxItems" | More than 10 source images on sdcpp `editImage`, or more than 3 on fal `editImage` | Trim the array. |
 | LoRA has no effect | Only the sdcpp path supports LoRAs | Switch to `engine: "sdcpp"`, `ecosystem: "qwen"`. |
 | Output ignores the prompt | `cfgScale` too low (Qwen wants ~2.5, far below SD1/SDXL's 7) or `enablePromptExpansion` rewriting your carefully-tuned text | Bump `cfgScale` toward 4 on sdcpp; set `enablePromptExpansion: false` on fal. |
-| Request timed out (`wait` expired) | Large `quantity`, Pro tier on busy queue | Resubmit with `wait=0` and poll. |
-| Step `failed`, `reason = "blocked"` | Prompt or input image hit content moderation | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Flux 2](./flux2) / [Flux 1](./flux1) image generation — alternative open-weights families
 - [SDXL](./sdxl) / [SD1](./sd1) image generation — classic Stable Diffusion ecosystems
 - [Image upscaling](./image-upscaler) — chain after `imageGen` for higher-res output
 - [Prompt enhancement](./prompt-enhancement) — LLM-rewrite a prompt before feeding it in via `$ref`
 - Full parameter catalog: the `Qwen20b<Operation>Input` (sdcpp), `QwenApiCreateImageGenInput` / `QwenApiEditImageGenInput` (qwen) and `Qwen2<Operation>FalImageGenInput` / `Qwen2Pro<Operation>FalImageGenInput` (fal) schemas in the [API reference](/orchestration/reference/)
-- [`imageGen` endpoint OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml) — standalone OpenAPI 3.1 YAML covering the full `imageGen` surface; import into Postman / OpenAPI Generator
+- [`imageGen` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml)

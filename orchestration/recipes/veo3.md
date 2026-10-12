@@ -80,7 +80,7 @@ Google's Veo 3 video generation model, available in two releases (`3.0` and `3.1
 
 **Default choice**: `version: "3.1"`, `mode: "standard"` for maximum quality. Use `mode: "fast"` for iterating; `mode: "lite"` for rapid prototyping or high-volume tasks.
 
-All Veo 3 jobs exceed the [100-second request timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — always submit with `wait=0`.
+Veo 3 jobs run for minutes, longer than [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) — always submit with `wait=0`.
 
 ## Text-to-video
 
@@ -271,30 +271,15 @@ Example costs at **4 s** (Buzz):
 
 ## Reading the result
 
-```json
-{
-  "status": "succeeded",
-  "steps": [{
-    "name": "0",
-    "$type": "videoGen",
-    "status": "succeeded",
-    "output": {
-      "video": { "id": "blob_...", "url": "https://.../signed.mp4" }
-    }
-  }]
-}
-```
-
-Blob URLs are signed and expire — refetch the workflow or call [`GetBlob`](/orchestration/reference/operations/GetBlob) for a fresh URL.
+Standard `videoGen` output: a single `video` blob ([shape and URL expiry](/orchestration/recipes/#reading-results)).
 
 ## Long-running jobs
 
-Standard 8 s typically completes in 3–7 minutes. Fast and Lite are faster. Use `wait=0` + polling or webhooks:
-
-- **Webhooks** (recommended): `type: ["workflow:succeeded", "workflow:failed"]` — see [Results & webhooks](/orchestration/guide/results-and-webhooks)
-- **Polling**: `GET /v2/consumer/workflows/{workflowId}` every 10–30 s
+Standard 8 s typically completes in 3–7 minutes. Fast and Lite are faster. Submit with `wait=0`, then prefer a [webhook](/orchestration/guide/results-and-webhooks) (`workflow:succeeded` / `workflow:failed`) or poll `GET /v2/consumer/workflows/{workflowId}` every 10–30 s.
 
 ## Troubleshooting
+
+Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](/orchestration/recipes/#common-troubleshooting). `blocked` comes from Google's content policy.
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
@@ -303,13 +288,10 @@ Standard 8 s typically completes in 3–7 minutes. Fast and Lite are faster. Use
 | `400` with "duration must be one of" | Sent a duration not in `[4, 6, 8]` | Use only 4, 6, or 8 seconds. |
 | Output lacks audio | `generateAudio: false` | Set `generateAudio: true` (the default). |
 | Step `failed`, `reason = "no_provider_available"` | Google API queue busy | Retry shortly. |
-| Step `failed`, `reason = "blocked"` | Google content policy | Don't retry the same input. |
 
 ## Related
 
-- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — operation used by every example here
-- [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
+- [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — production result handling
 - [WAN video generation](./wan) — open-source alternative
-- [Kling video generation](./kling) — another commercial video model
 - [Kling video generation](./kling) — another commercial video model

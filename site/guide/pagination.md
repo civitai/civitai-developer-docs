@@ -5,9 +5,12 @@ description: Page-based vs. cursor-based pagination on the Civitai site API.
 
 # Pagination
 
-Most list endpoints (`/models`, `/images`, `/creators`, `/tags`) support both
-page-based and cursor-based pagination. Choose cursor-based for anything
-beyond a handful of pages.
+List endpoints differ: `/models` supports both page-based and cursor-based
+pagination; `/images`, `/articles` and `/collections` walk results with a
+cursor (on `/images`, `page` is honoured only for a few lookups — see
+[Images](/site/reference/images)); `/creators` and `/tags` are page-based only.
+Where both are offered, choose cursor-based for anything beyond a handful of
+pages.
 
 ## Page-based
 

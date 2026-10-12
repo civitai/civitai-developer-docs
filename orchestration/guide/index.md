@@ -12,7 +12,7 @@ You submit a **workflow**: a small JSON document describing what you want done. 
 2. Races multiple **providers** (FAL, Google, Bytedance, Civitai workers, and others) to claim each job
 3. Streams results back — blobs (images/video/audio), text, or structured output
 
-You get a single contract. The orchestrator handles provider selection, capacity, retries, and capability matching behind it.
+Provider selection, capacity, retries and capability matching happen behind that single contract.
 
 ## When to use this API
 

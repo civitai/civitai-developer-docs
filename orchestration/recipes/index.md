@@ -15,10 +15,10 @@ These are **Orchestration REST API** recipes — you hold a Bearer token and POS
 - [WAN video generation](./wan) — all WAN versions (2.1–3.0) across FAL, Comfy, Civitai, and Alibaba, with text-to-video, image-to-video, reference-to-video, and edit-video operations
 - [LTX2 video generation](./ltx2) — Lightricks LTX2 and LTX2.3 on Comfy, including the new videoToVideo (style transfer) and audioToVideo (talking-head) operations
 - [Kling video generation](./kling) — Kuaishou Kling (v1/v1.5/v1.6/v2/v2.5-turbo with camera control) and Kling V3 (5 operations, multi-prompt, audio, video-to-video)
-- [Vidu video generation](./vidu) — Vidu 2.0 (flat 600 Buzz, anime style, first-last-frame) and Vidu Q3 (per-second pricing, 4 resolution tiers, turbo mode, native audio)
+- [Vidu video generation](./vidu) — Vidu 2.0 (flat 600 Buzz, anime style, first-last-frame), Vidu Q3 (per-second pricing, 4 resolution tiers, turbo mode, native audio) and Vidu Q4 via FAL (image- and reference-to-video, up to 4K)
 - [Veo 3 video generation](./veo3) — Google Veo 3.0/3.1 in standard / fast / lite tiers; operation inferred from image count; optional synchronized audio track
 - [Gemini Omni video generation](./gemini-omni) — Google Gemini Omni 1.1 Flash; 360p–4K with audio, up to 6 reference images; billed on the seconds actually delivered
-- [MiniMax H3 video generation](./minimax-h3) — MiniMax's native H3 model at 2K; text-to-video, first/last-frame, and reference-to-video with up to 3 reference images, videos, and audio clips
+- [MiniMax H3 video generation](./minimax-h3) — MiniMax's native H3 model at 2K; text-to-video, first/last-frame, and reference-to-video with up to 9 reference images plus 3 videos and 3 audio clips
 - [Seedance video generation](./seedance) — ByteDance Seedance direct on BytePlus; v2 / v2-fast / v2-mini up to 15 s and 1080p, or v2.5 for 30 s single-shot and a 50-asset reference budget
 - [Grok video generation](./grok-video) — xAI Grok-Imagine-Video via FAL; text-to-video, image-to-video, and edit-video with 480p/720p output
 - [FLUX-3 video generation](./flux3-video) — Black Forest Labs FLUX-3 via FAL; text / image / first-last-frame / keyframes / extend plus draftEnhance, 720p–1080p with synchronized audio and a cheap draft-then-enhance loop
@@ -33,14 +33,15 @@ These are **Orchestration REST API** recipes — you hold a Bearer token and POS
 - [Flux 2 image generation](./flux2) — Flux.2 Klein (default, cheap + capable, 4b/9b, supports createVariant) plus Dev / Flex / Pro / Max for higher-fidelity and commercial tiers
 - [Flux 1 image generation](./flux1) — Flux.1 through sdcpp (default, minimal required input) or Comfy, plus the BFL-hosted `flux1-kontext` editing tier
 - [Z-Image generation](./zimage) — lightweight text-to-image on sdcpp; `turbo` (default, distilled, extremely fast + cheap) or `base` when you need more fidelity
-- [Qwen image generation](./qwen) — Qwen-Image 20B on sdcpp (default) or FAL-hosted Qwen2 with a Pro tier; supports createImage + createVariant + editImage
+- [Qwen image generation](./qwen) — Qwen-Image 20B on sdcpp (default), the Alibaba-hosted catalog (`engine: "qwen"`), or Qwen2 under a FAL-shaped request with a Pro tier; supports createImage + createVariant + editImage
 - [MAI Image 2.5 image generation](./mai-image) — Microsoft MAI Image 2.5 via FAL; text-to-image only, eleven aspect ratios (incl. `auto`), flat per-image pricing
 - [Anima image generation](./anima) — anime-tuned sdcpp ecosystem with built-in diffuser, LoRA support, createImage only
 - [ERNIE image generation](./ernie) — Baidu ERNIE Image on Comfy; `ernie` standard + `turbo` distilled variant, built-in diffuser, LoRA support, createImage only
 - [SDXL image generation](./sdxl) — Stable Diffusion XL at 1024² native via sdcpp (default) or Comfy, with createImage + createVariant
 - [SD1 image generation](./sd1) — classic Stable Diffusion 1.5 at 512² via sdcpp (default) or Comfy, with createImage + createVariant
-- [OpenAI image generation](./openai) — GPT-Image 1 / 1.5 and DALL·E 2 / 3 via OpenAI's hosted API
+- [OpenAI image generation](./openai) — GPT-Image 2 (default) / 1.5 / 1 and DALL·E 2 / 3 via OpenAI's hosted API
 - [Google image generation](./google) — Imagen 4 and Nano Banana Pro / 2 / 2 Lite via Vertex AI, with editing + web-search grounding
+- [Krea v2 image generation](./krea) — Krea v2 medium and large tiers via FAL, text-to-image
 - [Gemini image generation](./gemini) — Gemini 2.5 Flash Image (same product as Nano Banana) via the direct Gemini API
 - [Seedream image generation](./seedream) — ByteDance Seedream v3 / v4 / v4.5 / v5.0-lite with native up-to-4096 output + editing
 - [Grok image generation](./grok) — xAI Grok with wide aspect-ratio menu (21 options) + editing
@@ -72,8 +73,9 @@ These are **Orchestration REST API** recipes — you hold a Bearer token and POS
 
 ## Training
 
-Train a LoRA on your own dataset using AI Toolkit. You control training length with `steps`, the number of saved checkpoints with `epochs`, and can resume from an existing LoRA with `continueFrom`. All training runs are async — submit with `wait=0` and follow up via polling or a webhook; `trace: "events"` adds a tail-able log/step stream on each epoch. Cost is `steps × costPerStep + epochs × a per-epoch surcharge` with an 80%-of-default floor (rates vary per ecosystem — see each page); use `whatif=true` to preview the exact charge.
+Train a LoRA on your own dataset using AI Toolkit. You control training length with `steps`, the number of saved checkpoints with `epochs`, and can resume from an existing LoRA with `continueFrom`. All training runs are async — submit with `wait=0`. Cost is `steps × costPerStep + epochs × a per-epoch surcharge` with an 80%-of-default floor (rates vary per ecosystem).
 
+- [LoRA training overview](./training) — what every ecosystem shares: parameters, training data (zip or uploaded blobs), continuing a run, live `trace` logs, the cost formula
 - [SDXL & SD1 LoRA training](./training-sdxl-sd1) — classic Stable Diffusion ecosystems (500 Buzz default); cheapest pick for first fine-tunes
 - [Flux 1 LoRA training](./training-flux1) — Flux.1 Dev or Schnell (2000 Buzz default); higher quality, fixed BFL base checkpoints
 - [Flux 2 Klein LoRA training](./training-flux2-klein) — Flux 2 Klein 4b / 9b (500 / 1000 Buzz default), including image-edit training mode with control reference images
@@ -82,5 +84,73 @@ Train a LoRA on your own dataset using AI Toolkit. You control training length w
 - [Chroma / ERNIE / Qwen / Z-Image LoRA training](./training-other-image) — five smaller image ecosystems consolidated into one page; each section is independently runnable
 
 ::: tip Copy-paste runnable
-All recipes target `https://orchestration.civitai.com` and use `<your-token>` as a placeholder for your Bearer token. Drop them into curl, HTTPie, VS Code's REST Client, or any tool that speaks HTTP.
+All recipes target `https://orchestration.civitai.com` and use `<your-token>` as a placeholder for your Bearer token — an orchestration token ([Quick start → Prerequisites](/orchestration/guide/getting-started#prerequisites)). Drop them into curl, HTTPie, VS Code's REST Client, or any tool that speaks HTTP.
 :::
+
+## Common to every recipe
+
+Each recipe page documents only what is specific to it. This section covers what they all share.
+
+### Reading results {#reading-results}
+
+A result arrives in the workflow envelope that [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) returns or a [webhook](/orchestration/guide/results-and-webhooks) delivers. Most generation recipes emit one of two output shapes.
+
+`imageGen` emits an `images[]` array, one entry per `quantity`. `nsfwLevel` carries the moderation classification applied to the output:
+
+```json
+{
+  "status": "succeeded",
+  "steps": [{
+    "name": "0",
+    "$type": "imageGen",
+    "status": "succeeded",
+    "output": {
+      "images": [
+        {
+          "id": "aa6e7228-68cd-4d15-b4d7-5005b2bfbac6-0.jpg",
+          "width": 1024,
+          "height": 1024,
+          "url": "https://orchestration.civitai.com/v2/consumer/blobs/…?sig=…",
+          "urlExpiresAt": "2027-04-15T17:18:54.3195353Z",
+          "previewUrl": "https://orchestration.civitai.com/v2/consumer/blobs/…?sig=…",
+          "previewUrlExpiresAt": "2027-04-15T17:18:54.3196735Z",
+          "available": true,
+          "nsfwLevel": "pg13"
+        }
+      ],
+      "errors": []
+    }
+  }]
+}
+```
+
+`videoGen` emits a single `video` blob:
+
+```json
+{
+  "status": "succeeded",
+  "steps": [{
+    "name": "0",
+    "$type": "videoGen",
+    "status": "succeeded",
+    "output": {
+      "video": { "id": "blob_...", "url": "https://.../signed.mp4" }
+    }
+  }]
+}
+```
+
+Blob URLs (`url`, `previewUrl`) are signed and expire at `urlExpiresAt` — see [Blobs in results](/orchestration/guide/results-and-webhooks#blobs-in-results).
+
+### Troubleshooting {#common-troubleshooting}
+
+These apply to every recipe; each page's own table covers the rest. For an expired blob URL, see [Errors & retries → Common gotchas](/orchestration/guide/errors-and-retries#common-gotchas).
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| Request timed out (`wait` expired), or `202` with a non-terminal status | The job outlasted `wait` or [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline) | Submit with `wait=0`, then [poll](/orchestration/guide/results-and-webhooks#polling-fallback) or use a [webhook](/orchestration/guide/results-and-webhooks). |
+| Step `failed`, `reason = "blocked"` | The prompt or an input hit content moderation (the provider's filter or Civitai's) | Don't retry the same input — see [Errors & retries → Step-level failures](/orchestration/guide/errors-and-retries#step-level-failures). |
+
+### OpenAPI specs
+
+Each per-recipe endpoint publishes a standalone OpenAPI 3.1 YAML at `https://orchestration.civitai.com/v2/consumer/recipes/<recipe>/openapi.yaml` (for example [`imageGen`](https://orchestration.civitai.com/v2/consumer/recipes/imageGen/openapi.yaml)), ready to import into Postman, Insomnia or OpenAPI Generator. `<recipe>` is the name in the recipe's `POST /v2/consumer/recipes/<recipe>` endpoint (e.g. `videoGen`, `training`, `transcription`).

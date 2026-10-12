@@ -1,4 +1,6 @@
 ---
+title: Civitai Orchestration
+description: Submit AI workflows (video, image, audio, text) to the Civitai orchestrator through one API, and get results back.
 layout: home
 
 hero:
@@ -45,7 +47,6 @@ features:
 - **[MCP server](./mcp/)** — connect Claude Desktop, claude.ai, or any MCP-aware
   client to the same orchestrator.
 
-Guide and recipe pages are also served as **plain markdown** — append `.md` to
-the URL — and [`/llms.txt`](/llms.txt) indexes them for agents. The generated
-per-operation reference pages under `/orchestration/reference/operations/` are
-the exception: they are HTML only.
+Guide and recipe pages are also served as **plain markdown** (append `.md` to
+the URL) and indexed for agents in [`/llms.txt`](/llms.txt); the generated
+per-operation reference pages are HTML only.

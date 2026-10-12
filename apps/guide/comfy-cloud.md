@@ -2,8 +2,8 @@
 title: Comfy on Civitai (customComfy)
 description: Drive ComfyUI from an App Block — either by naming a server-registered recipe, or by shipping your own graph inline. The two arms, the gates on each, the budget rules, and how to try it in the local harness.
 sources:
-  - npm:@civitai/app-sdk@0.63.0/blocks#WorkflowBodyCustomComfy
-  - npm:@civitai/blocks-react@0.67.1#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.64.0/blocks#WorkflowBodyCustomComfy
+  - npm:@civitai/blocks-react@0.68.0#useBuzzWorkflow
   - go:github.com/civitai/cli#app-create (page-money scaffold: src/comfy.ts)
   - civitai:public/schemas/app-block/v1.json#page.buzzBudgetPerGen
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
@@ -37,14 +37,6 @@ custom-node graph).
 | **[recipe](#the-recipe-arm)** | omitted, or `'recipe'` | a registered recipe id + bounded `params` | page apps (closed beta) |
 | **[inline](#the-inline-arm-ship-your-own-graph)** | `'inline'` (required) | **the ComfyUI graph itself**, a declared resource manifest, and a `maxBuzz` ceiling | page apps (closed beta) |
 
-::: danger This page used to say you could not do the second one
-Earlier revisions stated flatly that a block never ships a ComfyUI graph and
-could not bring its own. That was true when the recipe arm was the only one; the
-inline arm shipped afterwards and this page was not updated. A developer working
-against the live feature read the old sentence, believed it over their own
-testing, and concluded the capability did not exist. It does.
-:::
-
 ::: warning Closed beta — access is limited
 Comfy on Civitai is part of the [closed-beta](./) Apps platform and is
 **mod-gated**, and both arms are **page-token-only**. You can scaffold and
@@ -75,13 +67,8 @@ const body: WorkflowBodyCustomComfyRecipe = {
 };
 ```
 
-`recipe` selects the workflow; `params` is a small, bounded object the recipe
-validates. That's the entire wire surface for this arm.
-
-Note that `mode` is **omitted**, not set to `'recipe'`. The server declares it an
-optional literal precisely so that a body without the key parses as a recipe —
-which is what keeps every block written before the inline arm existed working
-unchanged.
+That's the entire wire surface for this arm. `mode` may be omitted: a body
+without it parses as a recipe.
 
 ### The recipe-gated model
 
@@ -95,40 +82,21 @@ not your block — owns:
 - a hard per-generation **Buzz ceiling** (`maxBuzz`) backed by an aggressive
   step timeout.
 
-Your block influences none of that beyond **choosing the recipe id and its
-`params`**. An unknown or unregistered `recipe` is rejected **fail-closed** at
-the server boundary, and so is any `params` field the recipe's schema doesn't
-accept — both schemas are strict, so a stray key aborts the submit rather than
-being dropped.
-
-::: tip Why the recipe arm works this way — the security model
-A block runs in an untrusted sandboxed iframe. Code review is what makes a recipe
-trustworthy: a human checked the graph, the resources it pins, and the ceiling it
-declares. Pinning a generation to a reviewed, in-repo artifact keeps all three on
-Civitai's side of the boundary. It's the same "the host brokers, you don't"
-principle as the rest of the [bridge](./concepts#the-host-block-bridge), applied
-to ComfyUI.
-
-The [inline arm](#the-inline-arm-ship-your-own-graph) has no such review, so it
-replaces it with three mechanical gates rather than dropping the requirement.
-:::
-
-The trade-off is deliberate: **within this arm** you choose the recipe, not the
-graph. If the registered recipes don't cover what you need, you have two options
-— request a new recipe (below), or ship the graph yourself with the
-[inline arm](#the-inline-arm-ship-your-own-graph).
+Your block chooses only **the recipe id and its `params`**. An unregistered
+`recipe`, or a `params` field the recipe's strict schema doesn't accept, is
+rejected **fail-closed**. Code review is what makes a recipe trustworthy; the
+[inline arm](#the-inline-arm-ship-your-own-graph) has no review and replaces it
+with three mechanical gates. If no registered recipe fits, request one (below)
+or ship the graph with the inline arm.
 
 ### Requesting a new recipe
 
-Because a recipe is a reviewed, in-repo artifact, adding one isn't self-serve —
-it's a change the Civitai team makes. Request one through the **same channel as
-beta access**: open a [Request access](https://github.com/civitai/cli/issues/new?template=request-access.yml)
-issue on the `civitai/cli` repo describing the workflow you need (what the graph
-should do, the models involved, rough runtime), or reach out to the Civitai team
-if you already have builder access.
-
-Ask for a recipe when you want a graph available to **every viewer** of your
-block. If you just want to run a graph now, that's what the inline arm is for.
+Adding a recipe is a change the Civitai team makes. Open a
+[Request access](https://github.com/civitai/cli/issues/new?template=request-access.yml)
+issue on `civitai/cli` describing the workflow (what the graph should do, the
+models involved, rough runtime), or contact the Civitai team if you already have
+builder access. Ask for a recipe when you want a reviewed graph you do not have
+to ship in the body.
 
 ## The inline arm (ship your own graph)
 
@@ -166,37 +134,26 @@ const body: WorkflowBodyCustomComfyInline = {
 ```
 
 ::: tip The published SDK types the inline arm
-`WorkflowBodyCustomComfy` is a **union on `mode`**, and the inline arm ships as
-`WorkflowBodyCustomComfyInline` (with `InlineComfyNode` for the graph nodes) and
-`WorkflowBodyCustomComfyRecipe` for the recipe arm. Import them, as above,
-rather than writing the shape out by hand — a hand-declared copy will drift from
-the SDK.
-
-One thing the types still cannot enforce for you: when you narrow, narrow on the
-**value** of `body.mode === 'inline'` — never on whether the `mode` key is
-present, because a recipe body may legitimately carry `mode: 'recipe'` or even
-`mode: undefined`.
+`WorkflowBodyCustomComfy` is a **union on `mode`**: import
+`WorkflowBodyCustomComfyInline` (with `InlineComfyNode` for nodes) and
+`WorkflowBodyCustomComfyRecipe` rather than declaring the shape by hand. Narrow
+on the **value** `body.mode === 'inline'`, never on whether the key is present —
+a recipe body may carry `mode: 'recipe'` or `mode: undefined`.
 :::
 
 ### `mode: 'inline'` is required
 
-Including a `workflow` key does not select this arm. A body without `mode` routes
-to the **recipe** arm and is then rejected for a missing `recipe` — an error that
-reads as though something unrelated went wrong. This is the single most common
+A `workflow` key does not select this arm. Without `mode` the body routes to the
+**recipe** arm and is rejected for a missing `recipe` — the most common
 first-try mistake.
 
 ### `resources` is a declared manifest, not an inference
 
-Every AIR URN that appears anywhere in your graph — including as an **object
-key** — must also appear in `resources`, or the submit is rejected. The server
-does not extract them for you, and the match is **whole-string** (trimmed,
-case-insensitive): an AIR embedded inside a longer string does not count as
-declared.
-
-That flat array is the entire surface the entitlement check runs over, and the
-containment rule is what makes checking it sufficient. It is also what the
-orchestrator downloads — anything your graph references that is missing from the
-list would fail at load time inside ComfyUI regardless.
+Every AIR URN anywhere in your graph — including as an **object key** — must
+also appear in `resources`, or the submit is rejected. The match is
+**whole-string** (trimmed, case-insensitive): an AIR inside a longer string does
+not count. This array is what the entitlement check covers and what the
+orchestrator downloads.
 
 Rules that reject a body outright:
 
@@ -232,35 +189,25 @@ that input to another node's output, exactly as in ComfyUI.
 
 ### What replaced code review
 
-A recipe is trustworthy because a human read it. An inline graph has no review,
-so three fail-closed gates stand in — all of which run **before** any spend
+Three fail-closed gates stand in for review, all **before** any spend
 reservation or orchestrator call, so a rejection costs nothing:
 
-1. **AIR containment** — the rule above. Without it, gating `resources` would
-   prove nothing about what the graph actually loads.
-2. **Entitlement**, over the declared `resources`, and **stricter than the
-   on-site generator**: early-access `hasAccess` and Private/epoch subscription
-   are both folded in, an unresolvable version id is a hard rejection rather than
-   a silent drop, and a resource the site would normally **substitute** with a
-   sibling version is rejected instead — your graph names one exact AIR string
-   and nothing rewrites it.
-3. **A moderation sweep** over every distinct string leaf in the graph, not just
-   your declared `prompt`. A real graph carries its prompts inside
-   `CLIPTextEncode` nodes, so auditing a declared field alone would leave
-   moderation reading a value the generation never uses. A clean declared
-   `prompt` therefore cannot launder a graph prompt.
+1. **AIR containment** — the rule above.
+2. **Entitlement** over the declared `resources`, **stricter than the on-site
+   generator**: early-access and Private/epoch subscription are checked, an
+   unresolvable version id is rejected, and a resource the site would
+   **substitute** with a sibling version is rejected instead.
+3. **A moderation sweep** over every string in the graph, not just your declared
+   `prompt` — real prompts live in `CLIPTextEncode` nodes.
 
-Fields the orchestrator's own step input accepts but a block must never set —
-a session API token, a container image, a VRAM tier — are unreachable: the step
-is constructed server-side from an allowlisted set, and the body schema is strict
-so naming one of them is a rejection rather than a silently ignored key.
+Orchestrator step fields a block must never set — a session API token, a
+container image, a VRAM tier — are unreachable: the step is built server-side
+from an allowlist, and naming one in the strict body schema is a rejection.
 
 ### Access
 
 **The whole `customComfy` path is page-token-only — both arms.** A model-bound
-token is rejected on estimate and on submit, before either arm is inspected, so a
-model-slot block cannot run a custom graph at all; asking for a recipe does not
-change that, because the guard fires before any recipe lookup.
+token is rejected on estimate and submit before either arm is inspected.
 
 <!-- 🔴 FIVE DRAFTS OF THE NEXT PARAGRAPH HAVE BEEN WRONG. Recorded so nobody
      writes a sixth: (1) "app developers only" — no such check exists on this
@@ -281,32 +228,22 @@ change that, because the guard fires before any recipe lookup.
      section covers BOTH arms, and on the recipe arm the ceiling comes from the
      registry (`recipe.budgetFor(params)`), not from a `maxBuzz` the app wrote. -->
 
-Beyond the surface, the gates are the platform's rather than this arm's. Several
-run **before** either arm is inspected, and each is a refusal your app has to
-handle: the viewer must be **signed in**, must be **enabled for Apps** (this is
-closed beta — see above), and must have granted the **`ai:write:budgeted`**
-consent scope. Resource entitlement is checked against the **viewer**, not the
-app. So do not assume any viewer of your published block can submit — build the
-refusal paths.
+Several platform gates run **before** either arm is inspected, each a refusal
+your app must handle: the viewer must be **signed in**, **enabled for Apps**
+(closed beta), and have granted the **`ai:write:budgeted`** consent scope.
+Resource entitlement is checked against the **viewer**, not the app.
 
-A submit can also be refused for a reason that is **not** about the viewer: the
-per-generation ceiling — the `maxBuzz` you declare on the inline arm, the
-registry's on the recipe arm — has to fit the per-call budget **your own manifest
-declared** (`page.buzzBudgetPerGen`). See **Requirements** below, which covers
-both arms and how to size it.
+A submit is also refused if the per-generation ceiling — the `maxBuzz` you
+declare on the inline arm, the registry's on the recipe arm — exceeds your
+manifest's `page.buzzBudgetPerGen` (see [Requirements](#requirements)).
 
-Ask for a recipe when you want a reviewed graph you do not have to ship in the
-body, not as a way onto another surface.
-
-An inline body also carries **no account preference** — its schema has no
-`accountType` field anywhere, so the host funds it from the default order.
+An inline body carries **no account preference** (no `accountType` field), so
+the host funds it from the default order.
 
 ## Submitting a generation
 
-You submit a `customComfy` body through the **same** `useBuzzWorkflow()` hook you
-use for text-to-image generation — the hook takes a full `WorkflowBody`
-discriminated union and forwards the body verbatim, so switching to Comfy on
-Civitai (either arm) is just a different `body`:
+Submit through the **same** `useBuzzWorkflow()` hook as text-to-image — only
+the `body` differs:
 
 ```tsx
 import { useState } from 'react';
@@ -385,38 +322,21 @@ export function RunButton({ prompt }: { prompt: string }) {
 }
 ```
 
-The host runs the estimate and submit server-side against your block token,
-re-checking scopes and budget every time — your block never talks to the
-orchestrator directly. `estimate()` returns a **display estimate**, not a firm
-quote; the exact charge is known only when the workflow reaches a terminal
-state (see [How generation is billed](#how-generation-is-billed)). A refused
-submit — over your per-generation budget, or a spend cap or rate limit —
-resolves rather than rejects, so check `status === 'failed'` before watching.
-Running out of Buzz is different: `submit()` **rejects**, with the same
-`'exception'` code as review preview or a network error. So the `catch` offers
-a top-up only when [`useBuzzBalance()`](../reference/hooks#hook-useBuzzBalance)
-shows the Buzz this block can spend below the quote. That is `blue` plus
-`green` on an SFW ceiling, or plus `yellow` on a mature one, read from
-`maxBrowsingLevel` and never from `domain`, which is informational only. That needs the `buzz:read:self` scope, declared
-in your manifest and granted by the viewer (it is not consent-exempt), and a
-signed-in viewer. Without those, the block shows a generic "try again". Both cases
-are explained in [Refused submits](./text-to-image#refused-submits).
+The host re-checks scopes and budget on every call. `estimate()` returns a
+**display estimate**; the exact charge is known only when the workflow is
+terminal (see [How generation is billed](#how-generation-is-billed)). Refusals
+and the out-of-Buzz top-up work exactly as for text-to-image — see
+[Refused submits](./text-to-image#refused-submits).
 
 ## Requirements
 
-To use Comfy on Civitai, your app must be a **page app** (Comfy on Civitai is
-not offered to slot apps) and its manifest must:
+Your app must be a **page app**, and its manifest must:
 
-1. **Request the `ai:write:budgeted` scope.** This is the budgeted-generation
-   capability — the same scope text-to-image generation uses.
-2. **Set `page.buzzBudgetPerGen` ≥ the per-generation Buzz ceiling.** On the
-   recipe arm that ceiling comes from the registry; on the inline arm it is the
-   `maxBuzz` you declare. The host mints each generation token with
-   `buzzBudgetPerGen` as its budget and
-   **gates every submit on `maxBuzz ≤ token.buzzBudget`**. If your
-   per-gen budget is below the recipe's ceiling, **every submit is rejected**
-   before it runs. See [Sizing the budget](../reference/manifest) in the
-   manifest reference.
+1. **Request the `ai:write:budgeted` scope** (as text-to-image does).
+2. **Set `page.buzzBudgetPerGen` ≥ the per-generation Buzz ceiling** (the
+   registry's on the recipe arm, your `maxBuzz` on the inline arm). The host
+   **gates every submit on `maxBuzz ≤ token.buzzBudget`**, so a lower budget
+   rejects **every submit**. See [Sizing the budget](../reference/manifest).
 
 ```json
 {
@@ -438,16 +358,13 @@ not offered to slot apps) and its manifest must:
 }
 ```
 
-The scaffold's Comfy on Civitai sample pairs `buzzBudgetPerGen: 300` with the
-`starter-comfy-txt2img` recipe (per-generation ceiling **90** Buzz) — roughly 3×
-the ceiling. That headroom is never spent: it bounds what the app is allowed to
-*ask for*, while the charge is the real runtime cost. Read the 300 as a
-blast-radius limit, not as 90 rounded up.
+The scaffold pairs `buzzBudgetPerGen: 300` with the `starter-comfy-txt2img`
+recipe (ceiling **90** Buzz). The headroom is never spent: it bounds what the
+app may *ask for*; the charge is the real runtime cost.
 
 ## How generation is billed
 
-Comfy on Civitai is **post-paid with a hard ceiling** — you don't pay a fixed price up
-front:
+Comfy on Civitai is **post-paid with a hard ceiling**:
 
 1. **Reserve the ceiling.** On submit, the host reserves the recipe's declared
    `maxBuzz` against the token budget (this is why `buzzBudgetPerGen` must cover
@@ -459,23 +376,16 @@ front:
    **settles down to the real runtime** — a fast job costs less than the ceiling;
    the reservation only bounds the maximum.
 
-So a recipe's ceiling is a **worst case the host reserves against**, not a flat
-price — and not a target to size `buzzBudgetPerGen` from.
-Surface the `estimate()` value as an estimate in your UI, and read the final
+The ceiling is a worst case, not a target to size `buzzBudgetPerGen` from. Show
+the `estimate()` value as an estimate, and read the final
 `result.cost.total` on completion.
 
-### 🔴 On the inline arm, `maxBuzz` is also the timeout in seconds
+### On the inline arm, `maxBuzz` is also the timeout in seconds
 
-The recipe arm gets its ceiling from the registry. On the inline arm **you
-declare it**, and the server derives the step timeout from that same number:
+On the inline arm **you declare** the ceiling, and the server derives the step
+timeout from it:
 
 > `stepTimeoutSeconds = maxBuzz`
-
-One number, both roles. That is not an implementation detail — it is what makes
-the ceiling *physically* enforceable instead of merely asserted: there is only
-one value, so the job cannot outrun the budget it was reserved against.
-
-The consequence is the thing to internalise:
 
 ::: danger Setting `maxBuzz` low to be thrifty does not buy a cheap generation
 It buys a job that is **killed** after that many seconds and comes back
@@ -483,31 +393,22 @@ It buys a job that is **killed** after that many seconds and comes back
 is a 10-second timeout.
 :::
 
-You are billed the **real** cost either way — post-paid against measured GPU
-seconds, settling to actual and refunding the unused remainder of the ceiling.
-**Headroom is free.** Size `maxBuzz` from the wall-clock time your graph needs,
-not from what you hope to pay. It must be an integer in **1 – 250**, and the host
-still requires `maxBuzz ≤ token.buzzBudget`; over-budget comes back as a failed
-snapshot naming both numbers.
+You are billed the **real** cost either way, settling to actual and refunding
+the rest. **Headroom is free**: size `maxBuzz` from the wall-clock time your
+graph needs. It must be an integer in **1 – 250**, and still
+`≤ token.buzzBudget` (over-budget comes back as a failed snapshot naming both
+numbers).
 
-For the same reason, `estimate()` on an inline body simply **echoes your
-`maxBuzz` back** as `cost.total`. The orchestrator forwards the graph opaquely
-and cannot price it, so that number is an **upper bound, not a quote** — surface
-it as "up to N Buzz", not as a price.
+`estimate()` on an inline body **echoes your `maxBuzz` back** as `cost.total` —
+the orchestrator cannot price an opaque graph — so show it as "up to N Buzz".
 
 ## Try it locally
 
-The `civitai` CLI's generation scaffold (`civitai app create --template
-page-money`, the React page-app template that wires up Buzz + generation) ships a **Comfy on Civitai sample** — a
-ready-made `src/comfy.ts` with body builders for **both arms**:
-`buildComfyBody` for a `starter-comfy-txt2img` recipe body, and
-`buildInlineComfyBody` for a complete inline SDXL graph like the one above. Both
-are unit-tested, including the AIR-containment rule.
-
-The **mock host** in `npm run dev:harness` implements the `customComfy` message
-handlers, so the **recipe** sample runs **with no backend** — you can wire up the
-body, click generate, and see the mocked estimate/submit/poll round-trip locally
-before you ever have beta access:
+The `page-money` scaffold (`civitai app create --template page-money`) ships
+`src/comfy.ts` with unit-tested body builders for **both arms**:
+`buildComfyBody` (a `starter-comfy-txt2img` recipe body) and
+`buildInlineComfyBody` (an inline SDXL graph like the one above). The **mock
+host** in `npm run dev:harness` runs the **recipe** sample **with no backend**:
 
 ```bash
 civitai app create my-app --template page-money   # ships src/comfy.ts
@@ -516,11 +417,8 @@ npm run dev:harness           # mock host — recipe sample runs, no backend
 npm test                      # exercises BOTH body builders
 ```
 
-The inline builder is not on the scaffold's mode toggle yet: the mock host in the
-pinned `@civitai/blocks-react` reads `body.params.accountType` unconditionally
-and an inline body has no `params`, so driving it through the harness throws.
-That is a mock-host bug being fixed, and it does **not** affect live
-civitai.com — the scaffold's README tracks the state and spells out the wiring.
+The inline builder is not on the scaffold's mode toggle yet; the scaffold's
+README spells out the wiring.
 
 Real generation needs closed-beta access (and a page app — `customComfy` is
 page-only on both arms) and `npm run dev:live` / a submitted app; see the
@@ -541,9 +439,7 @@ Civitai uses the word "recipe" in two unrelated places:
   _you_ hold a Bearer token and POST workflows to
   `orchestration.civitai.com` yourself.
 
-They're different products with different auth models. If you're building an App
-Block, you want customComfy recipes; if you're calling the orchestration API
-directly, you want [Orchestration recipes](/orchestration/recipes/).
+An App Block wants customComfy recipes.
 
 ## Next
 

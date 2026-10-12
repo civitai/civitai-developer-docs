@@ -1,12 +1,12 @@
 ---
 title: The @civitai/sdk client
-description: What a block does with @civitai/sdk — initialize(), what app.onChange fires on (token rotations included, hence build the view once and update it in place), app.host.autoResize (model slots only), app.site, app.requestGrants and its four outcomes, and the idempotency key every money call needs.
+description: What a block does with @civitai/sdk — initialize(), app.onChange, app.host, app.site, app.requestGrants and the idempotency key every money call needs.
 sources:
-  - npm:@civitai/sdk@0.10.2/dist/index.d.ts
-  - npm:@civitai/sdk@0.10.2/dist/app/index.d.ts
-  - npm:@civitai/sdk@0.10.2/dist/host/index.d.ts
-  - npm:@civitai/sdk@0.10.2#README
-  - npm:@civitai/app-sdk@0.63.0/blocks#isValidBlockIdempotencyKey
+  - npm:@civitai/sdk@0.11.0/dist/index.d.ts
+  - npm:@civitai/sdk@0.11.0/dist/app/index.d.ts
+  - npm:@civitai/sdk@0.11.0/dist/host/index.d.ts
+  - npm:@civitai/sdk@0.11.0#README
+  - npm:@civitai/app-sdk@0.64.0/blocks#isValidBlockIdempotencyKey
   - civitai:src/pages/api/v1/blocks/workflows/submit.ts
 ---
 
@@ -243,7 +243,7 @@ async function askConsent(app: BlockAppClient, scopes: Scope[]): Promise<boolean
 ```
 
 `Scope` is a typed union, so a misspelt scope fails to compile. In
-`@civitai/sdk@0.10.2` it does **not** include the goods scopes
+`@civitai/sdk@0.11.0` it does **not** include the goods scopes
 (`goods:purchase:self`, `goods:read:self`) or `apps:store:items:write`, so
 asking for one needs a cast: `'goods:purchase:self' as Scope`. (The sub-listings
 scope is consent-exempt, so there is nothing to ask for.)
@@ -317,18 +317,15 @@ is the step's declared price or your `maxBuzz`, raised to the quote when that is
 higher. A training step refused because it could not be quoted has no `cost` at
 all.
 
-**Buying Buzz does not fix any of those refusals.** They are limits on the token
-and the app, not on the viewer's wallet, so do not answer one with a top-up
-prompt. A viewer who genuinely lacks the Buzz is a different path: the
-orchestrator's insufficient-funds refusal **rejects** the request, as an
-`ApiError` with `status` `400` and a `{ message }` body — the same shape as any
-other bad request. (A `training` submit checks the balance itself and rejects
-with `403`.) So don't decide on a top-up from the error: read the balance with
-`app.site.get('blocks/buzz')` — scope `buzz:read:self`, consent-gated like
-`ai:write:budgeted`, answering `{ blue, green, yellow }`; a submit can spend
-`blue` plus one paid pool: `green` under an SFW maturity ceiling, `yellow` under
-a mature one (an unknown ceiling counts as SFW) — and compare that with the price
-`blocks/workflows/estimate` quotes.
+**Buying Buzz does not fix any of those refusals** — they limit the token and
+the app, not the wallet. A viewer short of Buzz instead gets a **rejection**: an
+`ApiError` with `status` `400` and a `{ message }` body, like any bad request
+(`403` for `training`). So decide on a top-up from the balance, not the error:
+`app.site.get('blocks/buzz')` (scope `buzz:read:self`, consent-gated) answers
+`{ blue, green, yellow }`; compare `blue` plus one paid pool — `green` under an
+SFW maturity ceiling, `yellow` under a mature one, SFW if unknown — with the
+`blocks/workflows/estimate` quote. See also
+[Refused submits](./text-to-image#refused-submits).
 
 ## Next
 
