@@ -345,21 +345,21 @@ Prompt tags use the references' positions, starting at 1. Image tags include `@`
 | `aspectRatio` | `16:9` | Reference-to-video only: `16:9`, `9:16`, `4:3`, `3:4`, `1:1`. |
 | `enableAudio` | `false` | Reference-to-video only. Does not change the price. |
 
-Resolution tiers are nominal: FAL returned 960×528 in a `540p`, `16:9` reference-video test. The workflow preserves the provider's actual dimensions.
+Resolution tiers are nominal: actual dimensions may differ slightly from the nominal tier. The workflow preserves the provider's actual dimensions.
 
 ### Cost
 
-Both operations use the same rates: `Buzz = seconds × Buzz/s`, before any workflow-level adjustments. These use FAL's regular USD rates with the existing 30% markup, excluding its temporary 30% provider discount through November 30, 2026.
+Both operations use the same rates: `Buzz = seconds × Buzz/s`, before any workflow-level adjustments.
 
-| Resolution | Provider USD/s (regular) | Buzz/s | 5-second quote |
-|------------|-------------------------|--------|-------------------|
-| `540p` | $0.045 | 58.5 | 293 |
-| `720p` | $0.095 | 123.5 | 618 |
-| `1080p` | $0.12 | 156 | 780 |
-| `2K` | $0.19 | 247 | 1,235 |
-| `4K` | $0.39 | 507 | 2,535 |
+| Resolution | Buzz/s | 5-second quote |
+|------------|--------|-------------------|
+| `540p` | 58.5 | 293 |
+| `720p` | 123.5 | 618 |
+| `1080p` | 156 | 780 |
+| `2K` | 247 | 1,235 |
+| `4K` | 507 | 2,535 |
 
-The quote rounds up to whole Buzz. Use a workflow cost preview for the final charge. See [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz) and [FAL's Q4 pricing](https://fal.ai/models/fal-ai/vidu/q4/reference-to-video).
+The quote rounds up to whole Buzz. Use a workflow cost preview for the final charge. See [Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz).
 
 ---
 

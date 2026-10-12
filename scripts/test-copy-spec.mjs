@@ -466,7 +466,6 @@ const RESIDUE = {
           // A different controller name is NOT relabelled: the rule matches one exact sentence.
           useOtherWorkers: { description: 'Opt-into using the widget controller exclusively' },
           comfyImage: { description: 'Image as an AIR\n(e.g. `urn:air:oci:image:example:org/image@v1`). Null = worker default.' },
-          labelOverrides: { description: 'Overrides merge with the\ndefaults from the FixtureOptionsGrain for the given mode.' },
           strength: { description: 'Ignored without Civitai.Orchestration.Grains.Fx.FixtureInput.Image.' },
           kind: { description: 'Reports Civitai.Orchestration.Grains.Fx.OtherInput instead.' },
           other: { description: 'See Civitai.Orchestration.Api.Fx.Missing.Thing.' },
@@ -493,11 +492,38 @@ const RESIDUE = {
     },
   },
 };
+// The moderation / safety / scan steps (owner decision 2026-10-12): each gets a
+// recipe operation, Step + StepTemplate schemas and a discriminator entry, all of
+// which must go. `mediaRating` is built the same way and must SURVIVE — it is
+// deliberately kept, and an over-broad rule would take it too. The batch OCR
+// recipe has no step type upstream, so it carries only the operation.
+for (const [name, stepType, drop] of [
+  ['ModelClamScan', 'modelClamScan', true],
+  ['ModelPickleScan', 'modelPickleScan', true],
+  ['XGuardModeration', 'xGuardModeration', true],
+  ['ShieldstralModeration', 'shieldstralModeration', true],
+  ['AgeClassification', 'ageClassification', true],
+  ['ImageScanning', 'imageScanning', true],
+  ['MediaRating', 'mediaRating', false],
+  ['BatchOCRSafetyClassification', null, true],
+]) {
+  const S = RESIDUE.components.schemas;
+  RESIDUE.paths[`/v2/consumer/recipes/${stepType || 'batchOCRSafetyClassification'}`] = {
+    post: { tags: ['Recipes'], operationId: `Invoke${name}StepTemplate`, requestBody: body(`${name}Input`), responses: { 200: body(`${name}Output`) } },
+  };
+  S[`${name}Input`] = { type: 'object' };
+  S[`${name}Output`] = { type: 'object' };
+  if (!stepType) continue;
+  S[`${name}Step`] = { allOf: [ref('WorkflowStep'), { properties: { input: ref(`${name}Input`), output: ref(`${name}Output`), $type: { enum: [stepType] } } }] };
+  S[`${name}StepTemplate`] = { allOf: [ref('WorkflowStepTemplate'), { properties: { input: ref(`${name}Input`), $type: { enum: [stepType] } } }] };
+  S.WorkflowStep.discriminator.mapping[stepType] = `#/components/schemas/${name}Step`;
+  S.WorkflowStepTemplate.discriminator.mapping[stepType] = `#/components/schemas/${name}StepTemplate`;
+}
 const RESIDUE_TEXT = JSON.stringify(RESIDUE, null, 2);
-const RESIDUE_RE = /Civitai\.Orchestration\.|\bgrain\b|OptionsGrain|telemetry|2026-06-12|wrong store|oci:image:example|getting-started\/ai-resource-identifier/i;
+const RESIDUE_RE = /Civitai\.Orchestration\.|\bgrain\b|telemetry|2026-06-12|wrong store|oci:image:example|getting-started\/ai-resource-identifier/i;
 // Positive control: the residue pattern must see every residue kind in the INPUT,
 // or "no residue survives" below is a zero that cannot go red.
-for (const probe of ['Civitai.Orchestration.X', 'in grain state', 'FixtureOptionsGrain', 'telemetry', '2026-06-12', 'wrong store', 'oci:image:example', 'getting-started/ai-resource-identifier']) {
+for (const probe of ['Civitai.Orchestration.X', 'in grain state', 'telemetry', '2026-06-12', 'wrong store', 'oci:image:example', 'getting-started/ai-resource-identifier']) {
   ok(RESIDUE_RE.test(probe) && RESIDUE_TEXT.includes(probe.replace(/^in /, '').replace('Civitai.Orchestration.X', 'Civitai.Orchestration.')), `residue pattern sees "${probe}" and the fixture carries it`);
 }
 
@@ -506,22 +532,36 @@ function assertScrubbed(dest, label) {
   const raw = readFileSync(dest, 'utf8');
   const out = JSON.parse(raw);
   const opIds = Object.values(out.paths).flatMap((item) => Object.values(item).map((op) => op.operationId));
-  ok(JSON.stringify(opIds.sort()) === JSON.stringify(['InvokeOtherStepTemplate', 'KeepMe']), `${label}: exactly the internal + test-only operations are dropped`, JSON.stringify(opIds));
+  ok(JSON.stringify(opIds.sort()) === JSON.stringify(['InvokeMediaRatingStepTemplate', 'InvokeOtherStepTemplate', 'KeepMe']), `${label}: exactly the internal, test-only and moderation/scan operations are dropped`, JSON.stringify(opIds));
   ok(
-    JSON.stringify(Object.keys(out.paths).sort()) === JSON.stringify(['/v2/consumer/recipes/other', '/v2/keep']),
+    JSON.stringify(Object.keys(out.paths).sort()) === JSON.stringify(['/v2/consumer/recipes/mediaRating', '/v2/consumer/recipes/other', '/v2/keep']),
     `${label}: their now-empty paths are gone`,
     JSON.stringify(Object.keys(out.paths)),
   );
   ok(
     JSON.stringify(Object.keys(out.components.schemas).sort()) ===
-      JSON.stringify(['FixtureInput', 'KeepOut', 'Orphan', 'OtherInput', 'OtherStep', 'OtherStepTemplate', 'ProblemDetails', 'WorkflowStep', 'WorkflowStepTemplate']),
+      JSON.stringify([
+        'FixtureInput',
+        'KeepOut',
+        'MediaRatingInput',
+        'MediaRatingOutput',
+        'MediaRatingStep',
+        'MediaRatingStepTemplate',
+        'Orphan',
+        'OtherInput',
+        'OtherStep',
+        'OtherStepTemplate',
+        'ProblemDetails',
+        'WorkflowStep',
+        'WorkflowStepTemplate',
+      ]),
     `${label}: dropped-only schemas pruned; shared and upstream-orphaned ones kept`,
     JSON.stringify(Object.keys(out.components.schemas).sort()),
   );
   ok(
-    JSON.stringify(out.components.schemas.WorkflowStep.discriminator.mapping) === '{"other":"#/components/schemas/OtherStep"}' &&
-      JSON.stringify(out.components.schemas.WorkflowStepTemplate.discriminator.mapping) === '{"other":"#/components/schemas/OtherStepTemplate"}',
-    `${label}: the echo step type is gone from both discriminator mappings`,
+    JSON.stringify(out.components.schemas.WorkflowStep.discriminator.mapping) === '{"other":"#/components/schemas/OtherStep","mediaRating":"#/components/schemas/MediaRatingStep"}' &&
+      JSON.stringify(out.components.schemas.WorkflowStepTemplate.discriminator.mapping) === '{"other":"#/components/schemas/OtherStepTemplate","mediaRating":"#/components/schemas/MediaRatingStepTemplate"}',
+    `${label}: the echo and moderation/scan step types are gone from both discriminator mappings; mediaRating stays`,
   );
   ok(JSON.stringify(out.tags.map((t) => t.name)) === '["Keep","Recipes","Unused"]', `${label}: only the tag the drops emptied is removed`, JSON.stringify(out.tags));
   const p = out.components.schemas.KeepOut.properties;
@@ -534,7 +574,6 @@ function assertScrubbed(dest, label) {
     useWorkers: 'When set, restricts the job to (true) or away from (false) a dedicated pool of Comfy workers.',
     useOtherWorkers: 'Opt-into using the widget controller exclusively',
     comfyImage: 'Image as an AIR. Null = worker default.',
-    labelOverrides: 'Overrides merge with the\ndefaults for the given mode.',
     strength: 'Ignored without `image`.',
     kind: 'Reports `OtherInput` instead.',
     other: 'See Thing.',
@@ -566,7 +605,7 @@ function assertScrubbed(dest, label) {
   ok(r.rc === 0, 'scrub (snapshot path) exits 0', `rc=${r.rc}\n${r.out}`);
   assertScrubbed(fx.dest, 'snapshot path');
   ok(readFileSync(fx.snapshotPath, 'utf8') === RESIDUE_TEXT, 'snapshot path: the committed snapshot itself is NOT edited');
-  ok(/removed 3 operation\(s\), 5 schema\(s\), 1 tag\(s\)/.test(r.out), 'it reports what it removed', r.out);
+  ok(/removed 10 operation\(s\), 31 schema\(s\), 1 tag\(s\)/.test(r.out), 'it reports what it removed', r.out);
   fx.cleanup();
 }
 {

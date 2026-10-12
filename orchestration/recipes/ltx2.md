@@ -349,7 +349,7 @@ numFrames          = duration × fps
 pixelVolumeInMP    = (width × height × numFrames) / 1 000 000
 stepsMultiplier    = steps / 20
 
-total = ceil(pixelVolumeInMP × 0.0008 × 1000 × 1.5 × stepsMultiplier)
+total = ceil(pixelVolumeInMP × 1.2 × stepsMultiplier)
 ```
 
 | Shape | Buzz |

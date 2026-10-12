@@ -500,22 +500,16 @@ Cost depends on whether the model routes through OpenRouter or is a Civitai AIR 
 
 ### OpenRouter models
 
-Cost is computed from actual token usage with a **30% margin**, converted to Buzz (1 000 Buzz = 1 USD):
+Cost is computed in Buzz from actual token usage (minimum 1 Buzz). Before execution, the orchestrator estimates the cost from the model's per-token rates. After execution, the final Buzz charge is based on the tokens actually consumed by the model.
 
-```
-buzzCost = actualCostUsd × 1000 × 1.3   (minimum 1 Buzz)
-```
+Per-token rates vary widely between models. Representative examples:
 
-Before execution, the orchestrator estimates cost using OpenRouter's published per-token prices. After execution, the final Buzz charge is based on the tokens actually consumed by the model.
-
-Different models have very different per-token prices — check [openrouter.ai/models](https://openrouter.ai/models) for current pricing. Representative examples:
-
-| Model | Input (per 1M tokens) | Output (per 1M tokens) | Typical single call |
-|-------|-----------------------|------------------------|---------------------|
-| `openai/gpt-4o-mini` | $0.15 | $0.60 | < 1 Buzz |
-| `openai/gpt-4o` | $2.50 | $10.00 | 2–15 Buzz |
-| `anthropic/claude-3-5-sonnet` | $3.00 | $15.00 | 4–20 Buzz |
-| `meta-llama/llama-3.3-70b-instruct` | $0.12 | $0.30 | < 1 Buzz |
+| Model | Typical single call |
+|-------|---------------------|
+| `openai/gpt-4o-mini` | < 1 Buzz |
+| `openai/gpt-4o` | 2–15 Buzz |
+| `anthropic/claude-3-5-sonnet` | 4–20 Buzz |
+| `meta-llama/llama-3.3-70b-instruct` | < 1 Buzz |
 
 Use `whatif=true` on your first request to get an exact preview before committing.
 

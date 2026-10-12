@@ -35,8 +35,36 @@ export const SCRUB_RULES = {
     { id: 'drop-op:InvalidateUserCache', operationId: 'InvalidateUserCache', reason: 'marked internal-only upstream' },
     { id: 'drop-op:InvalidateUserTokens', operationId: 'InvalidateUserTokens', reason: 'marked internal-only upstream' },
     { id: 'drop-op:InvokeEchoStepTemplate', operationId: 'InvokeEchoStepTemplate', reason: 'test-only step' },
+    // Moderation, safety-classification and malware/pickle-scan steps: platform
+    // trust-and-safety tooling, not part of the public consumer reference (owner
+    // decision, 2026-10-12). `mediaRating` is deliberately NOT here — the MCP
+    // tools page documents it as a consumer feature.
+    { id: 'drop-op:InvokeModelClamScanStepTemplate', operationId: 'InvokeModelClamScanStepTemplate', reason: 'malware-scan step' },
+    { id: 'drop-op:InvokeModelPickleScanStepTemplate', operationId: 'InvokeModelPickleScanStepTemplate', reason: 'pickle-scan step' },
+    {
+      id: 'drop-op:InvokeBatchOCRSafetyClassificationStepTemplate',
+      operationId: 'InvokeBatchOCRSafetyClassificationStepTemplate',
+      reason: 'safety-classification step',
+    },
+    { id: 'drop-op:InvokeXGuardModerationStepTemplate', operationId: 'InvokeXGuardModerationStepTemplate', reason: 'moderation step' },
+    {
+      id: 'drop-op:InvokeShieldstralModerationStepTemplate',
+      operationId: 'InvokeShieldstralModerationStepTemplate',
+      reason: 'moderation step',
+    },
+    { id: 'drop-op:InvokeAgeClassificationStepTemplate', operationId: 'InvokeAgeClassificationStepTemplate', reason: 'safety-classification step' },
+    { id: 'drop-op:InvokeImageScanningStepTemplate', operationId: 'InvokeImageScanningStepTemplate', reason: 'safety-classification step' },
   ],
-  dropStepTypes: [{ id: 'drop-step:echo', stepType: 'echo', reason: 'test-only step' }],
+  dropStepTypes: [
+    { id: 'drop-step:echo', stepType: 'echo', reason: 'test-only step' },
+    // batchOCRSafetyClassification has a recipe operation but no step-type mapping upstream.
+    { id: 'drop-step:modelClamScan', stepType: 'modelClamScan', reason: 'malware-scan step' },
+    { id: 'drop-step:modelPickleScan', stepType: 'modelPickleScan', reason: 'pickle-scan step' },
+    { id: 'drop-step:xGuardModeration', stepType: 'xGuardModeration', reason: 'moderation step' },
+    { id: 'drop-step:shieldstralModeration', stepType: 'shieldstralModeration', reason: 'moderation step' },
+    { id: 'drop-step:ageClassification', stepType: 'ageClassification', reason: 'safety-classification step' },
+    { id: 'drop-step:imageScanning', stepType: 'imageScanning', reason: 'safety-classification step' },
+  ],
   text: [
     {
       id: 'text:incident-date',
@@ -86,12 +114,6 @@ export const SCRUB_RULES = {
       reason: 'runtime name',
       pattern: / on grain recovery\./g,
       replace: ' if the workflow is recovered.',
-    },
-    {
-      id: 'text:options-type',
-      reason: 'internal type name',
-      pattern: / from the \w+OptionsGrain for the given mode\./g,
-      replace: ' for the given mode.',
     },
     {
       id: 'text:worker-codename',

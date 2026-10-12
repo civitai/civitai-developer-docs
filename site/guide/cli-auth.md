@@ -81,7 +81,7 @@ section carrying the one identity *attribute* (the credential type), and a
 
 ```console
 $ civitai whoami
-Logged in as zach (id 1) at https://civitai.com
+Logged in as ada (id 12345) at https://civitai.com
 
 Credential:
   Type:                     personal API key
@@ -118,7 +118,7 @@ because the Submit Apps row above it may well be a known answer:
 
 ```console
 $ civitai whoami
-Logged in as zach (id 1) at https://civitai.com
+Logged in as ada (id 12345) at https://civitai.com
 
 Credential:
   Type:                     OAuth login
@@ -146,14 +146,14 @@ the PII fields **`email` and `emailVerified`**.
   "canSubmitApps": true,
   "capabilities": { "can_read_buzz": true, "can_spend_buzz": false },
   "credentialType": "personal API key",
-  "id": 1,
+  "id": 12345,
   "isMember": true,
   "scopes": ["UserRead", "BuzzRead"],
   "scopesKnown": true,
   "status": "active",
   "subscriptions": ["yellow"],
   "tier": "silver",
-  "username": "zach"
+  "username": "ada"
 }
 ```
 
