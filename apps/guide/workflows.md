@@ -58,8 +58,8 @@ reference for what each step type takes and returns, and for how references,
 | Price many independent bodies before the viewer confirms | [`useBatchEstimate()`](../reference/hooks#hook-useBatchEstimate) (a `kind: 'workflow'` body can be one of its cells) |
 | Run exactly one orchestrator step type | the single-step [pass-through arm](../reference/generation#what-the-bridge-can-and-cannot-do) (`kind: 'step'` with a `$type`) |
 
-A workflow is **one** generation to the viewer: one estimate, one charge, one
-`workflowId`. Cells of a grid are separate generations: each can be retried,
+A workflow is **one** generation to the viewer: one estimate, one reservation,
+one `workflowId`. Cells of a grid are separate generations: each can be retried,
 refused or cancelled on its own. If a failure in one part should not touch the
 others, keep them as separate submits.
 
@@ -242,7 +242,7 @@ export function StoryWriter({ topic }: { topic: string }) {
         return;
       }
       const done = await watch(submitted.workflowId);
-      // Moderated chat text, one entry per chat reply, in step order.
+      // Moderated chat text, in step order (a step can contribute more than one).
       setTexts(done.textOutputs ?? []);
       if (done.status !== 'succeeded') setMessage('The story did not finish.');
     } catch (err) {
@@ -378,13 +378,13 @@ counts toward the 64-reference limit.
 | Limit | Value | Refused with |
 |---|---|---|
 | Steps per body | 1 to 8 | `workflow_too_many_steps` (more than 8). An empty `steps` fails the body schema, so the call rejects without a code |
-| Step `name` | `^[a-z][a-z0-9_-]{0,31}$`, unique, not `block-step` | `workflow_ref_invalid` |
+| Step `name` | `^[a-z][a-z0-9_-]{0,31}$` (or exactly the step's own `$<index>`), unique, not `block-step` | `workflow_ref_invalid`; an empty name or one over 64 characters fails the body schema (rejects, no code) |
 | References per body | 64 (each `merge` field and each `repeat` `for` counts) | `workflow_ref_invalid` |
 | Nesting depth of a step `input` | 32 levels | `workflow_ref_invalid` |
 | `repeat` iterations | 16, nested repeats multiplied | `workflow_repeat_unbounded` |
 | `repeat` nesting | 4 deep | `workflow_ref_invalid` |
 | `$type` length | 1 to 64 characters | the body schema (rejects, no code) |
-| Size of every step `input` plus `arguments` | 256 KB (262,144 bytes) serialized, all together | the body schema (rejects, no code) |
+| Size of every step `input` plus `arguments` | 262,144 characters of serialized JSON, all together (256 KB for ASCII) | the body schema (rejects, no code) |
 
 Every other generation limit still applies: the
 [app velocity and daily spend limits](./text-to-image#limits-table), the
@@ -433,9 +433,10 @@ budget. Two kinds of workflow are refused instead, before anything is reserved:
 [How an app earns](./earning)), a workflow pays it **once**, not once per step,
 computed on the whole workflow's quoted base. The estimate itemises it as
 `cost.authorFee`, already inside `cost.total`. The fee charged is never more
-than the fee shown, even when the workflow bills more than its quote. A workflow that
-**does not succeed** has its **whole** fee reversed, even when earlier steps
-delivered output. A workflow with no quote has no fee.
+than the fee reserved at submit, even when the workflow bills more than its
+quote. A workflow that **does not succeed** has its **whole** fee reversed, even
+when earlier steps delivered output, once the host sees it end; a reversal is
+not applied after that day's fees have settled. A workflow with no quote has no fee.
 
 ## Reading the result
 
@@ -478,7 +479,8 @@ already ran: they stay **charged**, and their images stay in the result. So a
 snapshot with `status: 'failed'` can carry `cost.total > 0` and usable
 `imageUrls`. Read `steps` to find which step failed and show the viewer what did
 finish. Don't tell them nothing was charged. The author fee is the exception:
-it is reversed in full for any workflow that does not succeed.
+it is reversed in full for a workflow that does not succeed (see
+[What it costs](#what-it-costs)).
 
 ```tsx
 // @ts-skip-snippet: needs the @civitai/app-sdk release that adds kind 'workflow'
@@ -500,8 +502,9 @@ export function StepList({ snap }: { snap: BlockWorkflowSnapshot }) {
 
 ## Refusals
 
-A body the host will not run is refused **before anything is priced, reserved
-or sent**, with a machine-readable `errorCode`. `estimate()` rejects with
+A body the host will not run is refused **before anything is reserved or
+charged**, with a machine-readable `errorCode`. (Most codes are decided before
+the host even asks for a price; the no-quote cases are decided after it tried.) `estimate()` rejects with
 `WorkflowEstimateError`, `submit()` with `WorkflowSubmitError`, and a batch
 estimate returns it as that body's cell. Read it from `err.snapshot.errorCode`,
 and keep a default branch: the host may add codes, and `error`'s wording is not
@@ -511,7 +514,7 @@ a contract.
 |---|---|---|
 | `workflow_too_many_steps` | more than 8 steps | Split the job into two workflows, or move repeated work into a `repeat` |
 | `workflow_step_denied` | a step (or a `repeat` template) names a platform-internal `$type`: the model and image scanners, the moderation classifiers such as `promptModeration`, the hashing and model-ingestion types, a few other platform tools, web scrape and web search, and the retired `textToImage` step type. The match ignores case | Remove or replace that step. These types are reserved for Civitai's own use |
-| `workflow_ref_invalid` | a reference or `merge` field names the step itself, a later step, or nothing; a step `name` breaks the rules or repeats; a `repeat` or `merge` is malformed; a `repeat`'s `as` name is also a step name; more than 64 references; or an input nested deeper than 32 levels. `error` names the step by its position | Fix the body. Resending it unchanged gives the same answer |
+| `workflow_ref_invalid` | a reference or `merge` field names the step itself, a later step, or nothing; a step `name` breaks the rules or repeats; a `repeat` or `merge` is malformed; a `repeat`'s `as` name is also a step name; more than 64 references; or an input nested deeper than 32 levels. `error` names the step by its position, except for the `as`-name clash | Fix the body. Resending it unchanged gives the same answer |
 | `workflow_repeat_unbounded` | a `repeat` iterates something other than an array in `arguments`, or more than 16 times with nested repeats multiplied; **or** the workflow has a `repeat` and no price quote could be obtained | For the first two, move the list into `arguments` or shorten it. For the missing quote, retry later |
 | `training-quote-rejected` / `-unavailable` / `-unpriced` | a training step in the workflow could not be priced | As for a [single training step](./text-to-image#refused-submits) |
 
@@ -520,7 +523,7 @@ ceiling, a daily cap, the consent budget or the app velocity limit makes
 `submit()` **resolve** with `status: 'failed'`, the `'failed'` placeholder
 `workflowId` and an `error`, and nothing is charged (see
 [refused submits](./text-to-image#refused-submits)). A body the schema rejects
-(an unknown key, an empty `steps`, an input over 256 KB) rejects without an
+(an unknown key, an empty `steps`, inputs over the size limit) rejects without an
 `errorCode`.
 
 ## Testing with the mock host
