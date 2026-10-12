@@ -261,6 +261,14 @@ least one is required.
   the platform overwrites `name` / `tagline` / `description` / `category` from
   `block.manifest.json` on every subsequent-version approval. Edit the manifest
   and submit a new version instead.
+  - **`description` is a top-level string key in `block.manifest.json`**, next
+    to `name` and `tagline`: `"description": "What the app does, in a few sentences."`
+    The platform reads it and trims it; a missing or blank one leaves the
+    listing's description empty. The published JSON Schema and the
+    [manifest reference](../reference/manifest) generated from it do not list
+    this key yet, so an editor will not suggest it. It is accepted all the
+    same: the schema does not forbid extra top-level keys, and
+    `civitai app validate` passes with it set.
 - The server **rate-limits** these edits, at roughly 30 an hour.
 
 ## Link your source code

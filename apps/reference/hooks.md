@@ -57,14 +57,23 @@ hooks: your block holds a short-lived scoped credential, and the server
 re-checks it and its scopes on every request.
 :::
 
-::: warning `useBuzzWorkflow`'s generated example is one `kind` of several
-The `useBuzzWorkflow` entry below is generated from the package README, whose
-example sends a `kind: 'textToImage'` body. That is **one member** of the
-`WorkflowBody` union, not the whole surface — the same hook also submits
-ComfyUI workflows (`kind: 'customComfy'`) and registered orchestrator steps
-(`kind: 'step'`), and chains several steps as one generation (`kind: 'workflow'`,
-see [Multi-step workflows](../guide/workflows)). See [Workflow bodies: the `kind` union](#workflow-bodies-the-kind-union)
-below before concluding a capability is missing.
+::: warning Not every capability is a hook: generation has five body `kind`s
+A search of this page for a hook name will not find everything the platform can
+generate. One hook, `useBuzzWorkflow`, takes every kind of generation body, and
+**what** it generates is chosen by the `kind` of the body you pass it, not by a
+separate hook. Its entry below is generated from the package README, whose
+example sends only `kind: 'textToImage'`. The five kinds:
+
+| Body `kind` | What it runs | Read |
+|---|---|---|
+| `'textToImage'` | An image from a prompt, with LoRAs and source images | [Generating images](../guide/text-to-image) |
+| `'customComfy'` | A ComfyUI workflow: a registered recipe, or your own graph | [Comfy on Civitai](../guide/comfy-cloud) |
+| `'step'` | One orchestrator step: a registered step id, or any step `$type` passed through | [What the bridge can and cannot do](./generation#what-the-bridge-can-and-cannot-do) |
+| `'training'` | A LoRA trained on the viewer's own images | [`WorkflowBodyTraining`](./generation#bridge-WorkflowBodyTraining) |
+| `'workflow'` | Up to eight steps as one generation, a later step reading an earlier one's result | [Multi-step workflows](../guide/workflows) |
+
+See [Workflow bodies: the `kind` union](#workflow-bodies-the-kind-union) below
+before concluding a capability is missing.
 :::
 
 <HooksReference>

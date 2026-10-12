@@ -53,6 +53,15 @@ the server accepts.
 <!-- END GENERATED: manifest -->
 </JsonSchemaTable>
 
+::: info One key the platform reads that the table does not list: `description`
+An on-site app's store listing takes its **description** from a top-level
+`description` string in `block.manifest.json`
+(see [Store listing](../guide/store-listing#the-text-fields-apply-in-place)).
+The canonical schema does not declare that key yet, so it is missing from the
+generated table above and an editor will not suggest it. The schema does not
+forbid extra top-level keys, so a manifest that sets it still validates.
+:::
+
 ## Required fields
 
 `blockId`, `version`, `name`, `contentRating`, and `scopes` are always required.
