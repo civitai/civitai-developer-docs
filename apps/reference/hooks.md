@@ -4,7 +4,7 @@ description: Every @civitai/blocks-react hook — signature, example and README 
 sources:
   - npm:@civitai/blocks-react@0.68.0/dist/index.d.ts
   - npm:@civitai/blocks-react@0.68.0#README
-  - npm:@civitai/app-sdk@0.64.0/blocks#WorkflowBody
+  - npm:@civitai/app-sdk@0.64.1/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
 
@@ -2107,7 +2107,7 @@ reads member-specific fields, so every member except `training` flows through th
 same `estimate → submit → watch` lifecycle shown above. `training` is quoted with
 `estimate()` but run with `useRunTraining()`, and `submit()` refuses it.
 
-As of the pinned `@civitai/app-sdk@0.64.0` the union has four `kind` values, and
+As of the pinned `@civitai/app-sdk@0.64.1` the union has four `kind` values, and
 `kind: 'step'` is itself two arms — five members in all:
 
 | `kind` | what it runs | what your block sends |
