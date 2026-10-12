@@ -52,8 +52,8 @@ The open MiniMax H3 weights, run on Civitai's own ComfyUI workers instead of Min
 
 **Default choice**: `operation: "imageToVideo"`, `duration: 5`, the default 864×480. Add `turbo: true` for drafts: it costs about a third as much and finishes in under a minute.
 
-::: warning Voice references (`referenceAudios`) don't work yet
-The API schema lists `referenceAudios` on `referenceToVideo`, but today a request carrying it is accepted at submit and then fails as soon as the job starts, with no error message and no charge. This holds on both turbo and standard, for WAV and MP3. Until that is fixed, use the [hosted `minimax-h3` engine](./minimax-h3#reference-to-video) when you need a clip driven by a reference voice. This page will be updated when comfy audio references work.
+::: tip Voice references (`referenceAudios`)
+`referenceAudios` works on `referenceToVideo` with `turbo: true`, alongside `images`. Pass each clip as the **original blob URL** or the **blob AIR** of your upload. A redirected blob URL (one that looks like `/blobs/content/<token>`) is not accepted as an input and fails, even on a `whatif=true` preview.
 :::
 
 ## Operations
@@ -161,12 +161,12 @@ Pass 1–9 `images` and refer to them in the prompt as `<Image 1>`, `<Image 2>` 
 
 <RecipeRun :body="refBody" />
 
-**To anchor the opening shot, put the start frame in `images[0]` and say so in the prompt**, as above. Don't use the `firstFrame` field on this operation: like `referenceAudios`, it is in the schema but a request combining it with `images` currently fails as soon as the job starts. A frame passed as `<Image 1>` with an explicit "opens exactly on" instruction does the same job.
+**To anchor the opening shot, put the start frame in `images[0]` and say so in the prompt**, as above. Don't use the `firstFrame` field on this operation: it is in the schema, but a request combining it with `images` currently fails as soon as the job starts. A frame passed as `<Image 1>` with an explicit "opens exactly on" instruction does the same job.
 
 | Field | Notes |
 |---|---|
 | `images[]` | 1–9 reference images. URL, data URL or base64. |
-| `referenceAudios[]` | **Not working yet** (see the warning at the top). |
+| `referenceAudios[]` | Voice clips to drive the performance. Original blob URL or blob AIR (see the note at the top). |
 | `firstFrame` | **Not working yet** in combination with `images`. Pass the frame as `images[0]` instead. |
 
 ## Control video
@@ -213,7 +213,7 @@ Billed per second of output. Resolution, `steps`, `fast` and the number of refer
 
 For comparison, the [hosted `minimax-h3` engine](./minimax-h3#cost) is 170 Buzz per second at 2K.
 
-`whatif=true` checks the request against the schema and prices it, but does not run it. A request that will fail at run time, such as one with `referenceAudios` today, still gets a price.
+`whatif=true` checks the request against the schema and prices it, but does not run it. A request that will fail at run time, such as one combining `firstFrame` with `images`, still gets a price.
 
 ## Troubleshooting
 
@@ -222,7 +222,8 @@ For comparison, the [hosted `minimax-h3` engine](./minimax-h3#cost) is 170 Buzz 
 | `400`: "width and height must be multiples of 32" | e.g. 1280×720 | Use multiples of 32, e.g. 1280×704 or 1344×768. |
 | `400`: "At least one reference image or audio clip is required" | `referenceToVideo` with no `images` | Pass at least one image. |
 | `400` on `controlVideo` mentioning a preprocessed AIR | Raw video URL in `video` | Pass a preprocessed control map as an AIR or Civitai-hosted URL. |
-| Step fails immediately, no message, no charge | `referenceAudios`, or `firstFrame` together with `images`, on `referenceToVideo` | Not supported yet. Drop the field; for voice, use the [hosted engine](./minimax-h3). |
+| Step fails immediately, no message, no charge | `firstFrame` together with `images` on `referenceToVideo` | Not supported yet. Pass the frame as `images[0]` instead. |
+| `referenceAudios` fails, or `whatif` returns `500` | Audio passed as a redirected blob URL (`/blobs/content/<token>`) | Pass the original blob URL or the blob AIR. |
 | Turbo output copies the grid of a multi-panel reference sheet | Turbo can follow the reference image's layout too closely | Put a clean start frame in `images[0]`, or turn `turbo` off. |
 
 ## Related
