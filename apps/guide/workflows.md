@@ -145,6 +145,14 @@ and the step waits for its source to finish. The fields:
 An object counts as a reference only when it has **both** `$ref` and `path` and
 no other key except `default` and `format`. Anything else is ordinary input.
 
+A reference stands in for a **plain value** (a string, a number, a URL). A
+field that accepts several shapes, such as a chat message's `content` (a string
+or an array of parts), rejects a reference in its place: put it one level down,
+in a plain field of the shape you mean (see the
+[chat example](#example-one-chat-step-feeding-another)). The host does not
+catch this; the orchestrator does, so it surfaces as an unpriced estimate (see
+[What it costs](#what-it-costs)).
+
 🔴 **References point backwards only.** A step cannot read itself, a later step,
 or a step that does not exist. That keeps every workflow free of cycles, and the
 host checks it before anything is priced: a reference that breaks the rule is
@@ -169,7 +177,14 @@ const input: WithWorkflowStepRefs<CutoutInput> = {
 ## Example: one chat step feeding another
 
 Step 1 writes an outline; step 2 writes a story from it. The second step's
-prompt is the first step's reply, placed into a sentence with `format`.
+prompt is the first step's reply, read with a reference.
+
+🔴 **Put a reference in a text part, not in `content` itself.** A chat
+message's `content` is either a string or an array of parts, and the
+orchestrator does not accept a reference in its place: `content: { $ref, path }`
+is rejected as an invalid request. Use the parts form,
+`content: [{ type: 'text', text: { $ref, path } }]`, as below. A reference in a
+plain string field (such as `text` inside a part) works.
 
 ```tsx
 // @ts-skip-snippet: needs the @civitai/app-sdk release that adds kind 'workflow'
@@ -192,11 +207,11 @@ function outlineThenStory(topic: string): WorkflowBody {
           messages: [
             {
               role: 'user',
-              content: {
-                $ref: '$arguments',
-                path: 'topic',
-                format: 'Write a three-point outline for a very short story about {0}.',
-              },
+              // A reference goes in a text PART, never directly in `content`.
+              content: [
+                { type: 'text', text: 'Write a three-point outline for a very short story about:' },
+                { type: 'text', text: { $ref: '$arguments', path: 'topic' } },
+              ],
             },
           ],
         },
@@ -209,11 +224,10 @@ function outlineThenStory(topic: string): WorkflowBody {
           messages: [
             {
               role: 'user',
-              content: {
-                $ref: 'outline',
-                path: 'output.choices[0].message.content',
-                format: 'Write a 150-word story that follows this outline: {0}',
-              },
+              content: [
+                { type: 'text', text: 'Write a 150-word story that follows this outline:' },
+                { type: 'text', text: { $ref: 'outline', path: 'output.choices[0].message.content' } },
+              ],
             },
           ],
         },
@@ -329,6 +343,10 @@ The rules, all checked by the host before anything is priced:
   is refused rather than run at the ceiling; see
   [`workflow_repeat_unbounded`](#refusals).
 
+Because the list is fixed in the body, every iteration is inside the
+estimate. Use object items and read a field with `path`, as above
+(`{ $ref: 'subject', path: 'prompt' }`).
+
 Each item becomes its own generated step in the result, named
 `<repeat name>.<n>` (`portraits.<n>` here), after the `repeat` step itself.
 
@@ -419,7 +437,9 @@ its estimate. Show the estimate as an estimate ("about 40 Buzz"), never as "you
 will pay at most". The host corrects its spend caps afterwards, but the extra
 charge is not bounded by the estimate.
 
-**No quote.** If the orchestrator cannot price the workflow, it still runs,
+**No quote.** If the orchestrator cannot price the workflow (including when it
+rejects the body as invalid, for example a reference placed where the step's
+schema does not accept one), it still runs,
 reserved at the ceiling, with each step's timeout set from your per-step
 budget. Two kinds of workflow are refused instead, before anything is reserved:
 
@@ -428,6 +448,15 @@ budget. Two kinds of workflow are refused instead, before anything is reserved:
 - one containing a `repeat` at any depth, refused with
   `workflow_repeat_unbounded` and an `error` that says no price quote could be
   obtained. Retrying later may succeed.
+
+🔴 **An estimate equal to the ceiling can mean "not priced".** When there is no
+quote, the estimate currently still resolves, with `cost.total` set to the
+ceiling (your per-generation budget × the number of steps) and no error or flag
+saying the price is missing. So if an estimate comes back at exactly that
+ceiling, treat it as "could not be priced", not as the price: check the body
+(above all, where each reference sits) before letting the viewer submit, since
+such a submit is reserved at the ceiling, or refused if it has a `repeat` or a
+training step.
 
 **The author fee.** If your app charges one (see
 [How an app earns](./earning)), a workflow pays it **once**, not once per step,
