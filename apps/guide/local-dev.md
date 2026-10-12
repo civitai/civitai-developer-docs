@@ -32,6 +32,25 @@ App-Storage message families. You do not need beta access, a token, or any Buzz
 to exercise any of them.
 :::
 
+## The mock host enforces the spend scope
+
+From `@civitai/blocks-react` 0.70.0, the mock host refuses
+`estimate()`, `estimateBatch()` and `submit()` for a token without
+`ai:write:budgeted`, as the real host does. Its default is a token **without**
+that grant, matching the first token production hands a block, so out of the box:
+
+- `estimate()` and `estimateBatch()` **reject** (code `'failed'`), with no cost;
+- `submit()` asks for consent, the mock grants it and pushes a refreshed token,
+  and the retry resolves normally. It is charged once, because the retry reuses
+  the same idempotency key. With `consentGrantable: false` the submit rejects
+  instead.
+
+A test or harness session that is not about consent should start granted:
+`createMockHost({ consentGranted: true })`, or `?consent=granted` on the dev
+harness URL. A test that **is** about consent can now drive the whole loop:
+estimate, see the refusal, `requestConsent({ scopes: ['ai:write:budgeted'] })`,
+wait for the scope on `useBlockToken().scopes`, and estimate again.
+
 ## `dev:live` works on a pending app
 
 You do **not** have to wait for moderator approval to iterate against the real

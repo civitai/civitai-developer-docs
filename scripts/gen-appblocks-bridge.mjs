@@ -78,6 +78,15 @@ const SDK_TYPES = [
   'AiToolkitLrScheduler',
   'AiToolkitOptimizerType',
   'BlockTrainingQuote',
+  // `kind: 'workflow'` (several orchestrator steps as one workflow) joined the
+  // `WorkflowBody` union in @civitai/app-sdk 0.66.0 — a new TOP-LEVEL member, found
+  // by the coverage assertion below. Its step type, the reference type a step input
+  // may hold, and the element type of `BlockWorkflowSnapshot.steps` are listed with
+  // it so the page defines every type those tables name.
+  'WorkflowBodyWorkflow',
+  'WorkflowBodyWorkflowStep',
+  'WorkflowStepRef',
+  'BlockWorkflowStepSnapshot',
   'BlockWorkflowSnapshot',
   'AppWorkflow',
   'AppWorkflowImage',

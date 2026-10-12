@@ -102,6 +102,9 @@ platform provisions all of that when your app is approved.
   naming a server-registered recipe (`{ kind, recipe, params }`) or by shipping
   your own graph inline (`mode: 'inline'`); the gates on each arm and the budget
   rules.
+- **[Multi-step workflows](./workflows)** — chain up to eight orchestrator steps
+  in one generation (`kind: 'workflow'`), a later step reading an earlier one's
+  result; `repeat`, `merge`, the limits and how the price works.
 - **[Running embedded & direct traffic](./embedding)** — why your app runs
   embedded in the Civitai host, why you share the `/apps/run/<slug>` route, and
   how `<BlockGate>` degrades a direct visit gracefully.
