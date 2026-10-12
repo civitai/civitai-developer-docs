@@ -329,8 +329,12 @@ turn.
 
 ### Two things this rail does to your app's own numbers
 
-1. **The fee is folded into the cost your block is quoted, with no itemised
-   field.** A cost estimate already includes it, with no line item to subtract.
+1. **The fee is folded into the cost your block is quoted.** `cost.total`
+   already includes it. Where the host itemises it, `cost.authorFee` is the fee
+   on its own, so `total - authorFee` is the generation's price; when the field
+   is absent, show `total` on its own rather than reading it as `0`. See
+   "Showing the app fee: `cost.authorFee`" under
+   [`useBuzzWorkflow`](../reference/hooks#hook-useBuzzWorkflow).
 2. **The fee counts against the per-generation budget ceiling**, so a
    `page.buzzBudgetPerGen` sized against a bare generation estimate can refuse
    with an insufficient-budget reply. Leave headroom.

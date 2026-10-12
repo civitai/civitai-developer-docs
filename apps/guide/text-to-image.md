@@ -482,7 +482,12 @@ signed-out viewer. Without it `balance` stays `null`, and the happy path shows a
 generic "Could not start the generation" with **no** top-up offer.
 
 A pass-through training step the orchestrator would not quote also rejects
-(no `cost`). The
+(no `cost`), from `estimate()` and from `submit()` before anything is reserved.
+Branch on `err.snapshot.errorCode` (`'training-quote-rejected'`,
+`'training-quote-unavailable'` or `'training-quote-unpriced'`), not on the
+`error` text, and keep a default branch for a code a later host adds; see
+"Why a training step could not be priced" under
+[`useBuzzWorkflow`](../reference/hooks#hook-useBuzzWorkflow). The
 [`useBuzzWorkflow` reference](../reference/generation#bridge-useBuzzWorkflow)
 lists every resolved refusal and each `WorkflowSubmitError` `code` with what it
 says about money.
@@ -607,11 +612,18 @@ every user until you ship a new manifest version. See
 
 ## Running many generations (limits and fan-out) {#limits}
 
-There is **no batch API**. A grid or matrix app (one generation per cell) makes
-one `estimate()`, one `submit()` and one `watch()` per cell, and every limit
-below applies to each of those calls on its own. There is also **no aggregate
-quote**: a run total shown in your confirm card is the sum of the per-cell
-estimates, computed in your own UI, and the server never sees or locks it.
+There is **no batch submit**. A grid or matrix app (one generation per cell)
+makes one `submit()` per cell, each with its own confirmation, and every limit
+below applies to each of those calls on its own. Two hooks cover the rest of a
+grid:
+
+- [`useBatchEstimate()`](../reference/hooks#hook-useBatchEstimate) prices up to
+  16 bodies in **one** request against the estimate allowance. Its run total is
+  a quote, not a lock: each cell is priced again when it is submitted.
+- [`useWorkflowBatch()`](../reference/hooks#hook-useWorkflowBatch) watches up to
+  30 submitted workflows and cancels them together. It is still one `watch()`
+  and one `cancel()` per workflow underneath, so the poll and estimate limits
+  below apply to each of those calls. See [Watching and cancelling a grid](#watch-cancel-grid).
 
 ### The limits {#limits-table}
 
@@ -665,15 +677,83 @@ app is live, so write the handling before you need it.
   succeeded, some were refused (the `'failed'` placeholder, nothing charged),
   some ran and failed (a real `workflowId`, possibly charged). Show each one.
   Don't abort the whole grid because one cell was refused.
-- **Cancel per workflow.** There is no cancel-all. Call `cancel(workflowId)` for
-  every cell that is not terminal yet, and check each result: one that comes
-  back `'processing'` was not cancelled, so call it again.
+- **Cancel what is still running, and check each result.** A cancel that comes
+  back `'processing'` was refused (the estimate allowance was used up) and the
+  workflow is still running, so call it again later. `useWorkflowBatch()`'s
+  `cancelAll()` does this for the whole grid; see below.
 - **Estimate when the viewer is about to confirm, not on every edit.** On a
   page app the 150-per-10-s allowance is shared by every viewer of your app. A
-  16-cell grid spends 16 of it per estimate pass, so about nine viewers
-  re-estimating a full grid in the same 10 s would use it all, and then your
-  other reads (balance, viewer, `cancel()`) start being refused too. Debounce,
-  and treat a rejected estimate as "try again in a few seconds".
+  16-cell grid priced cell by cell spends 16 of it per estimate pass, so about
+  nine viewers re-estimating a full grid in the same 10 s would use it all, and
+  then your other reads (balance, viewer, `cancel()`) start being refused too.
+  `useBatchEstimate()` spends one request per pass, but its cells are metered
+  against an allowance of their own, so it is not a way around the limit.
+  Debounce, and treat a rejected estimate as "try again in a few seconds".
+
+### Watching and cancelling a grid {#watch-cancel-grid}
+
+[`useWorkflowBatch(workflowIds)`](../reference/hooks#hook-useWorkflowBatch)
+follows the workflows your cells submitted and returns
+`{ cells, summary, cancelAll, rewatch }`. There is no server-side batch id: the
+array of ids **is** the batch. Append each id as its `submit()` resolves, skip
+the `'failed'` placeholder (nothing was created), and persist the same array to
+re-attach after a reload.
+
+```tsx
+import { useState } from 'react';
+import type { WorkflowBody } from '@civitai/app-sdk/blocks';
+import { useBuzzWorkflow, useWorkflowBatch } from '@civitai/blocks-react';
+
+export function GridRun({ runId, bodies }: { runId: string; bodies: WorkflowBody[] }) {
+  const { submit } = useBuzzWorkflow();
+  const [ids, setIds] = useState<string[]>([]);
+  const { summary, cancelAll, rewatch } = useWorkflowBatch(ids);
+  const [cancelNote, setCancelNote] = useState('');
+
+  async function run() {
+    for (const [i, body] of bodies.entries()) {
+      try {
+        const snap = await submit(body, { idempotencyKey: `cell-${runId}-${i}` });
+        if (snap.workflowId !== 'failed') setIds((prev) => [...prev, snap.workflowId]);
+      } catch {
+        // Rejected: record this cell's outcome and carry on with the grid.
+      }
+    }
+  }
+
+  async function stopAll() {
+    const r = await cancelAll(); // never rejects
+    setCancelNote(r.complete ? '' : 'Some cells are still running. Try again in a few seconds.');
+  }
+
+  return (
+    <div>
+      <button onClick={() => void run()}>Run grid</button>
+      <p>
+        {summary.succeeded} done, {summary.failed} failed, {summary.running} running.
+        Spent {summary.realisedCost} Buzz.
+      </p>
+      {!summary.settled && <button onClick={() => void stopAll()}>Cancel all</button>}
+      {summary.stopped > 0 && <button onClick={rewatch}>Refresh stalled cells</button>}
+      {cancelNote && <p>{cancelNote}</p>}
+    </div>
+  );
+}
+```
+
+- **At most 30 ids** (`WORKFLOW_BATCH_MAX_CELLS`). A longer list, a duplicate,
+  an empty id or a `'failed'`/`'whatif'` placeholder throws.
+- **`summary.realisedCost` excludes the author fee.** It sums `cost.total` on
+  the finished snapshots that carry one: the generation cost the host reported,
+  not a ledger read. The author fee is charged separately.
+- **A host failure placeholder is not a failed workflow.** A poll the host could
+  not answer stops that cell (`phase: 'stopped'`, counted in `summary.stopped`,
+  not in `summary.failed`). It is not polled again until you call `rewatch()`.
+- **`cancelAll()` keeps at most four cancels in flight and stops after the first
+  refused one.** The refused cell is in `refused`, the cells it did not send are
+  in `notAttempted`, and `complete` is `false`. Nothing is retried for you; call
+  `cancelAll()` again after a few seconds, and it targets only the cells that
+  are still not finished.
 
 ### The app velocity limit is shared by every viewer {#velocity-is-shared}
 

@@ -248,6 +248,7 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 | `useUploadImageBytes` | **Keep** — a bridge message with no route. It sends `OPEN_IMAGE_UPLOAD` with `bytes`, and the host stores, persists and scans the image; no `/api/v1/blocks/*` route accepts an image upload. Page apps only, and the token needs `posts:write:self`. See [Posting from an app](./posting#upload-then-post) |
 | `useViewer` | `GET /api/v1/blocks/me`. Keeping the hook is not free: it is a `GET_VIEWER` bridge round trip on mount, not a snapshot read — but it is the authoritative self-read, where `useBlockContext().viewer` is the coarser `BLOCK_INIT` snapshot |
 | `useWildcardPack` | **Not carried** |
+| `useWorkflowBatch` | **No batch route** — the hook is one `watch()` and one `cancel()` per workflow id, with no server-side batch. Over REST, poll and cancel each id with `/api/v1/blocks/workflows/{poll,cancel}` |
 
 ::: warning Keep your `track()` calls — and declare the events
 `useBlockAnalytics()` sends `TRACK_EVENT`, and **both hosts forward it**: your
