@@ -275,5 +275,6 @@ A 5-second 2K clip takes around **three minutes** end to end, and 15-second clip
 ## Related
 
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
+- [MiniMax H3 (ComfyUI)](./minimax-h3-comfy): the open weights on Civitai's ComfyUI workers, cheaper, up to 1344 px, LoRAs
 - Other video engines: [WAN](./wan), [Veo 3](./veo3), [Kling](./kling), [Happy-Horse](./happy-horse), [FLUX-3](./flux3-video), [Seedance](./seedance)
 - Schema: `MiniMaxH3VideoGenInput` in the [API reference](/orchestration/reference/)

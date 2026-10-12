@@ -19,6 +19,7 @@ These are **Orchestration REST API** recipes — you hold a Bearer token and POS
 - [Veo 3 video generation](./veo3) — Google Veo 3.0/3.1 in standard / fast / lite tiers; operation inferred from image count; optional synchronized audio track
 - [Gemini Omni video generation](./gemini-omni) — Google Gemini Omni 1.1 Flash; 360p–4K with audio, up to 6 reference images; billed on the seconds actually delivered
 - [MiniMax H3 video generation](./minimax-h3) — MiniMax's native H3 model at 2K; text-to-video, first/last-frame, and reference-to-video with up to 9 reference images plus 3 videos and 3 audio clips
+- [MiniMax H3 (ComfyUI) video generation](./minimax-h3-comfy) — the open H3 weights on Civitai's ComfyUI workers, up to 1344 px; text/frame-to-video, reference images, control video, LoRAs, turbo
 - [Seedance video generation](./seedance) — ByteDance Seedance direct on BytePlus; v2 / v2-fast / v2-mini up to 15 s and 1080p, or v2.5 for 30 s single-shot and a 50-asset reference budget
 - [Grok video generation](./grok-video) — xAI Grok-Imagine-Video via FAL; text-to-video, image-to-video, and edit-video with 480p/720p output
 - [FLUX-3 video generation](./flux3-video) — Black Forest Labs FLUX-3 via FAL; text / image / first-last-frame / keyframes / extend plus draftEnhance, 720p–1080p with synchronized audio and a cheap draft-then-enhance loop
