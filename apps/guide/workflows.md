@@ -2,8 +2,8 @@
 title: Multi-step workflows (kind 'workflow')
 description: Chain up to eight orchestrator steps in one App Blocks generation, where a later step reads an earlier step's result. References, repeat, merge, the limits, how the price and the author fee work, every refusal code, the per-step result, partial failure, and testing it with the mock host.
 sources:
-  - civitai-app-starters:packages/civitai-app-sdk/src/blocks/types.ts#WorkflowBodyWorkflow
-  - civitai-app-starters:packages/civitai-blocks-react/src/internal/mockHost.ts#failWorkflowStep
+  - npm:@civitai/app-sdk@0.66.0/blocks#WorkflowBodyWorkflow
+  - npm:@civitai/blocks-react@0.71.0#useBuzzWorkflow
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockMultiStepWorkflowBodySchema
   - civitai:src/server/services/blocks/workflow-graph.ts#resolveBlockWorkflowGraph
   - civitai:src/server/routers/blocks.router.ts#submitMultiStepWorkflow
@@ -30,10 +30,9 @@ new hook and no new message.
 Like the rest of [generation](./text-to-image), this is **mod-gated** during
 the closed beta, **page apps only**, needs the
 [`ai:write:budgeted`](../reference/scopes) scope and a **signed-in** viewer.
-The types (`WorkflowBodyWorkflow` and friends) and the mock-host support ship
-in the **next** `@civitai/app-sdk` and `@civitai/blocks-react` releases, after
-the 0.65 and 0.70 lines; until those publish, the examples on this page do not
-compile against the SDK. A host that predates the kind refuses the body, so
+The types (`WorkflowBodyWorkflow` and friends) ship in
+`@civitai/app-sdk@0.66.0` and the mock-host support in
+`@civitai/blocks-react@0.71.0`. A host that predates the kind refuses the body, so
 `estimate()` and `submit()` reject.
 :::
 
@@ -66,7 +65,6 @@ others, keep them as separate submits.
 ## The body
 
 ```ts
-// @ts-skip-snippet: needs the @civitai/app-sdk release that adds kind 'workflow'
 import type { WorkflowBody } from '@civitai/app-sdk/blocks';
 
 const body: WorkflowBody = {
@@ -119,7 +117,6 @@ Anywhere a value would go in a step's `input`, at any depth, you can put a
 **reference** instead:
 
 ```ts
-// @ts-skip-snippet: needs the @civitai/app-sdk release that adds kind 'workflow'
 import type { WorkflowStepRef } from '@civitai/app-sdk/blocks';
 
 const image: WorkflowStepRef = { $ref: 'draw', path: 'output.images[0].url' };
@@ -163,7 +160,6 @@ To keep a step's input typed while wiring references into it, use
 `WorkflowStepRef` wherever `T` has a value:
 
 ```ts
-// @ts-skip-snippet: needs the @civitai/app-sdk release that adds kind 'workflow'
 import type { WithWorkflowStepRefs } from '@civitai/app-sdk/blocks';
 
 type CutoutInput = { image: string; format?: 'png' | 'webp' };
@@ -187,7 +183,6 @@ is rejected as an invalid request. Use the parts form,
 plain string field (such as `text` inside a part) works.
 
 ```tsx
-// @ts-skip-snippet: needs the @civitai/app-sdk release that adds kind 'workflow'
 import { useState } from 'react';
 import { useBuzzWorkflow, WorkflowSubmitError } from '@civitai/blocks-react';
 import type { WorkflowBody } from '@civitai/app-sdk/blocks';
@@ -297,7 +292,6 @@ reports its `status` but carries **no `output`**. Read text from
 read.
 
 ```ts
-// @ts-skip-snippet: needs the @civitai/app-sdk release that adds kind 'workflow'
 import type { WorkflowBody } from '@civitai/app-sdk/blocks';
 
 const body: WorkflowBody = {
@@ -363,7 +357,6 @@ checks them like references: every field needs a string `$ref` naming
 `reduce`.
 
 ```ts
-// @ts-skip-snippet: needs the @civitai/app-sdk release that adds kind 'workflow'
 import type { WorkflowBodyWorkflowStep } from '@civitai/app-sdk/blocks';
 
 // Added after the `portraits` repeat above: collect every child's first image.
@@ -473,7 +466,6 @@ The poll, watch and cancel replies of a `kind: 'workflow'` run carry
 **`steps`**, one entry per step in the orchestrator's order:
 
 ```ts
-// @ts-skip-snippet: needs the @civitai/app-sdk release that adds kind 'workflow'
 type BlockWorkflowStepSnapshot = {
   name: string;          // your name, or `$<index>`; `<repeat name>.<n>` for repeat children
   $type: string;
@@ -512,7 +504,6 @@ it is reversed in full for a workflow that does not succeed (see
 [What it costs](#what-it-costs)).
 
 ```tsx
-// @ts-skip-snippet: needs the @civitai/app-sdk release that adds kind 'workflow'
 import type { BlockWorkflowSnapshot } from '@civitai/app-sdk/blocks';
 
 export function StepList({ snap }: { snap: BlockWorkflowSnapshot }) {
@@ -578,7 +569,6 @@ this kind:
   reserved at `buzzBudget` × steps with no author fee.
 
 ```ts
-// @ts-skip-snippet: needs the @civitai/app-sdk release that adds kind 'workflow'
 import { createMockHost } from '@civitai/blocks-react/testing';
 
 const host = createMockHost({
@@ -603,9 +593,9 @@ does. A test that is not about consent needs `consentGranted: true` (or
 - [Generating images (text-to-image)](./text-to-image): the lifecycle, refused
   submits, and the [limits](./text-to-image#limits) every kind shares.
 - [Generation bridge reference](../reference/generation): the generated field
-  tables for every `WorkflowBody` member and `BlockWorkflowSnapshot`
-  (`WorkflowBodyWorkflow` and `WorkflowStepRef` appear there once this site
-  pins the SDK release that adds them).
+  tables for [`WorkflowBodyWorkflow`](../reference/generation#bridge-WorkflowBodyWorkflow),
+  [`WorkflowStepRef`](../reference/generation#bridge-WorkflowStepRef) and
+  [`BlockWorkflowSnapshot`](../reference/generation#bridge-BlockWorkflowSnapshot).
 - [Orchestration: Workflows](/orchestration/guide/workflows): how the
   orchestrator runs steps, resolves references and reports status, and the
   [step reference](/orchestration/reference/) for each `$type`'s input and
