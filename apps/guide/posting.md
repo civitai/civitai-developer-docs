@@ -4,7 +4,7 @@ description: Publish a post to the viewer's Civitai profile from a page app — 
 sources:
   - npm:@civitai/blocks-react@0.68.0#useCreatePostFromApp
   - npm:@civitai/blocks-react@0.68.0#useUploadImageBytes
-  - npm:@civitai/app-sdk@0.64.0/blocks#BlockCreatePostRequest
+  - npm:@civitai/app-sdk@0.64.1/blocks#BlockCreatePostRequest
   - civitai:src/server/routers/blocks.router.ts#createPostFromApp
   - civitai:src/server/routers/blocks.router.ts#persistAppUploadImage
   - civitai:src/server/services/blocks/block-post.logic.ts

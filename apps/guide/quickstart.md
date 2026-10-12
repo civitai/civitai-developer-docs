@@ -6,7 +6,7 @@ sources:
   - npm:@civitai/sdk@0.11.0/dist/index.d.ts
   - npm:@civitai/components@0.9.2/custom-elements.json
   - npm:@civitai/blocks-react@0.68.0#README
-  - npm:@civitai/app-sdk@0.64.0/vite#blockManifestPlugin
+  - npm:@civitai/app-sdk@0.64.1/vite#blockManifestPlugin
 ---
 
 # Quickstart
