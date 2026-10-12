@@ -101,6 +101,9 @@ jobs:
       - name: Porting guide documents every exported hook
         run: npm run check:porting-hooks
 
+      - name: Hooks reference names every direct-fetch hook
+        run: npm run check:direct-fetch-hooks
+
       # Rides this job for the same reasons as check:porting-hooks above, and is
       # the same CLASS of guard: a hand-written table's key set pinned against
       # the source it summarises. Repo-local (it reads the pinned devDep's

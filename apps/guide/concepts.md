@@ -6,7 +6,6 @@ sources:
   - civitai:src/components/AppBlocks/hostHandlerParity.ts#INVENTORY
   - npm:@civitai/app-sdk@0.65.0/blocks#BlockInitPayload
   - npm:@civitai/blocks-react@0.69.0#README
-  - civitai:src/pages/api/v1/blocks
 ---
 
 # Concepts

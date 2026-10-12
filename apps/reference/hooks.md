@@ -6,8 +6,6 @@ sources:
   - npm:@civitai/blocks-react@0.69.0#README
   - npm:@civitai/app-sdk@0.65.0/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
-  - civitai:src/pages/api/v1/blocks
-  - civitai:src/server/middleware/block-scope.middleware.ts#withBlockScope
 ---
 
 # React hooks
@@ -23,10 +21,7 @@ definitions; the examples, and everything each README section says after its
 example, come from its README.
 
 ::: info Which transport for what
-REST for reading and writing data; the bridge only for what needs Civitai's own
-chrome or the viewer's Civitai session. That rule, and the list of what stays on
-the bridge, live in one place:
-[Concepts → Transport models](../guide/concepts#transport-models).
+See [Concepts → Transport models](../guide/concepts#transport-models).
 
 Most hooks on this page are bridge hooks, and most of the data they carry also
 has a REST route a block can call with the token it already holds. The

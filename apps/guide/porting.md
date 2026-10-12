@@ -19,13 +19,7 @@ route, and **a block can call those routes today with the token it already
 has.** This page maps each bridge hook to its route, and says what each
 credential reaches.
 
-::: tip Which transport for what
-REST for reading and writing data; the bridge only for what needs Civitai's own
-chrome or the viewer's Civitai session. The rule, and the list of what stays on
-the bridge, live in one place:
-[Concepts → Transport models](./concepts#transport-models). This page is the
-how-to that follows from it.
-:::
+Which transport for what: [Concepts → Transport models](./concepts#transport-models).
 
 ::: warning `@civitai/sdk` runs in a block now — and nothing is asking you to move
 `@civitai/app-sdk` + `@civitai/blocks-react` continue; **no app has to move.**
