@@ -15,7 +15,7 @@ sources:
 A `kind: 'workflow'` body sends **several orchestrator steps as one
 generation**, and a later step can read an earlier step's result: draft a story
 outline and then write the story from it, generate an image and then remove its
-background, render one prompt per subject. The host checks the whole graph,
+background, write one caption per item of a list. The host checks the whole graph,
 prices it once, reserves Buzz once, and returns one workflow you watch like any
 other.
 
@@ -36,6 +36,63 @@ The types (`WorkflowBodyWorkflow` and friends) ship in
 `estimate()` and `submit()` reject.
 :::
 
+::: tip Getting those versions into a scaffolded app
+`civitai app create` writes its own `@civitai/*` version ranges, and they can
+trail the SDK. Checked on 12 October 2026: CLI `0.1.119` scaffolds
+`@civitai/app-sdk` `^0.64.0` and `@civitai/blocks-react` `^0.68.0`, and a caret
+range on a `0.x` version never moves to the next minor, so `npm install` and
+`npm update` alone will not reach the versions above. See what you have:
+
+```bash
+npm ls @civitai/app-sdk @civitai/blocks-react
+```
+
+If `@civitai/app-sdk` is below `0.66.0`, or `@civitai/blocks-react` below
+`0.71.0`, raise them together and commit `package.json` and the lockfile:
+
+```bash
+npm install @civitai/app-sdk@^0.66.0 @civitai/blocks-react@^0.71.0
+```
+
+The default `page-elements` template has no `@civitai/blocks-react`; there it is
+`npm install @civitai/app-sdk@^0.66.0`. Then run the project's typecheck and
+tests before going on.
+
+The scaffold's `AGENTS.md` says not to hand-edit the `@civitai/*` versions. That
+rule is there to keep the pair matched; this is the case where the pair has to
+move, and the command above moves both. Once `npm ls` shows a scaffold already
+at these versions or later, skip this box.
+:::
+
+::: info Which template, and which package
+The examples on this page are React: they call `useBuzzWorkflow()` from
+`@civitai/blocks-react`, which is what the **`page-money`** template ships
+(`civitai app create <name> --template page-money`).
+
+The default template, `page-elements`, is not React. It uses `@civitai/sdk`,
+which has no workflow helper: you send the same body to the block routes with
+`app.site`, as [Money calls](./sdk#money-calls) shows for `submit`. The
+estimate looks like this:
+
+```ts
+import type { BlockAppClient } from '@civitai/sdk';
+import type { BlockWorkflowSnapshot, WorkflowBody } from '@civitai/app-sdk/blocks';
+
+async function price(app: BlockAppClient, body: WorkflowBody) {
+  const { snapshot } = await app.site.post<{ snapshot: BlockWorkflowSnapshot }>(
+    'blocks/workflows/estimate',
+    { body }
+  );
+  // A refusal is a 200 on this route, not a throw: a `failed` snapshot that
+  // carries `errorCode`. The React hook is what turns it into a rejection.
+  return snapshot;
+}
+```
+
+Everything else on this page (the body, the limits, the costs, the refusal
+codes, the result) is the same on both; only the calling code differs.
+:::
+
 ::: info Not the same thing as calling the orchestrator yourself
 An App Block never holds an orchestrator token. This page is about the bridge
 body a block sends through the host, which adds a step-type denylist, a
@@ -52,7 +109,7 @@ reference for what each step type takes and returns, and for how references,
 | You want to… | Use |
 |---|---|
 | Feed one step's output into another step (text into a prompt, an image into an edit) | **`kind: 'workflow'`** |
-| Run the same step over a short list you already have (up to 16 items) as one generation | **`kind: 'workflow'`** with a [`repeat`](#repeat-one-step-per-item) |
+| Run the same step over a short list you already have (up to 16 items) as one generation | **`kind: 'workflow'`** with a [`repeat`](#repeat-one-step-per-item). Not yet for image generation: see the [known limitation](#repeat-imagegen-limitation) |
 | Run independent generations the viewer tracks one by one, such as a grid of cells | one `submit()` per cell, watched with [`useWorkflowBatch()`](./text-to-image#watch-cancel-grid) |
 | Price many independent bodies before the viewer confirms | [`useBatchEstimate()`](../reference/hooks#hook-useBatchEstimate) (a `kind: 'workflow'` body can be one of its cells) |
 | Run exactly one orchestrator step type | the single-step [pass-through arm](../reference/generation#what-the-bridge-can-and-cannot-do) (`kind: 'step'` with a `$type`) |
@@ -297,20 +354,27 @@ import type { WorkflowBody } from '@civitai/app-sdk/blocks';
 const body: WorkflowBody = {
   kind: 'workflow',
   arguments: {
-    subjects: [{ prompt: 'a red fox' }, { prompt: 'a snowy owl' }, { prompt: 'a lynx' }],
+    animals: [{ name: 'a red fox' }, { name: 'a snowy owl' }, { name: 'a lynx' }],
   },
   steps: [
     {
-      name: 'portraits',
+      name: 'captions',
       $type: 'repeat',
       input: {
-        for: { $ref: '$arguments', path: 'subjects', as: 'subject' },
+        for: { $ref: '$arguments', path: 'animals', as: 'animal' },
         template: {
-          $type: 'imageGen',
+          $type: 'chatCompletion',
           input: {
-            engine: 'google',
-            model: 'nano-banana-2',
-            prompt: { $ref: 'subject', path: 'prompt' },
+            model: 'openai/gpt-4o-mini',
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: 'Write a one-line photo caption for:' },
+                  { type: 'text', text: { $ref: 'animal', path: 'name' } },
+                ],
+              },
+            ],
           },
         },
       },
@@ -332,21 +396,80 @@ The rules, all checked by the host before anything is priced:
   nested repeats **multiplied**: a 4-item `repeat` inside a 4-item `repeat` is
   16. Repeats nest at most 4 deep.
 - **The `as` name** may not also be a step name or `$arguments`.
+- **What a template may read.** The host checks a template's references like
+  any other step's, with the `as` name added as one more source. So a template
+  may reference the `as` name, `$arguments`, or a step **earlier** than the
+  `repeat`. It cannot read the `repeat` step itself or a later step, and the
+  `as` name means nothing outside its own template. That is what the host's
+  check accepts; as with any `repeat`, price the body before you build on it.
 - **The template's `$type` is held to the same denylist** as a top-level step.
 - **A `repeat` needs a price quote.** If the host cannot get one, the workflow
   is refused rather than run at the ceiling; see
-  [`workflow_repeat_unbounded`](#refusals).
+  [When a `repeat` cannot be priced](#repeat-unpriced).
 
-Because the list is fixed in the body, every iteration is inside the
-estimate. Use object items and read a field with `path`, as above
-(`{ $ref: 'subject', path: 'prompt' }`).
+Use object items and read a field with `path`, as above
+(`{ $ref: 'animal', path: 'name' }`). When a `repeat` is priced, the quote
+covers every iteration, because the list is fixed in the body. Whether a
+`repeat` can be priced at all depends on the template's step type: a
+`chatCompletion` template is priced on civitai.com today, and an `imageGen`
+template is not. See the [known limitation](#repeat-imagegen-limitation) below.
 
 Each item becomes its own generated step in the result, named
-`<repeat name>.<n>` (`portraits.<n>` here), after the `repeat` step itself.
+`<repeat name>.<n>` with `<n>` counting **from 0** in list order: `captions.0`,
+`captions.1` and `captions.2` here, listed after the `repeat` step itself.
 
 `repeat` belongs to this kind only. The single-step pass-through arm
 (`kind: 'step'` with a `$type`) refuses a `repeat` outright, because it has no
 `arguments` for one to iterate.
+
+### Known limitation: a `repeat` of `imageGen` cannot be priced yet {#repeat-imagegen-limitation}
+
+::: danger Refused on civitai.com today
+A `repeat` whose template is an **`imageGen`** step is currently refused on
+civitai.com, by `estimate()` and by `submit()`, with
+[`workflow_repeat_unbounded`](#refusals) and an `error` saying a price quote is
+needed and none could be obtained. It is refused however the template is
+written, including with no reference in it at all, and retrying does not
+change the answer: the platform cannot price that combination yet. Other step
+types may be affected in the same way, so an estimate is the test: it is free,
+and a `repeat` that can be priced returns a number.
+
+What does work today:
+
+- a `repeat` with a `chatCompletion` template, as in the example above;
+- a single `imageGen` step, and a chain that feeds an `imageGen` step from an
+  earlier one (a chat step writing its prompt, for example).
+
+For several images in one generation, write **one `imageGen` step per item**
+as explicit steps, up to the [8-step limit](#limits):
+
+```ts
+import type { WorkflowBody, WorkflowBodyWorkflowStep } from '@civitai/app-sdk/blocks';
+
+// One explicit step per subject. Keep the list at 8 or fewer.
+function portraits(subjects: string[]): WorkflowBody {
+  return {
+    kind: 'workflow',
+    steps: subjects.map(
+      (prompt, index): WorkflowBodyWorkflowStep => ({
+        name: `portrait-${index}`,
+        $type: 'imageGen',
+        input: { engine: 'google', model: 'nano-banana-2', prompt },
+      })
+    ),
+  };
+}
+```
+
+Each explicit step counts toward the 8-step limit and the app velocity limit,
+and raises the [ceiling](#what-it-costs) by one per-generation budget. For more
+than 8 images, send separate submits and watch them with
+[`useWorkflowBatch()`](./text-to-image#watch-cancel-grid).
+
+The [mock host](#testing-with-the-mock-host) does **not** have this limitation:
+it prices and runs an `imageGen` `repeat`. Check a `repeat` body against the
+real host with [`dev:live`](./local-dev) before you build on it.
+:::
 
 ## `merge`: combining results
 
@@ -359,7 +482,8 @@ checks them like references: every field needs a string `$ref` naming
 ```ts
 import type { WorkflowBodyWorkflowStep } from '@civitai/app-sdk/blocks';
 
-// Added after the `portraits` repeat above: collect every child's first image.
+// Added after a `repeat` step named `cutouts` whose children each return an
+// image: collect every child's first image.
 const gallery: WorkflowBodyWorkflowStep = {
   name: 'gallery',
   $type: 'merge',
@@ -367,7 +491,7 @@ const gallery: WorkflowBodyWorkflowStep = {
     onMissing: 'partial',
     fields: {
       urls: {
-        $ref: 'portraits',
+        $ref: 'cutouts',
         path: 'output.steps[*].output.images[0].url',
         reduce: 'push',
         includeIndex: false,
@@ -404,8 +528,8 @@ Two of them count a workflow differently:
 
 - **App velocity counts steps, not submits.** One `kind: 'workflow'` submit uses
   one unit per step, and a `repeat` step one per iteration (nested repeats
-  multiplied). The 3-subject `repeat` above plus the `merge` step uses 4 of the
-  app's per-minute allowance.
+  multiplied). A 3-item `repeat` plus a `merge` step uses 4 of the app's
+  per-minute allowance.
 - **The per-call budget is multiplied by the number of steps.** See below.
 
 ## What it costs
@@ -415,7 +539,10 @@ your per-generation budget (`page.buzzBudgetPerGen`, see
 [Budget model](./text-to-image#budget-model)) **times the number of steps in
 `steps`**. A `repeat` is one step for this purpose, however many times it runs,
 so a long `repeat` can quote above the ceiling and be refused with
-`insufficient buzz budget`. The workflow's whole price, author fee included,
+`insufficient buzz budget`. With a per-generation budget of 50, a body whose
+only step is a `repeat` has a ceiling of 50 whether its list holds 2 items or
+16, while three explicit steps have a ceiling of 150. The workflow's whole
+price, author fee included,
 must fit under the ceiling or the submit is refused before anything is charged.
 
 **The reservation.** The host asks the orchestrator for one quote for the whole
@@ -440,7 +567,8 @@ budget. Two kinds of workflow are refused instead, before anything is reserved:
   the single-step arm, with a `training-quote-*` `errorCode`;
 - one containing a `repeat` at any depth, refused with
   `workflow_repeat_unbounded` and an `error` that says no price quote could be
-  obtained. Retrying later may succeed.
+  obtained. The cause can be the body itself, in which case retrying never
+  succeeds; see [When a `repeat` cannot be priced](#repeat-unpriced).
 
 🔴 **An estimate equal to the ceiling can mean "not priced".** When there is no
 quote, the estimate currently still resolves, with `cost.total` set to the
@@ -489,6 +617,12 @@ type BlockWorkflowStepSnapshot = {
   step's own entry has none either: its children are listed as steps of their
   own. A `merge`, or any other `$type`, reports its `output` here.
 - **`error`** is diagnostic text. Log it; show the viewer your own words.
+- **Image URLs are signed and expire.** Each URL carries a signature and an
+  expiry in its query string (`sig` and `exp`), and the same image can come
+  back with a different query string on every poll. Render from the latest
+  snapshot, and do not use the whole URL as a cache key or a list `key`: a
+  finished image would then be fetched again on each poll. Identify an image by
+  its step `name` and its position in that step's `imageUrls`.
 - **`steps` is absent** on an estimate (no workflow exists yet), on every other
   `kind`, and from a host that predates it. Don't rely on it in the `submit()`
   reply either; read it from `poll()`, `watch()` or `cancel()`.
@@ -512,7 +646,8 @@ export function StepList({ snap }: { snap: BlockWorkflowSnapshot }) {
       {(snap.steps ?? []).map((step) => (
         <li key={step.name}>
           {step.name}: {step.status}
-          {step.imageUrls?.map((url) => <img key={url} src={url} alt="" />)}
+          {/* Keyed by position: the URL's signature can change between polls. */}
+          {step.imageUrls?.map((url, index) => <img key={index} src={url} alt="" />)}
         </li>
       ))}
     </ul>
@@ -532,10 +667,11 @@ a contract.
 
 | `errorCode` | Means | What to do |
 |---|---|---|
-| `workflow_too_many_steps` | more than 8 steps | Split the job into two workflows, or move repeated work into a `repeat` |
+| `workflow_too_many_steps` | more than 8 steps | Split the job into two workflows, or move repeated work into a `repeat` where its step type [can be priced in one](#repeat-imagegen-limitation) |
 | `workflow_step_denied` | a step (or a `repeat` template) names a platform-internal `$type`: the model and image scanners, the moderation classifiers such as `promptModeration`, the hashing and model-ingestion types, a few other platform tools, web scrape and web search, and the retired `textToImage` step type. The match ignores case | Remove or replace that step. These types are reserved for Civitai's own use |
 | `workflow_ref_invalid` | a reference or `merge` field names the step itself, a later step, or nothing; a step `name` breaks the rules or repeats; a `repeat` or `merge` is malformed; a `repeat`'s `as` name is also a step name; more than 64 references; or an input nested deeper than 32 levels. `error` names the step by its position, except for the `as`-name clash | Fix the body. Resending it unchanged gives the same answer |
-| `workflow_repeat_unbounded` | a `repeat` iterates something other than an array in `arguments`, or more than 16 times with nested repeats multiplied; **or** the workflow has a `repeat` and no price quote could be obtained | For the first two, move the list into `arguments` or shorten it. For the missing quote, retry later |
+| `workflow_repeat_unbounded` (the loop) | a `repeat` iterates something other than an array in `arguments`, or more than 16 times with nested repeats multiplied. Decided from the body alone, before the host asks for a price | Move the list into `arguments`, or shorten it. Resending it unchanged gives the same answer |
+| `workflow_repeat_unbounded` (no price) | the workflow has a `repeat` and the host could not get a price for it. The same code, and the same `error`, whatever the reason was | See [When a `repeat` cannot be priced](#repeat-unpriced). Retrying helps only if the cause was temporary |
 | `training-quote-rejected` / `-unavailable` / `-unpriced` | a training step in the workflow could not be priced | As for a [single training step](./text-to-image#refused-submits) |
 
 Other refusals look the same as on every other kind. A price over the
@@ -545,6 +681,49 @@ ceiling, a daily cap, the consent budget or the app velocity limit makes
 [refused submits](./text-to-image#refused-submits)). A body the schema rejects
 (an unknown key, an empty `steps`, inputs over the size limit) rejects without an
 `errorCode`.
+
+### When a `repeat` cannot be priced {#repeat-unpriced}
+
+`workflow_repeat_unbounded` covers two different situations, and the code alone
+does not say which.
+
+**What your app can tell apart.** The loop rules are properties of the body you
+built, so check them before you send: `for.$ref` is `'$arguments'`, `for.path`
+names an array in `arguments`, and the iteration count (nested repeats
+multiplied) is 16 or fewer. A body that passes all three and is still refused
+with this code was refused for the missing price. Today the `error` text also
+differs (the no-price refusal says a price quote is needed and none could be
+obtained), but its wording is not a contract.
+
+**What your app cannot tell apart.** A missing price has three possible causes,
+and the refusal looks the same for all of them:
+
+1. the price could not be fetched just then, which is temporary;
+2. the template's `input` is not valid for its `$type`, such as a reference
+   placed where that step type does not accept one;
+3. the template's step type cannot be priced inside a `repeat` yet, as with
+   [`imageGen`](#repeat-imagegen-limitation).
+
+Only the first is fixed by retrying. In a shipped app, show the viewer that the
+job cannot be run right now and let them try again; do not retry in a loop,
+since estimates are rate-limited and causes 2 and 3 never clear on their own.
+
+**Finding the cause while you build.** Estimates are free, so narrow it down
+with them:
+
+1. **Estimate the same body again** after a short wait. A number means the
+   cause was temporary.
+2. **Estimate the template as an ordinary step.** Send a `kind: 'workflow'`
+   body whose only step is the template's `$type` and `input`, with one item's
+   values written in where the template read the `as` name. If that estimate
+   comes back at exactly the ceiling (your per-generation budget, for one
+   step), the input is the problem: an
+   [estimate equal to the ceiling](#what-it-costs) means the step could not be
+   priced. Fix the input and repeat this step.
+3. **If the step is priced on its own but the `repeat` is still refused**, that
+   step type cannot be priced inside a `repeat` yet. Write the items as
+   explicit steps instead, as shown under the
+   [known limitation](#repeat-imagegen-limitation).
 
 ## Testing with the mock host
 
@@ -577,10 +756,33 @@ const host = createMockHost({
 });
 ```
 
-What the mock does **not** do: it checks where a reference points, not whether
-its `path` exists; it never re-prices a step; it does not expand a `repeat` into
-`<name>.<n>` children; and it produces no chat text (`textOutputs`). Exercise
-those against the real host with [`dev:live`](./local-dev).
+### What the mock does not do
+
+A body the mock prices and runs can still be refused, or look different, on the
+real host. The mock:
+
+- checks where a reference points, not whether its `path` exists;
+- never re-prices a step;
+- does not expand a `repeat` into `<name>.<n>` children: the `repeat` is one
+  entry in `steps`;
+- **prices and runs every `repeat`**, including one with an `imageGen`
+  template, which the real host
+  [currently refuses](#repeat-imagegen-limitation). A `repeat` that works in
+  the mock has not been shown to be priceable. To see how your app handles the
+  refusal, set `generation.workflowUnpriced: true`;
+- **gives every succeeded step that is not suppressed a placeholder image,
+  whatever its `$type`**. A `chatCompletion` or `repeat` step therefore has
+  `imageUrls` in the mock and none on the real host, so a gallery built from
+  the top-level `imageUrls` shows more pictures in the mock than it will in
+  production;
+- **prices every step the same** when `costPerGen` is a number, so a chat step
+  costs as much as an image and the mock total can be well off a real quote.
+  Pass a function and branch on the step's `$type` for a closer number;
+- produces no chat text (`textOutputs`) and no step `output`;
+- returns placeholder URLs that stay the same from poll to poll, where real
+  image URLs are [signed and can change](#reading-the-result).
+
+Exercise those against the real host with [`dev:live`](./local-dev).
 
 Since `@civitai/blocks-react` 0.70.0 the mock also refuses estimate, batch
 estimate and submit for a token without `ai:write:budgeted`, as the real host
