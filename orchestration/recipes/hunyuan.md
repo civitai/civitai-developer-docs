@@ -140,7 +140,7 @@ Cost scales approximately with pixel count × duration × steps. Doubling the re
 
 ## Cost
 
-HunyuanVideo cost depends on `width × height × duration × fps × steps`. The formula uses GPU-second estimation with a 5× markup, rounded to the nearest 25 Buzz (minimum 100 Buzz).
+HunyuanVideo cost depends on `width × height × duration × fps × steps`. The charge is rounded to the nearest 25 Buzz (minimum 100 Buzz).
 
 Use `whatif=true` to get an exact preview:
 

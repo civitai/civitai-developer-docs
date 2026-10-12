@@ -281,8 +281,8 @@ of the platform end to end that the starters examples keep small.
 
 ::: info About these repositories
 They are individually maintained working apps, not a curated, supported sample
-set: seven live on the personal account `ZacxDev` and one under the `civitai`
-organization. Treat them as references to read, not as an API contract. The
+set: seven are maintained outside the `civitai` organization and one inside
+it. Treat them as references to read, not as an API contract. The
 [reference pages](./reference/) are the contract, and the server is the
 enforcement boundary.
 

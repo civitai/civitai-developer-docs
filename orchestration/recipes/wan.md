@@ -397,12 +397,12 @@ Typical: 720p Turbo 5 s → ~130; 720p standard 5 s → ~520; 720p LoRA 5 s → 
 
 ### v2.2 (Comfy, Civitai-hosted)
 
-Variable per-pixel-per-step formula with an 8× markup, minimum **100 Buzz**, rounded up to the nearest 25:
+Variable per-pixel-per-step formula, minimum **100 Buzz**, rounded up to the nearest 25:
 
 ```
 areaCost    = max(a × width × height + b, 0)    // per-frame per-step compute factor
 duration    = length × steps × areaCost
-buzz        = max(100, ceil((duration × 420/3600 × 8) / 25) × 25)
+buzz        = max(100, ceil((duration × 14/15) / 25) × 25)
 ```
 
 Where `(a, b)` is `(1.22e-6, -0.14)` for image-to-video, `(2.53e-7, -0.0259)` for text-to-video. This path is noticeably more expensive per second than the `fal` routes — `fal` is the default for a reason.

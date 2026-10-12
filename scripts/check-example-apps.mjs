@@ -1596,7 +1596,8 @@ const MIN_PAGE_CLAIMS = 5;
  *   - the number of starters-example SECTIONS (`The eleven examples in …`);
  *   - the number of distinct EXTERNAL repositories — every parsed repository
  *     except the starters one, which is one repository holding many examples;
- *   - the split BY OWNER (`seven … ZacxDev … one … civitai`) of those external
+ *   - the split BY OWNER (`seven … outside the `civitai` organization and one
+ *     inside it`) of those external
  *     repositories, which is a claim about the set's composition and not merely
  *     its size;
  */
@@ -1666,24 +1667,24 @@ export function checkPageClaims(markdown, entries, sections = []) {
     }
   }
 
-  // The composition claim: "seven live on the personal account `ZacxDev` and one
-  // under the `civitai` organization". Graded against the parsed OWNERS, so it
-  // pins which accounts the examples come from, not just how many there are.
+  // The composition claim: "seven are maintained outside the `civitai`
+  // organization and one inside it". Graded against the parsed OWNERS, so it
+  // pins where the examples come from, not just how many there are. (The page
+  // deliberately names no personal account; "outside" is every other owner.)
   const split = prose.match(
-    rx('\\b#N# live on the personal account `?([A-Za-z0-9-]+)`? and #N# under the `?([A-Za-z0-9-]+)`?'),
+    rx('\\b#N# are maintained outside the `?([A-Za-z0-9-]+)`? organization and #N# inside it\\b'),
   );
   if (split) {
     claims++;
+    const org = split[2].toLowerCase();
+    const inside = byOwner.get(org) ?? 0;
     const pairs = [
-      [cardinal(split[1]), split[2]],
-      [cardinal(split[3]), split[4]],
+      [cardinal(split[1]), total - inside, `outside \`${split[2]}\``],
+      [cardinal(split[3]), inside, `inside \`${split[2]}\``],
     ];
-    for (const [n, owner] of pairs) {
-      const actual = byOwner.get(owner.toLowerCase()) ?? 0;
+    for (const [n, actual, where] of pairs) {
       if (n !== actual) {
-        failures.push(
-          `the account split claims ${repos(n)} under \`${owner}\`, but the page links ${actual}.`,
-        );
+        failures.push(`the account split claims ${repos(n)} ${where}, but the page links ${actual}.`);
       }
     }
     const covered = pairs.reduce((s, [n]) => s + n, 0);
