@@ -6,50 +6,60 @@ sources:
   - npm:@civitai/blocks-react@0.69.0#README
   - npm:@civitai/app-sdk@0.65.0/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
+  - civitai:src/pages/api/v1/blocks
+  - civitai:src/server/middleware/block-scope.middleware.ts#withBlockScope
 ---
 
 # React hooks
 
-`@civitai/blocks-react` is the React-first way to build a Civitai App. Each hook
-wraps a slice of the [message bridge](./messages) so you never touch
+`@civitai/blocks-react` is the React-first way to build a Civitai App. Most
+hooks wrap a slice of the [message bridge](./messages) so you never touch
 `postMessage` directly — you call a hook, get typed state back, and the host
-brokers the privileged work.
+brokers the privileged work. A few call a REST route themselves; the **Trust
+model** box below names them.
 
 The signatures below are generated from the published package's type
 definitions; the examples, and everything each README section says after its
 example, come from its README.
 
-::: info This page documents the bridge transport
-Everything below is the **`postMessage` bridge** model: your block asks, the host
-performs the call. That model is fully supported and is still the right answer
-for anything that has to raise Civitai's own UI.
+::: info Which transport for what
+REST for reading and writing data; the bridge only for what needs Civitai's own
+chrome or the viewer's Civitai session. That rule, and the list of what stays on
+the bridge, live in one place:
+[Concepts → Transport models](../guide/concepts#transport-models).
 
-It is no longer the only model. Most of the data these hooks carry now has a
-REST route, and **a block can call those routes today with the token it already
-holds**. Most hooks below therefore have a direct-API replacement — the
+Most hooks on this page are bridge hooks, and most of the data they carry also
+has a REST route a block can call with the token it already holds. The
 [porting guide](../guide/porting#hook-replacements) maps every hook the package
-exports. In a few places the route is the *wider* surface: shared storage's
-`list` route takes a `mine` filter no hook carries, and the porting guide
-documents it.
+exports to its route, or says why it stays on the bridge.
 
-(`@civitai/sdk` is the other client, and since 0.5.0 it runs in a block on either
-credential. What each credential reaches — and the 22 block routes an OAuth token
-gives up — is on the porting guide.)
-
-This page is generated from `@civitai/blocks-react`'s own type definitions, so it
-can only ever describe the bridge. That is a property of the generator, not a
-judgement about the model.
+This page is generated from `@civitai/blocks-react`'s own type definitions and
+README, so it describes each hook as the package ships it. That is a property of
+the generator, not a recommendation of one transport over the other.
 :::
 
 ::: tip Trust model
-Every hook below is **host-mediated**: the host resolves the viewer from the
-block token and performs the privileged call on Civitai's side of the iframe
-boundary, re-checking scopes each time.
+The hooks fall into three classes, and the credential is the boundary in all of
+them.
 
-On the direct-API path your block *does* hold a short-lived scoped credential and
-*does* call the API itself — the server re-checks that token and its scopes on
-every request. The credential is the boundary in both models; what differs is who
-makes the call.
+- **Bridge hooks — most of this page.** The hook posts a message; the host
+  resolves the viewer from the block token and performs the privileged call on
+  Civitai's side of the iframe boundary, re-checking scopes each time.
+- **Direct-fetch hooks — `useTip`, `useTipAllowance`, `useEntitlements`,
+  `useGoodPurchase` and `useGenerationResources`.** These are *not*
+  host-mediated. The hook calls `fetch()` on a `/api/v1/blocks/*` route at the
+  validated host origin, sending the block token your block holds as a bearer.
+  The server verifies that token on every request and, where the route declares
+  one, checks its required scope (`social:tip:self` for the two tip hooks,
+  `goods:purchase:self` and `goods:read:self` for the goods hooks;
+  `generation-resources` takes any valid block token). An expired token is a
+  401 here, and a mock host that only answers messages never sees these calls.
+- **Local hooks.** A few read state the block already has or work entirely
+  inside the frame, and call nothing on Civitai.
+
+Calling a block route yourself has the same trust model as the direct-fetch
+hooks: your block holds a short-lived scoped credential, and the server
+re-checks it and its scopes on every request.
 :::
 
 ::: warning `useBuzzWorkflow`'s generated example is one `kind` of several

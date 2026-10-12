@@ -6,6 +6,7 @@ sources:
   - civitai:src/components/AppBlocks/hostHandlerParity.ts#INVENTORY
   - npm:@civitai/app-sdk@0.65.0/blocks#BlockInitPayload
   - npm:@civitai/blocks-react@0.69.0#README
+  - civitai:src/pages/api/v1/blocks
 ---
 
 # Concepts
@@ -138,26 +139,42 @@ export function App() {
 
 ## Transport models
 
-There are two ways your block reaches a Civitai capability, and a block may use
-both at once. **Neither is deprecated** — they answer different questions.
+**This section is where these docs decide which transport a capability uses.**
+Other pages link here instead of restating it.
 
-| | **Bridge** | **Direct API** |
+> **REST for reading and writing data. The `postMessage` bridge only for
+> capabilities that need Civitai's own chrome or the viewer's Civitai session.**
+
+A block normally uses both: requests for its data, messages for the handful of
+things only the host page can do. The bridge is **not deprecated** — its job is
+narrower than it used to be.
+
+| | **Direct API (REST)** | **Bridge** |
 |---|---|---|
-| Package | `@civitai/blocks-react` | `@civitai/blocks-react`, or `@civitai/sdk` — which runs in a block on either credential since 0.5.0 |
-| Mechanism | typed `postMessage` to the host | your block calls `/api/v1` itself |
-| Credential | the block token, held by the host | the same block token, read from `useBlockToken()` |
-| Good for | anything that must raise Civitai's own UI | reading and writing data |
+| Use it for | reading and writing data | anything that must raise Civitai's own UI or act in the viewer's host session |
+| Mechanism | your block calls `/api/v1` itself | a typed `postMessage` to the host, which performs the call |
+| Credential | the token the host handed your block, sent as a bearer and re-checked by the server on every request | the block token, held by the host |
+| Package | plain `fetch`, `@civitai/sdk`, or the `@civitai/blocks-react` hooks that already call a route themselves | `@civitai/blocks-react`, or `app.host` in `@civitai/sdk` |
 
-**The rule to build by: default to the API, and use messaging only for the things
-that must go through it.** Opening the resource picker is a message, because a
-sandboxed iframe cannot draw Civitai's picker. Reading the viewer's Buzz balance
-is a request, because nothing about it needs host chrome.
+Opening the resource picker is a message, because a sandboxed iframe cannot draw
+Civitai's picker. Reading the viewer's Buzz balance is a request, because nothing
+about it needs host chrome.
 
 ### What stays on the bridge, by design
 
-- **Host UI** — `requestSignIn`, `openResourcePicker`, `openBuzzPurchase`,
-  `download`, `resize`/`autoResize`, `navigate`, `reportError`. A sandboxed frame
-  at an opaque origin cannot draw these, and should not.
+- **Pickers** — the resource picker and the checkpoint picker
+  (`OPEN_RESOURCE_PICKER`, `OPEN_CHECKPOINT_PICKER`).
+- **Buying Buzz** — `OPEN_BUZZ_PURCHASE`.
+- **Image upload** — `OPEN_IMAGE_UPLOAD`. The host stores and scans the image;
+  no block route accepts an upload.
+- **Sign-in and consent** — `REQUEST_SIGN_IN`, `REQUEST_CONSENT`, and any flow
+  that starts from a consent dialog Civitai draws, such as a training run.
+- **Token refresh** — `REQUEST_TOKEN` and the `TOKEN_REFRESH` the host pushes.
+  The host mints your credential; a direct call that gets a 401 asks the host for
+  a new one and retries.
+- **Frame chrome** — `navigate`, `resize`/`autoResize`, `download`, saving an
+  image, `reportError`. A sandboxed frame at an opaque origin cannot do these,
+  and should not.
 - **Publishing a post** (`CREATE_POST_FROM_APP`, `PUBLISH_GENERATION_OUTPUTS`).
   This one is a *policy* decision, not a backlog item: the server returns a
   preview, the write echoes the count from that preview, and the host refuses on
@@ -166,12 +183,19 @@ is a request, because nothing about it needs host chrome.
   written. That removes a consent control rather than relocating it. The
   [posting guide](./posting) covers what an app can post and how.
 
+A few data calls are still bridge-only because no route carries them — analytics
+events (`TRACK_EVENT`) among them. The
+[hook replacement table](./porting#hook-replacements) marks each one.
+
 ### What the API answers
 
-The viewer, Buzz balance, shared storage, per-viewer app storage, workflows
-(estimate / submit / poll / cancel / query), gated images, generation resources
-and collections all have routes under `/api/v1`. The
-[porting guide](./porting) maps each bridge hook to its replacement.
+Data. The viewer, Buzz balance, shared storage, per-viewer app storage, workflows
+(estimate / submit / poll / cancel / query), gated images, generation resources,
+collections, tips and digital-goods entitlements and purchases all have routes
+under `/api/v1/blocks/*`. That list is illustrative, not a route reference: the
+[hook replacement table](./porting#hook-replacements) gives the route for each
+`@civitai/blocks-react` hook, and these docs do not yet carry a full
+request/response reference for the block routes.
 
 ::: danger Generation goes through the block routes, not the raw orchestrator
 `app.orchestration` reaches the orchestrator directly, and that path carries
@@ -223,9 +247,9 @@ on any route wired to accept it, which today means one general route,
 from `/api/v1/blocks/me`.
 
 ::: warning `auth: "oauth"` is a trade
-It gives up **22 block routes**, including app storage, shared storage and the
-generation workflow routes — see
-[choosing your credential](./porting#auth-field).
+It gives up the block routes that re-verify the bearer as a block token — app
+storage, shared storage, the generation workflow routes and
+`user-checkpoint/set` — see [choosing your credential](./porting#auth-field).
 :::
 
 ## Next

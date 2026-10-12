@@ -19,12 +19,12 @@ route, and **a block can call those routes today with the token it already
 has.** This page maps each bridge hook to its route, and says what each
 credential reaches.
 
-::: tip The rule to build by
-**Default to the API. Use messaging only for the things that must go through it.**
-
-Opening the resource picker is a message, because a sandboxed iframe cannot draw
-Civitai's picker. Reading a Buzz balance is a request, because nothing about it
-needs host chrome.
+::: tip Which transport for what
+REST for reading and writing data; the bridge only for what needs Civitai's own
+chrome or the viewer's Civitai session. The rule, and the list of what stays on
+the bridge, live in one place:
+[Concepts → Transport models](./concepts#transport-models). This page is the
+how-to that follows from it.
 :::
 
 ::: warning `@civitai/sdk` runs in a block now — and nothing is asking you to move
@@ -39,14 +39,14 @@ needs host chrome.
 route answers anonymously.
 
 **`auth: "oauth"`** gets a real OAuth access token that `/api/v1`, the
-orchestrator and the MCP accept — but it is a trade that costs 22 block routes;
-see [choosing your credential](#auth-field). The replacement table below is a
+orchestrator and the MCP accept — but it is a trade that costs the block routes
+which re-verify the bearer as a block token; see
+[choosing your credential](#auth-field). The replacement table below is a
 map of routes, not packages, and applies either way.
 :::
 
-The bridge is **not deprecated**. Host UI stays on it by design, and so does
-publishing a post. A block that moves its data calls uses both — fewer messages,
-not zero.
+The bridge is **not deprecated**. A block that moves its data calls uses both —
+fewer messages, not zero.
 
 ## Before you write any code
 
@@ -89,20 +89,24 @@ start calling the block routes.
 The OAuth mint is live in production, but `block-token` is the default for good
 reasons:
 
-- **The block token reaches further than its name suggests** — 34 of the 38
-  `/api/v1/blocks/*` routes, plus `/api/v1/models/{id}`. If that is your whole
-  surface, `auth: "oauth"` buys nothing and costs the routes below.
+- **The block token reaches further than its name suggests** — every route
+  under `/api/v1/blocks/*` except the publisher tooling (`submit-version`,
+  `withdraw`, `submissions` and `dev-token`, which take the developer's own API
+  key), plus `/api/v1/models/{id}`. If that is your whole surface,
+  `auth: "oauth"` buys nothing and costs the routes below.
 - **The `oauth` path has little production use yet**, and its consent surface is
   new — declare the narrowest scope set you can.
 
-::: danger `auth: "oauth"` gives up 22 of the block REST routes
+::: danger `auth: "oauth"` gives up four groups of block REST routes
 An OAuth token resolves to the same `(app, viewer)` claims, but these routes
 **re-verify the raw bearer as a block JWS**, which it is not, so they fail with
-a 401 or 403: **app storage** (5 routes), **shared storage** (11), all **five
-workflow routes** (`estimate`/`submit`/`poll`/`cancel` **and `query`**) and
-`user-checkpoint/set`. The other 12 work on either token: `buzz`, `me`,
-`models`, `images`, `gated-images`, `generation-resources`, `tools`, `tip`,
-`tip-allowance` and the three `collections` routes.
+a 401 or 403: every **app storage** route (`app-storage/*`), every **shared
+storage** route (`shared-storage/*`), every **workflow** route
+(`workflows/estimate`, `submit`, `poll`, `cancel` **and `query`**) and
+`user-checkpoint/set`. Routes that do not re-verify the bearer work on either
+token — `buzz`, `me`, `models`, `images`, `gated-images`,
+`generation-resources`, `tools`, `tip`, `tip-allowance` and the `collections`
+routes among them.
 
 **If your app uses app storage, it cannot use `auth: "oauth"` today.** The server
 refuses the pair when a moderator approves the version (and on a direct git
@@ -117,7 +121,7 @@ maturity clamp and the `app-block:<appId>` attribution tag; a direct
 orchestrator call keeps only the per-viewer consent budget.
 
 `oauth` is for a block that needs the general `/api/v1` surface or the
-orchestrator directly, and none of those 22.
+orchestrator directly, and none of the routes above.
 :::
 
 ## The adapter shape
@@ -242,7 +246,7 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 | `useResourcePicker` | **Keep** — host UI; a sandboxed frame cannot draw the picker |
 | `useRunTraining` | **Keep** — host UI; the run starts only from the consent dialog Civitai shows in its own chrome |
 | `useSaveImage` | **Keep** — host UI; the host fetches from origins it allowlists |
-| `useSharedStorage` | `/api/v1/blocks/shared-storage/*` — 11 routes. The route is now the wider surface: `list` takes a `mine` filter the hook has no equivalent for — see [Listing only rows the viewer wrote](#listing-only-rows-the-viewer-wrote) |
+| `useSharedStorage` | `/api/v1/blocks/shared-storage/*`. The route is now the wider surface: `list` takes a `mine` filter the hook has no equivalent for — see [Listing only rows the viewer wrote](#listing-only-rows-the-viewer-wrote) |
 | `useTip` | `POST /api/v1/blocks/tip` |
 | `useTipAllowance` | `GET /api/v1/blocks/tip-allowance` |
 | `useUploadImageBytes` | **Keep** — a bridge message with no route. It sends `OPEN_IMAGE_UPLOAD` with `bytes`, and the host stores, persists and scans the image; no `/api/v1/blocks/*` route accepts an image upload. Page apps only, and the token needs `posts:write:self`. See [Posting from an app](./posting#upload-then-post) |

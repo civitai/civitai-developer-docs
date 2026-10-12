@@ -185,16 +185,16 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
   `"oauth"`. This is the only field that changes **which credential the host
   hands your block**, so it belongs to a decision rather than a preference:
   - `"block-token"` is the block-scoped JWT. It reaches every
-    block-token routes under `/api/v1/blocks/*`, plus `/api/v1/models/{id}`. A
+    block-token route under `/api/v1/blocks/*`, plus `/api/v1/models/{id}`. A
     few routes under `blocks/` are publisher tooling that takes a personal API
     key instead, and reject a block token. It does **not** reach
     `/api/v1/me` — blocks read the viewer from `/api/v1/blocks/me`.
   - `"oauth"` is an opaque OAuth access token for the block's own client, which
     ordinary `/api/v1` routes accept as a viewer bearer.
 
-  `"oauth"` is a trade, not an upgrade: it **gives up 22 of the block REST
-  routes** — app storage, shared storage, the workflow routes and
-  `user-checkpoint/set` — so an app that uses app storage or generates should
+  `"oauth"` is a trade, not an upgrade: it **gives up the block REST routes
+  that re-verify the bearer as a block token** — app storage, shared storage,
+  the workflow routes and `user-checkpoint/set` — so an app that uses app storage or generates should
   stay on `block-token`. See
   [Porting → choose your credential](../guide/porting#auth-field).
 

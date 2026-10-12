@@ -6,7 +6,7 @@ sources:
   - npm:@civitai/components@0.9.2/dist/elements/register.js
   - npm:@civitai/components@0.9.2/dist/elements/register-site.js
   - npm:@civitai/theme@0.5.2
-  - npm:@civitai/components-chat@0.2.0#README
+  - npm:@civitai/components-chat@0.4.1#README
 ---
 
 # Using the `<civitai-*>` elements in a block
