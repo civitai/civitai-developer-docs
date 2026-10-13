@@ -493,7 +493,8 @@ A registered step (`kind: 'step'` with a `step` id such as `chat-completion`)
 that the orchestrator would not quote rejects from `estimate()` the same way,
 with no `cost` and a `'step_quote_rejected'`, `'step_quote_unavailable'` or
 `'step_quote_unpriced'` `errorCode`; it does not fall back to the step's
-declared price. Its submit is unchanged. See
+declared price. Its submit needs a quote too, and fails without one, with no
+`step_quote_*` code. See
 [Estimating a registered step](../reference/generation#registered-step-estimate).
 A [multi-step workflow](./workflows#refusals) does the same with
 `workflow_quote_*` codes. The

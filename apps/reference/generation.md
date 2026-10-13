@@ -497,9 +497,11 @@ The exact `error` text for each is listed under
 [`useBuzzWorkflow`](./hooks#hook-useBuzzWorkflow). Log it; its wording is not a
 contract, so branch on `errorCode`.
 
-These codes are **estimate-only**. The submit of a registered step is unchanged
-and never carries a `step_quote_*` code, so a failed estimate does not tell you
-how the submit will go. Keep a default branch for a code you do not recognise.
+These codes are **estimate-only**: a submit never carries a `step_quote_*`
+code. It still needs a price quote, though, so a submit the host cannot quote
+fails as well: `submit()` rejects, or resolves `failed` with no `errorCode`.
+Unlike a `kind: 'workflow'` body, a registered step is never run at a fallback
+price. Keep a default branch for a code you do not recognise.
 
 They need a host that sends them, which civitai.com does. The SDK's typed union
 (`KnownBlockWorkflowErrorCode`) lists them from `@civitai/app-sdk@0.68.0`;

@@ -322,8 +322,12 @@ An **estimate** with no price quote is not priced at a fallback either. A
 with a `step` id such as `chat-completion`), comes back as a `failed` snapshot
 with no `cost` and an `errorCode` naming the cause: `workflow_quote_*` or
 `step_quote_*` (`rejected`, `unavailable` or `unpriced`; only `unavailable` is
-worth retrying). The submit of the same body is not refused for that reason, so
-a failed estimate does not predict a refused submit. See
+worth retrying). What the submit does then depends on the kind. A
+`kind: 'workflow'` submit is not refused for that reason and runs reserved at
+its ceiling, so a failed workflow estimate does not predict a refused submit.
+A registered step's submit needs a quote as well, so with none it fails too,
+without a `step_quote_*` code: `submit()` rejects, or resolves `failed` with no
+`errorCode`. See
 [Multi-step workflows](./workflows#refusals) and
 [Estimating a registered step](../reference/generation#registered-step-estimate).
 
