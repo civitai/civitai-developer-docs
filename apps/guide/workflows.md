@@ -704,9 +704,9 @@ a contract.
 | `workflow_repeat_unbounded` (the loop) | a `repeat` iterates something other than an array in `arguments`, or more than 16 times with nested repeats multiplied. Decided from the body alone, before the host asks for a price | Move the list into `arguments`, or shorten it. Resending it unchanged gives the same answer |
 | `workflow_repeat_unbounded` (no price) | the workflow has a `repeat` and the host could not get a price for it. The same code whatever the reason was; the `error` reads `workflow step N: a workflow with a repeat needs a price quote and <cause>` | See [When a `repeat` cannot be priced](#repeat-unpriced). Retrying helps only if the cause was temporary |
 | `training-quote-rejected` / `-unavailable` / `-unpriced` | a training step in the workflow could not be priced | As for a [single training step](./text-to-image#refused-submits) |
-| `workflow_quote_rejected` (estimate only) | the orchestrator refused the body, so there is no price. `error` reads `No price quote for this workflow: the orchestrator rejected the request: <reason>` when the reason is safe to show, else `No price quote for this workflow: the orchestrator rejected the request; check the step inputs and references (retrying the same body will not help)` | Fix the body; retrying the same body will not help. Check where each reference sits first |
-| `workflow_quote_unavailable` (estimate only) | no usable answer just then (an outage, a timeout, a rate limit). `error` reads `No price quote for this workflow: none could be obtained; try again` | Estimate again after a short wait. The only `workflow_quote_*` code a retry can clear |
-| `workflow_quote_unpriced` (estimate only) | the orchestrator answered without a price. `error` reads `No price quote for this workflow: the orchestrator answered without one` | Retrying the same body is not expected to help |
+| `workflow_quote_rejected` (estimate only) | the orchestrator refused the body, so there is no price | Fix the body; retrying the same body will not help. Check where each reference sits first |
+| `workflow_quote_unavailable` (estimate only) | no usable answer just then (an outage, a timeout, a rate limit) | Estimate again after a short wait. The only `workflow_quote_*` code a retry can clear |
+| `workflow_quote_unpriced` (estimate only) | the orchestrator answered without a price | Retrying the same body is not expected to help |
 
 None of the `workflow_quote_*` codes is a submit refusal: `submit()` of the
 same body still runs, reserved at the ceiling. A `repeat` or a training step

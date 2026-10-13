@@ -487,11 +487,15 @@ with **no `cost`**, `{ workflowId: 'failed', status: 'failed', error, errorCode 
 `useBatchEstimate()` marks that cell `ok: false`. Branch on
 `err.snapshot.errorCode`:
 
-| `errorCode` | Means | `error` | Retry the same body? |
-|---|---|---|---|
-| `'step_quote_rejected'` | the orchestrator refused the request | `No price quote for this step: the orchestrator rejected the request: <reason>` when the reason is safe to show, else `No price quote for this step: the orchestrator rejected the request; check the step inputs and references (retrying the same body will not help)` | no — change the `params` |
-| `'step_quote_unavailable'` | no usable answer just then (an outage, a timeout, a rate limit) | `No price quote for this step: none could be obtained; try again` | yes, after a short wait |
-| `'step_quote_unpriced'` | the orchestrator answered without a price | `No price quote for this step: the orchestrator answered without one` | not expected to help |
+| `errorCode` | Means | Retry the same body? |
+|---|---|---|
+| `'step_quote_rejected'` | the orchestrator refused the request | no — change the `params` |
+| `'step_quote_unavailable'` | no usable answer just then (an outage, a timeout, a rate limit) | yes, after a short wait |
+| `'step_quote_unpriced'` | the orchestrator answered without a price | not expected to help |
+
+The exact `error` text for each is listed under
+[`useBuzzWorkflow`](./hooks#hook-useBuzzWorkflow). Log it; its wording is not a
+contract, so branch on `errorCode`.
 
 These codes are **estimate-only**. The submit of a registered step is unchanged
 and never carries a `step_quote_*` code, so a failed estimate does not tell you
