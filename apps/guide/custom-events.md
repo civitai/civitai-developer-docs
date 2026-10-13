@@ -2,7 +2,7 @@
 title: Custom events (analytics)
 description: Send custom analytics events from an app — declare each event and its properties under analytics.events in the manifest, send them with useBlockAnalytics().track() or app.host.track(), what the platform records and drops, the per-mount limits, and where owners see the aggregates.
 sources:
-  - npm:@civitai/blocks-react@0.71.0#useBlockAnalytics
+  - npm:@civitai/blocks-react@0.72.2#useBlockAnalytics
   - civitai-app-starters:packages/civitai-blocks-react/src/hooks/useBlockAnalytics.ts
   - civitai-app-starters:packages/civitai-sdk/README.md#custom-events
   - civitai-app-starters:packages/civitai-sdk/BREAKING.md#TRACK_EVENT

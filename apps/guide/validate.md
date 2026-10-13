@@ -106,9 +106,9 @@ What else to know:
   your **lockfile** resolves `@civitai/blocks-react` to 0.72.0 or older and
   nothing `index.html` loads calls a hook that connects at render or mount,
   validate warns (an error under `--strict`). Fix: call `useBlockContext()` (or
-  `getTransport()`) in your root component, or upgrade to a release newer than
-  0.72.0 that includes civitai/civitai-app-starters#632, where every hook
-  connects at mount. Do not also add `civitai-host.js`: two handshakes race.
+  `getTransport()`) in your root component, or upgrade to 0.72.2 or later
+  (civitai/civitai-app-starters#632), where every hook exported from the
+  package root connects at mount. Do not also add `civitai-host.js`: two handshakes race.
   This warning stays quiet when the lockfile is missing or unreadable, when the
   import graph cannot be fully resolved, or when `@civitai/sdk` is also
   declared.

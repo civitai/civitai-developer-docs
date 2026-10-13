@@ -2,7 +2,7 @@
 title: Moving a block off the bridge
 description: Replace a block's postMessage data calls with /api/v1/blocks/* REST calls — what each credential reaches, what auth oauth gives up, and a hook-by-hook replacement table.
 sources:
-  - npm:@civitai/blocks-react@0.71.0/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.72.2/dist/index.d.ts
   - npm:@civitai/sdk@0.11.0/dist/index.d.ts
   - civitai-app-starters:packages/civitai-sdk/BREAKING.md
   - civitai:public/schemas/app-block/v1.json#auth
@@ -238,6 +238,7 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 | `useRequestConsent` | **Keep** — consent is host UI |
 | `useRequestSignIn` | **Keep** — host UI |
 | `useResourcePicker` | **Keep** — host UI; a sandboxed frame cannot draw the picker |
+| `useRunConfirmedStep` | **Keep** — host UI; the job runs only after the viewer confirms its price in a dialog Civitai shows in its own chrome |
 | `useRunTraining` | **Keep** — host UI; the run starts only from the consent dialog Civitai shows in its own chrome |
 | `useSaveImage` | **Keep** — host UI; the host fetches from origins it allowlists |
 | `useSharedStorage` | `/api/v1/blocks/shared-storage/*`. The route is now the wider surface: `list` takes a `mine` filter the hook has no equivalent for — see [Listing only rows the viewer wrote](#listing-only-rows-the-viewer-wrote) |
