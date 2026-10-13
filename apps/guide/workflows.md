@@ -2,8 +2,8 @@
 title: Multi-step workflows (kind 'workflow')
 description: Chain up to eight orchestrator steps in one App Blocks generation, where a later step reads an earlier step's result. References, repeat, merge, the limits, how the price and the author fee work, every refusal code, the per-step result, partial failure, and testing it with the mock host.
 sources:
-  - npm:@civitai/app-sdk@0.66.0/blocks#WorkflowBodyWorkflow
-  - npm:@civitai/blocks-react@0.71.0#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.67.0/blocks#WorkflowBodyWorkflow
+  - npm:@civitai/blocks-react@0.72.0#useBuzzWorkflow
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockMultiStepWorkflowBodySchema
   - civitai:src/server/services/blocks/workflow-graph.ts#resolveBlockWorkflowGraph
   - civitai:src/server/routers/blocks.router.ts#submitMultiStepWorkflow
@@ -30,9 +30,11 @@ new hook and no new message.
 Like the rest of [generation](./text-to-image), this is **mod-gated** during
 the closed beta, **page apps only**, needs the
 [`ai:write:budgeted`](../reference/scopes) scope and a **signed-in** viewer.
-The types (`WorkflowBodyWorkflow` and friends) ship in
-`@civitai/app-sdk@0.66.0` and the mock-host support in
-`@civitai/blocks-react@0.71.0`. A host that predates the kind refuses the body, so
+This page is written against `@civitai/app-sdk@0.67.0`, whose types
+(`WorkflowBodyWorkflow` and friends) include the
+[`workflow_quote_*` estimate codes](#refusals), and
+`@civitai/blocks-react@0.72.0`, whose mock host can
+[simulate an estimate with no quote](#testing-with-the-mock-host). A host that predates the kind refuses the body, so
 `estimate()` and `submit()` reject.
 :::
 
@@ -47,15 +49,15 @@ range on a `0.x` version never moves to the next minor, so `npm install` and
 npm ls @civitai/app-sdk @civitai/blocks-react
 ```
 
-If `@civitai/app-sdk` is below `0.66.0`, or `@civitai/blocks-react` below
-`0.71.0`, raise them together and commit `package.json` and the lockfile:
+If `@civitai/app-sdk` is below `0.67.0`, or `@civitai/blocks-react` below
+`0.72.0`, raise them together and commit `package.json` and the lockfile:
 
 ```bash
-npm install @civitai/app-sdk@^0.66.0 @civitai/blocks-react@^0.71.0
+npm install @civitai/app-sdk@^0.67.0 @civitai/blocks-react@^0.72.0
 ```
 
 The default `page-elements` template has no `@civitai/blocks-react`; there it is
-`npm install @civitai/app-sdk@^0.66.0`. Then run the project's typecheck and
+`npm install @civitai/app-sdk@^0.67.0`. Then run the project's typecheck and
 tests before going on.
 
 The scaffold's `AGENTS.md` says not to hand-edit the `@civitai/*` versions. That
@@ -204,8 +206,9 @@ field that accepts several shapes, such as a chat message's `content` (a string
 or an array of parts), rejects a reference in its place: put it one level down,
 in a plain field of the shape you mean (see the
 [chat example](#example-one-chat-step-feeding-another)). The host does not
-catch this; the orchestrator does, so it surfaces as an unpriced estimate (see
-[What it costs](#what-it-costs)).
+catch this; the orchestrator does, so the estimate fails with
+[`workflow_quote_rejected`](#refusals), and the submit is not refused by the
+host (see [What it costs](#what-it-costs)).
 
 🔴 **References point backwards only.** A step cannot read itself, a later step,
 or a step that does not exist. That keeps every workflow free of cycles, and the
@@ -241,7 +244,7 @@ plain string field (such as `text` inside a part) works.
 
 ```tsx
 import { useState } from 'react';
-import { useBuzzWorkflow, WorkflowSubmitError } from '@civitai/blocks-react';
+import { useBuzzWorkflow, WorkflowEstimateError, WorkflowSubmitError } from '@civitai/blocks-react';
 import type { WorkflowBody } from '@civitai/app-sdk/blocks';
 
 const MODEL = 'openai/gpt-4o-mini';
@@ -295,9 +298,23 @@ export function StoryWriter({ topic }: { topic: string }) {
   const [message, setMessage] = useState('');
 
   async function quote() {
-    const snap = await estimate(outlineThenStory(topic));
-    // An estimate, not a maximum: see "What it costs".
-    setPrice(snap.cost?.total ?? null);
+    try {
+      const snap = await estimate(outlineThenStory(topic));
+      // An estimate, not a maximum: see "What it costs".
+      setPrice(snap.cost?.total ?? null);
+    } catch (err) {
+      // No price quote (a `workflow_quote_*` code) or a refused body: no number to show.
+      if (err instanceof WorkflowEstimateError) {
+        setPrice(null);
+        setMessage(
+          err.snapshot.errorCode === 'workflow_quote_unavailable'
+            ? 'Could not get a price just now. Try again.'
+            : 'This story cannot be priced as written.'
+        );
+        return;
+      }
+      throw err;
+    }
   }
 
   async function run() {
@@ -427,9 +444,10 @@ Each item becomes its own generated step in the result, named
 ::: danger Refused on civitai.com today
 A `repeat` whose template is an **`imageGen`** step is currently refused on
 civitai.com, by `estimate()` and by `submit()`, with
-[`workflow_repeat_unbounded`](#refusals) and an `error` saying a price quote is
-needed and none could be obtained. It is refused however the template is
-written, including with no reference in it at all, and retrying does not
+[`workflow_repeat_unbounded`](#refusals) and an `error` that currently reads
+`… a workflow with a repeat needs a price quote and none could be obtained; try
+again`. It is refused however the template is written, including with no
+reference in it at all, and despite that "try again", retrying does not
 change the answer: the platform cannot price that combination yet. Other step
 types may be affected in the same way, so an estimate is the test: it is free,
 and a `repeat` that can be priced returns a number.
@@ -557,27 +575,37 @@ its estimate. Show the estimate as an estimate ("about 40 Buzz"), never as "you
 will pay at most". The host corrects its spend caps afterwards, but the extra
 charge is not bounded by the estimate.
 
-**No quote.** If the orchestrator cannot price the workflow (including when it
-rejects the body as invalid, for example a reference placed where the step's
-schema does not accept one), it still runs,
-reserved at the ceiling, with each step's timeout set from your per-step
-budget. Two kinds of workflow are refused instead, before anything is reserved:
+**No quote.** The orchestrator may not price a workflow: it can reject the
+body as invalid (for example a reference placed where the step's schema does
+not accept one), give no usable answer just then, or answer without a price.
+The estimate and the submit then behave differently.
+
+- **The estimate fails.** It comes back as a `failed` snapshot with **no
+  `cost`**, `{ workflowId: 'failed', status: 'failed', error, errorCode }`,
+  where `errorCode` names the cause: `workflow_quote_rejected`,
+  `workflow_quote_unavailable` or `workflow_quote_unpriced` (see
+  [Refusals](#refusals) for which one a retry can clear).
+  `useBuzzWorkflow().estimate` rejects it with `WorkflowEstimateError`, and
+  [`useBatchEstimate()`](../reference/hooks#hook-useBatchEstimate) marks that
+  body's cell `ok: false`. There is no number to show the viewer.
+- **The submit still runs.** The host does not refuse the same body for having
+  no quote: it is reserved at the ceiling, with each step's timeout set from
+  your per-step budget. So a failed estimate does **not** predict a refused
+  submit.
+
+Two kinds of workflow are refused on **both** the estimate and the submit
+instead, before anything is reserved, and they keep their own codes rather than
+a `workflow_quote_*` one:
 
 - one containing a training step, which is refused without a quote exactly as on
   the single-step arm, with a `training-quote-*` `errorCode`;
 - one containing a `repeat` at any depth, refused with
-  `workflow_repeat_unbounded` and an `error` that says no price quote could be
-  obtained. The cause can be the body itself, in which case retrying never
-  succeeds; see [When a `repeat` cannot be priced](#repeat-unpriced).
+  `workflow_repeat_unbounded` and an `error` that names the cause. The cause can
+  be the body itself, in which case retrying never succeeds; see
+  [When a `repeat` cannot be priced](#repeat-unpriced).
 
-🔴 **An estimate equal to the ceiling can mean "not priced".** When there is no
-quote, the estimate currently still resolves, with `cost.total` set to the
-ceiling (your per-generation budget × the number of steps) and no error or flag
-saying the price is missing. So if an estimate comes back at exactly that
-ceiling, treat it as "could not be priced", not as the price: check the body
-(above all, where each reference sits) before letting the viewer submit, since
-such a submit is reserved at the ceiling, or refused if it has a `repeat` or a
-training step.
+A host that predates the `workflow_quote_*` codes resolved such an estimate
+instead, with the ceiling as its `cost.total`; civitai.com fails it.
 
 **The author fee.** If your app charges one (see
 [How an app earns](./earning)), a workflow pays it **once**, not once per step,
@@ -659,7 +687,10 @@ export function StepList({ snap }: { snap: BlockWorkflowSnapshot }) {
 
 A body the host will not run is refused **before anything is reserved or
 charged**, with a machine-readable `errorCode`. (Most codes are decided before
-the host even asks for a price; the no-quote cases are decided after it tried.) `estimate()` rejects with
+the host even asks for a price; the no-quote cases are decided after it tried.)
+The three `workflow_quote_*` codes are different: they are **estimate-only**,
+for a body the host would run but could not price, and the submit of that
+body is not refused (see [What it costs](#what-it-costs)). `estimate()` rejects with
 `WorkflowEstimateError`, `submit()` with `WorkflowSubmitError`, and a batch
 estimate returns it as that body's cell. Read it from `err.snapshot.errorCode`,
 and keep a default branch: the host may add codes, and `error`'s wording is not
@@ -671,8 +702,16 @@ a contract.
 | `workflow_step_denied` | a step (or a `repeat` template) names a platform-internal `$type`: the model and image scanners, the moderation classifiers such as `promptModeration`, the hashing and model-ingestion types, a few other platform tools, web scrape and web search, and the retired `textToImage` step type. The match ignores case | Remove or replace that step. These types are reserved for Civitai's own use |
 | `workflow_ref_invalid` | a reference or `merge` field names the step itself, a later step, or nothing; a step `name` breaks the rules or repeats; a `repeat` or `merge` is malformed; a `repeat`'s `as` name is also a step name; more than 64 references; or an input nested deeper than 32 levels. `error` names the step by its position, except for the `as`-name clash | Fix the body. Resending it unchanged gives the same answer |
 | `workflow_repeat_unbounded` (the loop) | a `repeat` iterates something other than an array in `arguments`, or more than 16 times with nested repeats multiplied. Decided from the body alone, before the host asks for a price | Move the list into `arguments`, or shorten it. Resending it unchanged gives the same answer |
-| `workflow_repeat_unbounded` (no price) | the workflow has a `repeat` and the host could not get a price for it. The same code, and the same `error`, whatever the reason was | See [When a `repeat` cannot be priced](#repeat-unpriced). Retrying helps only if the cause was temporary |
+| `workflow_repeat_unbounded` (no price) | the workflow has a `repeat` and the host could not get a price for it. The same code whatever the reason was; the `error` reads `workflow step N: a workflow with a repeat needs a price quote and <cause>` | See [When a `repeat` cannot be priced](#repeat-unpriced). Retrying helps only if the cause was temporary |
 | `training-quote-rejected` / `-unavailable` / `-unpriced` | a training step in the workflow could not be priced | As for a [single training step](./text-to-image#refused-submits) |
+| `workflow_quote_rejected` (estimate only) | the orchestrator refused the body, so there is no price. `error` reads `No price quote for this workflow: the orchestrator rejected the request: <reason>` when the reason is safe to show, else `No price quote for this workflow: the orchestrator rejected the request; check the step inputs and references (retrying the same body will not help)` | Fix the body; retrying the same body will not help. Check where each reference sits first |
+| `workflow_quote_unavailable` (estimate only) | no usable answer just then (an outage, a timeout, a rate limit). `error` reads `No price quote for this workflow: none could be obtained; try again` | Estimate again after a short wait. The only `workflow_quote_*` code a retry can clear |
+| `workflow_quote_unpriced` (estimate only) | the orchestrator answered without a price. `error` reads `No price quote for this workflow: the orchestrator answered without one` | Retrying the same body is not expected to help |
+
+None of the `workflow_quote_*` codes is a submit refusal: `submit()` of the
+same body still runs, reserved at the ceiling. A `repeat` or a training step
+without a price is the exception, and it is refused on both with the codes
+above it in the table.
 
 Other refusals look the same as on every other kind. A price over the
 ceiling, a daily cap, the consent budget or the app velocity limit makes
@@ -692,11 +731,11 @@ built, so check them before you send: `for.$ref` is `'$arguments'`, `for.path`
 names an array in `arguments`, and the iteration count (nested repeats
 multiplied) is 16 or fewer. A body that passes all three and is still refused
 with this code was refused for the missing price. Today the `error` text also
-differs (the no-price refusal says a price quote is needed and none could be
-obtained), but its wording is not a contract.
+differs (the no-price refusal reads `workflow step N: a workflow with a repeat
+needs a price quote and <cause>`), but its wording is not a contract.
 
-**What your app cannot tell apart.** A missing price has three possible causes,
-and the refusal looks the same for all of them:
+**What your app cannot reliably tell apart.** A missing price has three possible
+causes, and the `errorCode` is the same for all of them:
 
 1. the price could not be fetched just then, which is temporary;
 2. the template's `input` is not valid for its `$type`, such as a reference
@@ -704,7 +743,14 @@ and the refusal looks the same for all of them:
 3. the template's step type cannot be priced inside a `repeat` yet, as with
    [`imageGen`](#repeat-imagegen-limitation).
 
-Only the first is fixed by retrying. In a shipped app, show the viewer that the
+The `<cause>` in `error` is a hint, not a verdict. It is the same three causes
+as the [`workflow_quote_*` codes](#refusals): `none could be obtained; try
+again` when no usable answer came back, `the orchestrator rejected the request…`
+when the body was refused, and `the orchestrator answered without one`. Only the
+first one says "try again", but cause 3 can produce it too: an `imageGen`
+`repeat` currently reads "try again" and never clears.
+
+Only the first cause is fixed by retrying. In a shipped app, show the viewer that the
 job cannot be run right now and let them try again; do not retry in a loop,
 since estimates are rate-limited and causes 2 and 3 never clear on their own.
 
@@ -716,10 +762,9 @@ with them:
 2. **Estimate the template as an ordinary step.** Send a `kind: 'workflow'`
    body whose only step is the template's `$type` and `input`, with one item's
    values written in where the template read the `as` name. If that estimate
-   comes back at exactly the ceiling (your per-generation budget, for one
-   step), the input is the problem: an
-   [estimate equal to the ceiling](#what-it-costs) means the step could not be
-   priced. Fix the input and repeat this step.
+   fails with [`workflow_quote_rejected`](#refusals), the input is the problem,
+   and its `error` may name the reason. Fix the input and repeat this step. If
+   it fails with `workflow_quote_unavailable`, wait and estimate it again.
 3. **If the step is priced on its own but the `repeat` is still refused**, that
    step type cannot be priced inside a `repeat` yet. Write the items as
    explicit steps instead, as shown under the
@@ -743,9 +788,13 @@ this kind:
 - **`generation.failWorkflowStep: '<name>'`** (`'$<index>'` for an unnamed step)
   fails that step: the steps before it succeed and stay charged, so you can
   render a partial failure.
-- **`generation.workflowUnpriced: true`** simulates the host getting no quote:
-  a workflow with a training step or a `repeat` is refused, and any other is
-  reserved at `buzzBudget` × steps with no author fee.
+- **`generation.workflowUnpriced`** simulates the host getting no quote, for a
+  cause you pick: `'rejected'`, `'unavailable'` or `'unpriced'` (`true` means
+  `'unavailable'`). A workflow with a training step or a `repeat` is refused on
+  both `estimate()` and `submit()`. Any other fails its `estimate()` with
+  `workflow_quote_<cause>` and no `cost`, while its `submit()` is reserved at
+  `buzzBudget` × steps with no author fee. The mock has no orchestrator reason
+  to pass on, so `'rejected'` always gives the message without a reason.
 
 ```ts
 import { createMockHost } from '@civitai/blocks-react/testing';

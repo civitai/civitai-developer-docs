@@ -2,8 +2,8 @@
 title: Generating images (text-to-image)
 description: The primary App Blocks generation path — submit a text-to-image WorkflowBody, add LoRAs, do img2img (page apps only), handle refusals and limits, and read the result.
 sources:
-  - npm:@civitai/app-sdk@0.66.0/blocks#WorkflowBodyTextToImage
-  - npm:@civitai/blocks-react@0.71.0#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.67.0/blocks#WorkflowBodyTextToImage
+  - npm:@civitai/blocks-react@0.72.0#useBuzzWorkflow
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockTextToImageBodySchema
 ---
 
@@ -487,7 +487,16 @@ Branch on `err.snapshot.errorCode` (`'training-quote-rejected'`,
 `'training-quote-unavailable'` or `'training-quote-unpriced'`), not on the
 `error` text, and keep a default branch for a code a later host adds; see
 "Why a training step could not be priced" under
-[`useBuzzWorkflow`](../reference/hooks#hook-useBuzzWorkflow). The
+[`useBuzzWorkflow`](../reference/hooks#hook-useBuzzWorkflow).
+
+A registered step (`kind: 'step'` with a `step` id such as `chat-completion`)
+that the orchestrator would not quote rejects from `estimate()` the same way,
+with no `cost` and a `'step_quote_rejected'`, `'step_quote_unavailable'` or
+`'step_quote_unpriced'` `errorCode`; it does not fall back to the step's
+declared price. Its submit is unchanged. See
+[Estimating a registered step](../reference/generation#registered-step-estimate).
+A [multi-step workflow](./workflows#refusals) does the same with
+`workflow_quote_*` codes. The
 [`useBuzzWorkflow` reference](../reference/generation#bridge-useBuzzWorkflow)
 lists every resolved refusal and each `WorkflowSubmitError` `code` with what it
 says about money.

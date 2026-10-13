@@ -2,7 +2,7 @@
 title: Message bridge reference
 description: The full postMessage protocol between a Civitai App and its host — payloads, directions, request/reply pairing, and page-only messages.
 sources:
-  - npm:@civitai/app-sdk@0.66.0/blocks#messages.d.ts
+  - npm:@civitai/app-sdk@0.67.0/blocks#messages.d.ts
   - civitai:src/components/AppBlocks/hostHandlerParity.ts#INVENTORY
 ---
 
@@ -1103,6 +1103,29 @@ payload:
     subPath: string;
 }
 ```
+
+**`RUN_CONFIRMED_STEP`** — block → host · request → reply · page-only
+
+payload:
+
+```ts
+{
+    requestId: string;
+    body: WorkflowBodyPassThroughStep;
+}
+```
+
+reply `CONFIRMED_STEP_RESULT`:
+
+```ts
+{
+    requestId: string;
+    snapshot?: BlockWorkflowSnapshot;
+    error?: string;
+}
+```
+
+Model slot: confirmed steps are page-only on the server; the shared dispatcher NACKs it with a CONFIRMED_STEP_RESULT error
 
 **`RUN_TRAINING`** — block → host · request → reply · page-only
 

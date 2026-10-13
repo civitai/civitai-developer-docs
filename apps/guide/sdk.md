@@ -6,7 +6,7 @@ sources:
   - npm:@civitai/sdk@0.11.0/dist/app/index.d.ts
   - npm:@civitai/sdk@0.11.0/dist/host/index.d.ts
   - npm:@civitai/sdk@0.11.0#README
-  - npm:@civitai/app-sdk@0.66.0/blocks#isValidBlockIdempotencyKey
+  - npm:@civitai/app-sdk@0.67.0/blocks#isValidBlockIdempotencyKey
   - civitai:src/pages/api/v1/blocks/workflows/submit.ts
 ---
 
@@ -316,6 +316,16 @@ it is the ceiling — a recipe's budget or your `maxBuzz`. For `step` submits it
 is the step's declared price or your `maxBuzz`, raised to the quote when that is
 higher. A training step refused because it could not be quoted has no `cost` at
 all.
+
+An **estimate** with no price quote is not priced at a fallback either. A
+`kind: 'workflow'` estimate, or a registered `kind: 'step'` estimate (a body
+with a `step` id such as `chat-completion`), comes back as a `failed` snapshot
+with no `cost` and an `errorCode` naming the cause: `workflow_quote_*` or
+`step_quote_*` (`rejected`, `unavailable` or `unpriced`; only `unavailable` is
+worth retrying). The submit of the same body is not refused for that reason, so
+a failed estimate does not predict a refused submit. See
+[Multi-step workflows](./workflows#refusals) and
+[Estimating a registered step](../reference/generation#registered-step-estimate).
 
 **Buying Buzz does not fix any of those refusals** — they limit the token and
 the app, not the wallet. A viewer short of Buzz instead gets a **rejection**: an
