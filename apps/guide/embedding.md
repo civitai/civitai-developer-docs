@@ -138,6 +138,12 @@ element while it is waiting — that is its machine-readable "still loading", an
 it replaces the veil's `role="status"` — but visually, from first paint, the
 viewer is looking straight at your document.
 
+`bootSkeleton` removes the cover, **not the deadline**. The host still expects
+`BLOCK_READY` within 10 s and retries twice before showing "This app didn't load
+in time". On `@civitai/blocks-react` 0.72.0 or older, call `useBlockContext()` in
+your root component so the ack fires at mount
+([details](./validate#it-checks-reachability-where-it-can-and-says-when-it-can-t)).
+
 ### The key and the markup ship together. The key alone is worse than nothing.
 
 `bootSkeleton` is not a performance switch you flip. It is a **declaration that
