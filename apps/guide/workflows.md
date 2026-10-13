@@ -2,8 +2,8 @@
 title: Multi-step workflows (kind 'workflow')
 description: Chain up to eight orchestrator steps in one App Blocks generation, where a later step reads an earlier step's result. References, repeat, merge, the limits, how the price and the author fee work, every refusal code, the per-step result, partial failure, and testing it with the mock host.
 sources:
-  - npm:@civitai/app-sdk@0.67.0/blocks#WorkflowBodyWorkflow
-  - npm:@civitai/blocks-react@0.72.0#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.68.0/blocks#WorkflowBodyWorkflow
+  - npm:@civitai/blocks-react@0.72.2#useBuzzWorkflow
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockMultiStepWorkflowBodySchema
   - civitai:src/server/services/blocks/workflow-graph.ts#resolveBlockWorkflowGraph
   - civitai:src/server/routers/blocks.router.ts#submitMultiStepWorkflow
@@ -30,10 +30,10 @@ new hook and no new message.
 Like the rest of [generation](./text-to-image), this is **mod-gated** during
 the closed beta, **page apps only**, needs the
 [`ai:write:budgeted`](../reference/scopes) scope and a **signed-in** viewer.
-This page is written against `@civitai/app-sdk@0.67.0`, whose types
+This page is written against `@civitai/app-sdk@0.68.0`, whose types
 (`WorkflowBodyWorkflow` and friends) include the
 [`workflow_quote_*` estimate codes](#refusals), and
-`@civitai/blocks-react@0.72.0`, whose mock host can
+`@civitai/blocks-react@0.72.2`, whose mock host can
 [simulate an estimate with no quote](#testing-with-the-mock-host). A host that predates the kind refuses the body, so
 `estimate()` and `submit()` reject.
 :::
@@ -49,15 +49,15 @@ range on a `0.x` version never moves to the next minor, so `npm install` and
 npm ls @civitai/app-sdk @civitai/blocks-react
 ```
 
-If `@civitai/app-sdk` is below `0.67.0`, or `@civitai/blocks-react` below
-`0.72.0`, raise them together and commit `package.json` and the lockfile:
+If `@civitai/app-sdk` is below `0.68.0`, or `@civitai/blocks-react` below
+`0.72.2`, raise them together and commit `package.json` and the lockfile:
 
 ```bash
-npm install @civitai/app-sdk@^0.67.0 @civitai/blocks-react@^0.72.0
+npm install @civitai/app-sdk@^0.68.0 @civitai/blocks-react@^0.72.2
 ```
 
 The default `page-elements` template has no `@civitai/blocks-react`; there it is
-`npm install @civitai/app-sdk@^0.67.0`. Then run the project's typecheck and
+`npm install @civitai/app-sdk@^0.68.0`. Then run the project's typecheck and
 tests before going on.
 
 The scaffold's `AGENTS.md` says not to hand-edit the `@civitai/*` versions. That

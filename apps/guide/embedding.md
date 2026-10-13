@@ -2,9 +2,9 @@
 title: Running embedded & handling direct traffic
 description: Why a Civitai App runs embedded in civitai.com, why to share the /apps/run/<slug> route, and how <BlockGate> and manifest.bootSkeleton handle a direct visit.
 sources:
-  - npm:@civitai/blocks-react@0.72.0/dist/transport/directLoad.d.ts
-  - npm:@civitai/blocks-react@0.72.0/dist/ui/BlockGate.d.ts
-  - npm:@civitai/blocks-react@0.72.0/dist/hooks/useDirectLoad.d.ts
+  - npm:@civitai/blocks-react@0.72.2/dist/transport/directLoad.d.ts
+  - npm:@civitai/blocks-react@0.72.2/dist/ui/BlockGate.d.ts
+  - npm:@civitai/blocks-react@0.72.2/dist/hooks/useDirectLoad.d.ts
   - civitai:src/components/AppBlocks/PageBlockHost.tsx
 ---
 
