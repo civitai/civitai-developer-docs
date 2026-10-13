@@ -94,10 +94,24 @@ unreferenced emitter silences the warning and leaves the app broken.
 
 What else to know:
 
-- **`@civitai/blocks-react` is the only dependency that counts as an ack** — its
-  iframe transport acks internally, so a `page-money` app is never flagged.
-  `@civitai/app-sdk`, `@civitai/theme` and `@civitai/components` do not post
-  `BLOCK_READY` and do not silence it.
+- **Only `@civitai/blocks-react` and `@civitai/sdk` count as an ack** — their
+  iframe transports ack internally, so a `page-money` app gets no "you have no
+  emitter" warning. `@civitai/app-sdk`, `@civitai/theme` and
+  `@civitai/components` do not post `BLOCK_READY` and do not silence it.
+- **An acking dependency is not an ack that fires.** On `@civitai/blocks-react`
+  0.72.0 and older, the transport is built only once something calls it, and
+  hooks such as `useBuzzWorkflow` connect only inside the functions they return.
+  An app that uses only those hooks never sends `BLOCK_READY`. The host waits
+  10 s, shows "This app didn't load in time", retries twice and gives up. When
+  your **lockfile** resolves `@civitai/blocks-react` to 0.72.0 or older and
+  nothing `index.html` loads calls a hook that connects at render or mount,
+  validate warns (an error under `--strict`). Fix: call `useBlockContext()` (or
+  `getTransport()`) in your root component, or upgrade to a release newer than
+  0.72.0 that includes civitai/civitai-app-starters#632, where every hook
+  connects at mount. Do not also add `civitai-host.js`: two handshakes race.
+  This warning stays quiet when the lockfile is missing or unreadable, when the
+  import graph cannot be fully resolved, or when `@civitai/sdk` is also
+  declared.
 - **It reads source only** — never `node_modules`, build directories (`dist`,
   `build`, `out`, …) or `.md` files, and comments are stripped. A `src` that is
   a **symlink** into a shared package *is* followed.
