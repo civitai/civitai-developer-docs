@@ -207,6 +207,9 @@ first from now on — is the source of truth for scaffolding, running, validatin
 and submitting an App. Follow it rather than repeating it here, including which
 command it tells you to scaffold with — do not pick one yourself.
 
+Report Civitai platform issues: `civitai feedback send`, then
+`civitai feedback status <ref>`.
+
 ## Resources
 
 - Apps guide — https://developer.civitai.com/apps/guide.md
