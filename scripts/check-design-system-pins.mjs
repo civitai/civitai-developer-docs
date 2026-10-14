@@ -10,7 +10,7 @@
  *
  *   - DESIGN SYSTEM (`theme`, `components`, `components-react`) — the literals
  *     are **instructions** a reader copies (CDN URLs). See below.
- *   - SDK (`app-sdk`, `blocks-react`) — the literals are **provenance stamps**
+ *   - SDK (`app-sdk`, `blocks-react`, `sdk`) — the literals are **provenance stamps**
  *     in page frontmatter (`sources:`), declaring which published version the
  *     page was written against. A stale stamp is a page describing an old API
  *     while claiming to describe the pinned one.
@@ -233,7 +233,7 @@ export const DESIGN_SYSTEM_PACKAGES = [
  * `@civitai/app-sdk@X` …"). Same single-source rule, different failure mode:
  * a stale stamp means the page documents an older API than it claims to.
  */
-export const SDK_PACKAGES = ['@civitai/app-sdk', '@civitai/blocks-react'];
+export const SDK_PACKAGES = ['@civitai/app-sdk', '@civitai/blocks-react', '@civitai/sdk'];
 
 /** Every first-party package whose prose literals are pinned by this guard. */
 export const GUARDED_PACKAGES = [...DESIGN_SYSTEM_PACKAGES, ...SDK_PACKAGES];
@@ -446,6 +446,18 @@ export const HISTORICAL_LITERALS = [
     // the 0.5.2 pin — is where it landed; the upstream MARKUP.md says the same.
     count: 1,
     why: 'the dark-values-on-`:root` change (and the removal of the prefers-color-scheme block) landed in theme 0.5.0 — a changelog fact. Bumping it to the current pin would name the wrong release.',
+  },
+  {
+    file: 'apps/guide/porting.md',
+    pkg: '@civitai/sdk',
+    version: '0.5.0',
+    // EXACT count 1 — "On the **default** credential `app.orchestration` rejects
+    // before it sends (since `@civitai/sdk@0.5.0`)". Measured by `npm pack`:
+    // `refuseBlockToken`, the wrapper that refuses before any request, is in 0
+    // dist `.js` files at 0.4.0 and 1 at 0.5.0 (`dist/app/index.js`). 0.4.0
+    // refused a block token in `initialize()` instead, a different behaviour.
+    count: 1,
+    why: '`app.orchestration` refusing a block token before it sends ARRIVED in sdk 0.5.0 (`refuseBlockToken` absent from 0.4.0 dist) — a changelog fact. Bumping it to the pin would name a release in which nothing about this changed.',
   },
   // --- apps/reference/hooks.md: arrival claims quoted from the blocks-react README ---
   // All three sit inside the page's GENERATED markdown-fallback region (between
