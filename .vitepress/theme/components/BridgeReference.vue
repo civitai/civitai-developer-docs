@@ -31,8 +31,8 @@ interface BridgeData {
   reactPackage?: string;
 }
 
-// `group` omitted renders the lifecycle and every type (the unsplit behaviour).
-const props = defineProps<{ group?: string }>();
+// Required: every page that renders this island is a generated sub-page.
+const props = defineProps<{ group: string }>();
 const data = inject<BridgeData>('appblocks:bridge', {});
 const shown = new Set(itemsInGroup('bridge', bridgeItems(data), props.group).map((it: { name: string }) => it.name));
 const lifecycle = data.lifecycle && shown.has(data.lifecycle.name) ? data.lifecycle : undefined;

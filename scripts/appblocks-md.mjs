@@ -964,13 +964,23 @@ export function expectedPageText(region, body, currentText) {
 /** Character count (code points) of a page, as the size budget measures it. */
 export const pageChars = (text) => [...text].length;
 
-/** The size budget in characters; `APPBLOCKS_MD_BUDGET` overrides it (for testing the guard). */
-export function pageBudget() {
-  const env = process.env.APPBLOCKS_MD_BUDGET;
-  if (env === undefined || env === '') return MD_PAGE_BUDGET;
-  const n = Number(env);
-  if (!Number.isInteger(n) || n <= 0) throw new Error(`APPBLOCKS_MD_BUDGET must be a positive integer, got ${JSON.stringify(env)}`);
-  return n;
+/** The size budget, in characters, every page carrying a generated region must fit. */
+export { MD_PAGE_BUDGET };
+
+/**
+ * THE size check: the measured pages over `budget`, in input order. Pure, and
+ * the budget is an explicit argument rather than read from the environment, so
+ * the guard's red path is exercised by a direct call with a low budget (the
+ * self-test at the top of check-appblocks-md.mjs) rather than by an override
+ * that could be left set.
+ *
+ * @param {Array<{ page: string, chars: number }>} sizes
+ * @param {number} budget
+ * @returns {Array<{ page: string, chars: number }>}
+ */
+export function oversizedPages(sizes, budget) {
+  if (!Number.isInteger(budget) || budget <= 0) throw new Error(`oversizedPages: budget must be a positive integer, got ${budget}`);
+  return sizes.filter((s) => s.chars > budget);
 }
 
 /**

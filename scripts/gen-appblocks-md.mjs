@@ -25,16 +25,16 @@ import {
   expectedPageText,
   inheritedPlacements,
   orphanSubPages,
-  pageBudget,
+  MD_PAGE_BUDGET,
+  oversizedPages,
   pageChars,
   pagePath,
   renderAll,
 } from './appblocks-md.mjs';
 
 const rendered = await renderAll();
-const budget = pageBudget();
 let changed = 0;
-const over = [];
+const sizes = [];
 for (const { region, body } of rendered) {
   const path = pagePath(region);
   // A generated sub-page may not exist yet (a new group): the generator owns
@@ -47,7 +47,7 @@ for (const { region, body } of rendered) {
   const after = expectedPageText(region, body, before);
   assertRegionInSlot(after, region);
   const chars = pageChars(after);
-  if (chars > budget) over.push(`${region.page} (${chars} > ${budget})`);
+  sizes.push({ page: region.page, chars });
   if (after !== before) {
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, after);
@@ -71,11 +71,12 @@ for (const { kind, key } of inheritedPlacements()) {
   );
 }
 log(`md: ${changed} page(s) written or removed, ${rendered.length} region(s) rendered`);
+const over = oversizedPages(sizes, MD_PAGE_BUDGET).map((s) => `${s.page} (${s.chars} > ${MD_PAGE_BUDGET})`);
 if (over.length) {
   // Written anyway, so the maintainer can see the result — but `check:md-regions`
   // fails on it, so it cannot merge.
   console.error(
-    `\n❌ ${over.length} page(s) exceed the ${budget}-character .md budget:\n  ${over.join('\n  ')}\n` +
+    `\n❌ ${over.length} page(s) exceed the ${MD_PAGE_BUDGET}-character .md budget:\n  ${over.join('\n  ')}\n` +
       'Split the group further in .vitepress/theme/components/referenceSplit.shared.mjs.\n',
   );
   process.exit(1);

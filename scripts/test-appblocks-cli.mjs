@@ -1161,10 +1161,12 @@ check('cliLongBody: synthetic controls for each branch, independent of the corpu
 // commit, and apps/reference/cli.md drops 81,040 -> 39,931 bytes with all 44
 // fenced blocks gone, every check passing.
 //
-// Aggravating, and the reason this must live in THIS file: `test-md-regions` is
-// NOT a required status check on `main` (measured: the required contexts are
-// `test-cli`, `test-messages`, `test-bridge`, `typecheck-snippets`), whereas this
-// file runs as `test-cli`, which is.
+// It lives in THIS file, which runs as `test-cli`, because `test-md-regions` was
+// not a required status check on `main` when it was written. It is now
+// (measured 2026-10-14: `test-cli`, `test-messages`, `test-bridge`,
+// `typecheck-snippets`, `build-site`, `test-md-regions`), but the reason above —
+// a self-consistency guard cannot see a renderer that emits nothing — still
+// holds, so the check stays here.
 //
 // The predicate `cliLongBody` was pinned above and NEITHER CALL SITE WAS — its
 // own docstring says the shared rule exists because "a duplicated predicate is

@@ -25,7 +25,6 @@ import { parseReadme, scanSections, splitSection, verifyPublished } from './lib/
 import { rewriteHookAnchors } from './appblocks-md.mjs';
 import {
   REFERENCE_SPLITS,
-  itemsInGroup,
   movedAnchors,
   splitByGroup,
 } from '../.vitepress/theme/components/referenceSplit.shared.mjs';
@@ -506,11 +505,6 @@ check('the CLI split places commands by their longest listed command-path prefix
   };
   for (const [c, slug] of Object.entries(want)) assert(groupOf.get(c) === slug, `${c} -> ${groupOf.get(c)}, want ${slug}`);
   assert(inherited.join(',') === 'brand-new-root', `inherited: ${inherited.join(',')}`);
-});
-
-check('itemsInGroup without a group returns every item (the unsplit island behaviour)', () => {
-  const items = [{ name: 'useA' }, { name: 'useB' }];
-  assert(itemsInGroup('hooks', items, undefined) === items, 'did not return the input unchanged');
 });
 
 check('movedAnchors maps every old hub id to its sub-page', () => {

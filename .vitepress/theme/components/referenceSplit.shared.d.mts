@@ -32,6 +32,6 @@ export declare function splitByGroup<T>(
   kind: RefKind,
   items: T[],
 ): { groups: Array<RefGroup & { items: T[] }>; groupOf: Map<string, string>; inherited: string[] };
-export declare function itemsInGroup<T>(kind: RefKind, items: T[], slug?: string): T[];
+export declare function itemsInGroup<T>(kind: RefKind, items: T[], slug: string): T[];
 export declare function movedAnchors(kind: RefKind, items: any[]): Record<string, string>;
 export declare function sidebarItems(kind: RefKind): Array<{ text: string; link: string }>;

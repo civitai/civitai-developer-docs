@@ -17,9 +17,10 @@
 //
 // It renders IN MEMORY and never writes, so it is safe on a read-only checkout.
 //
-// It ALSO enforces the `.md` SIZE BUDGET (MD_PAGE_BUDGET in
-// .vitepress/theme/components/referenceSplit.shared.mjs; `APPBLOCKS_MD_BUDGET`
-// overrides it, which is how the guard is shown red): every page carrying a
+// It ALSO enforces the `.md` SIZE BUDGET (the constant MD_PAGE_BUDGET in
+// .vitepress/theme/components/referenceSplit.shared.mjs, applied by
+// `oversizedPages` in scripts/appblocks-md.mjs — whose red path the SELF-TEST
+// below exercises on every run with an explicit low budget): every page carrying a
 // generated region is served as a `.md` twin, and agent fetch tools truncate a
 // long document silently. A page over budget fails here; the fix is a further
 // split in referenceSplit.shared.mjs. Generated sub-pages are graded whole, and
@@ -40,7 +41,8 @@ import {
   assertRegionInSlot,
   expectedPageText,
   orphanSubPages,
-  pageBudget,
+  MD_PAGE_BUDGET,
+  oversizedPages,
   pageChars,
   pagePath,
   regionBlock,
@@ -72,8 +74,33 @@ function committedRegion(pageText, key) {
   return pageText.slice(head.length, pageText.length - tail.length);
 }
 
+// ── SELF-TEST: the size check can go red, and names what it flags ──────────
+// Runs first, on fixtures whose sizes are pairwise distinct and straddle the
+// budget, so a check that never flags, flags everything, or compares with the
+// wrong operator (`>=` vs `>`: one fixture sits EXACTLY on the budget) fails
+// here before any real page is graded. A second control on the real pages
+// follows the loop.
+{
+  const fixtures = [
+    { page: 'fixture/over.md', chars: 120 },
+    { page: 'fixture/at-budget.md', chars: 100 },
+    { page: 'fixture/under.md', chars: 37 },
+    { page: 'fixture/way-over.md', chars: 999 },
+  ];
+  const got = oversizedPages(fixtures, 100).map((x) => x.page).join(',');
+  const want = 'fixture/over.md,fixture/way-over.md';
+  if (got !== want) {
+    console.error(
+      `md-regions: SELF-TEST FAILED — oversizedPages(fixtures, 100) flagged [${got}], expected [${want}]. ` +
+        'The size-budget check is broken, so its verdict on the real pages below would mean nothing.',
+    );
+    process.exit(1);
+  }
+  log(`md-regions: self-test OK — a budget of 100 flags exactly [${got}]`);
+}
+
 const rendered = await renderAll();
-const budget = pageBudget();
+const budget = MD_PAGE_BUDGET;
 const failures = [];
 const sizes = [];
 for (const { region, body } of rendered) {
@@ -99,7 +126,7 @@ for (const { region, body } of rendered) {
   }
   const chars = Math.max(pageChars(expectedPage), pageChars(pageText));
   sizes.push({ page: region.page, chars });
-  if (chars > budget) {
+  if (oversizedPages([{ page: region.page, chars }], budget).length) {
     failures.push({
       region,
       reason:
@@ -173,6 +200,17 @@ const largest = sizes.reduce((m, x) => (x.chars > m.chars ? x : m), { page: '(no
 if (!sizes.length || largest.chars === 0) {
   console.error('md-regions: measured no page sizes — the budget check saw nothing');
   process.exit(1);
+}
+// Real-page control: one character below the largest page, the check must flag
+// that page and only that page (the sizes are measured above, so this is the
+// same data the verdict was drawn from).
+{
+  const tied = sizes.filter((x) => x.chars === largest.chars).map((x) => x.page).join(',');
+  const got = oversizedPages(sizes, largest.chars - 1).map((x) => x.page).join(',');
+  if (got !== tied) {
+    console.error(`md-regions: real-page control FAILED — a budget of ${largest.chars - 1} flagged [${got}], expected [${tied}]`);
+    process.exit(1);
+  }
 }
 log(
   `md-regions: all ${rendered.length} generated region(s) up to date; ${sizes.length} page(s) within the ` +

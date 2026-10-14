@@ -349,10 +349,10 @@ export function splitByGroup(kind, items) {
 
 /**
  * The items of one group, in artifact order. What the islands call with their
- * `group` prop; `undefined` returns every item (the unsplit behaviour).
+ * (required) `group` prop.
  */
 export function itemsInGroup(kind, items, slug) {
-  if (!slug) return items;
+  if (!slug) throw new Error(`itemsInGroup: a ${kind} group slug is required`);
   const { groupOf } = splitByGroup(kind, items);
   return items.filter((it) => groupOf.get(itemKey(kind, it)) === slug);
 }

@@ -28,8 +28,8 @@ interface Hook {
 type HookNote = { kind: 'text'; text: string } | { kind: 'code'; lang: string; code: string };
 interface HooksData { hooks: Hook[]; reactPackage?: string; }
 
-// `group` omitted renders every hook (the unsplit behaviour).
-const props = defineProps<{ group?: string }>();
+// Required: every page that renders this island is a generated sub-page.
+const props = defineProps<{ group: string }>();
 const data = inject<HooksData>('appblocks:hooks', { hooks: [] });
 const hooks = itemsInGroup('hooks', data.hooks ?? [], props.group);
 </script>
