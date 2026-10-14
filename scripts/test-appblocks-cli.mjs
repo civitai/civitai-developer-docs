@@ -59,6 +59,12 @@ import {
   cliHeadingTag,
   cliLongBody,
 } from '../.vitepress/theme/components/cliReference.shared.mjs';
+import {
+  itemAnchorId,
+  referenceSplit,
+  splitByGroup,
+  subPageFile,
+} from '../.vitepress/theme/components/referenceSplit.shared.mjs';
 
 let failures = 0;
 let skipped = 0;
@@ -1166,7 +1172,7 @@ check('cliLongBody: synthetic controls for each branch, independent of the corpu
 // one has no gate at all and that residual is declared in the PR.
 // ---------------------------------------------------------------------------
 
-// MEASURED on the committed apps/reference/cli.md: 44 ```text fences inside the
+// MEASURED on the committed apps/reference/cli.md before the split: 44 ```text fences inside the
 // generated region, 40,317 characters of body. The floors carry slack for the
 // same reason LONG_CHAR_FLOOR does — upstream re-wording moves the character
 // count and an upstream command removal moves the block count, and neither is a
@@ -1174,19 +1180,37 @@ check('cliLongBody: synthetic controls for each branch, independent of the corpu
 const MD_LONG_BLOCK_FLOOR = 40;
 const MD_LONG_CHAR_FLOOR = 30000;
 
-/** The generated `cli` region of the committed page, markers included. */
+/**
+ * The generated CLI regions of the committed pages, markers included, joined in
+ * catalog order. The command entries live on generated sub-pages under
+ * apps/reference/cli/ (split so each `.md` twin stays readable by agent fetch
+ * tools — referenceSplit.shared.mjs); the hub keeps only an index.
+ */
 function committedCliRegion() {
-  const page = readFileSync(`${repoRoot}/apps/reference/cli.md`, 'utf8');
-  // Located by marker PREFIX, not by the exact marker text: appblocks-md.mjs
-  // matches its own markers loosely so the BEGIN comment's prose can evolve, and
-  // pinning the full sentence here would strand this check on a reworded marker.
-  const start = page.indexOf('<!-- BEGIN GENERATED: cli');
-  const end = page.indexOf('<!-- END GENERATED: cli -->', start + 1);
-  assert(
-    start !== -1 && end > start,
-    'could not locate the generated `cli` region in apps/reference/cli.md — did the markers change?',
-  );
-  return page.slice(start, end);
+  const { groups } = referenceSplit('cli');
+  assert(groups.length >= 2, 'the CLI split catalog has fewer than 2 groups — was the split removed?');
+  return groups
+    .map((g) => {
+      const file = subPageFile('cli', g.slug);
+      const page = readFileSync(`${repoRoot}/${file}`, 'utf8');
+      // Located by marker PREFIX, not by the exact marker text: appblocks-md.mjs
+      // matches its own markers loosely so the BEGIN comment's prose can evolve, and
+      // pinning the full sentence here would strand this check on a reworded marker.
+      const key = `cli/${g.slug}`;
+      const start = page.indexOf(`<!-- BEGIN GENERATED: ${key} `);
+      const end = page.indexOf(`<!-- END GENERATED: ${key} -->`, start + 1);
+      assert(
+        start !== -1 && end > start,
+        `could not locate the generated \`${key}\` region in ${file} — did the markers change?`,
+      );
+      return page.slice(start, end);
+    })
+    .join('\n');
+}
+
+/** The artifact's commands in the order the sub-pages carry them (catalog group order). */
+function commandsInPageOrder() {
+  return splitByGroup('cli', artifact.commands).groups.flatMap((g) => g.items);
 }
 
 /** The bodies of every ```text fence in a region, in order. */
@@ -1198,12 +1222,12 @@ function textFenceBodies(region) {
 
 console.log('MD CHANNEL — the committed markdown fallback carries the long bodies');
 
-check(`the committed cli.md carries at least ${MD_LONG_BLOCK_FLOOR} long-body fences (a stripped region FAILS)`, () => {
+check(`the committed CLI sub-pages carry at least ${MD_LONG_BLOCK_FLOOR} long-body fences (a stripped region FAILS)`, () => {
   const bodies = textFenceBodies(committedCliRegion());
   const chars = bodies.reduce((n, b) => n + b.length, 0);
   assert(
     bodies.length >= MD_LONG_BLOCK_FLOOR,
-    `the committed apps/reference/cli.md carries only ${bodies.length} \`\`\`text long-body fences ` +
+    `the committed CLI sub-pages (apps/reference/cli/) carry only ${bodies.length} \`\`\`text long-body fences ` +
       `(floor ${MD_LONG_BLOCK_FLOOR}, measured 44) — the .md/LLM channel has LOST the long descriptions. ` +
       `\`check:md-regions\` cannot catch this: regenerating the region makes it agree with a renderer that ` +
       `emits nothing. Check \`renderCli\` in scripts/appblocks-md.mjs — the \`cliLongBody(c)\` call site and ` +
@@ -1211,7 +1235,7 @@ check(`the committed cli.md carries at least ${MD_LONG_BLOCK_FLOOR} long-body fe
   );
   assert(
     chars >= MD_LONG_CHAR_FLOOR,
-    `the committed apps/reference/cli.md carries only ${chars} characters of long-body prose ` +
+    `the committed CLI sub-pages (apps/reference/cli/) carry only ${chars} characters of long-body prose ` +
       `(floor ${MD_LONG_CHAR_FLOOR}, measured 40,317) — the bodies are present but TRUNCATED`,
   );
 });
@@ -1221,17 +1245,17 @@ check('CONTENT — a specific sentence reaches the .md channel, not merely a fen
   // is the one surface where nobody would notice.
   const region = committedCliRegion();
   const want = "This is a best-effort LOCAL pre-check that mirrors the platform's approve-time";
-  assert(region.includes(want), `the committed cli.md region does not contain ${JSON.stringify(want)}`);
+  assert(region.includes(want), `the committed CLI sub-pages region does not contain ${JSON.stringify(want)}`);
   assert(
     region.includes('THIS SPENDS REAL BUZZ AND CANNOT BE UNDONE'),
-    "the committed cli.md region lost `generate`'s irreversible-spend warning",
+    "the committed CLI sub-pages region lost `generate`'s irreversible-spend warning",
   );
   // The indented bullet: this is what a `para()` regression destroys, and it is
   // exactly what the fence exists to preserve. `para()` collapses newlines, so
   // the leading newline + two spaces cannot survive it.
   assert(
     region.includes('\n  - targets[].slotId must be a known registered slot'),
-    'the committed cli.md region lost the indented list structure — was the body sent through `para()`?',
+    'the committed CLI sub-pages region lost the indented list structure — was the body sent through `para()`?',
   );
 });
 
@@ -1249,18 +1273,18 @@ check('STRUCTURAL — the committed fences equal `cliLongBody` over the artifact
   // regenerated page move together, so a legitimate upstream change keeps this
   // green without a re-measured constant.
   const got = textFenceBodies(committedCliRegion());
-  const want = artifact.commands.map((c) => cliLongBody(c)).filter(Boolean);
+  const want = commandsInPageOrder().map((c) => cliLongBody(c)).filter(Boolean);
   assertEqual(
     got.length,
     want.length,
-    'the committed cli.md has a different NUMBER of long-body fences than cliLongBody yields',
+    'the committed CLI sub-pages have a different NUMBER of long-body fences than cliLongBody yields',
   );
   for (let i = 0; i < want.length; i++) {
     assertEqual(
       got[i],
       want[i],
-      `committed cli.md long-body fence #${i + 1} is not the body cliLongBody yields for ` +
-        `\`${artifact.commands.filter((c) => cliLongBody(c))[i]?.command}\``,
+      `committed CLI sub-page long-body fence #${i + 1} is not the body cliLongBody yields for ` +
+        `\`${commandsInPageOrder().filter((c) => cliLongBody(c))[i]?.command}\``,
     );
   }
 });
@@ -1696,11 +1720,10 @@ check('the page names exactly the top-level commands the artifact carries', () =
   // so a command the CLI gains or loses fails here instead of rotting silently.
   const page = readFileSync(`${repoRoot}/apps/reference/cli.md`, 'utf8');
   const start = page.indexOf('## Command reference');
-  // Match the TAG, not one spelling of it: the island became `<CliReference>` +
-  // `</CliReference>` when the page gained its markdown-fallback slot (the .md /
-  // LLM channel — scripts/appblocks-md.mjs), and pinning `<CliReference />` made
-  // this assertion fail on a page that had not restructured at all.
-  const end = page.indexOf('<CliReference', start);
+  // Match the TAG, not one spelling of it. The intro ends where the generated
+  // index begins: the command entries moved to sub-pages under
+  // apps/reference/cli/, and the hub now carries `<ReferenceIndex kind="cli">`.
+  const end = page.indexOf('<ReferenceIndex', start);
   assert(start !== -1 && end > start, 'could not locate the `## Command reference` intro — did the page restructure?');
   const intro = page.slice(start, end);
 
@@ -1743,6 +1766,17 @@ check('a nested command slugifies instead of emitting `cli-app listing set-icon`
   assertEqual(cliAnchorId('app listing set-icon'), 'cli-app-listing-set-icon', 'nested command not slugified');
   assertEqual(cliAnchorId('app create'), 'cli-app-create', 'top-level command not slugified');
   assertEqual(cliAnchorId('model-versions by-hash'), 'cli-model-versions-by-hash', 'hyphenated command not slugified');
+});
+
+check('the split index and the island agree on every command\'s id', () => {
+  // <ReferenceIndex kind="cli"> keeps each command's OLD hub anchor and links to
+  // the sub-page id; <CliReference> renders that id with cliAnchorId. The split
+  // module re-derives it (to stay dependency-free), so pin the two together: a
+  // drift would forward every old deep link to an id that does not exist.
+  assert(artifact.commands.length >= COMMAND_COUNT_FLOOR, 'the artifact does not carry the whole command tree');
+  for (const c of artifact.commands) {
+    assertEqual(itemAnchorId('cli', c.command), cliAnchorId(c.command), `anchor drift for \`${c.command}\``);
+  }
 });
 
 check('EVERY command in the artifact gets a URL-safe, unique id', () => {

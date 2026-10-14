@@ -58,7 +58,7 @@
 //
 // Output is deterministic (no timestamps, no run-specific provenance, artifact
 // key order preserved) so the committed pages are byte-stable.
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { outDir, repoRoot } from './appblocks-util.mjs';
 // The ONE redundancy rule `<CliReference>` uses to decide whether a command's
@@ -68,6 +68,20 @@ import { outDir, repoRoot } from './appblocks-util.mjs';
 import { cliLongBody } from '../.vitepress/theme/components/cliReference.shared.mjs';
 // The same notes -> markdown join the hooks generator's guard reasons about.
 import { notesMarkdown } from './lib/readme-hook-sections.mjs';
+// Which entry lives on which sub-page — shared with the Vue islands and the
+// sidebar, so the HTML, the `.md` twins and the navigation cannot disagree.
+import {
+  MD_PAGE_BUDGET,
+  REFERENCE_SPLITS,
+  bridgeItems,
+  hubFile,
+  itemAnchorId,
+  itemKey,
+  itemsInGroup,
+  referenceSplit,
+  splitByGroup,
+  subPageFile,
+} from '../.vitepress/theme/components/referenceSplit.shared.mjs';
 
 export const REFRESH_CMD = 'npm run gen:appblocks:md';
 
@@ -350,8 +364,13 @@ export const endMarker = (key) => `<!-- END GENERATED: ${key} -->`;
 // every committed page. The generator always writes the canonical text above,
 // and the drift guard compares the whole block, so a hand-edited marker still
 // fails the guard.
-const beginRe = (key) => new RegExp(`^<!-- BEGIN GENERATED: ${key}\\b[^\\n]*-->$`, 'm');
-const endRe = (key) => new RegExp(`^<!-- END GENERATED: ${key} -->$`, 'm');
+//
+// The key must be followed by a SPACE, not merely a word boundary: keys now
+// nest (`cli/app` and `cli/app-listing`, `hooks-index`), and `\b` would let the
+// shorter key match the longer one's marker.
+const escapeRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const beginRe = (key) => new RegExp(`^<!-- BEGIN GENERATED: ${escapeRe(key)} [^\\n]*-->$`, 'm');
+const endRe = (key) => new RegExp(`^<!-- END GENERATED: ${escapeRe(key)} -->$`, 'm');
 
 /**
  * The full replaceable block: markers plus the rendered body, with the blank
@@ -380,6 +399,9 @@ export const regionBlock = (key, body) =>
  */
 export function assertRegionInSlot(pageText, region) {
   const { key, component } = region;
+  // A split island carries an attribute (`<HooksReference group="storage">`),
+  // so the opening line is the region's declared `openTag`.
+  const openTag = region.openTag ?? `<${component}>`;
   const lines = pageText.split('\n');
   const b = lines.findIndex((l) => beginRe(key).test(l));
   const e = lines.findIndex((l) => endRe(key).test(l));
@@ -398,10 +420,10 @@ export function assertRegionInSlot(pageText, region) {
   };
   const open = prevNonBlank(b);
   const close = nextNonBlank(e);
-  if (open !== `<${component}>`) {
+  if (open !== openTag) {
     throw new Error(
       `region '${key}' is NOT inside the <${component}> slot — the line above BEGIN is ` +
-        `${JSON.stringify(open ?? '(start of file)')}, expected "<${component}>". Outside the slot the ` +
+        `${JSON.stringify(open ?? '(start of file)')}, expected ${JSON.stringify(openTag)}. Outside the slot the ` +
         `markdown RENDERS, duplicating the island in the HTML.`,
     );
   }
@@ -502,23 +524,28 @@ function renderManifest() {
  * content that cannot render inline (see `fence`), it is `v-pre` so no Vue
  * interpolation can reach it, and it keeps every row on its own line.
  */
-function describeHook(h, hookNames) {
+function describeHook(h, hookNames, hrefOf) {
   // Reads the flag gen-appblocks-hooks.mjs stamped into the artifact — the SAME
   // value the Vue island branches on. One rule, one place: this used to be a
   // second regex here, and it was the only channel that got fixed.
   if (h.descriptionHasTable) return fence('md', h.description);
-  return para(rewriteHookAnchors(h.description, hookNames));
+  return para(rewriteHookAnchors(h.description, hookNames, hrefOf));
 }
 
 /**
- * Point upstream's README-internal hook links at this page's hook anchors.
+ * Point upstream's README-internal hook links at this site's hook anchors.
  *
  * The README heads each hook `### \`useX()\``, which GitHub slugs to `#usex`, and
  * a description links a sibling hook that way (`[useCivitaiNavigate()](#usecivitainavigate)`).
- * This page has no such id: `<HooksReference>` gives each hook
+ * This site has no such id: `<HooksReference>` gives each hook
  * `id="hook-<name>"`, and this region renders the name in bold, not as a
  * heading. So a `#<lowercased hook name>` link is rewritten to `#hook-<name>`,
- * the id the hand-written prose on this page already links to.
+ * the id the hand-written prose links to.
+ *
+ * The hooks are split across sub-pages (`referenceSplit.shared.mjs`), so the
+ * target may live on a SIBLING sub-page: `hrefOf(name)` returns the link for a
+ * hook — `#hook-<name>` on the same page, `./<group>#hook-<name>` on another.
+ * It defaults to the same-page form.
  *
  * Only a DESCRIPTION is rewritten. Notes are emitted inside an `md` fence, where
  * a link is code text and resolves nowhere, and the rewrite would make the fence
@@ -527,22 +554,26 @@ function describeHook(h, hookNames) {
  *
  * @param {string} text
  * @param {string[]} hookNames
+ * @param {(name: string) => string} [hrefOf]
  * @returns {string}
  */
-export function rewriteHookAnchors(text, hookNames) {
+export function rewriteHookAnchors(text, hookNames, hrefOf = (name) => `#hook-${name}`) {
   const bySlug = new Map(hookNames.map((n) => [n.toLowerCase(), n]));
   return String(text ?? '').replace(/\]\(#([^)\s]+)\)/g, (m, slug) => {
     const name = bySlug.get(slug);
-    return name ? `](#hook-${name})` : m;
+    return name ? `](${hrefOf(name)})` : m;
   });
 }
 
-/** apps/reference/hooks.md — mirrors <HooksReference>. */
-function renderHooks() {
+/** apps/reference/hooks/<group>.md — mirrors <HooksReference group="…">. */
+function renderHooks(slug) {
   const { hooks } = loadArtifact('hooks.json');
   if (!hooks?.length) throw new Error('appblocks-md: hooks.json has no hooks');
   const hookNames = hooks.map((h) => h.name);
-  return hooks
+  const { groupOf } = splitByGroup('hooks', hooks);
+  const hrefOf = (name) =>
+    groupOf.get(name) === slug ? `#hook-${name}` : `./${groupOf.get(name)}#hook-${name}`;
+  return groupItems('hooks', hooks, slug)
     .map((h) =>
       blocks(
         // Bold, NOT a markdown heading: markdown-it lifts an `###` inside the
@@ -550,7 +581,7 @@ function renderHooks() {
         // which would put phantom entries in the outline.
         `**${code(h.name)}**`,
         fence('ts', h.signature),
-        h.description ? describeHook(h, hookNames) : '',
+        h.description ? describeHook(h, hookNames, hrefOf) : '',
         h.example ? fence('tsx', h.example) : '',
         // The rest of the README section, after the example. ONE `md` fence, for
         // the same reason `describeHook` fences a table: it is upstream markdown
@@ -623,24 +654,27 @@ const optionRows = (opts) =>
     ['Flag', 'Description', 'Default'],
     opts.map((o) => [codeCell(o.flags), cell(o.description), o.default ? codeCell(o.default) : '—']),
   );
-function renderCli() {
+/** The `Global flags` block — rendered once, on the CLI hub (see renderIndex). */
+function renderCliGlobalFlags(data) {
+  const bin = data.program?.name ?? 'civitai';
+  const globalOptions = data.program?.globalOptions ?? [];
+  if (!globalOptions.length) return '';
+  return blocks(
+    '**Global flags**',
+    para(`Accepted by every \`${bin}\` command, in addition to the flags listed with it.`),
+    optionRows(globalOptions),
+  );
+}
+
+/** apps/reference/cli/<group>.md — mirrors <CliReference group="…">. */
+function renderCli(slug) {
   const data = loadArtifact('cli.json');
   const commands = data.commands ?? [];
   if (!commands.length) throw new Error('appblocks-md: cli.json has no commands');
   const bin = data.program?.name ?? 'civitai';
-  const globalOptions = data.program?.globalOptions ?? [];
 
   const parts = [];
-  if (globalOptions.length) {
-    parts.push(
-      blocks(
-        '**Global flags**',
-        para(`Accepted by every \`${bin}\` command, in addition to the flags listed with it.`),
-        optionRows(globalOptions),
-      ),
-    );
-  }
-  for (const c of commands) {
+  for (const c of groupItems('cli', commands, slug)) {
     const badge = cliBadge(c.status);
     const sig = `${bin} ${c.command}${c.args ? ` ${c.args}` : ''}`;
     // The cobra `Long` body goes in a FENCE, not through `para()`. `para()`
@@ -705,13 +739,14 @@ function fieldRows(fields) {
     fields.map((f) => [codeCell(`${f.name}${f.optional ? '?' : ''}`), codeOrDash(f.type), cell(f.description)]),
   );
 }
-function renderBridge() {
+function renderBridge(slug) {
   const data = loadArtifact('bridge.json');
   const { lifecycle } = data;
   const types = data.types ?? [];
   if (!types.length) throw new Error('appblocks-md: bridge.json has no types');
+  const wanted = new Set(groupItems('bridge', bridgeItems(data), slug).map((it) => it.name));
   const parts = [];
-  if (lifecycle) {
+  if (lifecycle && wanted.has(lifecycle.name)) {
     parts.push(
       blocks(
         `**${code(`${lifecycle.name}()`)}** — lifecycle`,
@@ -721,7 +756,7 @@ function renderBridge() {
       ),
     );
   }
-  for (const t of types) {
+  for (const t of types.filter((x) => wanted.has(x.name))) {
     parts.push(
       blocks(
         `**${code(t.name)}** — ${t.kind}`,
@@ -739,23 +774,232 @@ function renderBridge() {
   return parts.join('\n\n');
 }
 
+// ── split references: hub index + generated sub-pages ────────────────────────
+//
+// hooks, CLI and the generation bridge are each too large for one `.md` twin
+// (see referenceSplit.shared.mjs). Each keeps its hub page — hand-written prose
+// plus an INDEX region naming every entry — and gets one generated sub-page per
+// group. Which entry goes where is decided ONLY by `splitByGroup`.
+
+/** The artifact items of one kind, in artifact order. */
+function splitItems(kind) {
+  if (kind === 'hooks') return loadArtifact('hooks.json').hooks ?? [];
+  if (kind === 'cli') return loadArtifact('cli.json').commands ?? [];
+  return bridgeItems(loadArtifact('bridge.json'));
+}
+
+/**
+ * The items of one group, refusing an EMPTY group: a catalog entry whose
+ * members all vanished upstream would otherwise publish a blank page.
+ */
+function groupItems(kind, items, slug) {
+  const got = itemsInGroup(kind, items, slug);
+  if (!got.length) {
+    throw new Error(
+      `appblocks-md: ${kind} group '${slug}' has no entries — every member it lists is gone from the ` +
+        `artifact. Update the group in .vitepress/theme/components/referenceSplit.shared.mjs.`,
+    );
+  }
+  return got;
+}
+
+/** The display label of an item in an index. */
+function indexLabel(kind, item, data) {
+  if (kind === 'cli') return code(`${data.program?.name ?? 'civitai'} ${item.command}`);
+  if (kind === 'bridge') return code(item.isLifecycle ? `${item.name}()` : item.name);
+  return code(item.name);
+}
+
+/** The one-line summary an index row carries, if the kind has a one-line field. */
+function indexSummary(kind, item) {
+  if (kind === 'cli') return para(item.description.replace(/\s*\[coming soon\]\s*$/i, ''));
+  if (kind === 'bridge') return item.isLifecycle ? 'lifecycle' : item.kind;
+  return '';
+}
+
+/** The hub's INDEX region — mirrors <ReferenceIndex kind="…">. */
+function renderIndex(kind) {
+  const split = referenceSplit(kind);
+  const data = kind === 'cli' ? loadArtifact('cli.json') : null;
+  const items = splitItems(kind);
+  if (!items.length) throw new Error(`appblocks-md: the ${kind} artifact has no entries`);
+  const { groups } = splitByGroup(kind, items);
+  const hubName = split.hub.split('/').pop();
+  const parts = [
+    para(
+      `${items.length} ${split.itemNoun}s across ${groups.length} pages. Each link goes to the page that documents the ` +
+        `${split.itemNoun}; fetch that page's \`.md\` for the full entry.`,
+    ),
+  ];
+  for (const g of groups) {
+    if (!g.items.length) groupItems(kind, items, g.slug); // throws, naming the group
+    const page = `./${hubName}/${g.slug}`;
+    parts.push(
+      blocks(
+        `**[${escapeInline(g.title)}](${page})** — ${escapeInline(g.description)}`,
+        g.items
+          .map((it) => {
+            const anchor = itemAnchorId(kind, itemKey(kind, it));
+            const summary = indexSummary(kind, it);
+            return `- [${indexLabel(kind, it, data)}](${page}#${anchor})${summary ? ` — ${summary}` : ''}`;
+          })
+          .join('\n'),
+      ),
+    );
+  }
+  if (kind === 'cli') parts.push(renderCliGlobalFlags(data));
+  return blocks(parts);
+}
+
+/** Provenance sentence for a generated sub-page. */
+function provenance(kind) {
+  if (kind === 'hooks') {
+    const { reactPackage } = loadArtifact('hooks.json');
+    return `Generated from the published \`${reactPackage ?? '@civitai/blocks-react'}\` package's type definitions and README.`;
+  }
+  if (kind === 'bridge') {
+    const { sdkPackage, reactPackage } = loadArtifact('bridge.json');
+    return `Generated from \`${sdkPackage ?? '@civitai/app-sdk'}\` and \`${reactPackage ?? '@civitai/blocks-react'}\`.`;
+  }
+  return "Generated from the `civitai` binary's own help output.";
+}
+
+/**
+ * The WHOLE text of a generated sub-page. Sub-pages are owned entirely by the
+ * generator (like apps/reference/components.md): the hand-written prose stays
+ * on the hub, so there is nothing here for a person to edit, and the drift
+ * guard compares the whole file.
+ */
+function renderSubPage(kind, slug, body) {
+  const split = referenceSplit(kind);
+  const g = split.groups.find((x) => x.slug === slug);
+  const items = splitItems(kind);
+  const n = itemsInGroup(kind, items, slug).length;
+  const hubName = split.hub.split('/').pop();
+  const others = split.groups
+    .filter((x) => x.slug !== slug)
+    .map((x) => `[${escapeInline(x.title)}](./${x.slug})`)
+    .join(' · ');
+  const fm = [
+    '---',
+    `title: ${JSON.stringify(g.title.replace(/`/g, ''))}`,
+    `description: ${JSON.stringify(`${g.description.replace(/`/g, '')} Part of the ${split.hubTitle}.`)}`,
+    // PAGE-LOCAL OUTLINE DEPTH for CLI pages. Commands render at a depth
+    // derived from their nesting (`app` h3 > `app create` h4 > `app listing
+    // set-icon` h5 — cliHeadingLevel). The site default `[2, 3]` would outline
+    // only `civitai app` on the authoring page and hide `app submit`,
+    // `app validate` and the rest, which are what that page's readers reach
+    // for; `[2, 4]` lists every command and its first level of subcommands,
+    // and keeps the h5 media leaves out.
+    ...(kind === 'cli' ? ['outline: [2, 4]'] : []),
+    '---',
+  ].join('\n');
+  const tag = `${split.component} group="${slug}"`;
+  return (
+    `${fm}\n\n` +
+    `<!-- GENERATED PAGE — do not edit by hand. Written by \`${REFRESH_CMD}\` (scripts/appblocks-md.mjs); ` +
+    `which entry lives on which page is decided in .vitepress/theme/components/referenceSplit.shared.mjs. -->\n\n` +
+    `# ${escapeInline(g.title)}\n\n` +
+    `${para(g.description)}\n\n` +
+    `${para(
+      `This page documents ${n} of the ${items.length} ${split.itemNoun}s in the [${split.hubTitle}](../${hubName}), ` +
+        `which indexes every ${split.itemNoun} by name. ${provenance(kind)}`,
+    )}\n\n` +
+    `Other pages: ${others}\n\n` +
+    `<${tag}>\n` +
+    `${regionBlock(regionKey(kind, slug), body)}\n` +
+    `</${split.component}>\n`
+  );
+}
+
+const regionKey = (kind, slug) => `${kind}/${slug}`;
+
 // ── the region catalog ───────────────────────────────────────────────────────
 
 /**
  * One entry per island whose payload would otherwise be invisible to the .md
  * channel. `page` is repo-root-relative; `render` returns the region BODY.
+ * `openTag` is the exact line that must open the island's slot (defaults to
+ * `<component>`). An entry with `renderPage` owns its WHOLE file: the generator
+ * writes `renderPage(body)` and the drift guard compares the whole file.
  */
+const SPLIT_REGIONS = Object.values(REFERENCE_SPLITS).flatMap((split) => [
+  {
+    key: `${split.kind}-index`,
+    page: hubFile(split.kind),
+    component: 'ReferenceIndex',
+    openTag: `<ReferenceIndex kind="${split.kind}">`,
+    render: () => renderIndex(split.kind),
+  },
+  ...split.groups.map((g) => ({
+    key: regionKey(split.kind, g.slug),
+    page: subPageFile(split.kind, g.slug),
+    component: split.component,
+    openTag: `<${split.component} group="${g.slug}">`,
+    render: () => ({ cli: renderCli, hooks: renderHooks, bridge: renderBridge })[split.kind](g.slug),
+    renderPage: (body) => renderSubPage(split.kind, g.slug, body),
+  })),
+]);
+
 export const REGIONS = [
-  { key: 'cli', page: 'apps/reference/cli.md', component: 'CliReference', render: renderCli },
-  { key: 'hooks', page: 'apps/reference/hooks.md', component: 'HooksReference', render: renderHooks },
+  ...SPLIT_REGIONS,
   { key: 'manifest', page: 'apps/reference/manifest.md', component: 'JsonSchemaTable', render: renderManifest },
   { key: 'messages', page: 'apps/reference/messages.md', component: 'MessageTable', render: renderMessages },
   { key: 'scopes', page: 'apps/reference/scopes.md', component: 'ScopesTable', render: renderScopes },
   { key: 'tokens', page: 'apps/tokens.md', component: 'TokenGallery', render: renderTokens },
-  { key: 'bridge', page: 'apps/reference/generation.md', component: 'BridgeReference', render: renderBridge },
 ];
 
 export const pagePath = (region) => join(repoRoot, region.page);
+
+/**
+ * The text `region`'s page must hold, given the rendered `body`: the whole
+ * generated file for a sub-page, or `currentText` with the region spliced in.
+ * The ONE place both the generator and the drift guard derive the page from.
+ */
+export function expectedPageText(region, body, currentText) {
+  if (region.renderPage) return region.renderPage(body);
+  return spliceRegion(currentText, region.key, body);
+}
+
+/** Character count (code points) of a page, as the size budget measures it. */
+export const pageChars = (text) => [...text].length;
+
+/** The size budget in characters; `APPBLOCKS_MD_BUDGET` overrides it (for testing the guard). */
+export function pageBudget() {
+  const env = process.env.APPBLOCKS_MD_BUDGET;
+  if (env === undefined || env === '') return MD_PAGE_BUDGET;
+  const n = Number(env);
+  if (!Number.isInteger(n) || n <= 0) throw new Error(`APPBLOCKS_MD_BUDGET must be a positive integer, got ${JSON.stringify(env)}`);
+  return n;
+}
+
+/**
+ * Every split entry that `splitByGroup` placed by INHERITANCE (no explicit
+ * member/prefix rule), so the generator can name them for a maintainer.
+ */
+export function inheritedPlacements() {
+  return Object.keys(REFERENCE_SPLITS).flatMap((kind) =>
+    splitByGroup(kind, splitItems(kind)).inherited.map((key) => ({ kind, key })),
+  );
+}
+
+/**
+ * Generated sub-page files on disk that no catalog group owns any more — a
+ * group renamed or removed in referenceSplit.shared.mjs leaves its old page
+ * behind, still built and still served.
+ */
+export function orphanSubPages() {
+  const out = [];
+  for (const split of Object.values(REFERENCE_SPLITS)) {
+    const dir = join(repoRoot, split.hub.slice(1));
+    if (!existsSync(dir)) continue;
+    const owned = new Set(split.groups.map((g) => `${g.slug}.md`));
+    for (const f of readdirSync(dir)) {
+      if (f.endsWith('.md') && !owned.has(f)) out.push(`${split.hub.slice(1)}/${f}`);
+    }
+  }
+  return out;
+}
 
 /** Render every region, returning `{ region, body }` in catalog order. */
 export async function renderAll() {

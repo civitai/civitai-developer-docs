@@ -4,6 +4,9 @@ import { inject } from 'vue';
 // PR-blocking gate in scripts/test-appblocks-cli.mjs — which runs under bare
 // `node` and so cannot import a `.vue` SFC.
 import { cliAnchorId, cliHeadingTag, cliLongBody } from './cliReference.shared.mjs';
+// Which commands this page shows: the reference is split across sub-pages
+// (`/apps/reference/cli/<group>`), defined once in referenceSplit.shared.mjs.
+import { itemsInGroup } from './referenceSplit.shared.mjs';
 
 interface CliOption { flags: string; description: string; default: string | null; }
 interface CliCommand {
@@ -24,14 +27,18 @@ interface CliData {
   commands: CliCommand[];
 }
 
+// `group` omitted renders every command plus the global flags (the unsplit
+// behaviour). On a sub-page the global flags are NOT repeated: they render once,
+// on the hub, in <ReferenceIndex kind="cli">.
+const props = defineProps<{ group?: string }>();
 const data = inject<CliData>('appblocks:cli', { commands: [] });
-const commands = data.commands ?? [];
+const commands = itemsInGroup('cli', data.commands ?? [], props.group);
 const bin = data.program?.name ?? 'civitai';
 // Cobra's `Global Flags:` — the ROOT command's own flags, accepted by every
 // command. Rendered ONCE here rather than repeated on all 52 entries, which is
 // why no per-command `options` table carries them. Optional, so an artifact
 // generated before this field existed still renders (the block just vanishes).
-const globalOptions = data.program?.globalOptions ?? [];
+const globalOptions = props.group ? [] : data.program?.globalOptions ?? [];
 
 // A short, human badge for any non-stable command status.
 const STATUS_LABELS: Record<string, string> = {

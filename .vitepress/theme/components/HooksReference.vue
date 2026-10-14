@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { inject } from 'vue';
+// Which hooks this page shows. The reference is split across sub-pages
+// (`/apps/reference/hooks/<group>`) so each page's `.md` twin stays readable by
+// agent fetch tools; the split is defined once, in referenceSplit.shared.mjs.
+import { itemsInGroup } from './referenceSplit.shared.mjs';
 
 interface Hook {
   name: string;
@@ -24,8 +28,10 @@ interface Hook {
 type HookNote = { kind: 'text'; text: string } | { kind: 'code'; lang: string; code: string };
 interface HooksData { hooks: Hook[]; reactPackage?: string; }
 
+// `group` omitted renders every hook (the unsplit behaviour).
+const props = defineProps<{ group?: string }>();
 const data = inject<HooksData>('appblocks:hooks', { hooks: [] });
-const hooks = data.hooks ?? [];
+const hooks = itemsInGroup('hooks', data.hooks ?? [], props.group);
 </script>
 
 <template>

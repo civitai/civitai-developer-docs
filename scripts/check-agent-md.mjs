@@ -33,6 +33,7 @@
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { referenceSplit, subPageFile, subPageRoute } from '../.vitepress/theme/components/referenceSplit.shared.mjs';
 
 const DIST = '.vitepress/dist';
 
@@ -137,7 +138,16 @@ console.log(`check-agent-md: OK — ${twins.length} .md twin(s), all carry a bod
 // span the twin lost.
 
 const HOOKS_JSON = 'public/appblocks/hooks.json';
-const HOOKS_TWIN = join(DIST, 'apps/reference/hooks.md');
+// The hooks reference is SPLIT across generated sub-pages
+// (`/apps/reference/hooks/<group>` — referenceSplit.shared.mjs) so each twin
+// stays readable by agent fetch tools; every hook must be carried verbatim by
+// exactly ONE of them. The twin each hook is in is read off the twins
+// themselves (their `**`name`**` entry lines), not taken from the split module,
+// so a hook the generator dropped or duplicated fails here.
+const HOOKS_TWINS = referenceSplit('hooks').groups.map((g) => ({
+  route: subPageRoute('hooks', g.slug),
+  path: join(DIST, subPageFile('hooks', g.slug)),
+}));
 // Positive control on the population: today's artifact carries 42 hooks. A
 // floor far below that catches an artifact or slicer that has gone to nothing.
 const MIN_HOOKS = 20;
@@ -251,12 +261,12 @@ function firstMissing(want, have) {
 }
 
 let hooks;
-let twinText;
+let twinTexts;
 try {
   hooks = JSON.parse(readFileSync(HOOKS_JSON, 'utf8')).hooks;
-  twinText = readFileSync(HOOKS_TWIN, 'utf8');
+  twinTexts = HOOKS_TWINS.map((t) => ({ ...t, text: readFileSync(t.path, 'utf8') }));
 } catch (err) {
-  console.error(`check-agent-md: cannot read ${HOOKS_JSON} or ${HOOKS_TWIN}: ${err.message}`);
+  console.error(`check-agent-md: cannot read ${HOOKS_JSON} or a hooks twin: ${err.message}`);
   process.exit(2);
 }
 if (!Array.isArray(hooks) || hooks.length < MIN_HOOKS) {
@@ -267,34 +277,49 @@ if (!Array.isArray(hooks) || hooks.length < MIN_HOOKS) {
   process.exit(1);
 }
 
-// Slice the twin into one entry per hook, at the generator's `**`name`**` lines.
-const twinLines = twinText.split('\n');
-const headerAt = new Map();
-twinLines.forEach((l, idx) => {
-  const m = l.match(/^\*\*(`+)([A-Za-z0-9_]+)\1\*\*$/);
-  if (m && !headerAt.has(m[2])) headerAt.set(m[2], idx);
-});
-const starts = [...headerAt.values()].sort((a, b) => a - b);
-function entryOf(name) {
-  const s = headerAt.get(name);
-  if (s === undefined) return null;
-  const e = starts.find((x) => x > s) ?? twinLines.length;
-  return normBlocks(twinLines.slice(s + 1, e).join('\n'));
+// Slice each twin into one entry per hook, at the generator's `**`name`**` lines.
+const twinOf = new Map(); // hook name -> twin route
+const duplicated = [];
+const entries = new Map(); // hook name -> normalised entry text
+for (const t of twinTexts) {
+  const lines = t.text.split('\n');
+  const headerAt = new Map();
+  lines.forEach((l, idx) => {
+    const m = l.match(/^\*\*(`+)([A-Za-z0-9_]+)\1\*\*$/);
+    if (m && !headerAt.has(m[2])) headerAt.set(m[2], idx);
+  });
+  const starts = [...headerAt.values()].sort((a, b) => a - b);
+  for (const [name, s] of headerAt) {
+    if (twinOf.has(name)) duplicated.push(`${name} (${twinOf.get(name)} and ${t.route})`);
+    twinOf.set(name, t.route);
+    const e = starts.find((x) => x > s) ?? lines.length;
+    entries.set(name, normBlocks(lines.slice(s + 1, e).join('\n')));
+  }
 }
+if (duplicated.length) {
+  console.error(`check-agent-md: ${duplicated.length} hook(s) have an entry in MORE than one hooks twin: ${duplicated.join(', ')}`);
+  process.exit(1);
+}
+const entryOf = (name) => entries.get(name) ?? null;
 
 // The ONE intended divergence: a description's README link to a sibling hook
 // (`](#usex)`, GitHub's slug for `### \`useX()\``) is rewritten in the twin to
-// this page's `](#hook-useX)` id (appblocks-md.mjs `rewriteHookAnchors`). The
+// that hook's id — `](#hook-useX)` when it is on the same page, else the sibling
+// sub-page's absolute URL (appblocks-md.mjs `rewriteHookAnchors`, absolutized by
+// scripts/lib/twin-links.mjs). The
 // expectation is derived HERE, from hooks.json's own names, not imported from the
 // generator, and only for an exact `#<lowercased hook name>` fragment — every
 // other link must still match exactly. Not applied where the twin carries the
 // text verbatim in an `md` fence, where a link is code text: `notes`, and a
 // description flagged `descriptionHasTable`.
 const hookBySlug = new Map(hooks.map((h) => [h.name.toLowerCase(), h.name]));
-function expectedHookAnchors(text) {
-  return String(text).replace(/\]\(#([^)\s]+)\)/g, (m, slug) =>
-    hookBySlug.has(slug) ? `](#hook-${hookBySlug.get(slug)})` : m,
-  );
+function expectedHookAnchors(text, fromRoute) {
+  return String(text).replace(/\]\(#([^)\s]+)\)/g, (m, slug) => {
+    const name = hookBySlug.get(slug);
+    if (!name) return m;
+    const at = twinOf.get(name);
+    return at === fromRoute || !at ? `](#hook-${name})` : `](${at}#hook-${name})`;
+  });
 }
 
 const lost = [];
@@ -306,7 +331,7 @@ for (const h of hooks) {
     continue;
   }
   const want = [];
-  if (h.description) want.push(['description', normBlocks(h.descriptionHasTable ? h.description : expectedHookAnchors(h.description))]);
+  if (h.description) want.push(['description', normBlocks(h.descriptionHasTable ? h.description : expectedHookAnchors(h.description, twinOf.get(h.name)))]);
   (h.notes ?? []).forEach((n, k) => {
     want.push([`notes[${k}]`, n.kind === 'text' ? normBlocks(n.text) : String(n.code ?? '').replace(/\s+/g, ' ').trim()]);
   });
@@ -327,19 +352,19 @@ for (const h of hooks) {
 
 if (lost.length) {
   console.error(
-    `check-agent-md: ${lost.length} hook field(s) are not carried verbatim by /apps/reference/hooks.md ` +
+    `check-agent-md: ${lost.length} hook field(s) are not carried verbatim by the /apps/reference/hooks/*.md twins ` +
       `(${pieces} field(s) across ${hooks.length} hooks checked):\n`,
   );
   for (const l of lost) console.error(l);
   console.error(
     '\ncheck-agent-md: the HTML page renders hooks.json directly, so it can be complete while the\n' +
       '.md twin agents read is not. The twin comes from the generated region in\n' +
-      'apps/reference/hooks.md (scripts/appblocks-md.mjs) — fix the generator, then\n' +
+      'apps/reference/hooks/*.md (scripts/appblocks-md.mjs) — fix the generator, then\n' +
       '`npm run gen:appblocks:md` and rebuild.',
   );
   process.exit(1);
 }
 
 console.log(
-  `check-agent-md: OK — all ${pieces} description/notes field(s) of ${hooks.length} hooks are carried verbatim by the hooks twin.`,
+  `check-agent-md: OK — all ${pieces} description/notes field(s) of ${hooks.length} hooks are carried verbatim by the ${twinTexts.length} hooks twins.`,
 );
