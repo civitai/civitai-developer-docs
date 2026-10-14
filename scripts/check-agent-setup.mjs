@@ -1276,6 +1276,18 @@ const NPX_SELF_TEST = [
   ['npx -y', true],
 ];
 
+/**
+ * The npx file scope's own controls: [graded file, must npx be refused there?].
+ * Run twice — against refuseOutOfScope alone, and end to end through
+ * gradeCommandSurface on NPX_SCOPE_PROBE — so dropping the call that wires the
+ * scope into grading goes red by name too, not only the predicate.
+ */
+const NPX_SCOPE_SELF_TEST = [
+  [PROMPT_SOURCE, true],
+  [IN_SANDBOX_SOURCE, false],
+];
+const NPX_SCOPE_PROBE = '```bash\nnpx -y @civitai/cli@latest app validate\n```\n';
+
 function checkCommandSurface() {
   const failures = [...runParserSelfTest()];
   for (const [line, wantRefused] of NPX_SELF_TEST) {
@@ -1291,7 +1303,7 @@ function checkCommandSurface() {
   // accepted in the leaf. A mutant dropping `onlyIn` or inverting the test goes
   // red here by name rather than only when a corpus line happens to exercise it.
   const npxRule = ALLOWED_NON_CIVITAI.get('npx');
-  for (const [source, wantRefused] of [[PROMPT_SOURCE, true], [IN_SANDBOX_SOURCE, false]]) {
+  for (const [source, wantRefused] of NPX_SCOPE_SELF_TEST) {
     if ((refuseOutOfScope(npxRule, source) !== null) !== wantRefused) {
       failures.push(
         `NPX SCOPE SELF-TEST FAILURE: npx in ${source} should be ${wantRefused ? 'REFUSED' : 'ACCEPTED'} and was not.\n` +
@@ -1308,7 +1320,7 @@ function checkCommandSurface() {
       `${PARSER_SELF_TEST.length - negatives} positive / ${negatives} negative control(s), ` +
       `+ ${STRIP_CONSERVES.length} tag-strip invariant line(s), ` +
       `+ ${NPX_SELF_TEST.length} npx case(s) (${NPX_SELF_TEST.filter((c) => c[1]).length} must-refuse) ` +
-      `+ 2 npx file-scope case(s) (1 must-refuse)`,
+      `+ ${NPX_SCOPE_SELF_TEST.length} npx file-scope case(s) (${NPX_SCOPE_SELF_TEST.filter((c) => c[1]).length} must-refuse)`,
   );
   if (!existsSync(SNAPSHOT)) {
     failures.push(
@@ -1318,6 +1330,31 @@ function checkCommandSurface() {
     return failures;
   }
   const snapshot = readFileSync(SNAPSHOT, 'utf8');
+  // The same scope cases END TO END: the probe through gradeCommandSurface, its
+  // progress lines muted. This is what catches a grader that no longer calls
+  // refuseOutOfScope — the predicate-only cases above stay green on that mutant.
+  for (const [source, wantRefused] of NPX_SCOPE_SELF_TEST) {
+    const log = console.log;
+    console.log = () => {};
+    let graded;
+    try {
+      graded = gradeCommandSurface(source, NPX_SCOPE_PROBE, snapshot);
+    } finally {
+      console.log = log;
+    }
+    const refused = graded.some((f) => f.includes('allowed only in'));
+    const other = graded.filter((f) => !f.includes('allowed only in'));
+    if (refused !== wantRefused || other.length) {
+      failures.push(
+        `NPX SCOPE SELF-TEST FAILURE (end to end): the probe graded as ${source} should be ` +
+          `${wantRefused ? 'REFUSED for its file' : 'ACCEPTED'} and was not` +
+          (other.length ? `; it also failed on: ${other.join(' | ')}` : '') +
+          `.\n    This is a defect in gradeCommandSurface's use of refuseOutOfScope, not in the corpus.`,
+      );
+    }
+  }
+  if (failures.length) return failures;
+  console.log(`  ✓ npx file scope end to end: ${NPX_SCOPE_SELF_TEST.length} case(s) through the grader`);
   // BOTH agent-executed files, graded file by file. The in-sandbox leaf is
   // fetched and executed unattended exactly like the prompt, so it gets the same
   // command surface and the same allowlist — a leaf that could name what the
