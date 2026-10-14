@@ -202,7 +202,8 @@ request/response reference for the block routes.
 per-viewer and per-app daily caps, the maturity clamp, and the
 `app-block:<appId>` attribution tag. The substitution **type-checks and passes
 tests** — which is exactly why it is worth stating. Submit through
-`/api/v1/blocks/workflows/*`.
+`/api/v1/blocks/workflows/*`: `useBuzzWorkflow()` on React, or
+[`app.workflows`](./sdk#money-calls) in `@civitai/sdk`.
 :::
 
 ## Tokens, briefly

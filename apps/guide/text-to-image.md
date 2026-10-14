@@ -21,8 +21,21 @@ a server-owned graph invoked by name, **or your own graph shipped inline** — s
 
 ::: warning Closed beta — mod-gated
 Like the rest of the [Apps platform](./), generation is **mod-gated** during the
-closed beta. You can scaffold and run the whole flow against the local mock host
-today; **real** Buzz generation needs closed-beta builder access.
+closed beta. You can scaffold the `page-money` template and run the whole flow
+against its local mock host today; **real** Buzz generation needs closed-beta
+builder access.
+:::
+
+::: info On the default template (`@civitai/sdk`)
+The examples on this page are React (`useBuzzWorkflow()` from
+`@civitai/blocks-react`, the `page-money` template). The default
+`page-elements` template sends the same `WorkflowBody` with
+`app.workflows.estimate(body)`, `app.workflows.submit(body, { idempotencyKey })`
+and `app.workflows.wait(workflowId)` from `@civitai/sdk` 0.12.0 or later. Three
+differences to carry through this page: a refusal **resolves** with a `failed`
+snapshot there instead of rejecting, `submit` requires the `idempotencyKey`,
+and a `submit` that rejects has an **unknown** outcome (the run may exist).
+[Money calls](./sdk#money-calls) has the calling code.
 :::
 
 ## The happy path
@@ -503,6 +516,9 @@ lists every resolved refusal and each `WorkflowSubmitError` `code` with what it
 says about money.
 
 ### Retrying a submit safely — `idempotencyKey` {#retrying-a-submit-safely}
+
+This section is the React hook. For `app.workflows.submit` in `@civitai/sdk`,
+the retry rules are under [Money calls](./sdk#submit-rejects).
 
 If a submit succeeded server-side but its *response* was lost (a timeout, a
 dropped connection), a naive retry starts a second paid workflow. `submit()`'s

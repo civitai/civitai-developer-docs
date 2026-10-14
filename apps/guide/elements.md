@@ -88,7 +88,7 @@ viewer's OS preference, and keep it in sync from
 `app.orchestration` — the orchestrator, called directly. On a block's default
 token the orchestrator refuses it, and that path carries none of the controls a
 block's spend goes through. In a block, spend through `/api/v1/blocks/workflows/*`
-as shown in [Money calls](./sdk#money-calls).
+with `app.workflows`, as shown in [Money calls](./sdk#money-calls).
 
 `<civitai-chat>`, from the separate `@civitai/components-chat` package, is a
 Civitai assistant in one element. It has the same limit, for the same reason: it
