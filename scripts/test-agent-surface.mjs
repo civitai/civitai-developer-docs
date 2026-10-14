@@ -24,6 +24,8 @@ import {
   withoutIndexNote,
 } from './lib/agent-surface.mjs';
 import { buildOperationTwins, operationTitle, specOperations, typeText } from './lib/operation-twins.mjs';
+import * as agentSurface from './lib/agent-surface.mjs';
+import * as opTwins from './lib/operation-twins.mjs';
 
 let n = 0;
 const failures = [];
@@ -212,6 +214,48 @@ throws(() => buildOperationTwins({ paths: {} }, []), /0 operations/, 'FAIL-LOUD:
 throws(() => buildOperationTwins(spec, ['GetThing']), /2 operation\(s\) in the spec but 1/, 'FAIL-LOUD: loader has fewer pages than the spec');
 throws(() => buildOperationTwins(spec, ['GetThing', 'DeleteThing', 'Other']), /missing twins: \[Other\]/, 'FAIL-LOUD: loader has a page the spec lacks');
 throws(() => buildOperationTwins(spec, []), /but 0 generated/, 'FAIL-LOUD: loader produced nothing');
+
+// ── table-cell escaping (CodeQL js/incomplete-sanitization) ──────────────────
+// Every row must have exactly its column separators: count `|` not preceded by `\`.
+const separators = (row) => (row.match(/(?<!\\)\|/g) ?? []).length;
+{
+  const s3 = {
+    paths: {
+      '/v2/x': {
+        get: {
+          operationId: 'GetX',
+          parameters: [
+            { name: 'two', in: 'query', description: 'a | b | c', schema: { type: 'string' } },
+            { name: 'effort', in: 'query', description: 'Effort.', schema: { type: 'string', pattern: '^(none|low|high)$' } },
+            { name: 'win', in: 'query', description: 'A path like C:\\temp.', schema: { type: 'string' } },
+            { name: 'rx', in: 'query', description: 'Matches `\\d+|x`.', schema: { type: 'string', pattern: '^[\\w-]+$' } },
+          ],
+          responses: { 204: { description: 'No Content' } },
+        },
+      },
+    },
+    components: { schemas: {} },
+  };
+  const t = buildOperationTwins(s3, ['GetX'])[0].text;
+  const row = (name) => t.split('\n').find((l) => l.startsWith(`| \`${name}\``));
+  eq(separators(row('two')), 6, 'cell: a description with two pipes keeps the row at 5 columns (both escaped)');
+  eq(row('two').includes('a \\| b \\| c'), true, 'cell: BOTH pipes escaped, not just the first');
+  eq(separators(row('effort')), 6, 'cell: a pattern with pipes inside a code span does not split the row');
+  eq(row('effort').includes('`^(none\\|low\\|high)$`'), true, 'cell: pipes in a code span escaped as \\| (GFM)');
+  eq(row('win').includes('C:\\\\temp'), true, 'cell: a prose backslash is escaped, so it renders as one');
+  eq(row('rx').includes('`\\d+\\|x`') && row('rx').includes('`^[\\w-]+$`'), true, 'cell: backslashes inside code spans are left verbatim');
+}
+
+// ── entryPath: origin compared by URL, not string prefix (CodeQL js/incomplete-url-substring-sanitization)
+eq(agentSurface.entryPath?.(`- [A](${ORIGIN}/apps/a.md)`), '/apps/a.md', 'entryPath: this origin -> site path');
+eq(agentSurface.entryPath?.('- [A](/apps/a.md)'), '/apps/a.md', 'entryPath: root path unchanged');
+eq(
+  agentSurface.entryPath?.('- [E](https://developer.civitai.com.example.org/apps/e.md)'),
+  'https://developer.civitai.com.example.org/apps/e.md',
+  'entryPath: a lookalike host is NOT this site',
+);
+eq(agentSurface.entryPath?.('- [E](https://developer.civitai.com@example.org/apps/e.md)'), 'https://developer.civitai.com@example.org/apps/e.md', 'entryPath: userinfo trick is NOT this site');
+void opTwins;
 
 if (failures.length) {
   console.error(`test-agent-surface: ${failures.length} of ${n} assertion(s) FAILED:`);

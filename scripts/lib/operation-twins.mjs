@@ -50,8 +50,62 @@ export function deref(spec, schema) {
   return cur;
 }
 
+const oneLine = (s) => String(s ?? '').replace(/\s*\n\s*/g, ' ').trim();
+
+/**
+ * Escape text for ONE GFM table cell. A `|` splits the cell even inside a code
+ * span, so every `|` becomes `\|` (GFM renders `\|` as `|`, in code spans too).
+ * A backslash is escaped as `\\` in PROSE only: in a code span backslash escapes
+ * do not apply, so doubling one there would print two (a `pattern` like
+ * `^[\w-]+$` must survive verbatim). Backslash before pipe, so the backslash
+ * this adds is never itself doubled.
+ *
+ * 🔴 Applied to the WHOLE cell, constraints included. It used to run on the
+ * description only, with `(pattern `…`)` appended afterwards — so
+ * `^(none|minimal|low|medium|high|xhigh)$` split its table row in two twins.
+ */
+export function escapeTableCell(text) {
+  let out = '';
+  let i = 0;
+  const prose = (t) => t.replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
+  while (i < text.length) {
+    const open = text.indexOf('`', i);
+    if (open === -1) {
+      out += prose(text.slice(i));
+      break;
+    }
+    out += prose(text.slice(i, open));
+    let n = open;
+    while (text[n] === '`') n++;
+    const fence = text.slice(open, n);
+    // Closer: the next backtick run of exactly the same length (CommonMark).
+    let close = -1;
+    for (let k = n; k < text.length; ) {
+      if (text[k] !== '`') {
+        k++;
+        continue;
+      }
+      let e = k;
+      while (text[e] === '`') e++;
+      if (e - k === fence.length) {
+        close = k;
+        break;
+      }
+      k = e;
+    }
+    if (close === -1) {
+      out += prose(fence);
+      i = n;
+      continue;
+    }
+    out += fence + text.slice(n, close).replace(/\|/g, '\\|') + fence;
+    i = close + fence.length;
+  }
+  return out;
+}
+
 /** One-line, table-safe text. */
-const cell = (s) => String(s ?? '').replace(/\s*\n\s*/g, ' ').replace(/\|/g, '\\|').trim();
+const cell = (s) => escapeTableCell(oneLine(s));
 const code = (s) => '`' + String(s).replace(/`/g, "'") + '`';
 
 // High enough that no enum in the spec is cut (the largest is 36 values): a
@@ -183,7 +237,7 @@ export function schemaBlock(spec, schema, seen) {
   if (entries.length) {
     lines.push('', '| Field | Type | Required | Description |', '|---|---|---|---|');
     for (const [prop, ps] of entries) {
-      const desc = withConstraints(cell(ps?.description ?? (ps?.$ref ? deref(spec, ps).description : '')), ps);
+      const desc = cell(withConstraints(oneLine(ps?.description ?? (ps?.$ref ? deref(spec, ps).description : '')), ps));
       lines.push(`| ${code(prop)} | ${cell(typeText(spec, ps))} | ${required.has(prop) ? 'yes' : 'no'} | ${desc} |`);
     }
   } else if (s.additionalProperties) {
@@ -256,7 +310,7 @@ export function renderOperation(spec, { operationId, method, path, op, pathParam
   if (params.length) {
     out.push('| Name | In | Type | Required | Description |', '|---|---|---|---|---|');
     for (const p of params) {
-      const desc = withConstraints(cell(p.description), p.schema);
+      const desc = cell(withConstraints(oneLine(p.description), p.schema));
       out.push(`| ${code(p.name)} | ${p.in} | ${cell(typeText(spec, p.schema))} | ${p.required ? 'yes' : 'no'} | ${desc} |`);
     }
   } else {

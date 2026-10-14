@@ -176,6 +176,26 @@ for (const { path, method, op, item } of specOps) {
   }
   if (!opEntries.includes(`${ORIGIN}/${rel}`)) parity.push(`${op.operationId}: not in llms.txt`);
 }
+// Table integrity: every row of every table in an operation twin has as many
+// UNESCAPED `|` as its header row. A `pattern` with `|` once split rows in two
+// twins because it was appended after the cell was escaped.
+const pipes = (row) => (row.match(/(?<!\\)\|/g) ?? []).length;
+let tableRows = 0;
+for (const rel of opTwins) {
+  let header = null;
+  for (const line of read(rel).split('\n')) {
+    if (!line.startsWith('|')) {
+      header = null;
+      continue;
+    }
+    if (header === null) header = pipes(line);
+    else if (!/^\|[-|]+\|$/.test(line)) {
+      tableRows++;
+      if (pipes(line) !== header) parity.push(`${rel.split('/').pop()}: table row has ${pipes(line)} column separators, header has ${header}: ${line.slice(0, 80)}`);
+    }
+  }
+}
+if (tableRows < 500) fail(`only ${tableRows} operation-twin table row(s) checked (floor 500) — a broken search`);
 if (parity.length) fail(`${parity.length} operation twin parity gap(s) against ${SPEC}:\n    ${parity.slice(0, 10).join('\n    ')}`);
 
 // ── llms.txt and the section indexes ─────────────────────────────────────────
@@ -183,7 +203,18 @@ const entries = (text) => [...text.matchAll(/^- \[[^\]]*\]\(([^)\s]+)\)/gm)].map
 const rootEntries = entries(llms.slice(llms.indexOf('\n## Table of Contents')));
 const notAbsolute = entries(llms).filter((u) => !u.startsWith(`${ORIGIN}/`));
 if (notAbsolute.length) fail(`${notAbsolute.length} llms.txt entr(ies) are not absolute: ${notAbsolute.slice(0, 5).join(', ')}`);
-const sectionIndexes = [...llms.matchAll(new RegExp(`\\]\\(${ORIGIN.replace(/\./g, '\\.')}/([^/)]+)/llms\\.txt\\)`, 'g'))].map((m) => m[1]);
+// By PARSED URL, not a regex built from ORIGIN: the host is compared exactly.
+const sectionIndexes = [...llms.matchAll(/\]\((https:[^)\s]+)\)/g)]
+  .map((m) => {
+    try {
+      return new URL(m[1]);
+    } catch {
+      return null;
+    }
+  })
+  .filter((u) => u && u.origin === ORIGIN)
+  .map((u) => u.pathname.match(/^\/([^/]+)\/llms\.txt$/)?.[1])
+  .filter(Boolean);
 if (sectionIndexes.length < 3) fail(`llms.txt names ${sectionIndexes.length} section index(es), expected at least 3 (apps, orchestration, site)`);
 const sectionReport = [];
 for (const seg of sectionIndexes) {
@@ -238,6 +269,6 @@ if (failures.length) {
 }
 console.log(
   `check-agent-surface: OK — ${twinFiles.length} twins (all with the index note), ${absLinks} absolute .md links, 0 root/HTML page links left; ` +
-    `operations: ${counts}; section indexes: ${sectionReport.join(', ')}; ${alternates} HTML pages advertise their twin; ` +
+    `operations: ${counts}, ${tableRows} table rows intact; section indexes: ${sectionReport.join(', ')}; ${alternates} HTML pages advertise their twin; ` +
     `sitemap ${locs.length} URLs; ${promptDocs.length} prompt .md URL(s) exist.`,
 );

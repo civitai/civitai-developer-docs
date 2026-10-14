@@ -157,10 +157,23 @@ export function renderIndex({ head, toc }) {
   return `${head}\n## Table of Contents\n${toc.map((g) => `\n${g.heading}\n\n${g.lines.join('\n')}\n`).join('')}`;
 }
 
-const entryPath = (line) => {
+/**
+ * The site path an index entry links to, or its URL unchanged when it is on
+ * another origin. Compared by PARSED origin, not by string prefix: a prefix test
+ * reads `https://developer.civitai.com.example.org/x.md` (or `…com@host/x.md`)
+ * as this site.
+ */
+export const entryPath = (line) => {
   const m = line.match(/^- \[[^\]]*\]\(([^)\s]+)\)/);
   if (!m) return null;
-  return m[1].startsWith(ORIGIN) ? m[1].slice(ORIGIN.length) : m[1];
+  if (m[1].startsWith('/')) return m[1];
+  let u;
+  try {
+    u = new URL(m[1]);
+  } catch {
+    return m[1];
+  }
+  return u.origin === ORIGIN ? u.pathname + u.search + u.hash : m[1];
 };
 const entryTitle = (line) => line.match(/^- \[([^\]]*)\]/)?.[1] ?? null;
 const entryDesc = (line) => line.match(/^- \[[^\]]*\]\([^)]*\):\s*(.+)$/)?.[1] ?? null;
