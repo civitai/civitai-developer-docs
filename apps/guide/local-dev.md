@@ -216,15 +216,17 @@ open. It mints an **ephemeral** SSH keypair in memory — never written to
 session server-side on Ctrl-C or an idle timeout. See the
 [CLI reference](../reference/cli) for its flags.
 
-⚠️ **On a pending app, the tunnel's token takes its scopes from the manifest you
-submitted, not from your local `block.manifest.json`.** The default
-`page-elements` template scaffolds `"scopes": []`, so a scope you add locally
-after submitting (generation needs `ai:write:budgeted`) is not on the token. A
-slug holds one pending submission at a time, so changing it means
-`civitai app withdraw` and submitting again, and withdrawing a first-version
-submission deletes its listing media (see the
-[CLI reference](../reference/cli)). Declare the scopes the app needs before the
-first `civitai app submit`.
+⚠️ **Once an app is submitted, the tunnel's token no longer takes its scopes
+from your local `block.manifest.json`.** On an app that has never been approved
+they come from the manifest you submitted. The default `page-elements` template
+scaffolds `"scopes": []`, so a scope you add locally after submitting
+(generation needs `ai:write:budgeted`) is not on the token. A slug holds one
+pending submission at a time, so changing it means `civitai app withdraw` and
+submitting again, and withdrawing a first-version submission deletes its listing
+media (see the [CLI reference](../reference/cli)). Declare the scopes the app
+needs before the first `civitai app submit`. On an app that has been approved,
+the tunnel uses the last approved version's scopes, so a scope added in a later
+version reaches the token only once that version is approved.
 
 ⚠️ **The tunnel is narrower than `dev:live` for real generation on an app you
 have never submitted.** That path carries a third, spend-specific gate on top of
