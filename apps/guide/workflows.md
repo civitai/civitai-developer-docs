@@ -134,6 +134,11 @@ async function run(body: WorkflowBody, idempotencyKey: string) {
 
   // 3. Follow it to a final status, whichever it is.
   const done = await app.workflows.wait(submitted.workflowId);
+  if (done.status !== 'succeeded') {
+    // 'failed', 'canceled' or 'expired'. A failed run can still carry the
+    // results, and the cost, of the steps that finished (see Partial failure).
+    showMessage(`This run ended ${done.status}.`);
+  }
   render(done.steps ?? [], done.imageUrls ?? [], done.textOutputs ?? []);
 }
 ```
