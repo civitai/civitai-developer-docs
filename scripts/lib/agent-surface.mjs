@@ -235,7 +235,58 @@ export function insertIndexGroup(text, heading, lines, afterUrl) {
   return renderIndex(index);
 }
 
+/**
+ * The HOMEPAGE twin, `/index.md`. The llms plugin emits none for the root page
+ * (a `layout: home` page), which made the published rule — "every page has a
+ * markdown version at its URL + `.md`" — false for `/`, the first URL an agent
+ * is likely to fetch. Built from llms.txt itself: the site title, description
+ * and details, the top-level section pages (`/<section>.md` entries), and the
+ * indexes. Page links are written root-relative and made absolute `.md` URLs
+ * by the twin pass below (which also adds the index note); the index links,
+ * which are not pages, are written absolute here.
+ * Returns true when written; never overwrites an existing `/index.md`.
+ */
+export function writeHomeTwin(outDir) {
+  const file = join(outDir, 'index.md');
+  if (existsSync(file) || !existsSync(join(outDir, 'index.html'))) return false;
+  const text = readFileSync(join(outDir, 'llms.txt'), 'utf8');
+  const { head, toc } = parseIndex(text);
+  const title = head.match(/^# (.+)$/m)?.[1] ?? 'Documentation';
+  const desc = head.match(/^> (.+)$/m)?.[1] ?? '';
+  const details = head
+    .split('\n\n')
+    .map((b) => b.trim())
+    .filter((b) => b && !b.startsWith('#') && !b.startsWith('>'));
+  const top = toc.flatMap((g) => g.lines).filter((l) => /^\/[^/]+\.md$/.test(entryPath(l) ?? ''));
+  if (top.length === 0) throw new Error('agent-surface: llms.txt lists no top-level section page for the homepage twin');
+  const sections = sectionsOf(toc, outDir);
+  const body = [
+    '---',
+    'url: /index.md',
+    `description: '${desc.replace(/'/g, "''")}'`,
+    '---',
+    '',
+    `# ${title}`,
+    '',
+    ...(desc ? [`> ${desc}`, ''] : []),
+    ...details.flatMap((d) => [d, '']),
+    '## Sections',
+    '',
+    ...top,
+    '',
+    '## Indexes',
+    '',
+    `- [llms.txt](${ORIGIN}/llms.txt): every page, one line each`,
+    `- [llms-full.txt](${ORIGIN}/llms-full.txt): the full text of every page in one file`,
+    ...sections.map((seg) => `- [/${seg}/llms.txt](${ORIGIN}/${seg}/llms.txt): the /${seg}/ pages only`),
+    '',
+  ].join('\n');
+  writeFileSync(file, body);
+  return true;
+}
+
 export function applyAgentSurface(outDir) {
+  const homeTwin = writeHomeTwin(outDir);
   const twinList = collectTwins(outDir);
   if (twinList.length === 0) throw new Error(`agent-surface: no .md twins found under ${outDir}`);
   const twins = new Set(twinList.map((t) => t.url));
@@ -293,5 +344,5 @@ export function applyAgentSurface(outDir) {
     '\n';
   writeFileSync(indexPath, renderIndex({ head: index.head.replace(/\n*$/, '\n') + preamble, toc: index.toc }));
 
-  return { twins: twinList.length, twinsChanged, bundleSections: bundle.length, sections: perSection };
+  return { twins: twinList.length, twinsChanged, homeTwin, bundleSections: bundle.length, sections: perSection };
 }

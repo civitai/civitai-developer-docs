@@ -20,7 +20,7 @@
 // Requires docker. No docker -> exit 2 (an unrun contract is not a pass).
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { request } from 'node:http';
 import { join, resolve } from 'node:path';
 
@@ -299,6 +299,41 @@ for (const [path, type] of texts) {
   }
 }
 
+// THE PUBLISHED RULE, APPLIED LITERALLY: "every page has a markdown version at
+// its URL + `.md`" (llms.txt, every twin's index note, robots.txt, the
+// agent-setup prompt). Every sitemap <loc> — trailing-slash section pages and
+// `/` included — with `.md` appended as a string, no normalising: 200,
+// text/markdown, and a body that is not HTML. A trailing-slash URL makes that
+// `/apps/guide/.md`, which is exactly the case that used to 404.
+const locs = [...readFileSync(join(DIST, 'sitemap.xml'), 'utf8').matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]).pathname);
+let ruleFailures = 0;
+for (const loc of locs) {
+  for (const accept of [ACCEPT.browser, ACCEPT.none]) {
+    const r = await get(`${loc}.md`, accept);
+    const ok =
+      r.status === 200 && r.all('content-type').join() === 'text/markdown; charset=utf-8' && !/^\s*</.test(r.body) && r.body.length > 0;
+    if (!ok) ruleFailures++;
+    expect(ok, `RULE ${loc} + ".md" [Accept: ${accept ?? '<none>'}]: ${r.status} ${r.all('content-type')} ${JSON.stringify(r.body.slice(0, 30))}`);
+  }
+}
+expect(locs.length >= 100, `sitemap.xml yielded only ${locs.length} <loc> (floor 100) — the rule check would be vacuous`);
+expect(locs.includes('/') && locs.some((l) => l.length > 1 && l.endsWith('/')), 'sitemap has no `/` or no trailing-slash <loc> — the cases this guards are missing');
+
+// `/agent-setup/prompt.md` is a verbatim public/ file, not a twin: its
+// extensionless path must NOT negotiate into an alias of it, and the 404 must
+// not claim to vary or name an alternate. `/agent-setup/` itself still negotiates.
+for (const accept of [ACCEPT.webfetch, ACCEPT.browser]) {
+  const r = await get('/agent-setup/prompt', accept);
+  rows.push(['/agent-setup/prompt', accept === ACCEPT.webfetch ? 'webfetch' : 'browser', r]);
+  expect(r.status === 404, `/agent-setup/prompt [${accept}]: ${r.status} ${r.all('content-type')} — must not alias prompt.md`);
+  expect(!varyTokens(r).includes('accept'), `/agent-setup/prompt [${accept}]: sends Vary: Accept`);
+  expect(!linkMembers(r).includes('rel="alternate"'), `/agent-setup/prompt [${accept}]: advertises an alternate`);
+}
+if (isFile(join(DIST, 'agent-setup.md'))) {
+  await record('/agent-setup/', ACCEPT.webfetch, { twin: '/agent-setup.md', wantMd: true });
+  await record('/agent-setup/', ACCEPT.browser, { twin: '/agent-setup.md', wantMd: false });
+}
+
 // A renamed page still redirects, whatever the Accept.
 {
   const r = await get('/apps/elements', ACCEPT.webfetch);
@@ -320,6 +355,7 @@ if (process.argv.includes('--matrix')) {
 }
 
 if (failures.length) {
+  console.error(`test-nginx-negotiation: published rule "URL + .md" failed for ${ruleFailures} of ${locs.length * 2} sitemap requests (${locs.length} URLs x 2 Accepts).`);
   console.error(`test-nginx-negotiation: ${failures.length} of ${checks} assertion(s) FAILED:`);
   for (const f of failures) console.error(`  - ${f}`);
   process.exit(1);
@@ -327,5 +363,6 @@ if (failures.length) {
 console.log(
   `test-nginx-negotiation: OK — ${checks} assertions over ${rows.length} recorded responses + ${Q_CASES.length} q-value cases ` +
     `(section=/${sectionIndex}/, leaf=/${leaf}, op=/${opRoute}, home twin=${homeHasTwin}, ` +
-    `hubs=${hubs.map((h) => `/${h.hub}`).join(' ') || 'none in this build'}).`,
+    `hubs=${hubs.map((h) => `/${h.hub}`).join(' ') || 'none in this build'}); ` +
+    `published rule "URL + .md" held for all ${locs.length} sitemap URLs.`,
 );

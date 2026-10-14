@@ -111,7 +111,8 @@ function twinOf(path) {
   else if (path.endsWith('/')) base = path.slice(0, -1);
   else if (/\.[^/]*$/.test(path)) return null;
   else base = path;
-  return twinSet.has(`${base}.md`) ? `${base}.md` : null;
+  const twin = `${base || '/index'}.md`; // `/index.html` -> base '' -> the homepage twin
+  return twinSet.has(twin) ? twin : null;
 }
 
 let absLinks = 0;
@@ -269,6 +270,11 @@ if (!/^Content-Signal: .*ai-input=yes/m.test(robots)) fail('robots.txt carries n
 const locs = exists('sitemap.xml') ? [...read('sitemap.xml').matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]) : [];
 if (locs.length < MIN_SITEMAP) fail(`sitemap.xml lists ${locs.length} URL(s) (floor ${MIN_SITEMAP})`);
 const opLocs = locs.filter((u) => u.includes(`/${OPS}/`)).length;
+// The published rule, offline half: every sitemap URL has a twin under the
+// naming nginx serves `<url>.md` from (`/x/` + `.md` -> `/x.md`, `/` -> `/index.md`).
+// The served half, over real HTTP, is in scripts/test-nginx-negotiation.mjs.
+const noTwin = locs.map((u) => new URL(u).pathname).filter((p) => !twinOf(p));
+if (noTwin.length) fail(`${noTwin.length} sitemap URL(s) have no .md twin, so "URL + .md" is false for them: ${noTwin.slice(0, 8).join(', ')}`);
 if (opLocs !== specOps.length) fail(`sitemap.xml lists ${opLocs} operation page(s), the spec has ${specOps.length}`);
 const promptDocs = [...read('agent-setup/prompt.md').matchAll(/https:\/\/developer\.civitai\.com(\/[^\s)`]+\.md)\b/g)].map((m) => m[1]);
 for (const p of promptDocs) if (p !== '/agent-setup/prompt.md' && !exists(p.slice(1))) fail(`agent-setup/prompt.md sends agents to ${ORIGIN}${p}, which is not in the build`);

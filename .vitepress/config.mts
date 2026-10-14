@@ -514,8 +514,10 @@ export default withMermaid({
     const rel = pageData.relativePath;
     if (!rel || pageData.isNotFound || rel === '404.md') return;
     const twin = '/' + rel.replace(/(^|\/)index\.md$/, (_m, slash) => (slash ? '.md' : 'index.md'));
-    const isOperation = twin.startsWith(OPERATIONS_ROUTE);
-    if (!isOperation && !existsSync(join(siteConfig.outDir, twin))) return;
+    // Operation twins and the homepage twin (`/index.md`) are written in
+    // buildEnd, after rendering; check:agent-surface asserts they exist.
+    const writtenLater = twin.startsWith(OPERATIONS_ROUTE) || twin === '/index.md';
+    if (!writtenLater && !existsSync(join(siteConfig.outDir, twin))) return;
     return [['link', { rel: 'alternate', type: 'text/markdown', href: twin }]];
   },
 
