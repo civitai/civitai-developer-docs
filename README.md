@@ -67,6 +67,28 @@ bypass lossy summarisation only for `text/markdown` responses under ~100k
 characters, so every per-page `.md` this site publishes *for machines* was being
 summarised away by exactly the consumers `vitepress-plugin-llms` exists to serve.
 
+**Every page URL negotiates.** A request whose `Accept` lists `text/markdown`
+at a q-value at least that of `text/html` gets the page's `.md` twin from the
+page URL itself (`/apps/guide/`, `/apps/guide`, `/apps/guide.html` all ->
+`/apps/guide.md`); browsers, `*/*` and no `Accept` get the HTML; a page with no
+twin always gets the HTML. Both sides send `Vary: Accept`, and the HTML side
+adds `Link: <…​.md>; rel="alternate"; type="text/markdown", </llms.txt>;
+rel="describedby"` (plus a matching `<link rel="alternate">` in the page head).
+Claude Code's WebFetch sends `Accept: text/markdown, text/html, */*`, so it gets
+markdown. The q-value comparison is done in nginx `map`s with no arithmetic —
+`npm run test:nginx-negotiation` runs the built site under a real `nginx:alpine`
+with this `nginx.conf` and asserts the whole contract (CI: `nginx-negotiation.yml`).
+
+**The machine surface is self-contained.** In every twin, every internal page
+link is an absolute `https://developer.civitai.com/<page>.md` URL and a one-line
+index note sits under the frontmatter; `llms.txt` entries are absolute; the
+generated API operation pages get twins rendered from the OpenAPI spec (the
+plugin cannot emit them — their body is one component tag); and
+`/apps/llms.txt`, `/orchestration/llms.txt`, `/site/llms.txt` (+ `llms-full.txt`
+each) index one section. All of it is `buildEnd` post-processing
+(`scripts/lib/agent-surface.mjs`, `scripts/lib/operation-twins.mjs`), asserted
+on the build by `npm run check:agent-surface`.
+
 **`/agent-setup/prompt.md` is a verbatim static route.** It is
 `public/agent-setup/prompt.md`; VitePress copies `public/` into the output with no
 markdown pipeline, so the served bytes equal the source bytes. It gets an exact

@@ -3,6 +3,11 @@ import { useSidebar } from 'vitepress-openapi';
 import llmstxt from 'vitepress-plugin-llms';
 import { withMermaid } from 'vitepress-plugin-mermaid';
 import spec from '../public/openapi/v2-consumers.json' with { type: 'json' };
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { applyAgentSurface, insertIndexGroup } from '../scripts/lib/agent-surface.mjs';
+import { buildOperationTwins, OPERATIONS_ROUTE } from '../scripts/lib/operation-twins.mjs';
 import { rewriteLlmsFull, rewriteTwinLinks } from '../scripts/lib/twin-links.mjs';
 
 const base = '/';
@@ -408,6 +413,11 @@ export default withMermaid({
   ],
   cleanUrls: true,
   lastUpdated: true,
+  // /sitemap.xml, referenced from public/robots.txt. Generated from the routed
+  // page set, so the operation pages are in it too.
+  sitemap: {
+    hostname: 'https://developer.civitai.com',
+  },
   // 🔴 `public/**` is NOT excluded by default. VitePress globs `**/*.md` from
   // srcDir and `public/` is inside it, so `public/agent-setup/prompt.md` — the
   // raw file we ship verbatim — was ALSO being compiled into a page at
@@ -439,14 +449,74 @@ export default withMermaid({
   // The same pass covers `llms-full.txt`, where the plugin concatenates every
   // page — served at `/llms-full.txt`, so EVERY relative link in it resolved
   // against `/`. Each section is resolved against its SOURCE page's directory.
-  buildEnd(siteConfig) {
-    const { twins, changed } = rewriteTwinLinks(siteConfig.outDir, siteConfig.srcDir);
+  //
+  // Then the AGENT SURFACE (scripts/lib/operation-twins.mjs, scripts/lib/agent-surface.mjs):
+  // markdown twins for the generated API operation pages (which the plugin cannot
+  // emit — their body is one component tag), added to llms.txt and llms-full.txt;
+  // every internal page link in every twin made an absolute `.md` URL; an index
+  // note at the top of each twin; and per-section `/<section>/llms.txt` +
+  // `llms-full.txt`. `check:agent-surface` asserts the result on the built site.
+  async buildEnd(siteConfig) {
+    const { outDir, srcDir } = siteConfig;
+    const { twins, changed } = rewriteTwinLinks(outDir, srcDir);
     console.log(`twin-links: absolutized relative links in ${changed} of ${twins} .md twin(s)`);
-    const full = rewriteLlmsFull(siteConfig.outDir, siteConfig.srcDir);
+    const full = rewriteLlmsFull(outDir, srcDir);
     console.log(
       `twin-links: absolutized relative links in ${full.changed} of ${full.bundles} llms-full.txt bundle(s) ` +
         `(${full.sections} section(s))`,
     );
+
+    // 🔴 FAIL-LOUD: the expected set is what the paths loader generated HTML pages
+    // for, cross-checked against the pages VitePress actually resolved. Zero, or
+    // any disagreement with the spec, throws and fails the build.
+    const loaderPath = join(srcDir, 'orchestration/reference/operations/[operationId].paths.js');
+    const loader = (await import(pathToFileURL(loaderPath).href)).default;
+    const expected = (await loader.paths()).map((p: { params: { operationId: string } }) => p.params.operationId);
+    const routed = siteConfig.pages.filter((p) => p.startsWith(OPERATIONS_ROUTE.slice(1))).length;
+    if (routed !== expected.length) {
+      throw new Error(`operation-twins: the paths loader yields ${expected.length} operation(s) but VitePress routed ${routed} page(s)`);
+    }
+    const ops = buildOperationTwins(spec, expected);
+    for (const op of ops) {
+      const file = join(outDir, op.url);
+      mkdirSync(dirname(file), { recursive: true });
+      writeFileSync(file, op.text);
+    }
+    appendFileSync(join(outDir, 'llms-full.txt'), ops.map((op) => `\n---\n\n${op.text}`).join(''));
+    const llmsPath = join(outDir, 'llms.txt');
+    writeFileSync(
+      llmsPath,
+      insertIndexGroup(
+        readFileSync(llmsPath, 'utf8'),
+        'API operations',
+        ops.map((op) => `- [${op.title}](${op.url}): ${op.method} ${op.path}`),
+        '/orchestration/reference.md',
+      ),
+    );
+    console.log(`operation-twins: wrote ${ops.length} operation .md twin(s) (paths loader: ${expected.length})`);
+
+    const surface = applyAgentSurface(outDir);
+    console.log(
+      `agent-surface: ${surface.twinsChanged} of ${surface.twins} twin(s) rewritten (absolute .md links + index note); ` +
+        `${surface.bundleSections} llms-full section(s); section indexes: ` +
+        surface.sections.map((s) => `/${s.seg}/ (${s.entries} entries, ${s.bundleSections} full)`).join(', '),
+    );
+  },
+
+  // Per-page discovery in the HTML itself, alongside the `Link` header nginx
+  // sends: `<link rel="alternate" type="text/markdown">` to the page's twin. The
+  // plugin's twins are already on disk when pages render (it writes them in the
+  // client bundle, before rendering), so a page is advertised only if its twin
+  // exists; operation twins are written in `buildEnd`, after rendering, and are
+  // guaranteed by its fail-loud count. `check:agent-surface` asserts every
+  // advertised href exists in the built site.
+  transformHead({ pageData, siteConfig }) {
+    const rel = pageData.relativePath;
+    if (!rel || pageData.isNotFound || rel === '404.md') return;
+    const twin = '/' + rel.replace(/(^|\/)index\.md$/, (_m, slash) => (slash ? '.md' : 'index.md'));
+    const isOperation = twin.startsWith(OPERATIONS_ROUTE);
+    if (!isOperation && !existsSync(join(siteConfig.outDir, twin))) return;
+    return [['link', { rel: 'alternate', type: 'text/markdown', href: twin }]];
   },
 
   transformPageData(pageData) {

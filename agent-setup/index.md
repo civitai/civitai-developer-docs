@@ -64,8 +64,10 @@ Check the project for these signals:
 The one case this setup does not cover: the user has already told you they are
 calling the Civitai API from their own service, rather than building something
 that runs inside civitai.com. Then stop here and send them to
-https://developer.civitai.com/site/ and
-https://developer.civitai.com/orchestration/ instead.
+https://developer.civitai.com/site.md and
+https://developer.civitai.com/orchestration.md instead. Every page there has a
+markdown version at its URL + `.md`, indexed at
+https://developer.civitai.com/llms.txt.
 
 ## 2. Install the CLI
 
@@ -207,8 +209,8 @@ command it tells you to scaffold with — do not pick one yourself.
 
 ## Resources
 
-- Apps guide — https://developer.civitai.com/apps/guide/
-- Apps reference — https://developer.civitai.com/apps/reference/
+- Apps guide — https://developer.civitai.com/apps/guide.md
+- Apps reference — https://developer.civitai.com/apps/reference.md
 - Doc index for agents — https://developer.civitai.com/llms.txt
 - CLI source — https://github.com/civitai/cli
 ````
