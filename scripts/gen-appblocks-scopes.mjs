@@ -35,6 +35,10 @@ const BINDING_NOTES = {
     "Scoped to this app's shared (cross-user) store; min-trust gate + fail-closed flag. Never minted for dev-tunnel / dev-token sessions.",
   'apps:storage:shared:write':
     "Scoped to this app's shared (cross-user) store; min-trust gate + fail-closed flag. Never minted for dev-tunnel / dev-token sessions.",
+  'apps:storage':
+    "Scoped to this app's own document store (reads, the viewer's private collections, marks and counters). Consent-exempt. Required by any manifest that declares a `storage` collection.",
+  'apps:storage:publish':
+    "Create or edit documents in this app's SHARED collections as the viewer. Sensitive (needs a justification) and consent-gated: granted only after the viewer approves it for this app. Required by a shared collection whose `write` is not `owner`.",
   'collections:read:self':
     "Self-bound; public collections + the viewer's own public collections. Consent-exempt (server visibility/ownership is the gate).",
   'collections:write:self':
@@ -70,7 +74,10 @@ function parseDescriptions(ts) {
   const end = slice.indexOf('export const SLOT_DESCRIPTIONS');
   const region = end >= 0 ? slice.slice(0, end) : slice;
   const out = {};
-  const re = /'([a-z0-9_:]+)'\s*:\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)')/g;
+  // Line and block comments may sit between the key and its string (upstream annotates
+  // some descriptions that way), so skip any run of them after the colon.
+  const re =
+    /'([a-z0-9_:]+)'\s*:\s*(?:(?:\/\/[^\n]*\n|\/\*[\s\S]*?\*\/)\s*)*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)')/g;
   let m;
   while ((m = re.exec(region)) !== null) {
     const raw = m[2] ?? m[3] ?? '';
@@ -109,13 +116,19 @@ if (scopes.length === 0) {
   throw new Error('gen-appblocks-scopes: parsed 0 scopes — refusing to write an empty artifact');
 }
 
+// Both columns are fail-loud: a blank cell ships a scope row that reads as documented
+// and says nothing (apps:storage:publish once rendered with an empty description).
 const missingDesc = scopes.filter((s) => !s.description).map((s) => s.scope);
 if (missingDesc.length) {
-  log(`WARNING: no description for: ${missingDesc.join(', ')}`);
+  throw new Error(
+    `gen-appblocks-scopes: no description parsed for: ${missingDesc.join(', ')} — check parseDescriptions against scope-descriptions.constants.ts`
+  );
 }
 const missingBinding = scopes.filter((s) => !s.binding).map((s) => s.scope);
 if (missingBinding.length) {
-  log(`WARNING: no BINDING_NOTES entry for: ${missingBinding.join(', ')} (add one to gen-appblocks-scopes.mjs)`);
+  throw new Error(
+    `gen-appblocks-scopes: no BINDING_NOTES entry for: ${missingBinding.join(', ')} — add one to gen-appblocks-scopes.mjs`
+  );
 }
 
 const artifact = {
