@@ -989,6 +989,113 @@
         }
       }
     },
+    "/v2/consumer/recipes/audioClassification": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "operationId": "InvokeAudioClassificationStepTemplate",
+        "parameters": [
+          {
+            "name": "experimental",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "allowMatureContent",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "whatif",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ephemeral",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "tier",
+            "in": "query",
+            "description": "How a workflow is paid for.",
+            "schema": {
+              "$ref": "#/components/schemas/WorkflowTier"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioClassificationInput"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioClassificationInput"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioClassificationInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioClassificationOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/consumer/recipes/audioModeration": {
       "post": {
         "tags": [
@@ -11021,6 +11128,7 @@
           "includeCaption",
           "maxNewTokens",
           "mediaUrl",
+          "prepareForModeration",
           "temperature"
         ],
         "type": "object",
@@ -11042,6 +11150,9 @@
           },
           "includeCaption": {
             "type": "boolean"
+          },
+          "prepareForModeration": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -11057,6 +11168,12 @@
             "additionalProperties": {
               "$ref": "#/components/schemas/AudioCaptioningOutputItem"
             }
+          },
+          "hasAudio": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         },
         "additionalProperties": false
@@ -11178,6 +11295,147 @@
         ],
         "description": "Audio Captioning"
       },
+      "AudioClassificationInput": {
+        "required": [
+          "mediaUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "mediaUrl": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioClassificationOutput": {
+        "required": [
+          "classificationMilliseconds",
+          "hasAudio",
+          "model",
+          "segments"
+        ],
+        "type": "object",
+        "properties": {
+          "hasAudio": {
+            "type": "boolean"
+          },
+          "model": {
+            "type": "string"
+          },
+          "segments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AudioClassificationSegment"
+            }
+          },
+          "classificationMilliseconds": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioClassificationSegment": {
+        "required": [
+          "blobKey",
+          "durationSeconds",
+          "kind",
+          "musicScore",
+          "name",
+          "singingScore",
+          "speechFraction",
+          "speechScore"
+        ],
+        "type": "object",
+        "properties": {
+          "blobKey": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "durationSeconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "speechScore": {
+            "type": "number",
+            "format": "double"
+          },
+          "musicScore": {
+            "type": "number",
+            "format": "double"
+          },
+          "singingScore": {
+            "type": "number",
+            "format": "double"
+          },
+          "speechFraction": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioClassificationStep": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStep"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/AudioClassificationInput"
+              },
+              "output": {
+                "$ref": "#/components/schemas/AudioClassificationOutput"
+              },
+              "$type": {
+                "enum": [
+                  "audioClassification"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "AudioClassificationStepTemplate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStepTemplate"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/AudioClassificationInput"
+              },
+              "$type": {
+                "enum": [
+                  "audioClassification"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
       "AudioComposeMediaOutput": {
         "allOf": [
           {
@@ -11218,6 +11476,7 @@
           },
           "transcriber": {
             "enum": [
+              "auto",
               "aceStep",
               "asr"
             ],
@@ -11250,14 +11509,35 @@
             "type": "boolean"
           },
           "score": {
-            "type": "number",
+            "type": [
+              "null",
+              "number"
+            ],
             "format": "double"
           },
           "model": {
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "policyHash": {
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasAudio": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "skippedReason": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "blocked": {
             "type": "boolean",
@@ -11323,6 +11603,18 @@
         ],
         "description": "Transcribe audio and classify its lyrics using the music moderation policy."
       },
+      "AudioModerationTranscript": {
+        "type": "object",
+        "properties": {
+          "audioCaptioning": {
+            "$ref": "#/components/schemas/AudioCaptioningOutput"
+          },
+          "transcription": {
+            "$ref": "#/components/schemas/TranscriptionOutput"
+          }
+        },
+        "additionalProperties": false
+      },
       "AudioTextModerationInput": {
         "type": "object",
         "properties": {
@@ -11337,6 +11629,21 @@
           },
           "transcription": {
             "$ref": "#/components/schemas/TranscriptionOutput"
+          },
+          "segments": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AudioModerationTranscript"
+            }
+          },
+          "hasAudio": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         },
         "additionalProperties": false
@@ -11359,14 +11666,35 @@
             "type": "boolean"
           },
           "score": {
-            "type": "number",
+            "type": [
+              "null",
+              "number"
+            ],
             "format": "double"
           },
           "model": {
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "policyHash": {
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasAudio": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "skippedReason": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "blocked": {
             "type": "boolean",
@@ -49008,6 +49336,7 @@
             "aceStepAudio": "#/components/schemas/AceStepAudioStep",
             "ageClassification": "#/components/schemas/AgeClassificationStep",
             "audioCaptioning": "#/components/schemas/AudioCaptioningStep",
+            "audioClassification": "#/components/schemas/AudioClassificationStep",
             "audioModeration": "#/components/schemas/AudioModerationStep",
             "audioTextModeration": "#/components/schemas/AudioTextModerationStep",
             "blobArchive": "#/components/schemas/BlobArchiveStep",
@@ -49366,6 +49695,7 @@
             "aceStepAudio": "#/components/schemas/AceStepAudioStepTemplate",
             "ageClassification": "#/components/schemas/AgeClassificationStepTemplate",
             "audioCaptioning": "#/components/schemas/AudioCaptioningStepTemplate",
+            "audioClassification": "#/components/schemas/AudioClassificationStepTemplate",
             "audioModeration": "#/components/schemas/AudioModerationStepTemplate",
             "audioTextModeration": "#/components/schemas/AudioTextModerationStepTemplate",
             "blobArchive": "#/components/schemas/BlobArchiveStepTemplate",
