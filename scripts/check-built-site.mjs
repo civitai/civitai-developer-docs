@@ -54,10 +54,18 @@
 // that rendered an empty component, an artifact with no commands, or a selector
 // that stopped matching fails loudly instead of reporting a serene pass over
 // nothing.
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, posix, relative } from 'node:path';
 import { repoRoot } from './appblocks-util.mjs';
 import { cliLongBody } from '../.vitepress/theme/components/cliReference.shared.mjs';
+import {
+  REFERENCE_SPLITS,
+  bridgeItems,
+  movedAnchors,
+  referenceSplit,
+  splitByGroup,
+  subPageFile,
+} from '../.vitepress/theme/components/referenceSplit.shared.mjs';
 import { LANDING_PAGE, PROMPT_PATH, PROMPT_SOURCE, PROMPT_URL } from '../.vitepress/agent-setup.mjs';
 import { renderPromptRegion } from './agent-setup-page.mjs';
 
@@ -71,7 +79,15 @@ const LONG_BLOCK_FLOOR = 40;
 const EXAMPLE_BLOCK_FLOOR = 40;
 
 const distDir = argValue('--dist') ?? join(repoRoot, '.vitepress', 'dist');
-const cliPage = join(distDir, 'apps', 'reference', 'cli.html');
+// The CLI and hooks references are SPLIT across generated sub-pages
+// (`/apps/reference/<hub>/<group>` — referenceSplit.shared.mjs) so each `.md`
+// twin stays readable by agent fetch tools. The families below read every
+// sub-page, concatenated in catalog order, and grade them as the one page they
+// used to be.
+const builtSubPages = (kind) =>
+  referenceSplit(kind).groups.map((g) => join(distDir, ...subPageFile(kind, g.slug).replace(/\.md$/, '.html').split('/')));
+const cliPages = builtSubPages('cli');
+const cliPage = 'the built CLI sub-pages (apps/reference/cli/*.html)';
 
 function argValue(flag) {
   const i = process.argv.indexOf(flag);
@@ -187,17 +203,17 @@ function unescapeHTML(s) {
     .replace(/&amp;/g, '&');
 }
 
-if (!existsSync(cliPage)) {
+const missingCli = cliPages.filter((p) => !existsSync(p));
+if (missingCli.length) {
   console.error(
-    `check-built-site: ${cliPage} does not exist.\n` +
+    `check-built-site: ${missingCli.length} CLI sub-page(s) do not exist: ${missingCli.join(', ')}\n` +
       `  The site has not been built. Run \`npm run build\` first (its \`prebuild\` hook runs\n` +
       `  copy:spec + gen:appblocks, which produce the gitignored public/appblocks/*.json the\n` +
       `  theme imports), then re-run this check.`,
   );
   process.exit(1);
 }
-
-const html = readFileSync(cliPage, 'utf8');
+const html = cliPages.map((p) => readFileSync(p, 'utf8')).join('\n');
 const artifactPath = join(repoRoot, 'public', 'appblocks', 'cli.json');
 if (!existsSync(artifactPath)) {
   console.error(
@@ -208,7 +224,9 @@ if (!existsSync(artifactPath)) {
   process.exit(1);
 }
 const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
-const commands = artifact.commands ?? [];
+// In the order the sub-pages carry them (catalog group order), which is the
+// order the concatenated HTML above holds them in.
+const commands = splitByGroup('cli', artifact.commands ?? []).groups.flatMap((g) => g.items);
 
 console.log(`BUILT SITE — ${cliPage}`);
 
@@ -223,8 +241,8 @@ check('POSITIVE CONTROL — the page was built from a non-empty artifact', () =>
   );
   assert(
     html.includes('class="ab-cli"'),
-    'the built apps/reference/cli.html contains no `.ab-cli` root — <CliReference> did not render at all. ' +
-      'Check that apps/reference/cli.md still uses the component and that it is registered in ' +
+    'the built CLI sub-pages contain no `.ab-cli` root — <CliReference> did not render at all. ' +
+      'Check that the generated apps/reference/cli/*.md pages still use the component and that it is registered in ' +
       '.vitepress/theme/index.ts.',
   );
   assert(
@@ -266,7 +284,7 @@ function checkFamily({ cls, floor, want, owners, source }) {
     );
     assert(
       got.length >= floor,
-      `the built apps/reference/cli.html carries only ${got.length} \`.${cls}\` blocks (floor ${floor}) — ` +
+      `the built CLI sub-pages carry only ${got.length} \`.${cls}\` blocks (floor ${floor}) — ` +
         `the published HTML has LOST this content. Check ${source} in ` +
         `.vitepress/theme/components/CliReference.vue.`,
     );
@@ -604,8 +622,8 @@ console.log(`\nBUILT SITE — ${llmsTxt}`);
 // version used floors (`>= 10` lines, `>= 1` <pre>), which red-lighted a
 // CORRECTLY rendered small table: a minimal 2x2 GFM table is 5 lines, and the
 // failure message asserted it "is being collapsed" when it was not.
-const HOOKS_PAGE = 'apps/reference/hooks.html';
-const hooksBuilt = join(distDir, 'apps', 'reference', 'hooks.html');
+const HOOKS_PAGE = 'apps/reference/hooks/*.html';
+const hooksBuilt = builtSubPages('hooks');
 const hooksArtifact = join(repoRoot, 'public', 'appblocks', 'hooks.json');
 
 // Read once per check, like the other families here, and refuse a MISSING page
@@ -613,8 +631,9 @@ const hooksArtifact = join(repoRoot, 'public', 'appblocks', 'hooks.json');
 // looks exactly like a pass. Same for the artifact: without it every loop below
 // iterates zero times and reports success.
 function readHooksHtml() {
-  assert(existsSync(hooksBuilt), `${hooksBuilt} was not built, so nothing below measured the page a human reads.`);
-  return readFileSync(hooksBuilt, 'utf8');
+  const missing = hooksBuilt.filter((p) => !existsSync(p));
+  assert(missing.length === 0, `${missing.join(', ')} was not built, so nothing below measured the pages a human reads.`);
+  return hooksBuilt.map((p) => readFileSync(p, 'utf8')).join('\n');
 }
 function readHooksJson() {
   assert(existsSync(hooksArtifact), `${hooksArtifact} is missing — run \`npm run gen:appblocks\`. Without it the checks below iterate over nothing and pass vacuously.`);
@@ -771,6 +790,93 @@ check(`every ${HOOKS_PAGE} README note renders on the page under its own element
       `${wantText.length} and ${wantCode.length}. The sets have diverged.`,
   );
   console.log(`       ${wantText.length} text + ${wantCode.length} code note(s) across ${all.filter((h) => h.notes.length).length} hook(s)`);
+});
+
+// --- split references: every fragment link into them still lands -------------
+//
+// 🔴 THE SPLIT MOVED ~130 ANCHORS. hooks, CLI and the generation bridge were
+// each one page; their entries now live on generated sub-pages
+// (referenceSplit.shared.mjs), and hand-written prose all over the site links
+// into them by `#hook-…` / `#cli-…` / `#bridge-…` fragment. VitePress's
+// dead-link check resolves PAGES, not fragments, so a link left pointing at a
+// hub — or at the wrong sub-page after an entry changes group — builds green
+// and lands at the top of a page that does not mention the entry. Two checks:
+//   1. every fragment link in the built site whose target is a hub or one of
+//      its sub-pages names an id that exists on that built page;
+//   2. every entry's OLD hub anchor still exists on the hub (the index entry
+//      carrying it), so a deep link from outside this repo still lands.
+const SPLIT_ROUTE = new RegExp(
+  `^(${Object.values(REFERENCE_SPLITS).map((x) => x.hub.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})(/[^/]+)?$`,
+);
+const builtRoute = (file) => '/' + relative(distDir, file).split('\\').join('/').replace(/(index)?\.html$/, '');
+const builtIds = new Map();
+function idsOnRoute(route) {
+  if (builtIds.has(route)) return builtIds.get(route);
+  const file = join(distDir, ...`${route.endsWith('/') ? `${route}index` : route}.html`.split('/').filter(Boolean));
+  const ids = existsSync(file) ? new Set([...readFileSync(file, 'utf8').matchAll(/\sid="([^"]+)"/g)].map((m) => m[1])) : null;
+  builtIds.set(route, ids);
+  return ids;
+}
+function walkHtml(dir) {
+  return readdirSync(dir).flatMap((f) => {
+    const p = join(dir, f);
+    if (statSync(p).isDirectory()) return f === 'assets' ? [] : walkHtml(p);
+    return p.endsWith('.html') ? [p] : [];
+  });
+}
+
+check('every fragment link into a split reference (hooks / CLI / generation) names an id on its target page', () => {
+  let checked = 0;
+  const dead = [];
+  for (const file of walkHtml(distDir)) {
+    const self = builtRoute(file);
+    for (const m of readFileSync(file, 'utf8').matchAll(/href="([^"]*#[^"]*)"/g)) {
+      const href = m[1].replace(/&amp;/g, '&');
+      if (/^[a-z][a-z0-9+.-]*:/i.test(href)) continue;
+      const [path, frag] = href.split('#');
+      if (!frag) continue;
+      const target = (
+        path === '' ? self : path.startsWith('/') ? path : posix.normalize(posix.join(posix.dirname(`${self}x`), path))
+      ).replace(/\.(html|md)$/, '');
+      if (!SPLIT_ROUTE.test(target)) continue;
+      checked++;
+      const ids = idsOnRoute(target);
+      if (!ids) dead.push(`${self}: ${href} — no built page at ${target}`);
+      else if (!ids.has(decodeURIComponent(frag))) dead.push(`${self}: ${href} — no id "${frag}" on ${target}`);
+    }
+  }
+  // POSITIVE CONTROL: the guides link into these pages dozens of times, and the
+  // hub indexes link every entry. A count near zero means the href scan or the
+  // route regex stopped matching — a reassuring "0 dead" about nothing.
+  assert(checked >= 150, `only ${checked} fragment link(s) into the split references were found (floor 150) — the scan is broken`);
+  assert(
+    dead.length === 0,
+    `${dead.length} of ${checked} fragment link(s) into the split references land nowhere:\n` +
+      dead.slice(0, 12).map((d) => `         - ${d}`).join('\n') +
+      `\n       Point each link at the sub-page that documents the entry — the hub index names it.`,
+  );
+  console.log(`       ${checked} fragment link(s) checked`);
+});
+
+check('every entry\'s OLD hub anchor still exists on its hub (external deep links keep landing)', () => {
+  const load = (f) => JSON.parse(readFileSync(join(repoRoot, 'public', 'appblocks', f), 'utf8'));
+  const items = { hooks: load('hooks.json').hooks ?? [], cli: load('cli.json').commands ?? [], bridge: bridgeItems(load('bridge.json')) };
+  let n = 0;
+  const missing = [];
+  for (const [kind, list] of Object.entries(items)) {
+    const hub = REFERENCE_SPLITS[kind].hub;
+    const ids = idsOnRoute(hub);
+    assert(ids, `the hub ${hub} was not built`);
+    for (const [id, to] of Object.entries(movedAnchors(kind, list))) {
+      n++;
+      if (!ids.has(id)) missing.push(`${hub}#${id} (now ${to})`);
+      const [toRoute, toId] = to.split('#');
+      if (!idsOnRoute(toRoute)?.has(toId)) missing.push(`${to} — the forward target itself does not exist`);
+    }
+  }
+  assert(n >= 100, `only ${n} entries across the three references (floor 100) — an artifact is empty or truncated`);
+  assert(missing.length === 0, `${missing.length} old anchor(s) no longer land:\n` + missing.slice(0, 12).map((m) => `         - ${m}`).join('\n'));
+  console.log(`       ${n} old hub anchor(s) present, each forwarding to an existing sub-page id`);
 });
 
 check('the llms.txt duplicate detector still detects (fixture table)', () => {

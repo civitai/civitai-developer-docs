@@ -1309,6 +1309,32 @@ export function promptClaimingUrls(page) {
 }
 
 /**
+ * Docs `.md` twins `public/agent-setup/prompt.md` may link, exempt from the
+ * "a `.md` URL claims to be the prompt" rule in `promptClaimingUrls`.
+ *
+ * The prompt points agents at the markdown twin rather than the HTML page
+ * because an agent reads the twin losslessly and the HTML through a lossy
+ * summariser. That is exactly the shape the predicate refuses (any `.md`), so
+ * these are ENUMERATED rather than the predicate being widened: a new one is a
+ * reviewed one-line diff, same as `ALLOWED_PAGE_URLS` below. None may sit under
+ * `/agent-setup/` or name `prompt` — asserted at load, so this list cannot be
+ * used to launder a prompt alias. `check:agent-surface` asserts each exists in
+ * the BUILT site (this script runs with no build and no node_modules).
+ */
+export const PROMPT_DOC_TWIN_URLS = new Set([
+  'https://developer.civitai.com/site.md',
+  'https://developer.civitai.com/orchestration.md',
+  'https://developer.civitai.com/apps/guide.md',
+  'https://developer.civitai.com/apps/reference.md',
+]);
+for (const u of PROMPT_DOC_TWIN_URLS) {
+  if (/agent-setup|prompt/i.test(u) || !u.startsWith('https://developer.civitai.com/') || !u.endsWith('.md')) {
+    console.error(`check-agent-setup: PROMPT_DOC_TWIN_URLS entry ${u} is not a docs .md twin — refusing to run.`);
+    process.exit(2);
+  }
+}
+
+/**
  * The only absolute URLs `agent-setup/index.md` may carry OUTSIDE the generated
  * region, besides `PROMPT_URL` itself.
  *
@@ -1391,7 +1417,7 @@ function checkSingleSource() {
   // The prompt source carries URLs of its own and is REPRODUCED verbatim into the
   // region, so it is graded here — against the wide predicate rather than the
   // page's allowlist, because prompt.md legitimately links out to docs.
-  const promptStrays = promptClaimingUrls(prompt).filter((u) => u !== PROMPT_URL);
+  const promptStrays = promptClaimingUrls(prompt).filter((u) => u !== PROMPT_URL && !PROMPT_DOC_TWIN_URLS.has(u));
   if (promptStrays.length) {
     failures.push(
       `${PROMPT_SOURCE} carries ${promptStrays.length} URL(s) that CLAIM to be the raw prompt but\n` +

@@ -663,6 +663,319 @@
         }
       }
     },
+    "/v2/consumer/funds": {
+      "post": {
+        "tags": [
+          "Funds"
+        ],
+        "summary": "The id is the only way to reach the fund, so keep it secret, in your app's state.",
+        "operationId": "CreateFund",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FundTemplate"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FundTemplate"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/FundTemplate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/consumer/funds/{fundId}": {
+      "patch": {
+        "tags": [
+          "Funds"
+        ],
+        "summary": "Sets the fund to expire `ttl` from now, so a long-running session can keep rolling it over.",
+        "operationId": "UpdateFund",
+        "parameters": [
+          {
+            "name": "fundId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonPatchDocument"
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Funds"
+        ],
+        "operationId": "GetFund",
+        "parameters": [
+          {
+            "name": "fundId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Funds"
+        ],
+        "summary": "Whatever is left goes to Civitai, not back to the depositors. A fund is also deleted on its own at `expiresAt`.",
+        "operationId": "DeleteFund",
+        "parameters": [
+          {
+            "name": "fundId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/consumer/funds/{fundId}/deposits": {
+      "post": {
+        "tags": [
+          "Funds"
+        ],
+        "operationId": "DepositIntoFund",
+        "parameters": [
+          {
+            "name": "fundId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FundDeposit"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FundDeposit"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/FundDeposit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Payment Required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/consumer/recipes/aceStepAudio": {
       "post": {
         "tags": [
@@ -20468,6 +20781,244 @@
           }
         ]
       },
+      "ComfyQwen21TurboCreateImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyQwen21TurboImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "model",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "width": {
+                "maximum": 2048,
+                "minimum": 64,
+                "type": "integer",
+                "format": "int32",
+                "default": 1024
+              },
+              "height": {
+                "maximum": 2048,
+                "minimum": 64,
+                "type": "integer",
+                "format": "int32",
+                "default": 1024
+              },
+              "operation": {
+                "enum": [
+                  "createImage"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "2.1-turbo"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "qwen"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "ComfyQwen21TurboEditImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyQwen21TurboImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "height",
+              "images",
+              "model",
+              "operation",
+              "width"
+            ],
+            "type": "object",
+            "properties": {
+              "images": {
+                "maxItems": 10,
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
+                }
+              },
+              "resolution": {
+                "maximum": 2048,
+                "minimum": 64,
+                "type": "integer",
+                "description": "Reference pixel budget as resolution squared; preserves each image's aspect ratio.",
+                "format": "int32",
+                "default": 1024
+              },
+              "width": {
+                "type": "integer",
+                "format": "int32",
+                "readOnly": true
+              },
+              "height": {
+                "type": "integer",
+                "format": "int32",
+                "readOnly": true
+              },
+              "operation": {
+                "enum": [
+                  "editImage"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "2.1-turbo"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "qwen"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "ComfyQwen21TurboImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyQwenImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "model",
+              "operation",
+              "prompt"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "type": "string"
+              },
+              "prompt": {
+                "maxLength": 10000,
+                "minLength": 0,
+                "type": "string"
+              },
+              "negativePrompt": {
+                "maxLength": 10000,
+                "minLength": 0,
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "sampler": {
+                "$ref": "#/components/schemas/ComfySampler"
+              },
+              "steps": {
+                "maximum": 8,
+                "minimum": 8,
+                "type": "integer",
+                "description": "Turbo uses the checkpoint's fixed eight-step sigma schedule.",
+                "format": "int32",
+                "default": 8
+              },
+              "cfgScale": {
+                "maximum": 30,
+                "minimum": 0,
+                "type": "number",
+                "format": "double",
+                "default": 1
+              },
+              "seed": {
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int64"
+              },
+              "quantity": {
+                "maximum": 12,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 1
+              },
+              "loras": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number",
+                  "format": "double"
+                }
+              },
+              "diffusionModel": {
+                "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "model": {
+                "enum": [
+                  "2.1-turbo"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "qwen"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "operation",
+              "mapping": {
+                "createImage": "#/components/schemas/ComfyQwen21TurboCreateImageGenInput",
+                "editImage": "#/components/schemas/ComfyQwen21TurboEditImageGenInput"
+              }
+            }
+          }
+        ]
+      },
       "ComfyQwenImageGenInput": {
         "allOf": [
           {
@@ -20506,7 +21057,8 @@
               "propertyName": "model",
               "mapping": {
                 "20b": "#/components/schemas/ComfyQwen20bImageGenInput",
-                "2.1": "#/components/schemas/ComfyQwen21ImageGenInput"
+                "2.1": "#/components/schemas/ComfyQwen21ImageGenInput",
+                "2.1-turbo": "#/components/schemas/ComfyQwen21TurboImageGenInput"
               }
             }
           }
@@ -20857,7 +21409,6 @@
             "required": [
               "ecosystem",
               "engine",
-              "model",
               "operation",
               "prompt"
             ],
@@ -20915,7 +21466,8 @@
               },
               "model": {
                 "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
-                "type": "string"
+                "type": "string",
+                "default": "urn:air:sdxl:checkpoint:civitai:101055@128078+92696"
               },
               "vaeModel": {
                 "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
@@ -25916,6 +26468,118 @@
         },
         "additionalProperties": false
       },
+      "FundDeposit": {
+        "required": [
+          "amount"
+        ],
+        "type": "object",
+        "properties": {
+          "amount": {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32"
+          },
+          "currencies": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/BuzzClientAccount"
+            },
+            "description": "Which of the caller's currencies to draw from, in order. Defaults to all."
+          }
+        },
+        "additionalProperties": false
+      },
+      "FundResponse": {
+        "required": [
+          "allowMatureContent",
+          "balance",
+          "balances",
+          "createdAt",
+          "expiresAt",
+          "id"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "allowMatureContent": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "balance": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "balances": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "description": "Balance per currency (`yellow`, `blue`, `green`, `fakeRed`)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "FundTemplate": {
+        "type": "object",
+        "properties": {
+          "ttl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "How long until the fund is deleted on its own. Defaults to 24 hours, at most 7 days.",
+            "format": "date-span"
+          },
+          "allowMatureContent": {
+            "type": "boolean",
+            "description": "Whether workflows billed to this fund may return mature content. Deposits are then limited to Yellow, and Blue from members.",
+            "default": false
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Shown on each deposit in the depositor's Buzz history, e.g. \"Game pot deposit\"."
+          }
+        },
+        "additionalProperties": false
+      },
+      "FundUpdate": {
+        "required": [
+          "ttl"
+        ],
+        "type": "object",
+        "properties": {
+          "ttl": {
+            "type": "string",
+            "description": "How long from now until the fund is deleted on its own, at most 7 days.",
+            "format": "date-span"
+          }
+        },
+        "additionalProperties": false
+      },
       "Gemini25FlashCreateImageGenInput": {
         "allOf": [
           {
@@ -29550,6 +30214,13 @@
               "null",
               "boolean"
             ]
+          },
+          "blockedReason": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Why the image would be refused as input to other workflows; null when it passes."
           }
         },
         "additionalProperties": false
@@ -31628,6 +32299,11 @@
             "description": "The input is treated as closed when no audio arrives for this many seconds, so a client that\ndisappears does not hold the session open.",
             "format": "int32",
             "default": 10
+          },
+          "turnDetection": {
+            "type": "boolean",
+            "description": "Sends a `turn` event shortly after each pause in speech with the probability that the\nspeaker has finished, so a voice agent can answer sooner than a fixed silence timeout.",
+            "default": true
           }
         },
         "additionalProperties": false
@@ -41391,7 +42067,6 @@
             "required": [
               "ecosystem",
               "engine",
-              "model",
               "operation",
               "prompt"
             ],
@@ -41449,7 +42124,8 @@
               },
               "model": {
                 "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
-                "type": "string"
+                "type": "string",
+                "default": "urn:air:sdxl:checkpoint:civitai:101055@128078+92696"
               },
               "vaeModel": {
                 "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
@@ -48952,6 +49628,13 @@
           },
           "tier": {
             "$ref": "#/components/schemas/WorkflowTier"
+          },
+          "fund": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         },
         "additionalProperties": false
@@ -49882,6 +50565,14 @@
               "$ref": "#/components/schemas/BuzzClientAccount"
             },
             "description": "Limit the currencies that can be used to pay for this workflow."
+          },
+          "fund": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Bill this workflow to a fund (see `POST /v2/consumer/funds`) instead of the caller's Buzz. Implies the paid tier;\nCivitai.Orchestration.Grains.Workflows.WorkflowTemplate.Currencies then limits which of the fund's currencies are spent.",
+            "format": "uuid"
           },
           "ephemeral": {
             "type": [
@@ -51209,6 +51900,9 @@
     },
     {
       "name": "Free tier"
+    },
+    {
+      "name": "Funds"
     },
     {
       "name": "Recipes"

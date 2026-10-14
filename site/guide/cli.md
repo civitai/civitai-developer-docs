@@ -259,7 +259,7 @@ disambiguate**: re-run with `--model <id>` for that model's default version, or
 `--version <id>` for that version id as-is. `--version` skips the stop entirely,
 and `--yes` proceeds on the **version** interpretation, echoing exactly which
 version it is downloading. See the
-[generated CLI reference](/apps/reference/cli#cli-download) for the full flag
+[generated CLI reference](/apps/reference/cli/catalog#cli-download) for the full flag
 list.
 :::
 
@@ -305,7 +305,7 @@ mismatch deletes the partial file and fails the run. Pass `--no-verify` to skip
 ### Download flags
 
 The complete, always-current flag list for `download` — and for every other
-command — is in the [generated CLI reference](/apps/reference/cli#cli-download),
+command — is in the [generated CLI reference](/apps/reference/cli/catalog#cli-download),
 which is built from the binary's own help output. `civitai download --help`
 prints the same thing locally.
 

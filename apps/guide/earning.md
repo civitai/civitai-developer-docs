@@ -334,7 +334,7 @@ turn.
    on its own, so `total - authorFee` is the generation's price; when the field
    is absent, show `total` on its own rather than reading it as `0`. See
    "Showing the app fee: `cost.authorFee`" under
-   [`useBuzzWorkflow`](../reference/hooks#hook-useBuzzWorkflow).
+   [`useBuzzWorkflow`](../reference/hooks/generation#hook-useBuzzWorkflow).
 2. **The fee counts against the per-generation budget ceiling**, so a
    `page.buzzBudgetPerGen` sized against a bare generation estimate can refuse
    with an insufficient-budget reply. Leave headroom.

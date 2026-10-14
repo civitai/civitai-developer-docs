@@ -55,8 +55,12 @@
     "check:agent-md": "node scripts/check-agent-md.mjs",
     "check:twin-links": "node scripts/check-twin-links.mjs",
     "test:twin-links": "node scripts/test-twin-links.mjs",
+    "check:agent-surface": "node scripts/check-agent-surface.mjs",
+    "test:agent-surface": "node scripts/test-agent-surface.mjs",
+    "test:nginx-negotiation": "node scripts/test-nginx-negotiation.mjs",
     "test:tokens:drift": "node scripts/test-tokens-drift.mjs",
-    "test:showcase:e2e": "node scripts/test-showcase-e2e.mjs"
+    "test:showcase:e2e": "node scripts/test-showcase-e2e.mjs",
+    "test:reference:e2e": "node scripts/test-reference-forward-e2e.mjs"
   },
   "devDependencies": {
     "@civitai/app-sdk": "0.70.0",
