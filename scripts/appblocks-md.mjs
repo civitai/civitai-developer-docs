@@ -502,17 +502,46 @@ function renderManifest() {
  * content that cannot render inline (see `fence`), it is `v-pre` so no Vue
  * interpolation can reach it, and it keeps every row on its own line.
  */
-function describeHook(h) {
+function describeHook(h, hookNames) {
   // Reads the flag gen-appblocks-hooks.mjs stamped into the artifact — the SAME
   // value the Vue island branches on. One rule, one place: this used to be a
   // second regex here, and it was the only channel that got fixed.
-  return h.descriptionHasTable ? fence('md', h.description) : para(h.description);
+  if (h.descriptionHasTable) return fence('md', h.description);
+  return para(rewriteHookAnchors(h.description, hookNames));
+}
+
+/**
+ * Point upstream's README-internal hook links at this page's hook anchors.
+ *
+ * The README heads each hook `### \`useX()\``, which GitHub slugs to `#usex`, and
+ * a description links a sibling hook that way (`[useCivitaiNavigate()](#usecivitainavigate)`).
+ * This page has no such id: `<HooksReference>` gives each hook
+ * `id="hook-<name>"`, and this region renders the name in bold, not as a
+ * heading. So a `#<lowercased hook name>` link is rewritten to `#hook-<name>`,
+ * the id the hand-written prose on this page already links to.
+ *
+ * Only a DESCRIPTION is rewritten. Notes are emitted inside an `md` fence, where
+ * a link is code text and resolves nowhere, and the rewrite would make the fence
+ * stop being a verbatim copy of the README. A same-page link that names no hook
+ * is left as written.
+ *
+ * @param {string} text
+ * @param {string[]} hookNames
+ * @returns {string}
+ */
+export function rewriteHookAnchors(text, hookNames) {
+  const bySlug = new Map(hookNames.map((n) => [n.toLowerCase(), n]));
+  return String(text ?? '').replace(/\]\(#([^)\s]+)\)/g, (m, slug) => {
+    const name = bySlug.get(slug);
+    return name ? `](#hook-${name})` : m;
+  });
 }
 
 /** apps/reference/hooks.md — mirrors <HooksReference>. */
 function renderHooks() {
   const { hooks } = loadArtifact('hooks.json');
   if (!hooks?.length) throw new Error('appblocks-md: hooks.json has no hooks');
+  const hookNames = hooks.map((h) => h.name);
   return hooks
     .map((h) =>
       blocks(
@@ -521,7 +550,7 @@ function renderHooks() {
         // which would put phantom entries in the outline.
         `**${code(h.name)}**`,
         fence('ts', h.signature),
-        h.description ? describeHook(h) : '',
+        h.description ? describeHook(h, hookNames) : '',
         h.example ? fence('tsx', h.example) : '',
         // The rest of the README section, after the example. ONE `md` fence, for
         // the same reason `describeHook` fences a table: it is upstream markdown

@@ -22,6 +22,7 @@
 // are deliberately shapes the live corpus does NOT contain.
 import { descriptionHasTable } from './lib/description-has-table.mjs';
 import { parseReadme, scanSections, splitSection, verifyPublished } from './lib/readme-hook-sections.mjs';
+import { rewriteHookAnchors } from './appblocks-md.mjs';
 // Imported, NOT re-declared. An earlier version of the test below copied that
 // file's `isTableRow` regex into a local const, which made its failure message —
 // a claim about the SIBLING — a tautology about a local literal: deleting
@@ -423,6 +424,21 @@ check('NEGATIVE CONTROL — a real leaked heading is still caught in a descripti
   assert(
     problems.some((p) => /^useA: its published text contains 1 heading.*"## Testing"/.test(p)),
     `got: ${problems.join('; ')}`,
+  );
+});
+
+// The README links a sibling hook by its GitHub heading slug; this page's hook
+// ids are `hook-<name>`. Fixture names are mixed-case so a rewrite that forgot
+// to restore the case (`#hook-usefoobar`) cannot pass.
+check('README hook anchors are rewritten to this page\'s `hook-<name>` ids', () => {
+  const names = ['useFooBar', 'useBaz'];
+  const got = rewriteHookAnchors(
+    'See [`useFooBar()`](#usefoobar), [x](#hook-useBaz), [y](#some-section) and [z](./other#usebaz).',
+    names,
+  );
+  assert(
+    got === 'See [`useFooBar()`](#hook-useFooBar), [x](#hook-useBaz), [y](#some-section) and [z](./other#usebaz).',
+    `got: ${got}`,
   );
 });
 

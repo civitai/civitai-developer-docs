@@ -2385,7 +2385,7 @@ history, so the way your block learns where it ended up is
 useCivitaiRoute(): UseCivitaiRoute
 ```
 
-The sub-path below your app's root that is **currently showing**. This is the other half of an app-scoped [`useCivitaiNavigate()`](#usecivitainavigate): you ask the host to move, the host pushes it shallowly so your frame stays mounted, and this is how you find out where you went.
+The sub-path below your app's root that is **currently showing**. This is the other half of an app-scoped [`useCivitaiNavigate()`](#hook-useCivitaiNavigate): you ask the host to move, the host pushes it shallowly so your frame stays mounted, and this is how you find out where you went.
 
 ```tsx
 function Router() {
