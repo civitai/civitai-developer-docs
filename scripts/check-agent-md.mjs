@@ -204,12 +204,19 @@ function normInline(s) {
  * markdown, so it is normalised recursively), everything else is prose. Fence
  * delimiter lines themselves are dropped on both sides.
  */
+// A same-page link's TARGET is not compared, only its text. The README's
+// `#usex` fragments name README headings, which this page does not have, so
+// appblocks-md.mjs (`rewriteHookAnchors`) deliberately rewrites them to this
+// page's `#hook-<name>` ids and the twin cannot carry them verbatim. Applied to
+// both sides; the rewrite itself is pinned by test:appblocks:hooks.
+const SAME_PAGE_LINK = /\]\(#[^)\s]*\)/g;
+
 function normBlocks(md) {
   const lines = String(md ?? '').split('\n');
   const parts = [];
   let prose = [];
   const flush = () => {
-    if (prose.length) parts.push(normInline(prose.join('\n')));
+    if (prose.length) parts.push(normInline(prose.join('\n').replace(SAME_PAGE_LINK, '](#)')));
     prose = [];
   };
   for (let i = 0; i < lines.length; i++) {
