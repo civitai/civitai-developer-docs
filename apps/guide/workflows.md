@@ -638,7 +638,9 @@ your per-generation budget (`page.buzzBudgetPerGen`, see
 so a long `repeat` can quote above the ceiling and be refused with
 `insufficient buzz budget`. With a per-generation budget of 50, a body whose
 only step is a `repeat` has a ceiling of 50 whether its list holds 2 items or
-16, while three explicit steps have a ceiling of 150. The workflow's whole
+16, while three explicit steps have a ceiling of 150. Whatever the budget and
+step count, one workflow call's ceiling is never above **8,000** Buzz, so a
+budget × steps product above that is capped there. The workflow's whole
 price, author fee included,
 must fit under the ceiling or the submit is refused before anything is charged.
 

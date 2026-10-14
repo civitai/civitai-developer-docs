@@ -656,12 +656,12 @@ grid:
 
 ### The limits {#limits-table}
 
-Values at civitai `a16265aaa4`, 2026-10-08. They can change, and the per-app
+Values at civitai `3c6d553986`, 2026-10-14. They can change, and the per-app
 values depend on the app's spend tier. Every app starts on `standard`.
 
 | Limit | Value | Keyed on | Tier | What your app sees when it trips |
 |---|---|---|---|---|
-| Per-call budget | price + author fee ≤ `page.buzzBudgetPerGen` (for a [`kind: 'workflow'`](./workflows#what-it-costs) body, that budget × its number of steps). Default **10** when the manifest omits it; anything above **1,000** is clamped to 1,000 | one `submit()` | no | `submit()` **resolves**: `status: 'failed'`, `workflowId: 'failed'`, `cost.total`, `error: 'insufficient buzz budget: …'`. Nothing charged |
+| Per-call budget | price + author fee ≤ `page.buzzBudgetPerGen` (for a [`kind: 'workflow'`](./workflows#what-it-costs) body, that budget × its number of steps, and never more than **8,000** for one call). Default **1,000** when the manifest omits it; anything above **5,000** is clamped to 5,000 | one `submit()` | no | `submit()` **resolves**: `status: 'failed'`, `workflowId: 'failed'`, `cost.total`, `error: 'insufficient buzz budget: …'`. Nothing charged |
 | Images per submit | `quantity` **1–4** | one `submit()` | no | the body fails validation, so `submit()` **rejects** (`WorkflowSubmitError`, `code: 'exception'`). Nothing charged |
 | Estimate rate | **150 requests / 10 s** | the **block instance**. For a page app that is **one instance shared by every viewer of the app**; for a model-slot block it is one installed instance. The same allowance also covers `cancel()`, `useAppWorkflows()` and the host's own reads for your block (viewer, Buzz balance, image and model lookups) | no | `estimate()` **rejects** (`WorkflowEstimateError`, message `Rate limit exceeded, please retry shortly.`). Nothing charged. A refused `cancel()` **resolves** with `status: 'processing'`: the cancel was not sent, so call it again |
 | Poll rate | **1,200 requests / 60 s** | the block instance **and** the viewer | no | the poll **resolves** with `status: 'processing'` and no new data. `watch()` keeps looping and picks up the real status on a later poll. Nothing lost, nothing charged |
@@ -819,11 +819,13 @@ Watching 16 workflows at once is at most 16 × 40 = **640 polls a minute**,
 about half of the 1,200 allowed for one viewer, so one viewer can watch up to
 1,200 / 40 = **30 workflows** before polls start returning placeholders (and
 even then nothing breaks, `watch()` just updates more slowly). A full grid's
-estimates are 16 of 150 per 10 s. Spend is the other bound: 16 cells at a
-1,000-Buzz budget is at most 16,000 Buzz, under one viewer's 50,000 a day.
+estimates are 16 of 150 per 10 s. Spend is the other bound: a grid can reserve
+up to 16 × your per-call budget against one viewer's 50,000 a day. At a budget
+of 3,125 or less a full grid fits; above that, the per-viewer daily cap can
+refuse cells partway through a single grid.
 
-So submitting a 16-cell grid in one go is within every per-viewer limit. A
-lower per-viewer concurrency does not change your exposure to the shared app
+So with a per-call budget of 3,125 or less, submitting a 16-cell grid in one go
+is within every per-viewer limit. A lower per-viewer concurrency does not change your exposure to the shared app
 velocity limit, which the steps above handle.
 
 ### Posting and image-upload limits {#posting-limits}
