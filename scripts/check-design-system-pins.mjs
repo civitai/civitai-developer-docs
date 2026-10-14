@@ -280,23 +280,31 @@ export const HISTORICAL_LITERALS = [
     file: 'apps/reference/generation.md',
     pkg: '@civitai/app-sdk',
     version: '0.30.0',
-    // EXACT — see the header. TWO occurrences of the SAME changelog fact:
-    //   1. the hand-written `The \`step\` member (added in …)` prose, and
-    //   2. the generated markdown-fallback region (the .md / LLM channel — see
-    //      scripts/appblocks-md.mjs), which mirrors <BridgeReference>'s
-    //      `useBuzzWorkflow` docstring, and that docstring itself says "THREE
-    //      members as of @civitai/app-sdk@0.30.0".
-    // Both are arrival-version statements, neither is a `sources:` stamp. A
-    // regressed stamp is caught by the stamp rule (see the header), NOT by this
-    // count — it never enters the exempted set, so it cannot inflate `seen`.
-    // (This comment used to say a regressed stamp "would make it THREE, so the
-    // count still catches it". That was true only while the stamp was
-    // exemptible, and a SUBSTITUTION defeated it anyway.)
-    // If the upstream docstring stops naming 0.30.0 this drops to 1 and fails,
-    // which is the bidirectional strictness working: refresh the region and
-    // correct this row in the same change.
-    count: 2,
+    // EXACT count 1 — the hand-written `The \`step\` member (added in …)` prose.
+    // It is an arrival-version statement, not a `sources:` stamp. A regressed
+    // stamp is caught by the stamp rule (see the header), NOT by this count — it
+    // never enters the exempted set, so it cannot inflate `seen`.
+    //
+    // This row was count 2 while the generated markdown-fallback region lived on
+    // this page; that second occurrence moved with the region to the generated
+    // sub-page apps/reference/generation/lifecycle.md (row below), when the page
+    // was split so its `.md` twin stays readable by agent fetch tools.
+    count: 1,
     why: 'the `step` WorkflowBody member was ADDED in 0.30.0 — a changelog fact. Bumping it to the current pin would state a false arrival version.',
+  },
+  {
+    file: 'apps/reference/generation/lifecycle.md',
+    pkg: '@civitai/app-sdk',
+    version: '0.30.0',
+    // EXACT count 1 — the generated markdown-fallback region (the .md / LLM
+    // channel — scripts/appblocks-md.mjs), which mirrors <BridgeReference>'s
+    // `useBuzzWorkflow` docstring, and that docstring itself says "THREE members
+    // as of @civitai/app-sdk@0.30.0". The same changelog fact as the hub row
+    // above. If the upstream docstring stops naming 0.30.0 this drops to 0 and
+    // fails, which is the bidirectional strictness working: refresh the page and
+    // delete this row in the same change.
+    count: 1,
+    why: 'the `step` WorkflowBody member was ADDED in 0.30.0 — a changelog fact quoted from the upstream docstring. Bumping it to the current pin would state a false arrival version.',
   },
   {
     file: 'apps/reference/generation.md',
@@ -459,9 +467,11 @@ export const HISTORICAL_LITERALS = [
     count: 1,
     why: '`app.orchestration` refusing a block token before it sends ARRIVED in sdk 0.5.0 (`refuseBlockToken` absent from 0.4.0 dist) — a changelog fact. Bumping it to the pin would name a release in which nothing about this changed.',
   },
-  // --- apps/reference/hooks.md: arrival claims quoted from the blocks-react README ---
-  // All three sit inside the page's GENERATED markdown-fallback region (between
-  // the `BEGIN/END GENERATED: hooks` markers, written by `gen:appblocks:md` from
+  // --- apps/reference/hooks/generation.md: arrival claims quoted from the blocks-react README ---
+  // All three sit inside the `useBuzzWorkflow` entry of the GENERATED sub-page
+  // (between the `BEGIN/END GENERATED: hooks/generation` markers — the hooks
+  // reference is split into sub-pages so each `.md` twin stays readable by agent
+  // fetch tools; they lived on apps/reference/hooks.md before), written by `gen:appblocks:md` from
   // the published README's per-hook sections). They are scanned on purpose, the
   // same way generation.md's generated region is (its 0.30.0 row counts the
   // generated docstring mirror): this guard has no generated-region skip, and a
@@ -471,7 +481,7 @@ export const HISTORICAL_LITERALS = [
   // named, not taken from the README: a README bump that adds another "since X"
   // line must get its own row after the same check.
   {
-    file: 'apps/reference/hooks.md',
+    file: 'apps/reference/hooks/generation.md',
     pkg: '@civitai/blocks-react',
     version: '0.44.0',
     // EXACT count 1 — "`submit` REJECTS when the reply carries no usable workflow
@@ -483,7 +493,7 @@ export const HISTORICAL_LITERALS = [
     why: '`useBuzzWorkflow().submit` started REJECTING an outcome-less reply in blocks-react 0.44.0 (0.43.1 dist never throws WorkflowSubmitError) — an upstream changelog fact quoted verbatim. Bumping it to the pin would name a release in which nothing about this changed.',
   },
   {
-    file: 'apps/reference/hooks.md',
+    file: 'apps/reference/hooks/generation.md',
     pkg: '@civitai/blocks-react',
     version: '0.43.0',
     // EXACT count 1 — "`estimate` follows the same rule … (`@civitai/blocks-react@0.43.0+`)".
@@ -493,7 +503,7 @@ export const HISTORICAL_LITERALS = [
     why: '`estimate` rejecting with WorkflowEstimateError ARRIVED in blocks-react 0.43.0 (absent from 0.42.0 dist) — an upstream changelog fact quoted verbatim. Bumping it to the pin would state a false arrival version.',
   },
   {
-    file: 'apps/reference/hooks.md',
+    file: 'apps/reference/hooks/generation.md',
     pkg: '@civitai/blocks-react',
     version: '0.5.0',
     // EXACT count 1 — "`@civitai/blocks-react@0.5.0+` adds

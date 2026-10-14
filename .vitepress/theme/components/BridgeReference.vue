@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { inject } from 'vue';
+// Which entries this page shows: the reference is split across sub-pages
+// (`/apps/reference/generation/<group>`), defined once in referenceSplit.shared.mjs.
+import { bridgeItems, itemsInGroup } from './referenceSplit.shared.mjs';
 
 interface Field {
   name: string;
@@ -28,14 +31,17 @@ interface BridgeData {
   reactPackage?: string;
 }
 
+// Required: every page that renders this island is a generated sub-page.
+const props = defineProps<{ group: string }>();
 const data = inject<BridgeData>('appblocks:bridge', {});
-const lifecycle = data.lifecycle;
-const types = data.types ?? [];
+const shown = new Set(itemsInGroup('bridge', bridgeItems(data), props.group).map((it: { name: string }) => it.name));
+const lifecycle = data.lifecycle && shown.has(data.lifecycle.name) ? data.lifecycle : undefined;
+const types = (data.types ?? []).filter((t) => shown.has(t.name));
 </script>
 
 <template>
   <div class="ab-bridge">
-    <p v-if="!types.length" class="ab-empty">
+    <p v-if="!types.length && !lifecycle" class="ab-empty">
       No bridge reference generated. Run <code>npm run gen:appblocks</code>.
     </p>
 

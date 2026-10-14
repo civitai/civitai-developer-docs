@@ -3,6 +3,7 @@ import { useSidebar } from 'vitepress-openapi';
 import llmstxt from 'vitepress-plugin-llms';
 import { withMermaid } from 'vitepress-plugin-mermaid';
 import spec from '../public/openapi/v2-consumers.json' with { type: 'json' };
+import { sidebarItems } from './theme/components/referenceSplit.shared.mjs';
 import { rewriteLlmsFull, rewriteTwinLinks } from '../scripts/lib/twin-links.mjs';
 
 const base = '/';
@@ -268,11 +269,19 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Overview', link: '/apps/reference/' },
         { text: 'Scopes', link: '/apps/reference/scopes' },
         { text: 'Manifest', link: '/apps/reference/manifest' },
-        { text: 'Generation bridge', link: '/apps/reference/generation' },
+        // The three split references: the hub page, then one entry per
+        // generated sub-page — derived from referenceSplit.shared.mjs, the
+        // same module that decides which entry lives on which page.
+        {
+          text: 'Generation bridge',
+          link: '/apps/reference/generation',
+          collapsed: true,
+          items: sidebarItems('bridge'),
+        },
         { text: 'Components', link: '/apps/reference/components' },
         { text: 'Messages', link: '/apps/reference/messages' },
-        { text: 'Hooks', link: '/apps/reference/hooks' },
-        { text: 'CLI', link: '/apps/reference/cli' },
+        { text: 'Hooks', link: '/apps/reference/hooks', collapsed: true, items: sidebarItems('hooks') },
+        { text: 'CLI', link: '/apps/reference/cli', collapsed: true, items: sidebarItems('cli') },
       ],
     },
   ],

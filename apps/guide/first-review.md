@@ -67,7 +67,7 @@ of those.
 ## 5. Money path honesty
 
 - **Show the exact Buzz price before spend:** estimate → consent → submit →
-  watch — see [the `useBuzzWorkflow` lifecycle](../reference/generation#bridge-useBuzzWorkflow)
+  watch — see [the `useBuzzWorkflow` lifecycle](../reference/generation/lifecycle#bridge-useBuzzWorkflow)
   and, for consent, [`app.requestGrants`](./sdk#consent-app-requestgrants) or
   `useRequestConsent` in the [hooks reference](../reference/hooks).
 - **Render your own error copy, never raw server text.** Branch on the
