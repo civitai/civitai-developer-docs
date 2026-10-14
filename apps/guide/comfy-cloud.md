@@ -217,7 +217,7 @@ token is rejected on estimate and submit before either arm is inspected.
      per-viewer gate" — the server runs at least four viewer-keyed checks before
      either arm is inspected; (5) listed "a positive `buzzBudget` that covers
      your maxBuzz" as a VIEWER property — it is minted from the app's own
-     manifest (`page.buzzBudgetPerGen`, default 1,000), and that comparison is a
+     manifest (`page.buzzBudgetPerGen`), and that comparison is a
      static check AFTER the arm is chosen, not one of the pre-arm viewer gates.
      If you are tempted to characterise WHO can submit, don't: enumerate the
      refusals from `blocks.router.ts` instead, or say nothing. Every draft above
