@@ -47,7 +47,7 @@
  * carve-out is reported in the output, so it can never be silent.
  *
  * 🔴 GENERATED SURFACES ARE IN SCOPE ON PURPOSE. `appblocks-snapshots/civitai-cli-help.txt`
- * and the `BEGIN GENERATED: cli` region of `apps/reference/cli.md` are captured
+ * and the generated CLI sub-pages under `apps/reference/cli/` are captured
  * from the civitai/cli binary, so a failure there cannot be fixed in place —
  * the remedy is upstream. Including them is what makes this a guard on the
  * cross-repo SEAM rather than on one side of it: upstream's Go test covers
@@ -191,7 +191,13 @@ export function bareDownloadExamples(text) {
 
 /** True when a path's content is captured/generated rather than hand-authored. */
 export function isGeneratedSurface(rel) {
-  return rel.startsWith('appblocks-snapshots/') || rel === 'apps/reference/cli.md';
+  // The CLI reference's command entries are generated sub-pages under
+  // apps/reference/cli/ (the hub, apps/reference/cli.md, keeps only an index).
+  return (
+    rel.startsWith('appblocks-snapshots/') ||
+    rel === 'apps/reference/cli.md' ||
+    /^apps\/reference\/cli\/[^/]+\.md$/.test(rel)
+  );
 }
 
 /**

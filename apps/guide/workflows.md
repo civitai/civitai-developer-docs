@@ -22,10 +22,10 @@ prices it once, reserves Buzz once, and returns one workflow you watch like any
 other.
 
 On React it goes through the hooks you already use:
-[`useBuzzWorkflow()`](../reference/hooks#hook-useBuzzWorkflow)'s `estimate`,
+[`useBuzzWorkflow()`](../reference/hooks/generation#hook-useBuzzWorkflow)'s `estimate`,
 `submit`, `watch`, `poll` and `cancel`, a
-[`useBatchEstimate()`](../reference/hooks#hook-useBatchEstimate) cell, and
-[`useWorkflowBatch()`](../reference/hooks#hook-useWorkflowBatch). There is no
+[`useBatchEstimate()`](../reference/hooks/batches-and-training#hook-useBatchEstimate) cell, and
+[`useWorkflowBatch()`](../reference/hooks/batches-and-training#hook-useWorkflowBatch). There is no
 new hook and no new message. On `@civitai/sdk`, which the default template
 uses, it goes through [`app.workflows`](#on-civitai-sdk).
 
@@ -192,7 +192,7 @@ reference for what each step type takes and returns, and for how references,
 | Feed one step's output into another step (text into a prompt, an image into an edit) | **`kind: 'workflow'`** |
 | Run the same step over a short list you already have (up to 16 items) as one generation | **`kind: 'workflow'`** with a [`repeat`](#repeat-one-step-per-item). Not yet for image generation: see the [known limitation](#repeat-imagegen-limitation) |
 | Run independent generations the viewer tracks one by one, such as a grid of cells | one `submit()` per cell, watched with [`useWorkflowBatch()`](./text-to-image#watch-cancel-grid) |
-| Price many independent bodies before the viewer confirms | [`useBatchEstimate()`](../reference/hooks#hook-useBatchEstimate) (a `kind: 'workflow'` body can be one of its cells) |
+| Price many independent bodies before the viewer confirms | [`useBatchEstimate()`](../reference/hooks/batches-and-training#hook-useBatchEstimate) (a `kind: 'workflow'` body can be one of its cells) |
 | Run exactly one orchestrator step type | the single-step [pass-through arm](../reference/generation#what-the-bridge-can-and-cannot-do) (`kind: 'step'` with a `$type`) |
 
 A workflow is **one** generation to the viewer: one estimate, one reservation,
@@ -665,7 +665,7 @@ The estimate and the submit then behave differently.
   `workflow_quote_unavailable` or `workflow_quote_unpriced` (see
   [Refusals](#refusals) for which one a retry can clear).
   `useBuzzWorkflow().estimate` rejects it with `WorkflowEstimateError`, and
-  [`useBatchEstimate()`](../reference/hooks#hook-useBatchEstimate) marks that
+  [`useBatchEstimate()`](../reference/hooks/batches-and-training#hook-useBatchEstimate) marks that
   body's cell `ok: false`. There is no number to show the viewer.
 - **The submit still runs.** The host does not refuse the same body for having
   no quote: it is reserved at the ceiling, with each step's timeout set from
@@ -925,9 +925,9 @@ does. A test that is not about consent needs `consentGranted: true` (or
 - [Generating images (text-to-image)](./text-to-image): the lifecycle, refused
   submits, and the [limits](./text-to-image#limits) every kind shares.
 - [Generation bridge reference](../reference/generation): the generated field
-  tables for [`WorkflowBodyWorkflow`](../reference/generation#bridge-WorkflowBodyWorkflow),
-  [`WorkflowStepRef`](../reference/generation#bridge-WorkflowStepRef) and
-  [`BlockWorkflowSnapshot`](../reference/generation#bridge-BlockWorkflowSnapshot).
+  tables for [`WorkflowBodyWorkflow`](../reference/generation/training-and-multi-step#bridge-WorkflowBodyWorkflow),
+  [`WorkflowStepRef`](../reference/generation/training-and-multi-step#bridge-WorkflowStepRef) and
+  [`BlockWorkflowSnapshot`](../reference/generation/lifecycle#bridge-BlockWorkflowSnapshot).
 - [Orchestration: Workflows](/orchestration/guide/workflows): how the
   orchestrator runs steps, resolves references and reports status, and the
   [step reference](/orchestration/reference/) for each `$type`'s input and

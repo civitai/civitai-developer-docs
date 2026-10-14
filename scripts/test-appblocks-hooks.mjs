@@ -23,6 +23,11 @@
 import { descriptionHasTable } from './lib/description-has-table.mjs';
 import { parseReadme, scanSections, splitSection, verifyPublished } from './lib/readme-hook-sections.mjs';
 import { rewriteHookAnchors } from './appblocks-md.mjs';
+import {
+  REFERENCE_SPLITS,
+  movedAnchors,
+  splitByGroup,
+} from '../.vitepress/theme/components/referenceSplit.shared.mjs';
 // Imported, NOT re-declared. An earlier version of the test below copied that
 // file's `isTableRow` regex into a local const, which made its failure message —
 // a claim about the SIBLING — a tautology about a local literal: deleting
@@ -440,6 +445,73 @@ check('README hook anchors are rewritten to this page\'s `hook-<name>` ids', () 
     got === 'See [`useFooBar()`](#hook-useFooBar), [x](#hook-useBaz), [y](#some-section) and [z](./other#usebaz).',
     `got: ${got}`,
   );
+});
+
+// The hooks are split across sub-pages; a README link to a hook on a SIBLING
+// sub-page must point there, not at an id this page does not have.
+check('a README hook anchor to a hook on another sub-page links to that sub-page', () => {
+  const names = ['useFooBar', 'useBaz'];
+  const groupOf = { useFooBar: 'here', useBaz: 'there' };
+  const hrefOf = (n) => (groupOf[n] === 'here' ? `#hook-${n}` : `./${groupOf[n]}#hook-${n}`);
+  const got = rewriteHookAnchors('[a](#usefoobar) [b](#usebaz) [c](#nothook)', names, hrefOf);
+  assert(got === '[a](#hook-useFooBar) [b](./there#hook-useBaz) [c](#nothook)', `got: ${got}`);
+});
+
+// ── the sub-page split (referenceSplit.shared.mjs) ─────────────────────────
+// Fixture hooks are NOT real names, so these exercise the RULES, not today's
+// catalog: an unlisted hook must land beside the hook before it (upstream's
+// README order), never be dropped, and never land twice.
+const firstGroup = REFERENCE_SPLITS.hooks.groups[0];
+const secondGroup = REFERENCE_SPLITS.hooks.groups[1];
+check('an unlisted hook inherits the group of the hook before it, and is reported', () => {
+  const a = firstGroup.members[0];
+  const b = secondGroup.members[0];
+  const items = [{ name: a }, { name: 'useNotInCatalogX' }, { name: b }, { name: 'useNotInCatalogY' }];
+  const { groupOf, inherited, groups } = splitByGroup('hooks', items);
+  assert(groupOf.get('useNotInCatalogX') === firstGroup.slug, `X landed on ${groupOf.get('useNotInCatalogX')}`);
+  assert(groupOf.get('useNotInCatalogY') === secondGroup.slug, `Y landed on ${groupOf.get('useNotInCatalogY')}`);
+  assert(inherited.join(',') === 'useNotInCatalogX,useNotInCatalogY', `inherited: ${inherited.join(',')}`);
+  const placed = groups.flatMap((g) => g.items.map((it) => it.name));
+  assert(placed.length === items.length && new Set(placed).size === items.length, `placed: ${placed.join(',')}`);
+});
+
+check('every catalog member is listed by exactly one group (no hook can be claimed twice)', () => {
+  for (const [kind, split] of Object.entries(REFERENCE_SPLITS)) {
+    const seen = new Map();
+    for (const g of split.groups) {
+      for (const m of [...(g.members ?? []), ...(g.prefixes ?? [])]) {
+        assert(!seen.has(m), `${kind}: '${m}' is listed by both '${seen.get(m)}' and '${g.slug}'`);
+        seen.set(m, g.slug);
+      }
+    }
+    const slugs = split.groups.map((g) => g.slug);
+    assert(new Set(slugs).size === slugs.length, `${kind}: duplicate group slug`);
+  }
+});
+
+check('the CLI split places commands by their longest listed command-path prefix', () => {
+  const items = ['app', 'app new-thing', 'app listing', 'app listing new-thing', 'models new-sub', 'brand-new-root'].map(
+    (command) => ({ command }),
+  );
+  const { groupOf, inherited } = splitByGroup('cli', items);
+  const fallback = REFERENCE_SPLITS.cli.groups.find((g) => g.fallback).slug;
+  const want = {
+    app: 'app',
+    'app new-thing': 'app',
+    'app listing': 'app-listing',
+    'app listing new-thing': 'app-listing',
+    'models new-sub': 'catalog',
+    'brand-new-root': fallback,
+  };
+  for (const [c, slug] of Object.entries(want)) assert(groupOf.get(c) === slug, `${c} -> ${groupOf.get(c)}, want ${slug}`);
+  assert(inherited.join(',') === 'brand-new-root', `inherited: ${inherited.join(',')}`);
+});
+
+check('movedAnchors maps every old hub id to its sub-page', () => {
+  const a = firstGroup.members[0];
+  const got = movedAnchors('hooks', [{ name: a }]);
+  const want = `${REFERENCE_SPLITS.hooks.hub}/${firstGroup.slug}#hook-${a}`;
+  assert(got[`hook-${a}`] === want, `got ${JSON.stringify(got)}`);
 });
 
 console.log('');

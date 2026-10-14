@@ -15,10 +15,32 @@ name: showcase-e2e
 # build-site.yml / appblocks-snippets.yml for the measurement). Before adding
 # `showcase-e2e` to the required set, remove the `paths:` filters below.
 #
-# The filter is the set of inputs the tested pages' rendering depends on: every
-# page the test opens (showcase.md, tokens.md, and index.md as the 390px width
-# control), the theme components that render their demos, the site config, the
-# pinned design-system packages (package.json / package-lock.json), and the test.
+# The filter is the set of inputs the TESTED pages' rendering depends on, for
+# BOTH browser tests this job runs, plus the tests themselves and this file:
+#
+#   test-showcase-e2e.mjs — every page it opens (showcase.md, tokens.md, and
+#     index.md as the 390px width control), the theme components that render
+#     their demos, the site config, and the pinned design-system packages
+#     (package.json / package-lock.json).
+#   test-reference-forward-e2e.mjs — every page it opens: the start page
+#     (apps/guide/quickstart.md), the three split-reference hubs and their
+#     generated sub-pages (apps/reference/**); the theme (<ReferenceIndex>, the
+#     islands and referenceSplit.shared.mjs, under .vitepress/theme/**); the
+#     site config (sidebar, cleanUrls); the VitePress router itself (pinned in
+#     package.json / package-lock.json — the forward depends on router.go()'s
+#     push-vs-replace behaviour); and the build-time artifacts those pages
+#     inject (hooks.json, cli.json, bridge.json). Those artifacts are written by
+#     scripts/gen-appblocks.mjs, which runs gen-appblocks-{hooks,cli,bridge}.mjs;
+#     their relative-import closure adds scripts/appblocks-util.mjs and
+#     scripts/lib/{description-has-table,readme-hook-sections}.mjs, and they
+#     read appblocks-snapshots/** at build time. (Derived by walking the
+#     relative imports of those generators, and grepping them for the files
+#     they read.)
+#
+# Deliberately NOT listed: inputs that change only the .md twins or other pages
+# (scripts/lib/twin-links.mjs, the OpenAPI spec pipeline, the scopes /
+# manifest / messages generators). They can break the BUILD, which build-site
+# (unfiltered, required) catches; they do not change what these tests observe.
 on:
   pull_request:
     paths:
@@ -30,6 +52,17 @@ on:
       - '.vitepress/theme/**'
       - '.vitepress/config.mts'
       - 'scripts/test-showcase-e2e.mjs'
+      - 'apps/guide/quickstart.md'
+      - 'apps/reference/**'
+      - 'appblocks-snapshots/**'
+      - 'scripts/gen-appblocks.mjs'
+      - 'scripts/gen-appblocks-hooks.mjs'
+      - 'scripts/gen-appblocks-cli.mjs'
+      - 'scripts/gen-appblocks-bridge.mjs'
+      - 'scripts/appblocks-util.mjs'
+      - 'scripts/lib/description-has-table.mjs'
+      - 'scripts/lib/readme-hook-sections.mjs'
+      - 'scripts/test-reference-forward-e2e.mjs'
       - '.github/workflows/showcase-e2e.yml'
   push:
     branches: [main]
@@ -42,6 +75,17 @@ on:
       - '.vitepress/theme/**'
       - '.vitepress/config.mts'
       - 'scripts/test-showcase-e2e.mjs'
+      - 'apps/guide/quickstart.md'
+      - 'apps/reference/**'
+      - 'appblocks-snapshots/**'
+      - 'scripts/gen-appblocks.mjs'
+      - 'scripts/gen-appblocks-hooks.mjs'
+      - 'scripts/gen-appblocks-cli.mjs'
+      - 'scripts/gen-appblocks-bridge.mjs'
+      - 'scripts/appblocks-util.mjs'
+      - 'scripts/lib/description-has-table.mjs'
+      - 'scripts/lib/readme-hook-sections.mjs'
+      - 'scripts/test-reference-forward-e2e.mjs'
       - '.github/workflows/showcase-e2e.yml'
   workflow_dispatch: {}
 
@@ -96,3 +140,15 @@ jobs:
           PLAYWRIGHT_CHROMIUM_PATH="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")"
           export PLAYWRIGHT_CHROMIUM_PATH
           npm run test:showcase:e2e
+
+      # The split-reference hubs forward an entry's OLD deep link
+      # (`/apps/reference/hooks#hook-useTip`) to its sub-page in the browser —
+      # and Back must still leave (a pushState forward once trapped it). Reuses
+      # the build and the Chromium installed above.
+      - name: Split-reference old-anchor forwarding E2E (incl. Back)
+        env:
+          REFERENCE_E2E_REQUIRE_BROWSER: '1'
+        run: |
+          PLAYWRIGHT_CHROMIUM_PATH="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")"
+          export PLAYWRIGHT_CHROMIUM_PATH
+          npm run test:reference:e2e

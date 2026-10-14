@@ -41,7 +41,7 @@ and a `submit` that rejects has an **unknown** outcome (the run may exist).
 ## The happy path
 
 The smallest possible generation is a checkpoint + a prompt. You submit it
-through [`useBuzzWorkflow()`](../reference/generation#bridge-useBuzzWorkflow),
+through [`useBuzzWorkflow()`](../reference/generation/lifecycle#bridge-useBuzzWorkflow),
 which takes a full `WorkflowBody` — the discriminated union keyed by `kind`:
 
 ```tsx
@@ -141,7 +141,7 @@ Both `modelId` and `modelVersionId` are required even though they look
 redundant: the host validates that `modelId` matches the token's bound model
 **and** that the version belongs to it. On a model slot you already have both
 from `useBlockContext().context`; on a page app you obtain them from a
-[resource picker](../reference/hooks#hook-useResourcePicker).
+[resource picker](../reference/hooks/storage-and-media#hook-useResourcePicker).
 
 ## Generation parameters
 
@@ -150,7 +150,7 @@ optional — the host fills sensible defaults (sampler `Euler`, 25 steps,
 family-appropriate dimensions), so the simplest block sends only a prompt. Each
 bound below is **server-enforced** (over-limit values are rejected before any
 Buzz is spent); the authoritative list is the
-[reference table](../reference/generation#bridge-BlockTextToImageParams).
+[reference table](../reference/generation/bodies#bridge-BlockTextToImageParams).
 
 | field | range | default |
 |---|---|---|
@@ -393,7 +393,7 @@ export function MultiImageEdit({ modelId, modelVersionId }: { modelId: number; m
 
 `useBuzzWorkflow()` runs estimate → confirm → submit → watch. You drive each
 step; once a workflow is running, `watch()` owns the polling loop. Full return
-in the [reference](../reference/generation#bridge-useBuzzWorkflow); the members
+in the [reference](../reference/generation/lifecycle#bridge-useBuzzWorkflow); the members
 you drive:
 
 - **`estimate(body)`** — a host-side whatIf price. `status` goes
@@ -473,13 +473,13 @@ network error, distinguishable only by `err.snapshot.error`'s server-authored
 text. So the rejection alone cannot tell you the viewer is short.
 
 Decide from the **balance** instead. The happy path reads it with
-[`useBuzzBalance()`](../reference/hooks#hook-useBuzzBalance) and offers
+[`useBuzzBalance()`](../reference/hooks/buzz-and-purchases#hook-useBuzzBalance) and offers
 `openPurchaseModal()` only when the Buzz the block can **spend** is below the
 quoted `cost.total`. A block spends `blue` plus **one** paid pool, chosen by the
 domain's maturity **ceiling** — `green` on an SFW ceiling, `yellow` on a mature
 one, never both — so do not add all three pools. Read the ceiling as
 `maxBrowsingLevel` from
-[`useDomainMaturity()`](../reference/hooks#hook-useDomainMaturity) and test it
+[`useDomainMaturity()`](../reference/hooks/viewer-and-navigation#hook-useDomainMaturity) and test it
 with `isSfwCeiling` from `@civitai/app-sdk/blocks` (an unknown ceiling counts as
 SFW, as on the server). Two look-alikes must **not** choose the pool:
 - **`domain` is informational only.** On civitai.red a block can be told
@@ -500,7 +500,7 @@ Branch on `err.snapshot.errorCode` (`'training-quote-rejected'`,
 `'training-quote-unavailable'` or `'training-quote-unpriced'`), not on the
 `error` text, and keep a default branch for a code a later host adds; see
 "Why a training step could not be priced" under
-[`useBuzzWorkflow`](../reference/hooks#hook-useBuzzWorkflow).
+[`useBuzzWorkflow`](../reference/hooks/generation#hook-useBuzzWorkflow).
 
 A registered step (`kind: 'step'` with a `step` id such as `chat-completion`)
 that the orchestrator would not quote rejects from `estimate()` the same way,
@@ -511,7 +511,7 @@ declared price. Its submit needs a quote too, and fails without one, with no
 [Estimating a registered step](../reference/generation#registered-step-estimate).
 A [multi-step workflow](./workflows#refusals) does the same with
 `workflow_quote_*` codes. The
-[`useBuzzWorkflow` reference](../reference/generation#bridge-useBuzzWorkflow)
+[`useBuzzWorkflow` reference](../reference/generation/lifecycle#bridge-useBuzzWorkflow)
 lists every resolved refusal and each `WorkflowSubmitError` `code` with what it
 says about money.
 
@@ -569,14 +569,14 @@ and 64 are in
 :::
 
 The reference entry is
-[`SubmitWorkflowOptions`](../reference/generation#bridge-SubmitWorkflowOptions).
+[`SubmitWorkflowOptions`](../reference/generation/lifecycle#bridge-SubmitWorkflowOptions).
 
 ## What you get back — the result shape
 
 Both `submit` and `poll` resolve with a `BlockWorkflowSnapshot` — a **flattened
 subset** of the orchestrator's workflow that the host maps down before it
 crosses the boundary. The fields you render (full list in the
-[reference](../reference/generation#bridge-BlockWorkflowSnapshot)):
+[reference](../reference/generation/lifecycle#bridge-BlockWorkflowSnapshot)):
 
 - **`status`** — `'pending' | 'processing' | 'succeeded' | 'failed' |
   'expired' | 'canceled'`.
@@ -614,7 +614,7 @@ reloads), read the per-app subqueue with `useAppWorkflows()`. It returns a
 wire-stable `AppWorkflow[]` projection — `workflowId`, `status`, `images`
 (only `available` blobs with a URL), `cost`, `createdAt` — with every internal
 field (steps, params, prompts, resources) deliberately dropped. The full shape
-is in the [reference](../reference/generation#bridge-AppWorkflow).
+is in the [reference](../reference/generation/lifecycle#bridge-AppWorkflow).
 
 ## Budget model
 
@@ -646,10 +646,10 @@ generation, where a later step reads an earlier one's result, use a
 against the limits below.) Two hooks cover the rest of a
 grid:
 
-- [`useBatchEstimate()`](../reference/hooks#hook-useBatchEstimate) prices up to
+- [`useBatchEstimate()`](../reference/hooks/batches-and-training#hook-useBatchEstimate) prices up to
   16 bodies in **one** request against the estimate allowance. Its run total is
   a quote, not a lock: each cell is priced again when it is submitted.
-- [`useWorkflowBatch()`](../reference/hooks#hook-useWorkflowBatch) watches up to
+- [`useWorkflowBatch()`](../reference/hooks/batches-and-training#hook-useWorkflowBatch) watches up to
   30 submitted workflows and cancels them together. It is still one `watch()`
   and one `cancel()` per workflow underneath, so the poll and estimate limits
   below apply to each of those calls. See [Watching and cancelling a grid](#watch-cancel-grid).
@@ -677,7 +677,7 @@ Civitai can also set a per-app override of the two app-wide values. The 60 s and
 on each clock minute.
 
 The resolved refusals above are all case 1 in the
-[resolved `'failed'` list](../reference/generation#bridge-useBuzzWorkflow): the
+[resolved `'failed'` list](../reference/generation/lifecycle#bridge-useBuzzWorkflow): the
 placeholder `workflowId`, nothing charged, every reservation released. As
 [refused submits](#refused-submits) explains, `error` is server-authored text,
 not a contract. Log it and show your own copy; don't branch on its wording.
@@ -721,7 +721,7 @@ app is live, so write the handling before you need it.
 
 ### Watching and cancelling a grid {#watch-cancel-grid}
 
-[`useWorkflowBatch(workflowIds)`](../reference/hooks#hook-useWorkflowBatch)
+[`useWorkflowBatch(workflowIds)`](../reference/hooks/batches-and-training#hook-useWorkflowBatch)
 follows the workflows your cells submitted and returns
 `{ cells, summary, cancelAll, rewatch }`. There is no server-side batch id: the
 array of ids **is** the batch. Append each id as its `submit()` resolves, skip

@@ -39,6 +39,7 @@ import CliReference from './components/CliReference.vue';
 import MessageTable from './components/MessageTable.vue';
 import HooksReference from './components/HooksReference.vue';
 import BridgeReference from './components/BridgeReference.vue';
+import ReferenceIndex from './components/ReferenceIndex.vue';
 import ComponentDemo from './components/ComponentDemo.vue';
 import ElementDemo from './components/ElementDemo.vue';
 import TokenGallery from './components/TokenGallery.vue';
@@ -81,6 +82,8 @@ export default {
     ctx.app.component('MessageTable', MessageTable);
     ctx.app.component('HooksReference', HooksReference);
     ctx.app.component('BridgeReference', BridgeReference);
+    // The index on a split reference hub (hooks / CLI / generation bridge).
+    ctx.app.component('ReferenceIndex', ReferenceIndex);
 
     // Design-system showcase surfaces.
     ctx.app.component('ComponentDemo', ComponentDemo);
