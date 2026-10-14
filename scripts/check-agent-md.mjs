@@ -204,19 +204,12 @@ function normInline(s) {
  * markdown, so it is normalised recursively), everything else is prose. Fence
  * delimiter lines themselves are dropped on both sides.
  */
-// A same-page link's TARGET is not compared, only its text. The README's
-// `#usex` fragments name README headings, which this page does not have, so
-// appblocks-md.mjs (`rewriteHookAnchors`) deliberately rewrites them to this
-// page's `#hook-<name>` ids and the twin cannot carry them verbatim. Applied to
-// both sides; the rewrite itself is pinned by test:appblocks:hooks.
-const SAME_PAGE_LINK = /\]\(#[^)\s]*\)/g;
-
 function normBlocks(md) {
   const lines = String(md ?? '').split('\n');
   const parts = [];
   let prose = [];
   const flush = () => {
-    if (prose.length) parts.push(normInline(prose.join('\n').replace(SAME_PAGE_LINK, '](#)')));
+    if (prose.length) parts.push(normInline(prose.join('\n')));
     prose = [];
   };
   for (let i = 0; i < lines.length; i++) {
@@ -289,6 +282,21 @@ function entryOf(name) {
   return normBlocks(twinLines.slice(s + 1, e).join('\n'));
 }
 
+// The ONE intended divergence: a description's README link to a sibling hook
+// (`](#usex)`, GitHub's slug for `### \`useX()\``) is rewritten in the twin to
+// this page's `](#hook-useX)` id (appblocks-md.mjs `rewriteHookAnchors`). The
+// expectation is derived HERE, from hooks.json's own names, not imported from the
+// generator, and only for an exact `#<lowercased hook name>` fragment — every
+// other link must still match exactly. Not applied where the twin carries the
+// text verbatim in an `md` fence, where a link is code text: `notes`, and a
+// description flagged `descriptionHasTable`.
+const hookBySlug = new Map(hooks.map((h) => [h.name.toLowerCase(), h.name]));
+function expectedHookAnchors(text) {
+  return String(text).replace(/\]\(#([^)\s]+)\)/g, (m, slug) =>
+    hookBySlug.has(slug) ? `](#hook-${hookBySlug.get(slug)})` : m,
+  );
+}
+
 const lost = [];
 let pieces = 0;
 for (const h of hooks) {
@@ -298,7 +306,7 @@ for (const h of hooks) {
     continue;
   }
   const want = [];
-  if (h.description) want.push(['description', normBlocks(h.description)]);
+  if (h.description) want.push(['description', normBlocks(h.descriptionHasTable ? h.description : expectedHookAnchors(h.description))]);
   (h.notes ?? []).forEach((n, k) => {
     want.push([`notes[${k}]`, n.kind === 'text' ? normBlocks(n.text) : String(n.code ?? '').replace(/\s+/g, ' ').trim()]);
   });
