@@ -238,11 +238,14 @@ sized to today's estimate into a hard outage.
 
 Practical notes:
 
-- **Omitting it** on a page that declares `ai:write:budgeted` mints tokens with a
-  **10 Buzz** fallback budget, which is below almost any real generation — so
-  every submit fails. `civitai app validate` warns about this.
-- The server **clamps** the budget to the platform per-gen cap (**1000** today),
-  so you cannot set an unsafe value by being generous.
+- **Omitting it** on a page that declares `ai:write:budgeted` mints tokens with
+  the platform's **default** per-call budget, which a viewer is never asked to
+  confirm and which can change without your app being re-reviewed. Declare the
+  budget your generations actually need. `civitai app validate` warns when it is
+  omitted.
+- The server **clamps** the budget to the platform per-call **cap**, so you
+  cannot set an unsafe value by being generous. The current default and cap are
+  in the [limits table](../guide/text-to-image#limits-table).
 - It bounds **one generation only.** Cumulative spend is separately capped **per
   viewer per day** and **per app**, so a high per-gen ceiling does not widen
   total exposure.

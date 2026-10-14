@@ -656,7 +656,7 @@ grid:
 
 ### The limits {#limits-table}
 
-Values at civitai `a16265aaa4`, 2026-10-08. They can change, and the per-app
+Values at civitai `3c6d553986`, 2026-10-14. They can change, and the per-app
 values depend on the app's spend tier. Every app starts on `standard`.
 
 | Limit | Value | Keyed on | Tier | What your app sees when it trips |
@@ -819,11 +819,13 @@ Watching 16 workflows at once is at most 16 × 40 = **640 polls a minute**,
 about half of the 1,200 allowed for one viewer, so one viewer can watch up to
 1,200 / 40 = **30 workflows** before polls start returning placeholders (and
 even then nothing breaks, `watch()` just updates more slowly). A full grid's
-estimates are 16 of 150 per 10 s. Spend is the other bound: 16 cells at a
-1,000-Buzz budget is at most 16,000 Buzz, under one viewer's 50,000 a day.
+estimates are 16 of 150 per 10 s. Spend is the other bound: a grid can reserve
+up to 16 × your per-call budget against one viewer's 50,000 a day. At a budget
+of 3,125 or less a full grid fits; above that, the per-viewer daily cap can
+refuse cells partway through a single grid.
 
-So submitting a 16-cell grid in one go is within every per-viewer limit. A
-lower per-viewer concurrency does not change your exposure to the shared app
+So with a per-call budget of 3,125 or less, submitting a 16-cell grid in one go
+is within every per-viewer limit. A lower per-viewer concurrency does not change your exposure to the shared app
 velocity limit, which the steps above handle.
 
 ### Posting and image-upload limits {#posting-limits}

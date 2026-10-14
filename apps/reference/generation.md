@@ -130,7 +130,8 @@ members, and they are the whole surface:
 `workflow` is the multi-step member: the same denylist as the pass-through arm
 runs on every step, references may only point at `$arguments` or an earlier
 step, and there is no `maxBuzz` (the ceiling is the per-generation budget × the
-number of steps). The guide is [Multi-step workflows](../guide/workflows); the
+number of steps, with a fixed per-call maximum on top; see
+[What it costs](../guide/workflows#what-it-costs)). The guide is [Multi-step workflows](../guide/workflows); the
 field table is at [`WorkflowBodyWorkflow`](./generation/training-and-multi-step#bridge-WorkflowBodyWorkflow).
 
 `training` ships behind the host flag **`app-blocks-training-kind`**, which is

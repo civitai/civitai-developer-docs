@@ -36,9 +36,9 @@ const BINDING_NOTES = {
   'apps:storage:shared:write':
     "Scoped to this app's shared (cross-user) store; min-trust gate + fail-closed flag. Never minted for dev-tunnel / dev-token sessions.",
   'apps:storage':
-    "Scoped to this app's own document store (reads, the viewer's private collections, marks and counters). Consent-exempt. Required by any manifest that declares a `storage` collection.",
+    "Scoped to this app's own document store (reads, the viewer's private collections, marks and counters). Consent-exempt. Required by any manifest that declares a `storage` collection. The store's routes answer `503 storage_disabled` on a host where the store is not enabled.",
   'apps:storage:publish':
-    "Create or edit documents in this app's SHARED collections as the viewer. Sensitive (needs a justification) and consent-gated: granted only after the viewer approves it for this app. Required by a shared collection whose `write` is not `owner`.",
+    "Create or edit documents in this app's SHARED collections as the viewer. Sensitive (needs a justification) and consent-gated: granted only after the viewer approves it for this app. Required by a shared collection whose `write` is not `owner`. The store's routes answer `503 storage_disabled` on a host where the store is not enabled.",
   'collections:read:self':
     "Self-bound; public collections + the viewer's own public collections. Consent-exempt (server visibility/ownership is the gate).",
   'collections:write:self':
