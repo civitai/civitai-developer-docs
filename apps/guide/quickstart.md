@@ -3,7 +3,7 @@ title: Quickstart
 description: Scaffold a Civitai App with the civitai CLI — web components and @civitai/sdk by default, React on request — run it against the local mock host, and build it.
 sources:
   - go:github.com/civitai/cli#app
-  - npm:@civitai/sdk@0.11.0/dist/index.d.ts
+  - npm:@civitai/sdk@0.12.0/dist/index.d.ts
   - npm:@civitai/components@0.9.2/custom-elements.json
   - npm:@civitai/blocks-react@0.72.2#README
   - npm:@civitai/app-sdk@0.68.0/vite#blockManifestPlugin
@@ -180,8 +180,11 @@ messages.
 `register` does not define every element — see
 [which import defines which](./elements#register-the-elements). Next, add UI
 from the [elements guide](./elements) and data from
-[`app.site`](./sdk#app-site-the-rest-api). Spending Buzz needs a consent call and
-an idempotency key — [Money calls](./sdk#money-calls) shows both.
+[`app.site`](./sdk#app-site-the-rest-api). Generating goes through
+`app.workflows`, which needs `@civitai/sdk` 0.12.0 or later (run
+`npm ls @civitai/sdk`; if it is older, `npm install @civitai/sdk@^0.12.0`).
+Spending Buzz needs a consent call and an idempotency key —
+[Money calls](./sdk#money-calls) shows both.
 
 ## 4. Validate the manifest
 

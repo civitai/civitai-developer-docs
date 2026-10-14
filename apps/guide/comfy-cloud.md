@@ -243,7 +243,8 @@ the host funds it from the default order.
 ## Submitting a generation
 
 Submit through the **same** `useBuzzWorkflow()` hook as text-to-image — only
-the `body` differs:
+the `body` differs. (On the default `page-elements` template the same body goes
+through `app.workflows` in `@civitai/sdk`; see [Money calls](./sdk#money-calls).)
 
 ```tsx
 import { useState } from 'react';

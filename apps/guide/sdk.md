@@ -1,11 +1,12 @@
 ---
 title: The @civitai/sdk client
-description: What a block does with @civitai/sdk — initialize(), app.onChange, app.host, app.site, app.requestGrants and the idempotency key every money call needs.
+description: What a block does with @civitai/sdk — initialize(), app.onChange, app.host, app.site, app.requestGrants, and app.workflows for generation, with the idempotency key every submit needs.
 sources:
-  - npm:@civitai/sdk@0.11.0/dist/index.d.ts
-  - npm:@civitai/sdk@0.11.0/dist/app/index.d.ts
-  - npm:@civitai/sdk@0.11.0/dist/host/index.d.ts
-  - npm:@civitai/sdk@0.11.0#README
+  - npm:@civitai/sdk@0.12.0/dist/index.d.ts
+  - npm:@civitai/sdk@0.12.0/dist/app/index.d.ts
+  - npm:@civitai/sdk@0.12.0/dist/host/index.d.ts
+  - npm:@civitai/sdk@0.12.0/dist/workflows/index.d.ts
+  - npm:@civitai/sdk@0.12.0#README
   - npm:@civitai/app-sdk@0.68.0/blocks#isValidBlockIdempotencyKey
   - civitai:src/pages/api/v1/blocks/workflows/submit.ts
 ---
@@ -79,6 +80,7 @@ lists the harness origin for you.
 | `app.onChange(listener)` | subscribes to changes in any of the above; returns an unsubscribe function |
 | `app.host` | the host's own UI: pickers, uploads, sign-in, navigation, sizing |
 | `app.site` | the Civitai REST API at `/api/v1`, with the app's token |
+| `app.workflows` | generation for a block, through the host's block workflow routes — see [money calls](#money-calls) |
 | `app.storage` / `app.sharedStorage` | per-viewer and cross-viewer app storage |
 | `app.requestGrants(scopes, opts?)` | asks the viewer for more scopes |
 | `app.getToken(opts?)` | the token, for a call this client does not make itself |
@@ -105,7 +107,7 @@ The calls on this page need:
 |---|---|---|
 | `app.site.get('blocks/me')` | `user:read:self` | yes |
 | `app.site.get('blocks/gated-images', …)` | none | — |
-| `app.site.post('blocks/workflows/submit', …)` | `ai:write:budgeted` | yes |
+| `app.workflows` (`estimate`, `submit` and the rest) | `ai:write:budgeted` | yes |
 
 Adding or changing a scope needs a new review once the app is published. The
 [scopes reference](../reference/scopes) lists every scope.
@@ -243,19 +245,44 @@ async function askConsent(app: BlockAppClient, scopes: Scope[]): Promise<boolean
 ```
 
 `Scope` is a typed union, so a misspelt scope fails to compile. In
-`@civitai/sdk@0.11.0` it does **not** include the goods scopes
+`@civitai/sdk@0.12.0` it does **not** include the goods scopes
 (`goods:purchase:self`, `goods:read:self`) or `apps:store:items:write`, so
 asking for one needs a cast: `'goods:purchase:self' as Scope`. (The sub-listings
 scope is consent-exempt, so there is nothing to ask for.)
 
 ## Money calls
 
-`@civitai/sdk` has no Buzz-workflow helper. A block spends through the
-`/api/v1/blocks/*` routes with `app.site`, which apply the per-call Buzz budget,
-the daily caps and the app's attribution tag. Submitting needs
-`ai:write:budgeted` [declared](#declare-scopes) in the manifest and granted;
-undeclared, the `askConsent` call below resolves `false` and `generate()`
-returns `null` without sending anything.
+A block generates with **`app.workflows`**, which `@civitai/sdk` has from
+`0.12.0`. It goes through the host's `/api/v1/blocks/workflows/*` routes, so
+the host prices the work, holds it to the viewer's and the app's budgets, tags
+it as this app's and submits it. The block never calls the orchestrator.
+
+| Call | Does |
+|---|---|
+| `estimate(body)` | Prices the body. `snapshot.cost.total` is whole Buzz. Nothing is charged or reserved |
+| `submit(body, { idempotencyKey })` | Runs it, spending the viewer's Buzz |
+| `get(workflowId)` | The workflow as it stands now |
+| `watch(workflowId)` | An async iterator: the workflow now, then each time it changes, until a final status |
+| `wait(workflowId)` | The last value of `watch`: the final snapshot, whichever status it is |
+| `cancel(workflowId)` | Stops it on the orchestrator and resolves with the workflow as it now stands |
+| `list({ cursor?, limit? })` | A page of the workflows this app ran for this viewer, as `{ workflows, cursor }` |
+
+Every body kind goes through the same seven calls, a multi-step
+[`kind: 'workflow'`](./workflows#on-civitai-sdk) included. The body and reply
+types (`WorkflowBody`, `BlockWorkflowSnapshot` and the rest) are exported from
+`@civitai/sdk`.
+
+It needs two things:
+
+- **The block token.** That is the token a block holds by default. A block
+  whose manifest declares [`auth: "oauth"`](./porting#auth-field) and is handed
+  an OAuth access token is answered `401` on every `app.workflows` call. Such
+  a block generates through `app.orchestration` instead, as its own principal
+  and without the controls above; a block that wants `app.workflows` does not
+  declare `auth: "oauth"`.
+- **The `ai:write:budgeted` scope**, [declared](#declare-scopes) in the manifest
+  and granted. Undeclared, the `askConsent` call below resolves `false` and
+  `generate()` returns `null` without sending anything.
 
 ::: danger Not `app.orchestration`
 `app.orchestration` calls the orchestrator directly and carries none of those
@@ -266,49 +293,128 @@ holding an OAuth token, where the substitution type-checks and works. See
 [Transport models](./concepts#transport-models).
 :::
 
-Every money call carries an **idempotency key**: one per intent, minted **before**
-the first attempt and sent **unchanged** on every retry. A retry with a new key is
-a second reservation of the viewer's Buzz. The key must match
-`^[A-Za-z0-9_-]{1,64}$` — `crypto.randomUUID()` does; check a key you compose
-yourself with `isValidBlockIdempotencyKey` from `@civitai/app-sdk/blocks`.
-`POST blocks/workflows/submit` refuses a request without one.
-
 ```ts
-import type { BlockAppClient } from '@civitai/sdk';
-import type { BlockWorkflowSnapshot, WorkflowBody } from '@civitai/app-sdk/blocks';
+import type { BlockAppClient, BlockWorkflowSnapshot, WorkflowBody } from '@civitai/sdk';
 
-type Submitted = { snapshot: BlockWorkflowSnapshot; submissionUnconfirmed?: true };
-
-async function generate(app: BlockAppClient, body: WorkflowBody) {
+/**
+ * `idempotencyKey` is minted by the caller when the viewer presses the button
+ * (`crypto.randomUUID()`), and kept by the caller: if `submit` rejects, the
+ * retry of that press calls this again with the SAME key.
+ */
+async function generate(
+  app: BlockAppClient,
+  body: WorkflowBody,
+  idempotencyKey: string
+): Promise<BlockWorkflowSnapshot | null> {
   if (!(await askConsent(app, ['ai:write:budgeted']))) return null; // nothing was sent
-  const idempotencyKey = crypto.randomUUID(); // once per generation
-  const submit = () =>
-    app.site.post<Submitted>('blocks/workflows/submit', { body, idempotencyKey });
-  const { snapshot, submissionUnconfirmed } = await submit(); // retry: same key, one charge
-  if (submissionUnconfirmed) return null; // training only: it may be running; don't resubmit blind
-  if (snapshot.workflowId === 'failed') {
-    // Refused before anything ran (budget or cap) — a 200, not a throw.
-    console.warn('submit refused:', snapshot.error); // log `error`; don't render it
+
+  // 1. Price it. Nothing is charged or reserved.
+  const estimate = await app.workflows.estimate(body);
+  if (estimate.status === 'failed') {
+    // A refusal RESOLVES. Log `error`; don't render it.
+    console.warn('estimate refused:', estimate.errorCode, estimate.error);
     return null;
   }
-  return snapshot; // a real id: follow it, even if its status is already 'failed'
+  if (!(await confirmSpend(estimate.cost?.total))) return null;
+
+  // 2. Run it.
+  const submitted = await app.workflows.submit(body, { idempotencyKey });
+  if (submitted.status === 'failed') {
+    // The placeholder id 'failed': the host refused this request before
+    // submitting it. A real id: a run was created and came back failed.
+    console.warn('submit failed:', submitted.workflowId, submitted.errorCode, submitted.error);
+    return submitted;
+  }
+
+  // 3. Follow it to a final status, whichever it is.
+  return app.workflows.wait(submitted.workflowId);
 }
 ```
 
-The `WorkflowBody` shapes, what each costs and how a workflow is followed to its
-result are in the [generation bridge reference](../reference/generation).
+The `WorkflowBody` shapes and what each costs are in the
+[generation bridge reference](../reference/generation); the multi-step kind is
+in [Multi-step workflows](./workflows).
 
-**A refused submit resolves; it does not reject.** A submit priced above the
-token's per-call Buzz budget, or over a per-viewer or per-app daily cap, comes
-back as `200` with a snapshot whose `status` is `'failed'`, whose `workflowId` is
-the placeholder `'failed'` (no workflow started — there is nothing to follow),
-and whose `error` says why. Branch on the placeholder id, not on `status` alone:
-a `'failed'` status with a **real** `workflowId` is a workflow that was created
-and failed, and you follow it like any other. The one placeholder that does not
-mean "nothing ran" carries `submissionUnconfirmed: true` beside the snapshot — a
-training submit whose outcome is unknown and may be running, so check before you
-retry. `error` is server-authored and unsanitised: log it, and show the viewer
-copy your app owns.
+### The idempotency key
+
+`submit` spends Buzz, so it requires an `idempotencyKey` and refuses to send
+without one. The key is what lets the host recognise a submit that was sent
+twice (a retry after a dropped connection, a double press) as one request.
+
+- Mint it **once per thing the viewer asked for**, keep it until that press has
+  a known outcome, and send it **unchanged** on every retry. A key minted
+  inside a retry loop, or a fresh key for "try again" after an error, protects
+  nothing: to the host that is a new generation.
+- It must match `^[A-Za-z0-9_-]{1,64}$`, with no colons. `crypto.randomUUID()`
+  fits; check a key you compose yourself with `isValidBlockIdempotencyKey` from
+  `@civitai/app-sdk/blocks`. The host answers `400` for anything else, and the
+  client sends the key exactly as given.
+- For a `kind: 'training'` body, or a step body carrying a `quoteId`, the key
+  is **not** the run's identity: the confirmed quote or the training run is.
+  Those two also need a quote the viewer has confirmed in the host's own
+  dialog before they are submitted, and `app.workflows` has no call for that
+  confirmation step.
+
+### When `submit` rejects, the outcome is unknown {#submit-rejects}
+
+`generate()` above lets a rejection from `submit` reach its caller. That
+rejection has **not** said the run does not exist. The host refuses a bad
+request before it submits anything, but the reply does not say whether a
+rejection came before or after the orchestrator was called, so treat every
+rejected `submit` as unknown: an `ApiError` with a `5xx` or a `409`, and a
+request that got no answer at all, each leave a workflow that may exist. Do
+one of two things, and never mint a new key for that press:
+
+1. **Retry `submit` with the same `idempotencyKey`** (after a `409`, wait
+   first: the earlier attempt is still in flight).
+2. **Or look for the run** with `app.workflows.list()` before treating the
+   press as failed.
+
+Matching a repeated key to a run the first attempt created is done by the host
+and the orchestrator, and it is not guaranteed. `list()` is the check that does
+not depend on it.
+
+One rejection is its own class. `SubmissionUnconfirmedError` (exported from
+`@civitai/sdk`) means the host could not confirm whether the run was created:
+it may be running, and the viewer may have been charged. It is reported for a
+`kind: 'training'` body or a step body carrying a `quoteId`. Do not resubmit as
+a reflex and do not tell the viewer nothing was spent; look for the run with
+`list()` first.
+
+Those are the rules in brief. The package README is the copy to work from when
+you write the `catch`: it has the full reasoning, what the host does and does
+not promise about matching a repeated key, and a worked example that tracks
+whether any attempt for a press ended unknown. Read
+[When a submit rejects](https://github.com/civitai/civitai-app-starters/blob/main/packages/civitai-sdk/README.md#when-a-submit-rejects-the-outcome-is-unknown),
+[When a submit could not be confirmed](https://github.com/civitai/civitai-app-starters/blob/main/packages/civitai-sdk/README.md#when-a-submit-could-not-be-confirmed)
+and
+[The idempotency key](https://github.com/civitai/civitai-app-starters/blob/main/packages/civitai-sdk/README.md#the-idempotency-key)
+there. The same README ships in the installed package, at
+`node_modules/@civitai/sdk/README.md`.
+
+### Reading a refusal
+
+**A refusal resolves; it does not reject.** When the host declines to price
+or run a body it answers `200` with a snapshot whose `status` is `'failed'`,
+and `estimate`, `submit`, `get`, `wait` and `cancel` all resolve with it. So
+branch on `snapshot.status` rather than wrapping the call in `try`. A submit
+priced above the token's per-call Buzz budget, or over a per-viewer or per-app
+daily cap, is refused this way, with the placeholder `workflowId` `'failed'`
+and an `error` that says why.
+
+A `failed` snapshot from `submit` is one of two things, told apart by
+`workflowId`:
+
+- **The placeholder id `'failed'`**: the host refused *this request* before
+  submitting it, and there is no workflow to follow. On the first attempt for a
+  press, that means nothing was charged. It says nothing about an earlier
+  attempt for the same press that [ended unknown](#submit-rejects).
+- **A real id**: a run was created and came back failed, and Buzz may have been
+  spent. Follow it like any other.
+
+`error` is server-authored and unsanitised: log it, and show the viewer copy
+your app owns. `errorCode`, when the refusal defines one, is the stable value
+to branch on.
 
 A refusal's `cost.total` is what the submit would have **reserved**, which is
 not always a price. For text-to-image and training it is the quote. For Comfy
@@ -338,7 +444,7 @@ the app, not the wallet. A viewer short of Buzz instead gets a **rejection**: an
 `app.site.get('blocks/buzz')` (scope `buzz:read:self`, consent-gated) answers
 `{ blue, green, yellow }`; compare `blue` plus one paid pool — `green` under an
 SFW maturity ceiling, `yellow` under a mature one, SFW if unknown — with the
-`blocks/workflows/estimate` quote. See also
+`app.workflows.estimate()` quote. See also
 [Refused submits](./text-to-image#refused-submits).
 
 ## Next

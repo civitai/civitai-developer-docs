@@ -33,6 +33,30 @@ boundary, re-checking scope + budget every time. Your block never holds an
 orchestrator credential.
 :::
 
+::: info Sending a body from `@civitai/sdk`
+The tables below name the React hook. On the default `page-elements` template
+the same `WorkflowBody` goes through `app.workflows` in `@civitai/sdk` (0.12.0
+or later), and the same `BlockWorkflowSnapshot` comes back. Both types are
+exported from `@civitai/sdk`.
+
+| `useBuzzWorkflow()` member | `@civitai/sdk` call |
+|---|---|
+| `estimate(body)` | `app.workflows.estimate(body)` |
+| `submit(body, options?)` | `app.workflows.submit(body, { idempotencyKey })` — the key is required |
+| `poll(workflowId)` | `app.workflows.get(workflowId)` |
+| `watch(workflowId)` | `app.workflows.wait(workflowId)` for the final snapshot, or `app.workflows.watch(workflowId)` to iterate each change |
+| `cancel(workflowId)` | `app.workflows.cancel(workflowId)` |
+
+The hook **rejects** some refusals, with `WorkflowEstimateError` or
+`WorkflowSubmitError`. `app.workflows` does not reject for a refusal: when the
+host declines a body it answers with a `failed` snapshot and the call
+**resolves** with it, so check `snapshot.status`, then read
+`snapshot.errorCode`. An HTTP error status rejects with `ApiError`.
+`app.workflows` has no call for the host dialogs that `useRunTraining()` and
+`useRunConfirmedStep()` open. [Money calls](../guide/sdk#money-calls) has the
+calling code, the token it needs and what to do when a `submit` rejects.
+:::
+
 <BridgeReference>
 <!-- BEGIN GENERATED: bridge — markdown fallback for the .md/LLM channel. Do not edit by hand; run `npm run gen:appblocks:md`. -->
 
@@ -485,7 +509,8 @@ than what the submit would reserve). When the host gets no quote, the estimate
 with **no `cost`**, `{ workflowId: 'failed', status: 'failed', error, errorCode }`.
 `useBuzzWorkflow().estimate` rejects it with `WorkflowEstimateError`, and
 `useBatchEstimate()` marks that cell `ok: false`. Branch on
-`err.snapshot.errorCode`:
+`err.snapshot.errorCode`. (`app.workflows.estimate` in `@civitai/sdk` resolves
+with that snapshot instead; branch on its `errorCode`.)
 
 | `errorCode` | Means | Retry the same body? |
 |---|---|---|
@@ -821,6 +846,11 @@ want exactly what it does.
 
 ## Retrying a `submit()` without double-charging
 
+This section is the React hook. In `@civitai/sdk`,
+`app.workflows.submit(body, { idempotencyKey })` has no default key: it requires
+one and refuses to send without it, and its retry rules are under
+[Money calls](../guide/sdk#submit-rejects).
+
 `submit(body, options?)` takes a second argument —
 [`SubmitWorkflowOptions`](#bridge-SubmitWorkflowOptions) — whose one field is
 about **money**:
@@ -881,8 +911,8 @@ never generates at all, rather than generating and double-charging.
 The **same** charset governs every idempotency key the platform accepts, on all
 four surfaces that take one: the `useBuzzWorkflow().submit()` bag documented
 here, the REST `POST /api/v1/blocks/workflows/submit` body (where the field is
-**required**, not optional), `useGoodPurchase().purchase()`, and
-`useTip().tip()`.
+**required**, not optional; `app.workflows.submit` in `@civitai/sdk` sends this
+body), `useGoodPurchase().purchase()`, and `useTip().tip()`.
 
 The payload above is what the bridge path returns. The three **REST** routes
 validate the same pattern but report it in their own envelope — a `400` with

@@ -25,6 +25,17 @@ closed beta. You can scaffold and run the whole flow against the local mock host
 today; **real** Buzz generation needs closed-beta builder access.
 :::
 
+::: info On the default template (`@civitai/sdk`)
+The examples on this page are React (`useBuzzWorkflow()` from
+`@civitai/blocks-react`, the `page-money` template). The default
+`page-elements` template sends the same `WorkflowBody` with
+`app.workflows.estimate(body)`, `app.workflows.submit(body, { idempotencyKey })`
+and `app.workflows.wait(workflowId)` from `@civitai/sdk` 0.12.0 or later. Two
+differences to carry through this page: a refusal **resolves** with a `failed`
+snapshot there instead of rejecting, and `submit` requires the
+`idempotencyKey`. [Money calls](./sdk#money-calls) has the calling code.
+:::
+
 ## The happy path
 
 The smallest possible generation is a checkpoint + a prompt. You submit it

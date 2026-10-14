@@ -4,6 +4,8 @@ description: Chain up to eight orchestrator steps in one App Blocks generation, 
 sources:
   - npm:@civitai/app-sdk@0.68.0/blocks#WorkflowBodyWorkflow
   - npm:@civitai/blocks-react@0.72.2#useBuzzWorkflow
+  - npm:@civitai/sdk@0.12.0/dist/workflows/index.d.ts
+  - npm:@civitai/sdk@0.12.0#README
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockMultiStepWorkflowBodySchema
   - civitai:src/server/services/blocks/workflow-graph.ts#resolveBlockWorkflowGraph
   - civitai:src/server/routers/blocks.router.ts#submitMultiStepWorkflow
@@ -19,12 +21,13 @@ background, write one caption per item of a list. The host checks the whole grap
 prices it once, reserves Buzz once, and returns one workflow you watch like any
 other.
 
-It goes through the hooks you already use:
+On React it goes through the hooks you already use:
 [`useBuzzWorkflow()`](../reference/hooks#hook-useBuzzWorkflow)'s `estimate`,
 `submit`, `watch`, `poll` and `cancel`, a
 [`useBatchEstimate()`](../reference/hooks#hook-useBatchEstimate) cell, and
 [`useWorkflowBatch()`](../reference/hooks#hook-useWorkflowBatch). There is no
-new hook and no new message.
+new hook and no new message. On `@civitai/sdk`, which the default template
+uses, it goes through [`app.workflows`](#on-civitai-sdk).
 
 ::: warning Closed beta, and it needs a current SDK and host
 Like the rest of [generation](./text-to-image), this is **mod-gated** during
@@ -34,36 +37,53 @@ This page is written against `@civitai/app-sdk@0.68.0`, whose types
 (`WorkflowBodyWorkflow` and friends) include the
 [`workflow_quote_*` estimate codes](#refusals), and
 `@civitai/blocks-react@0.72.2`, whose mock host can
-[simulate an estimate with no quote](#testing-with-the-mock-host). A host that predates the kind refuses the body, so
+[simulate an estimate with no quote](#testing-with-the-mock-host). The
+`app.workflows` calls are written against `@civitai/sdk@0.12.0`, the first
+release that has them. A host that predates the kind refuses the body, so
 `estimate()` and `submit()` reject.
 :::
 
 ::: tip Getting those versions into a scaffolded app
 `civitai app create` writes its own `@civitai/*` version ranges, and they can
-trail the SDK. Checked on 12 October 2026: CLI `0.1.119` scaffolds
-`@civitai/app-sdk` `^0.64.0` and `@civitai/blocks-react` `^0.68.0`, and a caret
-range on a `0.x` version never moves to the next minor, so `npm install` and
-`npm update` alone will not reach the versions above. See what you have:
+trail the packages. Checked on 14 October 2026 against the CLI's latest
+release, `0.1.120`:
+
+| Template | What `0.1.120` scaffolds |
+|---|---|
+| `page-elements` (the default) | `@civitai/sdk` `^0.11.0`, `@civitai/app-sdk` `^0.68.0` |
+| `page-money` | `@civitai/app-sdk` `^0.68.0`, `@civitai/blocks-react` `^0.72.0` |
+
+A caret range on a `0.x` version never moves to the next minor. So
+`@civitai/sdk` `^0.11.0` will not reach `0.12.0`, and an app scaffolded from
+that release has **no `app.workflows`** until you raise it yourself. A later
+CLI release may scaffold a newer range; the check below tells you either way.
+An app scaffolded by an older CLI can have older ranges for the other two
+packages as well. See what you have:
 
 ```bash
-npm ls @civitai/app-sdk @civitai/blocks-react
+npm ls @civitai/sdk @civitai/app-sdk @civitai/blocks-react
 ```
 
-If `@civitai/app-sdk` is below `0.68.0`, or `@civitai/blocks-react` below
-`0.72.2`, raise them together and commit `package.json` and the lockfile:
+On `page-elements`, if `@civitai/sdk` is below `0.12.0`:
+
+```bash
+npm install @civitai/sdk@^0.12.0
+```
+
+On `page-money`, if `@civitai/app-sdk` is below `0.68.0`, or
+`@civitai/blocks-react` below `0.72.2`, raise them together:
 
 ```bash
 npm install @civitai/app-sdk@^0.68.0 @civitai/blocks-react@^0.72.2
 ```
 
-The default `page-elements` template has no `@civitai/blocks-react`; there it is
-`npm install @civitai/app-sdk@^0.68.0`. Then run the project's typecheck and
+Commit `package.json` and the lockfile, then run the project's typecheck and
 tests before going on.
 
 The scaffold's `AGENTS.md` says not to hand-edit the `@civitai/*` versions. That
-rule is there to keep the pair matched; this is the case where the pair has to
-move, and the command above moves both. Once `npm ls` shows a scaffold already
-at these versions or later, skip this box.
+rule is there to keep the packages matched; this is the case where one has to
+move, and the commands above move it. Once `npm ls` shows these versions or
+later, skip this box.
 :::
 
 ::: info Which template, and which package
@@ -72,28 +92,84 @@ The examples on this page are React: they call `useBuzzWorkflow()` from
 (`civitai app create <name> --template page-money`).
 
 The default template, `page-elements`, is not React. It uses `@civitai/sdk`,
-which has no workflow helper: you send the same body to the block routes with
-`app.site`, as [Money calls](./sdk#money-calls) shows for `submit`. The
-estimate looks like this:
-
-```ts
-import type { BlockAppClient } from '@civitai/sdk';
-import type { BlockWorkflowSnapshot, WorkflowBody } from '@civitai/app-sdk/blocks';
-
-async function price(app: BlockAppClient, body: WorkflowBody) {
-  const { snapshot } = await app.site.post<{ snapshot: BlockWorkflowSnapshot }>(
-    'blocks/workflows/estimate',
-    { body }
-  );
-  // A refusal is a 200 on this route, not a throw: a `failed` snapshot that
-  // carries `errorCode`. The React hook is what turns it into a rejection.
-  return snapshot;
-}
-```
+and its calling code is in the next section,
+[Calling it from `@civitai/sdk`](#on-civitai-sdk).
 
 Everything else on this page (the body, the limits, the costs, the refusal
 codes, the result) is the same on both; only the calling code differs.
 :::
+
+## Calling it from `@civitai/sdk` {#on-civitai-sdk}
+
+From `0.12.0`, `@civitai/sdk` has a client for a block's generation calls:
+**`app.workflows`**, with `estimate`, `submit`, `get`, `watch`, `wait`,
+`cancel` and `list`. It sends the same body to the same block routes as the
+React hook. The body and reply types are exported from `@civitai/sdk` itself,
+so on the default template import `WorkflowBody`, `WorkflowBodyWorkflowStep`,
+`WorkflowStepRef`, `WithWorkflowStepRefs` and `BlockWorkflowSnapshot` from
+`'@civitai/sdk'` where the examples below import them from
+`'@civitai/app-sdk/blocks'`.
+
+```ts
+import { initialize, type WorkflowBody } from '@civitai/sdk';
+
+const app = await initialize();
+
+// `idempotencyKey` is minted by the caller when the viewer presses the button,
+// and kept there: a retry of the same press sends the same key.
+async function run(body: WorkflowBody, idempotencyKey: string) {
+  // 1. Price it. Nothing is charged or reserved.
+  const estimate = await app.workflows.estimate(body);
+  if (estimate.status === 'failed') {
+    // A refusal RESOLVES: read `errorCode` from the snapshot itself.
+    return showMessage(`Cannot price this: ${estimate.errorCode ?? 'refused'}`);
+  }
+  if (!(await confirmSpend(estimate.cost?.total))) return;
+
+  // 2. Run it.
+  const submitted = await app.workflows.submit(body, { idempotencyKey });
+  if (submitted.status === 'failed') {
+    // The placeholder id 'failed': the host refused this request. A real id:
+    // a run was created and came back failed.
+    return showMessage(`Not run: ${submitted.errorCode ?? submitted.workflowId}`);
+  }
+
+  // 3. Follow it to a final status, whichever it is.
+  const done = await app.workflows.wait(submitted.workflowId);
+  render(done.steps ?? [], done.imageUrls ?? [], done.textOutputs ?? []);
+}
+```
+
+Four things differ from the React examples, and the first changes how you read
+the rest of this page:
+
+- **A refusal resolves; it does not reject.** Where this page says `estimate()`
+  rejects with `WorkflowEstimateError` or `submit()` with `WorkflowSubmitError`,
+  that is the React hook. `app.workflows` resolves with the host's `failed`
+  snapshot, so check `snapshot.status` and read `snapshot.errorCode`. What
+  rejects is an `ApiError` carrying the HTTP status (a `400` is a body or key
+  the host cannot parse), a `CivitaiError` for a `2xx` reply with no snapshot,
+  or whatever `fetch` threw.
+- **`submit` requires an `idempotencyKey`** and refuses to send without one.
+  Mint it once when the viewer presses the button (`crypto.randomUUID()` fits),
+  keep it until that press has a known outcome, and send the same key on every
+  retry.
+- **A `submit` that rejects has an unknown outcome**, not a failed one: the run
+  may exist. Retry with the same key, or look for the run with
+  `app.workflows.list()`; never mint a new key for the same press. The package
+  README has the rules, the two body kinds the key does not identify, and a
+  worked `catch`, under
+  [When a submit rejects](https://github.com/civitai/civitai-app-starters/blob/main/packages/civitai-sdk/README.md#when-a-submit-rejects-the-outcome-is-unknown).
+- **The names differ.** The hook's `poll(id)` is `app.workflows.get(id)`.
+  `app.workflows.watch(id)` is an async iterator that yields the workflow now
+  and each time it changes, and `wait(id)` resolves with its last value, the
+  final snapshot. There is no batch call: price each body with `estimate`, and
+  watch or cancel each workflow id on its own.
+
+`app.workflows` needs the block token, which is what a block holds unless its
+manifest declares `auth: "oauth"`, and the `ai:write:budgeted` scope. See
+[Money calls](./sdk#money-calls) for both, and for the consent call that comes
+first.
 
 ::: info Not the same thing as calling the orchestrator yourself
 An App Block never holds an orchestrator token. This page is about the bridge
@@ -653,7 +729,8 @@ type BlockWorkflowStepSnapshot = {
   its step `name` and its position in that step's `imageUrls`.
 - **`steps` is absent** on an estimate (no workflow exists yet), on every other
   `kind`, and from a host that predates it. Don't rely on it in the `submit()`
-  reply either; read it from `poll()`, `watch()` or `cancel()`.
+  reply either; read it from `poll()`, `watch()` or `cancel()` (on
+  `app.workflows`: `get()`, `watch()`, `wait()` or `cancel()`).
 
 ### Partial failure
 
@@ -694,7 +771,8 @@ body is not refused (see [What it costs](#what-it-costs)). `estimate()` rejects 
 `WorkflowEstimateError`, `submit()` with `WorkflowSubmitError`, and a batch
 estimate returns it as that body's cell. Read it from `err.snapshot.errorCode`,
 and keep a default branch: the host may add codes, and `error`'s wording is not
-a contract.
+a contract. On [`app.workflows`](#on-civitai-sdk) nothing rejects for a refusal:
+the call resolves with the `failed` snapshot, and the code is its `errorCode`.
 
 | `errorCode` | Means | What to do |
 |---|---|---|

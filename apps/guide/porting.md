@@ -3,7 +3,8 @@ title: Moving a block off the bridge
 description: Replace a block's postMessage data calls with /api/v1/blocks/* REST calls — what each credential reaches, what auth oauth gives up, and a hook-by-hook replacement table.
 sources:
   - npm:@civitai/blocks-react@0.72.2/dist/index.d.ts
-  - npm:@civitai/sdk@0.11.0/dist/index.d.ts
+  - npm:@civitai/sdk@0.12.0/dist/index.d.ts
+  - npm:@civitai/sdk@0.12.0/dist/workflows/index.d.ts
   - civitai-app-starters:packages/civitai-sdk/BREAKING.md
   - civitai:public/schemas/app-block/v1.json#auth
   - civitai:src/pages/api/v1/blocks
@@ -202,8 +203,8 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 | Bridge hook | Replacement |
 |---|---|
 | `useAppStorage` | `/api/v1/blocks/app-storage/{get,set,delete,list,quota}` — block-token only |
-| `useAppWorkflows` | `POST /api/v1/blocks/workflows/query` |
-| `useBatchEstimate` | **No route yet** — `ESTIMATE_WORKFLOW_BATCH` is a bridge message, and no `/api/v1/blocks/*` route prices a batch. Over REST, price each body with `POST /api/v1/blocks/workflows/estimate` |
+| `useAppWorkflows` | `POST /api/v1/blocks/workflows/query`. In `@civitai/sdk` (0.12.0 or later): `app.workflows.list({ cursor?, limit? })`, which resolves `{ workflows, cursor }` |
+| `useBatchEstimate` | **No route yet** — `ESTIMATE_WORKFLOW_BATCH` is a bridge message, and no `/api/v1/blocks/*` route prices a batch. Over REST, price each body with `POST /api/v1/blocks/workflows/estimate`; in `@civitai/sdk` that is one `app.workflows.estimate(body)` per body |
 | `useBlockAnalytics` | **Keep** — a bridge message with no route. Its events are recorded once your manifest declares them; `@civitai/sdk`'s `app.host.track()` sends the same message (from 0.11.0). See the note below |
 | `useBlockBreakpoint` | Local — element measurement, keep as is |
 | `useBlockContext` | **Keep** — the handshake payload arrives over the bridge and has no route |
@@ -216,7 +217,7 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 | `useBuzzBalance` | `GET /api/v1/blocks/buzz` |
 | `useBuzzPurchase` | **Keep** — host UI |
 | `useBuzzTransactions` | **No route yet** |
-| `useBuzzWorkflow` | `/api/v1/blocks/workflows/{estimate,submit,poll,cancel}` |
+| `useBuzzWorkflow` | `/api/v1/blocks/workflows/{estimate,submit,poll,cancel}`. In `@civitai/sdk` (0.12.0 or later) these are `app.workflows.estimate`, `submit`, `get` (the `poll` route) and `cancel`, plus `watch` and `wait` to follow a workflow. Three things change in the port: a refusal **resolves** with a `failed` snapshot where the hook rejects with `WorkflowEstimateError` / `WorkflowSubmitError`; `submit` **requires** an `idempotencyKey` where the hook mints one when you omit it; and a `submit` that rejects has an unknown outcome. See [Money calls](./sdk#money-calls) |
 | `useCheckpointPicker` | **Keep** the picker (host UI); `.persist` → `POST /api/v1/blocks/user-checkpoint/set` |
 | `useCivitaiNavigate` | **Keep** — host UI |
 | `useCivitaiRoute` | **Keep** — reads the host-owned sub-path from the handshake and `ROUTE_CHANGED`; off the bridge your own router owns the URL, so there is nothing to replace |
@@ -247,7 +248,7 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 | `useUploadImageBytes` | **Keep** — a bridge message with no route. It sends `OPEN_IMAGE_UPLOAD` with `bytes`, and the host stores, persists and scans the image; no `/api/v1/blocks/*` route accepts an image upload. Page apps only, and the token needs `posts:write:self`. See [Posting from an app](./posting#upload-then-post) |
 | `useViewer` | `GET /api/v1/blocks/me`. Keeping the hook is not free: it is a `GET_VIEWER` bridge round trip on mount, not a snapshot read — but it is the authoritative self-read, where `useBlockContext().viewer` is the coarser `BLOCK_INIT` snapshot |
 | `useWildcardPack` | **Not carried** |
-| `useWorkflowBatch` | **No batch route** — the hook is one `watch()` and one `cancel()` per workflow id, with no server-side batch. Over REST, poll and cancel each id with `/api/v1/blocks/workflows/{poll,cancel}` |
+| `useWorkflowBatch` | **No batch route** — the hook is one `watch()` and one `cancel()` per workflow id, with no server-side batch. Over REST, poll and cancel each id with `/api/v1/blocks/workflows/{poll,cancel}`; in `@civitai/sdk`, `app.workflows.watch(id)` (or `wait(id)`) and `app.workflows.cancel(id)` per id |
 
 ::: warning Keep your `track()` calls — and declare the events
 `useBlockAnalytics()` sends `TRACK_EVENT`, and **both hosts forward it**: your
@@ -351,11 +352,14 @@ and has **none** of them.
 On the **default** credential `app.orchestration` rejects before it sends
 (since `@civitai/sdk@0.5.0`). On an `auth: "oauth"` block the substitution
 **type-checks, passes tests and reaches the orchestrator**. Submit through
-`/api/v1/blocks/workflows/*`.
+`/api/v1/blocks/workflows/*`, which in `@civitai/sdk` (0.12.0 or later) is
+[`app.workflows`](./sdk#money-calls). Those routes take the block token only,
+so an `auth: "oauth"` block cannot use them; see
+[choosing your credential](#auth-field).
 
-Likewise prefer `POST /api/v1/blocks/workflows/query` to
-`orchestration.queryWorkflows({ tags })`: the route forces the app tag from the
-token server-side, while the client trusts caller-supplied tags.
+Likewise prefer `POST /api/v1/blocks/workflows/query` (`app.workflows.list()`)
+to `orchestration.queryWorkflows({ tags })`: the route forces the app tag from
+the token server-side, while the client trusts caller-supplied tags.
 :::
 
 ## Testing
