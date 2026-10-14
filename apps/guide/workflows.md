@@ -87,8 +87,9 @@ and its calling code is in the next section,
 `npm run dev:harness` does not answer these calls: its token is not a real one,
 so every `app.workflows` call rejects there. To exercise them, run the app
 inside the real host with
-[`civitai app dev-tunnel`](./local-dev#previewing-inside-the-real-host), which
-spends real Buzz; its limits are listed there.
+[`civitai app dev-tunnel`](./local-dev#previewing-inside-the-real-host), once
+the app has been submitted (pending is enough); that spends real Buzz, and its
+limits are listed there.
 
 Everything else on this page (the body, the limits, the costs, the refusal
 codes, the result) is the same on both; only the calling code differs.
