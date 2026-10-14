@@ -49,6 +49,14 @@ On Linux (Linuxbrew included) `brew install civitai/tap/civitai` has nothing to
 install; use npm, the Nix flake, `go install`, or a prebuilt binary instead.
 :::
 
+::: tip The npm `install-scripts` warning is expected
+A **successful** npm 11 install still ends with a warning that `@civitai/cli`'s
+`postinstall` is "not yet covered by allowScripts". That is an advisory about a
+future npm policy, not a report that the script was skipped: the postinstall
+still runs. Do not re-install with an allow-scripts flag — `civitai version`
+tells you whether the install worked.
+:::
+
 The repo is a [Nix flake](https://nixos.org/manual/nix/stable/command-ref/new-cli/nix3-flake.html),
 so `nix run` / `nix profile install` need no Go toolchain (`x86_64`/`aarch64`
 Linux and macOS). To pin the CLI as a flake input — the reproducible option for

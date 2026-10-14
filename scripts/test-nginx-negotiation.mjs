@@ -264,7 +264,11 @@ for (const [accept, md] of Q_CASES) {
 }
 
 // Direct `.md` URLs: always markdown, never `Vary: Accept` (they do not negotiate).
-for (const path of [`/${opRoute}.md`, `/${leaf}.md`, `/${sectionIndex}/index.md`, '/agent-setup/prompt.md']) {
+// The two verbatim agent-setup files (the prompt and its in-sandbox leaf) are
+// served from their own exact-match blocks, which must ALSO keep `nosniff` — an
+// agent fetch tool that sniffs could otherwise reclassify the body.
+const VERBATIM_AGENT_SETUP = ['/agent-setup/prompt.md', '/agent-setup/in-sandbox.md'];
+for (const path of [`/${opRoute}.md`, `/${leaf}.md`, `/${sectionIndex}/index.md`, ...VERBATIM_AGENT_SETUP]) {
   for (const accept of [ACCEPT.browser, ACCEPT.webfetch]) {
     const r = await get(path, accept);
     const tag = `${path} [${accept}]`;
@@ -274,6 +278,9 @@ for (const path of [`/${opRoute}.md`, `/${leaf}.md`, `/${sectionIndex}/index.md`
     expect(!varyTokens(r).includes('accept'), `${tag}: a direct .md URL sends Vary: Accept`);
     expect(r.all('cache-control').length === 1 && r.all('cache-control')[0] === TEXT_CC, `${tag}: Cache-Control ${r.all('cache-control')}`);
     expect(linkMembers(r).includes(AI_LINK), `${tag}: Link lacks $ai_link`);
+    if (VERBATIM_AGENT_SETUP.includes(path)) {
+      expect(r.all('x-content-type-options').join() === 'nosniff', `${tag}: X-Content-Type-Options ${r.all('x-content-type-options')}`);
+    }
   }
 }
 
@@ -319,15 +326,18 @@ for (const loc of locs) {
 expect(locs.length >= 100, `sitemap.xml yielded only ${locs.length} <loc> (floor 100) — the rule check would be vacuous`);
 expect(locs.includes('/') && locs.some((l) => l.length > 1 && l.endsWith('/')), 'sitemap has no `/` or no trailing-slash <loc> — the cases this guards are missing');
 
-// `/agent-setup/prompt.md` is a verbatim public/ file, not a twin: its
-// extensionless path must NOT negotiate into an alias of it, and the 404 must
+// The verbatim agent-setup files are public/ files, not twins: their
+// extensionless paths must NOT negotiate into an alias of them, and the 404 must
 // not claim to vary or name an alternate. `/agent-setup/` itself still negotiates.
-for (const accept of [ACCEPT.webfetch, ACCEPT.browser]) {
-  const r = await get('/agent-setup/prompt', accept);
-  rows.push(['/agent-setup/prompt', accept === ACCEPT.webfetch ? 'webfetch' : 'browser', r]);
-  expect(r.status === 404, `/agent-setup/prompt [${accept}]: ${r.status} ${r.all('content-type')} — must not alias prompt.md`);
-  expect(!varyTokens(r).includes('accept'), `/agent-setup/prompt [${accept}]: sends Vary: Accept`);
-  expect(!linkMembers(r).includes('rel="alternate"'), `/agent-setup/prompt [${accept}]: advertises an alternate`);
+for (const file of VERBATIM_AGENT_SETUP) {
+  const bare = file.replace(/\.md$/, '');
+  for (const accept of [ACCEPT.webfetch, ACCEPT.browser]) {
+    const r = await get(bare, accept);
+    rows.push([bare, accept === ACCEPT.webfetch ? 'webfetch' : 'browser', r]);
+    expect(r.status === 404, `${bare} [${accept}]: ${r.status} ${r.all('content-type')} — must not alias ${file}`);
+    expect(!varyTokens(r).includes('accept'), `${bare} [${accept}]: sends Vary: Accept`);
+    expect(!linkMembers(r).includes('rel="alternate"'), `${bare} [${accept}]: advertises an alternate`);
+  }
 }
 if (isFile(join(DIST, 'agent-setup.md'))) {
   await record('/agent-setup/', ACCEPT.webfetch, { twin: '/agent-setup.md', wantMd: true });
