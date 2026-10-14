@@ -308,6 +308,7 @@ Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](
 
 ## Related
 
+- [Audio moderation](./audio-moderation) — music prompt checks and transcription-based audio scanning
 - [`InvokeAceStepAudioStepTemplate`](/orchestration/reference/operations/InvokeAceStepAudioStepTemplate) — the per-recipe endpoint
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — generic path for chaining `aceStepAudio` into multi-step workflows
 - [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for the `wait=60` resume loop

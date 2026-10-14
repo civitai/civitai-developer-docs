@@ -86,6 +86,12 @@ The `reason` and `blockedReason` fields on failed jobs are the best hint at *why
 
 When `reason` is absent, the failure is generic — safe to retry once with the same body.
 
+## Music moderation failures
+
+Music generation checks descriptions and lyrics for sexualized minors before creating generation jobs. A violation returns HTTP 400 with `Music prompt or lyrics may sexualize minors.`; when a deferred input contains the violation, the generation step fails after that input resolves. Classifier failures prevent generation and can be retried after the service recovers.
+
+The separate [audio moderation recipes](/orchestration/recipes/audio-moderation) return `blocked: true` for a detected violation. Their successful status means classification completed. Approve audio only when the scan succeeded and its complete output explicitly has `blocked: false`.
+
 ## Webhook retries
 
 The orchestrator retries transient failures on your callback endpoint automatically; see [Delivery semantics](./results-and-webhooks#delivery-semantics) for the ordering guarantees.

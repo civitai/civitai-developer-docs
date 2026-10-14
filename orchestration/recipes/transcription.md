@@ -242,6 +242,7 @@ Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](
 
 ## Related
 
+- [Audio moderation](./audio-moderation) — classify a complete transcript for sexualized minors
 - [`InvokeTranscriptionStepTemplate`](/orchestration/reference/operations/InvokeTranscriptionStepTemplate) — the per-recipe endpoint
 - [`transcription` OpenAPI spec](https://orchestration.civitai.com/v2/consumer/recipes/transcription/openapi.yaml)
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — generic path for chaining

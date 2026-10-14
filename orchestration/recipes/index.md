@@ -55,6 +55,7 @@ These are **Orchestration REST API** recipes — you hold a Bearer token and POS
 
 ## Audio
 
+- [Audio moderation](./audio-moderation) — transcribe lyrics and check for sexualized minors
 - [Transcription](./transcription) — Qwen3-ASR, multilingual, word-level timestamps for captioning
 - [Text-to-speech](./text-to-speech) — built-in speakers with optional style prompt, or voice cloning from a reference clip
 - [Multi-speaker dialogue](./multi-speaker-dialogue) — overlay TTS clips on a shared timeline for debate, interview, or audio-drama scenes; the audio form of `composeMedia`
