@@ -96,3 +96,15 @@ jobs:
           PLAYWRIGHT_CHROMIUM_PATH="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")"
           export PLAYWRIGHT_CHROMIUM_PATH
           npm run test:showcase:e2e
+
+      # The split-reference hubs forward an entry's OLD deep link
+      # (`/apps/reference/hooks#hook-useTip`) to its sub-page in the browser —
+      # and Back must still leave (a pushState forward once trapped it). Reuses
+      # the build and the Chromium installed above.
+      - name: Split-reference old-anchor forwarding E2E (incl. Back)
+        env:
+          REFERENCE_E2E_REQUIRE_BROWSER: '1'
+        run: |
+          PLAYWRIGHT_CHROMIUM_PATH="$(node -e "process.stdout.write(require('playwright-core').chromium.executablePath())")"
+          export PLAYWRIGHT_CHROMIUM_PATH
+          npm run test:reference:e2e

@@ -65,7 +65,15 @@ const router = useRouter();
 onMounted(() => {
   const id = decodeURIComponent(window.location.hash.slice(1));
   const to = id ? movedAnchors(props.kind, items)[id] : undefined;
-  if (to) router.go(withBase(to));
+  if (!to) return;
+  // 🔴 REPLACE the hub's history entry, don't push one. VitePress's
+  // `router.go()` pushState()s whenever the target differs from the current
+  // URL, so a bare `router.go(to)` left the hub URL in history: Back popped to
+  // it, the hub re-mounted, forwarded again, and Back never left. Rewriting the
+  // current entry first makes `go()` see target === current (no push) and just
+  // load the sub-page. Pinned by scripts/test-reference-forward-e2e.mjs.
+  history.replaceState(history.state, '', withBase(to));
+  router.go(withBase(to));
 });
 </script>
 
