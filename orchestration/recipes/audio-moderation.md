@@ -25,7 +25,7 @@ const textBody = {
 
 # Audio moderation
 
-The `audioModeration` step transcribes audio and checks its lyrics for **sexualized minors**. Use the default `aceStep` transcriber for lyrics, or `asr` for the existing speech recognition path. Both feed the same local Shieldstral policy classifier. This policy does not block adult sexuality, profanity, violence, hate, nonsexual childhood themes, innocent teenage romance, or non-graphic abuse reporting, prevention, and survivor testimony.
+The `audioModeration` step transcribes audio and checks its lyrics for **sexualized minors**. Use the default `aceStep` transcriber for lyrics, or `asr` for the existing speech recognition path. Both feed the same local XGuard policy classifier. This policy does not block adult sexuality, profanity, violence, hate, nonsexual childhood themes, innocent teenage romance, or non-graphic abuse reporting, prevention, and survivor testimony.
 
 | `transcriber` | Backend | Notes |
 |---|---|---|
@@ -98,9 +98,9 @@ The scan's `output` contains:
   "lyrics": "We dance together under the summer sky.",
   "sexualizedMinors": false,
   "blocked": false,
-  "score": 0.0004,
-  "model": "urn:air:mistral:repository:huggingface:mistralai/Shieldstral-1.0-3B@003ec7e2b0bab5f0e6307edbaf186fa5822b76f5.tar",
-  "policyHash": "KT39PS983Q6JH91CEC5BJTVNE0"
+  "score": 0.0097,
+  "model": "urn:air:qwen3:repository:huggingface:Civitai/YuFeng-XGuard-Reason-8B-FP8@4ad55b8d983ccaebd7ba6454901954505bc48089.tar",
+  "policyHash": "0EPARDPPQC3VQGCAMV8XTJBNW0"
 }
 ```
 
