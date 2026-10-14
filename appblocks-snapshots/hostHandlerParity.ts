@@ -58,8 +58,8 @@ export type HostFile = 'IframeHost.tsx' | 'PageBlockHost.tsx' | 'InlineHost.tsx'
  * gate below is intentionally ONE-DIRECTIONAL: every PUBLISHED SDK type must be
  * an INVENTORY key, but INVENTORY may carry extra ahead-of-published keys.
  *
- * As of the installed `@civitai/app-sdk@0.65.1` ONE key is ahead:
- * `RUN_CONFIRMED_STEP`. The published union's 50 types are all inventory keys.
+ * As of the installed `@civitai/app-sdk@0.65.1` TWO keys are ahead: `RUN_CONFIRMED_STEP` and
+ * `OPEN_IMAGE_PICKER`. The published union's 50 types are all inventory keys.
  * The gate reads the INSTALLED
  * dist, so it is only as current as the `@civitai/app-sdk` range in
  * `package.json` — a caret on a 0.x version admits patch releases only, and
@@ -83,12 +83,15 @@ export interface MessageSpec {
   /**
    * Reply type the SDK awaits (REQUEST-style only); '' for fire-and-forget.
    *
-   * 🔴 DOCUMENTATION ONLY — NOTHING ENFORCES THIS STRING. The parity test greps
-   * each host for a REGISTERED handler (`onMessage('<TYPE>'`), then interpolates
-   * this value into the test's NAME. It never checks that the host actually
-   * sends it, so a wrong value here is invisible: it produces a green test with a
-   * misleading title. Treat it as a comment, and put behavioural claims about the
-   * reply in the per-message browser tests.
+   * 🔴 ENFORCED ONLY FOR THE FORWARDED TYPES. The parity test greps each host for a
+   * REGISTERED handler (`onMessage('<TYPE>'`) and merely interpolates this value
+   * into the test's NAME, so for every other type a wrong value here is invisible.
+   * For the forwarded types (workflows, app subqueue, buzz, viewer, images, private
+   * and shared storage), the premise test of the forward matrix
+   * (`PageBlockHostForwardMatrix.browser.test.tsx` /
+   * `IframeHostForwardMatrix.browser.test.tsx`) asserts this string equals the reply
+   * type the hosts are observed to send. For the rest, treat it as a comment and put
+   * behavioural claims about the reply in the per-message browser tests.
    */
   reply: string;
   IframeHost: HostReq;
@@ -429,6 +432,17 @@ export const INVENTORY = {
     PageBlockHost: 'required',
     InlineHost: INLINE_STUB,
   },
+  // The viewer picks from their OWN posted / generated images in host chrome (see
+  // `imagePickerLogic.ts`); the block receives only the pick. REQUEST-style; ahead of the
+  // published SDK dist union (the SDK pair lands in the SDK repo).
+  OPEN_IMAGE_PICKER: {
+    request: true,
+    reply: 'IMAGE_PICKER_RESULT',
+    IframeHost:
+      'the image picker is a page-only affordance today; the shared dispatcher NACKs it with an IMAGE_PICKER_RESULT error',
+    PageBlockHost: 'required',
+    InlineHost: INLINE_STUB,
+  },
   SET_USER_CHECKPOINT: {
     request: true,
     reply: 'USER_CHECKPOINT_SET',
@@ -726,8 +740,8 @@ type SdkBlockToParentType = BlockToParentMessageType;
 // graph (under `src`, not excluded; not a `*.test.ts` corner case).
 //
 // ONE-DIRECTIONAL by design: every PUBLISHED SDK type must be an INVENTORY key;
-// INVENTORY MAY carry extra ahead-of-published keys (`RUN_CONFIRMED_STEP` as of
-// app-sdk 0.65.1).
+// INVENTORY MAY carry extra ahead-of-published keys (`RUN_CONFIRMED_STEP` and
+// `OPEN_IMAGE_PICKER` as of app-sdk 0.65.1).
 // We do NOT assert the reverse — that would delete real forward coverage every
 // time the published dist lags.
 //

@@ -325,6 +325,23 @@ export const HISTORICAL_LITERALS = [
     why: 'the `kind: \'step\'` PASS-THROUGH arm and its `WorkflowBodyPassThroughStep` type ARRIVED in app-sdk 0.43.0 — a changelog fact, and the stated TS floor. Bumping these to the current pin would name a release in which nothing about this arm changed.',
   },
   {
+    file: 'apps/reference/generation.md',
+    pkg: '@civitai/app-sdk',
+    version: '0.68.0',
+    // EXACT count 1 — one arrival/floor claim about the registered-step estimate
+    // codes: "The SDK's typed union (`KnownBlockWorkflowErrorCode`) lists them
+    // from `@civitai/app-sdk@0.68.0`; with an older SDK, compare the string
+    // anyway". It is not a `sources:` stamp (this file's stamp tracks the pin).
+    //
+    // Measured, not assumed (npm pack + grep of the published tarballs):
+    // `step_quote_` appears in 0 of 26 `.d.ts` files at 0.67.0, and in 1 of 26 at
+    // 0.68.0 and 0.70.0. 0.68.0 really is the arrival release, so bumping this
+    // to the pin would move a documented TypeScript floor to a release that did
+    // not set it.
+    count: 1,
+    why: 'the `step_quote_*` codes ARRIVED in `KnownBlockWorkflowErrorCode` in app-sdk 0.68.0 (absent from 0.67.0) — a changelog fact, and the stated TS floor. Bumping it to the current pin would name a release in which nothing about these codes changed.',
+  },
+  {
     file: 'apps/guide/responsive.md',
     pkg: '@civitai/components',
     version: '0.4.0',

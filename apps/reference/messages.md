@@ -2,7 +2,7 @@
 title: Message bridge reference
 description: The full postMessage protocol between a Civitai App and its host — payloads, directions, request/reply pairing, and page-only messages.
 sources:
-  - npm:@civitai/app-sdk@0.68.0/blocks#messages.d.ts
+  - npm:@civitai/app-sdk@0.70.0/blocks#messages.d.ts
   - civitai:src/components/AppBlocks/hostHandlerParity.ts#INVENTORY
 ---
 
@@ -69,6 +69,8 @@ payload:
 ```ts
 {
     height: number;
+    sdkVersion?: string;
+    sdkName?: 'blocks-react' | 'sdk';
 }
 ```
 
@@ -519,6 +521,44 @@ reply `CHECKPOINT_PICKER_RESULT`:
     selected?: BlockCheckpointInfo;
 }
 ```
+
+**`OPEN_IMAGE_PICKER`** — block → host · request → reply · page-only
+
+payload:
+
+```ts
+{
+    requestId: string;
+    /**
+     * Which of the viewer's libraries to offer. OMIT the key for both. The
+     * host de-duplicates repeats and refuses an empty array or an unknown
+     * member.
+     */
+    sources?: BlockImagePickerSource[];
+    /**
+     * Ask for SEVERAL images in one picker session. `max` is a whole
+     * number ≥ 1; the host clamps anything above 20 to 20. The reply is
+     * then `selectedImages`, not `selected`. OMIT the key for a single
+     * pick.
+     */
+    multiple?: {
+        max: number;
+    };
+}
+```
+
+reply `IMAGE_PICKER_RESULT`:
+
+```ts
+{
+    requestId: string;
+    selected?: BlockPickedImageInfo;
+    selectedImages?: BlockPickedImageInfo[];
+    error?: string;
+}
+```
+
+Model slot: the image picker is a page-only affordance today; the shared dispatcher NACKs it with an IMAGE_PICKER_RESULT error
 
 **`OPEN_IMAGE_UPLOAD`** — block → host · request → reply · page-only
 

@@ -2,7 +2,7 @@
 title: Moving a block off the bridge
 description: Replace a block's postMessage data calls with /api/v1/blocks/* REST calls — what each credential reaches, what auth oauth gives up, and a hook-by-hook replacement table.
 sources:
-  - npm:@civitai/blocks-react@0.72.2/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.73.0/dist/index.d.ts
   - npm:@civitai/sdk@0.12.0/dist/index.d.ts
   - npm:@civitai/sdk@0.12.0/dist/workflows/index.d.ts
   - civitai-app-starters:packages/civitai-sdk/BREAKING.md
@@ -232,6 +232,7 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 | `useGenerationResources` | `GET /api/v1/blocks/generation-resources?ids=` |
 | `useGoodPurchase` | `POST /api/v1/blocks/goods/purchase` — scope `goods:purchase:self` **and** a `goods` entry in your manifest; without both the endpoint answers 404. Same direct-fetch-on-the-validated-origin shape as `useTip`, and the buyer is always the token subject (the block never supplies a user id). The platform renders **no** confirmation for the purchase itself, so the confirm UI is yours. Its optional top-up on insufficient funds opens `useBuzzPurchase` — host UI, and the opposite money direction |
 | `useHostOrigin` | **Keep** — it is the validated base URL every direct fetch needs |
+| `useImagePicker` | **Keep** — host UI; Civitai opens the picker over the viewer's own posted and generated images in its own chrome, and the block receives only the pick. Page apps only. `@civitai/sdk` has no equivalent yet |
 | `useImageUpload` | **Keep** — host UI. (`@civitai/sdk` has covered it since 0.3.0 as `host.openImageUpload`, usable on either credential — but that is still a bridge message, not a route.) |
 | `useNestedDocument` | Local — fetches one of your own bundled documents into a `srcdoc` string; it never talks to the platform |
 | `usePrepareTrainingDataset` | **No route yet** — `PREPARE_TRAINING_DATASET` is a bridge message, and no `/api/v1/blocks/*` route prepares a training dataset |
