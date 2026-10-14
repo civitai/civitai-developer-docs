@@ -122,7 +122,8 @@ What else to know:
   loads *mentions* the message.
 - **False alarm** (your ack comes from a bundled dependency, or a file type it
   doesn't open)? Under `--strict` in CI, drop `--strict` or add the ack, and
-  please open an issue.
+  report it with `civitai feedback send --about cli`
+  ([Report a platform problem](/site/guide/platform-feedback)).
 
 ## The `--json` result shape
 
