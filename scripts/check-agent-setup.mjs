@@ -85,7 +85,8 @@
  * ----------------------------
  * From `public/agent-setup/prompt.md` and `public/agent-setup/in-sandbox.md`, each
  * graded on its own (never the landing page). An `npx -y @civitai/cli… <args>`
- * stage counts as a `civitai <args>` invocation as well as an allowlisted `npx`:
+ * stage counts as a `civitai <args>` invocation as well as an allowlisted `npx`
+ * (allowlisted in the leaf only — see the entry's `onlyIn`):
  *
  *   - EVERY CODE BLOCK THE MARKDOWN BLOCK STRUCTURE PRODUCES, found by walking
  *     the document line by line through its containers — NOT by a regex over the
@@ -433,10 +434,15 @@ const ALLOWED_NON_CIVITAI = new Map([
     // rather than the subcommand model above (npx has no subcommands). What
     // follows the spec is graded as a `civitai …` invocation against the help
     // snapshot, exactly like a bare `civitai` line.
+    //
+    // And it is admitted in ONE FILE: the leaf, whose reader has no global CLI.
+    // The workstation prompt installs the CLI in step 2, so an `npx` line there
+    // would be a second, unreviewed install path — `onlyIn` refuses it by name.
     'npx',
     {
       why: 'in-sandbox leaf — App Assistant has no global CLI, so it runs @civitai/cli through npx',
       refuse: refuseNpxInvocation,
+      onlyIn: new Set([IN_SANDBOX_SOURCE]),
     },
   ],
 ]);
@@ -1245,6 +1251,15 @@ function runParserSelfTest() {
 }
 
 /**
+ * Why an allowlisted binary may not appear in `source` at all, or null. An entry
+ * without `onlyIn` is allowed in every graded file.
+ */
+function refuseOutOfScope(rule, source) {
+  if (!rule.onlyIn || rule.onlyIn.has(source)) return null;
+  return `it is allowed only in ${[...rule.onlyIn].join(', ')}, not in ${source}`;
+}
+
+/**
  * The npx rule's own controls: [stage, must it be refused?]. Both polarities, so
  * a mutant that refuses everything — or nothing — goes red here, by name.
  */
@@ -1272,6 +1287,18 @@ function checkCommandSurface() {
       );
     }
   }
+  // The file scope's own controls, both polarities: npx refused in the prompt,
+  // accepted in the leaf. A mutant dropping `onlyIn` or inverting the test goes
+  // red here by name rather than only when a corpus line happens to exercise it.
+  const npxRule = ALLOWED_NON_CIVITAI.get('npx');
+  for (const [source, wantRefused] of [[PROMPT_SOURCE, true], [IN_SANDBOX_SOURCE, false]]) {
+    if ((refuseOutOfScope(npxRule, source) !== null) !== wantRefused) {
+      failures.push(
+        `NPX SCOPE SELF-TEST FAILURE: npx in ${source} should be ${wantRefused ? 'REFUSED' : 'ACCEPTED'} and was not.\n` +
+          `    This is a defect in refuseOutOfScope or the npx entry's onlyIn, not in the corpus.`,
+      );
+    }
+  }
   if (failures.length) return failures;
   // Counted from the table, not written from memory: an added case must move
   // this number rather than leave a stale claim behind it.
@@ -1280,7 +1307,8 @@ function checkCommandSurface() {
     `  ✓ extractor self-test: ${PARSER_SELF_TEST.length} cases, ` +
       `${PARSER_SELF_TEST.length - negatives} positive / ${negatives} negative control(s), ` +
       `+ ${STRIP_CONSERVES.length} tag-strip invariant line(s), ` +
-      `+ ${NPX_SELF_TEST.length} npx case(s) (${NPX_SELF_TEST.filter((c) => c[1]).length} must-refuse)`,
+      `+ ${NPX_SELF_TEST.length} npx case(s) (${NPX_SELF_TEST.filter((c) => c[1]).length} must-refuse) ` +
+      `+ 2 npx file-scope case(s) (1 must-refuse)`,
   );
   if (!existsSync(SNAPSHOT)) {
     failures.push(
@@ -1343,7 +1371,9 @@ function gradeCommandSurface(source, text, snapshot) {
   for (const f of foreign) {
     const rule = ALLOWED_NON_CIVITAI.get(f.binary);
     if (rule) {
-      const refusal = rule.refuse ? rule.refuse(f.tokens) : refuseAllowedInvocation(rule, f.tokens);
+      const refusal =
+        refuseOutOfScope(rule, source) ??
+        (rule.refuse ? rule.refuse(f.tokens) : refuseAllowedInvocation(rule, f.tokens));
       if (!refusal) {
         console.log(`    ✓ ${f.tokens.join(' ')} — ${rule.why}`);
         continue;
