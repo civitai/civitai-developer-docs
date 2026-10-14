@@ -67,21 +67,26 @@ const INLINE_LINK = /\]\((<[^>\n]*>|[^)\s]+)(\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\
 // `[label]: target` reference definitions.
 const REF_DEF = /^(\s{0,3}\[[^\]]+\]:\s*)(<[^>\n]*>|\S+)/;
 
-function rewriteTarget(raw, siteDir) {
+/** Apply `map` to a raw target, keeping `<angle>` brackets around it. */
+function mapRaw(raw, map) {
   const angled = raw.startsWith('<') && raw.endsWith('>');
   const t = angled ? raw.slice(1, -1) : raw;
-  if (!isRelativeTarget(t)) return raw;
-  const r = resolveTarget(t, siteDir);
+  const r = map(t);
+  if (r === t) return raw;
   return angled ? `<${r}>` : r;
 }
 
+function relativeMapper(siteDir) {
+  return (t) => (isRelativeTarget(t) ? resolveTarget(t, siteDir) : t);
+}
+
 /** Rewrite one prose line, leaving inline code spans untouched. */
-function rewriteProse(line, siteDir) {
+function rewriteProse(line, map) {
   let out = '';
   let i = 0;
   let seg = '';
   const flush = () => {
-    out += seg.replace(INLINE_LINK, (_m, target, title = '') => `](${rewriteTarget(target, siteDir)}${title})`);
+    out += seg.replace(INLINE_LINK, (_m, target, title = '') => `](${mapRaw(target, map)}${title})`);
     seg = '';
   };
   while (i < line.length) {
@@ -122,10 +127,13 @@ function rewriteProse(line, siteDir) {
 }
 
 /**
- * Rewrite every relative link in `text` (a twin's full contents) against
- * `siteDir`, the source page's directory relative to the site root.
+ * Apply `map(target) -> target` to every link target in `text` — inline
+ * `](x)` links and `[ref]: x` definitions — outside fenced code blocks and
+ * inline code spans. The one place that knows what counts as "a link in prose";
+ * both the relative->root pass below and `scripts/lib/agent-surface.mjs`'s
+ * root->absolute-`.md` pass go through it.
  */
-export function absolutizeLinks(text, siteDir) {
+export function mapLinkTargets(text, map) {
   const lines = text.split('\n');
   let fence = null;
   for (let k = 0; k < lines.length; k++) {
@@ -142,10 +150,18 @@ export function absolutizeLinks(text, siteDir) {
     }
     const ref = line.match(REF_DEF);
     lines[k] = ref
-      ? ref[1] + rewriteTarget(ref[2], siteDir) + rewriteProse(line.slice(ref[0].length), siteDir)
-      : rewriteProse(line, siteDir);
+      ? ref[1] + mapRaw(ref[2], map) + rewriteProse(line.slice(ref[0].length), map)
+      : rewriteProse(line, map);
   }
   return lines.join('\n');
+}
+
+/**
+ * Rewrite every relative link in `text` (a twin's full contents) against
+ * `siteDir`, the source page's directory relative to the site root.
+ */
+export function absolutizeLinks(text, siteDir) {
+  return mapLinkTargets(text, relativeMapper(siteDir));
 }
 
 /** The `url:` a twin's frontmatter declares, or null. */

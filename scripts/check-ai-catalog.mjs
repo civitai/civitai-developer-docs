@@ -41,8 +41,9 @@
  *     7. Every catalog entry URL answers 200, with a Content-Type whose media
  *        type equals the `type` the entry declares.
  *     8. Every advertised URL answers 200.
- *     9. The LIVE origin actually sends the Link header, and its value equals
- *        the one `nginx.conf` sets. This is the only assertion that can see a
+ *     9. The LIVE origin actually sends the Link header, carrying every member
+ *        `nginx.conf`'s `$ai_link` sets (a page with an `.md` twin adds its own
+ *        rel="alternate"/"describedby" members, so this is a superset test). This is the only assertion that can see a
  *        deploy that silently dropped the advertisement — items 4-6 all pass
  *        against a config that was never rolled out.
  *
@@ -414,9 +415,20 @@ if (!OFFLINE) {
             `or a location is swallowing it — see the add_header inheritance note in nginx.conf.`,
         );
       } else {
+        // Every `$ai_link` member must be present. NOT equality: a page with an
+        // `.md` twin also sends a second Link field line (`$page_link` in
+        // nginx.conf — rel="alternate" + rel="describedby"), and fetch joins
+        // repeated field lines with ", ". Only the site-wide members are this
+        // check's business; `scripts/test-nginx-negotiation.mjs` owns the rest.
         const norm = (s) => s.replace(/\s+/g, ' ').trim();
-        if (norm(live) !== norm(linkValue)) {
-          fail(`${ORIGIN}/ sends a Link header that differs from nginx.conf.\n    live:   ${norm(live)}\n    config: ${norm(linkValue)}`);
+        const key = (m) => `${m.url} ${m.rel}`;
+        const liveMembers = new Set(parseLink(live).filter((m) => !m.malformed).map(key));
+        const missing = advertised.filter((m) => !m.malformed && !liveMembers.has(key(m)));
+        if (missing.length) {
+          fail(
+            `${ORIGIN}/ sends a Link header missing ${missing.length} member(s) nginx.conf advertises.\n` +
+              `    live:   ${norm(live)}\n    config: ${norm(linkValue)}`,
+          );
         } else if (VERBOSE) {
           console.log(`  ✓ live Link header matches nginx.conf`);
         }
