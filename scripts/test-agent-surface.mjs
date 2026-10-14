@@ -16,6 +16,8 @@ import {
   insertIndexGroup,
   ORIGIN,
   parseIndex,
+  pruneEmptyGroups,
+  renderIndex,
   toAbsoluteMd,
   twinForPath,
   withIndexNote,
@@ -81,6 +83,31 @@ eq(
   'operations group lands right after the group listing the reference overview',
 );
 throws(() => parseIndex('# T\n\n## Table of Contents\n\n### G\n\n- [multi\nline](/x.md)\n'), /unparseable/, 'a multi-line entry is refused');
+throws(() => parseIndex('# T\n\n## Table of Contents\n\n### G\n\n- [A](/a.md)\nstray prose\n'), /unexpected line/, 'an unrecognized TOC line is still refused');
+
+// Nested sidebar groups: the plugin emits them as `####` (measured when the
+// hooks/cli/generation references were split into sub-pages).
+{
+  const nested =
+    '# T\n\n> d\n\n## Table of Contents\n\n### Reference\n\n- [R](/apps/reference.md)\n- [O](/orchestration/reference.md)\n\n' +
+    '#### Hooks\n\n- [Ctx](/apps/reference/hooks/context.md)\n\n##### Deep\n\n- [D](/apps/reference/hooks/deep.md)\n\n' +
+    '#### Ops-only\n\n- [X](/orchestration/x.md)\n\n### Site\n\n- [S](/site.md)\n';
+  eq(parseIndex(nested).toc.map((g) => g.heading), ['### Reference', '#### Hooks', '##### Deep', '#### Ops-only', '### Site'], 'parseIndex keeps #### and ##### groups');
+  eq(renderIndex(parseIndex(nested)), nested, 'nested index round-trips byte-for-byte');
+  eq(
+    insertIndexGroup(nested, 'API operations', ['- [Z](/z.md)'], '/orchestration/reference.md').match(/^#{3,} .*/gm),
+    ['### Reference', '#### Hooks', '##### Deep', '#### Ops-only', '### API operations', '### Site'],
+    'inserted group goes after the anchor group\'s whole subtree, not between it and its children',
+  );
+  const toc = parseIndex(nested).toc.map((g) => ({ heading: g.heading, lines: g.lines.filter((l) => l.includes('/orchestration/')) }));
+  eq(pruneEmptyGroups(toc).map((g) => g.heading), ['### Reference', '#### Ops-only'], 'section filter: nested group kept by PATH, empty ones dropped');
+  const onlyChild = [
+    { heading: '### Parent', lines: [] },
+    { heading: '#### Child', lines: ['- [C](/apps/c.md)'] },
+    { heading: '### Empty', lines: [] },
+  ];
+  eq(pruneEmptyGroups(onlyChild).map((g) => g.heading), ['### Parent', '#### Child'], 'an empty parent survives when a descendant has entries');
+}
 throws(() => parseIndex('# T\n'), /Table of Contents/, 'no TOC is refused');
 
 // ── applyAgentSurface on a fixture build ─────────────────────────────────────

@@ -95,6 +95,25 @@ if (!sectionIndex || !leaf || !op) {
   process.exit(1);
 }
 const opRoute = `orchestration/reference/operations/${op.replace(/\.md$/, '')}`;
+
+// HUB pages: `<d>.html` + `<d>.md` with a DIRECTORY `<d>/` of sub-pages and no
+// `<d>/index.html` (the split hooks/cli/generation references). Their slash form
+// used to answer 403. Every hub in the build is exercised, with one sub-page each.
+function findHubs(dir, rel = '') {
+  const out = [];
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    if (!e.isDirectory()) continue;
+    const r = rel ? `${rel}/${e.name}` : e.name;
+    const d = join(dir, e.name);
+    if (isFile(`${d}.html`) && isFile(`${d}.md`) && !isFile(join(d, 'index.html'))) {
+      const sub = readdirSync(d).find((f) => f.endsWith('.html') && isFile(join(d, f.replace(/\.html$/, '.md'))));
+      if (sub) out.push({ hub: r, sub: `${r}/${sub.replace(/\.html$/, '')}` });
+    }
+    out.push(...findHubs(d, r));
+  }
+  return out;
+}
+const hubs = findHubs(DIST);
 const homeHasTwin = isFile(join(DIST, 'index.md'));
 
 // ── start nginx ──────────────────────────────────────────────────────────────
@@ -222,6 +241,23 @@ for (const [path, twin, htmlRedirect] of pages) {
   }
 }
 
+for (const { hub, sub } of hubs) {
+  for (const [name, accept] of Object.entries(ACCEPT)) {
+    const md = name === 'webfetch';
+    // The slash form: markdown for a markdown client, else a RELATIVE 301 to the hub — never a 403.
+    await record(`/${hub}/`, accept, { twin: `/${hub}.md`, wantMd: md, htmlRedirect: `/${hub}` });
+    await record(`/${hub}`, accept, { twin: `/${hub}.md`, wantMd: md });
+    await record(`/${sub}`, accept, { twin: `/${sub}.md`, wantMd: md });
+  }
+  const r = await get(`/${sub}.md`, ACCEPT.browser);
+  rows.push([`/${sub}.md`, 'browser', r]);
+  expect(r.status === 200 && r.all('content-type').join() === 'text/markdown; charset=utf-8', `/${sub}.md: ${r.status} ${r.all('content-type')}`);
+}
+{
+  const r = await get('/__slash_redirect', ACCEPT.browser);
+  expect(r.status === 404, `/__slash_redirect is reachable directly (${r.status}); it must be internal`);
+}
+
 // The q-value table, on one negotiable URL.
 for (const [accept, md] of Q_CASES) {
   await document(`/${leaf}`, accept, { twin: `/${leaf}.md`, wantMd: md });
@@ -290,5 +326,6 @@ if (failures.length) {
 }
 console.log(
   `test-nginx-negotiation: OK — ${checks} assertions over ${rows.length} recorded responses + ${Q_CASES.length} q-value cases ` +
-    `(section=/${sectionIndex}/, leaf=/${leaf}, op=/${opRoute}, home twin=${homeHasTwin}).`,
+    `(section=/${sectionIndex}/, leaf=/${leaf}, op=/${opRoute}, home twin=${homeHasTwin}, ` +
+    `hubs=${hubs.map((h) => `/${h.hub}`).join(' ') || 'none in this build'}).`,
 );

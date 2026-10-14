@@ -148,7 +148,9 @@ for (const [path, item] of Object.entries(spec.paths ?? {})) {
 const opHtml = existsSync(join(DIST, OPS)) ? readdirSync(join(DIST, OPS)).filter((f) => f.endsWith('.html')) : [];
 const opTwins = twinFiles.filter((r) => r.startsWith(`${OPS}/`));
 const llms = read('llms.txt');
-const opGroup = llms.split('\n### ').find((g) => g.startsWith('API operations\n')) ?? '';
+// The group's own entries: up to the next heading of ANY depth (nested sidebar
+// groups are emitted as `####`).
+const opGroup = (llms.split('\n### API operations\n')[1] ?? '').split(/\n#{2,6} /)[0];
 const opEntries = [...opGroup.matchAll(/^- \[[^\]]*\]\(([^)]+)\)/gm)].map((m) => m[1]);
 const counts = `spec ${specOps.length}, twins ${opTwins.length}, HTML pages ${opHtml.length}, llms.txt entries ${opEntries.length}`;
 if (specOps.length < MIN_OPS) fail(`the spec yields ${specOps.length} operation(s) (floor ${MIN_OPS})`);

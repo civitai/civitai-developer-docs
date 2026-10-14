@@ -121,7 +121,18 @@ const absoluteRoot = (t) => (t.startsWith('/') && !t.startsWith('//') ? `${ORIGI
 
 // ── llms.txt parsing ─────────────────────────────────────────────────────────
 
-/** Split llms.txt into { head, toc: [{ heading, lines }] } at `## Table of Contents`. */
+// A group heading at ANY depth below the `## Table of Contents` H2: the plugin
+// emits a top-level sidebar group as `###` and a NESTED group as `####` (and
+// deeper). Measured when the hooks/cli/generation references were split into
+// sub-pages under nested sidebar groups: `#### Generation bridge`, `#### Hooks`,
+// `#### CLI`. A `###`-only parser failed the build on them.
+const GROUP_HEADING = /^(#{3,6}) \S/;
+export const headingLevel = (heading) => heading.match(/^#+/)[0].length;
+
+/**
+ * Split llms.txt into { head, toc: [{ heading, lines }] } at `## Table of Contents`.
+ * `toc` is FLAT and in document order; a group's nesting is its heading level.
+ */
 export function parseIndex(text) {
   const marker = '\n## Table of Contents\n';
   const at = text.indexOf(marker);
@@ -129,7 +140,7 @@ export function parseIndex(text) {
   const head = text.slice(0, at);
   const toc = [];
   for (const line of text.slice(at + marker.length).split('\n')) {
-    if (line.startsWith('### ')) toc.push({ heading: line, lines: [] });
+    if (GROUP_HEADING.test(line)) toc.push({ heading: line, lines: [] });
     else if (line.startsWith('- ') && toc.length) {
       // Every entry must parse: one that does not would silently drop out of
       // every section index (a multi-line operation summary once did).
@@ -168,6 +179,26 @@ export function sectionsOf(toc, outDir) {
   return [...counts].filter(([seg, n]) => n >= 2 && existsSync(join(outDir, seg))).map(([seg]) => seg);
 }
 
+/**
+ * Drop groups with no entries — unless a DESCENDANT group (a following run of
+ * deeper headings) kept some, so a nested group never loses its parent heading.
+ * Membership is by each entry's PATH; heading level only decides nesting.
+ */
+export function pruneEmptyGroups(toc) {
+  const keep = toc.map((g) => g.lines.length > 0);
+  for (let i = toc.length - 1; i >= 0; i--) {
+    if (keep[i]) continue;
+    const level = headingLevel(toc[i].heading);
+    for (let j = i + 1; j < toc.length && headingLevel(toc[j].heading) > level; j++) {
+      if (keep[j]) {
+        keep[i] = true;
+        break;
+      }
+    }
+  }
+  return toc.filter((_, i) => keep[i]);
+}
+
 // ── the pass ─────────────────────────────────────────────────────────────────
 
 /**
@@ -178,8 +209,16 @@ export function insertIndexGroup(text, heading, lines, afterUrl) {
   const index = parseIndex(text);
   const i = index.toc.findIndex((g) => g.lines.some((l) => entryPath(l) === afterUrl));
   const group = { heading: `### ${heading}`, lines };
-  if (i === -1) index.toc.push(group);
-  else index.toc.splice(i + 1, 0, group);
+  if (i === -1) {
+    index.toc.push(group);
+    return renderIndex(index);
+  }
+  // After the anchor group's whole SUBTREE: inserting a `###` between a group and
+  // its deeper (`####`) children would re-parent the children under the new group.
+  let at = i + 1;
+  const level = headingLevel(index.toc[i].heading);
+  while (at < index.toc.length && headingLevel(index.toc[at].heading) > level) at++;
+  index.toc.splice(at, 0, group);
   return renderIndex(index);
 }
 
@@ -218,9 +257,9 @@ export function applyAgentSurface(outDir) {
 
   const perSection = [];
   for (const seg of sections) {
-    const toc = index.toc
-      .map((g) => ({ heading: g.heading, lines: g.lines.filter((l) => inSection(entryPath(l), seg)) }))
-      .filter((g) => g.lines.length);
+    const toc = pruneEmptyGroups(
+      index.toc.map((g) => ({ heading: g.heading, lines: g.lines.filter((l) => inSection(entryPath(l), seg)) })),
+    );
     const own = toc.flatMap((g) => g.lines).find((l) => entryPath(l) === `/${seg}.md`);
     const title = (own && entryTitle(own)) || seg;
     const desc = (own && entryDesc(own)) || `The /${seg}/ pages of ${ORIGIN}.`;
