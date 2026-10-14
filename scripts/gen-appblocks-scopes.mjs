@@ -77,7 +77,7 @@ function parseDescriptions(ts) {
   // Line and block comments may sit between the key and its string (upstream annotates
   // some descriptions that way), so skip any run of them after the colon.
   const re =
-    /'([a-z0-9_:]+)'\s*:\s*(?:(?:\/\/[^\n]*\n|\/\*[\s\S]*?\*\/)\s*)*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)')/g;
+    /'([a-z0-9_:]+)'\s*:\s*(?:(?:\/\/[^\n]*\n|\/\*(?:[^*]|\*(?!\/))*\*\/)\s*)*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)')/g;
   let m;
   while ((m = re.exec(region)) !== null) {
     const raw = m[2] ?? m[3] ?? '';
