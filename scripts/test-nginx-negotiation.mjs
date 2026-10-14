@@ -282,7 +282,7 @@ const texts = [
   ['/llms.txt', 'text/plain; charset=utf-8'],
   ['/llms-full.txt', 'text/plain; charset=utf-8'],
   ['/apps/llms.txt', 'text/plain; charset=utf-8'],
-  ['/orchestration/llms-full.txt', 'text/plain; charset=utf-8'],
+  ['/orchestration/llms.txt', 'text/plain; charset=utf-8'],
   ['/robots.txt', 'text/plain; charset=utf-8'],
   ['/sitemap.xml', 'text/xml; charset=utf-8'],
 ];

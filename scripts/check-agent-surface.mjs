@@ -14,8 +14,10 @@
 //      as a root path or HTML route (every one is an absolute `.md` URL).
 //   3. llms.txt — every entry absolute; every section index it names exists;
 //      each `/<section>/llms.txt` is EXACTLY the root's entries under that path
-//      (set equality, both directions), and each `/<section>/llms-full.txt`
-//      holds exactly those pages.
+//      (set equality, both directions). There is deliberately NO per-section
+//      `llms-full.txt`: measured at ~0.2-1.0 MB each, every one would be far over
+//      the ~100K-character fetch they would exist to fit, so the build must not
+//      emit one and llms.txt must not name one.
 //   4. HTML — every page whose twin exists advertises it with
 //      `<link rel="alternate" type="text/markdown">`, and every advertised href
 //      exists (no page advertises a twin that is not there).
@@ -218,8 +220,10 @@ const sectionIndexes = [...llms.matchAll(/\]\((https:[^)\s]+)\)/g)]
 if (sectionIndexes.length < 3) fail(`llms.txt names ${sectionIndexes.length} section index(es), expected at least 3 (apps, orchestration, site)`);
 const sectionReport = [];
 for (const seg of sectionIndexes) {
-  for (const f of [`${seg}/llms.txt`, `${seg}/llms-full.txt`]) if (!exists(f)) fail(`llms.txt names /${f}, which is not in the build`);
-  if (!exists(`${seg}/llms.txt`) || !exists(`${seg}/llms-full.txt`)) continue;
+  if (!exists(`${seg}/llms.txt`)) {
+    fail(`llms.txt names /${seg}/llms.txt, which is not in the build`);
+    continue;
+  }
   const inSeg = (u) => u === `${ORIGIN}/${seg}.md` || u.startsWith(`${ORIGIN}/${seg}/`);
   const want = new Set(rootEntries.filter(inSeg));
   const sub = read(`${seg}/llms.txt`);
@@ -228,12 +232,19 @@ for (const seg of sectionIndexes) {
   const extra = [...got].filter((u) => !want.has(u));
   if (want.size === 0) fail(`/${seg}/: the root index has no entries under it`);
   if (missing.length || extra.length) fail(`/${seg}/llms.txt differs from the root's /${seg}/ entries: missing [${missing.join(', ')}], extra [${extra.join(', ')}]`);
-  const fullUrls = new Set([...read(`${seg}/llms-full.txt`).matchAll(/^---\nurl:\s*(\S+)\n/gm)].map((m) => `${ORIGIN}${m[1]}`));
-  const fMissing = [...want].map((u) => u.replace(/#.*$/, '')).filter((u) => !fullUrls.has(u));
-  const fExtra = [...fullUrls].filter((u) => !want.has(u));
-  if (fMissing.length || fExtra.length) fail(`/${seg}/llms-full.txt pages differ from its index: missing [${fMissing.join(', ')}], extra [${fExtra.join(', ')}]`);
   sectionReport.push(`/${seg}/ ${want.size} pages`);
 }
+const sectionBundles = walk(DIST, (n) => n === 'llms-full.txt').filter((r) => r !== 'llms-full.txt');
+if (sectionBundles.length) fail(`per-section llms-full.txt emitted (${sectionBundles.join(', ')}) — removed on purpose; see the header`);
+const namedBundles = [...llms.matchAll(/(?:https:\/\/[^\s)]+|\/[^\s)]*)llms-full\.txt/g)].map((m) => {
+  try {
+    return new URL(m[0], ORIGIN).pathname;
+  } catch {
+    return m[0];
+  }
+});
+const sectionNamed = namedBundles.filter((p) => p !== '/llms-full.txt');
+if (sectionNamed.length) fail(`llms.txt names a per-section llms-full.txt: ${sectionNamed.join(', ')}`);
 
 // ── HTML alternates ──────────────────────────────────────────────────────────
 let alternates = 0;

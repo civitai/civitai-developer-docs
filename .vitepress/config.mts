@@ -499,7 +499,7 @@ export default withMermaid({
     console.log(
       `agent-surface: ${surface.twinsChanged} of ${surface.twins} twin(s) rewritten (absolute .md links + index note); ` +
         `${surface.bundleSections} llms-full section(s); section indexes: ` +
-        surface.sections.map((s) => `/${s.seg}/ (${s.entries} entries, ${s.bundleSections} full)`).join(', '),
+        surface.sections.map((s) => `/${s.seg}/ (${s.entries} entries)`).join(', '),
     );
   },
 

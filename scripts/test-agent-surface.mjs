@@ -7,7 +7,7 @@
 //
 // The built-site counterpart is `scripts/check-agent-surface.mjs`.
 
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -143,9 +143,8 @@ throws(() => parseIndex('# T\n'), /Table of Contents/, 'no TOC is refused');
     eq(rd('llms.txt').includes(`(${ORIGIN}/apps/llms.txt)`) && rd('llms.txt').includes(`(${ORIGIN}/site/llms.txt)`), true, 'fixture: root names both section indexes');
     eq(parseIndex(rd('apps/llms.txt')).toc.flatMap((g) => g.lines).length, 2, 'fixture: /apps/llms.txt holds only apps entries');
     eq(rd('apps/llms.txt').startsWith('# Apps\n\n> apps desc\n'), true, 'fixture: section index titled from its own entry');
-    eq([...rd('site/llms-full.txt').matchAll(/^url: (.+)$/gm)].map((m) => m[1]), ['/site.md', '/site/x.md'], 'fixture: /site/llms-full.txt sections');
+    eq(existsSync(join(dir, 'site/llms-full.txt')) || existsSync(join(dir, 'apps/llms-full.txt')), false, 'fixture: NO per-section llms-full.txt (each would exceed an agent fetch)');
     eq(rd('llms-full.txt').includes(`[g](${ORIGIN}/apps/guide.md)`), true, 'fixture: root bundle links absolutized');
-    eq(rd('apps/llms-full.txt').includes('[g](https://developer.civitai.com/apps/guide.md)'), true, 'fixture: section bundle carries the rewritten links');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

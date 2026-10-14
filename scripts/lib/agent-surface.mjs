@@ -22,7 +22,7 @@
 //      that landed on one page learns the index and the `.md` convention.
 //   3. `llms.txt` links become absolute, and it gains a short preamble naming
 //      the `.md` convention and the per-section indexes.
-//   4. Per-section `/<section>/llms.txt` + `/<section>/llms-full.txt` (the
+//   4. Per-section `/<section>/llms.txt` indexes (the
 //      llms.txt subpath convention): the root index / bundle filtered to that
 //      path. A section is any top-level path segment with >= 2 index entries.
 
@@ -278,16 +278,9 @@ export function applyAgentSurface(outDir) {
     const desc = (own && entryDesc(own)) || `The /${seg}/ pages of ${ORIGIN}.`;
     const head =
       `# ${title}\n\n> ${desc}\n\n` +
-      `The /${seg}/ subset of ${ORIGIN}/llms.txt. Every page has a markdown version at its URL + \`.md\`; ` +
-      `the full text of every page below is ${ORIGIN}/${seg}/llms-full.txt.\n`;
+      `The /${seg}/ subset of ${ORIGIN}/llms.txt. Every page has a markdown version at its URL + \`.md\`.\n`;
     writeFileSync(join(outDir, seg, 'llms.txt'), renderIndex({ head, toc }));
-    const sectionBundle = bundle.filter((b) => {
-      const u = frontmatterUrl(b);
-      return u && inSection(u, seg);
-    });
-    if (sectionBundle.length === 0) throw new Error(`agent-surface: llms-full.txt has no sections under /${seg}/`);
-    writeFileSync(join(outDir, seg, 'llms-full.txt'), sectionBundle.join(SEPARATOR));
-    perSection.push({ seg, title, entries: toc.reduce((n, g) => n + g.lines.length, 0), bundleSections: sectionBundle.length });
+    perSection.push({ seg, title, entries: toc.reduce((n, g) => n + g.lines.length, 0) });
   }
 
   const preamble =
@@ -295,7 +288,7 @@ export function applyAgentSurface(outDir) {
     `\`Accept: text/markdown\`). Internal links in the markdown are absolute \`.md\` URLs.\n\n` +
     `## Section indexes\n\n` +
     perSection
-      .map((s) => `- [${s.title}](${ORIGIN}/${s.seg}/llms.txt): the /${s.seg}/ pages only; full text at ${ORIGIN}/${s.seg}/llms-full.txt`)
+      .map((s) => `- [${s.title}](${ORIGIN}/${s.seg}/llms.txt): the /${s.seg}/ pages only`)
       .join('\n') +
     '\n';
   writeFileSync(indexPath, renderIndex({ head: index.head.replace(/\n*$/, '\n') + preamble, toc: index.toc }));

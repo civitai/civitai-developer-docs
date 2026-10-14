@@ -84,8 +84,9 @@ link is an absolute `https://developer.civitai.com/<page>.md` URL and a one-line
 index note sits under the frontmatter; `llms.txt` entries are absolute; the
 generated API operation pages get twins rendered from the OpenAPI spec (the
 plugin cannot emit them — their body is one component tag); and
-`/apps/llms.txt`, `/orchestration/llms.txt`, `/site/llms.txt` (+ `llms-full.txt`
-each) index one section. All of it is `buildEnd` post-processing
+`/apps/llms.txt`, `/orchestration/llms.txt`, `/site/llms.txt` each index one
+section. There is deliberately no per-section `llms-full.txt`: at ~0.2-1.0 MB
+each they would be far over the ~100K-character fetch they would exist to fit. All of it is `buildEnd` post-processing
 (`scripts/lib/agent-surface.mjs`, `scripts/lib/operation-twins.mjs`), asserted
 on the build by `npm run check:agent-surface`.
 
