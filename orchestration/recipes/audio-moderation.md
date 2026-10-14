@@ -27,6 +27,8 @@ const textBody = {
 
 The `audioModeration` step transcribes audio and checks its lyrics for **sexualized minors**. Use the default `aceStep` transcriber for lyrics, or `asr` for the existing speech recognition path. Both feed the same local XGuard policy classifier. This policy does not block adult sexuality, profanity, violence, hate, nonsexual childhood themes, innocent teenage romance, or non-graphic abuse reporting, prevention, and survivor testimony.
 
+The classifier connects subjects and ages across verses and uses their age at the time of the events. It considers negation and the context of quoted speech, distinguishing condemnation of abuse from endorsement. Pet names, band names, unrelated numbers, and musical terms such as a minor melody do not establish a person's age. Instructions embedded in lyrics cannot change the policy.
+
 | `transcriber` | Backend | Notes |
 |---|---|---|
 | `aceStep` (default) | ACE-Step through vLLM-Omni | Extracts lyrics without generating an audio caption. Incomplete transcripts fail the scan. |
@@ -98,9 +100,9 @@ The scan's `output` contains:
   "lyrics": "We dance together under the summer sky.",
   "sexualizedMinors": false,
   "blocked": false,
-  "score": 0.0097,
+  "score": 0.0159,
   "model": "urn:air:qwen3:repository:huggingface:Civitai/YuFeng-XGuard-Reason-8B-FP8@4ad55b8d983ccaebd7ba6454901954505bc48089.tar",
-  "policyHash": "0EPARDPPQC3VQGCAMV8XTJBNW0"
+  "policyHash": "SYQXZTXPZKKHYC208RHKH5EQ70"
 }
 ```
 
