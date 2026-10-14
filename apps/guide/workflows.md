@@ -85,11 +85,9 @@ The default template, `page-elements`, is not React. It uses `@civitai/sdk`,
 and its calling code is in the next section,
 [Calling it from `@civitai/sdk`](#on-civitai-sdk). That template's
 `npm run dev:harness` does not answer these calls: its token is not a real one,
-so every `app.workflows` call rejects there. To exercise them, run the app
-inside the real host with
-[`civitai app dev-tunnel`](./local-dev#previewing-inside-the-real-host), once
-the app has been submitted (pending is enough); that spends real Buzz, and its
-limits are listed there.
+so every `app.workflows` call rejects there. Running the app inside the real
+host is covered under
+[Previewing inside the real host](./local-dev#previewing-inside-the-real-host).
 
 Everything else on this page (the body, the limits, the costs, the refusal
 codes, the result) is the same on both; only the calling code differs.
