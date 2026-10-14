@@ -45,26 +45,16 @@ release that has them. A host that predates the kind refuses the body, so
 
 ::: tip Getting those versions into a scaffolded app
 `civitai app create` writes its own `@civitai/*` version ranges, and they can
-trail the packages. Checked on 14 October 2026 against the CLI's latest
-release, `0.1.120`:
-
-| Template | What `0.1.120` scaffolds |
-|---|---|
-| `page-elements` (the default) | `@civitai/sdk` `^0.11.0`, `@civitai/app-sdk` `^0.68.0` |
-| `page-money` | `@civitai/app-sdk` `^0.68.0`, `@civitai/blocks-react` `^0.72.0` |
-
-A caret range on a `0.x` version never moves to the next minor. So
-`@civitai/sdk` `^0.11.0` will not reach `0.12.0`, and an app scaffolded from
-that release has **no `app.workflows`** until you raise it yourself. A later
-CLI release may scaffold a newer range; the check below tells you either way.
-An app scaffolded by an older CLI can have older ranges for the other two
-packages as well. See what you have:
+trail the packages. A caret range on a `0.x` version never moves to the next
+minor, so `npm install` and `npm update` alone will not cross one. See what you
+have:
 
 ```bash
 npm ls @civitai/sdk @civitai/app-sdk @civitai/blocks-react
 ```
 
-On `page-elements`, if `@civitai/sdk` is below `0.12.0`:
+On `page-elements`, if `@civitai/sdk` is below `0.12.0` there is no
+`app.workflows`; raise it:
 
 ```bash
 npm install @civitai/sdk@^0.12.0
@@ -93,7 +83,12 @@ The examples on this page are React: they call `useBuzzWorkflow()` from
 
 The default template, `page-elements`, is not React. It uses `@civitai/sdk`,
 and its calling code is in the next section,
-[Calling it from `@civitai/sdk`](#on-civitai-sdk).
+[Calling it from `@civitai/sdk`](#on-civitai-sdk). That template's
+`npm run dev:harness` does not answer these calls: its token is not a real one,
+so every `app.workflows` call rejects there. To exercise them, run the app
+inside the real host with
+[`civitai app dev-tunnel`](./local-dev#previewing-inside-the-real-host), which
+spends real Buzz; its limits are listed there.
 
 Everything else on this page (the body, the limits, the costs, the refusal
 codes, the result) is the same on both; only the calling code differs.
@@ -130,8 +125,12 @@ async function run(body: WorkflowBody, idempotencyKey: string) {
   const submitted = await app.workflows.submit(body, { idempotencyKey });
   if (submitted.status === 'failed') {
     // The placeholder id 'failed': the host refused this request. A real id:
-    // a run was created and came back failed.
-    return showMessage(`Not run: ${submitted.errorCode ?? submitted.workflowId}`);
+    // a run was created and came back failed, and Buzz may have been spent.
+    return showMessage(
+      submitted.workflowId === 'failed'
+        ? `Could not start: ${submitted.errorCode ?? 'refused'}`
+        : 'This run failed. Check your history before trying again.'
+    );
   }
 
   // 3. Follow it to a final status, whichever it is.
@@ -851,7 +850,7 @@ with them:
 ## Testing with the mock host
 
 The mock host (`createMockHost` / `Harness` from `@civitai/blocks-react/testing`,
-and `npm run dev:harness` in a scaffolded app) estimates, submits and polls
+and `npm run dev:harness` in an app scaffolded from `page-money`) estimates, submits and polls
 this kind:
 
 - It **prices each step** with `generation.costPerGen` and adds

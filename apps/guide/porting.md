@@ -217,7 +217,7 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 | `useBuzzBalance` | `GET /api/v1/blocks/buzz` |
 | `useBuzzPurchase` | **Keep** — host UI |
 | `useBuzzTransactions` | **No route yet** |
-| `useBuzzWorkflow` | `/api/v1/blocks/workflows/{estimate,submit,poll,cancel}`. In `@civitai/sdk` (0.12.0 or later) these are `app.workflows.estimate`, `submit`, `get` (the `poll` route) and `cancel`, plus `watch` and `wait` to follow a workflow. Three things change in the port: a refusal **resolves** with a `failed` snapshot where the hook rejects with `WorkflowEstimateError` / `WorkflowSubmitError`; `submit` **requires** an `idempotencyKey` where the hook mints one when you omit it; and a `submit` that rejects has an unknown outcome. See [Money calls](./sdk#money-calls) |
+| `useBuzzWorkflow` | `/api/v1/blocks/workflows/{estimate,submit,poll,cancel}`. In `@civitai/sdk` (0.12.0 or later): `app.workflows.estimate`, `submit`, `get` (the `poll` route), `watch`, `wait` and `cancel` — see [Money calls](./sdk#money-calls) for what changes in the port |
 | `useCheckpointPicker` | **Keep** the picker (host UI); `.persist` → `POST /api/v1/blocks/user-checkpoint/set` |
 | `useCivitaiNavigate` | **Keep** — host UI |
 | `useCivitaiRoute` | **Keep** — reads the host-owned sub-path from the handshake and `ROUTE_CHANGED`; off the bridge your own router owns the URL, so there is nothing to replace |
