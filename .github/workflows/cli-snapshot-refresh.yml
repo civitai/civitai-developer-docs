@@ -482,6 +482,13 @@ jobs:
       - name: Make the binary executable
         run: chmod +x "${RUNNER_TEMP}/cli-bin/civitai"
 
+      # The script also REGENERATES the reference pages the new snapshot makes
+      # stale (`APPBLOCKS_SNAPSHOT_ONLY=1` gen:appblocks + gen:appblocks:md — the
+      # command check:md-regions prints) and commits them with it, so a release
+      # that adds a command no longer leaves test-md-regions red for a human to
+      # fix (docs#220, and 91d5f6a before it). It does NOT write the hand-written
+      # intro test-cli gates; the PR body names the missing command instead. The
+      # `npm ci` above is what the generators need: they read the pinned SDK.
       - name: Re-capture and open/update the PR
         env:
           CIVITAI_CLI_BIN: ${{ runner.temp }}/cli-bin/civitai

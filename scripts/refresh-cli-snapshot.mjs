@@ -68,6 +68,16 @@
  *   published reference starts describing a binary nobody has. Decide that on
  *   its merits; do not arrive at it by "fixing" this trigger.
  *
+ * IT COMMITS THE PAGES THE SNAPSHOT FEEDS — AND REPORTS THE ONE IT MAY NOT WRITE
+ * ------------------------------------------------------------------------------
+ * A re-capture that adds or changes a command makes the generated CLI pages
+ * stale, and `check:md-regions` blocks on that. Twice a human had to re-run the
+ * generators on the bot PR (docs#220's 309cdfc, and 91d5f6a at v0.1.112), so the
+ * run now regenerates them in the same commit (`regeneratePages`). The
+ * hand-written intro on apps/reference/cli.md is the exception, by design: the
+ * PR body names the command it is missing and the PR stays red on `test-cli`
+ * until a human writes the sentence (`regenSection`).
+ *
  * WHAT IT DOES *NOT* DO
  * ---------------------
  * 🔴 It NEVER pushes to `main`. It opens a PR, because the human read of that
@@ -223,11 +233,16 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { bare, classifySnapshot, parseSnapshotVersion } from './check-appblocks-cli-snapshot.mjs';
+import { CLI_PAGE_REL, introCommandDrift } from './lib/cli-intro-commands.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
 
-/** Path of the snapshot RELATIVE to the repo root — the only file this ever commits. */
+/**
+ * Path of the snapshot RELATIVE to the repo root. It and the generated reference
+ * pages derived from it (see REGEN_STEPS / partitionRegenChanges) are the only
+ * files this ever commits.
+ */
 export const SNAPSHOT_REL = 'appblocks-snapshots/civitai-cli-help.txt';
 
 /**
@@ -358,6 +373,145 @@ export function decideAction({ snapshotTag, latestTag, forcedTag }) {
   };
 }
 
+/**
+ * 🔴 THE PAGES A RE-CAPTURE MAKES STALE ARE REGENERATED AND COMMITTED WITH IT.
+ *
+ * The snapshot is not the only committed file derived from the CLI: the CLI
+ * index region in apps/reference/cli.md and every generated sub-page under
+ * apps/reference/cli/ carry a markdown fallback rendered from it, and
+ * `check:md-regions` (a REQUIRED, PR-blocking check) fails the moment the two
+ * disagree. A snapshot-only commit therefore opened a PR that could not pass
+ * without a human re-running the generators — measured twice: docs#220 needed
+ * 309cdfc (six pages; v0.1.123 added `feedback`), and the v0.1.112 capture
+ * needed 91d5f6a. The command is the one that check prints, so it is the
+ * command run here, in the same environment CI grades it in:
+ *
+ *   APPBLOCKS_SNAPSHOT_ONLY=1 npm run gen:appblocks && npm run gen:appblocks:md
+ *
+ * Run as `node scripts/…` rather than through npm so the steps are exactly
+ * these two files, with no lifecycle hook riding along.
+ */
+export const REGEN_STEPS = [
+  { script: 'gen-appblocks.mjs', env: { APPBLOCKS_SNAPSHOT_ONLY: '1' } },
+  { script: 'gen-appblocks-md.mjs', env: { APPBLOCKS_SNAPSHOT_ONLY: '1' } },
+];
+
+/**
+ * Split the paths a regeneration changed into the ones this bot may commit and
+ * the ones it must NOT.
+ *
+ * `owned` is the exact set of pages gen-appblocks-md.mjs writes (every
+ * REGIONS page) and `ownedDirs` the generated sub-page directories it creates
+ * pages in and deletes orphans from. Anything else that moved is UNEXPECTED: it
+ * is reported, never staged — the explicit-path discipline of the snapshot
+ * commit (`git add -- <path>`, never `-A`) extended to a set rather than
+ * abandoned for one. The snapshot itself is staged separately and is neither.
+ */
+export function partitionRegenChanges(paths, { owned, ownedDirs }) {
+  const ownedSet = new Set(owned);
+  const inOwnedDir = (p) =>
+    ownedDirs.some((d) => p.startsWith(`${d}/`) && p.endsWith('.md') && !p.slice(d.length + 1).includes('/'));
+  const stage = [];
+  const unexpected = [];
+  for (const p of paths) {
+    if (p === SNAPSHOT_REL) continue;
+    (ownedSet.has(p) || inOwnedDir(p) ? stage : unexpected).push(p);
+  }
+  return { stage: stage.sort(), unexpected: unexpected.sort() };
+}
+
+/**
+ * Paths with ANY change in the working tree — modified, deleted, or new and not
+ * ignored — parsed from `git status --porcelain=v1 -z`. Renames cannot appear
+ * (nothing is staged when this runs), but the parse handles the two-path record
+ * anyway rather than mis-reading the next entry.
+ */
+export function parsePorcelainZ(out) {
+  const recs = String(out).split('\0');
+  const paths = [];
+  for (let i = 0; i < recs.length; i++) {
+    const r = recs[i];
+    if (r.length < 4) continue;
+    paths.push(r.slice(3));
+    if (r[0] === 'R' || r[0] === 'C') i++; // the rename/copy SOURCE follows
+  }
+  return paths;
+}
+
+/**
+ * The part of the PR body about the pages and the hand-written intro. Separate
+ * so it is testable on its own and so `prBody` stays one template.
+ *
+ * 🔴 THE INTRO IS REPORTED, NEVER WRITTEN. apps/reference/cli.md opens its
+ * command reference with a curated English sentence naming every top-level
+ * command, and test-appblocks-cli.mjs's PAGE PROSE check fails when the CLI
+ * gains one it does not name. That red is CORRECT on a bot PR: what a new
+ * command is for is a sentence a human writes, and a bot that filled it from
+ * the help text would turn the one prose gate into a rubber stamp. So the bot
+ * PR stays red on `test-cli` until somebody writes it — and this section says
+ * so, names the command, and points at the paragraph, which is the part that
+ * cost the last human a failing log to discover.
+ */
+export function regenSection(regen) {
+  if (!regen) return '';
+  const lines = ['## Generated pages', ''];
+  if (!regen.ok) {
+    lines.push(
+      `⚠️ **Regenerating the reference pages FAILED, so this PR carries the snapshot only** and`,
+      '`test-md-regions` will be red. Run the refresh by hand on this branch and commit the page diff:',
+      '',
+      '```',
+      'APPBLOCKS_SNAPSHOT_ONLY=1 npm run gen:appblocks && npm run gen:appblocks:md',
+      '```',
+      '',
+      `The generator said: \`${String(regen.error || 'unknown error').split('\n')[0].slice(0, 300)}\``,
+    );
+  } else if (regen.staged.length) {
+    lines.push(
+      'The generated pages derived from this snapshot were regenerated in the same commit, with the',
+      'command `check:md-regions` prints (`APPBLOCKS_SNAPSHOT_ONLY=1 npm run gen:appblocks && npm run',
+      'gen:appblocks:md`):',
+      '',
+      ...regen.staged.map((p) => `- \`${p}\``),
+    );
+  } else {
+    lines.push('No generated page changed — the reference pages already match this snapshot.');
+  }
+  if (regen.unexpected?.length) {
+    lines.push(
+      '',
+      'The generators ALSO changed files outside the pages they own. Those were **not** committed:',
+      '',
+      ...regen.unexpected.map((p) => `- \`${p}\``),
+    );
+  }
+  const prose = regen.prose;
+  if (prose && prose.ok && (prose.missing.length || prose.stale.length)) {
+    lines.push(
+      '',
+      '## ✍️ A human has to write one sentence here',
+      '',
+      `The hand-written intro under \`## Command reference\` in \`${CLI_PAGE_REL}\` names every top-level`,
+      'command in prose, and `test-cli` fails until it matches the CLI. That is deliberate — the bot does',
+      'not write prose — so **`test-cli` stays red on this PR until someone edits that paragraph**:',
+      '',
+    );
+    if (prose.missing.length) {
+      const many = prose.missing.length > 1;
+      lines.push(
+        `- **add** (new top-level command${many ? 's' : ''}): ${prose.missing.map((c) => `\`${c}\``).join(', ')} — ` +
+          `name ${many ? 'each' : 'it'} in backticks and say what ${many ? 'each is' : 'it is'} for`,
+      );
+    }
+    if (prose.stale.length) {
+      lines.push(`- **remove** (no longer a top-level command): ${prose.stale.map((c) => `\`${c}\``).join(', ')}`);
+    }
+  } else if (prose && !prose.ok) {
+    lines.push('', `Could not read the hand-written intro in \`${CLI_PAGE_REL}\` (${prose.reason}); \`test-cli\` will say more.`);
+  }
+  return `${lines.join('\n')}\n\n`;
+}
+
 export function prTitle(targetTag) {
   return `chore(snapshot): re-capture the CLI help snapshot at ${targetTag}`;
 }
@@ -374,7 +528,7 @@ export function prTitle(targetTag) {
  * added and wired into the workflow's `gh` token, DELETE this section — leaving
  * a false warning in place teaches reviewers to skim the body.
  */
-export function prBody({ fromVersion, targetTag, stats, reason, runUrl, branch }) {
+export function prBody({ fromVersion, targetTag, stats, reason, runUrl, branch, regen = null }) {
   const run = runUrl ? `[this workflow run](${runUrl})` : 'the scheduled `cli-snapshot-refresh` run';
   return `## ⚠️ This PR's checks did NOT run automatically
 
@@ -418,7 +572,7 @@ capture failing any of those **fails the job instead of opening a PR** — a sho
 capture (an older binary walks a smaller tree and still exits 0) otherwise ships
 as a normal-looking diff with whole command subtrees quietly deleted.
 
-## Review this diff by hand
+${regenSection(regen)}## Review this diff by hand
 
 That is what this PR is for. The last re-capture (docs#56) turned out to carry a
 real user-facing fix — \`2.0 MB\` → \`2.0 MiB\` in 10 places — which was only
@@ -758,6 +912,86 @@ function syncWithBase({ branch, base }) {
   throw err;
 }
 
+/** Every working-tree change git can see (ignored files excluded), as repo-relative paths. */
+function changedPaths() {
+  const out = execFileSync('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  });
+  return parsePorcelainZ(out);
+}
+
+/** Put every listed path back to HEAD: tracked ones checked out, new ones removed. */
+function restorePaths(paths) {
+  for (const p of paths) {
+    const tracked = spawnSync('git', ['cat-file', '-e', `HEAD:${p}`], { cwd: repoRoot }).status === 0;
+    if (tracked) git(['checkout', 'HEAD', '--', p]);
+    else rmSync(join(repoRoot, p), { force: true });
+  }
+}
+
+/**
+ * Regenerate the pages the snapshot feeds (see REGEN_STEPS), against the tree
+ * as it stands — which, on the real path, is the bot branch AFTER the base was
+ * merged in and the capture written, so the pages are derived from exactly the
+ * bytes about to be committed on top of exactly the pages already there.
+ *
+ * NEVER FATAL. A page-regeneration failure must not cost the snapshot its PR:
+ * the snapshot is the source of truth and has already passed its own floor, so
+ * the generator's changes are rolled back and the PR body says, first thing
+ * under "Generated pages", that the pages were not regenerated and how to do it.
+ * That is strictly better than both alternatives — failing the run would put us
+ * back to "the branch moved and nobody was told", and committing half-written
+ * pages would be worse than committing none.
+ *
+ * Returns `{ ok, staged, unexpected, error, prose }`; nothing is staged here.
+ */
+async function regeneratePages() {
+  const before = new Set(changedPaths());
+  for (const { script, env } of REGEN_STEPS) {
+    // stdio is INHERITED so the generator's own diagnostics land in the run
+    // log; the summary names the STEP, because execFileSync's message is only
+    // "Command failed: <node path> <script path>".
+    const res = spawnSync(process.execPath, [join(repoRoot, 'scripts', script)], {
+      cwd: repoRoot,
+      stdio: 'inherit',
+      env: { ...process.env, ...env },
+    });
+    if (res.status !== 0 || res.error) {
+      restorePaths(changedPaths().filter((p) => !before.has(p) && p !== SNAPSHOT_REL));
+      const error = `${script} ${res.error ? `could not run (${res.error.message})` : `exited ${res.status ?? `on ${res.signal}`}`} — its output is in the workflow run log`;
+      console.error(`  ⚠ page regeneration FAILED — committing the snapshot only: ${error}`);
+      return { ok: false, staged: [], unexpected: [], error, prose: null };
+    }
+  }
+  const { REGIONS } = await import(pathToFileURL(join(repoRoot, 'scripts', 'appblocks-md.mjs')).href);
+  const { REFERENCE_SPLITS } = await import(
+    pathToFileURL(join(repoRoot, '.vitepress', 'theme', 'components', 'referenceSplit.shared.mjs')).href
+  );
+  const { stage, unexpected } = partitionRegenChanges(
+    changedPaths().filter((p) => !before.has(p)),
+    { owned: REGIONS.map((r) => r.page), ownedDirs: Object.values(REFERENCE_SPLITS).map((s) => s.hub.slice(1)) },
+  );
+  for (const p of stage) console.log(`  ↳ regenerated ${p}`);
+  for (const p of unexpected) console.error(`  ⚠ the generators also changed ${p} — NOT a page they own, NOT committed`);
+
+  // The intro report reads the artifact gen-appblocks.mjs just wrote from the
+  // capture, i.e. the same artifact test-appblocks-cli.mjs builds from it.
+  let prose;
+  try {
+    prose = introCommandDrift({
+      page: readFileSync(join(repoRoot, CLI_PAGE_REL), 'utf8'),
+      artifact: JSON.parse(readFileSync(join(repoRoot, 'public', 'appblocks', 'cli.json'), 'utf8')),
+    });
+  } catch (err) {
+    prose = { ok: false, reason: err.message.split('\n')[0] };
+  }
+  if (prose.ok && prose.missing.length) {
+    console.log(`  ✍ the hand-written intro in ${CLI_PAGE_REL} does not name: ${prose.missing.join(', ')} (a human writes that)`);
+  }
+  return { ok: true, staged: stage, unexpected, error: null, prose };
+}
+
 function runUrl() {
   const { GITHUB_SERVER_URL, GITHUB_REPOSITORY, GITHUB_RUN_ID } = process.env;
   if (!GITHUB_SERVER_URL || !GITHUB_REPOSITORY || !GITHUB_RUN_ID) return null;
@@ -919,18 +1153,25 @@ async function main() {
     process.exit(1);
   }
 
-  const body = prBody({
-    fromVersion: parsedPrev.raw,
-    targetTag: decision.targetTag,
-    stats: verdict.stats,
-    reason: decision.reason,
-    runUrl: runUrl(),
-    branch,
-  });
+  const bodyFor = (regen) =>
+    prBody({
+      fromVersion: parsedPrev.raw,
+      targetTag: decision.targetTag,
+      stats: verdict.stats,
+      reason: decision.reason,
+      runUrl: runUrl(),
+      branch,
+      regen,
+    });
   const title = prTitle(decision.targetTag);
 
   if (dryRun) {
+    // The pages are regenerated here too, so the printed body is the one a real
+    // run would post — and then put back with the snapshot.
+    const regen = await regeneratePages();
+    restorePaths([...regen.staged, ...regen.unexpected]);
     writeFileSync(snapshotPath, prev);
+    const body = bodyFor(regen);
     console.log('\n--- --dry-run: tree restored, no git writes, no PR ---');
     console.log(`TITLE: ${title}\n`);
     console.log(body);
@@ -988,10 +1229,19 @@ async function main() {
   }
   writeFileSync(snapshotPath, next);
 
-  // Explicit path. Never `git add -A`: this job runs in a checkout where the
+  // AFTER the merge and the capture, so the pages are derived from the bytes
+  // being committed on top of the pages the branch already holds — a human's
+  // fixup there included. See regeneratePages: a failure here degrades to a
+  // snapshot-only commit that SAYS so, never to a failed run.
+  const regen = await regeneratePages();
+  const body = bodyFor(regen);
+
+  // Explicit paths. Never `git add -A`: this job runs in a checkout where the
   // generator has also written gitignored artifacts, and a blind stage is how
-  // an unrelated file rides along in a PR nobody is reading closely.
-  git(['add', '--', SNAPSHOT_REL]);
+  // an unrelated file rides along in a PR nobody is reading closely. The pages
+  // are the generator-OWNED set `partitionRegenChanges` admitted, by name; `git
+  // add -- <path>` also stages the deletion of an orphan sub-page it removed.
+  git(['add', '--', SNAPSHOT_REL, ...regen.staged]);
   // Nothing staged is REACHABLE now that the branch is extended rather than
   // recreated: a second run finding the same drift re-captures byte-identical
   // bytes that are already on the branch. `git commit` would exit 1 on that,
@@ -1008,6 +1258,11 @@ async function main() {
       '-m',
       `${decision.reason}.\n\nCaptured from the published civitai ${decision.targetTag} release asset. ` +
         `${verdict.stats.nextBlocks} ===CMD blocks (floor ${verdict.stats.prevBlocks}), ${verdict.stats.nuls} NUL bytes.\n\n` +
+        (regen.ok
+          ? regen.staged.length
+            ? `Regenerated ${regen.staged.length} reference page(s) from it (gen:appblocks + gen:appblocks:md).\n\n`
+            : ''
+          : 'Page regeneration FAILED; this commit carries the snapshot only — see the PR body.\n\n') +
         `Opened automatically by .github/workflows/cli-snapshot-refresh.yml.`,
     ]);
   }

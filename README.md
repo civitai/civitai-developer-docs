@@ -291,6 +291,20 @@ and a compare URL, rather than opening a PR nobody can merge. It **never pushes
 to `main`**: the human read of that diff is what makes a real user-facing change
 legible as one.
 
+The same commit carries the **generated reference pages** the new snapshot makes
+stale — the CLI index region in `apps/reference/cli.md` and the sub-pages under
+`apps/reference/cli/` — regenerated with exactly the command
+`check:md-regions` prints (`APPBLOCKS_SNAPSHOT_ONLY=1 npm run gen:appblocks &&
+npm run gen:appblocks:md`), so a release that adds a command no longer needs a
+human commit to get `test-md-regions` green. Only pages that generator owns are
+staged; anything else it touched is listed in the PR body and left out. If the
+regeneration itself fails, the PR still opens with the snapshot alone and its
+body says so. The one thing it **does not** write is the hand-written intro on
+`apps/reference/cli.md` that names every top-level command: when the CLI gains
+(or drops) one, the PR body names it under "A human has to write one sentence
+here", and `test-cli` stays red until somebody does — that gate exists to catch
+prose rot, and a bot filling it in would defeat it.
+
 🔴 **`npm run refresh:cli-snapshot` is not a repair command you run.** It commits
 to a shared remote branch and leaves your checkout sitting on it. It refuses
 outside CI for that reason; `--dry-run` (below) is the local form.
