@@ -87,6 +87,7 @@ Any MCP client that speaks Streamable HTTP can connect — point it at `/mcp` an
 - **Collections** — create, add items, follow
 - **Messaging** — direct messages, chat threads, mark read
 - **Bounties** — create, update, submit entries, award
+- **Platform feedback** — report a problem with Civitai's developer platform (CLI, SDKs, docs, app review, sandbox, scopes, this server) and read back its status; needs a full-access personal API key, not an MCP OAuth token
 - **Moderation** *(moderator-only)* — announcements and changelog entries
 - **Utilities** — `upload_image` (from URL or base64), `whoami`
 

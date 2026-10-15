@@ -99,7 +99,7 @@ the [CLI README](https://github.com/civitai/cli#exit-codes).
 | `SHA256 mismatch for` | A download's hash did not match and the partial file was deleted — integrity checking working. Retry. The file name is the uploader's, so it is sanitised and the progress line cut at 120 characters ([What a table cell can contain](./cli-output#what-a-table-cell-can-contain)). | [Integrity](./cli#integrity) |
 | `checksum mismatch for` | The row above, during `civitai upgrade`. | [`civitai upgrade`](/apps/reference/cli/account-and-setup#cli-upgrade) |
 | ``git is required for `civitai app pull` `` | Exit `1`, reached only after the server has already answered. | [Pull your app's repository](https://github.com/civitai/cli#pull-your-apps-repository-app-pull) |
-| `unexpected response from` | A public read endpoint answered **`200`** with a body this CLI could not decode — not your request, credential or network, so exit `1`. **Please open an issue with the snippet.** | [When a body still will not decode](./cli-json#when-a-body-still-will-not-decode) |
+| `unexpected response from` | A public read endpoint answered **`200`** with a body this CLI could not decode — not your request, credential or network, so exit `1`. **Report it with `civitai feedback send --about cli`, attaching the snippet with `--error-file`.** | [Report a platform problem](./platform-feedback), [When a body still will not decode](./cli-json#when-a-body-still-will-not-decode) |
 
 ## Where to go next
 
@@ -111,3 +111,5 @@ the [CLI README](https://github.com/civitai/cli#exit-codes).
   beyond the read endpoints.
 - **Exit codes** — the full per-code ledger is in the
   [CLI README](https://github.com/civitai/cli#exit-codes).
+- [Report a platform problem](./platform-feedback) — when the CLI, an SDK,
+  these docs or app review got in your way: `civitai feedback send`.

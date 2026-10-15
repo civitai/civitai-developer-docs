@@ -82,7 +82,7 @@ const appsGuideSidebar: DefaultTheme.SidebarItem[] = [
       { text: 'Example apps', link: '/apps/examples' },
     ],
   },
-  // 🔴 CROSS-SECTION ON PURPOSE. These two pages live under `/site/guide/`
+  // 🔴 CROSS-SECTION ON PURPOSE. These pages live under `/site/guide/`
   // because the binary they document is the Site API CLI, but most of the
   // troubleshooting index is Apps-domain — `app submit`, `app listing`,
   // `app doctor`, `app metrics`. Measured on cli-troubleshooting.md at this
@@ -93,7 +93,9 @@ const appsGuideSidebar: DefaultTheme.SidebarItem[] = [
   // under `apps/` mention `store-listing`, 0 mentioned either of these
   // pages — this branch adds the inbound links, so the count is no longer 0),
   // so an author who just got `the server rejected the image-upload request
-  // (400)` had no route to the page that indexes it.
+  // (400)` had no route to the page that indexes it. `platform-feedback`
+  // (added later) is here for the same reason: an App author is the one who
+  // hits platform friction, and it is how they report it.
   //
   // A GROUP rather than rows inside `Guide` for the reason the `Examples`
   // comment above gives: the llms plugin turns a group into its own `###`
@@ -105,6 +107,7 @@ const appsGuideSidebar: DefaultTheme.SidebarItem[] = [
     items: [
       { text: 'Look up a CLI error message', link: '/site/guide/cli-troubleshooting' },
       { text: 'CLI terminal output', link: '/site/guide/cli-output' },
+      { text: 'Report a platform problem', link: '/site/guide/platform-feedback' },
     ],
   },
 ];
@@ -308,6 +311,7 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'CLI: scripting with --json', link: '/site/guide/cli-json' },
         { text: 'CLI: terminal output', link: '/site/guide/cli-output' },
         { text: 'CLI: troubleshooting', link: '/site/guide/cli-troubleshooting' },
+        { text: 'Report a platform problem', link: '/site/guide/platform-feedback' },
         { text: 'Pagination', link: '/site/guide/pagination' },
         { text: 'Errors', link: '/site/guide/errors' },
         { text: 'AIR Identifiers', link: '/site/guide/air' },
