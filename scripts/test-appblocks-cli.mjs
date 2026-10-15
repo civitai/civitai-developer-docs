@@ -53,6 +53,7 @@ import {
   walkCommandPaths,
 } from './gen-appblocks-cli.mjs';
 import { repoRoot } from './appblocks-util.mjs';
+import { CLI_PAGE_REL, introCommandDrift } from './lib/cli-intro-commands.mjs';
 import {
   cliAnchorId,
   cliHeadingLevel,
@@ -1720,32 +1721,15 @@ check('the page names exactly the top-level commands the artifact carries', () =
   // prose. That is ungated curation — the same failure mode as the APP_COMMANDS
   // list this PR deletes, reintroduced in English. Gate it, in BOTH directions,
   // so a command the CLI gains or loses fails here instead of rotting silently.
-  const page = readFileSync(`${repoRoot}/apps/reference/cli.md`, 'utf8');
-  const start = page.indexOf('## Command reference');
-  // Match the TAG, not one spelling of it. The intro ends where the generated
-  // index begins: the command entries moved to sub-pages under
-  // apps/reference/cli/, and the hub now carries `<ReferenceIndex kind="cli">`.
-  const end = page.indexOf('<ReferenceIndex', start);
-  assert(start !== -1 && end > start, 'could not locate the `## Command reference` intro — did the page restructure?');
-  const intro = page.slice(start, end);
-
-  // Single-word backticked tokens only, so `civitai app` / `civitai completion
-  // --help` (multi-word) are prose rather than a claimed command name. The
-  // program's own name is excluded: it is the binary, not a command, and no
-  // top-level command can be called `civitai` (it would be `civitai civitai`).
-  const named = new Set(
-    [...intro.matchAll(/`([^`]+)`/g)]
-      .map((m) => m[1])
-      .filter((t) => /^[a-z][a-z0-9-]*$/.test(t) && t !== (artifact.program?.name ?? 'civitai')),
-  );
-  const topLevel = artifact.commands.filter((c) => !c.command.includes(' ')).map((c) => c.command);
+  //
+  // The comparison lives in scripts/lib/cli-intro-commands.mjs so the snapshot
+  // refresher can NAME the missing command in its bot PR body. It only reports;
+  // this check is still the thing that fails.
+  const page = readFileSync(`${repoRoot}/${CLI_PAGE_REL}`, 'utf8');
+  const drift = introCommandDrift({ page, artifact });
+  assert(drift.ok, drift.reason);
+  const { missing, stale, topLevel } = drift;
   assert(topLevel.length >= TOP_LEVEL_FLOOR, 'no top-level commands to compare against');
-  // `completion` is named as the one deliberate exclusion, so it belongs in the
-  // prose while deliberately NOT being a command entry.
-  const expected = new Set([...topLevel, 'completion']);
-
-  const missing = [...expected].filter((c) => !named.has(c)).sort();
-  const stale = [...named].filter((c) => !expected.has(c)).sort();
   assertEqual(
     missing.join(','),
     '',
