@@ -92,13 +92,13 @@ brew install civitai/tap/civitai
 ```
 
 The tap publishes a **cask**, which is macOS-only — on Linux (Linuxbrew
-included) it has nothing to install. If you are on Linux, use the npm command
-above; do not report the Homebrew failure as a problem.
+included) it has nothing to install. On Linux, use the npm command above and
+do not report the Homebrew failure as a problem.
 
 ### If the install fails
 
-Two common failures are below; they are not the only ways an install can fail.
-On any other, report the exact error and stop rather than guessing.
+Two common failures are below, not the only ones. On any other, report the
+exact error and stop rather than guessing.
 
 - **npm fails with `EACCES`, or with `ENOENT` on a `mkdir` under npm's global
   prefix.** The prefix is not writable. This is normal on NixOS, in some
@@ -129,8 +129,8 @@ civitai agent-setup --track app
 ```
 
 This writes an `AGENTS.md` into the project, registers the two Civitai MCP
-servers in this agent's own config file, and prints what it did. It does not log
-you in and does not need a token.
+servers in this agent's own config file, and prints what it did. It neither logs
+you in nor needs a token.
 
 If the project does not already have a `CLAUDE.md`, it also writes a one-line
 `CLAUDE.md` that points at `AGENTS.md`. An existing `CLAUDE.md` is never
@@ -146,7 +146,7 @@ The two MCP servers are remote:
 complete footprint of this setup, and you must report it.** Some of it lands
 outside the project directory, and the command names the path it actually used.
 
-Do not hand-write MCP config yourself — the config path and key name differ per
+Do not hand-write MCP config — the config path and key name differ per
 agent and the command already knows them.
 
 Wrong agent? Re-run with `--agent <name>` — **only if yours is a name
@@ -166,7 +166,7 @@ Read the output, not just the exit code:
 
 - **An old version, or an "unknown command" / "unknown flag" error, means the
   binary being run is too old.** Usually there is only one `civitai` and it is
-  simply out of date: `civitai upgrade` replaces it in place, checksum-verified,
+  out of date: `civitai upgrade` replaces it in place, checksum-verified,
   handing off to Homebrew if that is how it was installed. Run it, then re-run
   both commands above. Replacing the binary in place is what makes the user's own
   shell get the new CLI; installing a second copy does not.
@@ -184,8 +184,8 @@ which, and why.
 ## 5. Hand back to the user
 
 **Do not write the authentication instructions yourself.** `civitai agent-setup`
-already worked them out for the agent it detected, and they genuinely differ per
-agent: the `CIVITAI_TOKEN` spelling differs per agent, and at least one gets no
+already worked them out for the agent it detected, and they differ per agent:
+the `CIVITAI_TOKEN` spelling varies, and at least one gets no
 `Authorization` header at all and needs one added by hand. Running
 `civitai login` on its own does not reach your agent — it stores a token this
 CLI can see and your agent cannot.
@@ -194,7 +194,7 @@ So: relay, **verbatim**, the `Authentication:` and `Next:` sections that
 `civitai agent-setup --track app` printed back in step 3. Do not summarise them,
 do not replace them with a sentence of your own, and do not run them yourself —
 they are the user's to run. If you no longer have that output, run the step 3
-command again (it is idempotent) and relay the sections from the new run.
+command again (it is idempotent) and relay its sections.
 
 Where that token comes from, if the user asks: a personal API key created at
 https://civitai.com/user/account (API Keys). A browser `civitai login` instead
@@ -209,7 +209,8 @@ and submitting an App. Follow it rather than repeating it here, including which
 command it tells you to scaffold with — do not pick one yourself.
 
 Report Civitai platform issues: `civitai feedback send`, then
-`civitai feedback status <ref>`.
+`civitai feedback status <ref>`. Needs CLI 0.1.123 or newer: if `feedback` is
+an unknown command, run `civitai upgrade` (step 4).
 
 ## Resources
 
