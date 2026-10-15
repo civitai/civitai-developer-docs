@@ -486,7 +486,8 @@ jobs:
       # stale (`APPBLOCKS_SNAPSHOT_ONLY=1` gen:appblocks + gen:appblocks:md — the
       # command check:md-regions prints) and commits them with it, so a release
       # that adds a command no longer leaves test-md-regions red for a human to
-      # fix (docs#220, and 91d5f6a before it). It does NOT write the hand-written
+      # fix (three times: 91d5f6a/docs#126, f02ebbc/docs#178, 309cdfc/docs#220);
+      # a generator failure fails the run before anything is pushed. It does NOT write the hand-written
       # intro test-cli gates; the PR body names the missing command instead. The
       # `npm ci` above is what the generators need: they read the pinned SDK.
       - name: Re-capture and open/update the PR

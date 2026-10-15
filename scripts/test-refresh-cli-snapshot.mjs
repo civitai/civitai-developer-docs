@@ -23,7 +23,7 @@
 // truncates a real snapshot and asserts the specific refusal, not merely that
 // "an error came back".
 import { execFileSync, spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -37,6 +37,7 @@ import {
   countNulBytes,
   countSnapshotBlocks,
   decideAction,
+  dirtyOwnedPaths,
   parsePorcelainZ,
   partitionRegenChanges,
   prBody,
@@ -45,7 +46,7 @@ import {
   prTitle,
   validateCapture,
 } from './refresh-cli-snapshot.mjs';
-import { introCommandDrift } from './lib/cli-intro-commands.mjs';
+import { introCommandDrift, introNamedCommands } from './lib/cli-intro-commands.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -407,6 +408,16 @@ check('only generator-OWNED pages are staged; anything else is reported and left
   );
 });
 
+check('dirtyOwnedPaths names the snapshot and owned pages, and nothing else', () => {
+  const sets = { owned: ['apps/reference/cli.md'], ownedDirs: ['apps/reference/cli'] };
+  assertEqual(
+    dirtyOwnedPaths([SNAPSHOT_REL, 'apps/reference/cli.md', 'apps/reference/cli/new.md', 'apps/guide/index.md'], sets).join(','),
+    `${SNAPSHOT_REL},apps/reference/cli.md,apps/reference/cli/new.md`,
+    'the wrong set was called dirty',
+  );
+  assertEqual(dirtyOwnedPaths(['apps/guide/index.md', 'README.md'], sets).length, 0, 'an unowned edit blocked the run');
+});
+
 check('the porcelain parser reads modified, new, deleted and renamed records', () => {
   const z = [' M apps/a.md', '?? apps/new file.md', ' D apps/gone.md', 'R  apps/to.md', 'apps/from.md', ''].join('\0');
   assertEqual(parsePorcelainZ(z).join('|'), 'apps/a.md|apps/new file.md|apps/gone.md|apps/to.md', 'porcelain parse is wrong');
@@ -414,10 +425,9 @@ check('the porcelain parser reads modified, new, deleted and renamed records', (
 });
 
 const regenOk = (prose) => ({
-  ok: true,
   staged: ['apps/reference/cli.md', 'apps/reference/cli/account-and-setup.md'],
   unexpected: [],
-  error: null,
+  touched: [],
   prose,
 });
 const bodyWith = (regen) => prBody({ ...sampleArgs, regen });
@@ -441,13 +451,6 @@ check('a NEW top-level command is NAMED in the body, with the paragraph to edit 
 check('a REMOVED top-level command is named as one to delete from the intro', () => {
   const b = bodyWith(regenOk({ ok: true, missing: [], stale: ['oldcmd'], topLevel: [] }));
   assert(b.includes('**remove** (no longer a top-level command): `oldcmd`'), `stale command not named:\n${b}`);
-});
-
-check('a FAILED regeneration says the PR carries the snapshot only, and gives the command', () => {
-  const b = bodyWith({ ok: false, staged: [], unexpected: [], error: 'boom: region exploded\nstack…', prose: null });
-  assert(/Regenerating the reference pages FAILED, so this PR carries the snapshot only/.test(b), `no failure notice:\n${b}`);
-  assert(b.includes('APPBLOCKS_SNAPSHOT_ONLY=1 npm run gen:appblocks && npm run gen:appblocks:md'), 'no repair command');
-  assert(b.includes('`boom: region exploded`') && !b.includes('stack…'), 'the error is not quoted as its first line');
 });
 
 check('files the generators changed OUTSIDE their pages are listed as NOT committed', () => {
@@ -526,8 +529,22 @@ console.log('END TO END — the script itself, against a scratch clone with a lo
  */
 const GIT_IDENT = { GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' };
 
+/**
+ * 🔴 EVERY scratch dir THIS run creates is removed when the process exits —
+ * pass, fail, or `process.exit`. They used to be left behind (thousands had
+ * accumulated under the system tmpdir), and since this suite now copies `apps/`
+ * into each fixture they are much bigger. Only dirs recorded HERE are removed:
+ * pre-existing ones may belong to another run, and nothing can tell whose.
+ * `exit` handlers must be synchronous, which `rmSync` is.
+ */
+const CREATED_DIRS = [];
+process.on('exit', () => {
+  for (const d of CREATED_DIRS) rmSync(d, { recursive: true, force: true });
+});
+
 function scratchRepo() {
   const root = mkdtempSync(join(tmpdir(), 'refresh-cli-snapshot-'));
+  CREATED_DIRS.push(root);
   const origin = join(root, 'origin.git');
   const work = join(root, 'work');
   mkdirSync(work);
@@ -751,12 +768,10 @@ check('DRIFT -> pushes the stable branch with ONE file changed, and prints the P
   assert(res.stdout.includes(prTitle(SNAP_TAG)), 'the printed title is not the one the PR would carry');
 
   // 🔴 "ONE file changed" above is only meaningful if the page regeneration RAN
-  // and found nothing to change (a header-only drift moves no page). A
-  // regeneration that FAILED degrades to a snapshot-only commit by design, which
-  // would satisfy the same assertion — so prove it ran: the md generator's own
-  // summary line, and no failure notice.
+  // and found nothing to change (a header-only drift moves no page). A run
+  // whose REGEN_STEPS lost the md step would satisfy the same assertion — so
+  // prove it ran: the md generator's own summary line.
   assert(/region\(s\) rendered/.test(res.stdout), `the page regeneration never ran:\n${res.stdout}`);
-  assert(!/page regeneration FAILED/.test(`${res.stdout}${res.stderr}`), `the page regeneration failed:\n${res.stderr}`);
   assert(/No generated page changed/.test(res.stdout), `the body does not say no page changed:\n${res.stdout}`);
 });
 
@@ -767,27 +782,60 @@ check('DRIFT -> pushes the stable branch with ONE file changed, and prints the P
  * for a name that ALSO exists as a subcommand (`app feedback`), because it
  * asserts the name is gone from every `__complete` block.
  */
+/** Offset where the root blocks end: the first `===CMD` after `complete (root)`. */
+function rootBlocksEnd(text) {
+  const rc = text.indexOf('===CMD complete (root)===');
+  const end = text.indexOf('\n===CMD ', rc + 1);
+  assert(rc !== -1 && end > rc, 'the fixture could not find the end of the root blocks');
+  return end;
+}
+
 function dropRootCommand(text, name) {
-  const rootEnd = text.indexOf('===CMD app===');
-  const head = text.slice(0, rootEnd);
+  const rootEnd = rootBlocksEnd(text);
   const out =
-    head
+    text
+      .slice(0, rootEnd)
       .replace(new RegExp(`^ {2}${name} {2,}.*$\\n`, 'm'), '')
       .replace(new RegExp(`^${name}\\t.*$\\n`, 'm'), '') + text.slice(rootEnd);
-  assert(rootEnd > 0, 'the fixture could not find the end of the root blocks');
-  assert(!new RegExp(`^${name}\\t`, 'm').test(out.slice(0, out.indexOf('===CMD app==='))), `"${name}" survives in the root blocks`);
+  assert(out !== text, `the fixture did not remove "${name}"`);
+  assert(!new RegExp(`^${name}\\t`, 'm').test(out.slice(0, rootBlocksEnd(out))), `"${name}" survives in the root blocks`);
   return out;
 }
 
 /**
+ * The command the "CLI gained a command" fixture removes and re-adds — DERIVED,
+ * never a literal. It must be named in backticks in the live intro (so there is
+ * a sentence to un-name) and be a top-level command in the committed snapshot's
+ * root `__complete` block. Among those, the one with the fewest subcommand
+ * blocks (the smallest subtree to drop), ties broken alphabetically — so a
+ * reworded intro or a CLI release that removes any one command moves the
+ * choice instead of reddening this suite on an unrelated PR.
+ */
+const FIXTURE_CMD = (() => {
+  const intro = introNamedCommands(readFileSync(join(repoRoot, 'apps', 'reference', 'cli.md'), 'utf8'));
+  assert(intro.ok, `fixture: ${intro.reason}`);
+  const rc = committed.indexOf('===CMD complete (root)===');
+  const rootTop = new Set(
+    [...committed.slice(rc, rootBlocksEnd(committed)).matchAll(/^([a-z][a-z0-9-]*)\t/gm)].map((m) => m[1]),
+  );
+  const subtree = (n) => (committed.match(new RegExp(`^===CMD ${n} `, 'gm')) || []).length;
+  const candidates = [...intro.named]
+    .filter((n) => rootTop.has(n) && n !== 'completion')
+    .sort((a, b) => subtree(a) - subtree(b) || a.localeCompare(b));
+  assert(candidates.length, 'fixture: the intro names no top-level command of the committed snapshot');
+  return candidates[0];
+})();
+
+/**
  * `main` in a CONSISTENT older state — a snapshot captured from a CLI without
- * `feedback`, its pages regenerated from it, and the intro not naming it — plus a
- * fake binary whose capture ADDS the command. The docs#220 shape.
+ * FIXTURE_CMD, its pages regenerated from it, and the intro not naming it — plus
+ * a fake binary whose capture ADDS the command. The docs#220 shape (there it
+ * was `feedback`).
  */
 function olderCliRepo() {
   const { work, origin, root } = scratchRepo();
   const oldBundle = join(root, 'old.txt');
-  writeFileSync(oldBundle, dropRootCommand(committed, 'feedback'));
+  writeFileSync(oldBundle, dropRootCommand(committed, FIXTURE_CMD));
   const oldBin = fakeCliBin(root, oldBundle, `civitai ${OLDER.replace(/^v/, '')}`);
   const sh = (args, env = {}) =>
     spawnSync(process.execPath, args, { cwd: work, encoding: 'utf8', env: { ...process.env, ...env } });
@@ -799,8 +847,13 @@ function olderCliRepo() {
   }
   const cliPage = join(work, 'apps', 'reference', 'cli.md');
   const page = readFileSync(cliPage, 'utf8');
-  const unnamed = page.replace('`feedback`', 'feedback');
-  assert(unnamed !== page, 'fixture: the intro does not name `feedback`, so it cannot be un-named');
+  // Un-named INSIDE the intro only (every backticked occurrence there), so the
+  // edit cannot land on some other mention elsewhere on the page.
+  const intro = introNamedCommands(page);
+  assert(intro.ok, `fixture: ${intro.reason}`);
+  const unnamed =
+    page.slice(0, intro.start) + page.slice(intro.start, intro.end).split(`\`${FIXTURE_CMD}\``).join(FIXTURE_CMD) + page.slice(intro.end);
+  assert(!introNamedCommands(unnamed).named.has(FIXTURE_CMD), `fixture: the intro still names \`${FIXTURE_CMD}\``);
   writeFileSync(cliPage, unnamed);
   g(work, ['add', '--', SNAPSHOT_REL, 'apps']);
   g(work, ['commit', '-m', 'older CLI, consistent pages']);
@@ -856,12 +909,14 @@ check('A NEW TOP-LEVEL COMMAND -> the stale pages ride in the SAME commit, and c
   assert(snapshotOnly.status !== 0, 'check:md-regions is green on a snapshot-only branch — the instrument cannot see stale pages');
 
   // THE PROSE IS REPORTED, NOT WRITTEN: the intro on the branch still does not
-  // name `feedback`, and the PR body says that it must.
+  // name the command, and the PR body says that it must.
   const branchPage = g(origin, ['show', `${DEFAULT_BRANCH}:apps/reference/cli.md`]);
-  const intro = branchPage.slice(branchPage.indexOf('## Command reference'), branchPage.indexOf('<ReferenceIndex'));
-  assert(!intro.includes('`feedback`'), 'the bot WROTE the hand-written intro — it must only report it');
+  assert(!introNamedCommands(branchPage).named.has(FIXTURE_CMD), 'the bot WROTE the hand-written intro — it must only report it');
   assert(/A human has to write one sentence here/.test(res.stdout), `the body does not ask for the sentence:\n${res.stdout}`);
-  assert(/\*\*add\*\* \(new top-level command\): `feedback`/.test(res.stdout), `the body does not name \`feedback\`:\n${res.stdout}`);
+  assert(
+    res.stdout.includes(`**add** (new top-level command): \`${FIXTURE_CMD}\``),
+    `the body does not name \`${FIXTURE_CMD}\`:\n${res.stdout}`,
+  );
   assert(/`test-cli` stays red/.test(res.stdout), 'the body does not say test-cli stays red until the sentence is written');
 });
 
@@ -890,33 +945,61 @@ check('--dry-run regenerates the pages for the body it prints, then leaves the t
   assertEqual(g(work, ['status', '--porcelain', '--untracked-files=all']), '', '--dry-run left the tree modified');
 });
 
-check('A FAILED PAGE REGENERATION still ships the snapshot — with the half-written page rolled back and the body saying so', () => {
-  // The md generator is replaced by one that WRITES a page and then throws —
-  // the worst shape, since a naive catch would commit the half-written page.
-  const { work, origin, bin } = olderCliRepo();
-  writeFileSync(
-    join(work, 'scripts', 'gen-appblocks-md.mjs'),
-    "import { appendFileSync } from 'node:fs';\n" +
-      "appendFileSync('apps/reference/cli.md', '\\nHALF-WRITTEN\\n');\n" +
-      "appendFileSync('apps/reference/cli/brand-new.md', 'HALF-WRITTEN\\n');\n" +
-      "throw new Error('boom: the md generator died');\n",
-  );
-  g(work, ['commit', '-qam', 'a broken md generator']);
-  g(work, ['push', '-q', 'origin', DEFAULT_BASE]);
-  const res = runScript(work, ['--no-pr'], { CIVITAI_CLI_BIN: bin, CLI_SNAPSHOT_REFRESH_TAG: SNAP_TAG });
-  const out = `${res.stdout}\n${res.stderr}`;
-  assertEqual(res.status, 0, `a page-regeneration failure failed the run — the snapshot lost its PR:\n${out}`);
-  assert(/page regeneration FAILED/.test(res.stderr), `the failure was not reported:\n${out}`);
-  const changed = g(origin, ['diff', '--name-only', `${DEFAULT_BASE}..${DEFAULT_BRANCH}`]);
-  assertEqual(changed, SNAPSHOT_REL, 'a failed regeneration still committed pages');
-  assert(!g(origin, ['show', `${DEFAULT_BRANCH}:apps/reference/cli.md`]).includes('HALF-WRITTEN'), 'the half-written page was committed');
-  assertEqual(g(work, ['status', '--porcelain', '--untracked-files=all']), '', 'the half-written pages were left in the tree');
-  // The body names the STEP that failed (its stack is in the run log, where
-  // stdio was inherited), not execFileSync's useless "Command failed: <path>".
-  assert(/carries the snapshot only/.test(res.stdout), `the body does not say snapshot-only:\n${res.stdout}`);
-  assert(/`gen-appblocks-md\.mjs exited 1 — its output is in the workflow run log`/.test(res.stdout), `the body does not name the failed step:\n${res.stdout}`);
-  assert(/boom: the md generator died/.test(res.stderr), 'the generator\'s own error did not reach the log');
-});
+for (const [label, rel, edit] of [
+  // The audit's repro: a maintainer's uncommitted edit to the hand-written intro
+  // of a page whose generated region the run rewrites.
+  ['a generator-owned page', 'apps/reference/cli.md', (t) => t.replace('## Command reference\n', '## Command reference\n\nMAINTAINER WIP\n')],
+  ['the snapshot', SNAPSHOT_REL, (t) => `${t}\nMAINTAINER WIP\n`],
+]) {
+  check(`a DIRTY ${label} makes --dry-run REFUSE, naming it, and the edit survives byte-for-byte`, () => {
+    const { work, bin } = olderCliRepo();
+    const p = join(work, rel);
+    const wip = edit(readFileSync(p, 'utf8'));
+    assert(wip !== readFileSync(p, 'utf8'), 'fixture: the edit changed nothing');
+    writeFileSync(p, wip);
+    const res = runScript(work, ['--dry-run'], { CIVITAI_CLI_BIN: bin, CLI_SNAPSHOT_REFRESH_TAG: SNAP_TAG });
+    const out = `${res.stdout}\n${res.stderr}`;
+    // Asserted FIRST, so a red names the damage (the edit overwritten), which
+    // is the defect, before it names the missing refusal.
+    assertEqual(readFileSync(p, 'utf8'), wip, `the run overwrote the uncommitted edit to ${rel}:\n${out}`);
+    assert(res.status !== 0, `a dirty ${rel} did not stop the run:\n${out}`);
+    assert(/UNCOMMITTED CHANGES/.test(res.stderr) && res.stderr.includes(rel), `the refusal does not name ${rel}:\n${out}`);
+  });
+}
+
+for (const mode of ['--no-pr', '--dry-run']) {
+  check(`A FAILED PAGE REGENERATION (${mode}) exits non-zero, pushes nothing, and leaves the tree byte-identical`, () => {
+    // The md generator is replaced by one that WRITES (an owned page, and a new
+    // file in an owned dir) and then throws — the worst shape, since a naive
+    // failure path leaves the half-written pages behind or commits them.
+    const { work, origin, bin } = olderCliRepo();
+    writeFileSync(
+      join(work, 'scripts', 'gen-appblocks-md.mjs'),
+      "import { appendFileSync } from 'node:fs';\n" +
+        "appendFileSync('apps/reference/cli.md', '\\nHALF-WRITTEN\\n');\n" +
+        "appendFileSync('apps/reference/cli/brand-new.md', 'HALF-WRITTEN\\n');\n" +
+        "throw new Error('boom: the md generator died');\n",
+    );
+    g(work, ['commit', '-qam', 'a broken md generator']);
+    g(work, ['push', '-q', 'origin', DEFAULT_BASE]);
+    const treeBefore = g(work, ['rev-parse', 'HEAD^{tree}']);
+    const res = runScript(work, [mode], { CIVITAI_CLI_BIN: bin, CLI_SNAPSHOT_REFRESH_TAG: SNAP_TAG });
+    const out = `${res.stdout}\n${res.stderr}`;
+    assert(res.status !== 0, `a page-regeneration failure exited 0:\n${out}`);
+    // Its OWN error, so a run that died elsewhere cannot pass this.
+    assert(/PAGE REGENERATION FAILED: nothing committed, nothing pushed, tree restored/.test(res.stderr), `wrong failure:\n${out}`);
+    assert(/gen-appblocks-md\.mjs exited 1/.test(res.stderr), `the failing step is not named:\n${out}`);
+    assert(res.stderr.includes('APPBLOCKS_SNAPSHOT_ONLY=1 npm run gen:appblocks && npm run gen:appblocks:md'), 'no fix command');
+    assert(/boom: the md generator died/.test(res.stderr), "the generator's own error did not reach the log");
+    const branches = g(origin, ['branch', '--list']);
+    assert(!branches.includes(DEFAULT_BRANCH), `a failed regeneration pushed ${DEFAULT_BRANCH}:\n${branches}`);
+    // A clean status means the working tree IS HEAD's tree; HEAD's tree being
+    // the one we started on makes the working tree byte-identical to before
+    // (the real path may have moved HEAD onto a fresh branch at the same commit).
+    assertEqual(g(work, ['status', '--porcelain', '--untracked-files=all']), '', 'the failure left the tree modified');
+    assertEqual(g(work, ['rev-parse', 'HEAD^{tree}']), treeBefore, 'the failure left a different tree checked out');
+  });
+}
 
 check('THE FLOOR FAILS THE RUN: a short capture exits non-zero, pushes nothing, restores the tree', () => {
   const { work, origin, root } = scratchRepo();
@@ -1894,7 +1977,7 @@ console.log('');
 // section, a botched merge — prints a serene "all passed" over zero work. The
 // floor is the positive control on the harness itself: it must have executed at
 // least as many checks as it did when this line was written.
-const MIN_CHECKS = 75;
+const MIN_CHECKS = 78;
 if (executed < MIN_CHECKS) {
   console.error(
     `refresh-cli-snapshot tests: only ${executed} checks RAN, expected at least ${MIN_CHECKS} — ` +
