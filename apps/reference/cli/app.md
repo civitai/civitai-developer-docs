@@ -10,7 +10,7 @@ outline: [2, 4]
 
 Scaffold, validate, submit and operate an App: every `civitai app` command except the listing group.
 
-This page documents 17 of the 60 commands in the [CLI reference](../cli), which indexes every command by name. Generated from the `civitai` binary's own help output.
+This page documents 17 of the 63 commands in the [CLI reference](../cli), which indexes every command by name. Generated from the `civitai` binary's own help output.
 
 Other pages: [civitai app listing — store listing commands](./app-listing) · [Catalog and download commands](./catalog) · [Generation commands](./generation) · [Account, setup and utility commands](./account-and-setup)
 
@@ -105,6 +105,12 @@ By default the project is created in ./<slug>. Override the output directory wit
 a positional [dir] or --dir <path>; override the display name independently with
 --name (so name, slug, and directory can all differ).
 
+The output directory must not exist yet, or must be empty. A directory holding
+only what "civitai agent-setup" wrote into it (AGENTS.md, CLAUDE.md and your
+agent's project MCP config) counts as empty, and those files are kept: only the
+managed block inside AGENTS.md is refreshed for the new project. Anything else in
+the directory is a refusal — nothing is overwritten and there is no --force.
+
 Note (page-money): a DEFAULT `civitai login` (OAuth) grants submit but NOT
 Buzz-spend. To run `dev:live` real generations, authenticate with a credential that carries
 the AI Services scopes: `civitai login --scopes generate` (a browser login that opts into generation), or a full-scope personal API key (`civitai login --token <key>`, created at https://civitai.com/user/account).
@@ -172,6 +178,12 @@ derivation entirely.
 By default the project is created in ./<slug>. Override the output directory with
 a positional [dir] or --dir <path>; override the display name independently with
 --name (so name, slug, and directory can all differ).
+
+The output directory must not exist yet, or must be empty. A directory holding
+only what "civitai agent-setup" wrote into it (AGENTS.md, CLAUDE.md and your
+agent's project MCP config) counts as empty, and those files are kept: only the
+managed block inside AGENTS.md is refreshed for the new project. Anything else in
+the directory is a refusal — nothing is overwritten and there is no --force.
 ```
 
 ```bash
@@ -247,12 +259,16 @@ It also emits non-fatal WARNINGS the schema can't catch as hard errors:
     a page app until it acks BLOCK_INIT, so such an app renders fine locally and
     is replaced by a failure card in the real host — the shape of anything
     scaffolded before that was fixed. Advisory ONLY: it infers runtime behaviour
-    from static text. A dependency that ACKS ends the check, and that is an
-    EXACT SET, not the @civitai/ scope: @civitai/blocks-react acks internally
-    (its iframe transport does it for you), while @civitai/app-sdk is the
-    server-side SDK and @civitai/theme and @civitai/components are CSS — none
-    of those three silences it. It reads source only — never outputDir,
-    node_modules, markdown, or comments.
+    from static text. A dependency that ACKS replaces the emitter check, and
+    that is an EXACT SET, not the @civitai/ scope: @civitai/blocks-react acks
+    internally (its iframe transport does it for you), while @civitai/app-sdk
+    is the server-side SDK and @civitai/theme and @civitai/components are CSS —
+    none of those three silences it. When your lockfile resolves
+    @civitai/blocks-react to a release from before every hook connected at
+    mount, it also warns when nothing your index.html loads calls a hook that
+    connects at mount (in those releases useBuzzWorkflow alone never acks):
+    call useBlockContext() in your root component. It reads source only —
+    never outputDir, node_modules, markdown, or comments.
   - source that calls useAppStorage() or useSharedStorage() while the manifest
     declares NO scope for that store. The server gates storage by PRESENCE in the
     approved scope set, so an undeclared scope means every call 403s in
@@ -886,11 +902,13 @@ revision draft on a live listing, so it is safe to run in a loop.
 
 **`civitai app feedback <slug>`**
 
-Read the feedback users sent about your App, and triage it
+Your app's inbox: read what YOUR APP'S USERS wrote (to report a platform problem: civitai feedback)
 
 ```text
 Read the private feedback users sent about one of YOUR Apps from inside the
 app, newest first. Only the app's owner and its accepted collaborators can.
+This is your app's inbox; to report a problem with the Civitai developer
+platform itself to Civitai, that is `civitai feedback send`.
 
 Each row shows its id, when it was written (UTC), its status, the app version
 and build it was written against, where it was written (App page, or Model page
