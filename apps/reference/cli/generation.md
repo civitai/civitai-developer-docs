@@ -10,7 +10,7 @@ outline: [2, 4]
 
 Run generations and manage workflows. These spend Buzz.
 
-This page documents 5 of the 60 commands in the [CLI reference](../cli), which indexes every command by name. Generated from the `civitai` binary's own help output.
+This page documents 5 of the 63 commands in the [CLI reference](../cli), which indexes every command by name. Generated from the `civitai` binary's own help output.
 
 Other pages: [civitai app — authoring commands](./app) · [civitai app listing — store listing commands](./app-listing) · [Catalog and download commands](./catalog) · [Account, setup and utility commands](./account-and-setup)
 

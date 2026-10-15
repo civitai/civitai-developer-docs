@@ -114,8 +114,9 @@ Every command is generated from the binary's own help output — the whole
 catalog browsing and downloads (`models`, `images`, `articles`, `collections`,
 `creators`, `tags`, `users`, `model-versions`, `download`), image generation
 (`generate`, `workflows` — these **spend Buzz**), account commands
-(`login`, `whoami`, `buzz`, `upgrade`, `version`), and `agent-setup`, which
-configures your coding agent for Civitai App development.
+(`login`, `whoami`, `buzz`, `upgrade`, `version`), `agent-setup`, which
+configures your coding agent for Civitai App development, and `feedback`, which
+reports a Civitai platform problem to Civitai.
 
 The commands are documented across the pages indexed below — `civitai app`
 and `civitai app listing` first, then the catalog, generation and account
@@ -130,7 +131,7 @@ documented here; run `civitai completion --help` for it.
 <ReferenceIndex kind="cli">
 <!-- BEGIN GENERATED: cli-index — markdown fallback for the .md/LLM channel. Do not edit by hand; run `npm run gen:appblocks:md`. -->
 
-60 commands across 5 pages. Each link goes to the page that documents the command; fetch that page's `.md` for the full entry.
+63 commands across 5 pages. Each link goes to the page that documents the command; fetch that page's `.md` for the full entry.
 
 **[civitai app — authoring commands](./cli/app)** — Scaffold, validate, submit and operate an App: every `civitai app` command except the listing group.
 
@@ -148,7 +149,7 @@ documented here; run `civitai completion --help` for it.
 - [`civitai app dev-tunnel`](./cli/app#cli-app-dev-tunnel) — Preview your LOCAL dev server inside the real Civitai host via a hardened tunnel
 - [`civitai app pull`](./cli/app#cli-app-pull) — Clone or sync your app's repository from Civitai
 - [`civitai app doctor`](./cli/app#cli-app-doctor) — Diagnose what is incomplete or blocked on your App store listings
-- [`civitai app feedback`](./cli/app#cli-app-feedback) — Read the feedback users sent about your App, and triage it
+- [`civitai app feedback`](./cli/app#cli-app-feedback) — Your app's inbox: read what YOUR APP'S USERS wrote (to report a platform problem: civitai feedback)
 - [`civitai app feedback flag`](./cli/app#cli-app-feedback-flag) — Flag a feedback row as abusive, for moderator review
 - [`civitai app feedback set-status`](./cli/app#cli-app-feedback-set-status) — Mark a feedback row acknowledged, resolved or wont_fix
 
@@ -202,6 +203,9 @@ documented here; run `civitai completion --help` for it.
 
 - [`civitai agent-setup`](./cli/account-and-setup#cli-agent-setup) — Set up your coding agent (Claude Code, Cursor, Codex, …) to build Civitai Apps
 - [`civitai buzz`](./cli/account-and-setup#cli-buzz) — Show your spendable Buzz balance
+- [`civitai feedback`](./cli/account-and-setup#cli-feedback) — Report Civitai developer-platform problems TO Civitai (not your app's user feedback)
+- [`civitai feedback send`](./cli/account-and-setup#cli-feedback-send) — Send one report about the developer platform to Civitai
+- [`civitai feedback status`](./cli/account-and-setup#cli-feedback-status) — Check whether Civitai has acknowledged or fixed a report you sent
 - [`civitai login`](./cli/account-and-setup#cli-login) — Authenticate with Civitai
 - [`civitai upgrade`](./cli/account-and-setup#cli-upgrade) — Update the civitai CLI to the latest release
 - [`civitai version`](./cli/account-and-setup#cli-version) — Print the CLI version, commit, and build date

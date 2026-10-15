@@ -10,7 +10,7 @@ outline: [2, 4]
 
 Edit an App's store listing: icon, cover, screenshots, text, source repo and revisions.
 
-This page documents 10 of the 60 commands in the [CLI reference](../cli), which indexes every command by name. Generated from the `civitai` binary's own help output.
+This page documents 10 of the 63 commands in the [CLI reference](../cli), which indexes every command by name. Generated from the `civitai` binary's own help output.
 
 Other pages: [civitai app — authoring commands](./app) · [Catalog and download commands](./catalog) · [Generation commands](./generation) · [Account, setup and utility commands](./account-and-setup)
 
