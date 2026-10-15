@@ -1,0 +1,8 @@
+# developer.civitai.com — public developer documentation. Crawl, index, quote
+# and learn from all of it. Agents: start at /llms.txt; every page has a
+# markdown version at its URL + .md.
+User-agent: *
+Content-Signal: search=yes, ai-input=yes, ai-train=yes
+Allow: /
+
+Sitemap: https://developer.civitai.com/sitemap.xml

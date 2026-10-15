@@ -47,6 +47,22 @@ import { join, relative, sep } from 'node:path';
 const DIST = process.argv[2] ?? '.vitepress/dist';
 const ORIGIN = 'https://developer.civitai.com';
 
+/**
+ * Written relative = no scheme and not root-absolute. `scripts/lib/agent-surface.mjs`
+ * makes internal page links ABSOLUTE `https://developer.civitai.com/…​.md` URLs, which
+ * are internal (same origin, checked for existence below) but not relative.
+ */
+const SCHEME = /^[a-z][a-z0-9+.-]*:/i;
+export const isWrittenRelative = (target) => !target.startsWith('/') && !SCHEME.test(target);
+
+/**
+ * The twin with its one-line index note (inserted after the frontmatter by
+ * `scripts/lib/agent-surface.mjs`) removed — the note is in every twin and in no
+ * llms-full.txt section, by design. Re-implemented here rather than imported, for
+ * the reason the header gives. `check:agent-surface` asserts every twin HAS it.
+ */
+export const stripIndexNote = (text) => text.replace(/^(---\n[\s\S]*?\n---\n)\n> Documentation index: [^\n]*\n/, '$1');
+
 // Floors, far below today's counts (136 twins / 1,000+ internal links as of
 // 2026-10-11): they catch a broken search, not page churn.
 const MIN_TWINS = 50;
@@ -156,6 +172,17 @@ const SELF_TEST_WANT = ['./ref', './a', '../b#h', './c d', './i.png', '/r', 'htt
   }
 }
 
+{
+  const rel = ['./a', 'a/b', '../c'].every(isWrittenRelative);
+  const notRel = ['/a', 'https://developer.civitai.com/a.md', 'mailto:x@y.z'].every((t) => !isWrittenRelative(t));
+  const noted = '---\nurl: /a.md\n---\n\n> Documentation index: https://x/llms.txt — y\n\n# A\n';
+  const strip = stripIndexNote(noted) === '---\nurl: /a.md\n---\n\n# A\n' && stripIndexNote('---\nurl: /a.md\n---\n\n# A\n') === '---\nurl: /a.md\n---\n\n# A\n';
+  if (!rel || !notRel || !strip) {
+    console.error(`check-twin-links: HELPER_SELF_TEST failed (relative=${rel} absolute=${notRel} strip=${strip}).`);
+    process.exit(2);
+  }
+}
+
 // ── main ─────────────────────────────────────────────────────────────────────
 
 function walk(dir, want = (name) => name.endsWith('.md')) {
@@ -225,7 +252,10 @@ if (!existsSync(DIST)) {
 
 // The advertised set: every `.md` URL /llms.txt lists must itself exist.
 const llms = readFileSync(join(DIST, 'llms.txt'), 'utf8');
-const advertised = [...llms.matchAll(/\]\((\/[^)\s]+\.md)\)/g)].map((m) => m[1]);
+// Entries are absolute since agent-surface.mjs; root-relative ones are still accepted.
+const advertised = [...llms.matchAll(/\]\(((?:https:\/\/developer\.civitai\.com)?\/[^)\s]+\.md)\)/g)].map((m) =>
+  m[1].replace(ORIGIN, ''),
+);
 const deadAdvertised = advertised.filter((u) => !pageExists(DIST, u));
 
 let twins = 0;
@@ -248,7 +278,7 @@ for (const p of walk(DIST)) {
       const path = internalPath(target, url);
       if (path === null) continue;
       checked++;
-      if (!target.startsWith('/')) relativeChecked++;
+      if (isWrittenRelative(target)) relativeChecked++;
       if (!pageExists(DIST, path)) {
         if (!broken.has(url)) broken.set(url, []);
         broken.get(url).push(`${target}  ->  ${path}`);
@@ -276,7 +306,7 @@ for (const p of bundleFiles) {
     const key = `${served} § ${url ?? '<no url: header>'}`;
     if (!url || !url.startsWith('/') || !pageExists(DIST, url)) {
       problem(key, `section header url: ${url} does not name a page in the build`);
-    } else if (existsSync(join(DIST, url)) && readFileSync(join(DIST, url), 'utf8') !== body) {
+    } else if (existsSync(join(DIST, url)) && stripIndexNote(readFileSync(join(DIST, url), 'utf8')) !== body) {
       problem(key, `section differs from its twin ${url} — the bundle and twin rewrites disagree`);
     } else if (!existsSync(join(DIST, url))) {
       problem(key, `section header url: ${url} has no .md twin in the build to compare against`);
@@ -286,7 +316,7 @@ for (const p of bundleFiles) {
       const path = internalPath(target, served);
       if (path === null) continue;
       bundleChecked++;
-      if (!target.startsWith('/')) problem(key, `RELATIVE ${target}  ->  ${path} (from ${served})`);
+      if (isWrittenRelative(target)) problem(key, `RELATIVE ${target}  ->  ${path} (from ${served})`);
       else if (!pageExists(DIST, path)) problem(key, `DEAD ${target}`);
     }
   }

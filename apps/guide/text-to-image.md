@@ -41,7 +41,7 @@ and a `submit` that rejects has an **unknown** outcome (the run may exist).
 ## The happy path
 
 The smallest possible generation is a checkpoint + a prompt. You submit it
-through [`useBuzzWorkflow()`](../reference/generation#bridge-useBuzzWorkflow),
+through [`useBuzzWorkflow()`](../reference/generation/lifecycle#bridge-useBuzzWorkflow),
 which takes a full `WorkflowBody` — the discriminated union keyed by `kind`:
 
 ```tsx
@@ -141,7 +141,7 @@ Both `modelId` and `modelVersionId` are required even though they look
 redundant: the host validates that `modelId` matches the token's bound model
 **and** that the version belongs to it. On a model slot you already have both
 from `useBlockContext().context`; on a page app you obtain them from a
-[resource picker](../reference/hooks#hook-useResourcePicker).
+[resource picker](../reference/hooks/storage-and-media#hook-useResourcePicker).
 
 ## Generation parameters
 
@@ -150,7 +150,7 @@ optional — the host fills sensible defaults (sampler `Euler`, 25 steps,
 family-appropriate dimensions), so the simplest block sends only a prompt. Each
 bound below is **server-enforced** (over-limit values are rejected before any
 Buzz is spent); the authoritative list is the
-[reference table](../reference/generation#bridge-BlockTextToImageParams).
+[reference table](../reference/generation/bodies#bridge-BlockTextToImageParams).
 
 | field | range | default |
 |---|---|---|
@@ -393,7 +393,7 @@ export function MultiImageEdit({ modelId, modelVersionId }: { modelId: number; m
 
 `useBuzzWorkflow()` runs estimate → confirm → submit → watch. You drive each
 step; once a workflow is running, `watch()` owns the polling loop. Full return
-in the [reference](../reference/generation#bridge-useBuzzWorkflow); the members
+in the [reference](../reference/generation/lifecycle#bridge-useBuzzWorkflow); the members
 you drive:
 
 - **`estimate(body)`** — a host-side whatIf price. `status` goes
@@ -473,13 +473,13 @@ network error, distinguishable only by `err.snapshot.error`'s server-authored
 text. So the rejection alone cannot tell you the viewer is short.
 
 Decide from the **balance** instead. The happy path reads it with
-[`useBuzzBalance()`](../reference/hooks#hook-useBuzzBalance) and offers
+[`useBuzzBalance()`](../reference/hooks/buzz-and-purchases#hook-useBuzzBalance) and offers
 `openPurchaseModal()` only when the Buzz the block can **spend** is below the
 quoted `cost.total`. A block spends `blue` plus **one** paid pool, chosen by the
 domain's maturity **ceiling** — `green` on an SFW ceiling, `yellow` on a mature
 one, never both — so do not add all three pools. Read the ceiling as
 `maxBrowsingLevel` from
-[`useDomainMaturity()`](../reference/hooks#hook-useDomainMaturity) and test it
+[`useDomainMaturity()`](../reference/hooks/viewer-and-navigation#hook-useDomainMaturity) and test it
 with `isSfwCeiling` from `@civitai/app-sdk/blocks` (an unknown ceiling counts as
 SFW, as on the server). Two look-alikes must **not** choose the pool:
 - **`domain` is informational only.** On civitai.red a block can be told
@@ -500,7 +500,7 @@ Branch on `err.snapshot.errorCode` (`'training-quote-rejected'`,
 `'training-quote-unavailable'` or `'training-quote-unpriced'`), not on the
 `error` text, and keep a default branch for a code a later host adds; see
 "Why a training step could not be priced" under
-[`useBuzzWorkflow`](../reference/hooks#hook-useBuzzWorkflow).
+[`useBuzzWorkflow`](../reference/hooks/generation#hook-useBuzzWorkflow).
 
 A registered step (`kind: 'step'` with a `step` id such as `chat-completion`)
 that the orchestrator would not quote rejects from `estimate()` the same way,
@@ -511,7 +511,7 @@ declared price. Its submit needs a quote too, and fails without one, with no
 [Estimating a registered step](../reference/generation#registered-step-estimate).
 A [multi-step workflow](./workflows#refusals) does the same with
 `workflow_quote_*` codes. The
-[`useBuzzWorkflow` reference](../reference/generation#bridge-useBuzzWorkflow)
+[`useBuzzWorkflow` reference](../reference/generation/lifecycle#bridge-useBuzzWorkflow)
 lists every resolved refusal and each `WorkflowSubmitError` `code` with what it
 says about money.
 
@@ -569,14 +569,14 @@ and 64 are in
 :::
 
 The reference entry is
-[`SubmitWorkflowOptions`](../reference/generation#bridge-SubmitWorkflowOptions).
+[`SubmitWorkflowOptions`](../reference/generation/lifecycle#bridge-SubmitWorkflowOptions).
 
 ## What you get back — the result shape
 
 Both `submit` and `poll` resolve with a `BlockWorkflowSnapshot` — a **flattened
 subset** of the orchestrator's workflow that the host maps down before it
 crosses the boundary. The fields you render (full list in the
-[reference](../reference/generation#bridge-BlockWorkflowSnapshot)):
+[reference](../reference/generation/lifecycle#bridge-BlockWorkflowSnapshot)):
 
 - **`status`** — `'pending' | 'processing' | 'succeeded' | 'failed' |
   'expired' | 'canceled'`.
@@ -614,7 +614,7 @@ reloads), read the per-app subqueue with `useAppWorkflows()`. It returns a
 wire-stable `AppWorkflow[]` projection — `workflowId`, `status`, `images`
 (only `available` blobs with a URL), `cost`, `createdAt` — with every internal
 field (steps, params, prompts, resources) deliberately dropped. The full shape
-is in the [reference](../reference/generation#bridge-AppWorkflow).
+is in the [reference](../reference/generation/lifecycle#bridge-AppWorkflow).
 
 ## Budget model
 
@@ -646,22 +646,22 @@ generation, where a later step reads an earlier one's result, use a
 against the limits below.) Two hooks cover the rest of a
 grid:
 
-- [`useBatchEstimate()`](../reference/hooks#hook-useBatchEstimate) prices up to
+- [`useBatchEstimate()`](../reference/hooks/batches-and-training#hook-useBatchEstimate) prices up to
   16 bodies in **one** request against the estimate allowance. Its run total is
   a quote, not a lock: each cell is priced again when it is submitted.
-- [`useWorkflowBatch()`](../reference/hooks#hook-useWorkflowBatch) watches up to
+- [`useWorkflowBatch()`](../reference/hooks/batches-and-training#hook-useWorkflowBatch) watches up to
   30 submitted workflows and cancels them together. It is still one `watch()`
   and one `cancel()` per workflow underneath, so the poll and estimate limits
   below apply to each of those calls. See [Watching and cancelling a grid](#watch-cancel-grid).
 
 ### The limits {#limits-table}
 
-Values at civitai `a16265aaa4`, 2026-10-08. They can change, and the per-app
+Values at civitai `3c6d553986`, 2026-10-14. They can change, and the per-app
 values depend on the app's spend tier. Every app starts on `standard`.
 
 | Limit | Value | Keyed on | Tier | What your app sees when it trips |
 |---|---|---|---|---|
-| Per-call budget | price + author fee ≤ `page.buzzBudgetPerGen` (for a [`kind: 'workflow'`](./workflows#what-it-costs) body, that budget × its number of steps). Default **10** when the manifest omits it; anything above **1,000** is clamped to 1,000 | one `submit()` | no | `submit()` **resolves**: `status: 'failed'`, `workflowId: 'failed'`, `cost.total`, `error: 'insufficient buzz budget: …'`. Nothing charged |
+| Per-call budget | price + author fee ≤ `page.buzzBudgetPerGen` (for a [`kind: 'workflow'`](./workflows#what-it-costs) body, that budget × its number of steps, and never more than **8,000** for one call). Default **1,000** when the manifest omits it; anything above **5,000** is clamped to 5,000 | one `submit()` | no | `submit()` **resolves**: `status: 'failed'`, `workflowId: 'failed'`, `cost.total`, `error: 'insufficient buzz budget: …'`. Nothing charged |
 | Images per submit | `quantity` **1–4** | one `submit()` | no | the body fails validation, so `submit()` **rejects** (`WorkflowSubmitError`, `code: 'exception'`). Nothing charged |
 | Estimate rate | **150 requests / 10 s** | the **block instance**. For a page app that is **one instance shared by every viewer of the app**; for a model-slot block it is one installed instance. The same allowance also covers `cancel()`, `useAppWorkflows()` and the host's own reads for your block (viewer, Buzz balance, image and model lookups) | no | `estimate()` **rejects** (`WorkflowEstimateError`, message `Rate limit exceeded, please retry shortly.`). Nothing charged. A refused `cancel()` **resolves** with `status: 'processing'`: the cancel was not sent, so call it again |
 | Poll rate | **1,200 requests / 60 s** | the block instance **and** the viewer | no | the poll **resolves** with `status: 'processing'` and no new data. `watch()` keeps looping and picks up the real status on a later poll. Nothing lost, nothing charged |
@@ -677,7 +677,7 @@ Civitai can also set a per-app override of the two app-wide values. The 60 s and
 on each clock minute.
 
 The resolved refusals above are all case 1 in the
-[resolved `'failed'` list](../reference/generation#bridge-useBuzzWorkflow): the
+[resolved `'failed'` list](../reference/generation/lifecycle#bridge-useBuzzWorkflow): the
 placeholder `workflowId`, nothing charged, every reservation released. As
 [refused submits](#refused-submits) explains, `error` is server-authored text,
 not a contract. Log it and show your own copy; don't branch on its wording.
@@ -721,7 +721,7 @@ app is live, so write the handling before you need it.
 
 ### Watching and cancelling a grid {#watch-cancel-grid}
 
-[`useWorkflowBatch(workflowIds)`](../reference/hooks#hook-useWorkflowBatch)
+[`useWorkflowBatch(workflowIds)`](../reference/hooks/batches-and-training#hook-useWorkflowBatch)
 follows the workflows your cells submitted and returns
 `{ cells, summary, cancelAll, rewatch }`. There is no server-side batch id: the
 array of ids **is** the batch. Append each id as its `submit()` resolves, skip
@@ -819,11 +819,13 @@ Watching 16 workflows at once is at most 16 × 40 = **640 polls a minute**,
 about half of the 1,200 allowed for one viewer, so one viewer can watch up to
 1,200 / 40 = **30 workflows** before polls start returning placeholders (and
 even then nothing breaks, `watch()` just updates more slowly). A full grid's
-estimates are 16 of 150 per 10 s. Spend is the other bound: 16 cells at a
-1,000-Buzz budget is at most 16,000 Buzz, under one viewer's 50,000 a day.
+estimates are 16 of 150 per 10 s. Spend is the other bound: a grid can reserve
+up to 16 × your per-call budget against one viewer's 50,000 a day. At a budget
+of 3,125 or less a full grid fits; above that, the per-viewer daily cap can
+refuse cells partway through a single grid.
 
-So submitting a 16-cell grid in one go is within every per-viewer limit. A
-lower per-viewer concurrency does not change your exposure to the shared app
+So with a per-call budget of 3,125 or less, submitting a 16-cell grid in one go
+is within every per-viewer limit. A lower per-viewer concurrency does not change your exposure to the shared app
 velocity limit, which the steps above handle.
 
 ### Posting and image-upload limits {#posting-limits}

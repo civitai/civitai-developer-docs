@@ -21,9 +21,9 @@ confirm.
 
 There are two hooks:
 
-- [`useCreatePostFromApp()`](../reference/hooks#hook-useCreatePostFromApp)
+- [`useCreatePostFromApp()`](../reference/hooks/storage-and-media#hook-useCreatePostFromApp)
   creates the post.
-- [`useUploadImageBytes()`](../reference/hooks#hook-useUploadImageBytes) uploads
+- [`useUploadImageBytes()`](../reference/hooks/storage-and-media#hook-useUploadImageBytes) uploads
   an image your app produced in the browser tab (an edited render, a
   composited canvas, a file with repaired metadata), so that it can be posted.
   It needs `@civitai/blocks-react` 0.67.0 or later and `@civitai/app-sdk`
@@ -74,7 +74,7 @@ An image that fails any of these is refused with
 `an image is not available to post`. The message is the same for every cause.
 An image you published with `usePublishGenerationOutputs()` a moment ago has
 not been rated yet, and an unrated image is refused.
-[`useGatedImages()`](../reference/hooks#hook-useGatedImages) returns the
+[`useGatedImages()`](../reference/hooks/viewer-and-navigation#hook-useGatedImages) returns the
 viewer's own unrated image as `status: 'visible'` with `ratingPending: true`,
 so `visible` alone is not enough. Offer to post an image only once its entry
 is `visible` **and** `ratingPending` is no longer set.
@@ -220,7 +220,7 @@ it, then retries once. Only the upload needs the scope requested up front.
    upload from a token without the scope
    (`block lacks posts:write:self scope`), and `upload()` does not open the
    consent dialog. Call
-   [`useRequestConsent()`](../reference/hooks#hook-useRequestConsent) with
+   [`useRequestConsent()`](../reference/hooks/viewer-and-navigation#hook-useRequestConsent) with
    `{ scopes: ['posts:write:self'] }` from a click, then upload once
    `useBlockToken().scopes` contains it.
 4. **A signed-in viewer** whose account may post. Creating a post needs an
@@ -390,8 +390,8 @@ error handling before you need it.
 ## Next
 
 - [Hooks reference](../reference/hooks) for
-  [`useCreatePostFromApp`](../reference/hooks#hook-useCreatePostFromApp) and
-  [`useUploadImageBytes`](../reference/hooks#hook-useUploadImageBytes).
+  [`useCreatePostFromApp`](../reference/hooks/storage-and-media#hook-useCreatePostFromApp) and
+  [`useUploadImageBytes`](../reference/hooks/storage-and-media#hook-useUploadImageBytes).
 - [Generating images (text-to-image)](./text-to-image), the usual source of a
   `workflow` post, and its
   [posting and image-upload limits](./text-to-image#posting-limits).

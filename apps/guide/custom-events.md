@@ -66,7 +66,7 @@ schema.
 ## 2. Send them
 
 With `@civitai/blocks-react`, use
-[`useBlockAnalytics()`](../reference/hooks#hook-useBlockAnalytics):
+[`useBlockAnalytics()`](../reference/hooks/context#hook-useBlockAnalytics):
 
 ```tsx
 import { useBlockAnalytics } from '@civitai/blocks-react';
@@ -161,6 +161,6 @@ value of the wrong type. A valid event logs nothing.
 ## Next
 
 - [Manifest reference](../reference/manifest) — the `analytics` field.
-- [Hooks reference](../reference/hooks#hook-useBlockAnalytics) — `useBlockAnalytics`.
+- [Hooks reference](../reference/hooks/context#hook-useBlockAnalytics) — `useBlockAnalytics`.
 - [Review, approval and deploy](./review-and-deploy) — getting a new
   declaration approved.

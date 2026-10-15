@@ -110,6 +110,13 @@ jobs:
       - name: Assert the .md twin link rewriter's contract
         run: npm run test:twin-links
 
+      # Same reasoning: unit contract of the agent-surface passes the build runs
+      # from `buildEnd` (absolute .md links, index note, section indexes) and of
+      # the operation twins — including their FAIL-LOUD count, which the corpus
+      # can only exercise by being broken.
+      - name: Assert the agent-surface and operation-twin passes' contract
+        run: npm run test:agent-surface
+
       - name: Build the site
         env:
           APPBLOCKS_SNAPSHOT_ONLY: '1'
@@ -144,3 +151,13 @@ jobs:
       # every root link must reach a page in this build. Also: every page is in an allowlisted section.
       - name: Assert every .md twin's and llms-full.txt's links resolve from the URL they are served at
         run: npm run check:twin-links
+
+      # The agent surface on the BUILT site, each assertion a relationship: spec
+      # operations == operation twins == operation HTML pages == llms.txt's
+      # `API operations` entries (and > 0); no internal page link in any twin left
+      # as a root path or HTML route; every section llms.txt exactly the root's
+      # entries under that path; every HTML page advertising its existing twin;
+      # robots.txt -> sitemap.xml; every docs .md URL the agent-setup prompt hands
+      # an agent present in the build.
+      - name: Assert the agent surface (operation twins, absolute .md links, section indexes, alternates)
+        run: npm run check:agent-surface
