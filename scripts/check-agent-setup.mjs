@@ -15,7 +15,7 @@
  * direction: the page keeps serving 200 while the command it names no longer
  * exists, and the agent reports a broken install as the user's problem.
  *
- * SIX INDEPENDENT CHECKS. All are REPO-LOCAL — they read committed files only,
+ * SEVEN INDEPENDENT CHECKS. All are REPO-LOCAL — they read committed files only,
  * make no network request, and cannot false-fail on someone else's publish,
  * which is the property this repo requires of anything that blocks a PR.
  * (The count is written from the list below; it read "FOUR" over five for a
@@ -65,15 +65,28 @@
  *      `<html>302 Found</html>` AND EXITS 0; with it, the real 7,433 bytes. So a
  *      COMMAND naming the alias without `-L`/`--location` hands an agent nothing
  *      and no error. This check refuses one, on BOTH agent-setup surfaces —
- *      check 1 reads prompt.md only, and the landing page's by-hand shell block
+ *      check 1 reads the two agent-executed files only, and the landing page's by-hand shell block
  *      is exactly where such a command gets written. See the banner above
  *      `FOLLOWS_BY_DEFAULT` for the three things it does NOT cover, the first of
  *      which is prose: the copy-paste string is natural language and must stay
  *      flagless.
  *
+ *   7. THE PROMPT'S HEAD ROUTES APP ASSISTANT. Civitai's hosted App Assistant
+ *      reads only the first 4,000 characters of a page, and none of the prompt's
+ *      first 4 KB applied to it. So the prompt's FIRST paragraph must be the
+ *      exact routing line to `public/agent-setup/in-sandbox.md`, the bytes
+ *      before its first `## ` are capped, every site URL in that head must be
+ *      an existing public/ file, and the leaf itself has a budget (so it is read
+ *      whole) and a floor. Check 1 grades the leaf's commands with the same
+ *      allowlist as the prompt's. See the banner above `ROUTING_TEXT` for what
+ *      it cannot claim.
+ *
  * WHAT CHECK 1 ACTUALLY COVERS
  * ----------------------------
- * From `public/agent-setup/prompt.md` only (never the landing page):
+ * From `public/agent-setup/prompt.md` and `public/agent-setup/in-sandbox.md`, each
+ * graded on its own (never the landing page). An `npx -y @civitai/cli… <args>`
+ * stage counts as a `civitai <args>` invocation as well as an allowlisted `npx`
+ * (allowlisted in the leaf only — see the entry's `onlyIn`):
  *
  *   - EVERY CODE BLOCK THE MARKDOWN BLOCK STRUCTURE PRODUCES, found by walking
  *     the document line by line through its containers — NOT by a regex over the
@@ -285,6 +298,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  IN_SANDBOX_PATH,
+  IN_SANDBOX_SOURCE,
+  IN_SANDBOX_URL,
   LANDING_PAGE,
   PROMPT_PATH,
   PROMPT_SOURCE,
@@ -400,7 +416,7 @@ const ALLOWED_NON_CIVITAI = new Map([
   [
     'npm',
     {
-      why: 'step 2 — installs the CLI from the npm registry',
+      why: "prompt step 2 installs the CLI; the in-sandbox leaf installs a scaffolded app's dependencies",
       subcommands: new Set(['install', 'i', 'add']),
     },
   ],
@@ -411,7 +427,73 @@ const ALLOWED_NON_CIVITAI = new Map([
       subcommands: new Set(['install']),
     },
   ],
+  [
+    // 🔴 THE NARROWEST ENTRY HERE, ON PURPOSE. `npx` is "fetch and run any
+    // package", the exact shape this allowlist exists to refuse — so it is
+    // admitted for ONE package spec and nothing else, by its own refusal rule
+    // rather than the subcommand model above (npx has no subcommands). What
+    // follows the spec is graded as a `civitai …` invocation against the help
+    // snapshot, exactly like a bare `civitai` line.
+    //
+    // And it is admitted in ONE FILE: the leaf, whose reader has no global CLI.
+    // The workstation prompt installs the CLI in step 2, so an `npx` line there
+    // would be a second, unreviewed install path — `onlyIn` refuses it by name.
+    'npx',
+    {
+      why: 'in-sandbox leaf — App Assistant has no global CLI, so it runs @civitai/cli through npx',
+      refuse: refuseNpxInvocation,
+      onlyIn: new Set([IN_SANDBOX_SOURCE]),
+    },
+  ],
 ]);
+
+/**
+ * The only package `npx` may run: the Civitai CLI, unpinned, `@latest`, or an
+ * exact semver. NOT a range, a tag other than `latest`, a URL, a path or a
+ * git spec — each would let the leaf run something nobody reviewed.
+ */
+const NPX_CLI_SPEC = /^@civitai\/cli(?:@(?:latest|\d+\.\d+\.\d+))?$/;
+
+/** The only npx flags allowed BEFORE the spec. `-p`/`--package`/`-c` run other code. */
+const NPX_ALLOWED_FLAGS = new Set(['-y', '--yes']);
+
+/**
+ * Split an `npx …` stage into the flags before the package spec, the spec,
+ * and the arguments handed to the package.
+ *
+ * @param {string[]} tokens  the whole stage, `npx` included
+ */
+export function splitNpx(tokens) {
+  const flags = [];
+  let i = 1;
+  while (i < tokens.length && tokens[i].startsWith('-')) flags.push(tokens[i++]);
+  return { flags, spec: tokens[i] ?? null, args: tokens.slice(i + 1) };
+}
+
+/** Why an `npx` stage is refused, or null when it is the one reviewed shape. */
+function refuseNpxInvocation(tokens) {
+  const { flags, spec } = splitNpx(tokens);
+  const badFlags = flags.filter((f) => !NPX_ALLOWED_FLAGS.has(f.split('=')[0]));
+  if (badFlags.length) {
+    return (
+      `${badFlags.map((f) => `\`${f}\``).join(', ')} is not an allowed npx flag (allowed: -y, --yes).\n` +
+      `    \`--package\`/\`-p\` and \`--call\`/\`-c\` make npx run something other than the spec.`
+    );
+  }
+  if (!spec || !NPX_CLI_SPEC.test(spec)) {
+    return (
+      `npx may run only @civitai/cli (optionally @latest or an exact x.y.z), not ${spec ? `\`${spec}\`` : 'nothing'}.\n` +
+      `    npx is "fetch and run this package"; the allowlist admits it for the CLI alone.`
+    );
+  }
+  if (!flags.some((f) => NPX_ALLOWED_FLAGS.has(f))) {
+    return (
+      `it has no \`-y\`. Without it npx stops to ask before installing, and an agent running\n` +
+      `    unattended either hangs or answers for the user.`
+    );
+  }
+  return null;
+}
 
 /**
  * A bare argument an allowed installer may be handed: a package or formula
@@ -438,7 +520,7 @@ function refuseAllowedInvocation(rule, tokens) {
     return (
       `\`${sub}\` is not an allowed subcommand (allowed: ${[...rule.subcommands].map((s) => `\`${s}\``).join(', ')}).\n` +
       `    The refused ones run arbitrary third-party code, which is what this allowlist is for:\n` +
-      `    \`npm exec\` and \`npm run\` are \`npx\` by another name, and \`npx\` is not on the list.`
+      `    \`npm exec\` and \`npm run\` are \`npx\` by another name, and \`npx\` is on the list for \`@civitai/cli\` only.`
     );
   }
   const bad = rest.filter((a) => !PLAIN_SPEC.test(a));
@@ -940,6 +1022,19 @@ export function extractInvocations(md) {
           foreign.push({ binary: w, tokens: [w], raw: raw.trim(), where: source });
         }
       }
+      // `npx -y @civitai/cli@latest app create` IS a `civitai app create` — grade
+      // what follows the spec against the snapshot too. The npx stage itself is
+      // still recorded below as foreign, so the allowlist sees its shape.
+      const viaNpx = tokens[0] === 'npx' && NPX_CLI_SPEC.test(splitNpx(tokens).spec ?? '');
+      if (viaNpx) {
+        const cli = ['civitai', ...splitNpx(tokens).args];
+        const { path, flags } = splitCivitai(cli);
+        const key = `${path.join(' ')}␟${flags.join(' ')}`;
+        if (!seenCivitai.has(key)) {
+          seenCivitai.add(key);
+          civitai.push({ path, flags, raw: tokens.join(' ') });
+        }
+      }
       if (tokens[0] === 'civitai') {
         const { path, flags } = splitCivitai(tokens);
         // U+241F (SYMBOL FOR UNIT SEPARATOR) — a PRINTABLE separator. This used
@@ -1155,8 +1250,67 @@ function runParserSelfTest() {
   return failures;
 }
 
+/**
+ * Why an allowlisted binary may not appear in `source` at all, or null. An entry
+ * without `onlyIn` is allowed in every graded file.
+ */
+function refuseOutOfScope(rule, source) {
+  if (!rule.onlyIn || rule.onlyIn.has(source)) return null;
+  return `it is allowed only in ${[...rule.onlyIn].join(', ')}, not in ${source}`;
+}
+
+/**
+ * The npx rule's own controls: [stage, must it be refused?]. Both polarities, so
+ * a mutant that refuses everything — or nothing — goes red here, by name.
+ */
+const NPX_SELF_TEST = [
+  ['npx -y @civitai/cli@latest app validate', false],
+  ['npx --yes @civitai/cli app create x', false],
+  ['npx -y @civitai/cli@1.2.3 --version', false],
+  ['npx @civitai/cli@latest app validate', true],
+  ['npx -y cowsay hi', true],
+  ['npx -y -p evil @civitai/cli app validate', true],
+  ['npx -y --package=evil @civitai/cli', true],
+  ['npx -y @civitai/cli@^1 app validate', true],
+  ['npx -y @civitai/cli-evil app validate', true],
+  ['npx -y', true],
+];
+
+/**
+ * The npx file scope's own controls: [graded file, must npx be refused there?].
+ * Run twice — against refuseOutOfScope alone, and end to end through
+ * gradeCommandSurface on NPX_SCOPE_PROBE — so dropping the call that wires the
+ * scope into grading goes red by name too, not only the predicate.
+ */
+const NPX_SCOPE_SELF_TEST = [
+  [PROMPT_SOURCE, true],
+  [IN_SANDBOX_SOURCE, false],
+];
+const NPX_SCOPE_PROBE = '```bash\nnpx -y @civitai/cli@latest app validate\n```\n';
+
 function checkCommandSurface() {
   const failures = [...runParserSelfTest()];
+  for (const [line, wantRefused] of NPX_SELF_TEST) {
+    const refused = refuseNpxInvocation(tokenize(line)) !== null;
+    if (refused !== wantRefused) {
+      failures.push(
+        `NPX SELF-TEST FAILURE: \`${line}\` should be ${wantRefused ? 'REFUSED' : 'ACCEPTED'} and was not.\n` +
+          `    This is a defect in refuseNpxInvocation, not in the corpus.`,
+      );
+    }
+  }
+  // The file scope's own controls, both polarities: npx refused in the prompt,
+  // accepted in the leaf. A mutant dropping `onlyIn` or inverting the test goes
+  // red here by name rather than only when a corpus line happens to exercise it.
+  const npxRule = ALLOWED_NON_CIVITAI.get('npx');
+  for (const [source, wantRefused] of NPX_SCOPE_SELF_TEST) {
+    if ((refuseOutOfScope(npxRule, source) !== null) !== wantRefused) {
+      failures.push(
+        `NPX SCOPE SELF-TEST FAILURE: npx in ${source} should be ${wantRefused ? 'REFUSED' : 'ACCEPTED'} and was not.\n` +
+          `    This is a defect in refuseOutOfScope or the npx entry's onlyIn, not in the corpus.`,
+      );
+    }
+  }
   if (failures.length) return failures;
   // Counted from the table, not written from memory: an added case must move
   // this number rather than leave a stale claim behind it.
@@ -1164,7 +1318,9 @@ function checkCommandSurface() {
   console.log(
     `  ✓ extractor self-test: ${PARSER_SELF_TEST.length} cases, ` +
       `${PARSER_SELF_TEST.length - negatives} positive / ${negatives} negative control(s), ` +
-      `+ ${STRIP_CONSERVES.length} tag-strip invariant line(s)`,
+      `+ ${STRIP_CONSERVES.length} tag-strip invariant line(s), ` +
+      `+ ${NPX_SELF_TEST.length} npx case(s) (${NPX_SELF_TEST.filter((c) => c[1]).length} must-refuse) ` +
+      `+ ${NPX_SCOPE_SELF_TEST.length} npx file-scope case(s) (${NPX_SCOPE_SELF_TEST.filter((c) => c[1]).length} must-refuse)`,
   );
   if (!existsSync(SNAPSHOT)) {
     failures.push(
@@ -1174,23 +1330,67 @@ function checkCommandSurface() {
     return failures;
   }
   const snapshot = readFileSync(SNAPSHOT, 'utf8');
-  const prompt = readFileSync(join(repoRoot, PROMPT_SOURCE), 'utf8');
-  const { civitai, foreign } = extractInvocations(prompt);
+  // The same scope cases END TO END: the probe through gradeCommandSurface, its
+  // progress lines muted. This is what catches a grader that no longer calls
+  // refuseOutOfScope — the predicate-only cases above stay green on that mutant.
+  for (const [source, wantRefused] of NPX_SCOPE_SELF_TEST) {
+    const log = console.log;
+    console.log = () => {};
+    let graded;
+    try {
+      graded = gradeCommandSurface(source, NPX_SCOPE_PROBE, snapshot);
+    } finally {
+      console.log = log;
+    }
+    const refused = graded.some((f) => f.includes('allowed only in'));
+    const other = graded.filter((f) => !f.includes('allowed only in'));
+    if (refused !== wantRefused || other.length) {
+      failures.push(
+        `NPX SCOPE SELF-TEST FAILURE (end to end): the probe graded as ${source} should be ` +
+          `${wantRefused ? 'REFUSED for its file' : 'ACCEPTED'} and was not` +
+          (other.length ? `; it also failed on: ${other.join(' | ')}` : '') +
+          `.\n    This is a defect in gradeCommandSurface's use of refuseOutOfScope, not in the corpus.`,
+      );
+    }
+  }
+  if (failures.length) return failures;
+  console.log(`  ✓ npx file scope end to end: ${NPX_SCOPE_SELF_TEST.length} case(s) through the grader`);
+  // BOTH agent-executed files, graded file by file. The in-sandbox leaf is
+  // fetched and executed unattended exactly like the prompt, so it gets the same
+  // command surface and the same allowlist — a leaf that could name what the
+  // prompt may not would be the cheapest way around this check.
+  for (const source of [PROMPT_SOURCE, IN_SANDBOX_SOURCE]) {
+    if (!existsSync(join(repoRoot, source))) {
+      // The prompt's absence is reported by main(); the leaf's by check 7, by name.
+      // Skipped LOUDLY so this check's success line can never imply it read it.
+      console.log(`  ⊘ ${source} does not exist — not graded here (check 7 owns that failure)`);
+      continue;
+    }
+    failures.push(...gradeCommandSurface(source, readFileSync(join(repoRoot, source), 'utf8'), snapshot));
+  }
+  return failures;
+}
+
+/** Check 1 over ONE file. */
+function gradeCommandSurface(source, text, snapshot) {
+  const failures = [];
+  const { civitai, foreign } = extractInvocations(text);
   if (civitai.length === 0) {
-    // Positive control against a silently-zero extractor: prompt.md has always
-    // named at least `civitai agent-setup`, so an empty result means the parser
-    // broke, not that the prompt got safer.
-    failures.push(`${PROMPT_SOURCE} yielded 0 \`civitai …\` invocations — the extractor is broken`);
+    // Positive control against a silently-zero extractor: both files have always
+    // named at least one CLI command (`civitai agent-setup`; `npx -y
+    // @civitai/cli@latest app create`), so an empty result means the parser
+    // broke, not that the file got safer.
+    failures.push(`${source} yielded 0 \`civitai …\` invocations — the extractor is broken`);
     return failures;
   }
-  console.log(`  ${civitai.length} \`civitai …\` invocation(s) asserted by ${PROMPT_SOURCE}:`);
+  console.log(`  ${civitai.length} \`civitai …\` invocation(s) asserted by ${source}:`);
   for (const inv of civitai) {
     const name = inv.path.length ? `civitai ${inv.path.join(' ')}` : 'civitai (root)';
     const body = helpBody(snapshot, inv.path);
     if (body === null) {
       failures.push(
         `\`${inv.raw}\` — command \`${name}\` is NOT in the CLI help snapshot.\n` +
-          `    prompt.md tells an agent to run a command this CLI does not publish.`,
+          `    ${source} tells an agent to run a command this CLI does not publish.`,
       );
       continue;
     }
@@ -1204,17 +1404,19 @@ function checkCommandSurface() {
     console.log(`    ✓ ${inv.raw}`);
   }
 
-  console.log(`  ${foreign.length} non-\`civitai\` command(s) asserted by ${PROMPT_SOURCE}:`);
+  console.log(`  ${foreign.length} non-\`civitai\` command(s) asserted by ${source}:`);
   for (const f of foreign) {
     const rule = ALLOWED_NON_CIVITAI.get(f.binary);
     if (rule) {
-      const refusal = refuseAllowedInvocation(rule, f.tokens);
+      const refusal =
+        refuseOutOfScope(rule, source) ??
+        (rule.refuse ? rule.refuse(f.tokens) : refuseAllowedInvocation(rule, f.tokens));
       if (!refusal) {
         console.log(`    ✓ ${f.tokens.join(' ')} — ${rule.why}`);
         continue;
       }
       failures.push(
-        `\`${f.raw}\` (${f.where}) — \`${f.binary}\` is allowed, but ${refusal}\n` +
+        `${source}: \`${f.raw}\` (${f.where}) — \`${f.binary}\` is allowed, but ${refusal}\n` +
           `    The entry in ALLOWED_NON_CIVITAI names the shape it was reviewed for. Widening it is\n` +
           `    a deliberate one-line diff in scripts/check-agent-setup.mjs, not something this file\n` +
           `    may do by changing an argument.`,
@@ -1222,8 +1424,8 @@ function checkCommandSurface() {
       continue;
     }
     failures.push(
-      `\`${f.raw}\` (${f.where}) — \`${f.binary}\` is not an allowed non-\`civitai\` command.\n` +
-        `    ${PROMPT_SOURCE} is fetched over the network and executed UNATTENDED by an agent, so\n` +
+      `${source}: \`${f.raw}\` (${f.where}) — \`${f.binary}\` is not an allowed non-\`civitai\` command.\n` +
+        `    ${source} is fetched over the network and executed UNATTENDED by an agent, so\n` +
         `    every third-party binary it invokes is an explicit, reviewed decision. If this one is\n` +
         `    genuinely intended, add it to ALLOWED_NON_CIVITAI in scripts/check-agent-setup.mjs with\n` +
         `    a one-line reason — that diff is the review moment this check exists to force.`,
@@ -1326,6 +1528,8 @@ export const PROMPT_DOC_TWIN_URLS = new Set([
   'https://developer.civitai.com/orchestration.md',
   'https://developer.civitai.com/apps/guide.md',
   'https://developer.civitai.com/apps/reference.md',
+  // Holds the npm 11 allowScripts note that used to be a whole section of step 2.
+  'https://developer.civitai.com/apps/reference/cli.md',
 ]);
 for (const u of PROMPT_DOC_TWIN_URLS) {
   if (/agent-setup|prompt/i.test(u) || !u.startsWith('https://developer.civitai.com/') || !u.endsWith('.md')) {
@@ -1417,7 +1621,11 @@ function checkSingleSource() {
   // The prompt source carries URLs of its own and is REPRODUCED verbatim into the
   // region, so it is graded here — against the wide predicate rather than the
   // page's allowlist, because prompt.md legitimately links out to docs.
-  const promptStrays = promptClaimingUrls(prompt).filter((u) => u !== PROMPT_URL && !PROMPT_DOC_TWIN_URLS.has(u));
+  // IN_SANDBOX_URL is the one /agent-setup/ URL besides PROMPT_URL the prompt may
+  // name: the routing line points App Assistant at it. Check 7 pins WHERE and HOW.
+  const promptStrays = promptClaimingUrls(prompt).filter(
+    (u) => u !== PROMPT_URL && u !== IN_SANDBOX_URL && !PROMPT_DOC_TWIN_URLS.has(u),
+  );
   if (promptStrays.length) {
     failures.push(
       `${PROMPT_SOURCE} carries ${promptStrays.length} URL(s) that CLAIM to be the raw prompt but\n` +
@@ -1479,21 +1687,34 @@ function checkServingRoute() {
     );
   }
 
+  // The in-sandbox leaf has the same contract as the prompt (verbatim public/
+  // file, the first fetch an agent makes), so the same exact-match route.
+  if (!exact.includes(IN_SANDBOX_PATH)) {
+    failures.push(
+      `${NGINX_CONF} has no \`location = ${IN_SANDBOX_PATH} {\` block.\n` +
+        `    IN_SANDBOX_PATH in .vitepress/agent-setup.mjs is the authority for the in-sandbox\n` +
+        `    leaf the prompt's routing line names; it must be served verbatim, like PROMPT_PATH.`,
+    );
+  }
+
   // Any OTHER /agent-setup/ path in the config is a leftover from a rename.
   const stray = [...new Set([...conf.matchAll(/\/agent-setup\/[A-Za-z0-9._/-]*/g)].map((m) => m[0]))].filter(
-    (p) => p !== PROMPT_PATH,
+    (p) => p !== PROMPT_PATH && p !== IN_SANDBOX_PATH,
   );
   if (stray.length) {
     failures.push(
       `${NGINX_CONF} names ${stray.length} \`/agent-setup/\` path(s) that are not PROMPT_PATH ` +
         `(${PROMPT_PATH}):\n` +
         stray.map((p) => `      ${p}`).join('\n') +
-        `\n    Left behind by a rename. Delete them or point them at PROMPT_PATH.`,
+        `\n    Left behind by a rename. Delete them or point them at PROMPT_PATH / IN_SANDBOX_PATH.`,
     );
   }
 
   if (!failures.length) {
-    console.log(`  ✓ ${NGINX_CONF} serves PROMPT_PATH (${PROMPT_PATH}) from an exact-match location`);
+    console.log(
+      `  ✓ ${NGINX_CONF} serves PROMPT_PATH (${PROMPT_PATH}) and IN_SANDBOX_PATH (${IN_SANDBOX_PATH}) ` +
+        `from exact-match locations`,
+    );
   }
   return failures;
 }
@@ -1838,7 +2059,9 @@ function checkAliasIsFetchedWithRedirects() {
   // THE CORPUS: both agent-setup surfaces. prompt.md is the file an agent
   // executes; the landing page is the one check 1 never reads.
   let examined = 0;
-  for (const file of [PROMPT_SOURCE, LANDING_PAGE]) {
+  for (const file of [PROMPT_SOURCE, LANDING_PAGE, IN_SANDBOX_SOURCE]) {
+    // A missing leaf is check 7's failure, by name; nothing to scan here.
+    if (!existsSync(join(repoRoot, file))) continue;
     const text = readFileSync(join(repoRoot, file), 'utf8');
     for (const { raw, where } of codeLinesIn(text)) {
       const { named, refusals } = refusalsForLine(raw);
@@ -1853,7 +2076,166 @@ function checkAliasIsFetchedWithRedirects() {
     console.log(
       `  ✓ ${REDIRECT_SELF_TEST.length} self-test case(s) (${REDIRECT_SELF_TEST.filter((c) => c[2]).length} must-refuse / ` +
         `${REDIRECT_SELF_TEST.filter((c) => !c[2]).length} must-accept); ${examined} command(s) in ` +
-        `${PROMPT_SOURCE} + ${LANDING_PAGE} name ${SHORT_PROMPT_URL}, all of them redirect-following`,
+        `${PROMPT_SOURCE} + ${LANDING_PAGE} + ${IN_SANDBOX_SOURCE} name ${SHORT_PROMPT_URL}, all of them redirect-following`,
+    );
+  }
+  return failures;
+}
+
+// ---------------------------------------------------------------------------
+// CHECK 7: THE HEAD OF THE PROMPT ROUTES APP ASSISTANT TO ITS OWN LEAF.
+//
+// WHY POSITION, NOT SIZE. Civitai's hosted App Assistant reads the prompt with a
+// `fetch_page` tool that returns the FIRST 4,000 CHARACTERS of a page and a
+// literal "…(truncated)" (measured 2026-10-14, App Assistant eval run 1). At
+// 7,297 bytes the cut landed mid-step-3; the one sentence of the prompt that
+// applied to App Assistant sat at character 6,665, and the first 4 KB was all
+// workstation setup it cannot run. Check 5 bounds the WHOLE file and is blind to
+// where anything sits in it. This check pins the one thing that must be inside
+// any cut: the routing line, as the prompt's FIRST paragraph, naming a leaf
+// small enough to be read whole.
+//
+// 🔴 WHAT IT DOES NOT CLAIM. It cannot know whether App Assistant recognises
+// itself in the routing line — that is a property of the consumer's system
+// prompt, outside this repo — and the 4,000 figure is a measurement of today's
+// tool, not a contract. Bytes ≥ characters, so every byte budget below is
+// conservative against a character cap; the cap's real unit is unverified.
+// ---------------------------------------------------------------------------
+
+/**
+ * The routing line, WHOLE, whitespace-normalised. Pinned as the entire string,
+ * not a keyword: a guard on one word is walkable by rewording, and this is a
+ * machine-read instruction, so a cosmetic reword paying a one-line diff here is
+ * the intended price. It must be the prompt's FIRST paragraph.
+ */
+const ROUTING_TEXT =
+  "**Are you Civitai's App Assistant**, working in its hosted sandbox on civitai.com? " +
+  'Read https://developer.civitai.com/agent-setup/in-sandbox.md instead of this page. ' +
+  'Any other agent: carry on below.';
+if (!ROUTING_TEXT.includes(IN_SANDBOX_URL)) {
+  console.error(`check-agent-setup: ROUTING_TEXT does not name IN_SANDBOX_URL (${IN_SANDBOX_URL}) — refusing to run.`);
+  process.exit(2);
+}
+
+/**
+ * Bytes of the prompt before its first `## ` heading — the routing line plus the
+ * intro. RE-DERIVED 2026-10-14: 618 bytes (198 of them the routing paragraph;
+ * the intro was 418 before it). 700 leaves 82 bytes, less than the routing
+ * paragraph itself, so nothing paragraph-sized can be added above step 1 without
+ * a reviewed edit here. The intent is that the routing line stays near byte 0
+ * AND that the head does not grow into a second preamble.
+ */
+const PROMPT_HEAD_MAX_BYTES = 700;
+
+/**
+ * The leaf's budget. 3,500 bytes so the WHOLE leaf fits inside the measured
+ * 4,000-character cut with margin — a leaf that is itself truncated would
+ * reproduce the defect one hop later. Achieved 2,688 bytes at 2026-10-14.
+ */
+const IN_SANDBOX_MAX_BYTES = 3_500;
+
+/**
+ * The leaf's POSITIVE CONTROL. Half the achieved 2,688 bytes, rounded down to the hundred: a
+ * leaf below it has lost about half of its seven sections, or is empty — and an
+ * empty leaf is "well within budget", the reassuring-zero shape.
+ */
+const IN_SANDBOX_MIN_BYTES = 1_300;
+
+const normaliseWs = (s) => s.replace(/\s+/g, ' ').trim();
+
+function checkPromptHead() {
+  const failures = [];
+  if (IN_SANDBOX_MIN_BYTES >= IN_SANDBOX_MAX_BYTES) {
+    failures.push(`IN_SANDBOX_MIN_BYTES (${IN_SANDBOX_MIN_BYTES}) is not below IN_SANDBOX_MAX_BYTES (${IN_SANDBOX_MAX_BYTES})`);
+    return failures;
+  }
+  const prompt = readFileSync(join(repoRoot, PROMPT_SOURCE), 'utf8');
+
+  // (i) The routing line is the FIRST paragraph, verbatim.
+  const first = normaliseWs(prompt.split(/\n[ \t]*\n/)[0] ?? '');
+  if (first !== ROUTING_TEXT) {
+    failures.push(
+      `${PROMPT_SOURCE}'s first paragraph is not the App Assistant routing line.\n` +
+        `      expected: ${ROUTING_TEXT}\n` +
+        `      found:    ${first.length > 240 ? `${first.slice(0, 240)}…` : first}\n` +
+        `    App Assistant's fetch_page returns only the first 4,000 characters, so the routing\n` +
+        `    line must be the very first thing in the file. Restore it, or change ROUTING_TEXT here\n` +
+        `    in the same diff if the wording is genuinely changing.`,
+    );
+  }
+
+  // (ii) The head stays small.
+  const firstH2 = prompt.search(/^## /m);
+  if (firstH2 === -1) {
+    failures.push(`${PROMPT_SOURCE} has no \`## \` heading — the head cannot be measured, so the file has lost its steps`);
+  } else {
+    const headBytes = Buffer.byteLength(prompt.slice(0, firstH2));
+    if (headBytes > PROMPT_HEAD_MAX_BYTES) {
+      failures.push(
+        `${PROMPT_SOURCE} has ${headBytes} bytes before its first \`## \` heading, OVER the ` +
+          `${PROMPT_HEAD_MAX_BYTES}-byte head budget by ${headBytes - PROMPT_HEAD_MAX_BYTES}.\n` +
+          `    Content above step 1 pushes every step further past a fetcher's cut. Move it into a\n` +
+          `    step, or re-derive PROMPT_HEAD_MAX_BYTES (see its doc comment) in the same diff.`,
+      );
+    }
+
+    // (iii) Every site URL the head names is a verbatim public/ file that exists.
+    for (const raw of absoluteUrls(prompt.slice(0, firstH2))) {
+      const u = parseUrl(raw);
+      if (!u || u.hostname.toLowerCase() !== SITE_HOST) continue;
+      const rel = `public${routedPath(u)}`;
+      if (!existsSync(join(repoRoot, rel))) {
+        failures.push(
+          `${PROMPT_SOURCE}'s head names ${raw}, but ${rel} does not exist.\n` +
+            `    The head routes an agent BEFORE it reads anything else; a dead link there strands it.`,
+        );
+      }
+    }
+  }
+
+  // (iv) The leaf exists and sits inside its window.
+  const leafPath = join(repoRoot, IN_SANDBOX_SOURCE);
+  if (!existsSync(leafPath)) {
+    failures.push(
+      `${IN_SANDBOX_SOURCE} does not exist. IN_SANDBOX_PATH advertises ${IN_SANDBOX_PATH} and the\n` +
+        `    prompt's routing line sends App Assistant there; nothing is shipped at that URL.`,
+    );
+    return failures;
+  }
+  const leaf = readFileSync(leafPath, 'utf8');
+  const leafBytes = Buffer.byteLength(leaf);
+  if (leafBytes < IN_SANDBOX_MIN_BYTES) {
+    failures.push(
+      `${IN_SANDBOX_SOURCE} is ${leafBytes} bytes, UNDER the ${IN_SANDBOX_MIN_BYTES}-byte floor — the positive\n` +
+        `    control: an empty or truncated leaf is comfortably under any ceiling.`,
+    );
+  }
+  if (leafBytes > IN_SANDBOX_MAX_BYTES) {
+    failures.push(
+      `${IN_SANDBOX_SOURCE} is ${leafBytes} bytes, OVER the ${IN_SANDBOX_MAX_BYTES}-byte budget by ` +
+        `${leafBytes - IN_SANDBOX_MAX_BYTES}.\n` +
+        `    The leaf exists to be read WHOLE inside App Assistant's 4,000-character fetch_page cut.\n` +
+        `    A leaf that is itself truncated reproduces the defect one hop later. Cut prose.`,
+    );
+  }
+
+  // (v) The leaf names no prompt alias.
+  const leafStrays = promptClaimingUrls(leaf).filter(
+    (u) => u !== PROMPT_URL && u !== IN_SANDBOX_URL && !PROMPT_DOC_TWIN_URLS.has(u),
+  );
+  if (leafStrays.length) {
+    failures.push(
+      `${IN_SANDBOX_SOURCE} carries URL(s) that claim to be agent-setup pages but are neither\n` +
+        `    ${PROMPT_URL} nor ${IN_SANDBOX_URL}:\n` +
+        [...new Set(leafStrays)].map((u) => `      ${u}`).join('\n'),
+    );
+  }
+
+  if (!failures.length) {
+    console.log(
+      `  ✓ ${PROMPT_SOURCE} opens with the routing line to ${IN_SANDBOX_URL}; head ` +
+        `${Buffer.byteLength(prompt.slice(0, firstH2))} ≤ ${PROMPT_HEAD_MAX_BYTES} bytes; ${IN_SANDBOX_SOURCE} is ` +
+        `${leafBytes} bytes, within [${IN_SANDBOX_MIN_BYTES}, ${IN_SANDBOX_MAX_BYTES}]`,
     );
   }
   return failures;
@@ -1886,6 +2268,7 @@ function main() {
     ['4. inline copy', checkInlineCopy],
     ['5. prompt size', checkPromptSize],
     ['6. alias is fetched with redirects', checkAliasIsFetchedWithRedirects],
+    ['7. prompt head routes App Assistant', checkPromptHead],
   ];
   const failures = [];
   for (const [label, fn] of checks) {

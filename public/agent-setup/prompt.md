@@ -1,3 +1,7 @@
+**Are you Civitai's App Assistant**, working in its hosted sandbox on
+civitai.com? Read https://developer.civitai.com/agent-setup/in-sandbox.md
+instead of this page. Any other agent: carry on below.
+
 Set up this project for building a Civitai App:
 
 - Install the Civitai CLI and configure this agent for Civitai App development
@@ -17,8 +21,9 @@ Check the project for these signals:
   App**. Continue to step 2.
 - Neither → **assume a Civitai App and continue to step 2.** An empty directory
   is the normal starting point, and nothing in steps 2 to 4 depends on a project
-  that already exists. Do not stop to ask — say which you assumed when you report
-  back in step 5, so the user can correct you in one sentence.
+  that already exists. Do not stop to ask about the project type — say which you
+  assumed when you report back in step 5, so the user can correct you in one
+  sentence.
 
 The one case this setup does not cover: the user has already told you they are
 calling the Civitai API from their own service, rather than building something
@@ -72,13 +77,9 @@ On any other, report the exact error and stop rather than guessing.
 - **brew is not found.** Homebrew is not installed, and installing Homebrew is
   not part of this setup. Use the npm path above.
 
-### The `install-scripts` warning is expected
-
-A **successful** npm 11 install still ends with a warning that `@civitai/cli`'s
-`postinstall` is "not yet covered by allowScripts". That is an advisory about a
-future npm policy, not a report that the script was skipped: the postinstall
-still runs. Do not stop, and do not re-install with an allow-scripts flag.
-Step 4 tells you whether the install worked.
+An npm 11 allowScripts warning about `@civitai/cli`'s `postinstall` is expected
+(see Install in https://developer.civitai.com/apps/reference/cli.md): do not
+stop or re-install. Step 4 tells you whether the install worked.
 
 ## 3. Configure this agent
 

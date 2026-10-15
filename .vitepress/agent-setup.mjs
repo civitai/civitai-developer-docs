@@ -72,5 +72,25 @@ export const SETUP_PROMPT = `Fetch and execute the appropriate instructions to s
 /** Repo-relative path of the prompt source, derived from PROMPT_PATH. */
 export const PROMPT_SOURCE = `public${PROMPT_PATH}`;
 
+/**
+ * Site-root-relative path of the IN-SANDBOX leaf: the page Civitai's hosted App
+ * Assistant reads instead of `PROMPT_PATH`. Same `public/` contract as the
+ * prompt — served verbatim, exact-match route in `nginx.conf` — and named by
+ * the routing line at the very top of the prompt, which check 7 of
+ * `scripts/check-agent-setup.mjs` pins.
+ *
+ * Why a separate page rather than a section of the prompt: App Assistant's
+ * `fetch_page` returned only the first 4,000 characters of a page, and the
+ * first 4 KB of the prompt was all workstation setup it cannot run — the one
+ * sentence that applied to it sat at character 6,665 (measured 2026-10-14).
+ */
+export const IN_SANDBOX_PATH = '/agent-setup/in-sandbox.md';
+
+/** Absolute URL of the in-sandbox leaf. */
+export const IN_SANDBOX_URL = `${SITE_ORIGIN}${IN_SANDBOX_PATH}`;
+
+/** Repo-relative path of the in-sandbox leaf's source. */
+export const IN_SANDBOX_SOURCE = `public${IN_SANDBOX_PATH}`;
+
 /** Repo-relative path of the landing page whose literals the guard grades. */
 export const LANDING_PAGE = 'agent-setup/index.md';
