@@ -38,7 +38,7 @@ const BINDING_NOTES = {
   'apps:storage':
     "Scoped to this app's own document store (reads, the viewer's private collections, marks and counters). Consent-exempt. Required by any manifest that declares a `storage` collection. The store's routes answer `503 storage_disabled` on a host where the store is not enabled.",
   'apps:storage:publish':
-    "Create or edit documents in this app's SHARED collections as the viewer. Sensitive (needs a justification) and consent-gated: granted only after the viewer approves it for this app. Required by a shared collection whose `write` is not `owner`. The store's routes answer `503 storage_disabled` on a host where the store is not enabled.",
+    "Create or edit documents in this app's SHARED collections as the viewer. Sensitive (needs a justification) and consent-gated: granted only after the viewer approves it for this app. Required by a shared collection whose `write` is `own` or `anyone` — the policies under which a viewer authors documents; a `write: \"none\"` (counters and marks only) or `write: \"owner\"` collection does not need it. The store's routes answer `503 storage_disabled` on a host where the store is not enabled.",
   'collections:read:self':
     "Self-bound; public collections + the viewer's own public collections. Consent-exempt (server visibility/ownership is the gate).",
   'collections:write:self':
