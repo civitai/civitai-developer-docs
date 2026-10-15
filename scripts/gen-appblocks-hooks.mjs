@@ -150,7 +150,7 @@ const withNotes = ordered.filter((h) => h.notes.length).length;
 const withReturns = ordered.filter((h) => h.returns).length;
 log(`hooks: wrote ${ordered.length} hooks (${withNotes} with notes after the example, ${withReturns} with a return interface) -> ${dest}`);
 for (const c of retiredCorrections(ordered)) {
-  log(`  NOTE: README correction for ${c.hook} (${c.match}) no longer matches the published README — delete it from scripts/lib/hook-annotations.mjs`);
+  log(`  NOTE: the README_CORRECTIONS entry { hook: '${c.hook}', match: ${c.match} } no longer matches the published README — upstream fixed the sentence, so delete that entry from scripts/lib/hook-annotations.mjs`);
 }
 if (noEx.length) log(`  WARNING: no example for: ${noEx.join(', ')}`);
 // README sections that sit inside the hook list but are not a hook (`### SfwGate`,

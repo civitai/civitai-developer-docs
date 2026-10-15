@@ -32,6 +32,16 @@ The client is `app.storage.collection(name)` in
 under `/api/v1/blocks/storage`, called with the block token, so an app that does
 not use the SDK can call it directly ([REST reference](#rest-reference)).
 
+A scaffolded app may pin an older SDK, and a caret range on a `0.x` version
+never moves to the next minor, so `npm install` alone does not get you there.
+On an older version `app.storage.collection` does not exist. Check, and raise
+it if needed:
+
+```bash
+npm ls @civitai/sdk
+npm install @civitai/sdk@^0.14.0
+```
+
 This store replaces two older ones, `useAppStorage` and `useSharedStorage`
 (and their `app-storage` / `shared-storage` routes). Those keep working while
 apps move; see [Moving from the legacy stores](#moving-from-the-legacy-stores).
@@ -91,15 +101,21 @@ Each collection declares:
   Otherwise they learn only whether they wrote a document themselves. The
   numeric user id is never exposed either way.
 
-Renaming a collection or changing its visibility makes it a **new** collection:
-the old one's documents are not carried over. Changing an index's type is not
-supported; remove the index and add one under a new name.
+Renaming a collection or changing its visibility makes it a **new** collection,
+and the old one's documents are not moved into it. They are not deleted either:
+they stay stored, keep counting toward the [quotas](#limits), and can no longer
+be read or deleted: a call naming a collection that is no longer declared is
+refused `collection_not_declared`, and after a visibility change under the same
+name the old documents sit in a key space the collection no longer reads.
+Declaring the old collection again brings them back.
+So delete the documents you no longer want **before** you rename or drop a
+collection. Changing an index's type is not supported; remove the index and add
+one under a new name.
 
 Some of the schema is reserved for later phases, and the server refuses it with
-a message saying so: `write: "anyone"`, `write: "owner"`, `kind: "log"` with
-`maxEntries`, `ttlSeconds` and `dailyWritesPerAuthor`. The
-[limits table](#limits) lists exactly which are refused today, and the
-[manifest reference](../reference/manifest) has every field's bounds.
+a message saying so. The [limits table](#limits) lists which fields are refused
+today, and the [manifest reference](../reference/manifest) has every field's
+bounds.
 
 `civitai app validate` checks only the JSON schema, which admits the reserved
 fields. The server's own manifest validation, which applies the reserved-feature
@@ -214,9 +230,9 @@ marks, viewer }`:
 Reads and writes use the same database connection, so a read made after a write
 succeeded sees it; there is no replica delay to wait out.
 
-A key is up to 128 characters of letters, digits and `.`, `_`, `:`, `-`, and
-may not be made only of dots. In a private collection each viewer has their own
-key space, so two viewers can both have a document `theme` without colliding.
+The characters and length a key may have are in the [limits table](#limits).
+In a private collection each viewer has their own key space, so two viewers can
+both have a document `theme` without colliding.
 
 ### Conditional writes {#conditional-writes}
 
@@ -283,7 +299,7 @@ const { value } = await plays.increment('model-123', 'plays'); // creates the do
 | Write or delete in a private collection | signed in | `apps:storage` | — |
 | Create or edit in a shared `"own"` collection | signed in | `apps:storage` + `apps:storage:publish` | the minimum-trust gate, moderation, the shared write budget; editing another viewer's document is refused `not_author` |
 | Delete in a shared `"own"` collection | signed in, the author | `apps:storage` | — |
-| Write a document in a `"none"` collection | — | — | always refused `write_policy` |
+| Write a document in a `"none"` collection | — | — | refused `write_policy` for a signed-in viewer (a signed-out one gets `sign_in_required` first) |
 | `increment`, `mark`, `unmark` | signed in | `apps:storage` | the minimum-trust gate |
 
 Signed-out viewers get `sign_in_required` for everything but shared reads, so
@@ -303,13 +319,14 @@ the viewer why, rather than as an error.
 
 Every create or edit in a shared collection is scanned before it is stored:
 every string value and object key in `data`, and on `put` the document key. In a
-`"none"` collection, the key of a document an increment would create is scanned
-too.
+`"none"` collection, every increment scans the document's key, whether or not the
+document already exists.
 
 - A refusal is `content_rejected` (422). `details.category` is coarse (`link`,
   `unreviewable` or `blocked`) and never the matched text.
 - When the scan cannot run, the write is refused `moderation_unavailable` (503)
-  with a `Retry-After`; retry after it.
+  with a `Retry-After`; retry after it. In a `"none"` collection that includes
+  increments to documents that already exist.
 
 Viewers report documents with the built-in `report` mark. Moderators see
 reported shared documents across apps and can **hide** one (it then reads as
@@ -622,6 +639,14 @@ Declare a `private` collection and the `apps:storage` scope.
 | `getQuota()` | `app.storage.info()` — `usage.viewer` and `limits` |
 | the legacy byte, row and key-length messages | [error codes](#errors) |
 
+**Keys may not carry over as they are.** A legacy key is any string of 1 to 200
+characters, while a document key is limited to the characters and length in the
+[limits table](#limits). A legacy key with a `/`, a space or any other character
+outside that set, or one longer than the limit, is refused `invalid_request`, so
+map such keys (hash them, for example) when you copy. A viewer's legacy data can
+be read only with that viewer's own token, so the copy runs per viewer, inside
+the app, as each viewer opens it.
+
 ### Shared storage (`useSharedStorage`)
 
 Declare a `shared` collection with `write: "own"`, a `vote` mark if you had
@@ -641,6 +666,17 @@ voting, and both scopes; `apps:storage:publish` replaces
 | `viewerVoted` on an item | `viewer.marks.includes('vote')` |
 | `authorUserId` on an item | `author` (`isViewer`, and `username` when the collection sets `showAuthor`); no user id |
 | `report(key, reason?)` | `mark(key, 'report')` — no free-text reason, and it cannot be withdrawn |
+
+Two things do not carry over from a legacy board:
+
+- **Authorship.** A shared document is authored by the viewer whose token
+  created it, and there is no app-owned write yet (`write: "owner"` is
+  reserved). Copying a legacy board makes whoever runs the copy the author of
+  every copied document: each one counts toward that viewer's quota and spends
+  their shared write budget, and no other viewer can edit or delete it. Keep reading
+  old rows from the legacy store, or have each author post again.
+- **Votes.** A mark belongs to the viewer who set it, so legacy vote counts
+  cannot become `vote` marks. They start at zero.
 
 Two things still read **only** the legacy shared store, so keep using it for
 them:

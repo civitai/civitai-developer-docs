@@ -63,6 +63,15 @@ generated table above and an editor will not suggest it. The schema does not
 forbid extra top-level keys, so a manifest that sets it still validates.
 :::
 
+::: warning Correction to the `storage` row: not "rejected at submit"
+The `storage` row's description comes from the canonical schema, which says the
+reserved storage features are "rejected at submit". They are refused when a
+moderator **approves** the version (and on a direct git push), not when
+`civitai app submit` uploads it, and so are the rules tying `storage` to
+`scopes`. A version that breaks them waits in review until approval fails. See
+[Declare your collections](../guide/storage#declare).
+:::
+
 ## Required fields
 
 `blockId`, `version`, `name`, `contentRating`, and `scopes` are always required.
@@ -211,13 +220,9 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
   [document store](../guide/storage): `storage.collections` maps each
   collection name to its `visibility`, its `write` policy, and its `counters`,
   `marks`, `indexes` and `showAuthor`. A collection that is not declared here
-  does not exist at runtime. It ties to `scopes`: any collection needs
-  `apps:storage`, a shared collection with `write: "own"` also needs
-  `apps:storage:publish` (with a `scopeJustifications` entry), and either scope
-  with nothing here for it to reach is rejected. The server checks the
-  declaration when a moderator approves the version, not when
-  `civitai app submit` uploads it, and refuses the fields reserved for later
-  phases even though the schema admits them. See
+  does not exist at runtime. The scopes it needs are in
+  [Scopes and consent](../guide/storage#scopes-and-consent), and how it is
+  declared and checked is in
   [Declare your collections](../guide/storage#declare).
 
 ### Sizing `page.buzzBudgetPerGen`

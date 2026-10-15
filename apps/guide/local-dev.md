@@ -78,8 +78,12 @@ success; use mock mode for those.
   those calls need a civitai.com browser session, which a local harness never
   has, so every developer gets `401` `Apps access is not enabled for this
   browser session`. It says nothing about your account or your app.
-- Legacy shared storage (`useSharedStorage`) is refused for scope: its scopes
-  are never minted on a dev token.
+- Legacy shared storage (`useSharedStorage`) is refused too. Approval is
+  checked first, so before your app is approved the refusal is about approval
+  (`app block not found` while the app has no record yet, as for a first
+  version still in review, or `app block is not approved`). Once it is
+  approved, the refusal is about scope: the shared scopes are never minted on a
+  dev token.
 
 Exercise the legacy stores under `dev:harness`, and the document store with
 [`createFakeStorage`](./storage#testing).
