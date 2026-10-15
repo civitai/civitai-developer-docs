@@ -298,8 +298,12 @@ stale — the CLI index region in `apps/reference/cli.md` and the sub-pages unde
 npm run gen:appblocks:md`), so a release that adds a command no longer needs a
 human commit to get `test-md-regions` green. Only pages that generator owns are
 staged; anything else it touched is listed in the PR body and left out. If the
-regeneration itself fails, the run fails before anything is pushed, with the
-tree restored. (A human had to do this by hand three times: #126, #178, #220.)
+regeneration itself fails, its writes are rolled back and the PR still opens
+with the snapshot alone, its body naming the failed step, the error and the
+command to run — the PR is this workflow's only announcement, so it must not
+go silent. (If even the rollback is incomplete, nothing is committed and the run
+fails, naming the leftovers.) A human had to do this by hand three times: #126,
+#178, #220.
 The one thing it **does not** write is the hand-written intro on
 `apps/reference/cli.md` that names every top-level command: when the CLI gains
 (or drops) one, the PR body names it under "A human has to write one sentence

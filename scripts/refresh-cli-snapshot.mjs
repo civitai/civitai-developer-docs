@@ -74,7 +74,9 @@
  * stale, and `check:md-regions` blocks on that. Three times a human had to re-run
  * the generators on the bot PR — 91d5f6a (docs#126, v0.1.112), f02ebbc (docs#178,
  * v0.1.119) and 309cdfc (docs#220, v0.1.123) — so the run now regenerates them
- * in the same commit (`regeneratePages`), and a failure there fails the run. The
+ * in the same commit (`regeneratePages`). If the generators fail, their writes are
+ * rolled back and the snapshot ships ALONE with the failure in the PR body — the
+ * PR is the only announcement this workflow has. The
  * hand-written intro on apps/reference/cli.md is the exception, by design: the
  * PR body names the command it is missing and the PR stays red on `test-cli`
  * until a human writes the sentence (`regenSection`).
@@ -456,7 +458,21 @@ export function parsePorcelainZ(out) {
 export function regenSection(regen) {
   if (!regen) return '';
   const lines = ['## Generated pages', ''];
-  if (regen.staged.length) {
+  if (!regen.ok) {
+    lines.push(
+      `⚠️ **Regenerating the reference pages FAILED${regen.step ? ` at \`${regen.step}\`` : ''}, so this PR carries the snapshot ONLY**`,
+      'and `test-md-regions` will be red. The page writes were rolled back. Run the refresh by hand on this',
+      'branch and commit the page diff:',
+      '',
+      '```',
+      REGEN_CMD,
+      '```',
+      '',
+      `The error: \`${String(regen.error || 'unknown error').replace(/`/g, "'").slice(0, 400)}\``,
+      '',
+      "The generator's full output is in the workflow run log.",
+    );
+  } else if (regen.staged.length) {
     lines.push(
       'The generated pages derived from this snapshot were regenerated in the same commit, with the',
       'command `check:md-regions` prints (`APPBLOCKS_SNAPSHOT_ONLY=1 npm run gen:appblocks && npm run',
@@ -911,13 +927,35 @@ function changedPaths() {
   return parsePorcelainZ(out);
 }
 
-/** Put every listed path back to HEAD: tracked ones checked out, new ones removed. */
+/**
+ * Put every listed path back to HEAD: tracked ones checked out, new ones
+ * removed. BEST-EFFORT PER PATH, and it never throws: it returns the paths it
+ * could NOT restore, as `{ path, reason }`.
+ *
+ * 🔴 A THROW HERE USED TO REPLACE THE ERROR IT WAS CLEANING UP AFTER. One
+ * EACCES on an `rmSync` surfaced as the headline instead of the generator
+ * failure that caused it, and the run still printed "tree restored". Callers
+ * now keep the original error as the headline, list these as NOT restored, and
+ * never claim a restore that did not happen.
+ */
 function restorePaths(paths) {
+  const failed = [];
   for (const p of paths) {
-    const tracked = spawnSync('git', ['cat-file', '-e', `HEAD:${p}`], { cwd: repoRoot }).status === 0;
-    if (tracked) git(['checkout', 'HEAD', '--', p]);
-    else rmSync(join(repoRoot, p), { force: true });
+    try {
+      const tracked = spawnSync('git', ['cat-file', '-e', `HEAD:${p}`], { cwd: repoRoot }).status === 0;
+      if (tracked) git(['checkout', 'HEAD', '--', p]);
+      else rmSync(join(repoRoot, p), { force: true });
+    } catch (err) {
+      failed.push({ path: p, reason: String(err.stderr || err.message).trim().split('\n')[0] });
+    }
   }
+  return failed;
+}
+
+/** Print the paths a rollback could NOT restore. Never says "restored". */
+function reportUnrestored(failed) {
+  console.error(`  ✗ ${failed.length} path(s) could NOT be restored — the tree is NOT clean:`);
+  for (const f of failed) console.error(`      ${f.path} (${f.reason})`);
 }
 
 /** The generator-owned page set — every REGIONS page, and the sub-page dirs. */
@@ -954,46 +992,80 @@ export const REGEN_CMD = 'APPBLOCKS_SNAPSHOT_ONLY=1 npm run gen:appblocks && npm
  * merged in and the capture written, so the pages are derived from exactly the
  * bytes about to be committed on top of exactly the pages already there.
  *
- * 🔴 A FAILURE IS FATAL, AND THAT COSTS NOTHING. This runs before the commit
- * and before the ONLY push, so failing here pushes nothing — exactly the shape
- * of a failed floor. An earlier cut degraded to a snapshot-only PR on the
- * belief that failing would leave "a pushed branch nobody is told about"; that
- * was false (nothing has been pushed yet), and the degraded PR could only be
- * red on test-md-regions. Deleted in review.
+ * 🔴 A FAILURE HERE DOES NOT FAIL THE RUN — BECAUSE THE BOT PR IS THE ONLY
+ * ANNOUNCEMENT CHANNEL. This workflow has no failure notifier, and its header
+ * records red scheduled runs going unacted-on for 11 days. A snapshot that
+ * passed its own floor is worth announcing even when the pages could not be
+ * regenerated, so the caller commits it ALONE and the PR body says, under
+ * "Generated pages", which step failed, its error, and the command to run.
+ * (An earlier round deleted this on the claim that failing "would leave a
+ * pushed branch nobody is told about". That claim was false — this runs before
+ * the only push — but the conclusion was wrong for the reason above: a failed
+ * run is not an announcement anybody reads.)
  *
- * EVERY failure path restores what it wrote — a failing step, the dynamic
- * imports, the partition — because they all sit inside the one `try` below.
- * The caller restores the snapshot. Throws; returns
- * `{ staged, unexpected, touched, prose }` where `touched` is every path this
- * changed (what a dry run must put back).
+ * The rollback of whatever the generators wrote happens in the ONE catch below,
+ * which covers every step and the partition. (The dynamic imports in
+ * `ownedPages` are first exercised by the dirty-path pre-check in main(),
+ * outside any try and before any write — an import failure crashes THERE, with
+ * nothing written, and never reaches this function.) The rollback is
+ * best-effort per path: `unrestored` lists what it could not put back, and a
+ * non-empty list means the tree must NOT be committed.
+ *
+ * Never throws. Returns
+ *   ok:    `{ ok: true, staged, unexpected, touched, prose }`
+ *   fail:  `{ ok: false, step, error, unrestored }`
+ * `touched` is every path the generators changed (what a dry run puts back).
  */
 async function regeneratePages() {
   const before = new Set(changedPaths());
   const newlyChanged = () => changedPaths().filter((p) => !before.has(p));
+  let step = null;
   try {
     for (const { script, env } of REGEN_STEPS) {
-      // stdio is INHERITED so the generator's own diagnostics land in the run
-      // log; the error names the STEP, because execFileSync's message is only
-      // "Command failed: <node path> <script path>".
+      step = script;
+      // stdout is INHERITED and stderr is captured and RE-EMITTED, so the
+      // generator's diagnostics still land in the run log and its last lines
+      // can also be quoted in the PR body. The error names the STEP, because
+      // execFileSync's message is only "Command failed: <node> <script>".
       const res = spawnSync(process.execPath, [join(repoRoot, 'scripts', script)], {
         cwd: repoRoot,
-        stdio: 'inherit',
+        stdio: ['inherit', 'inherit', 'pipe'],
+        encoding: 'utf8',
         env: { ...process.env, ...env },
       });
+      if (res.stderr) process.stderr.write(res.stderr);
       if (res.status !== 0 || res.error) {
+        // The line worth quoting: an uncaught throw's `Error: …` line if there
+        // is one (Node prints source context, `^`, the stack and a
+        // `Node.js vNN` footer around it), else the last substantive line.
+        const lines = String(res.stderr || '')
+          .split('\n')
+          .map((l) => l.trim())
+          .filter((l) => l && !l.startsWith('at ') && !/^Node\.js v\d/.test(l) && !/^\^+$/.test(l));
+        const tail = lines.filter((l) => /^[A-Za-z]*Error\b/.test(l)).slice(-1)[0] ?? lines.slice(-1)[0];
         throw new Error(
-          `${script} ${res.error ? `could not run (${res.error.message})` : `exited ${res.status ?? `on ${res.signal}`}`}`,
+          `${script} ${res.error ? `could not run (${res.error.message})` : `exited ${res.status ?? `on ${res.signal}`}`}` +
+            (tail ? `: ${tail.slice(0, 300)}` : ''),
         );
       }
     }
+    step = null;
     const touched = newlyChanged();
     const { stage, unexpected } = partitionRegenChanges(touched, await ownedPages());
     for (const p of stage) console.log(`  ↳ regenerated ${p}`);
     for (const p of unexpected) console.error(`  ⚠ the generators also changed ${p} — NOT a page they own, NOT committed`);
-    return { staged: stage, unexpected, touched: touched.filter((p) => p !== SNAPSHOT_REL), prose: introReport() };
+    return { ok: true, staged: stage, unexpected, touched: touched.filter((p) => p !== SNAPSHOT_REL), prose: introReport() };
   } catch (err) {
-    restorePaths(newlyChanged().filter((p) => p !== SNAPSHOT_REL));
-    throw err;
+    let unrestored;
+    try {
+      unrestored = restorePaths(newlyChanged().filter((p) => p !== SNAPSHOT_REL));
+    } catch (listErr) {
+      // `git status` itself failed: we cannot even say what to restore.
+      unrestored = [{ path: '(unknown — git status failed)', reason: listErr.message.split('\n')[0] }];
+    }
+    const error = err.message.split('\n')[0];
+    console.error(`  ⚠ page regeneration FAILED${step ? ` at ${step}` : ''}: ${error}`);
+    return { ok: false, step, error, unrestored };
   }
 }
 
@@ -1014,23 +1086,6 @@ function introReport() {
     console.log(`  ✍ the hand-written intro in ${CLI_PAGE_REL} does not name: ${prose.missing.join(', ')} (a human writes that)`);
   }
   return prose;
-}
-
-/**
- * regeneratePages, or a non-zero exit with the snapshot put back to HEAD too
- * (regeneratePages restores the pages itself). Shared by the dry run and the
- * real path so neither can forget half of the restore.
- */
-async function regenerateOrExit() {
-  try {
-    return await regeneratePages();
-  } catch (err) {
-    restorePaths([SNAPSHOT_REL]);
-    console.error('\n--- PAGE REGENERATION FAILED: nothing committed, nothing pushed, tree restored ---');
-    console.error(`  ✗ ${err.message.split('\n')[0]} — its own output is above in this log.`);
-    console.error(`    Reproduce on a checkout carrying the new snapshot with:\n      ${REGEN_CMD}`);
-    process.exit(1);
-  }
 }
 
 function runUrl() {
@@ -1222,12 +1277,20 @@ async function main() {
 
   if (dryRun) {
     // The pages are regenerated here too, so the printed body is the one a real
-    // run would post — and then put back with the snapshot. Safe only because
-    // the dirty-path refusal above guarantees every touched path matched HEAD.
-    const regen = await regenerateOrExit();
-    restorePaths(regen.touched);
-    writeFileSync(snapshotPath, prev);
+    // run would post — success or failure section — and then everything is put
+    // back. Safe only because the dirty-path refusal above guarantees every
+    // touched path matched HEAD.
+    const regen = await regeneratePages();
+    const unrestored = regen.ok ? restorePaths(regen.touched) : regen.unrestored;
+    unrestored.push(...restorePaths([SNAPSHOT_REL]));
     const body = bodyFor(regen);
+    if (unrestored.length) {
+      console.log(`\n--- --dry-run: no git writes, no PR — but the tree was NOT fully restored ---`);
+      console.log(`TITLE: ${title}\n`);
+      console.log(body);
+      reportUnrestored(unrestored);
+      process.exit(1);
+    }
     console.log('\n--- --dry-run: tree restored, no git writes, no PR ---');
     console.log(`TITLE: ${title}\n`);
     console.log(body);
@@ -1287,9 +1350,20 @@ async function main() {
 
   // AFTER the merge and the capture, so the pages are derived from the bytes
   // being committed on top of the pages the branch already holds — a human's
-  // fixup there included. A failure here exits non-zero BEFORE the commit and
-  // the push, with the tree restored (regenerateOrExit).
-  const regen = await regenerateOrExit();
+  // fixup there included. A generator failure does NOT fail the run: the page
+  // writes are rolled back and the snapshot is committed ALONE, so the bot PR —
+  // the only announcement this workflow has — still opens and says why (see
+  // regeneratePages).
+  const regen = await regeneratePages();
+  // 🔴 …UNLESS THE ROLLBACK WAS INCOMPLETE. A half-restored tree must never be
+  // committed: stop before `git add`, keep the generator error as the headline,
+  // and name every leftover. Nothing has been pushed at this point.
+  if (!regen.ok && regen.unrestored.length) {
+    console.error(`\n--- PAGE REGENERATION FAILED AND THE ROLLBACK WAS INCOMPLETE: nothing committed, nothing pushed ---`);
+    console.error(`  ✗ ${regen.error}`);
+    reportUnrestored(regen.unrestored);
+    process.exit(1);
+  }
   const body = bodyFor(regen);
 
   // Explicit paths. Never `git add -A`: this job runs in a checkout where the
@@ -1297,7 +1371,7 @@ async function main() {
   // an unrelated file rides along in a PR nobody is reading closely. The pages
   // are the generator-OWNED set `partitionRegenChanges` admitted, by name; `git
   // add -- <path>` also stages the deletion of an orphan sub-page it removed.
-  git(['add', '--', SNAPSHOT_REL, ...regen.staged]);
+  git(['add', '--', SNAPSHOT_REL, ...(regen.ok ? regen.staged : [])]);
   // Nothing staged is REACHABLE now that the branch is extended rather than
   // recreated: a second run finding the same drift re-captures byte-identical
   // bytes that are already on the branch. `git commit` would exit 1 on that,
@@ -1314,9 +1388,12 @@ async function main() {
       '-m',
       `${decision.reason}.\n\nCaptured from the published civitai ${decision.targetTag} release asset. ` +
         `${verdict.stats.nextBlocks} ===CMD blocks (floor ${verdict.stats.prevBlocks}), ${verdict.stats.nuls} NUL bytes.\n\n` +
-        (regen.staged.length
-          ? `Regenerated ${regen.staged.length} reference page(s) from it (gen:appblocks + gen:appblocks:md).\n\n`
-          : '') +
+        (!regen.ok
+          ? `Page regeneration FAILED at ${regen.step || 'an unknown step'}; this commit carries the snapshot ONLY — ` +
+            'see the PR body.\n\n'
+          : regen.staged.length
+            ? `Regenerated ${regen.staged.length} reference page(s) from it (gen:appblocks + gen:appblocks:md).\n\n`
+            : '') +
         `Opened automatically by .github/workflows/cli-snapshot-refresh.yml.`,
     ]);
   }
