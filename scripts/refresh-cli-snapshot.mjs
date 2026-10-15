@@ -1011,7 +1011,8 @@ export const REGEN_CMD = 'APPBLOCKS_SNAPSHOT_ONLY=1 npm run gen:appblocks && npm
  * best-effort per path: `unrestored` lists what it could not put back, and a
  * non-empty list means the tree must NOT be committed.
  *
- * Never throws. Returns
+ * Throws only if the initial `git status` read (`before`, below, outside the
+ * try) fails — before anything is written or staged. Otherwise returns
  *   ok:    `{ ok: true, staged, unexpected, touched, prose }`
  *   fail:  `{ ok: false, step, error, unrestored }`
  * `touched` is every path the generators changed (what a dry run puts back).

@@ -65,7 +65,8 @@ let failures = 0;
  * `exit` handlers, and the obvious fix — `process.on('SIGTERM', () =>
  * process.exit(143))` — does not work HERE: Node dispatches JS signal handlers
  * on the event loop, and this suite is synchronous from start to finish, so the
- * handler only fires once every check has run. Measured: with the handler
+ * handler never gets to run — installing it only suppresses the default kill.
+ * Measured: with the handler
  * installed a SIGTERM sent mid-run was swallowed and the run went on to
  * `all 83 passed`, exit 0 — i.e. it made Ctrl-C and a CI cancel stop working.
  * Without it the default action kills the process at once. So signals keep
