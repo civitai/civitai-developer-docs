@@ -103,14 +103,31 @@ Each collection declares:
 
 Renaming a collection or changing its visibility makes it a **new** collection,
 and the old one's documents are not moved into it. They are not deleted either:
-they stay stored, keep counting toward the [quotas](#limits), and can no longer
-be read or deleted: a call naming a collection that is no longer declared is
-refused `collection_not_declared`, and after a visibility change under the same
-name the old documents sit in a key space the collection no longer reads.
-Declaring the old collection again brings them back.
-So delete the documents you no longer want **before** you rename or drop a
-collection. Changing an index's type is not supported; remove the index and add
-one under a new name.
+they stay stored, keep counting toward the app's and each viewer's
+[quotas](#limits), and can no longer be read or deleted: a call naming a
+collection that is no longer declared is refused `collection_not_declared`, and
+after a visibility change under the same name the old documents sit in a key
+space the collection no longer reads. Declaring the old collection again brings
+them back.
+
+Clearing a collection out first is possible only for some of its documents,
+because there is no app-wide delete:
+
+- In a **private** collection, each viewer can delete their own documents, with
+  their own token.
+- In a shared **`"own"`** collection, each document's author can delete it,
+  and no other viewer can. A document a moderator has hidden cannot be deleted
+  this way.
+- In a shared **`"none"`** collection, no viewer can delete a document: a
+  delete is refused `write_policy`.
+- The app cannot delete documents on viewers' behalf: `write: "owner"`, which
+  would make the app a writer, is reserved.
+
+Every document not deleted that way stays charged to those quotas, and
+declaring the old collection again is the only way to reach it again.
+
+Changing an index's type is not supported; remove the index and add one under a
+new name.
 
 Some of the schema is reserved for later phases, and the server refuses it with
 a message saying so. The [limits table](#limits) lists which fields are refused

@@ -68,7 +68,9 @@ The `storage` row's description comes from the canonical schema, which says the
 reserved storage features are "rejected at submit". They are refused when a
 moderator **approves** the version (and on a direct git push), not when
 `civitai app submit` uploads it, and so are the rules tying `storage` to
-`scopes`. A version that breaks them waits in review until approval fails. See
+`scopes`, except that the `scopeJustifications` entry `apps:storage:publish`
+needs is checked at upload. A version that breaks the others waits in review
+until approval fails. See
 [Declare your collections](../guide/storage#declare).
 :::
 
