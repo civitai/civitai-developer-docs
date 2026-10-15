@@ -86,6 +86,25 @@ const SOURCES = [
     path: 'src/components/AppBlocks/hostHandlerParity.ts',
     snapshot: 'hostHandlerParity.ts',
   },
+  // The document store's limits and error codes → apps/guide/storage.md, via
+  // scripts/gen-appblocks-storage.mjs (regenerate with `npm run gen:appblocks`, then
+  // `npm run gen:appblocks:md` for the .md region, after re-snapshotting).
+  {
+    path: 'src/server/services/apps/doc-store.types.ts',
+    snapshot: 'doc-store.types.ts',
+  },
+  {
+    path: 'src/server/services/apps/doc-store-api.ts',
+    snapshot: 'doc-store-api.ts',
+  },
+  {
+    path: 'src/server/utils/shared-storage-rate-limit.ts',
+    snapshot: 'shared-storage-rate-limit.ts',
+  },
+  {
+    path: 'src/shared/constants/block-storage.constants.ts',
+    snapshot: 'block-storage.constants.ts',
+  },
   {
     // @civitai/components markup contract → apps/reference/components.md
     // (regenerate with `npm run gen:appblocks:components` after re-snapshotting).

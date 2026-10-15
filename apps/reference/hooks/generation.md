@@ -22,6 +22,19 @@ Other pages: [Context, frame and analytics hooks](./context) · [Batch, confirme
 useBuzzWorkflow(): UseBuzzWorkflow
 ```
 
+```ts
+interface UseBuzzWorkflow {
+  estimate: (body: WorkflowBody) => Promise<BlockWorkflowSnapshot>;
+  submit: (body: WorkflowBody, options?: SubmitWorkflowOptions) => Promise<BlockWorkflowSnapshot>;
+  poll: (workflowId: string) => Promise<BlockWorkflowSnapshot>;
+  watch: (workflowId: string, options?: WatchWorkflowOptions) => Promise<BlockWorkflowSnapshot>;
+  cancel: (workflowId: string) => Promise<BlockWorkflowSnapshot>;
+  status: WorkflowStatus;
+  result: BlockWorkflowSnapshot | null;
+  error: Error | null;
+}
+```
+
 The generation flow: `estimate` → `submit` → `poll`, host-mediated. Returns `{ estimate, submit, poll, status, result, error }`.
 
 ```tsx
@@ -503,6 +516,17 @@ as `cost.total`.
 useAppWorkflows(params?: AppWorkflowsParams): UseAppWorkflows
 ```
 
+```ts
+interface UseAppWorkflows {
+  workflows: AppWorkflow[];
+  cursor: string | null;
+  loading: boolean;
+  error: Error | null;
+  refetch: () => void;
+  cancel: (workflowId: string) => Promise<void>;
+}
+```
+
 The calling app's **own** generator subqueue — the tag-scoped list of generations **this app** produced for the viewer (newest-first), plus a fail-closed `cancel`. The host self-binds the account off the block token and **forces** the per-app tag filter, so a block only ever sees the queue it produced — never the viewer's personal queue or another app's. Returns `{ workflows, cursor, loading, error, refetch, cancel }`; each `AppWorkflow` is `{ workflowId, status, images[], cost, createdAt }`. Pass the returned `cursor` back as `params.cursor` to page forward. Requires `ai:write:budgeted` (same trust boundary as submit); host-mediated over `QUERY_APP_WORKFLOWS` / `CANCEL_APP_WORKFLOW`. `cancel(workflowId)` sends `CANCEL_APP_WORKFLOW`, resolves once the host confirms the terminal state (which is optimistically spliced into `workflows` in place — no refetch round-trip), and rejects with the host's error on failure.
 
 ```tsx
@@ -525,6 +549,12 @@ async function onCancel(id: string) {
 useGenerationResources(): UseGenerationResources
 ```
 
+```ts
+interface UseGenerationResources {
+  fetch: (versionIds: number[]) => Promise<BlockResourceInfo[]>;
+}
+```
+
 Rehydrate a saved set of generation resources by version id — WITHOUT re-opening the picker. Returns the same widened projection `useResourcePicker` yields (recommended weights, trigger words, clipSkip). DISCOVERY ONLY.
 
 ```tsx
@@ -537,6 +567,12 @@ const first = resources[0];             // .versionId / .strength / .trainedWord
 
 ```ts
 usePublishGenerationOutputs(): UsePublishGenerationOutputs
+```
+
+```ts
+interface UsePublishGenerationOutputs {
+  publish: (args: { workflowId: string; imageIndexes?: number[]; title?: string; }) => Promise<number[]>;
+}
 ```
 
 Publish selected outputs of one of the calling app's OWN generations into bare, real-scanned public `Image` rows via the host-mediated `PUBLISH_GENERATION_OUTPUTS` → `PUBLISH_RESULT` bridge. Token-bound + fail-closed: the host self-binds the account off the block token, re-derives (viewer, app, workflowId) ownership before reading the workflow, and re-uploads + FULL-scans each selected output server-side (no url ever crosses from the iframe). The result is a set of bare (post-less) scanned `Image` row ids — no Post, no gallery attach, no rewards/notifications. Host-chrome shows a consent confirm before anything is published, and because that confirm waits on a human the request carries {@link HUMAN_INTERACTION_TIMEOUT_MS}, not the default protocol timeout. `dev:live` refuses this bridge: publishing requires the viewer's signed-in civitai.com session, which the local harness does not have, so `publish()` rejects with a message saying so. Test publishing against the mock host — `createMockHost` or `Harness` from `@civitai/blocks-react/testing`, with the `publishImageIds` / `publishError` options.

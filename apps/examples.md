@@ -36,7 +36,7 @@ read:
 - **Page apps are behind a moderator-only flag.** `/apps/run/<slug>` needs both
   `appBlocks` and `appBlocksPages`, and `appBlocksPages` is currently limited to
   moderators ([page-app](#page-app)).
-- **Shared storage is flag- and approval-gated.** Every call, reads included,
+- **The legacy shared storage is flag- and approval-gated.** Every call, reads included,
   needs the `app-blocks-shared-storage` flag (off by default, on for a limited
   cohort), the app must be approved, and the shared scopes are refused under
   `dev:live` ([shared-board](#shared-board)).
@@ -166,6 +166,8 @@ rejection with `classifyAppStorageError`, and the anonymous-viewer case.
 - **Hooks** — `useAppStorage`, `useBlockContext`, `useBlockResize`
 - **Run** — `npm run dev:harness` → `localhost:5183`. App Storage refuses under
   `dev:live`; the README explains why.
+- **Deprecated store** — `useAppStorage` is superseded by a private collection
+  of the [document store](./guide/storage); it keeps working while apps move.
 
 ### scopes-api
 
@@ -206,6 +208,8 @@ flag- and approval-gated (see the box above).
 - **Hooks** — `useSharedStorage`, `useAppStorage`, `useViewer`, `useRequestSignIn`, `useRequestConsent`, `useBlockToken`, `useBlockContext`, `useBlockResize`
 - **Run** — `npm run dev:harness` → `localhost:5187`. This is the only local
   way to run it: the shared scopes are refused under `dev:live`.
+- **Deprecated store** — `useSharedStorage` is superseded by a shared collection
+  of the [document store](./guide/storage); it keeps working while apps move.
 
 ### page-app
 
@@ -221,8 +225,10 @@ declaration the platform records [custom events](./guide/custom-events) against.
 
 - **Scopes** — `user:read:self`, `apps:storage:read`, `apps:storage:write`
 - **Hooks** — `useBlockBreakpoint`, `useCivitaiRoute`, `useCivitaiNavigate`, `useHostOrigin`, `useRequestSignIn`, `useRequestConsent`, `useConsentUnavailable`, `useBlockToken`, `useViewer`, `useAppStorage`, `useBlockAnalytics`, `useBlockContext`
-- **Run** — `npm run dev:harness` → `localhost:5186`. Under `dev:live` your
-  storage writes are real.
+- **Run** — `npm run dev:harness` → `localhost:5186`. Under `dev:live` its
+  storage calls are refused, as for every app
+  ([why](./guide/local-dev#dev-live-works-on-a-pending-app)), so exercise
+  storage under `dev:harness`.
 
 ### generate-studio
 

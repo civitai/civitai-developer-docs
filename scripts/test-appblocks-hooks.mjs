@@ -24,6 +24,13 @@ import { descriptionHasTable } from './lib/description-has-table.mjs';
 import { parseReadme, scanSections, splitSection, verifyPublished } from './lib/readme-hook-sections.mjs';
 import { rewriteHookAnchors } from './appblocks-md.mjs';
 import {
+  assertAnnotatedHooksExist,
+  correctionsFor,
+  README_CORRECTIONS,
+  retiredCorrections,
+  SUPERSEDED_HOOKS,
+} from './lib/hook-annotations.mjs';
+import {
   REFERENCE_SPLITS,
   movedAnchors,
   splitByGroup,
@@ -512,6 +519,61 @@ check('movedAnchors maps every old hub id to its sub-page', () => {
   const got = movedAnchors('hooks', [{ name: a }]);
   const want = `${REFERENCE_SPLITS.hooks.hub}/${firstGroup.slug}#hook-${a}`;
   assert(got[`hook-${a}`] === want, `got ${JSON.stringify(got)}`);
+});
+
+// ── lib/hook-annotations.mjs: deprecation notices + README corrections ────────
+// A correction must render exactly while the published README still carries the
+// sentence it corrects — including when that sentence WRAPS (the live one wraps
+// inside a blockquote, `civitai.com\n> release`, and the first matcher written
+// for it missed it) — and must retire on its own once upstream fixes it.
+const CORR = [
+  { hook: 'useX', match: /goes live with the next civitai\.com[\s>]+release/, text: 'CORRECTED' },
+];
+const hookWith = (notes) => ({ name: 'useX', description: 'lead', notes });
+
+check('a correction applies to a wrapped, blockquoted sentence', () => {
+  const h = hookWith([{ kind: 'text', text: '> The budget goes live with the next civitai.com\n> release. Until then…' }]);
+  const got = correctionsFor(h, CORR);
+  assert(got.length === 1 && got[0] === 'CORRECTED', `got ${JSON.stringify(got)}`);
+  assert(retiredCorrections([h], CORR).length === 0, 'reported retired while the sentence is present');
+});
+
+check('a correction whose pattern has a literal space still matches across a line wrap', () => {
+  const corr = [{ hook: 'useX', match: /up to ~1\.5x/, text: 'WRAPPED' }];
+  const h = hookWith([{ kind: 'text', text: 'larger for every container, up to\n~1.5x (#347)' }]);
+  assert(correctionsFor(h, corr).join() === 'WRAPPED', 'a wrapped sentence read as absent');
+});
+
+check('a correction retires once the README no longer carries the sentence', () => {
+  const h = hookWith([{ kind: 'text', text: 'The budget is live.' }]);
+  assert(correctionsFor(h, CORR).length === 0, 'still applied to a fixed README');
+  const retired = retiredCorrections([h], CORR);
+  assert(retired.length === 1 && retired[0].hook === 'useX', `retired: ${JSON.stringify(retired)}`);
+});
+
+check('a correction never applies to a different hook carrying the same sentence', () => {
+  const other = { name: 'useY', description: 'goes live with the next civitai.com release' };
+  assert(correctionsFor(other, CORR).length === 0, 'applied across hooks');
+});
+
+check('an annotation naming a hook the package does not export is refused', () => {
+  let threw = null;
+  try {
+    assertAnnotatedHooksExist(['useA'], { useGone: { text: 't', linkText: 'l', href: '/x' } }, []);
+  } catch (err) {
+    threw = err;
+  }
+  assert(threw && /useGone/.test(threw.message), `did not refuse: ${threw?.message}`);
+  assertAnnotatedHooksExist(['useGone'], { useGone: { text: 't', linkText: 'l', href: '/x' } }, []);
+});
+
+check('every shipped annotation names a hook in the published package', () => {
+  assertAnnotatedHooksExist(
+    ['useAppStorage', 'useSharedStorage'],
+    SUPERSEDED_HOOKS,
+    README_CORRECTIONS,
+  );
+  assert(Object.keys(SUPERSEDED_HOOKS).join(',') === 'useAppStorage,useSharedStorage', `superseded: ${Object.keys(SUPERSEDED_HOOKS)}`);
 });
 
 console.log('');

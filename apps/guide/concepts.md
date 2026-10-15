@@ -188,7 +188,8 @@ events (`TRACK_EVENT`) among them. The
 
 ### What the API answers
 
-Data. The viewer, Buzz balance, shared storage, per-viewer app storage, workflows
+Data. The viewer, Buzz balance, the [document store](./storage), the legacy
+shared and per-viewer app storage, workflows
 (estimate / submit / poll / cancel / query), gated images, generation resources,
 collections, tips and digital-goods entitlements and purchases all have routes
 under `/api/v1/blocks/*`. That list is illustrative, not a route reference: the

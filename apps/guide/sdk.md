@@ -2,11 +2,11 @@
 title: The @civitai/sdk client
 description: What a block does with @civitai/sdk — initialize(), app.onChange, app.host, app.site, app.requestGrants, and app.workflows for generation, with the idempotency key every submit needs.
 sources:
-  - npm:@civitai/sdk@0.12.0/dist/index.d.ts
-  - npm:@civitai/sdk@0.12.0/dist/app/index.d.ts
-  - npm:@civitai/sdk@0.12.0/dist/host/index.d.ts
-  - npm:@civitai/sdk@0.12.0/dist/workflows/index.d.ts
-  - npm:@civitai/sdk@0.12.0#README
+  - npm:@civitai/sdk@0.14.0/dist/index.d.ts
+  - npm:@civitai/sdk@0.14.0/dist/app/index.d.ts
+  - npm:@civitai/sdk@0.14.0/dist/host/index.d.ts
+  - npm:@civitai/sdk@0.14.0/dist/workflows/index.d.ts
+  - npm:@civitai/sdk@0.14.0#README
   - npm:@civitai/app-sdk@0.71.0/blocks#isValidBlockIdempotencyKey
   - civitai:src/pages/api/v1/blocks/workflows/submit.ts
 ---
@@ -81,7 +81,8 @@ lists the harness origin for you.
 | `app.host` | the host's own UI: pickers, uploads, sign-in, navigation, sizing |
 | `app.site` | the Civitai REST API at `/api/v1`, with the app's token |
 | `app.workflows` | generation for a block, through the host's block workflow routes — see [money calls](#money-calls) |
-| `app.storage` / `app.sharedStorage` | per-viewer and cross-viewer app storage |
+| `app.storage` | the [document store](./storage): `collection(name)` and `info()` (0.14.0 or later); its `get`/`set`/`delete`/`list`/`getQuota` are the deprecated per-viewer key/value store |
+| `app.sharedStorage` | the deprecated cross-viewer key/value store; new apps use a shared collection |
 | `app.requestGrants(scopes, opts?)` | asks the viewer for more scopes |
 | `app.getToken(opts?)` | the token, for a call this client does not make itself |
 | `app.orchestration` | the raw orchestrator — **not** for a block; see [money calls](#money-calls) |
@@ -244,11 +245,12 @@ async function askConsent(app: BlockAppClient, scopes: Scope[]): Promise<boolean
 }
 ```
 
-`Scope` is a typed union, so a misspelt scope fails to compile. In
-`@civitai/sdk@0.12.0` it does **not** include the goods scopes
-(`goods:purchase:self`, `goods:read:self`) or `apps:store:items:write`, so
-asking for one needs a cast: `'goods:purchase:self' as Scope`. (The sub-listings
-scope is consent-exempt, so there is nothing to ask for.)
+`Scope` is a typed union, so a misspelt scope fails to compile. Before
+`@civitai/sdk` 0.13.0 it does **not** include the goods scopes
+(`goods:purchase:self`, `goods:read:self`), `apps:store:items:write` or the
+document-store scopes (`apps:storage`, `apps:storage:publish`), so on an older
+version asking for one needs a cast: `'goods:purchase:self' as Scope`. (The
+sub-listings scope is consent-exempt, so there is nothing to ask for.)
 
 ## Money calls
 

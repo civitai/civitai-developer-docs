@@ -109,6 +109,15 @@ actually want measured, in whichever branch renders it.
 useBlockBreakpoint(ref?: RefObject<HTMLElement | null>): UseBlockBreakpoint
 ```
 
+```ts
+interface BlockBreakpoint {
+  tier: BlockSizeTier;
+  measured: boolean;
+  atLeast: (key: BreakpointKey) => boolean;
+  below: (key: BreakpointKey) => boolean;
+}
+```
+
 Reports the block's **own** width tier, so you can branch on "am I narrow?" without hand-rolling a `ResizeObserver` or hard-coding pixel numbers.
 
 ```tsx
@@ -202,6 +211,13 @@ if (host) {
 useBlockSettings(): UseBlockSettings
 ```
 
+```ts
+interface BlockSettings {
+  publisherSettings: Record<string, unknown>;
+  userSettings: Record<string, unknown>;
+}
+```
+
 Shorthand for `useBlockContext().settings`. Read-only from the iframe — there is no general "set settings" bridge message. Writing them is platform-side, in the settings panel reached from the **Manage** control on an installed app. The one setting a block can write itself is the viewer's checkpoint, via the `SET_USER_CHECKPOINT` message (see `useCheckpointPicker`).
 
 ```tsx
@@ -212,6 +228,12 @@ const { publisherSettings, userSettings } = useBlockSettings();
 
 ```ts
 useBlockAnalytics(): UseBlockAnalytics
+```
+
+```ts
+interface UseBlockAnalytics {
+  track: (eventName: string, properties?: Record<string, unknown>) => void;
+}
 ```
 
 Custom events for your app's analytics panel. Fire-and-forget: no reply, no acknowledgement.
@@ -281,6 +303,14 @@ Detect a DIRECT (unembedded) top-level load of a block and, after a short grace 
 
 ```ts
 useNestedDocument(options?: UseNestedDocumentOptions): UseNestedDocument
+```
+
+```ts
+interface UseNestedDocument {
+  srcDoc: string | null;
+  status: NestedDocumentStatus;
+  error: Error | null;
+}
 ```
 
 Fetch one of your OWN bundled documents and get back a `srcdoc` string with an absolute `<base href>` injected — the only way a block can embed a nested document of its own. 🔴 PREFER NOT TO NEED THIS. A plain `<iframe src="/game/index.html">` of your own bundle **cannot load**, and no manifest change fixes it. An engine build (Defold, Unity, Phaser) is a `<canvas>` plus a JS loader and normally mounts directly into the block's own document, which avoids the whole problem class; reach for this hook only when a separate document is genuinely required. WHY, measured, in ONE place: the header of `@civitai/app-sdk`'s `src/blocks/nestedDocument.ts`. It carries the opaque-origin / `frame-ancestors` / `X-Frame-Options` derivation, the five-row DATED EXTERNAL platform matrix (verified by nothing in this repo — re-measure it if the platform's sandbox tiers or response headers change), and the known limits of the `<base>` rewrite. Do not restate any of it here: it was duplicated across 11 surfaces with nothing in the repo checking them for agreement, which is exactly how two measured claims in these files' own test headers went stale. 🔴 THE STRING IS NOT SANITIZED. It is your own markup and scripts, verbatim; pass a `src` you control, and put a `sandbox` attribute on the iframe. Changing `src` restarts the fetch and aborts the previous one — `status` goes back to `'loading'` in the SAME render that changes `src`, so no paint ever shows a stale `srcDoc` as `'ready'` beside a new `src`. Unmounting aborts the in-flight fetch, and no state is written after it. A fetch that never settles is bounded: after {@link NESTED_DOCUMENT_TIMEOUT_MS} it is aborted and `status` becomes `'error'` with a message naming the timeout. A timeout is distinguished from the hook's own aborts (unmount, a `src` change) — those stay silent, as they must.

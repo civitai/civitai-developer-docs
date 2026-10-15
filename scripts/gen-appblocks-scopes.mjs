@@ -27,14 +27,16 @@ const BINDING_NOTES = {
     'No OAuth bit — gated by the issuance-time caller-is-installer check instead.',
   'block:settings:write':
     'No OAuth bit — gated by the issuance-time caller-is-installer check instead.',
+  // The four legacy key/value scopes are deprecated in favour of the document store's
+  // two (apps/guide/storage.md). They still work; no removal date is set, so none is named.
   'apps:storage:read':
-    "Scoped to this app's private per-install store; asserted per read op.",
+    "Deprecated: the legacy per-viewer store (`useAppStorage`, `/api/v1/blocks/app-storage/*`); new apps use `apps:storage` and a private collection. Scoped to this app's private per-install store; asserted per read op.",
   'apps:storage:write':
-    "Scoped to this app's private per-install store; asserted per write op.",
+    "Deprecated: the legacy per-viewer store (`useAppStorage`, `/api/v1/blocks/app-storage/*`); new apps use `apps:storage` and a private collection. Scoped to this app's private per-install store; asserted per write op.",
   'apps:storage:shared:read':
-    "Scoped to this app's shared (cross-user) store; min-trust gate + fail-closed flag. Never minted for dev-tunnel / dev-token sessions.",
+    "Deprecated: the legacy shared store (`useSharedStorage`, `/api/v1/blocks/shared-storage/*`); new apps use `apps:storage` and a shared collection. Scoped to this app's shared (cross-user) store; fail-closed flag. Anonymous viewers may read; the min-trust gate applies to writes only. Never minted for dev-tunnel / dev-token sessions.",
   'apps:storage:shared:write':
-    "Scoped to this app's shared (cross-user) store; min-trust gate + fail-closed flag. Never minted for dev-tunnel / dev-token sessions.",
+    "Deprecated: the legacy shared store (`useSharedStorage`, `/api/v1/blocks/shared-storage/*`); new apps use `apps:storage:publish` and a shared collection. Scoped to this app's shared (cross-user) store; min-trust gate + fail-closed flag. Never minted for dev-tunnel / dev-token sessions.",
   'apps:storage':
     "Scoped to this app's own document store (reads, the viewer's private collections, marks and counters). Consent-exempt. Required by any manifest that declares a `storage` collection. The store's routes answer `503 storage_disabled` on a host where the store is not enabled.",
   'apps:storage:publish':

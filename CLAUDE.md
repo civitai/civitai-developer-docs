@@ -98,6 +98,7 @@ The reference artifacts are produced by `scripts/gen-appblocks-*.mjs` into a git
 | CLI | the committed `civitai app --help` snapshot (`appblocks-snapshots/civitai-cli-help.txt`) | Re-capture — see README "CLI snapshot" (`cli-snapshot-refresh.yml` opens the PR). |
 | Components | the committed `appblocks-snapshots/MARKUP.md` (CI has no `civitai-app-starters` checkout) | Re-snapshot `MARKUP.md` from `civitai-app-starters@main`, then re-run `node scripts/gen-appblocks-components.mjs` and commit the regenerated page. |
 | Scopes + the Messages page-only / request-reply flags | committed `appblocks-snapshots/` (CI has no `civitai` checkout) | Re-copy the 3 snapshot files from `civitai@origin/main` (`block-scope.constants.ts`, `scope-descriptions.constants.ts`, `hostHandlerParity.ts`). |
+| Document store limits + error codes (`apps/guide/storage.md`, `<StorageReference>`) | committed `appblocks-snapshots/` (`doc-store.types.ts`, `doc-store-api.ts`, `shared-storage-rate-limit.ts`, `block-storage.constants.ts`), read by `scripts/gen-appblocks-storage.mjs` | Re-copy those 4 files from `civitai@origin/main`, then `npm run gen:appblocks` and `npm run gen:appblocks:md`. A renamed constant fails the generator rather than blanking a row. |
 
 On a machine with the `civitai` sibling repo checked out, the scopes / messages-parity generators read `civitai@origin/main` directly and fall back to the snapshot only when it is absent, so those snapshots are the CI-hermetic copy, not the live source.
 

@@ -24,6 +24,14 @@ interface Hook {
    *  to be dropped, 🔴 warnings included. Text is upstream markdown shown as
    *  TEXT, like `description`; code keeps its own monospace block. */
   notes?: HookNote[];
+  /** The return interface's members (scripts/lib/hook-annotations.mjs), so a member
+   *  the README example never calls is still on the page. */
+  returns?: { type: string; text: string } | null;
+  /** A deprecation notice for a hook the platform is retiring. */
+  superseded?: { text: string; linkText: string; href: string } | null;
+  /** Corrections to stale sentences in the README section, rendered only while the
+   *  published README still carries the sentence. */
+  corrections?: string[];
 }
 type HookNote = { kind: 'text'; text: string } | { kind: 'code'; lang: string; code: string };
 interface HooksData { hooks: Hook[]; reactPackage?: string; }
@@ -40,6 +48,14 @@ const hooks = itemsInGroup('hooks', data.hooks ?? [], props.group);
       <h3 :id="`hook-${h.name}`"><code>{{ h.name }}</code></h3>
       <div class="ab-sig-label">signature</div>
       <pre class="ab-sig"><code>{{ h.signature }}</code></pre>
+      <div v-if="h.superseded || h.corrections?.length" class="ab-hook-superseded">
+        <p v-if="h.superseded">{{ h.superseded.text }} See <a :href="h.superseded.href">{{ h.superseded.linkText }}</a>.</p>
+        <p v-for="(c, i) in h.corrections ?? []" :key="i"><strong>Correction:</strong> {{ c }}</p>
+      </div>
+      <template v-if="h.returns">
+        <div class="ab-sig-label">returns</div>
+        <pre class="ab-sig"><code>{{ h.returns.text }}</code></pre>
+      </template>
       <!-- 🔴 A DESCRIPTION CARRYING A TABLE MUST NOT BE COLLAPSED. This <p> has no
            white-space rule, so the browser flattens the source newlines: the
            useCollectionFollow docstring rendered as an 1853-codepoint run of
@@ -89,4 +105,9 @@ const hooks = itemsInGroup('hooks', data.hooks ?? [], props.group);
 .ab-hook-desc-pre { white-space: pre-wrap; font-family: inherit; overflow-x: auto; }
 .ab-hook-notes { white-space: pre-wrap; margin: 0.6rem 0 0.8rem; color: var(--vp-c-text-1); overflow-wrap: anywhere; }
 .ab-empty { color: var(--vp-c-text-3); font-style: italic; }
+.ab-hook-superseded {
+  border-left: 3px solid var(--vp-c-warning-1); background: var(--vp-c-warning-soft);
+  padding: 0.4rem 0.9rem; margin: 0.4rem 0 0.8rem; border-radius: 4px;
+}
+.ab-hook-superseded p { margin: 0.3rem 0; }
 </style>

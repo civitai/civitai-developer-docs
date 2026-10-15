@@ -207,6 +207,18 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
   the workflow routes and `user-checkpoint/set` — so an app that uses app storage or generates should
   stay on `block-token`. See
   [Porting → choose your credential](../guide/porting#auth-field).
+- **`storage`** (enforced) — the collections of the app's
+  [document store](../guide/storage): `storage.collections` maps each
+  collection name to its `visibility`, its `write` policy, and its `counters`,
+  `marks`, `indexes` and `showAuthor`. A collection that is not declared here
+  does not exist at runtime. It ties to `scopes`: any collection needs
+  `apps:storage`, a shared collection with `write: "own"` also needs
+  `apps:storage:publish` (with a `scopeJustifications` entry), and either scope
+  with nothing here for it to reach is rejected. The server checks the
+  declaration when a moderator approves the version, not when
+  `civitai app submit` uploads it, and refuses the fields reserved for later
+  phases even though the schema admits them. See
+  [Declare your collections](../guide/storage#declare).
 
 ### Sizing `page.buzzBudgetPerGen`
 

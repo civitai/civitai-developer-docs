@@ -22,6 +22,15 @@ Other pages: [Context, frame and analytics hooks](./context) · [Generation hook
 useWildcardPack(modelVersionId: number): UseWildcardPack
 ```
 
+```ts
+interface UseWildcardPack {
+  pack: BlockWildcardPack | null;
+  loading: boolean;
+  error: Error | null;
+  refetch: () => void;
+}
+```
+
 Import a wildcard pack's parsed prompt lists by model version — the host resolves + fetches + unzips + parses it **in the user's own page session** (every download gate enforced), so the untrusted iframe never sees the bytes. Returns `{ pack, loading, error, refetch }`. On failure `error` is a `WildcardPackError` with a discriminated `code` (`not-found` / `forbidden` / `too-large` / `parse-failed` / `busy` — `busy` is retryable), not free text.
 
 ```tsx
@@ -35,6 +44,14 @@ if (!loading && pack) console.log(Object.keys(pack.lists));
 
 ```ts
 useCreatePostFromApp(): UseCreatePostFromApp
+```
+
+```ts
+interface UseCreatePostFromApp {
+  createPost: (args: BlockCreatePostRequest, options?: ConsentRetryOptions) => Promise<BlockCreatePostResult>;
+  pending: boolean;
+  error: CreatePostError | null;
+}
 ```
 
 ```md
@@ -119,6 +136,20 @@ the write without it would let dev prove out a flow production does not have.
 
 ```ts
 useAppStorage(): UseAppStorage
+```
+
+> Deprecated: new apps keep per-viewer data in a private collection of the document store. This hook and its routes keep working while apps move; no removal date is set. See [Storing data](/apps/guide/storage#moving-from-the-legacy-stores).
+>
+> **Correction:** Stored size can be far more than ~1.5x the wire size: the `@civitai/sdk` README records a numeric-heavy value storing at up to 44.4x its wire size. Read `getQuota()` rather than estimating from what you sent.
+
+```ts
+interface UseAppStorage {
+  get<T = unknown>(key: string): Promise<T | null>;
+  set<T = unknown>(key: string, value: T): Promise<{ ok: true; sizeBytes?: number; }>;
+  delete(key: string): Promise<{ ok: true; deleted: boolean; }>;
+  list(opts?: { prefix?: string; limit?: number; cursor?: string; }): Promise<AppStorageListResult>;
+  getQuota(): Promise<AppStorageQuota>;
+}
 ```
 
 KV datastore, host-mediated. Keys are **namespaced** per (block instance, viewer); the byte and row **budgets** are enforced per (**app**, viewer), so every instance of one app shares one budget for that viewer.
@@ -309,6 +340,25 @@ production.
 useSharedStorage(): UseSharedStorage
 ```
 
+> Deprecated: new apps keep data every viewer reads in a shared collection of the document store, which has authorship, counters and marks built in. This hook and its routes keep working while apps move; no removal date is set. See [Storing data](/apps/guide/storage#moving-from-the-legacy-stores).
+>
+> **Correction:** The `append`/`update` budget in the table below is live on civitai.com. The note saying it goes live with the next release predates that release.
+
+```ts
+interface UseSharedStorage {
+  list(opts?: { prefix?: string; limit?: number; cursor?: string; }): Promise<SharedListResult>;
+  get(key: string): Promise<SharedListItem | null>;
+  report(key: string, reason?: string): Promise<void>;
+  getCount(key: string): Promise<number>;
+  getCounts(keys: string[]): Promise<Record<string, number>>;
+  append(value: SharedAppendValue): Promise<{ key: string; }>;
+  update(key: string, value: SharedAppendValue): Promise<void>;
+  vote(key: string): Promise<number>;
+  unvote(key: string): Promise<number>;
+  withdraw(key: string): Promise<{ ok: boolean; deleted: boolean; }>;
+}
+```
+
 App-scoped, append-only, community-votable SHARED datastore (every viewer sees the same list). Sibling of `useAppStorage`; anonymous viewers get the read path and a hard reject on mutations.
 
 ```tsx
@@ -388,6 +438,13 @@ try {
 useCheckpointPicker(): UseCheckpointPicker
 ```
 
+```ts
+interface UseCheckpointPicker {
+  open: (opts?: { /** * 🔴 OMIT THIS BY DEFAULT. It is an ecosystem-family FILTER, not a label: * the host HIDES every checkpoint outside the family you pass. Passing the * family you are already in is therefore a trap — it makes the picker offer * only the ecosystem the user is trying to leave, and every other family * becomes unreachable for the life of the session. * * Omit it for an unconstrained pick: the host applies no base-model * narrowing and offers every checkpoint the viewer can generate with. * * Pass it ONLY when the block must stay inside a family it already holds — * a regenerate/variation flow pinned to one checkpoint's ecosystem, say — * and then DERIVE it from that checkpoint (`checkpoint.baseModel`, or * `useBlockContext().context.checkpoint?.baseModel`). Never a hardcoded * ecosystem string: a literal pins every viewer of the app to whichever * family the author happened to be testing with. Accepts an ecosystem key * (e.g. 'Flux1', 'SDXL') or any baseModel name in the family; the host * collapses either to the ecosystem family. * * An empty string is normalized to absent here and never reaches the wire, * and `''` is **not** an escape hatch — it does not even mean the same thing * on both hosts. On a **model slot** the host normalises whatever string you * send, so `''` resolves to the real ecosystem key `Other` and NARROWS to * that one family. On a **page** the host drops a zero-length value, so `''` * behaves exactly like omitting it. Neither is what you meant on at least one * surface: omit the key, or pass a family derived from a real checkpoint, and * never `''`. * * A WHITESPACE-ONLY string narrows on BOTH hosts — the page host's guard is * `length > 0`, which `' '` passes — which is why this hook trims before * deciding. */ baseModelGroup?: string; /** Currently-selected versionId so the picker can pre-highlight it. */ currentVersionId?: number; }) => Promise<{ selected?: BlockCheckpointInfo; }>;
+  persist: (versionId: number | null) => Promise<void>;
+}
+```
+
 Drive the platform Checkpoint picker + persist a viewer override. 🔴 **OMIT `baseModelGroup` BY DEFAULT.** It is an ecosystem-family FILTER, not a label: the host HIDES every checkpoint outside the family you pass, so passing the family you are already in is a trap — the picker then offers only the ecosystem the user is trying to leave. Omit it for an unconstrained pick and the host applies no narrowing at all, offering every checkpoint the viewer can generate with. Pass it ONLY when the block must stay inside a family it already holds — a regenerate/variation flow, say — and then DERIVE it from that checkpoint, never a hardcoded ecosystem string: a literal pins every viewer to whichever family the author happened to test with. `''` is **not** an escape hatch — it does not even mean the same thing on both hosts. On a **model slot** the host normalises whatever string you send, so `''` resolves to the real ecosystem key `Other` and NARROWS to that one family. On a **page** the host drops a zero-length value, so `''` behaves exactly like omitting it. Neither is what you meant on at least one surface: omit the key, or pass a family derived from a real checkpoint, and never `''`.
 
 ```tsx
@@ -440,6 +497,12 @@ the `persist()` call.
 
 ```ts
 useResourcePicker(): UseResourcePicker
+```
+
+```ts
+interface UseResourcePicker {
+  open: { /** * Single pick. Resolves with the chosen resource, or `null` when the viewer * dismissed the picker. */ (opts: ResourcePickerOpenOptions & { multiple?: undefined; }): Promise<BlockResourceInfo | null>; /** * Multi-select (see {@link ResourcePickerMultiple}). Resolves with the * picked resources IN THE ORDER THE VIEWER PICKED THEM — never more than * `max` — or `[]` when the viewer dismissed. Each entry is the same * {@link BlockResourceInfo} a single pick returns. * * Against a host that predates multi-select the viewer gets the single-pick * picker, and this still resolves with a list: of the one resource they * picked, or `[]`. */ (opts: ResourcePickerOpenOptions & { resourceType: 'LORA'; multiple: ResourcePickerMultiple; }): Promise<BlockResourceInfo[]>; };
+}
 ```
 
 Drive the platform resource picker for page blocks — `'Checkpoint' | 'LORA'`. The viewer searches in host chrome; the block only ever sees what the viewer picked: one resource, or with `multiple` the few LoRAs they chose. DISCOVERY ONLY — a returned `versionId` is re-validated + re-priced server-side at estimate/submit. 🔴 **OMIT `baseModelGroup` BY DEFAULT, and never pass a HARDCODED ecosystem.** It is an ecosystem-family FILTER, not a label: the host hides every resource outside the family you pass, so a literal ecosystem string makes the viewer's own valid LoRAs invisible and the picker look empty or broken. Omit it for an unconstrained pick and the viewer sees everything of that type. Pass it ONLY when the block already holds a chosen checkpoint the pick has to match, and then DERIVE it from that checkpoint (`checkpoint.baseModel`). For stack and matrix apps that pair LoRAs with a checkpoint, this is the recommended pattern: a derived family keeps incompatible LoRAs out of the picker. This hook is PAGE-ONLY, and a page slot has no `context.checkpoint` (that field lives on `ModelSlotContext` alone), so the family comes from `BlockResourceInfo.baseModel`, the `baseModel` of a Checkpoint a picker returned earlier. For a complete multi-LoRA app, see [`starters/examples/generate-studio`](https://github.com/civitai/civitai-app-starters/tree/main/starters/examples/generate-studio): `src/components/ModelSection.tsx` fills one LoRA slot per picker session, up to `MAX_LORAS`, with a `baseModelGroup` derived from the selected checkpoint, and `keepCompatibleLoras` (`src/studio/setup.ts`) re-filters the stack when the checkpoint changes, dropping LoRAs made for another family. To fill several slots in ONE session, use `multiple` (below).
@@ -517,6 +580,12 @@ useImageUpload(options: {
 }): UseImageUploadGenerationSource
 ```
 
+```ts
+interface UseImageUploadGenerationSource {
+  open: () => Promise<BlockGenerationSourceImageInfo | null>;
+}
+```
+
 Host-mediated image upload — the host opens its native upload modal and the iframe never handles the bytes. Resolves with a moderated image (or `null` on dismiss); pass `{ purpose: 'generationSource' }` for an unscanned img2img source or `{ asyncScan: true }` for the early-resolve + `scanStatus()` flow.
 
 ```tsx
@@ -537,6 +606,12 @@ if (img) {
 
 ```ts
 useUploadImageBytes(): UseUploadImageBytes
+```
+
+```ts
+interface UseUploadImageBytes {
+  upload: (bytes: ArrayBuffer, options?: UploadImageBytesOptions) => Promise<BlockUploadedImageInfo>;
+}
 ```
 
 Upload an image the block **produced in the tab** (a healed PNG, an edited render), with no picker, so the app can then post it. Returns `{ upload }`. `upload(bytes, { filename? })` resolves with the same moderated image a picked `useImageUpload()` upload returns (`imageId`, `nsfwLevel`, `contentRating`, `url`). That `imageId` is postable by this app through `useCreatePostFromApp()` as a `{ kind: 'published', imageIds }` source. - 🔴 **Page apps only.** A slot (model) block's host has no handler for it. The host answers an unhandled request at once with its generic refusal, so on a slot `upload` rejects immediately with `unsupported on this host` rather than waiting out the 10-minute timeout. - 🔴 **Requires `posts:write:self`.** The server refuses the upload without it, and this hook does not prompt. Ask for the scope first with `useRequestConsent()` and upload only once `useBlockToken().scopes` holds it (the example below), because the upload runs before the `createPost()` call that would otherwise prompt. - **Images only:** PNG, WebP or JPEG by magic bytes. Anything else is refused with `file type is not allowed`. The host names the stored file from the sniffed type, whatever `filename` says. - **The cap is 40 MiB.** The hook refuses a larger buffer before sending it, with the host's error `file exceeds the maximum upload size`. The host also allows at most 3 uploads and 80 MiB per 60 seconds per page, and replies `busy` past that. - **The upload is blocking.** The host replies once the image is scanned, so allow for a wait of up to a few minutes. An image above the SFW ceiling or flagged by the scan is refused with the scan's message. - Pass an `ArrayBuffer` (`await blob.arrayBuffer()`). A `Blob`, a `Uint8Array` or an empty buffer is refused with `invalid image-upload request`. The buffer is copied, not transferred. `upload` **rejects** with the host's error string on every refusal: the ones above, `no block token`, or a server message passed through verbatim (the missing scope, the posting flag, page-only, a rate limit, the scan). It rejects with `the host returned no uploaded image` if the reply carries neither an image nor an error. If no reply arrives within 10 minutes it rejects with a `RequestTimeoutError`; the host may still have stored the image, so retrying after a timeout can create a duplicate. The hook ships in `@civitai/blocks-react` 0.67.0, and the `bytes` payload type it sends is in `@civitai/app-sdk` 0.62.0. What the upload does and does not give you on civitai.com: - 🔴 **Generation metadata embedded in the file is not read.** The posted image has no generation details (prompt, resources, sampler settings), whatever the PNG or JPEG carries. In the example below the healed pixels are posted, and the metadata the app repaired is not shown on the post. - 🔴 **Each uploaded image goes into exactly one post.** Once a post holds it, `createPost()` refuses that `imageId` with `an image is not available to post`. To post the same picture again, upload it again. - **An uploaded image never appears in `useGatedImages()`.** That read returns only what the app published with `usePublishGenerationOutputs()`. Keep the `imageId` and `url` that `upload` resolves with if you need to show it. - **A post holds at most 20 images and names at most 10 sources.** Past 20 images the server refuses with `a post may contain at most 20 images`. - **Posting from apps is still being rolled out.** A viewer who does not have it yet is refused with `posting from apps is not enabled`, and the refusal arrives from `upload` as well as from `createPost()`. Handle it as an ordinary error branch, not as a bug in your app. - **Creating the post needs an account with a verified email or a linked sign-in provider.** Other account checks apply too: onboarding must be finished, the account must not be brand new, and it must not be muted or banned. `upload` refuses a banned account but checks none of the rest, so a viewer can upload and then be refused at `createPost()`. - **Server-side limits also apply**, to the upload and to the post, beyond the host's per-page window above. A `busy` reply or a rate-limit error such as `Rate limit exceeded, please retry shortly.` means wait and retry.
@@ -608,6 +683,12 @@ no bytes path: `upload` rejects with `the host returned no uploaded image`.
 
 ```ts
 useImagePicker(): UseImagePicker
+```
+
+```ts
+interface UseImagePicker {
+  open: { /** * Single pick. Resolves with the chosen image, or `null` when nothing was * picked. Rejects when the host refuses the request. */ (opts?: ImagePickerOpenOptions & { multiple?: undefined; }): Promise<BlockPickedImageInfo | null>; /** * Multi pick (see {@link ImagePickerMultiple}). Resolves with the picked * images, never more than `max`, or `[]` when nothing was picked. Each * entry is the same {@link BlockPickedImageInfo} a single pick returns. * Rejects when the host refuses the request. */ (opts: ImagePickerOpenOptions & { multiple: ImagePickerMultiple; }): Promise<BlockPickedImageInfo[]>; /** * A `multiple` decided at runtime, e.g. * `open({ multiple: many ? { max: 3 } : undefined })`. The result is a list * when `multiple` was set and a single image or `null` when it was not, so * narrow it with `Array.isArray`. */ (opts: ImagePickerOpenOptions & { multiple?: ImagePickerMultiple | undefined; }): Promise<BlockPickedImageInfo | BlockPickedImageInfo[] | null>; };
+}
 ```
 
 Let the viewer pick one of their **existing** Civitai images: the ones they have posted, and the ones they made with the Civitai generator. The host opens its own picker over the viewer's library, and your app receives only what the viewer picked. Returns `{ open }`. `open()` resolves with one image, or `null` if nothing was picked.
@@ -732,6 +813,12 @@ the mock host.
 
 ```ts
 useSaveImage(): UseSaveImage
+```
+
+```ts
+interface UseSaveImage {
+  saveImage: (input: SaveImageInput) => Promise<void>;
+}
 ```
 
 Ask the host to download a file to the viewer's device. **A block cannot download anything itself.** Its sandbox lacks `allow-downloads`, and the validator refuses that token for unverified blocks, so an `<a href="blob:…" download>` click silently does nothing. 🔴 **This hook is the sanctioned way to deliver a file**, including one the block produced in the tab. Pass exactly ONE of three inputs, each gated differently by the host: - **`{ url }`**: the block's own generation output. The host allowlists the origin to the civitai image CDN and refuses any other. - **`{ imageId }`**: an image from another user, read through the same per-viewer gate as `useGatedImages()`. A withheld image is never saved. - **`{ bytes }`**: an `ArrayBuffer` the block made in the tab, such as a healed image or a JSON sidecar. 🔴 **Page apps only.** The host classifies it by CONTENT. It accepts PNG, WebP and JPEG by magic bytes. Anything else must be valid UTF-8 with no NUL byte: it is saved as JSON when it parses and `filename` ends `.json` (any case) once the host has replaced each `?` and `#` with `_`, and as plain text otherwise. A GIF, a zip or other binary is refused with `file type is not allowed`. The host forces the extension from the classified type. The cap is 50 MiB, and the hook refuses a larger buffer before sending it: `file exceeds the maximum save size`. The buffer is copied, not transferred, so you can keep displaying it. 🔴 **On a host that predates the `bytes` variant, `saveImage({ bytes })` rejects with `invalid save-image request`.** The host also replies that when the input is not exactly one variant, or when `bytes` is empty or not an `ArrayBuffer`. Pass `await blob.arrayBuffer()`, not the `Blob` or a `Uint8Array`. The promise resolves once the host has started the download. On any refusal it rejects with the host's error string, which can also be `busy` when too many saves are in flight.
