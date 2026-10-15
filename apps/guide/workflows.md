@@ -4,8 +4,8 @@ description: Chain up to eight orchestrator steps in one App Blocks generation, 
 sources:
   - npm:@civitai/app-sdk@0.71.0/blocks#WorkflowBodyWorkflow
   - npm:@civitai/blocks-react@0.73.0#useBuzzWorkflow
-  - npm:@civitai/sdk@0.12.0/dist/workflows/index.d.ts
-  - npm:@civitai/sdk@0.12.0#README
+  - npm:@civitai/sdk@0.14.0/dist/workflows/index.d.ts
+  - npm:@civitai/sdk@0.14.0#README
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockMultiStepWorkflowBodySchema
   - civitai:src/server/services/blocks/workflow-graph.ts#resolveBlockWorkflowGraph
   - civitai:src/server/routers/blocks.router.ts#submitMultiStepWorkflow

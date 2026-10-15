@@ -27,10 +27,10 @@ source the manifest validator and the token minter read.
 | `ai:write:budgeted` | Run AI work that spends the viewer's Buzz, with a per-call cap | `AIServicesWrite` | Host-enforced per-call Buzz cap; the token carries a buzzBudget claim the host clamps against. |
 | `buzz:read:self` | Read the viewer's Buzz balance | `BuzzRead` | Self-bound to the token subject (the signed-in viewer). |
 | `social:tip:self` | Post tips on behalf of the viewer | `SocialTip` | Self-bound: tips are posted as the token subject. |
-| `apps:storage:read` | Read this app's private per-install data store | — | Scoped to this app's private per-install store; asserted per read op. |
-| `apps:storage:write` | Write to this app's private per-install data store | — | Scoped to this app's private per-install store; asserted per write op. |
-| `apps:storage:shared:read` | Read this app's shared, community-wide data (e.g. everyone's posts + vote counts) | — | Scoped to this app's shared (cross-user) store; min-trust gate + fail-closed flag. Never minted for dev-tunnel / dev-token sessions. |
-| `apps:storage:shared:write` | Post + vote in this app's shared, community-wide data — visible to all users of the app | — | Scoped to this app's shared (cross-user) store; min-trust gate + fail-closed flag. Never minted for dev-tunnel / dev-token sessions. |
+| `apps:storage:read` | Read this app's private per-install data store | — | Deprecated: the legacy per-viewer store (`useAppStorage`, `/api/v1/blocks/app-storage/*`); new apps use `apps:storage` and a private collection. Scoped to this app's private per-install store; asserted per read op. |
+| `apps:storage:write` | Write to this app's private per-install data store | — | Deprecated: the legacy per-viewer store (`useAppStorage`, `/api/v1/blocks/app-storage/*`); new apps use `apps:storage` and a private collection. Scoped to this app's private per-install store; asserted per write op. |
+| `apps:storage:shared:read` | Read this app's shared, community-wide data (e.g. everyone's posts + vote counts) | — | Deprecated: the legacy shared store (`useSharedStorage`, `/api/v1/blocks/shared-storage/*`); new apps use `apps:storage` and a shared collection. Scoped to this app's shared (cross-user) store; fail-closed flag. Anonymous viewers may read; the min-trust gate applies to writes only. Never minted for dev-tunnel / dev-token sessions. |
+| `apps:storage:shared:write` | Post + vote in this app's shared, community-wide data — visible to all users of the app | — | Deprecated: the legacy shared store (`useSharedStorage`, `/api/v1/blocks/shared-storage/*`); new apps use `apps:storage:publish` and a shared collection. Scoped to this app's shared (cross-user) store; min-trust gate + fail-closed flag. Never minted for dev-tunnel / dev-token sessions. |
 | `apps:storage` | Keep your data in this app's own store, and read, mark and count the entries it shares with all its users | — | Scoped to this app's own document store (reads, the viewer's private collections, marks and counters). Consent-exempt. Required by any manifest that declares a `storage` collection. The store's routes answer `503 storage_disabled` on a host where the store is not enabled. |
 | `apps:storage:publish` | Add and edit entries in this app's shared data as you — every user of the app can read them | — | Create or edit documents in this app's SHARED collections as the viewer. Sensitive (needs a justification) and consent-gated: granted only after the viewer approves it for this app. Required by a shared collection whose `write` is `own` or `anyone` — the policies under which a viewer authors documents; a `write: "none"` (counters and marks only) or `write: "owner"` collection does not need it. The store's routes answer `503 storage_disabled` on a host where the store is not enabled. |
 | `collections:read:self` | Browse and read public Civitai collections, and your own public collections | — | Self-bound; public collections + the viewer's own public collections. Consent-exempt (server visibility/ownership is the gate). |
@@ -60,15 +60,21 @@ source the manifest validator and the token minter read.
 
 ## What this table can't show (the server enforces more)
 
-- **Consent gating.** Only the app-storage scopes, `models:read:self`,
+- **Consent gating.** Only the app-storage scopes other than
+  `apps:storage:publish`, `models:read:self`,
   `collections:read:self`, `collections:write:self`, `goods:read:self` and
   `apps:store:items:write` are consent-exempt. Every other scope —
-  `user:read:self`, `buzz:read:self`, `collections:read:private` and
-  `ai:write:budgeted` among them — is **consent-gated**: the viewer must grant it
-  through the host consent gate before a token will carry it.
+  `apps:storage:publish`, `user:read:self`, `buzz:read:self`,
+  `collections:read:private` and `ai:write:budgeted` among them — is
+  **consent-gated**: the viewer must grant it through the host consent gate
+  before a token will carry it.
 - **Dev-token / dev-tunnel restrictions.** The shared-storage scopes
   (`apps:storage:shared:*`) are deliberately never minted for pre-approval dev
   sessions; only an approved, mod-reviewed app that declares them gets them.
+  The document-store scopes (`apps:storage`, `apps:storage:publish`) are
+  minted on a `civitai app dev-token` token but never on a dev-tunnel token,
+  and the store serves a dev token only for an approved app, in a namespace of
+  the developer's own (see [Storing data](../guide/storage#local-development)).
   `apps:store:items:write` goes further: no dev-token, dev-tunnel or review
   session is ever minted it, so you can only exercise
   [sub-listings](../guide/sub-listings) from an approved app.

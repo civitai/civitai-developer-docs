@@ -22,6 +22,15 @@ Other pages: [Context, frame and analytics hooks](./context) · [Generation hook
 useBatchEstimate(): UseBatchEstimate
 ```
 
+```ts
+interface UseBatchEstimate {
+  estimateBatch: (bodies: WorkflowBody[], options?: EstimateBatchOptions) => Promise<BatchEstimateResult>;
+  pending: boolean;
+  result: BatchEstimateResult | null;
+  error: BatchEstimateError | null;
+}
+```
+
 ```md
 Price a grid of generations in one request. `estimateBatch(bodies)` takes a list
 of workflow bodies, each exactly what `useBuzzWorkflow().estimate()` takes, and
@@ -196,6 +205,15 @@ rather than `'unsupported'`.
 useWorkflowBatch(workflowIds: readonly string[], options?: WorkflowBatchOptions): UseWorkflowBatch
 ```
 
+```ts
+interface UseWorkflowBatch {
+  cells: readonly WorkflowBatchCell[];
+  summary: WorkflowBatchSummary;
+  cancelAll: () => Promise<WorkflowBatchCancelResult>;
+  rewatch: () => void;
+}
+```
+
 Watch a set of already-submitted workflows as one batch: per-cell status, a summary, and cancel-all. Built for grid apps that submit each cell with `useBuzzWorkflow().submit()` (one submit per cell, unchanged) and then have to follow all of them. `useWorkflowBatch(workflowIds, options?)` returns `{ cells, summary, cancelAll, rewatch }`. - **The array of ids is the batch.** There is no server-side batch id. Append each id as its `submit()` resolves, and persist the same array (plain strings) to re-attach after a reload by passing it back. Skip a submit that resolved with the `'failed'` placeholder id: nothing was created. - **Every cell is one ordinary `watch()`**, so each workflow has exactly one poll in flight. When a cell's loop restarts (the list changes, `rewatch()`, a StrictMode remount) the new loop waits for the old loop's poll to return. `options` (`intervalMs`, `waitSeconds`, `timeoutMs`, `maxRetries`) are passed to every cell's `watch()`. - **At most 30 ids** (`WORKFLOW_BATCH_MAX_CELLS`): the poll allowance (1,200 per 60 s per block instance and viewer) divided by one watch's 40 polls a minute. A longer list, a duplicate, an empty id or a `'failed'`/`'whatif'` placeholder throws. - **`summary`** counts `succeeded`, `failed`, `canceled`, `expired` and `running` (not terminal, including cells with no snapshot yet) from each cell's latest snapshot, plus `realisedCost`: the sum of `cost.total` on the terminal snapshots that carry one. That is the generation cost the host reported, not a ledger read; the author fee is charged separately and is not included. `settled` is `running === 0`. - **A host failure placeholder is not a workflow outcome.** When the host fails a poll it answers `{ workflowId: 'failed', status: 'failed' }`. That says nothing about the workflow, so the cell is not counted as failed: its `phase` becomes `'stopped'` with `error` set, and `summary.stopped` counts it. A stopped cell (also a watch that timed out or ran out of retries) is not polled again until you call `rewatch()`. - **`cancelAll()` cancels every cell not known to be finished** and resolves (never rejects) with `{ canceled, alreadySettled, refused, notAttempted, failed, complete }`, each a list of ids. Cancels charge the estimate allowance (150 per 10 s per block instance; on a page app every viewer shares it), so at most four are in flight. A refused cancel resolves `status: 'processing'`: it was not sent and the workflow is still running. After the first refusal the rest of the call is not sent (`notAttempted`). A cancel answered with the host's failure placeholder is `failed`, not a failed workflow. Nothing is retried automatically. When `complete` is `false`, wait a few seconds and call `cancelAll()` again; it targets only cells that are still not finished. - **Unmounting stops every poll.** A `cancelAll()` already running keeps sending.
 
 ```tsx
@@ -274,6 +292,14 @@ not model the rate limits themselves.
 
 ```ts
 usePrepareTrainingDataset(): UsePrepareTrainingDataset
+```
+
+```ts
+interface UsePrepareTrainingDataset {
+  prepareDataset: (items: BlockTrainingDatasetItem[], options?: ConsentRetryOptions) => Promise<BlockTrainingDatasetResult>;
+  pending: boolean;
+  error: PrepareTrainingDatasetError | null;
+}
 ```
 
 ```md
@@ -402,6 +428,14 @@ request from a dev token.
 
 ```ts
 useRunConfirmedStep(): UseRunConfirmedStep
+```
+
+```ts
+interface UseRunConfirmedStep {
+  runConfirmedStep: (body: QuotedStepBody) => Promise<BlockWorkflowSnapshot>;
+  pending: boolean;
+  error: RunConfirmedStepError | null;
+}
 ```
 
 ```md
@@ -595,6 +629,14 @@ In the mock host, `generation.model3dOutputs` puts labels (and their urls in
 
 ```ts
 useRunTraining(): UseRunTraining
+```
+
+```ts
+interface UseRunTraining {
+  runTraining: (body: QuotedTrainingBody) => Promise<BlockWorkflowSnapshot>;
+  pending: boolean;
+  error: RunTrainingError | null;
+}
 ```
 
 Run an App Blocks `kind: 'training'` LoRA training — the only way one starts — through the host-mediated `RUN_TRAINING` → `TRAINING_RESULT` bridge. 🔴 AVAILABILITY: page apps only, behind the host flag `app-blocks-training-kind` (ships off), with `ai:write:budgeted` declared and granted by a signed-in viewer. Refused from `dev:live` and from review sessions — build the flow against the mock host. See `WorkflowBodyTraining` in `@civitai/app-sdk`. The flow: `usePrepareTrainingDataset()` → `useBuzzWorkflow().estimate(body)` (its `trainingQuote.quoteId`) → `runTraining({ ...body, quoteId })` → `useBuzzWorkflow().watch(workflowId)`. Change nothing in the body between the estimate and the run: the server checks it against the quoted one. 🔴 THE CONSENT DIALOG IS CIVITAI'S, AND IT IS THE CHARGE. Every number on it is read back from the server's stored quote — never from your body. A run may cost more than the token's per-call budget (the viewer confirms the exact price), up to `BLOCK_TRAINING_MAX_BUZZ_PER_RUN` (5,000 Buzz). Images are the viewer's own. 🔴 NO AUTOMATIC CONSENT RETRY, unlike the other consent-gated hooks — on purpose. `RUN_TRAINING` carries no idempotency key and has an outcome (`submission-unconfirmed`) where a run may exist, so this hook never re-sends. It is also unreachable in practice: a block holding a `quoteId` got it from an estimate that already required `ai:write:budgeted`. Sent under the 10-minute human-interaction bound: the host replies only when the viewer clicks or dismisses its dialog.

@@ -37,6 +37,10 @@ This page is the contract for advanced use and non-React SDK consumers.
   nothing to see in the console.** Nothing rebuilds a deployed block on your
   behalf, so it stays frozen at its build-time SDK until you resubmit; rebuilding
   against the current SDK picks up every push added since, automatically.
+- **The *Per-app storage* and *Shared storage* families are deprecated.** They
+  carry the legacy `useAppStorage` / `useSharedStorage` stores, which keep
+  working while apps move. The [document store](../guide/storage) that
+  replaces them is not on the bridge: blocks call it over HTTP.
 
 <MessageTable>
 <!-- BEGIN GENERATED: messages — markdown fallback for the .md/LLM channel. Do not edit by hand; run `npm run gen:appblocks:md`. -->

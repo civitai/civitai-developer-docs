@@ -16,6 +16,7 @@ const steps = [
   'gen-appblocks-messages.mjs',
   'gen-appblocks-hooks.mjs',
   'gen-appblocks-bridge.mjs',
+  'gen-appblocks-storage.mjs',
 ];
 
 for (const step of steps) {

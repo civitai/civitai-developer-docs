@@ -467,6 +467,18 @@ export const HISTORICAL_LITERALS = [
     count: 1,
     why: '`app.orchestration` refusing a block token before it sends ARRIVED in sdk 0.5.0 (`refuseBlockToken` absent from 0.4.0 dist) — a changelog fact. Bumping it to the pin would name a release in which nothing about this changed.',
   },
+  {
+    file: 'apps/guide/workflows.md',
+    pkg: '@civitai/sdk',
+    version: '0.12.0',
+    // EXACT count 1 — "The `app.workflows` calls are written against
+    // `@civitai/sdk@0.12.0`, the first release that has them". Measured by
+    // `npm pack`: `dist/app/index.d.ts` declares a `workflows` member in 0 of
+    // 0.11.0 / 0.11.1 and in 1 of 0.12.0 / 0.12.1. It stopped matching the
+    // pin when the pin moved to 0.14.0 for the document store.
+    count: 1,
+    why: '`app.workflows` ARRIVED in sdk 0.12.0 (absent from the 0.11.x declarations) — a changelog fact. Bumping it to the pin would name a release in which nothing about it changed.',
+  },
   // --- apps/reference/hooks/generation.md: arrival claims quoted from the blocks-react README ---
   // All three sit inside the `useBuzzWorkflow` entry of the GENERATED sub-page
   // (between the `BEGIN/END GENERATED: hooks/generation` markers — the hooks

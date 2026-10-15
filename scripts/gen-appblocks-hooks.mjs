@@ -13,6 +13,13 @@ import { join } from 'node:path';
 import { log, resolvePackageRoot, writeArtifact } from './appblocks-util.mjs';
 import { descriptionHasTable } from './lib/description-has-table.mjs';
 import { parseReadme, scanSections, verifyPublished } from './lib/readme-hook-sections.mjs';
+import {
+  assertAnnotatedHooksExist,
+  correctionsFor,
+  retiredCorrections,
+  returnInterfaceText,
+  SUPERSEDED_HOOKS,
+} from './lib/hook-annotations.mjs';
 
 const pkgRoot = resolvePackageRoot('@civitai/blocks-react');
 const version = JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf8')).version;
@@ -75,7 +82,10 @@ for (const [name, decls] of exported) {
       }
     }
   }
-  hooks[name] = { name, signature, params, returnType: ret, jsdocExample, jsdocDesc };
+  // The return interface's members, so a member the README example never calls is still
+  // on the page (see lib/hook-annotations.mjs).
+  const returns = returnInterfaceText(fn);
+  hooks[name] = { name, signature, params, returnType: ret, returns, jsdocExample, jsdocDesc };
 }
 
 // ── join, in README order, appending any d.ts-only hooks ──────────────────────
@@ -110,6 +120,13 @@ if (ordered.length === 0) {
   throw new Error('gen-appblocks-hooks: parsed 0 hooks — refusing to write an empty artifact');
 }
 
+// Deprecation notices and corrections to stale README sentences (lib/hook-annotations.mjs).
+assertAnnotatedHooksExist(ordered.map((h) => h.name));
+for (const h of ordered) {
+  h.superseded = SUPERSEDED_HOOKS[h.name] ?? null;
+  h.corrections = correctionsFor(h);
+}
+
 // 🔴 FAIL LOUD: every line of every hook's README section must be in its entry,
 // and no entry may carry another section's heading. See `verifyPublished`.
 const problems = verifyPublished(readmeSections, ordered);
@@ -130,7 +147,11 @@ const artifact = {
 const dest = writeArtifact('hooks.json', artifact);
 const noEx = ordered.filter((h) => !h.example).map((h) => h.name);
 const withNotes = ordered.filter((h) => h.notes.length).length;
-log(`hooks: wrote ${ordered.length} hooks (${withNotes} with notes after the example) -> ${dest}`);
+const withReturns = ordered.filter((h) => h.returns).length;
+log(`hooks: wrote ${ordered.length} hooks (${withNotes} with notes after the example, ${withReturns} with a return interface) -> ${dest}`);
+for (const c of retiredCorrections(ordered)) {
+  log(`  NOTE: the README_CORRECTIONS entry { hook: '${c.hook}', match: ${c.match} } no longer matches the published README — upstream fixed the sentence, so delete that entry from scripts/lib/hook-annotations.mjs`);
+}
 if (noEx.length) log(`  WARNING: no example for: ${noEx.join(', ')}`);
 // README sections that sit inside the hook list but are not a hook (`### SfwGate`,
 // …). They are deliberately NOT attached to the hook above them; name them so
