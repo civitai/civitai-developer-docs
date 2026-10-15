@@ -325,6 +325,10 @@ Excluded DIRECTORIES, by name, at any depth:
   .env-backup/.env.production, backups/.env.production and
   .env.d/.env.production all go.
 
+Excluded DIRECTORIES, by name, at the PROJECT ROOT only:
+  scratch
+...a directory of that name deeper in the tree (src/x/scratch/) IS packaged.
+
 Excluded FILES, by base name:
   *.zip, .env, .env.local, .env.*.local, .env.development, .env.test,
   .env*, *.env
@@ -707,36 +711,35 @@ scopes in your local block.manifest.json (clamped server-side), so
 "create → dev-token → dev:live" works directly. The token is short-lived —
 never commit it; re-mint when it expires.
 
-BUDGET (--budget, 1-250 Buzz). The token carries a per-generation Buzz budget.
-Omit --budget and the server picks one — 50 for a slug with no submitted app.
-Your LOCAL block.manifest.json page.buzzBudgetPerGen does NOT raise it: until
-the app is submitted there is no server-side manifest to read, so the 50 is a
-flat default, not a clamp of your file. --budget is the only way to move it.
+BUDGET (--budget, 1-5000 Buzz). The token carries a per-generation Buzz budget.
+Omit --budget and the server picks one — 1000 for a slug with no submitted app.
+Your LOCAL block.manifest.json page.buzzBudgetPerGen does NOT set it: until
+the app is submitted there is no server-side manifest to read, so the 1000 is a
+flat default, not a reading of your file. --budget is the only way to move it.
 
-A generation is REFUSED outright when the recipe's Buzz ceiling exceeds that
-budget, so a shipped recipe with a ceiling of 90 dead-ends on the default:
-
-  insufficient buzz budget: recipe ceiling 90 exceeds budget 50
-
-Raise it (--budget 250) rather than editing the recipe.
+A generation is REFUSED outright when its Buzz ceiling exceeds that budget, with
+an "insufficient buzz budget: ... exceeds budget <M>" error. Raise --budget (up
+to 5000) rather than editing the recipe.
 
 The trap: for an inline customComfy graph your maxBuzz is BOTH the Buzz ceiling
-and the step timeout in SECONDS. An over-thrifty budget therefore does not fail
+and the step timeout in SECONDS. An over-thrifty maxBuzz therefore does not fail
 as a billing error — the step runs out of wall clock and comes back "expired",
-which reads like a broken graph. Budget for the seconds the graph needs.
+which reads like a broken graph. Give it the seconds the graph needs, but note
+the server caps an inline maxBuzz at 250 — so at most 250s of wall clock —
+whatever the token's budget: --budget 5000 does not lift it.
 ```
 
 ```bash
   civitai app dev-token my-block               # print the token to stdout
   civitai app dev-token my-block --spend       # also REQUEST ai:write:budgeted (real Buzz)
-  civitai app dev-token my-block --budget 250  # max budget (and 250s of customComfy wall clock)
+  civitai app dev-token my-block --budget 5000 # the most a dev token can carry
   civitai app dev-token my-block --env         # print VITE_LIVE_BLOCK_TOKEN=<token>
   civitai app dev-token my-block --env >> .env.development.local
 ```
 
 | Flag | Description | Default |
 |---|---|---|
-| `--budget int` | per-generation Buzz budget the token may spend (1-250; omit to let the server decide — 50 for an unsubmitted app). Must clear your recipe's ceiling; for inline customComfy it is ALSO the step timeout in seconds | — |
+| `--budget int` | per-generation Buzz budget the token may spend (1-5000; omit to let the server decide — 1000 for an unsubmitted app). Must clear your recipe's ceiling. It does not lift an inline customComfy maxBuzz (also its step timeout in seconds), which the server caps at 250 | — |
 | `--env` | print VITE_LIVE_BLOCK_TOKEN=\<token> (paste-ready into .env.development.local) | — |
 | `--spend` | explicitly REQUEST the ai:write:budgeted scope so npm run dev:live can spend REAL Buzz. Omit it and that scope is FILTERED OUT of the request and the request's spend-intent field states false — the CLI never asks for budgeted spend implicitly, even when your block.manifest.json declares it | — |
 
