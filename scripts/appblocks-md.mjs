@@ -66,6 +66,8 @@ import { outDir, repoRoot } from './appblocks-util.mjs';
 // rather than reimplemented for the reason this whole module exists: the .md
 // channel and the island must not be able to disagree about what they show.
 import { cliLongBody } from '../.vitepress/theme/components/cliReference.shared.mjs';
+// The island's table names, so a region exists for exactly the tables the page renders.
+import { STORAGE_TABLES } from '../.vitepress/theme/components/storageReference.shared.mjs';
 // The same notes -> markdown join the hooks generator's guard reasons about.
 import { notesMarkdown } from './lib/readme-hook-sections.mjs';
 // Which entry lives on which sub-page — shared with the Vue islands and the
@@ -465,6 +467,23 @@ function renderScopes() {
   );
 }
 
+/**
+ * apps/guide/storage.md — mirrors <StorageReference table="…">. The rows are composed
+ * once, in gen-appblocks-storage.mjs; both channels only lay them out.
+ */
+function renderStorage(which) {
+  const { limits, errors } = loadArtifact('storage.json');
+  if (which === 'limits') {
+    if (!limits?.length) throw new Error('appblocks-md: storage.json has no limit rows');
+    return table(['Area', 'Limit', 'Value'], limits.map((r) => [cell(r.group), cell(r.item), cell(r.value)]));
+  }
+  if (which === 'errors') {
+    if (!errors?.length) throw new Error('appblocks-md: storage.json has no error codes');
+    return table(['Code', 'HTTP', 'Meaning'], errors.map((e) => [codeCell(e.code), String(e.status), cell(e.meaning)]));
+  }
+  throw new Error(`appblocks-md: unknown storage table ${JSON.stringify(which)}`);
+}
+
 /** apps/reference/manifest.md — mirrors <JsonSchemaTable>'s typeText/constraintText. */
 function typeText(prop) {
   if (!prop) return '';
@@ -581,6 +600,15 @@ function renderHooks(slug) {
         // which would put phantom entries in the outline.
         `**${code(h.name)}**`,
         fence('ts', h.signature),
+        // A deprecation notice and any corrections to stale README sentences
+        // (scripts/lib/hook-annotations.mjs), ahead of the README text they qualify.
+        [
+          ...(h.superseded ? [`> ${para(h.superseded.text)} See [${h.superseded.linkText}](${h.superseded.href}).`] : []),
+          ...(h.corrections ?? []).map((c) => `> **Correction:** ${para(c)}`),
+        ].join('\n>\n'),
+        // The return interface's members, so a member the README example never calls
+        // is still on the page.
+        h.returns ? fence('ts', h.returns.text) : '',
         h.description ? describeHook(h, hookNames, hrefOf) : '',
         h.example ? fence('tsx', h.example) : '',
         // The rest of the README section, after the example. ONE `md` fence, for
@@ -947,6 +975,13 @@ export const REGIONS = [
   { key: 'messages', page: 'apps/reference/messages.md', component: 'MessageTable', render: renderMessages },
   { key: 'scopes', page: 'apps/reference/scopes.md', component: 'ScopesTable', render: renderScopes },
   { key: 'tokens', page: 'apps/tokens.md', component: 'TokenGallery', render: renderTokens },
+  ...STORAGE_TABLES.map((t) => ({
+    key: `storage-${t}`,
+    page: 'apps/guide/storage.md',
+    component: 'StorageReference',
+    openTag: `<StorageReference table="${t}">`,
+    render: () => renderStorage(t),
+  })),
 ];
 
 export const pagePath = (region) => join(repoRoot, region.page);

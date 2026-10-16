@@ -64,7 +64,10 @@ Three properties of the scope decide how you call it:
   app. Build the publish path so its refusal degrades quietly.
 
 The item itself must already exist in your app's shared storage, so in practice
-the app also holds `apps:storage:shared:write`.
+the app also holds `apps:storage:shared:write`. That is the **legacy** shared
+store (`useSharedStorage`, `/api/v1/blocks/shared-storage/*`): a sub-listing
+reads its item from there, not from a [document store](./storage) collection,
+so keep listable items in the legacy store even after the rest of the app moves.
 
 ## The routes
 

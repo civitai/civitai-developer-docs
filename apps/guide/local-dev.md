@@ -28,7 +28,8 @@ Both serve on `http://localhost:5186`.
 ::: tip `dev:harness` is the wide one — do not infer its limits from `dev:live`'s
 The mock host answers the whole block→host protocol, so hooks that `dev:live`
 refuses work there, including posting, image save/upload, wildcard packs and the
-App-Storage message families. You do not need beta access, a token, or any Buzz
+legacy App-Storage message families. It has no
+[document store](./storage#local-development), which is not on the bridge. You do not need beta access, a token, or any Buzz
 to exercise any of them.
 :::
 
@@ -59,14 +60,33 @@ backend. The dev-token mint accepts a **pending** slug — right after a success
 because it falls back to the scopes in your local `block.manifest.json`
 (clamped server-side). So `create → dev-token → dev:live` works directly.
 
-What `dev:live` supports in its current version is the **money path**
-(`estimate` / `submit` / `poll` / `cancel`) **and the resource pickers** — it
-serves a protocol-identical in-harness picker overlay. It does **not** support
-`SET_USER_CHECKPOINT` persistence, the App-Storage KV protocol, in-band Buzz
-purchase, or the `GET_BUZZ_BALANCE` read; those reply "not supported in live
-v1". Use mock mode for them. In practice that means the Buzz balance reads as
-unavailable under `dev:live` and resolves normally in `dev:harness` and on the
-real platform.
+`dev:live` forwards the **money path** (`estimate` / `submit` / `poll` /
+`cancel`) and the Buzz balance read to the real backend, and serves the
+**resource pickers** as a protocol-identical in-harness overlay. A Buzz purchase
+opens the real purchase page in a new tab and answers `purchased: false`,
+because the harness cannot see the purchase complete. On a page context,
+`SET_USER_CHECKPOINT` is refused exactly as the page host refuses it. A
+capability the live host cannot serve refuses with an error rather than a faked
+success; use mock mode for those.
+
+**Storage does not work under `dev:live`:**
+
+- The [document store](./storage#local-development) is not reached at all. It
+  is called over HTTP by `@civitai/sdk`, not over the bridge this harness
+  forwards, and the `page-money` template does not use `@civitai/sdk`.
+- Legacy App Storage (`useAppStorage`) is forwarded, and the server refuses it:
+  those calls need a civitai.com browser session, which a local harness never
+  has, so every developer gets `401` `Apps access is not enabled for this
+  browser session`. It says nothing about your account or your app.
+- Legacy shared storage (`useSharedStorage`) is refused too. Approval is
+  checked first, so before your app is approved the refusal is about approval
+  (`app block not found` while the app has no record yet, as for a first
+  version still in review, or `app block is not approved`). Once it is
+  approved, the refusal is about scope: the shared scopes are never minted on a
+  dev token.
+
+Exercise the legacy stores under `dev:harness`, and the document store with
+[`createFakeStorage`](./storage#testing).
 
 ## Minting a dev block token
 

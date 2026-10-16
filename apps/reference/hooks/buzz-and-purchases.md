@@ -22,6 +22,12 @@ Other pages: [Context, frame and analytics hooks](./context) · [Generation hook
 useBuzzPurchase(): UseBuzzPurchase
 ```
 
+```ts
+interface UseBuzzPurchase {
+  openPurchaseModal: (suggestedAmount?: number) => Promise<{ purchased: boolean; newBalance?: number; }>;
+}
+```
+
 Open the Buzz purchase modal. It raises the viewer's WALLET, never a spend cap: offer it when the viewer's spendable Buzz is below a quoted cost, never on a resolved `failed` submit (see `useBuzzWorkflow`'s `submit` docs).
 
 ```tsx
@@ -34,6 +40,14 @@ if (purchased) { /* retry the generation */ }
 
 ```ts
 useGoodPurchase(): UseGoodPurchase
+```
+
+```ts
+interface UseGoodPurchase {
+  purchase: (params: GoodPurchaseParams, options?: GoodPurchaseOptions) => Promise<GoodPurchaseResult>;
+  loading: boolean;
+  error: Error | null;
+}
 ```
 
 Sell a **digital good** — a manifest-declared entitlement the platform sells to the viewer for Buzz on your app's behalf. Requires the `goods:purchase:self` scope **and** a `goods` entry in your manifest; without both the endpoint answers 404.
@@ -60,6 +74,17 @@ Two rejections are **not** refusals, and `name` tells them apart: the 30s bound 
 
 ```ts
 useEntitlements(): UseEntitlements
+```
+
+```ts
+interface UseEntitlements {
+  entitlements: Entitlement[] | null;
+  loading: boolean;
+  error: Error | null;
+  refetch: () => void;
+  unauthenticated: boolean;
+  owns: (goodId: string) => boolean;
+}
 ```
 
 What the viewer owns **from this app** — the read half of the goods rail. Scope `goods:read:self`, which is consent-exempt: the reply is scoped server-side to your own app, so a read-only block needs no purchase power and triggers no re-consent prompt.
@@ -90,6 +115,15 @@ Call `refetch()` after a successful purchase to reflect it without a remount.
 useBuzzBalance(): UseBuzzBalance
 ```
 
+```ts
+interface UseBuzzBalance {
+  balance: BuzzBalance | null;
+  loading: boolean;
+  error: Error | null;
+  refetch: () => void;
+}
+```
+
 The signed-in viewer's per-pool Buzz balance (`{ blue, green, yellow }` — the domain-clamped pools a block may read; never the platform-internal `red`/`purple`). Host-mediated over `GET_BUZZ_BALANCE` → `BUZZ_BALANCE_RESULT`; same trust model as `useBuzzWorkflow`/`useBuzzPurchase` (the host resolves the viewer from the block token — the block never touches the balance API). Fetches on mount; `refetch` for on-demand refreshes.
 
 ```tsx
@@ -111,6 +145,16 @@ if (!loading && balance) console.log(`Yellow: ${balance.yellow}`);
 useBuzzTransactions(params?: BlockBuzzTransactionsParams): UseBuzzTransactions
 ```
 
+```ts
+interface UseBuzzTransactions {
+  transactions: BuzzTransaction[] | null;
+  cursor: string | null;
+  loading: boolean;
+  error: Error | null;
+  refetch: () => void;
+}
+```
+
 The signed-in viewer's Buzz-transaction ledger (a paged, host-projected read of the Buzz dashboard). Returns `{ transactions, cursor, loading, error, refetch }`; `transactions` rows are rehydrated so `date` is a `Date`. Pass the returned `cursor` back as `params.cursor` to page forward. Requires the `buzz:read:self` scope; host-mediated over `GET_BUZZ_TRANSACTIONS`.
 
 ```tsx
@@ -122,6 +166,15 @@ if (!loading && transactions) transactions.forEach((t) => console.log(t.type, t.
 
 ```ts
 useBuzzAccounts(): UseBuzzAccounts
+```
+
+```ts
+interface UseBuzzAccounts {
+  accounts: BlockBuzzAccount[] | null;
+  loading: boolean;
+  error: Error | null;
+  refetch: () => void;
+}
 ```
 
 The viewer's all-pool Buzz balances — the three spendable pools **plus** the creator payout pools (`{ accountType, balance }[]`), a superset of `useBuzzBalance`. Returns `{ accounts, loading, error, refetch }`. Requires `buzz:read:self`; host-mediated over `GET_BUZZ_ACCOUNTS`.
@@ -137,6 +190,16 @@ if (!loading && accounts) accounts.forEach((a) => console.log(a.accountType, a.b
 useDailyCompensation(params: BlockDailyCompensationParams): UseDailyCompensation
 ```
 
+```ts
+interface UseDailyCompensation {
+  resources: BlockDailyCompensationResource[] | null;
+  hasPublishedResources: boolean | null;
+  loading: boolean;
+  error: Error | null;
+  refetch: () => void;
+}
+```
+
 Per-modelVersion generation-compensation for the month containing `params.date` (Buzz totals + cash totals in pennies). Returns `{ resources, hasPublishedResources, loading, error, refetch }`. Requires `buzz:read:self`; host-mediated over `GET_DAILY_COMPENSATION`.
 
 ```tsx
@@ -147,6 +210,14 @@ const { resources, hasPublishedResources } = useDailyCompensation({ date: '2026-
 
 ```ts
 useTip(): UseTip
+```
+
+```ts
+interface UseTip {
+  tip: (params: TipParams, options?: TipOptions) => Promise<TipResult>;
+  loading: boolean;
+  error: Error | null;
+}
 ```
 
 Send a Buzz TIP from the viewer through the block-token-gated `POST /api/v1/blocks/tip` REST endpoint (scope `social:tip:self`). Direct-fetch (bypasses the postMessage bridge) against the VALIDATED host origin (`useHostOrigin()`) with the block bearer token (`useBlockToken().raw`) — the same security-reviewed pattern as {@link useGenerationResources}. The SENDER is always the token subject (server self-binds it); the block never supplies a `fromUserId`. IDEMPOTENCY: pass a stable `options.idempotencyKey` to make a retry-after- timeout safe (the server replays the first terminal result). Omitting it mints a fresh key per call, so each call is a distinct logical tip. 🔴 THE KEY'S FORMAT IS CONSTRAINED — see {@link TipOptions.idempotencyKey}. Letters, digits, `_` and `-` only, at most 64 characters, **no colons**; the host 400s anything else, and this hook now refuses it before the POST. 🔴 THIS EXAMPLE USED TO RECOMMEND `React.useId()`, AND THAT WAS A LIVE DEFECT: `useId()` wraps its value in characters outside the allowed class on most of the React versions this package's peer range admits (`^18.0.0 || ^19.0.0`) — React 18.3.1 returns `":R0:"` and early React 19 a guillemet-wrapped id, both of which 400. (React 19.2.6, resolved in this repo today, happens to return `_r_0_`, which does clear the charset — so the bug was INVISIBLE here while being guaranteed for a consumer on 18.) Anyone copying that line shipped a guaranteed rejection. Prefer a stable id you already have, which is also better idempotency: it is tied to the THING being tipped rather than to a component instance, so it survives a remount.
@@ -165,6 +236,15 @@ await tip({ toUserId: 123, amount: 50 }, { idempotencyKey: keyRef.current });
 
 ```ts
 useTipAllowance(): UseTipAllowance
+```
+
+```ts
+interface UseTipAllowance {
+  allowance: TipAllowance | null;
+  loading: boolean;
+  error: Error | null;
+  refetch: () => void;
+}
 ```
 
 Read the viewer's REAL remaining daily tip allowance `{ cap, spent, remaining }` through the block-token-gated `GET /api/v1/blocks/tip-allowance` REST endpoint (scope `social:tip:self` — the SAME scope the app already holds to tip, so no manifest change). Direct-fetch against the validated host origin with the block bearer token, the same pattern as {@link useGenerationResources}. Lets a block show a genuinely-tracked remaining allowance and disable the tip button at the true ceiling — instead of a dead client-side full-cap guess (`localStorage` is inert in the opaque-origin sandbox). Fetches once on mount and exposes `refetch` (call it after a successful `useTip().tip(...)`). Only the LATEST request may write state: a reply superseded by a newer `refetch` — or one that lands after unmount — is dropped (#392). If the host origin never arrives the hook reaches a TERMINAL state rather than spinning: see `error` above (#398).

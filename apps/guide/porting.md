@@ -3,8 +3,8 @@ title: Moving a block off the bridge
 description: Replace a block's postMessage data calls with /api/v1/blocks/* REST calls — what each credential reaches, what auth oauth gives up, and a hook-by-hook replacement table.
 sources:
   - npm:@civitai/blocks-react@0.73.0/dist/index.d.ts
-  - npm:@civitai/sdk@0.12.0/dist/index.d.ts
-  - npm:@civitai/sdk@0.12.0/dist/workflows/index.d.ts
+  - npm:@civitai/sdk@0.14.0/dist/index.d.ts
+  - npm:@civitai/sdk@0.14.0/dist/workflows/index.d.ts
   - civitai-app-starters:packages/civitai-sdk/BREAKING.md
   - civitai:public/schemas/app-block/v1.json#auth
   - civitai:src/pages/api/v1/blocks
@@ -103,7 +103,9 @@ token — `buzz`, `me`, `models`, `images`, `gated-images`,
 `generation-resources`, `tools`, `tip`, `tip-allowance` and the `collections`
 routes among them.
 
-**If your app uses app storage, it cannot use `auth: "oauth"` today.** The server
+**If your app uses app storage, it cannot use `auth: "oauth"` today** — the
+[document store](./storage) included: the refusal covers every `apps:storage*`
+scope. The server
 refuses the pair when a moderator approves the version (and on a direct git
 push), not when `civitai app submit` uploads it, and `civitai app validate`
 doesn't check it either — so fix it before submitting, or the request sits in
@@ -202,7 +204,7 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 
 | Bridge hook | Replacement |
 |---|---|
-| `useAppStorage` | `/api/v1/blocks/app-storage/{get,set,delete,list,quota}` — block-token only |
+| `useAppStorage` | The [document store](./storage): a `private` collection through `app.storage.collection(name)` (`@civitai/sdk` 0.14.0 or later) or `/api/v1/blocks/storage/*`. The legacy `/api/v1/blocks/app-storage/{get,set,delete,list,quota}` routes (block-token only) still work and are deprecated; see [Moving from the legacy stores](./storage#moving-from-the-legacy-stores) |
 | `useAppWorkflows` | `POST /api/v1/blocks/workflows/query`. In `@civitai/sdk` (0.12.0 or later): `app.workflows.list({ cursor?, limit? })`, which resolves `{ workflows, cursor }` |
 | `useBatchEstimate` | **No route yet** — `ESTIMATE_WORKFLOW_BATCH` is a bridge message, and no `/api/v1/blocks/*` route prices a batch. Over REST, price each body with `POST /api/v1/blocks/workflows/estimate`; in `@civitai/sdk` that is one `app.workflows.estimate(body)` per body |
 | `useBlockAnalytics` | **Keep** — a bridge message with no route. Its events are recorded once your manifest declares them; `@civitai/sdk`'s `app.host.track()` sends the same message (from 0.11.0). See the note below |
@@ -243,7 +245,7 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 | `useRunConfirmedStep` | **Keep** — host UI; the job runs only after the viewer confirms its price in a dialog Civitai shows in its own chrome |
 | `useRunTraining` | **Keep** — host UI; the run starts only from the consent dialog Civitai shows in its own chrome |
 | `useSaveImage` | **Keep** — host UI; the host fetches from origins it allowlists |
-| `useSharedStorage` | `/api/v1/blocks/shared-storage/*`. The route is now the wider surface: `list` takes a `mine` filter the hook has no equivalent for — see [Listing only rows the viewer wrote](#listing-only-rows-the-viewer-wrote) |
+| `useSharedStorage` | The [document store](./storage): a `shared` collection, with votes as a declared mark. The legacy `/api/v1/blocks/shared-storage/*` routes still work and are deprecated; their `list` takes a `mine` filter the hook has no equivalent for — see [Listing only rows the viewer wrote](#listing-only-rows-the-viewer-wrote). [App Store sub-listings](./sub-listings) still read the legacy shared store |
 | `useTip` | `POST /api/v1/blocks/tip` |
 | `useTipAllowance` | `GET /api/v1/blocks/tip-allowance` |
 | `useUploadImageBytes` | **Keep** — a bridge message with no route. It sends `OPEN_IMAGE_UPLOAD` with `bytes`, and the host stores, persists and scans the image; no `/api/v1/blocks/*` route accepts an image upload. Page apps only, and the token needs `posts:write:self`. See [Posting from an app](./posting#upload-then-post) |

@@ -22,6 +22,15 @@ Other pages: [Context, frame and analytics hooks](./context) · [Generation hook
 useViewer(): UseViewer
 ```
 
+```ts
+interface UseViewer {
+  viewer: BlockViewer | null;
+  loading: boolean;
+  error: Error | null;
+  refetch: () => void;
+}
+```
+
 The signed-in viewer as an on-demand authoritative self-read (`{ id, username, status, buzzBudget }`) — distinct from `useBlockContext().viewer`, the coarse `BLOCK_INIT`-time snapshot. `status` is `'active' | 'muted'`; `username` (`string | null`) and `buzzBudget` (`number | null`) are present-but-nullable, so handle the null case. Host-mediated over `GET_VIEWER` → `VIEWER_RESULT` (the host resolves the viewer from the block token via `blocks.getMyViewer`); an anonymous / banned viewer comes back as `error`. Fetches on mount; `refetch` for on-demand refreshes.
 
 ```tsx
@@ -35,6 +44,14 @@ if (!loading && viewer) console.log(`${viewer.username ?? 'anon'} · budget ${vi
 
 ```ts
 useCollectionFollow(): UseCollectionFollow
+```
+
+```ts
+interface UseCollectionFollow {
+  setFollow: (args: { collectionId: number; follow: boolean; }) => Promise<BlockCollectionFollowResult>;
+  pending: boolean;
+  error: CollectionFollowError | null;
+}
 ```
 
 ```md
@@ -95,6 +112,12 @@ wires all of the above.
 
 ```ts
 useCivitaiNavigate(): UseCivitaiNavigate
+```
+
+```ts
+interface UseCivitaiNavigate {
+  navigate: (path: string, options?: 'current' | 'new_tab' | UseCivitaiNavigateOptions) => void;
+}
 ```
 
 ```md
@@ -217,6 +240,12 @@ produces from the call a block actually makes.
 useRequestSignIn(): UseRequestSignIn
 ```
 
+```ts
+interface UseRequestSignIn {
+  requestSignIn: (payload?: { returnUrl?: string; }) => void;
+}
+```
+
 Ask the host to open its sign-in flow for an ANONYMOUS viewer (fire-and-forget). On sign-in the host re-inits the block with the now-authenticated viewer.
 
 ```tsx
@@ -229,6 +258,12 @@ requestSignIn();
 
 ```ts
 useRequestConsent(): UseRequestConsent
+```
+
+```ts
+interface UseRequestConsent {
+  requestConsent: (payload?: { scopes?: string[]; }) => void;
+}
 ```
 
 The manual version of the above — still exported, still the right tool when you want to prompt *before* a call (e.g. on an onboarding screen) rather than after one fails. Lazy consent: ask the host to open its consent UI when a LOGGED-IN viewer takes an action whose consent-gated scope the block token is missing (e.g. Generate needs `ai:write:budgeted` but the viewer hasn't granted it). Fire-and-forget — on grant the host pushes a new token; observe `useBlockToken().scopes` and retry.
@@ -260,6 +295,13 @@ argument.
 
 ```ts
 useConsentUnavailable(): UseConsentUnavailable
+```
+
+```ts
+interface UseConsentUnavailable {
+  refusal: ConsentUnavailablePayload | null;
+  reset: () => void;
+}
 ```
 
 Some environments withhold a scope at mint (a dev-tunnel preview token, a surface that carries no money scope), so no consent round-trip can ever add it. The host then pushes an uncorrelated `CONSENT_UNAVAILABLE` — *not* a reply, because `REQUEST_CONSENT` carries no `requestId`. Consume it and stop telling the user to retry something that can't succeed:
@@ -347,6 +389,16 @@ any request for a scope your dev token lacks produces one.
 useDomainMaturity(): UseDomainMaturity
 ```
 
+```ts
+interface DomainMaturity {
+  domain?: ColorDomain | null;
+  maxBrowsingLevel?: number;
+  effectiveBrowsingLevel?: number;
+  isSfw: boolean;
+  isLevelAllowed: (level: number) => boolean;
+}
+```
+
 Read the maturity ceiling in force for the current viewer, so a block can hide/blur mature affordances. **Fail-closed SFW** until `BLOCK_INIT` lands or against a host that projects no ceiling.
 
 ```tsx
@@ -388,6 +440,12 @@ produce one either.
 
 ```ts
 useGatedImages(): UseGatedImages
+```
+
+```ts
+interface UseGatedImages {
+  getImages: (imageIds: number[]) => Promise<BlockGatedImage[]>;
+}
 ```
 
 Read per-viewer gated display data for a list of image ids via the host-mediated `GET_IMAGES_BY_IDS` → `IMAGES_RESULT` bridge — the read side of a cross-user image grid (e.g. ids stored via `useSharedStorage()`). The host applies the requesting viewer's browsing-level clamp server-side and returns each image as `visible` (url, plus a rating UNLESS it is the viewer's own not-yet-rated image) or `hidden` (NO url — above ceiling / flagged / scan-refused / someone else's unrated image). This is the load-bearing cross-user moderation boundary: an unclamped edge URL never crosses to a viewer who can't see the image, and the block must render a placeholder for any `hidden` entry. 🔴 A `hidden` ENTRY IS NARROWED TO `{ imageId, status }` BEFORE IT REACHES HERE, and that is enforced in code rather than asserted in prose: the transport runs `projectInboundPayload` on every `IMAGES_RESULT` before delivery (`src/transport/validate.ts`), so a `previewUrl`, `src`, `imageUrl` or any other key a host attaches to a withheld image is DROPPED, not forwarded. Fields are dropped rather than the reply rejected so a future host-side field addition cannot hang this call — see `projectGatedImage`'s docblock. 🔴 `nsfwLevel` AND `contentRating` ARE OPTIONAL, AND A MISSING ONE IS NOT "G". They are absent exactly when `ratingPending` is present. Treating absent as a safe default is the bug this state exists to stop: an image published seconds earlier came back `hidden` under the old two-state contract and a grid rendered it as *"Hidden — rated mature"*, a maturity claim about an image nothing had rated, which a page reload then contradicted.
