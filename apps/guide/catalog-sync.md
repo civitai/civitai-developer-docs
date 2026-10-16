@@ -6,6 +6,7 @@ sources:
   - civitai:src/pages/api/v1/catalog/items/[externalId].ts
   - civitai:src/server/services/blocks/app-sub-listing-catalog-auth.ts
   - civitai:src/server/services/blocks/app-sub-listing.service.ts
+  - civitai:src/server/services/blocks/app-sub-listing-store.service.ts
   - civitai:src/shared/constants/app-sub-listing.constants.ts
   - civitai:src/server/utils/shared-storage-rate-limit.ts
   - civitai:src/server/services/apps/shared-content-safety.ts
@@ -94,7 +95,7 @@ to it and enabled for catalog sync. Nothing in the path or body names it.
 
 | Route | Body | Returns |
 |---|---|---|
-| `PUT /api/v1/catalog/items/{externalId}` | `title`, `tagline?`, `contentRating?`, `creatorUserId?` | `{ id, status, pendingEdit, href }` |
+| `PUT /api/v1/catalog/items/{externalId}` | `title`, `tagline?`, `imageId?`, `contentRating?`, `creatorUserId?` | `{ id, status, pendingEdit, href }` |
 | `DELETE /api/v1/catalog/items/{externalId}` | — | `{ ok, withdrawn }` |
 | `GET /api/v1/catalog/items?cursor=` | — | `{ items, nextCursor }` |
 
@@ -125,14 +126,26 @@ curl -X PUT https://civitai.com/api/v1/catalog/items/neon-drift \
 `400 invalid_body` — and at most 8 KB. An optional field may be left out or
 sent as `null`.
 
+**A `PUT` replaces the whole item; it does not patch it.** An optional field
+you leave out is stored as empty, so an edit that sends only `title` clears the
+item's tagline and image and resets its rating to your listing's. Send every
+field on every `PUT`.
+
 | Field | Rule |
 |---|---|
 | `title` | 1–80 characters after cleaning (invisible and control characters removed, whitespace collapsed). Must pass the same text-safety check as shared-storage posts (`400 text_rejected`). |
 | `tagline` | Optional, at most 140 characters after cleaning, same check. |
+| `imageId` | Optional: the id of a Civitai image to show on the card. It must have been uploaded by the item's creator (see [Who an item is attributed to](#who-an-item-is-attributed-to)), else `403 image_not_yours`, and be publicly visible: in a published, non-`Private` post on Civitai and reviewed, else `400 image_not_public`. |
 | `contentRating` | Optional: `g`, `pg`, `pg13`, `r` or `x`, **no less mature than your listing's own rating** (`400 rating_too_loose`). Omitted, the item inherits your listing's rating; the card is always shown under the stricter of the two. |
 | `creatorUserId` | Optional: the Civitai user id to show as the item's creator. See [Who an item is attributed to](#who-an-item-is-attributed-to). |
 
-There is no image field: **every card shows your listing's cover.**
+**The card image.** With an `imageId`, the card shows that image — but only to a
+viewer it is cleared for: the check runs again on every render, so if the
+image's post is later made private or unpublished, or the image is more mature
+than the card or the viewer's settings, the card falls back to your listing's
+cover. Without one, the card always shows your listing's cover. The image has
+to be on Civitai already: there is no upload through this API, so the creator
+posts it on Civitai first.
 
 A `PUT` follows the same review rules as an in-app publish:
 
@@ -218,7 +231,8 @@ they sign in with Civitai again) is a republish and waits for a moderator.
   A `PUT` is counted once it passes the field, rating and attribution checks:
   `invalid_body`, `rating_too_loose`, `creator_not_linked`, `untrusted`,
   `creator_not_found` and `author_mismatch` are not counted, but
-  `text_rejected`, `author_cap` and `conflict` are — and so is a call refused
+  `text_rejected`, `image_not_public`, `image_not_yours`, `author_cap` and
+  `conflict` are — and so is a call refused
   `429`, so back off for `Retry-After` rather than retrying.
 - **A per-creator cap** on pending + approved items, set when your listing is
   enabled.
@@ -233,11 +247,13 @@ server sentence, not copy for your UI.
 | `400` | `invalid_body` | the body failed validation (an unknown key, an out-of-range field, a missing `Content-Type: application/json`), a bad `externalId` or `cursor`, or an id that does not form a valid link with your template |
 | `400` | `text_rejected` | the title or tagline did not pass the text-safety check — or the check could not run, so one later retry is reasonable |
 | `400` | `rating_too_loose` | `contentRating` is less mature than your listing's rating |
+| `400` | `image_not_public` | `imageId` is not publicly visible: not in a published, non-`Private` post, or not reviewed |
 | `401` | `invalid_token` | no `Bearer` header; an unknown, expired or non-OAuth token; or a token also sent as `?token=` |
 | `403` | `insufficient_scope` | the token lacks `AppStoreCatalogWrite`, or is not a `client_credentials` token of a client that still holds that grant |
 | `403` | `not_enabled` | no listing is set up for catalog sync with your client |
 | `403` | `creator_not_linked` | `creatorUserId` has not signed in to your platform with Civitai |
 | `403` | `untrusted` | the creator's account does not yet clear the trust check |
+| `403` | `image_not_yours` | `imageId` was not uploaded by the item's creator |
 | `404` | `creator_not_found` | the creator's account no longer exists |
 | `409` | `parent_ambiguous` | more than one listing is set up for your client — a configuration error; contact Civitai |
 | `409` | `author_mismatch` | the item is attributed to a different creator |
