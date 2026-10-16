@@ -315,7 +315,7 @@ behind one cost estimate and confirm step, with retry scoped to the failed cells
 **Read it for** a multi-turn LLM assistant on the generation bridge, whose
 replies drive follow-up catalog queries, with per-user conversation state.
 
-- **Scopes** — `ai:write:budgeted`, `buzz:read:self`, `apps:storage:read`, `apps:storage:write`
+- **Scopes** — `ai:write:budgeted`, `buzz:read:self`, `apps:storage`
 - **Hooks** — `useBuzzWorkflow`, `useAppStorage`, `useResourcePicker`, `useRequestConsent`, `useRequestSignIn`, `useBlockContext`, `useBlockToken`, `useBlockResize`, `useBlockAnalytics`
 
 ### Model Benchmarking
@@ -326,7 +326,7 @@ replies drive follow-up catalog queries, with per-user conversation state.
 shared store every viewer reads and writes: the broadest single tour of the
 hook surface.
 
-- **Scopes** — `ai:write:budgeted`, `buzz:read:self`, `apps:storage:read`, `apps:storage:write`, `apps:storage:shared:read`, `apps:storage:shared:write`
+- **Scopes** — `ai:write:budgeted`, `buzz:read:self`, `apps:storage`, `apps:storage:publish`
 - **Hooks** — `useBuzzWorkflow`, `usePublishGenerationOutputs`, `useSharedStorage`, `useAppStorage`, `useGenerationResources`, `useResourcePicker`, `useBuzzBalance`, `useGatedImages`, `useRequestConsent`, `useRequestSignIn`, `useBlockContext`, `useBlockToken`, `useBlockResize`, `useBlockAnalytics`
 
 ### Playable Collections
@@ -337,7 +337,7 @@ hook surface.
 (`/api/v1/blocks/*`, block token as Bearer) rather than `postMessage` hooks,
 behind one swappable `ApiClient` the dev harness fakes.
 
-- **Scopes** — `collections:read:self`, `collections:read:private`, `social:tip:self`, `buzz:read:self`, `apps:storage:read`, `apps:storage:write`, `apps:storage:shared:read`, `apps:storage:shared:write`
+- **Scopes** — `collections:read:self`, `collections:read:private`, `social:tip:self`, `buzz:read:self`, `apps:storage:read`, `apps:storage:write`, `apps:storage:shared:read`, `apps:storage:shared:write`, `apps:storage`
 - **Hooks** — `useSharedStorage`, `useBuzzBalance`, `useDomainMaturity`, `useHostOrigin`, `useRequestConsent`, `useRequestSignIn`, `useBlockContext`, `useBlockToken`, `useBlockResize`
 
 ### Custom Generators
@@ -348,17 +348,17 @@ behind one swappable `ApiClient` the dev harness fakes.
 block, with a spend path that can top the viewer up mid-flow, and img2img via
 `useImageUpload`.
 
-- **Scopes** — `ai:write:budgeted`, `buzz:read:self`, `apps:storage:read`, `apps:storage:write`, `apps:storage:shared:read`, `apps:storage:shared:write`, `posts:write:self`
+- **Scopes** — `ai:write:budgeted`, `buzz:read:self`, `apps:storage:read`, `apps:storage:write`, `apps:storage:shared:read`, `apps:storage:shared:write`, `posts:write:self`, `apps:store:items:write`
 - **Hooks** — `useBuzzWorkflow`, `useBuzzPurchase`, `useBuzzBalance`, `useImageUpload`, `useGenerationResources`, `useResourcePicker`, `useSharedStorage`, `useAppStorage`, `useGatedImages`, `useCivitaiNavigate`, `useRequestConsent`, `useRequestSignIn`, `useBlockContext`, `useBlockToken`, `useBlockResize`, `useBlockAnalytics`
 
 ### App Requests
 
 **[github.com/ZacxDev/civitai-app-requests](https://github.com/ZacxDev/civitai-app-requests)** — page app.
 
-**Read it for** a cross-user post / vote / edit / withdraw board on
-`useSharedStorage`, with no Buzz or generation scope at all.
+**Read it for** a cross-user post / vote / edit / withdraw board on a
+shared document-store collection, with no Buzz or generation scope at all.
 
-- **Scopes** — `apps:storage:shared:read`, `apps:storage:shared:write`, `user:read:self`
+- **Scopes** — `apps:storage`, `apps:storage:publish`, `user:read:self`
 - **Hooks** — `useSharedStorage`, `useBlockBreakpoint`, `useRequestSignIn`, `useBlockContext`, `useBlockResize`, `useBlockAnalytics`
 
 ### Generate from Model
