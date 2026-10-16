@@ -141,10 +141,13 @@ if (button) {
 
 The platform has **no reaction scope, no hook and no bridge message** today. A
 block cannot add or remove a real Civitai reaction on an image, a post or
-anything else, and it cannot read which reactions the viewer already has. Tips
-(`social:tip:self`) and collection follows (`collections:write:self`) are the
-social actions an app can take. They are listed in the
-[Scopes reference](../reference/scopes).
+anything else, and it cannot read which reactions the viewer already has. The
+social actions an app can take are tips (the `social:tip:self` scope, in the
+[Scopes reference](../reference/scopes)) and collection follows. A follow needs
+no scope: `<FollowButton>` from `@civitai/blocks-react/ui`, or the
+[`useCollectionFollow`](../reference/hooks/viewer-and-navigation#hook-useCollectionFollow)
+hook beneath it, asks the host to follow, and the host confirms each follow with
+the viewer.
 
 Support for real reactions is **planned and under discussion** in
 [civitai-app-starters#669](https://github.com/civitai/civitai-app-starters/issues/669).
