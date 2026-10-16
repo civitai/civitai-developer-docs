@@ -292,10 +292,17 @@ it. Treat them as references to read, not as an API contract. The
 [reference pages](./reference/) are the contract, and the server is the
 enforcement boundary.
 
-Verified 2026-09-11: all eight are public, not forks, and not archived. Their
+Verified 2026-10-16: all eight are public, not forks, and not archived. Their
 scopes are checked daily like the starters examples'.
-**Hook lists verified by hand on 2026-09-11.** Read them as a snapshot of that
-day; the repository is always the authority.
+**Hook lists verified by hand on 2026-10-16**, from each repository's default
+branch. Read them as a snapshot of that day; the repository is always the
+authority.
+
+Seven of the eight now import **no** hooks from `@civitai/blocks-react`: they
+call the platform through `@civitai/sdk` and keep their own same-named hooks
+(`useBuzzWorkflow`, `useBlockContext`, …) in a file of their own, named on each
+entry. Those entries list an **SDK surface** — what the app imports from the
+published packages — instead of a hook list.
 :::
 
 ### Gen Matrix
@@ -306,7 +313,7 @@ day; the repository is always the authority.
 behind one cost estimate and confirm step, with retry scoped to the failed cells.
 
 - **Scopes** — `ai:write:budgeted`, `apps:storage:read`, `apps:storage:write`, `apps:storage:shared:read`, `apps:storage:shared:write`
-- **Hooks** — `useBuzzWorkflow`, `useAppWorkflows`, `usePublishGenerationOutputs`, `useBuzzPurchase`, `useResourcePicker`, `useSharedStorage`, `useAppStorage`, `useGatedImages`, `useDomainMaturity`, `useRequestConsent`, `useRequestSignIn`, `useBlockContext`, `useBlockToken`, `useBlockResize`, `useBlockAnalytics`
+- **SDK surface** — `createHost`, `initialize`, `BridgeError` (`@civitai/sdk`); `getTransport`, `sendTypedRequest` (`@civitai/blocks-react`); its hooks are its own, in `src/lib/sdk-runtime.ts`
 
 ### Sensei
 
@@ -316,18 +323,19 @@ behind one cost estimate and confirm step, with retry scoped to the failed cells
 replies drive follow-up catalog queries, with per-user conversation state.
 
 - **Scopes** — `ai:write:budgeted`, `buzz:read:self`, `apps:storage`
-- **Hooks** — `useBuzzWorkflow`, `useAppStorage`, `useResourcePicker`, `useRequestConsent`, `useRequestSignIn`, `useBlockContext`, `useBlockToken`, `useBlockResize`, `useBlockAnalytics`
+- **SDK surface** — `createHost`, `initialize` (`@civitai/sdk`); `getTransport`, `sendTypedRequest`, `WorkflowEstimateError`, `WorkflowSubmitError` (`@civitai/blocks-react`); its hooks are its own, in `src/lib/sdk-runtime.ts`
 
 ### Model Benchmarking
 
 **[github.com/ZacxDev/civitai-app-model-benchmarking](https://github.com/ZacxDev/civitai-app-model-benchmarking)** — page app.
 
 **Read it for** a priced generation run whose outputs are published into a
-shared store every viewer reads and writes: the broadest single tour of the
-hook surface.
+shared store every viewer reads and writes: the one app here that still runs
+generation, publishing and gated images through `@civitai/blocks-react` hooks,
+next to `@civitai/sdk` for the rest.
 
 - **Scopes** — `ai:write:budgeted`, `buzz:read:self`, `apps:storage`, `apps:storage:publish`
-- **Hooks** — `useBuzzWorkflow`, `usePublishGenerationOutputs`, `useSharedStorage`, `useAppStorage`, `useGenerationResources`, `useResourcePicker`, `useBuzzBalance`, `useGatedImages`, `useRequestConsent`, `useRequestSignIn`, `useBlockContext`, `useBlockToken`, `useBlockResize`, `useBlockAnalytics`
+- **Hooks** — `useBuzzWorkflow`, `usePublishGenerationOutputs`, `useGenerationResources`, `useResourcePicker`, `useGatedImages`, `useCivitaiNavigate`, `useBlockAnalytics`
 
 ### Playable Collections
 
@@ -338,7 +346,7 @@ hook surface.
 behind one swappable `ApiClient` the dev harness fakes.
 
 - **Scopes** — `collections:read:self`, `collections:read:private`, `social:tip:self`, `buzz:read:self`, `apps:storage:read`, `apps:storage:write`, `apps:storage:shared:read`, `apps:storage:shared:write`, `apps:storage`
-- **Hooks** — `useSharedStorage`, `useBuzzBalance`, `useDomainMaturity`, `useHostOrigin`, `useRequestConsent`, `useRequestSignIn`, `useBlockContext`, `useBlockToken`, `useBlockResize`
+- **SDK surface** — `createHost`, `initialize` (`@civitai/sdk`); `getTransport`, `sendTypedRequest` (`@civitai/blocks-react`); its hooks are its own, in `src/lib/sdk-runtime.ts`
 
 ### Custom Generators
 
@@ -349,7 +357,7 @@ block, with a spend path that can top the viewer up mid-flow, and img2img via
 `useImageUpload`.
 
 - **Scopes** — `ai:write:budgeted`, `buzz:read:self`, `apps:storage:read`, `apps:storage:write`, `apps:storage:shared:read`, `apps:storage:shared:write`, `posts:write:self`, `apps:store:items:write`
-- **Hooks** — `useBuzzWorkflow`, `useBuzzPurchase`, `useBuzzBalance`, `useImageUpload`, `useGenerationResources`, `useResourcePicker`, `useSharedStorage`, `useAppStorage`, `useGatedImages`, `useCivitaiNavigate`, `useRequestConsent`, `useRequestSignIn`, `useBlockContext`, `useBlockToken`, `useBlockResize`, `useBlockAnalytics`
+- **SDK surface** — `initialize`, `getTransport`, `ApiError` (`@civitai/sdk`); no `@civitai/blocks-react` dependency; its hooks, `useImageUpload` among them, are its own, in `src/platform/hooks.ts`
 
 ### App Requests
 
@@ -359,7 +367,7 @@ block, with a spend path that can top the viewer up mid-flow, and img2img via
 shared document-store collection, with no Buzz or generation scope at all.
 
 - **Scopes** — `apps:storage`, `apps:storage:publish`, `user:read:self`
-- **Hooks** — `useSharedStorage`, `useBlockBreakpoint`, `useRequestSignIn`, `useBlockContext`, `useBlockResize`, `useBlockAnalytics`
+- **SDK surface** — `initialize`, `StorageError` (`@civitai/sdk`, its document store); no `@civitai/blocks-react` dependency; its hooks are its own, in `src/platform/hooks.ts`
 
 ### Generate from Model
 
@@ -371,7 +379,7 @@ reads publisher `settings` through `useBlockSettings`. Slot apps are deferred
 for third-party builders, as above.
 
 - **Scopes** — `models:read:self`, `ai:write:budgeted`, `buzz:read:self`
-- **Hooks** — `useBlockSettings`, `useCheckpointPicker`, `useBuzzWorkflow`, `useBuzzPurchase`, `useBuzzBalance`, `useBlockContext`, `useBlockResize`
+- **SDK surface** — `initialize`, `getTransport`, `ApiError` (`@civitai/sdk`); no `@civitai/blocks-react` dependency; its hooks, `useBlockSettings` among them, are its own, in `src/platform/hooks.ts`
 
 ### Panorama 360
 

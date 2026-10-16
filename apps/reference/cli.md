@@ -131,7 +131,7 @@ documented here; run `civitai completion --help` for it.
 <ReferenceIndex kind="cli">
 <!-- BEGIN GENERATED: cli-index — markdown fallback for the .md/LLM channel. Do not edit by hand; run `npm run gen:appblocks:md`. -->
 
-63 commands across 5 pages. Each link goes to the page that documents the command; fetch that page's `.md` for the full entry.
+64 commands across 5 pages. Each link goes to the page that documents the command; fetch that page's `.md` for the full entry.
 
 **[civitai app — authoring commands](./cli/app)** — Scaffold, validate, submit and operate an App: every `civitai app` command except the listing group.
 
@@ -149,6 +149,7 @@ documented here; run `civitai completion --help` for it.
 - [`civitai app dev-tunnel`](./cli/app#cli-app-dev-tunnel) — Preview your LOCAL dev server inside the real Civitai host via a hardened tunnel
 - [`civitai app pull`](./cli/app#cli-app-pull) — Clone or sync your app's repository from Civitai
 - [`civitai app doctor`](./cli/app#cli-app-doctor) — Diagnose what is incomplete or blocked on your App store listings
+- [`civitai app elements`](./cli/app#cli-app-elements) — Look up a \<civitai-*> element's attributes, events and slots
 - [`civitai app feedback`](./cli/app#cli-app-feedback) — Your app's inbox: read what YOUR APP'S USERS wrote (to report a platform problem: civitai feedback)
 - [`civitai app feedback flag`](./cli/app#cli-app-feedback-flag) — Flag a feedback row as abusive, for moderator review
 - [`civitai app feedback set-status`](./cli/app#cli-app-feedback-set-status) — Mark a feedback row acknowledged, resolved or wont_fix

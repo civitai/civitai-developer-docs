@@ -4,8 +4,8 @@ description: Civitai's design system — tokens, framework-agnostic CSS, custom 
 sources:
   - civitai-app-starters:packages/civitai-components/MARKUP.md
   - npm:@civitai/theme@0.5.2
-  - npm:@civitai/components@0.9.2
-  - npm:@civitai/components-react@0.9.1
+  - npm:@civitai/components@0.10.1
+  - npm:@civitai/components-react@0.9.2
 ---
 
 # Theming & the design system
@@ -52,7 +52,7 @@ browser). Neither defines every element — see
 
 ::: tip Pin each package's version separately in CDN URLs
 The packages version **independently** — this page uses `@civitai/theme@0.5.2`,
-`@civitai/components@0.9.2` and `@civitai/components-react@0.9.1` — so copy each
+`@civitai/components@0.10.1` and `@civitai/components-react@0.9.2` — so copy each
 URL as written. A version a package never published 404s, which shows only as
 an unstyled page. An **older** pin returns a healthy `200` with old CSS: a stale
 `@civitai/components` leaves newer components bare (`tooltip`, `toast`,
@@ -86,7 +86,7 @@ author to the contract. The `<civitai-*>` elements wire these for you.
      Pin each package at its own version — they do not share one.
      Swap unpkg.com for cdn.jsdelivr.net/npm if you prefer jsDelivr. -->
 <link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.5.2/styles.css" />
-<link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.9.2/styles.css" />
+<link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.10.1/styles.css" />
 
 <!-- 2. Write markup with the data-attributes — styled identically to React. -->
 <button data-civitai-ui="button" data-variant="filled" data-size="md">Generate</button>
@@ -149,7 +149,7 @@ below, the page around the components is unthemed (e.g. white in dark mode).
     />
     <link
       rel="stylesheet"
-      href="https://unpkg.com/@civitai/components@0.9.2/styles.css"
+      href="https://unpkg.com/@civitai/components@0.10.1/styles.css"
     />
 
     <style>
@@ -400,7 +400,7 @@ styles win again.
 
   <!-- 2. Now load the civitai CSS. Its @layer civitai.components slots ABOVE app. -->
   <link rel="stylesheet" href="https://unpkg.com/@civitai/theme@0.5.2/styles.css" />
-  <link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.9.2/styles.css" />
+  <link rel="stylesheet" href="https://unpkg.com/@civitai/components@0.10.1/styles.css" />
 
   <!-- 3. Wrap your existing/global CSS in the lower `app` layer. -->
   <style>
@@ -525,7 +525,7 @@ the `dist/` one. They are byte-identical. **Vendor the package-root
 ```
 
 Pin the packages at the version you vendored (`@civitai/theme@0.5.2`,
-`@civitai/components@0.9.2`) and re-copy both files when you bump. With a
+`@civitai/components@0.10.1`) and re-copy both files when you bump. With a
 bundler, `import '@civitai/theme/styles.css'` and
 `import '@civitai/components/styles.css'` resolve through `exports` instead.
 

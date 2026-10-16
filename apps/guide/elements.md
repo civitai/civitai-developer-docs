@@ -2,11 +2,11 @@
 title: Using the civitai-* elements in a block
 description: Using the <civitai-*> custom elements in a block — which import defines which elements, the SDK-backed elements, theming from the host, <civitai-chat>, and why <civitai-reaction> and <civitai-tag> record nothing.
 sources:
-  - npm:@civitai/components@0.9.2/custom-elements.json
-  - npm:@civitai/components@0.9.2/dist/elements/civitai-reaction.js
-  - npm:@civitai/components@0.9.2/dist/elements/civitai-tag.js
-  - npm:@civitai/components@0.9.2/dist/elements/register.js
-  - npm:@civitai/components@0.9.2/dist/elements/register-site.js
+  - npm:@civitai/components@0.10.1/custom-elements.json
+  - npm:@civitai/components@0.10.1/dist/elements/civitai-reaction.js
+  - npm:@civitai/components@0.10.1/dist/elements/civitai-tag.js
+  - npm:@civitai/components@0.10.1/dist/elements/register.js
+  - npm:@civitai/components@0.10.1/dist/elements/register-site.js
   - npm:@civitai/theme@0.5.2
   - npm:@civitai/components-chat#README
 ---
@@ -30,7 +30,7 @@ tag is not an error**: the browser renders it as an unknown inline element — n
 styles, no behaviour, nothing in the console. When an element "renders as plain
 text", check this first.
 
-`@civitai/components@0.9.2` declares **47** elements in its
+`@civitai/components@0.10.1` declares **47** elements in its
 `custom-elements.json`. No single import defines all of them:
 
 | Import (bundler) | CDN bundle (no build step) | Defines |
