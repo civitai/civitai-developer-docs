@@ -207,6 +207,7 @@ const sidebar: DefaultTheme.Sidebar = {
     {
       text: 'Audio',
       items: [
+        { text: 'Audio moderation', link: '/orchestration/recipes/audio-moderation' },
         { text: 'Transcription', link: '/orchestration/recipes/transcription' },
         { text: 'Text-to-speech', link: '/orchestration/recipes/text-to-speech' },
         { text: 'Multi-speaker dialogue', link: '/orchestration/recipes/multi-speaker-dialogue' },

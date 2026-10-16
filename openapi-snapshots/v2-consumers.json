@@ -663,6 +663,319 @@
         }
       }
     },
+    "/v2/consumer/funds": {
+      "post": {
+        "tags": [
+          "Funds"
+        ],
+        "summary": "The id is the only way to reach the fund, so keep it secret, in your app's state.",
+        "operationId": "CreateFund",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FundTemplate"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FundTemplate"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/FundTemplate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/consumer/funds/{fundId}": {
+      "patch": {
+        "tags": [
+          "Funds"
+        ],
+        "summary": "Sets the fund to expire `ttl` from now, so a long-running session can keep rolling it over.",
+        "operationId": "UpdateFund",
+        "parameters": [
+          {
+            "name": "fundId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonPatchDocument"
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Funds"
+        ],
+        "operationId": "GetFund",
+        "parameters": [
+          {
+            "name": "fundId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Funds"
+        ],
+        "summary": "Whatever is left goes to Civitai, not back to the depositors. A fund is also deleted on its own at `expiresAt`.",
+        "operationId": "DeleteFund",
+        "parameters": [
+          {
+            "name": "fundId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/consumer/funds/{fundId}/deposits": {
+      "post": {
+        "tags": [
+          "Funds"
+        ],
+        "operationId": "DepositIntoFund",
+        "parameters": [
+          {
+            "name": "fundId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FundDeposit"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FundDeposit"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/FundDeposit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Payment Required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/consumer/recipes/aceStepAudio": {
       "post": {
         "tags": [
@@ -972,6 +1285,329 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AudioCaptioningOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/consumer/recipes/audioClassification": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "operationId": "InvokeAudioClassificationStepTemplate",
+        "parameters": [
+          {
+            "name": "experimental",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "allowMatureContent",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "whatif",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ephemeral",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "tier",
+            "in": "query",
+            "description": "How a workflow is paid for.",
+            "schema": {
+              "$ref": "#/components/schemas/WorkflowTier"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioClassificationInput"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioClassificationInput"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioClassificationInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioClassificationOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/consumer/recipes/audioModeration": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Transcribe audio and classify its lyrics using the music moderation policy.",
+        "operationId": "InvokeAudioModerationStepTemplate",
+        "parameters": [
+          {
+            "name": "experimental",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "allowMatureContent",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "whatif",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ephemeral",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "tier",
+            "in": "query",
+            "description": "How a workflow is paid for.",
+            "schema": {
+              "$ref": "#/components/schemas/WorkflowTier"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioModerationInput"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioModerationInput"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioModerationInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioModerationOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/consumer/recipes/audioTextModeration": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Classify transcribed lyrics for sexualized minors.",
+        "operationId": "InvokeAudioTextModerationStepTemplate",
+        "parameters": [
+          {
+            "name": "experimental",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "allowMatureContent",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "whatif",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ephemeral",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "tier",
+            "in": "query",
+            "description": "How a workflow is paid for.",
+            "schema": {
+              "$ref": "#/components/schemas/WorkflowTier"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioTextModerationInput"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioTextModerationInput"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioTextModerationInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioTextModerationOutput"
                 }
               }
             }
@@ -2830,6 +3466,115 @@
         }
       }
     },
+    "/v2/consumer/recipes/liveTextToSpeech": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Live text to speech",
+        "description": "Append text to <c>output.inputUrl</c> and play <c>output.audioUrl</c>; billed per character once the session ends.",
+        "operationId": "InvokeLiveTextToSpeechStepTemplate",
+        "parameters": [
+          {
+            "name": "experimental",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "allowMatureContent",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "whatif",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ephemeral",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "tier",
+            "in": "query",
+            "description": "How a workflow is paid for.",
+            "schema": {
+              "$ref": "#/components/schemas/WorkflowTier"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LiveTextToSpeechInput"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LiveTextToSpeechInput"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/LiveTextToSpeechInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveTextToSpeechOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/consumer/recipes/liveTranscription": {
       "post": {
         "tags": [
@@ -4552,6 +5297,115 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PromptEnhancementOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/consumer/recipes/promptModeration": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "PromptModeration",
+        "description": "Evaluate CR, Young and Sexual together with Civitai Imajev's fixed BF16 model and packaged policies.",
+        "operationId": "InvokePromptModerationStepTemplate",
+        "parameters": [
+          {
+            "name": "experimental",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "allowMatureContent",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "whatif",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ephemeral",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "tier",
+            "in": "query",
+            "description": "How a workflow is paid for.",
+            "schema": {
+              "$ref": "#/components/schemas/WorkflowTier"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromptModerationInput"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromptModerationInput"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromptModerationInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptModerationOutput"
                 }
               }
             }
@@ -10584,8 +11438,10 @@
       },
       "AudioCaptioningInput": {
         "required": [
+          "includeCaption",
           "maxNewTokens",
           "mediaUrl",
+          "prepareForModeration",
           "temperature"
         ],
         "type": "object",
@@ -10604,6 +11460,12 @@
             "type": "integer",
             "description": "Maximum number of tokens to generate for each ACE-Step request.",
             "format": "int32"
+          },
+          "includeCaption": {
+            "type": "boolean"
+          },
+          "prepareForModeration": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -10619,6 +11481,12 @@
             "additionalProperties": {
               "$ref": "#/components/schemas/AudioCaptioningOutputItem"
             }
+          },
+          "hasAudio": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         },
         "additionalProperties": false
@@ -10669,6 +11537,12 @@
             ]
           },
           "language": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "finishReason": {
             "type": [
               "null",
               "string"
@@ -10734,6 +11608,147 @@
         ],
         "description": "Audio Captioning"
       },
+      "AudioClassificationInput": {
+        "required": [
+          "mediaUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "mediaUrl": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioClassificationOutput": {
+        "required": [
+          "classificationMilliseconds",
+          "hasAudio",
+          "model",
+          "segments"
+        ],
+        "type": "object",
+        "properties": {
+          "hasAudio": {
+            "type": "boolean"
+          },
+          "model": {
+            "type": "string"
+          },
+          "segments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AudioClassificationSegment"
+            }
+          },
+          "classificationMilliseconds": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioClassificationSegment": {
+        "required": [
+          "blobKey",
+          "durationSeconds",
+          "kind",
+          "musicScore",
+          "name",
+          "singingScore",
+          "speechFraction",
+          "speechScore"
+        ],
+        "type": "object",
+        "properties": {
+          "blobKey": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "durationSeconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "speechScore": {
+            "type": "number",
+            "format": "double"
+          },
+          "musicScore": {
+            "type": "number",
+            "format": "double"
+          },
+          "singingScore": {
+            "type": "number",
+            "format": "double"
+          },
+          "speechFraction": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioClassificationStep": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStep"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/AudioClassificationInput"
+              },
+              "output": {
+                "$ref": "#/components/schemas/AudioClassificationOutput"
+              },
+              "$type": {
+                "enum": [
+                  "audioClassification"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "AudioClassificationStepTemplate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStepTemplate"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/AudioClassificationInput"
+              },
+              "$type": {
+                "enum": [
+                  "audioClassification"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
       "AudioComposeMediaOutput": {
         "allOf": [
           {
@@ -10760,6 +11775,303 @@
           }
         ],
         "description": "An audio mixdown produced when the composition has no video."
+      },
+      "AudioModerationInput": {
+        "required": [
+          "mediaUrl",
+          "transcriber"
+        ],
+        "type": "object",
+        "properties": {
+          "mediaUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "transcriber": {
+            "enum": [
+              "auto",
+              "aceStep",
+              "asr"
+            ],
+            "type": "string"
+          },
+          "language": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioModerationOutput": {
+        "required": [
+          "blocked",
+          "lyrics",
+          "model",
+          "policyHash",
+          "score",
+          "sexualizedMinors"
+        ],
+        "type": "object",
+        "properties": {
+          "lyrics": {
+            "type": "string"
+          },
+          "sexualizedMinors": {
+            "type": "boolean"
+          },
+          "score": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "model": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "policyHash": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasAudio": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "skippedReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "blocked": {
+            "type": "boolean",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioModerationStep": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStep"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/AudioModerationInput"
+              },
+              "output": {
+                "$ref": "#/components/schemas/AudioModerationOutput"
+              },
+              "$type": {
+                "enum": [
+                  "audioModeration"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Transcribe audio and classify its lyrics using the music moderation policy."
+      },
+      "AudioModerationStepTemplate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStepTemplate"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/AudioModerationInput"
+              },
+              "$type": {
+                "enum": [
+                  "audioModeration"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Transcribe audio and classify its lyrics using the music moderation policy."
+      },
+      "AudioModerationTranscript": {
+        "type": "object",
+        "properties": {
+          "audioCaptioning": {
+            "$ref": "#/components/schemas/AudioCaptioningOutput"
+          },
+          "transcription": {
+            "$ref": "#/components/schemas/TranscriptionOutput"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioTextModerationInput": {
+        "type": "object",
+        "properties": {
+          "lyrics": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "audioCaptioning": {
+            "$ref": "#/components/schemas/AudioCaptioningOutput"
+          },
+          "transcription": {
+            "$ref": "#/components/schemas/TranscriptionOutput"
+          },
+          "segments": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AudioModerationTranscript"
+            }
+          },
+          "hasAudio": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioTextModerationOutput": {
+        "required": [
+          "blocked",
+          "lyrics",
+          "model",
+          "policyHash",
+          "score",
+          "sexualizedMinors"
+        ],
+        "type": "object",
+        "properties": {
+          "lyrics": {
+            "type": "string"
+          },
+          "sexualizedMinors": {
+            "type": "boolean"
+          },
+          "score": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "model": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "policyHash": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasAudio": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "skippedReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "blocked": {
+            "type": "boolean",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioTextModerationStep": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStep"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/AudioTextModerationInput"
+              },
+              "output": {
+                "$ref": "#/components/schemas/AudioTextModerationOutput"
+              },
+              "$type": {
+                "enum": [
+                  "audioTextModeration"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Classify transcribed lyrics for sexualized minors."
+      },
+      "AudioTextModerationStepTemplate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStepTemplate"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/AudioTextModerationInput"
+              },
+              "$type": {
+                "enum": [
+                  "audioTextModeration"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Classify transcribed lyrics for sexualized minors."
       },
       "AvailableResourceAvailability": {
         "allOf": [
@@ -10983,7 +12295,15 @@
               "null",
               "string"
             ],
-            "description": "Get the storage tier holding this blob, when one was declared. Null resolves to the private\nmanaged tier, falling back to the classic one for blobs written before producers moved off it."
+            "description": "Deprecated: use Civitai.Orchestration.Grains.Workflows.Steps.Common.Blob.PublicUrl to tell a public blob. Get the storage tier holding this blob, when\none was declared. Null resolves to the private managed tier, falling back to the classic one for blobs\nwritten before producers moved off it."
+          },
+          "publicUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The durable, unsigned url of a blob requested public, which a CDN can cache. Set as soon as the blob is\nrequested, so it may 404 until the workflow that produces it completes; Civitai.Orchestration.Grains.Workflows.Steps.Common.Blob.Url waits instead.",
+            "format": "uri"
           }
         },
         "additionalProperties": false,
@@ -18360,20 +19680,35 @@
           {
             "required": [
               "engine",
-              "images",
               "operation"
             ],
             "type": "object",
             "properties": {
               "images": {
                 "maxItems": 9,
-                "minItems": 1,
                 "type": "array",
                 "items": {
                   "type": "string",
                   "description": "Either A URL, A DataURL or a Base64 string",
                   "format": "source-image"
                 }
+              },
+              "referenceAudios": {
+                "maxItems": 3,
+                "type": "array",
+                "items": {
+                  "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
+                  "type": "string"
+                },
+                "description": "Up to three voice reference AIRs or AIR-compatible URLs, each 2–15 seconds. Upload other sources to orchestrator blob storage first. Refer to them as <Audio 1>, etc. in the prompt."
+              },
+              "firstFrame": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Optional first frame to anchor the video while using image or voice references.",
+                "format": "source-image"
               },
               "operation": {
                 "enum": [
@@ -18391,7 +19726,7 @@
             "additionalProperties": false
           }
         ],
-        "description": "Reference-image-to-video using the REF2VA weights."
+        "description": "Reference-image/audio-to-video using the REF2VA weights."
       },
       "ComfyMiniMaxH3VideoGenInput": {
         "allOf": [
@@ -19446,6 +20781,244 @@
           }
         ]
       },
+      "ComfyQwen21TurboCreateImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyQwen21TurboImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "model",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "width": {
+                "maximum": 2048,
+                "minimum": 64,
+                "type": "integer",
+                "format": "int32",
+                "default": 1024
+              },
+              "height": {
+                "maximum": 2048,
+                "minimum": 64,
+                "type": "integer",
+                "format": "int32",
+                "default": 1024
+              },
+              "operation": {
+                "enum": [
+                  "createImage"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "2.1-turbo"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "qwen"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "ComfyQwen21TurboEditImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyQwen21TurboImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "height",
+              "images",
+              "model",
+              "operation",
+              "width"
+            ],
+            "type": "object",
+            "properties": {
+              "images": {
+                "maxItems": 10,
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
+                }
+              },
+              "resolution": {
+                "maximum": 2048,
+                "minimum": 64,
+                "type": "integer",
+                "description": "Reference pixel budget as resolution squared; preserves each image's aspect ratio.",
+                "format": "int32",
+                "default": 1024
+              },
+              "width": {
+                "type": "integer",
+                "format": "int32",
+                "readOnly": true
+              },
+              "height": {
+                "type": "integer",
+                "format": "int32",
+                "readOnly": true
+              },
+              "operation": {
+                "enum": [
+                  "editImage"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "2.1-turbo"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "qwen"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "ComfyQwen21TurboImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyQwenImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "model",
+              "operation",
+              "prompt"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "type": "string"
+              },
+              "prompt": {
+                "maxLength": 10000,
+                "minLength": 0,
+                "type": "string"
+              },
+              "negativePrompt": {
+                "maxLength": 10000,
+                "minLength": 0,
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "sampler": {
+                "$ref": "#/components/schemas/ComfySampler"
+              },
+              "steps": {
+                "maximum": 8,
+                "minimum": 8,
+                "type": "integer",
+                "description": "Turbo uses the checkpoint's fixed eight-step sigma schedule.",
+                "format": "int32",
+                "default": 8
+              },
+              "cfgScale": {
+                "maximum": 30,
+                "minimum": 0,
+                "type": "number",
+                "format": "double",
+                "default": 1
+              },
+              "seed": {
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int64"
+              },
+              "quantity": {
+                "maximum": 12,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 1
+              },
+              "loras": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number",
+                  "format": "double"
+                }
+              },
+              "diffusionModel": {
+                "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "model": {
+                "enum": [
+                  "2.1-turbo"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "qwen"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "operation",
+              "mapping": {
+                "createImage": "#/components/schemas/ComfyQwen21TurboCreateImageGenInput",
+                "editImage": "#/components/schemas/ComfyQwen21TurboEditImageGenInput"
+              }
+            }
+          }
+        ]
+      },
       "ComfyQwenImageGenInput": {
         "allOf": [
           {
@@ -19484,7 +21057,8 @@
               "propertyName": "model",
               "mapping": {
                 "20b": "#/components/schemas/ComfyQwen20bImageGenInput",
-                "2.1": "#/components/schemas/ComfyQwen21ImageGenInput"
+                "2.1": "#/components/schemas/ComfyQwen21ImageGenInput",
+                "2.1-turbo": "#/components/schemas/ComfyQwen21TurboImageGenInput"
               }
             }
           }
@@ -19835,7 +21409,6 @@
             "required": [
               "ecosystem",
               "engine",
-              "model",
               "operation",
               "prompt"
             ],
@@ -19893,7 +21466,8 @@
               },
               "model": {
                 "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
-                "type": "string"
+                "type": "string",
+                "default": "urn:air:sdxl:checkpoint:civitai:101055@128078+92696"
               },
               "vaeModel": {
                 "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
@@ -23187,8 +24761,7 @@
                 "type": "string"
               },
               "prompt": {
-                "maxLength": 1000,
-                "minLength": 0,
+                "minLength": 1,
                 "type": "string"
               },
               "width": {
@@ -23213,8 +24786,6 @@
                 "format": "int64"
               },
               "quantity": {
-                "maximum": 4,
-                "minimum": 1,
                 "type": "integer",
                 "format": "int32",
                 "default": 1
@@ -24893,6 +26464,118 @@
             ],
             "description": "When this window's usage resets. Null until the first free request in it.",
             "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "FundDeposit": {
+        "required": [
+          "amount"
+        ],
+        "type": "object",
+        "properties": {
+          "amount": {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32"
+          },
+          "currencies": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/BuzzClientAccount"
+            },
+            "description": "Which of the caller's currencies to draw from, in order. Defaults to all."
+          }
+        },
+        "additionalProperties": false
+      },
+      "FundResponse": {
+        "required": [
+          "allowMatureContent",
+          "balance",
+          "balances",
+          "createdAt",
+          "expiresAt",
+          "id"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "allowMatureContent": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "balance": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "balances": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "description": "Balance per currency (`yellow`, `blue`, `green`, `fakeRed`)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "FundTemplate": {
+        "type": "object",
+        "properties": {
+          "ttl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "How long until the fund is deleted on its own. Defaults to 24 hours, at most 7 days.",
+            "format": "date-span"
+          },
+          "allowMatureContent": {
+            "type": "boolean",
+            "description": "Whether workflows billed to this fund may return mature content. Deposits are then limited to Yellow, and Blue from members.",
+            "default": false
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Shown on each deposit in the depositor's Buzz history, e.g. \"Game pot deposit\"."
+          }
+        },
+        "additionalProperties": false
+      },
+      "FundUpdate": {
+        "required": [
+          "ttl"
+        ],
+        "type": "object",
+        "properties": {
+          "ttl": {
+            "type": "string",
+            "description": "How long from now until the fund is deleted on its own, at most 7 days.",
+            "format": "date-span"
           }
         },
         "additionalProperties": false
@@ -28531,6 +30214,13 @@
               "null",
               "boolean"
             ]
+          },
+          "blockedReason": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Why the image would be refused as input to other workflows; null when it passes."
           }
         },
         "additionalProperties": false
@@ -30312,6 +32002,271 @@
           }
         ]
       },
+      "LiveQwen3CustomVoiceTTSInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/LiveQwen3TextToSpeechInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "operation",
+              "speaker"
+            ],
+            "type": "object",
+            "properties": {
+              "speaker": {
+                "enum": [
+                  "aiden",
+                  "dylan",
+                  "eric",
+                  "ono_anna",
+                  "ryan",
+                  "serena",
+                  "sohee",
+                  "uncle_fu",
+                  "vivian"
+                ],
+                "type": "string",
+                "description": "Built-in speaker name."
+              },
+              "instruct": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Optional style instruction (e.g., \"speak slowly and clearly\")."
+              },
+              "operation": {
+                "enum": [
+                  "customVoice"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "qwen3"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "vllm-omni"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "LiveQwen3TextToSpeechInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/LiveVllmOmniTextToSpeechInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "type": "string"
+              },
+              "maxNewTokens": {
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "description": "Token cap per sentence.",
+                "format": "int32"
+              },
+              "ecosystem": {
+                "enum": [
+                  "qwen3"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "vllm-omni"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "operation",
+              "mapping": {
+                "customVoice": "#/components/schemas/LiveQwen3CustomVoiceTTSInput"
+              }
+            }
+          }
+        ]
+      },
+      "LiveTextToSpeechInput": {
+        "required": [
+          "engine"
+        ],
+        "type": "object",
+        "properties": {
+          "engine": {
+            "type": "string"
+          },
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Spoken before any appended text."
+          },
+          "language": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Target language (e.g., \"English\", \"Chinese\"). Defaults to \"Auto\"."
+          },
+          "format": {
+            "enum": [
+              "pcm",
+              "ogg"
+            ],
+            "type": "string",
+            "description": "`pcm` streams raw s16le 24 kHz mono for the lowest latency; `ogg` streams Opus.",
+            "default": "pcm"
+          },
+          "maxCharacters": {
+            "maximum": 50000,
+            "minimum": 1,
+            "type": "integer",
+            "description": "The session ends once this many characters have been spoken. The upfront balance check covers this much text.",
+            "format": "int32",
+            "default": 5000
+          },
+          "idleTimeoutSeconds": {
+            "maximum": 600,
+            "minimum": 2,
+            "type": "integer",
+            "description": "The input is treated as closed when no text arrives for this many seconds.",
+            "format": "int32",
+            "default": 30
+          }
+        },
+        "additionalProperties": false,
+        "description": "Mirrors `textToSpeech` inputs, but only for voices proven to stream with low first-audio latency.",
+        "discriminator": {
+          "propertyName": "engine",
+          "mapping": {
+            "vllm-omni": "#/components/schemas/LiveVllmOmniTextToSpeechInput"
+          }
+        }
+      },
+      "LiveTextToSpeechOutput": {
+        "required": [
+          "audioSeconds",
+          "audioUrl",
+          "characters",
+          "inputUrl",
+          "inputUrlExpiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "inputUrl": {
+            "type": "string",
+            "description": "POST UTF-8 text here in chunks numbered `?seq=0,1,…`, with `final=true` on the last.\nText is spoken a sentence at a time; the final chunk flushes whatever is left.",
+            "format": "uri"
+          },
+          "inputUrlExpiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "audioUrl": {
+            "type": "string",
+            "description": "One continuous audio stream for the whole session, in the requested format.",
+            "format": "uri"
+          },
+          "characters": {
+            "type": "integer",
+            "description": "Characters spoken so far; the session is billed on this.",
+            "format": "int32"
+          },
+          "audioSeconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "socketUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "One WebSocket in place of `inputUrl` and `audioUrl`, avoiding a request per text chunk.",
+            "format": "uri"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LiveTextToSpeechStep": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStep"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/LiveTextToSpeechInput"
+              },
+              "output": {
+                "$ref": "#/components/schemas/LiveTextToSpeechOutput"
+              },
+              "$type": {
+                "enum": [
+                  "liveTextToSpeech"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Live text to speech"
+      },
+      "LiveTextToSpeechStepTemplate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStepTemplate"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/LiveTextToSpeechInput"
+              },
+              "$type": {
+                "enum": [
+                  "liveTextToSpeech"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Live text to speech"
+      },
       "LiveTranscriptionInput": {
         "type": "object",
         "properties": {
@@ -30344,6 +32299,11 @@
             "description": "The input is treated as closed when no audio arrives for this many seconds, so a client that\ndisappears does not hold the session open.",
             "format": "int32",
             "default": 10
+          },
+          "turnDetection": {
+            "type": "boolean",
+            "description": "Sends a `turn` event shortly after each pause in speech with the probability that the\nspeaker has finished, so a voice agent can answer sooner than a fixed silence timeout.",
+            "default": true
           }
         },
         "additionalProperties": false
@@ -30382,6 +32342,14 @@
             "type": "number",
             "description": "Seconds of audio received so far; the session is billed on this.",
             "format": "double"
+          },
+          "socketUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "One WebSocket in place of `inputUrl` and `transcriptUrl`, avoiding a request per audio chunk.",
+            "format": "uri"
           }
         },
         "additionalProperties": false
@@ -30442,6 +32410,38 @@
           }
         ],
         "description": "Live transcription"
+      },
+      "LiveVllmOmniTextToSpeechInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/LiveTextToSpeechInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine"
+            ],
+            "type": "object",
+            "properties": {
+              "ecosystem": {
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "vllm-omni"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "ecosystem",
+              "mapping": {
+                "qwen3": "#/components/schemas/LiveQwen3TextToSpeechInput"
+              }
+            }
+          }
+        ]
       },
       "LoadingResourceAvailability": {
         "allOf": [
@@ -37545,6 +39545,142 @@
         },
         "additionalProperties": false
       },
+      "PromptModerationInput": {
+        "required": [
+          "positivePrompt"
+        ],
+        "type": "object",
+        "properties": {
+          "positivePrompt": {
+            "type": "string",
+            "description": "Original positive prompt, preserved without normalization. Empty is allowed."
+          },
+          "negativePrompt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Original negative prompt; omitted/null is equivalent to an empty string."
+          }
+        },
+        "additionalProperties": false
+      },
+      "PromptModerationLabelResult": {
+        "required": [
+          "abstained",
+          "flagged",
+          "label",
+          "score",
+          "threshold",
+          "unknownProbability"
+        ],
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number",
+            "description": "P(yes) + 0.5 P(unknown), after the saved temperature calibration.",
+            "format": "double"
+          },
+          "threshold": {
+            "type": "number",
+            "format": "double"
+          },
+          "flagged": {
+            "type": "boolean"
+          },
+          "unknownProbability": {
+            "type": "number",
+            "format": "double"
+          },
+          "abstained": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PromptModerationOutput": {
+        "required": [
+          "model",
+          "policyVersion",
+          "results"
+        ],
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string"
+          },
+          "policyVersion": {
+            "type": "string"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PromptModerationLabelResult"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "PromptModerationStep": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStep"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/PromptModerationInput"
+              },
+              "output": {
+                "$ref": "#/components/schemas/PromptModerationOutput"
+              },
+              "$type": {
+                "enum": [
+                  "promptModeration"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "PromptModeration"
+      },
+      "PromptModerationStepTemplate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStepTemplate"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/PromptModerationInput"
+              },
+              "$type": {
+                "enum": [
+                  "promptModeration"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "PromptModeration"
+      },
       "QueuedResourceAvailability": {
         "allOf": [
           {
@@ -39182,7 +41318,7 @@
               "null",
               "boolean"
             ],
-            "description": "False makes the resource ineligible for compensation or tips."
+            "description": "False makes the resource ineligible for compensation."
           },
           "fees": {
             "type": [
@@ -39218,6 +41354,13 @@
               "boolean"
             ],
             "description": "When false, workers keep the cluster's last copy of this resource rather than evicting it."
+          },
+          "tipsEnabled": {
+            "type": [
+              "null",
+              "boolean"
+            ],
+            "description": "Unlike payoutEnabled, a licensing fee does not disqualify the resource from tips."
           }
         },
         "additionalProperties": false
@@ -39924,7 +42067,6 @@
             "required": [
               "ecosystem",
               "engine",
-              "model",
               "operation",
               "prompt"
             ],
@@ -39982,7 +42124,8 @@
               },
               "model": {
                 "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
-                "type": "string"
+                "type": "string",
+                "default": "urn:air:sdxl:checkpoint:civitai:101055@128078+92696"
               },
               "vaeModel": {
                 "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
@@ -40261,7 +42404,7 @@
                 "default": 1024
               },
               "guidanceScale": {
-                "maximum": 10,
+                "maximum": 20,
                 "minimum": 1,
                 "type": "number",
                 "format": "double",
@@ -41867,7 +44010,15 @@
               "null",
               "string"
             ],
-            "description": "Storage tier holding the blob; null when none was declared."
+            "description": "Deprecated: use Civitai.Orchestration.Grains.Workflows.Steps.Transcode.TranscodeOutput.PublicUrl to tell a public blob. Storage tier holding the blob; null when none\nwas declared."
+          },
+          "publicUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The durable, unsigned url of a blob requested public, which a CDN can cache. May 404 until the workflow that\nproduces it completes; Civitai.Orchestration.Grains.Workflows.Steps.Transcode.TranscodeOutput.Url waits instead.",
+            "format": "uri"
           }
         },
         "additionalProperties": false
@@ -47477,6 +49628,13 @@
           },
           "tier": {
             "$ref": "#/components/schemas/WorkflowTier"
+          },
+          "fund": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         },
         "additionalProperties": false
@@ -47861,6 +50019,9 @@
             "aceStepAudio": "#/components/schemas/AceStepAudioStep",
             "ageClassification": "#/components/schemas/AgeClassificationStep",
             "audioCaptioning": "#/components/schemas/AudioCaptioningStep",
+            "audioClassification": "#/components/schemas/AudioClassificationStep",
+            "audioModeration": "#/components/schemas/AudioModerationStep",
+            "audioTextModeration": "#/components/schemas/AudioTextModerationStep",
             "blobArchive": "#/components/schemas/BlobArchiveStep",
             "chatCompletion": "#/components/schemas/ChatCompletionStep",
             "comfy": "#/components/schemas/ComfyStep",
@@ -47876,6 +50037,7 @@
             "imageToSvg": "#/components/schemas/ImageToSvgStep",
             "imageUpload": "#/components/schemas/ImageUploadStep",
             "imageUpscaler": "#/components/schemas/ImageUpscalerStep",
+            "liveTextToSpeech": "#/components/schemas/LiveTextToSpeechStep",
             "liveTranscription": "#/components/schemas/LiveTranscriptionStep",
             "mediaCaptioning": "#/components/schemas/MediaCaptioningStep",
             "mediaHash": "#/components/schemas/MediaHashStep",
@@ -47891,6 +50053,7 @@
             "preprocessImage": "#/components/schemas/PreprocessImageStep",
             "preprocessVideo": "#/components/schemas/PreprocessVideoStep",
             "promptEnhancement": "#/components/schemas/PromptEnhancementStep",
+            "promptModeration": "#/components/schemas/PromptModerationStep",
             "qwenImageBench": "#/components/schemas/QwenImageBenchStep",
             "shieldstralModeration": "#/components/schemas/ShieldstralModerationStep",
             "soniloAudioGen": "#/components/schemas/SoniloAudioGenStep",
@@ -48215,6 +50378,9 @@
             "aceStepAudio": "#/components/schemas/AceStepAudioStepTemplate",
             "ageClassification": "#/components/schemas/AgeClassificationStepTemplate",
             "audioCaptioning": "#/components/schemas/AudioCaptioningStepTemplate",
+            "audioClassification": "#/components/schemas/AudioClassificationStepTemplate",
+            "audioModeration": "#/components/schemas/AudioModerationStepTemplate",
+            "audioTextModeration": "#/components/schemas/AudioTextModerationStepTemplate",
             "blobArchive": "#/components/schemas/BlobArchiveStepTemplate",
             "chatCompletion": "#/components/schemas/ChatCompletionStepTemplate",
             "comfy": "#/components/schemas/ComfyStepTemplate",
@@ -48230,6 +50396,7 @@
             "imageToSvg": "#/components/schemas/ImageToSvgStepTemplate",
             "imageUpload": "#/components/schemas/ImageUploadStepTemplate",
             "imageUpscaler": "#/components/schemas/ImageUpscalerStepTemplate",
+            "liveTextToSpeech": "#/components/schemas/LiveTextToSpeechStepTemplate",
             "liveTranscription": "#/components/schemas/LiveTranscriptionStepTemplate",
             "mediaCaptioning": "#/components/schemas/MediaCaptioningStepTemplate",
             "mediaHash": "#/components/schemas/MediaHashStepTemplate",
@@ -48245,6 +50412,7 @@
             "preprocessImage": "#/components/schemas/PreprocessImageStepTemplate",
             "preprocessVideo": "#/components/schemas/PreprocessVideoStepTemplate",
             "promptEnhancement": "#/components/schemas/PromptEnhancementStepTemplate",
+            "promptModeration": "#/components/schemas/PromptModerationStepTemplate",
             "qwenImageBench": "#/components/schemas/QwenImageBenchStepTemplate",
             "shieldstralModeration": "#/components/schemas/ShieldstralModerationStepTemplate",
             "soniloAudioGen": "#/components/schemas/SoniloAudioGenStepTemplate",
@@ -48397,6 +50565,14 @@
               "$ref": "#/components/schemas/BuzzClientAccount"
             },
             "description": "Limit the currencies that can be used to pay for this workflow."
+          },
+          "fund": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Bill this workflow to a fund (see `POST /v2/consumer/funds`) instead of the caller's Buzz. Implies the paid tier;\nCivitai.Orchestration.Grains.Workflows.WorkflowTemplate.Currencies then limits which of the fund's currencies are spent.",
+            "format": "uuid"
           },
           "ephemeral": {
             "type": [
@@ -49724,6 +51900,9 @@
     },
     {
       "name": "Free tier"
+    },
+    {
+      "name": "Funds"
     },
     {
       "name": "Recipes"
