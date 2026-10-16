@@ -130,7 +130,7 @@ involved. Confidential clients only.
 | `grant_type` | ✓ | `client_credentials` |
 | `client_id` | ✓ | |
 | `client_secret` | ✓ | |
-| `scope` | – | Defaults to the client's `allowedScopes`. |
+| `scope` | – | The scope number to grant, within the client's `allowedScopes`. `UserRead` is always added. Omitted (or not a valid scope number), the token carries `UserRead` alone — so always send the scope you need. |
 
 ### Successful response
 
@@ -162,7 +162,7 @@ involved. Confidential clients only.
 | `unsupported_grant_type` | `grant_type` not in the list above. |
 | `invalid_scope` | Requested scope exceeds the client's `allowedScopes` or the original consent. |
 
-**Rate limit:** 20 requests / minute / `client_id` → `429`.
+**Rate limit:** 20 requests / minute per client IP address → `429`.
 
 **CORS:** permissive — this endpoint is designed to be called from third-party origins.
 
