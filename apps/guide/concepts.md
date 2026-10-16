@@ -197,6 +197,11 @@ under `/api/v1/blocks/*`. That list is illustrative, not a route reference: the
 `@civitai/blocks-react` hook, and these docs do not yet carry a full
 request/response reference for the block routes.
 
+**Reactions are not on that list.** No route, hook, bridge message or scope
+reads or writes a Civitai reaction, so an app cannot react as the viewer or
+see the viewer's reactions. The `<civitai-reaction>` element only displays one;
+see [`<civitai-reaction>` records nothing](./elements#civitai-reaction-records-nothing).
+
 ::: danger Generation goes through the block routes, not the raw orchestrator
 `app.orchestration` reaches the orchestrator directly, and that path carries
 **none** of the controls the block routes apply: the per-call Buzz budget, the

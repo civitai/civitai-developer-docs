@@ -1,8 +1,9 @@
 ---
 title: Using the civitai-* elements in a block
-description: Using the <civitai-*> custom elements in a block — which import defines which elements, the SDK-backed elements, theming from the host, and <civitai-chat>.
+description: Using the <civitai-*> custom elements in a block — which import defines which elements, the SDK-backed elements, theming from the host, <civitai-chat>, and why <civitai-reaction> records nothing.
 sources:
   - npm:@civitai/components@0.9.2/custom-elements.json
+  - npm:@civitai/components@0.9.2/dist/elements/civitai-reaction.js
   - npm:@civitai/components@0.9.2/dist/elements/register.js
   - npm:@civitai/components@0.9.2/dist/elements/register-site.js
   - npm:@civitai/theme@0.5.2
@@ -17,8 +18,8 @@ need no UI framework, which is why the default `civitai app init` template uses
 them with [`@civitai/sdk`](./sdk) and nothing else.
 
 This page covers only what is specific to a block: which import defines which
-elements, theming from the host, and the elements whose credentials a block
-cannot supply. Every element — live, with its attributes, events and copy-paste
+elements, theming from the host, the elements whose credentials a block
+cannot supply, and the reaction element that looks wired but is not. Every element — live, with its attributes, events and copy-paste
 markup — is in the [component showcase](../showcase).
 
 ## Register the elements
@@ -98,6 +99,65 @@ block, on the default token, its generations are refused.** It fits an app of
 your own that signs the viewer in with `createSignIn()`; read
 [Transport models](./concepts#transport-models) before putting it in a block. Its
 README covers setup.
+
+## `<civitai-reaction>` records nothing
+
+`<civitai-reaction>` looks like the reaction button on civitai.com. It does not
+work like one. It is **presentational only**: it calls no route, sends no bridge
+message, and needs no scope.
+
+- **Properties:** `emoji`, `count`, `reacted` (the pressed state), `label` (the
+  accessible name, e.g. `Like`) and `disabled`. You set all of them. The element
+  cannot read an entity's counts or whether this viewer has already reacted.
+- **On click** it toggles itself optimistically: it flips `reacted`, moves
+  `count` by one (never below 0), then dispatches a `react` `CustomEvent` with
+  `detail: { emoji, reacted, count }`. The event bubbles and is `composed`, so
+  it crosses shadow roots. In React, `@civitai/components-react`'s
+  `<CivitaiReaction>` exposes it as `onReact`.
+- **Saving the change is your job.** If your write fails, set `reacted` and
+  `count` back yourself. The element does not do it for you.
+
+```ts
+import '@civitai/components/civitai-reaction/define';
+import type { ReactionDetail } from '@civitai/components/civitai-reaction';
+
+// Your own write, e.g. to app storage. It is not a Civitai reaction.
+declare function saveMark(emoji: string, marked: boolean): Promise<void>;
+
+const button = document.querySelector('civitai-reaction');
+if (button) {
+  button.addEventListener('react', (event) => {
+    const { emoji, reacted } = (event as CustomEvent<ReactionDetail>).detail;
+    saveMark(emoji, reacted).catch(() => {
+      // The element has already flipped itself. Put it back.
+      button.reacted = !reacted;
+      button.count = Math.max(0, button.count + (reacted ? -1 : 1));
+    });
+  });
+}
+```
+
+### Apps cannot register Civitai reactions yet
+
+The platform has **no reaction scope, no hook and no bridge message** today. A
+block cannot add or remove a real Civitai reaction on an image, a post or
+anything else, and it cannot read which reactions the viewer already has. The
+social actions an app can take are tips (the `social:tip:self` scope, in the
+[Scopes reference](../reference/scopes)) and collection follows. A follow needs
+no scope: `<FollowButton>` from `@civitai/blocks-react/ui`, or the
+[`useCollectionFollow`](../reference/hooks/viewer-and-navigation#hook-useCollectionFollow)
+hook beneath it, asks the host to follow, and the host confirms each follow with
+the viewer.
+
+Support for real reactions is **planned and under discussion** in
+[civitai-app-starters#669](https://github.com/civitai/civitai-app-starters/issues/669).
+Nothing proposed there has shipped. Do not build against it.
+
+If you want a reaction-style button now, you can keep app-local "marks" in your
+app's own [storage](./storage). They are **not** Civitai reactions. They never
+reach civitai.com, their counts do not match the counts on the site, and the
+creator never sees them. Your app's copy must not call them Civitai reactions,
+and must not suggest the creator is notified.
 
 ## Next
 
