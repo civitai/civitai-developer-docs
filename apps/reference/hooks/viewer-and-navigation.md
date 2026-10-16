@@ -9,7 +9,7 @@ description: "The viewer, sign-in and consent prompts, maturity and gated images
 
 The viewer, sign-in and consent prompts, maturity and gated images, following collections, and navigating the host.
 
-This page documents 9 of the 47 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.73.0` package's type definitions and README.
+This page documents 9 of the 47 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.73.2` package's type definitions and README.
 
 Other pages: [Context, frame and analytics hooks](./context) · [Generation hooks](./generation) · [Batch, confirmed-step and training hooks](./batches-and-training) · [Buzz, purchase and tip hooks](./buzz-and-purchases) · [Storage, picker and media hooks](./storage-and-media)
 

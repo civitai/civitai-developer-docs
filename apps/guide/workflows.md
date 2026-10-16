@@ -3,9 +3,9 @@ title: Multi-step workflows (kind 'workflow')
 description: Chain up to eight orchestrator steps in one App Blocks generation, where a later step reads an earlier step's result. References, repeat, merge, the limits, how the price and the author fee work, every refusal code, the per-step result, partial failure, and testing it with the mock host.
 sources:
   - npm:@civitai/app-sdk@0.71.0/blocks#WorkflowBodyWorkflow
-  - npm:@civitai/blocks-react@0.73.0#useBuzzWorkflow
-  - npm:@civitai/sdk@0.14.0/dist/workflows/index.d.ts
-  - npm:@civitai/sdk@0.14.0#README
+  - npm:@civitai/blocks-react@0.73.2#useBuzzWorkflow
+  - npm:@civitai/sdk@0.14.1/dist/workflows/index.d.ts
+  - npm:@civitai/sdk@0.14.1#README
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockMultiStepWorkflowBodySchema
   - civitai:src/server/services/blocks/workflow-graph.ts#resolveBlockWorkflowGraph
   - civitai:src/server/routers/blocks.router.ts#submitMultiStepWorkflow
@@ -36,7 +36,7 @@ the closed beta, **page apps only**, needs the
 This page is written against `@civitai/app-sdk@0.71.0`, whose types
 (`WorkflowBodyWorkflow` and friends) include the
 [`workflow_quote_*` estimate codes](#refusals), and
-`@civitai/blocks-react@0.73.0`, whose mock host can
+`@civitai/blocks-react@0.73.2`, whose mock host can
 [simulate an estimate with no quote](#testing-with-the-mock-host). The
 `app.workflows` calls are written against `@civitai/sdk@0.12.0`, the first
 release that has them. A host that predates the kind refuses the body, so

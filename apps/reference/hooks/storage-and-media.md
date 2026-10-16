@@ -9,7 +9,7 @@ description: "Per-app and shared storage, wildcard packs, checkpoint, resource a
 
 Per-app and shared storage, wildcard packs, checkpoint, resource and image pickers, uploading and saving images, and creating posts.
 
-This page documents 10 of the 47 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.73.0` package's type definitions and README.
+This page documents 10 of the 47 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.73.2` package's type definitions and README.
 
 Other pages: [Context, frame and analytics hooks](./context) · [Generation hooks](./generation) · [Batch, confirmed-step and training hooks](./batches-and-training) · [Buzz, purchase and tip hooks](./buzz-and-purchases) · [Viewer, consent and navigation hooks](./viewer-and-navigation)
 
@@ -139,8 +139,6 @@ useAppStorage(): UseAppStorage
 ```
 
 > Deprecated: new apps keep per-viewer data in a private collection of the document store. This hook and its routes keep working while apps move; no removal date is set. See [Storing data](/apps/guide/storage#moving-from-the-legacy-stores).
->
-> **Correction:** Stored size can be far more than ~1.5x the wire size: the `@civitai/sdk` README records a numeric-heavy value storing at up to 44.4x its wire size. Read `getQuota()` rather than estimating from what you sent.
 
 ```ts
 interface UseAppStorage {
@@ -218,8 +216,10 @@ divergences:
 - the byte gate refusing a shrinking overwrite that the host admits
   ([#345](https://github.com/civitai/civitai-app-starters/issues/345));
 - 🔴 the byte gate counting **wire** bytes where the host counts **stored**
-  bytes — `octet_length(value::jsonb::text)`, larger for every container, up to
-  ~1.5x ([#347](https://github.com/civitai/civitai-app-starters/issues/347));
+  bytes — `octet_length(value::jsonb::text)`, larger for every container: ~1.5x
+  for a long array of small integers, and measured up to 44.4x for a
+  numeric-heavy one (an array of `1e308`)
+  ([#347](https://github.com/civitai/civitai-app-starters/issues/347));
 - nothing models the **app-wide** umbrella, so `app quota exceeded` and `app row
   limit exceeded` cannot be produced here at all
   ([#368](https://github.com/civitai/civitai-app-starters/issues/368));
@@ -341,8 +341,6 @@ useSharedStorage(): UseSharedStorage
 ```
 
 > Deprecated: new apps keep data every viewer reads in a shared collection of the document store, which has authorship, counters and marks built in. This hook and its routes keep working while apps move; no removal date is set. See [Storing data](/apps/guide/storage#moving-from-the-legacy-stores).
->
-> **Correction:** The `append`/`update` budget in the table below is live on civitai.com. The note saying it goes live with the next release predates that release.
 
 ```ts
 interface UseSharedStorage {
@@ -388,11 +386,6 @@ re-minting the block token does not reset it.
 Only writes that **land** spend the `append`/`update` budget: a write that fails
 without landing gets its token back. The few failures the platform marks as its
 own fault are refunded without a rejection charge too.
-
-> The `append`/`update` budget above goes live with the next civitai.com
-> release. Until then the live limit is a fixed window of **20 posts + edits a
-> day** per (viewer, app). The vote, withdraw and report limits, and the retry
-> metadata below, are already live.
 
 A write refused for budget arrives with retry metadata, and the hook rejects with
 **`SharedStorageRateLimitError`**. It extends the plain `Error` every other
