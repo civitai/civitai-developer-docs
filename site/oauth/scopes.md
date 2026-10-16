@@ -47,14 +47,16 @@ scope = UserRead | AIServicesRead | AIServicesWrite | BuzzRead
 | 25 | 33 554 432 | `AppBlocksSubmit` | Manage your Apps: submit versions, pull source, test locally, edit listings, view analytics and respond to user feedback _(opt-in)_ |
 | 26 | 67 108 864 | `AppBlocksDevTunnel` | Open on-site dev tunnels _(opt-in)_ |
 | 27 | 134 217 728 | `LinkConnect` | Connect the Civitai Link app to your account _(opt-in)_ |
-| 28 | 268 435 456 | `AppStoreCatalogWrite` | Publish items to the app's App Store listing _(opt-in; `client_credentials` grant only)_ |
+| 28 | 268 435 456 | `AppStoreCatalogWrite` | Publish items to the app's App Store listing — see [catalog sync](/apps/guide/catalog-sync) _(opt-in; `client_credentials` grant only)_ |
 | — | 33 554 431 | `Full` | Bits 0–24 |
 
 Bits 25–28 are **opt-in** scopes. They are not part of `Full`, and a client can
 obtain one only if it is registered with it in its allowed scopes (the
 first-party `civitai` CLI requests bits 25 and 26 by default).
 `AppStoreCatalogWrite` is issued only through the `client_credentials` grant:
-`/authorize` refuses any request carrying it with `invalid_scope`.
+`/authorize` refuses any request carrying it with `invalid_scope`. What it is
+for, and how to mint and use it, is on
+[App Store catalog sync](/apps/guide/catalog-sync).
 
 ## `UserRead` is always granted
 
