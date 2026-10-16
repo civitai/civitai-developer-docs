@@ -97,7 +97,7 @@ to it and enabled for catalog sync. Nothing in the path or body names it.
 |---|---|---|
 | `PUT /api/v1/catalog/items/{externalId}` | `title`, `tagline?`, `imageId?`, `contentRating?`, `creatorUserId?` | `{ id, status, pendingEdit, href }` |
 | `DELETE /api/v1/catalog/items/{externalId}` | — | `{ ok, withdrawn }` |
-| `GET /api/v1/catalog/items?cursor=` | — | `{ items, nextCursor }` |
+| `GET /api/v1/catalog/items` | — | `{ items, nextCursor }` |
 
 `externalId` is the item's id on **your** platform: 1–64 letters, digits, `_`
 or `-`. It is both the item's key in the store (one card per id; a `PUT` of the
@@ -188,8 +188,9 @@ curl "https://civitai.com/api/v1/catalog/items" \
 Returns every item under your listing, in every status, 100 per page, oldest
 first. Each item is
 `{ externalId, id, status, title, creatorUserId, pendingEdit, statusReason, editRejectionReason, updatedAt }`.
-While `nextCursor` is not `null`, pass it back as `?cursor=` for the next page;
-a malformed cursor is `400 invalid_body`.
+Leave `cursor` out for the first page. While `nextCursor` is not `null`, pass it
+back as `?cursor=` for the next page; a malformed or empty cursor is
+`400 invalid_body`.
 
 Diff this list against your own catalog: `PUT` what is new or changed, `DELETE`
 what you no longer carry, and surface `statusReason` (why a moderator hid an

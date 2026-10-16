@@ -130,7 +130,7 @@ involved. Confidential clients only.
 | `grant_type` | ✓ | `client_credentials` |
 | `client_id` | ✓ | |
 | `client_secret` | ✓ | |
-| `scope` | – | The scope number to grant, within the client's `allowedScopes`. `UserRead` is always added. Omitted (or not a valid scope number), the token carries `UserRead` alone — so always send the scope you need. |
+| `scope` | – | The scope number to grant, within the client's `allowedScopes`. `UserRead` is always added. Only `AppStoreCatalogWrite` may be requested through this grant (see [App Store catalog sync](/apps/guide/catalog-sync)); asking for any other scope is `invalid_scope`. Omitted (or not a valid scope number), the token carries `UserRead` alone — so always send the scope you need. |
 
 ### Successful response
 
