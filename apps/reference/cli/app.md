@@ -10,7 +10,7 @@ outline: [2, 4]
 
 Scaffold, validate, submit and operate an App: every `civitai app` command except the listing group.
 
-This page documents 17 of the 63 commands in the [CLI reference](../cli), which indexes every command by name. Generated from the `civitai` binary's own help output.
+This page documents 18 of the 64 commands in the [CLI reference](../cli), which indexes every command by name. Generated from the `civitai` binary's own help output.
 
 Other pages: [civitai app listing — store listing commands](./app-listing) · [Catalog and download commands](./catalog) · [Generation commands](./generation) · [Account, setup and utility commands](./account-and-setup)
 
@@ -48,6 +48,7 @@ default to the page-elements template (web components, no UI framework).
   civitai app feedback my-block
   civitai app withdraw pubreq_01H
   civitai app dev-token my-block
+  civitai app elements civitai-text-input
 ```
 
 **`civitai app create [name] [dir]`**
@@ -686,8 +687,22 @@ The minted token's CAPABILITIES depend on the credential you mint with:
     or an OAuth login that opted in with "civitai login --scopes generate".
     Confirm yours can spend with "civitai whoami".
   - A DEFAULT OAuth login ("civitai login", no --scopes) mints a
-    READ/IDENTITY-ONLY dev token (no spend) — dev:live shows your viewer +
-    catalog/storage, but estimate → submit → generation will NOT spend.
+    READ/IDENTITY-ONLY dev token (no spend) — dev:live shows your viewer and
+    the catalog, but estimate → submit → generation will NOT spend.
+
+STORAGE DOES NOT WORK UNDER dev:live, whatever credential you mint with:
+  - The document store (@civitai/sdk app.storage.collection) is not reached at
+    all: @civitai/sdk calls it over HTTP, not over the block→host bridge the
+    page-money harness forwards, and that template does not use @civitai/sdk.
+  - Legacy App Storage (useAppStorage) is forwarded, and the server refuses it
+    with 401: those calls need a civitai.com browser session, which a local
+    harness never has. It says nothing about your account or your app.
+  - Legacy shared storage (useSharedStorage) is refused too. Until the app has
+    an approved version the refusal is "app block not found" or "app block is
+    not approved"; once it has one, it is for scope, because the
+    apps:storage:shared:* scopes are never minted on a dev token.
+Exercise the legacy stores under "npm run dev:harness", and the document store
+with createFakeStorage from @civitai/sdk/testing.
 
 --spend is the explicit affirmation that this token may spend real Buzz. It does
 two things to the request: it adds ai:write:budgeted to the scopes REQUESTED from
@@ -902,6 +917,43 @@ revision draft on a live listing, so it is safe to run in a loop.
 | Flag | Description | Default |
 |---|---|---|
 | `--json` | emit the findings as JSON (scriptable); the exit code is unchanged — 1 when anything is blocking | — |
+
+**`civitai app elements [tag]`**
+
+Look up a \<civitai-*> element's attributes, events and slots
+
+```text
+Print the reference for the <civitai-*> custom elements, read from the
+@civitai/components package installed in this project.
+
+With no tag, list every element with its one-line description. With a tag
+("civitai-button" or "<civitai-button>"), print that element's attributes,
+properties, events, slots and CSS parts — INCLUDING the members it inherits,
+resolved from the package's custom-elements.json alone. A version whose
+manifest does not describe an element's base class (0.10.0 and earlier omit the
+shared form-field base, so label, name, value, … would be missing) prints the
+reference with an "Incomplete" warning naming the class; upgrade
+@civitai/components to fix it.
+
+The package is found the way Node resolves an import: the nearest
+node_modules/@civitai/components walking up from the current directory, so the
+answer matches the version this project actually runs. Nothing is fetched from
+the network; install the project's dependencies first.
+
+An unknown tag exits 2 and names the closest matches. No installed package
+exits 1.
+```
+
+```bash
+  civitai app elements                     # every element, one line each
+  civitai app elements civitai-text-input  # one element, inherited attributes included
+  civitai app elements '<civitai-button>'
+  civitai app elements civitai-modal --json
+```
+
+| Flag | Description | Default |
+|---|---|---|
+| `--json` | emit the list or the element reference as JSON (scriptable) | — |
 
 **`civitai app feedback <slug>`**
 
