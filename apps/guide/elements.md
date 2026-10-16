@@ -1,9 +1,10 @@
 ---
 title: Using the civitai-* elements in a block
-description: Using the <civitai-*> custom elements in a block — which import defines which elements, the SDK-backed elements, theming from the host, <civitai-chat>, and why <civitai-reaction> records nothing.
+description: Using the <civitai-*> custom elements in a block — which import defines which elements, the SDK-backed elements, theming from the host, <civitai-chat>, and why <civitai-reaction> and <civitai-tag> record nothing.
 sources:
   - npm:@civitai/components@0.9.2/custom-elements.json
   - npm:@civitai/components@0.9.2/dist/elements/civitai-reaction.js
+  - npm:@civitai/components@0.9.2/dist/elements/civitai-tag.js
   - npm:@civitai/components@0.9.2/dist/elements/register.js
   - npm:@civitai/components@0.9.2/dist/elements/register-site.js
   - npm:@civitai/theme@0.5.2
@@ -19,7 +20,7 @@ them with [`@civitai/sdk`](./sdk) and nothing else.
 
 This page covers only what is specific to a block: which import defines which
 elements, theming from the host, the elements whose credentials a block
-cannot supply, and the reaction element that looks wired but is not. Every element — live, with its attributes, events and copy-paste
+cannot supply, and the reaction and tag elements that look wired but are not. Every element — live, with its attributes, events and copy-paste
 markup — is in the [component showcase](../showcase).
 
 ## Register the elements
@@ -158,6 +159,52 @@ app's own [storage](./storage). They are **not** Civitai reactions. They never
 reach civitai.com, their counts do not match the counts on the site, and the
 creator never sees them. Your app's copy must not call them Civitai reactions,
 and must not suggest the creator is notified.
+
+## `<civitai-tag>` votes go nowhere either
+
+`<civitai-tag>` draws the up/down vote arrows from civitai.com's tag pills. Like
+`<civitai-reaction>`, it is **presentational only**: it calls no route, sends no
+bridge message, and needs no scope.
+
+- **Properties:** `name`, `vote` (`1` up, `-1` down, `0` none), `score`,
+  `show-score`, `confidence`, `rating` and `readonly` (which removes the
+  arrows). You set all of them. The element cannot read a tag's real score or
+  how this viewer voted.
+- **On click** it sets `vote` (pressing the side already chosen clears it to
+  `0`), then dispatches a `vote` `CustomEvent` with `detail: { name, vote }`.
+  It does **not** change `score`. The event bubbles and is `composed`. In
+  React, `@civitai/components-react`'s `<CivitaiTag>` exposes it as `onVote`.
+- **Saving the vote, and moving `score`, is your job.** If your write fails,
+  set `vote` back yourself.
+
+```ts
+import '@civitai/components/civitai-tag/define';
+import type { TagVoteDetail } from '@civitai/components/civitai-tag';
+
+// Your own write, e.g. to app storage. It is not a vote on a Civitai tag.
+declare function saveTagVote(name: string, vote: -1 | 0 | 1): Promise<void>;
+
+const tag = document.querySelector('civitai-tag');
+if (tag) {
+  let previous = tag.vote;
+  tag.addEventListener('vote', (event) => {
+    const { name, vote } = (event as CustomEvent<TagVoteDetail>).detail;
+    const before = previous;
+    previous = vote;
+    saveTagVote(name, vote).catch(() => {
+      // The element has already changed its vote. Put it back.
+      tag.vote = before;
+      previous = before;
+    });
+  });
+}
+```
+
+Apps **cannot vote on Civitai tags**. civitai.com records tag votes through
+its own signed-in session, and no block scope, hook, bridge message or
+`/api/v1/blocks` route exposes that to an app. A vote your app stores is an
+app-local mark, the same as the reaction marks above: it never reaches
+civitai.com and does not change the tag's score there.
 
 ## Next
 
