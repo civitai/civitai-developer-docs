@@ -24,6 +24,10 @@ card runs your app at a sub-path you choose:
 
 The server builds that link; your app supplies only `subPath`.
 
+This page covers **on-site** apps, where a viewer publishes from inside your
+block. For an **off-site** app whose own server lists the items of its
+platform, see [App Store catalog sync](./catalog-sync).
+
 ::: warning Not self-serve, and not yet public
 - **Your app must be enabled for sub-listings by Civitai.** It is a per-app
   switch, and it carries a per-author cap on how many items one viewer can have
@@ -186,3 +190,5 @@ are listed under
   every other scope.
 - [Your store listing](./store-listing) — your app's own card, which a
   sub-listing is shown under.
+- [App Store catalog sync](./catalog-sync) — the off-site version: your server
+  keeps your platform's items in the store with a client-credentials token.

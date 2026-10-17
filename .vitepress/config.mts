@@ -60,6 +60,7 @@ const appsGuideSidebar: DefaultTheme.SidebarItem[] = [
       { text: 'Review, approval and deploy', link: '/apps/guide/review-and-deploy' },
       { text: 'Your store listing', link: '/apps/guide/store-listing' },
       { text: 'App Store sub-listings', link: '/apps/guide/sub-listings' },
+      { text: 'App Store catalog sync (off-site)', link: '/apps/guide/catalog-sync' },
       { text: 'How an app earns', link: '/apps/guide/earning' },
       { text: 'Moving a block off the bridge', link: '/apps/guide/porting' },
       { text: 'Generating images (text-to-image)', link: '/apps/guide/text-to-image' },

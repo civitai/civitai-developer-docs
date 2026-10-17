@@ -1361,6 +1361,16 @@ fires `react`, and `<civitai-media-card>` lays them out over an image in named
 slots (`media`, `top-start`, `top-end`, `bottom`). `<civitai-action-button>` is
 the round icon button for those slots.
 
+Firing the event is all `<civitai-reaction>` does. It flips itself on click and
+saves nothing: you set its `count` and `reacted`, you write the change, and you
+revert it if the write fails. Apps cannot register real Civitai reactions yet.
+[`<civitai-reaction>` records nothing](./guide/elements#civitai-reaction-records-nothing)
+covers what that means for your app.
+`<civitai-tag>` is the same: it sets its own `vote` and fires `vote`, saves
+nothing, and does not move `score`. Apps cannot vote on real Civitai tags.
+[`<civitai-tag>` votes go nowhere either](./guide/elements#civitai-tag-votes-go-nowhere-either)
+has the details.
+
 <ElementDemo title="Civitai vocabulary" tags="civitai-rating-badge civitai-avatar civitai-tag civitai-reaction civitai-action-button civitai-media-card">
 
 <template #html>
