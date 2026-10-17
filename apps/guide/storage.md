@@ -136,7 +136,9 @@ new name.
 Some of the schema is reserved for later phases, and the server refuses it with
 a message saying so. The [limits table](#limits) lists which fields are refused
 today, and the [manifest reference](../reference/manifest) has every field's
-bounds.
+bounds, except `ownedModelVersions`, which it lists once these docs' pinned
+`@civitai/app-sdk` is bumped to a version that carries it (see
+[below](#owned-model-versions) for its rules).
 
 `civitai app validate` checks only the JSON schema, which admits the reserved
 fields. The server's own manifest validation, which applies the reserved-feature
@@ -184,29 +186,36 @@ The rules:
   the only policy under which the viewer making a write is always the
   document's author. It is refused on private collections and on `write`
   `"anyone"`, `"owner"` and `"none"`.
-- **Pointers.** 1 to 4 distinct entries, each a pointer of 1 to 4 segments, and
-  each segment `/` followed by a letter or `_` and up to 63 letters, digits or
-  `_` (`^(/[A-Za-z_][A-Za-z0-9_]{0,63}){1,4}$`). A pointer names one field of
-  nested objects: no array indexes, no `~0` / `~1` escapes, no hyphens and no
-  non-ASCII characters.
+- **Pointers.** Each entry names one field of nested objects: no array
+  indexes, no `~0` / `~1` escapes, no hyphens and no non-ASCII characters. The
+  count and the exact pattern are in the [limits table](#limits).
 - **Absent is allowed.** A field that is missing, or a path that steps through
-  an array or any other non-object on the way, counts as absent and is not
-  checked. To require the field, validate that in your app.
+  an array, `null` or any other non-object on the way, counts as absent and is
+  not checked. To require the field, validate that in your app.
 - **Present must be owned.** A present field must be a positive integer naming a
   model version whose model the writer owns. A version that is someone else's,
   that does not exist or is deleted, and a value that is not a positive integer
-  (a string `"123456"` included) are all refused the same way, so the refusal
-  does not reveal whether a version exists.
+  (a string `"123456"` and `null` included) are all refused the same way, so the
+  refusal does not reveal whether a version exists. To clear the field, leave
+  the key out rather than setting it to `null`. Draft and unpublished versions
+  the writer owns pass.
 - **Which writes.** Every create (`POST /{collection}`, `create`) and replace
   (`PUT /{collection}/{key}`, `put`) of a document. Counters, marks and deletes
   do not write `data` and are not checked.
-- **Before anything is spent.** The check runs before the minimum-trust gate,
-  the moderation scan and the shared write budget, so a refused write is not
-  scanned and spends nothing from the write budget or the
-  [refused-writes bucket](#limits).
+- **Before the author check.** The check is against the viewer making the
+  write, and it runs before the store looks at who wrote the document. So a
+  `put` by a viewer who is not the author, whose `data` carries a version that
+  viewer does not own (such as the author's own id, unchanged), is refused
+  `resource_not_owned`, not `not_author`. Handle both codes on an edit.
+- **Before moderation and the write budget.** A refused write is not scanned and
+  spends no write budget.
 - **At write time only.** Ownership is checked when a document is written. If
   the model later changes hands or is deleted, documents already stored keep
   the id; the check applies again the next time the document is written.
+  Adding `ownedModelVersions` to a collection that already holds documents does
+  not re-check them.
+- **A failed lookup** is a retryable `503 service_unavailable`; the write is
+  never accepted unchecked.
 
 A refusal is `403` with code `resource_not_owned`, and `details.pointer` names
 a declared field that failed (when several fail, only one is reported):
@@ -220,20 +229,14 @@ a declared field that failed (when several fail, only one is reported):
 }
 ```
 
-When the ownership lookup itself cannot be read, the write is refused
-`service_unavailable` (`503`) with `Retry-After: 1`. It is never accepted
-unchecked, so retry after the delay.
+Tooling versions that know the field:
 
-This is a manifest and REST feature of the server; nothing in the client has to
-change, and the error reaches you in the [error envelope](#errors) like any
-other refusal. In `@civitai/sdk` 0.14.1 it is a `StorageError` with
-`code === 'resource_not_owned'`; that SDK's `StorageErrorCode` type does not
-name the code yet, but it admits any string, so the comparison type-checks. Offline validation lags it: a `civitai` CLI whose bundled
-manifest schema predates the field (CLI 0.1.126 measured) fails
-`civitai app validate` with `storage.collections.<name>: additional properties
-'ownedModelVersions' not allowed`, and `civitai app submit` runs that same
-validation before packaging unless you pass `--skip-validate`. The server's
-manifest validation is authoritative.
+- `civitai` CLI **0.1.128** or later validates it in `civitai app validate`;
+  older CLIs reject it as an unknown property.
+- `@civitai/sdk` **0.16.0** or later names `resource_not_owned` in
+  `StorageErrorCode`, and its [`createFakeStorage`](#testing) enforces the rule.
+- `@civitai/app-sdk` **0.73.0** or later types `ownedModelVersions` on a shared
+  collection.
 
 ## Scopes and consent {#scopes-and-consent}
 
@@ -408,7 +411,7 @@ const { value } = await plays.increment('model-123', 'plays'); // creates the do
 | Read a shared collection | anyone, signed out included | `apps:storage` | — |
 | Read a private collection, `info()`, `author: 'me'` / `markedBy: 'me'` lists | signed in | `apps:storage` | — |
 | Write or delete in a private collection | signed in | `apps:storage` | — |
-| Create or edit in a shared `"own"` collection | signed in | `apps:storage` + `apps:storage:publish` | the [`ownedModelVersions`](#owned-model-versions) check when declared, the minimum-trust gate, moderation, the shared write budget; editing another viewer's document is refused `not_author` |
+| Create or edit in a shared `"own"` collection | signed in | `apps:storage` + `apps:storage:publish` | the minimum-trust gate, moderation, the shared write budget, and the [`ownedModelVersions`](#owned-model-versions) check when declared (before moderation and the budget); editing another viewer's document is refused `not_author`, or `resource_not_owned` when its `data` carries a version the editor does not own |
 | Delete in a shared `"own"` collection | signed in, the author | `apps:storage` | — |
 | Write a document in a `"none"` collection | — | — | refused `write_policy` for a signed-in viewer (a signed-out one gets `sign_in_required` first) |
 | `increment`, `mark`, `unmark` | signed in | `apps:storage` | the minimum-trust gate |
@@ -685,8 +688,16 @@ await codeOf(requestsIn(fake.storage).create({ title: FAKE_STORAGE_MODERATION.bl
   `enforceRateLimits: true` (and drive the clock with `now`) to test
   `rate_limited`.
 - A declaration using a reserved feature makes `createFakeStorage` throw,
-  naming it, instead of failing per request.
-- It does not model moderator hides or the review namespace.
+  naming it, instead of failing per request. So does a misplaced or malformed
+  `ownedModelVersions` (0.16.0 or later).
+- From 0.16.0 it enforces a collection's
+  [`ownedModelVersions`](#owned-model-versions) rule. The fake has no model
+  versions of its own, so it checks writes against the viewer's
+  `modelVersions`, the ids that viewer owns; the default is none, so every id is
+  refused, as the server refuses a version that is not the writer's:
+  `fake.as({ viewer: { username: 'bob', modelVersions: [4317] } })`.
+- It does not model moderator hides, the review namespace, or a failed
+  ownership lookup (the server's retryable `503 service_unavailable`).
 
 ## REST reference {#rest-reference}
 
