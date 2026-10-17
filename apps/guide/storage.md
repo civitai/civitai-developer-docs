@@ -10,6 +10,7 @@ sources:
   - civitai:src/shared/constants/block-storage.constants.ts
   - civitai:src/server/services/apps/doc-store-api.ts
   - civitai:src/server/services/apps/doc-store-access.ts
+  - civitai:src/server/services/apps/doc-store-ownership.ts
   - civitai:src/server/services/apps/doc-store.ts
   - civitai:src/server/services/apps/doc-store.types.ts
   - civitai:src/server/utils/shared-storage-rate-limit.ts
@@ -100,6 +101,9 @@ Each collection declares:
 - **`showAuthor`** — shared only. When `true`, readers see the author's username.
   Otherwise they learn only whether they wrote a document themselves. The
   numeric user id is never exposed either way.
+- **`ownedModelVersions`** — shared collections with `write: "own"` only. Fields
+  of `data` that, when present, must hold a model version the writing viewer
+  owns. See [Fields that must name the author's own model version](#owned-model-versions).
 
 Renaming a collection or changing its visibility makes it a **new** collection,
 and the old one's documents are not moved into it. They are not deleted either:
@@ -140,6 +144,96 @@ refusal and the [scope rules](#scopes-and-consent), runs when a moderator
 approves the version (and on a direct git push), not when `civitai app submit`
 uploads it. A declaration it refuses therefore waits in review until approval
 fails, so check it against this page before you submit.
+
+### Fields that must name the author's own model version {#owned-model-versions}
+
+A shared collection can carry documents that point at a model version, such as
+a workflow a creator publishes for their own model. Readers then take that id
+at face value, so the server can enforce that only the version's owner writes
+it: declare the fields in **`ownedModelVersions`**, and every create and
+replace is checked against the viewer making it.
+
+```json
+{
+  "scopes": ["apps:storage", "apps:storage:publish"],
+  "scopeJustifications": {
+    "apps:storage:publish": "Creators publish workflows for their own models, and every viewer of the app can browse them."
+  },
+  "storage": {
+    "collections": {
+      "workflows": {
+        "visibility": "shared",
+        "write": "own",
+        "indexes": { "workflow.modelVersionId": "number" },
+        "showAuthor": true,
+        "ownedModelVersions": ["/workflow/modelVersionId"]
+      }
+    }
+  }
+}
+```
+
+A document in `workflows` such as
+`{ "workflow": { "modelVersionId": 123456, "steps": [] }, "title": "Portrait pass" }`
+is stored only if model version `123456` belongs to a model the writing viewer
+owns.
+
+The rules:
+
+- **Where it may be declared.** Shared collections whose `write` is `"own"`,
+  the only policy under which the viewer making a write is always the
+  document's author. It is refused on private collections and on `write`
+  `"anyone"`, `"owner"` and `"none"`.
+- **Pointers.** 1 to 4 distinct entries, each a pointer of 1 to 4 segments, and
+  each segment `/` followed by a letter or `_` and up to 63 letters, digits or
+  `_` (`^(/[A-Za-z_][A-Za-z0-9_]{0,63}){1,4}$`). A pointer names one field of
+  nested objects: no array indexes, no `~0` / `~1` escapes, no hyphens and no
+  non-ASCII characters.
+- **Absent is allowed.** A field that is missing, or a path that steps through
+  an array or any other non-object on the way, counts as absent and is not
+  checked. To require the field, validate that in your app.
+- **Present must be owned.** A present field must be a positive integer naming a
+  model version whose model the writer owns. A version that is someone else's,
+  that does not exist or is deleted, and a value that is not a positive integer
+  (a string `"123456"` included) are all refused the same way, so the refusal
+  does not reveal whether a version exists.
+- **Which writes.** Every create (`POST /{collection}`, `create`) and replace
+  (`PUT /{collection}/{key}`, `put`) of a document. Counters, marks and deletes
+  do not write `data` and are not checked.
+- **Before anything is spent.** The check runs before the minimum-trust gate,
+  the moderation scan and the shared write budget, so a refused write is not
+  scanned and spends nothing from the write budget or the
+  [refused-writes bucket](#limits).
+- **At write time only.** Ownership is checked when a document is written. If
+  the model later changes hands or is deleted, documents already stored keep
+  the id; the check applies again the next time the document is written.
+
+A refusal is `403` with code `resource_not_owned`, and `details.pointer` names
+a declared field that failed (when several fail, only one is reported):
+
+```json
+{
+  "code": "resource_not_owned",
+  "message": "the model version at this field is not one the author owns",
+  "error": "the model version at this field is not one the author owns",
+  "details": { "pointer": "/workflow/modelVersionId" }
+}
+```
+
+When the ownership lookup itself cannot be read, the write is refused
+`service_unavailable` (`503`) with `Retry-After: 1`. It is never accepted
+unchecked, so retry after the delay.
+
+This is a manifest and REST feature of the server; nothing in the client has to
+change, and the error reaches you in the [error envelope](#errors) like any
+other refusal. In `@civitai/sdk` 0.14.1 it is a `StorageError` with
+`code === 'resource_not_owned'`; that SDK's `StorageErrorCode` type does not
+name the code yet, but it admits any string, so the comparison type-checks. Offline validation lags it: a `civitai` CLI whose bundled
+manifest schema predates the field (CLI 0.1.126 measured) fails
+`civitai app validate` with `storage.collections.<name>: additional properties
+'ownedModelVersions' not allowed`, and `civitai app submit` runs that same
+validation before packaging unless you pass `--skip-validate`. The server's
+manifest validation is authoritative.
 
 ## Scopes and consent {#scopes-and-consent}
 
@@ -314,7 +408,7 @@ const { value } = await plays.increment('model-123', 'plays'); // creates the do
 | Read a shared collection | anyone, signed out included | `apps:storage` | — |
 | Read a private collection, `info()`, `author: 'me'` / `markedBy: 'me'` lists | signed in | `apps:storage` | — |
 | Write or delete in a private collection | signed in | `apps:storage` | — |
-| Create or edit in a shared `"own"` collection | signed in | `apps:storage` + `apps:storage:publish` | the minimum-trust gate, moderation, the shared write budget; editing another viewer's document is refused `not_author` |
+| Create or edit in a shared `"own"` collection | signed in | `apps:storage` + `apps:storage:publish` | the [`ownedModelVersions`](#owned-model-versions) check when declared, the minimum-trust gate, moderation, the shared write budget; editing another viewer's document is refused `not_author` |
 | Delete in a shared `"own"` collection | signed in, the author | `apps:storage` | — |
 | Write a document in a `"none"` collection | — | — | refused `write_policy` for a signed-in viewer (a signed-out one gets `sign_in_required` first) |
 | `increment`, `mark`, `unmark` | signed in | `apps:storage` | the minimum-trust gate |
@@ -361,7 +455,7 @@ Every refusal has one shape, whichever layer refused:
 
 Branch on `code`; `message` is prose and `error` repeats it. `details` carries
 what the code needs (`currentVersion`, `reason`, `category`, `ceiling`,
-`bucket`, `retryAfter`). A refusal that names a wait sends a `Retry-After`
+`bucket`, `pointer`, `retryAfter`). A refusal that names a wait sends a `Retry-After`
 header too, and a `429` also carries `rateLimit: { retryAfterSeconds, retryAt }`.
 
 In `@civitai/sdk` a refusal in this envelope is a `StorageError`, an `ApiError`
@@ -408,6 +502,7 @@ Every code the routes return, generated from the server's own table:
 | `not_eligible` | 403 | The app or the viewer cannot use storage here. `details.reason` says which, for example `app_not_approved` or `account_too_new`. |
 | `not_author` | 403 | Only a document's author may change or delete it. |
 | `write_policy` | 403 | The collection's `write` policy does not let viewers write documents. |
+| `resource_not_owned` | 403 | A field the collection declares in `ownedModelVersions` holds a model version the writing viewer does not own (or one that does not exist, is deleted, or is not a positive integer). `details.pointer` names the field. |
 | `not_found` | 404 | No such document (hidden documents read the same way), or no such route. |
 | `collection_not_declared` | 404 | The collection is not declared in the app's approved manifest (in a moderator's review run, the pending one). |
 | `version_conflict` | 409 | An `ifVersion` write found another version. `details.currentVersion` is the one stored. |
@@ -456,6 +551,7 @@ SDK, and `info()` is what the running server enforces.
 | Declaration | Collections per app | 16 |
 | Declaration | Counters / marks per collection | 8 / 8 |
 | Declaration | Indexes per collection | 4, each a field path of up to 3 segments, typed `string`, `number`, `boolean`, `time` |
+| Declaration | Owned model-version fields (`ownedModelVersions`) | 1 to 4 distinct pointers per collection, each matching `^(/[A-Za-z_][A-Za-z0-9_]{0,63}){1,4}$`; shared collections with `write: "own"` only |
 | Declaration | Built-in marks (never declared) | `report` |
 | Declaration | Refused by the server (not available yet) | `write: "anyone"`, `write: "owner"`, `kind: "log"` (and `maxEntries`), `ttlSeconds`, `dailyWritesPerAuthor` |
 | Quota | Per app | 52,428,800 bytes (50 MiB) and 1,000,000 documents |
