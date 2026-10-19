@@ -23246,15 +23246,16 @@
       },
       "DecisionTrainingParameters": {
         "required": [
-          "batchSize",
+          "autoTune",
           "epochs",
           "evaluateEvery",
-          "gradientAccumulation",
           "learningRate",
           "maxImagePixels",
           "maxLength",
           "maxSteps",
-          "seed"
+          "preset",
+          "seed",
+          "vramFraction"
         ],
         "type": "object",
         "properties": {
@@ -23277,15 +23278,21 @@
             "format": "double"
           },
           "batchSize": {
-            "maximum": 16,
+            "maximum": 128,
             "minimum": 1,
-            "type": "integer",
+            "type": [
+              "null",
+              "integer"
+            ],
             "format": "int32"
           },
           "gradientAccumulation": {
             "maximum": 128,
             "minimum": 1,
-            "type": "integer",
+            "type": [
+              "null",
+              "integer"
+            ],
             "format": "int32"
           },
           "evaluateEvery": {
@@ -23309,6 +23316,41 @@
           "seed": {
             "type": "integer",
             "format": "int32"
+          },
+          "preset": {
+            "minLength": 1,
+            "pattern": "^(auto|text|image)$",
+            "type": "string"
+          },
+          "autoTune": {
+            "type": "boolean"
+          },
+          "effectiveBatchSize": {
+            "maximum": 4096,
+            "minimum": 1,
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "vramFraction": {
+            "maximum": 0.95,
+            "minimum": 0.5,
+            "type": "number",
+            "format": "double"
+          },
+          "gradientCheckpointing": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "cacheImageFeatures": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         },
         "additionalProperties": false

@@ -59,8 +59,9 @@ Submit this body to [`POST /v2/consumer/workflows`](/orchestration/reference/ope
         "maxSteps": 1000,
         "epochs": 3,
         "learningRate": 0.00002,
-        "batchSize": 1,
-        "gradientAccumulation": 16,
+        "preset": "auto",
+        "autoTune": true,
+        "vramFraction": 0.9,
         "evaluateEvery": 100,
         "maxLength": 4096,
         "maxImagePixels": 262144,
@@ -75,7 +76,49 @@ The run ends when either `maxSteps` optimizer updates or `epochs` passes through
 
 The initial backend trains the original Imajev language LoRA and FP32 decision head over a frozen BF16 Qwen3.5 4B base. The vision encoder remains frozen. Inputs exceeding `maxLength` after image processing and prompt rendering fail explicitly rather than being silently truncated. `maxImagePixels` bounds each image's preprocessing budget.
 
-Start with batch size 1 on a 24 GB GPU. Larger batches, longer contexts, and more image pixels require more VRAM. Use the normal workflow polling and cancellation endpoints described in [Submitting work](./submitting-work) and [Results and webhooks](./results-and-webhooks). Preview cost through the workflow `whatif` endpoint; pricing is configured by the deployment.
+Use the normal workflow polling and cancellation endpoints described in [Submitting work](./submitting-work) and [Results and webhooks](./results-and-webhooks). Preview cost through the workflow `whatif` endpoint; pricing is configured by the deployment.
+
+## Automatic presets and overrides
+
+By default, leave `preset` as `auto` or omit it. Text-only datasets select the **text** preset. Datasets containing images, including mixed text/image datasets, select **image**. You can explicitly select either preset; `text` rejects datasets containing images.
+
+| Default | Text | Image or mixed |
+| --- | --- | --- |
+| Effective batch | 64 labeled decisions | 32 labeled decisions |
+| Batch size and gradient checkpointing | Benchmarked at startup | Benchmarked at startup |
+| Frozen image feature cache | Off | On |
+| VRAM budget | 90% | 90% |
+
+Both presets group similar input lengths to reduce padding. The image preset reuses frozen BF16 vision features with identical preprocessing; its temporary disk cache is bounded to 8 GiB and is not included in the export. Validation and export checks use fresh image inference.
+
+Startup tuning measures forward/backward and optimizer memory on training examples without updating weights. It compares cached/batched probabilities with singleton inference and stress-tests the longest training input of each image count. It chooses the fastest measured configuration that passes these checks. It does not lower image resolution or truncate text to fit memory. Tuning adds startup time, which can dominate very short runs.
+
+`vramFraction` accepts `0.5`–`0.95`, default `0.9`. This sets a PyTorch allocator budget after accounting for existing device memory usage. It leaves headroom and does not guarantee a precise ceiling for allocations outside PyTorch. The fastest configuration may use less than the budget.
+
+Manual values take precedence:
+
+- `batchSize`: examples held in one microbatch, 1–128. Omit to tune automatically.
+- `effectiveBatchSize`: decisions per optimizer update, 1–4096. Microbatches accumulate to this total; the final one can be smaller.
+- `gradientAccumulation`: alternatively supply this together with `batchSize`, without `effectiveBatchSize`. Their product defines the effective batch.
+- `gradientCheckpointing`: force `true` to save activation memory or `false` to avoid recomputation; omit to benchmark both.
+- `cacheImageFeatures`: enable or disable the frozen vision cache.
+- `autoTune`: set `false` to skip the sweep. Omitted batch size then becomes 1 and omitted checkpointing becomes `true`.
+
+For example, a fully specified image configuration is:
+
+```json
+{
+  "preset": "image",
+  "autoTune": false,
+  "batchSize": 1,
+  "gradientAccumulation": 32,
+  "gradientCheckpointing": false,
+  "cacheImageFeatures": true,
+  "vramFraction": 0.9
+}
+```
+
+With automatic tuning enabled, an unexpected activation-memory failure retries the entire pending gradient group using smaller microbatches or checkpointing. Its effective batch and loss weighting stay unchanged. Explicit overrides are respected; an impossible manual configuration fails instead of silently changing your settings. Training progress reports profiling/tuning phases before optimizer steps begin.
 
 ## Read and preserve the result
 
@@ -84,8 +127,8 @@ The step returns `model`, `policyVersion`, and two blobs: `artifact` and `report
 The artifact ZIP contains:
 
 - `model/`: LoRA weights, FP32 decision head, tokenizer and processor files.
-- `manifest.json`: task definition, pinned base and initial adapter revisions, preprocessing, training parameters, dataset checksum, and selected step.
-- `report.json`: baseline validation, selected validation, optional test metrics, optimizer history, and export reload verification.
+- `manifest.json`: task definition, pinned base and initial adapter revisions, preprocessing, requested and resolved training parameters, dataset checksum, and selected step.
+- `report.json`: baseline validation, selected validation, optional test metrics, optimizer history, tuning measurements, memory usage, and export reload verification.
 - The upstream Imajev license.
 
 Base weights are referenced by pinned repository revision, not duplicated inside the export. Paths within the ZIP are relative. The source dataset, signed download URL, and individual example content are not included.
