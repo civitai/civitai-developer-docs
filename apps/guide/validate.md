@@ -1,6 +1,6 @@
 ---
 title: What `civitai app validate` proves
-description: What the local civitai app validate covers of the platform's approve-time checks — the lockfile rule, the BLOCK_READY advisory, and the --json result shape for CI.
+description: What the local civitai app validate covers of the platform's approve-time checks — the lockfile rule, the BLOCK_READY advisory, the storage checks, and the --json result shape for CI.
 sources:
   - go:github.com/civitai/cli
 ---
@@ -24,9 +24,10 @@ Three layers:
    schema published as the [manifest reference](../reference/manifest).
 2. **The ported semantic rules** the server runs: the sandbox trust-tier
    allowlist, `page` ⇒ `iframe`, the required iframe sub-fields, the
-   `renderMode` tier gate, and `targets[].slotId` registry membership.
-3. **Structural project checks** — the lockfile rule and the `BLOCK_READY`
-   advisory below.
+   `renderMode` tier gate, `targets[].slotId` registry membership, and the
+   [`storage` declaration's rules](#storage) the schema cannot express.
+3. **Structural project checks** — the lockfile rule, the `BLOCK_READY`
+   advisory and the [storage source advisories](#storage-source) below.
 
 A few checks are necessarily approximate locally: the slot registry is
 vendored, and per-app origin-binding and scope checks the CLI cannot see are
@@ -124,6 +125,98 @@ What else to know:
   doesn't open)? Under `--strict` in CI, drop `--strict` or add the ack, and
   report it with `civitai feedback send --about cli`
   ([Report a platform problem](/site/guide/platform-feedback)).
+
+## Storage checks {#storage}
+
+From `civitai` CLI **0.1.131**, `validate` checks your
+[document store](./storage) declaration beyond its JSON Schema, and reads your
+source for calls to the store. The schema already covers the declaration's
+shape (names, enums, bounds, the shared-only keys, `ownedModelVersions`); these
+are the rules it cannot express. Like everything here, they are a local
+mirror — the server's manifest validation is authoritative.
+
+### Manifest rules — errors
+
+Each is a refusal the server returns, with the server's message, so it is a
+hard **error**:
+
+| Catches | `field` | Fix |
+| --- | --- | --- |
+| A shared collection that uses one name for both a counter and a mark | `storage.collections.<name>` | Rename one of them. |
+| Collections declared without `apps:storage` in `scopes` | `scopes` | Add `apps:storage`, or remove `storage`. |
+| A shared collection that viewers write (`write: "own"`) without `apps:storage:publish` | `scopes` | Add the scope, with a `scopeJustifications` entry. |
+| `apps:storage` with no collection declared | `storage` | Declare the collections under `storage.collections`, or remove the scope. |
+| `apps:storage:publish` with no shared `write: "own"` collection | `storage` | Remove the scope, or declare the collection it is for. |
+
+The four scope rules run only once the declaration itself has no errors: an
+invalid declaration declares nothing, as on the server. Where a message lists
+collection names, they are sorted, not in declaration order.
+
+### Features not available yet — warnings
+
+The schema describes five features the server
+[refuses today](./storage#limits). `validate` reports each as a **warning**,
+not an error: the platform enables each one with a server-side switch, and a
+CLI you already installed must not refuse a manifest the server has started to
+accept. Until it does, treat these as blocking:
+
+| Declared | Fix the message gives |
+| --- | --- |
+| `kind: "log"` | declare kind "docs" (or omit kind) for now |
+| `write: "anyone"` on a shared collection | use "own" or "none" for now |
+| `write: "owner"` on a shared collection | use "own" or "none" for now |
+| `ttlSeconds` | remove ttlSeconds for now |
+| `dailyWritesPerAuthor` | remove dailyWritesPerAuthor for now (the platform default applies) |
+
+The message is the server's text plus why it is only a warning, for example:
+
+```text
+storage.collections.chat_log.kind "log" is not available yet — append-only log collections arrive in a later phase of App Storage; declare kind "docs" (or omit kind) for now. civitai.com refuses this at submit today; it is a warning here, not an error, because the platform enables these features with a server-side switch and a CLI already installed must not refuse a manifest the server has started to accept.
+```
+
+- An out-of-range value (`ttlSeconds: 59`) gets the schema's range **error**
+  instead, as on the server.
+- These warnings do not hold back the scope rules: `write: "anyone"` without
+  `apps:storage:publish` gets the warning **and** the scope error, so the
+  manifest is also right once the feature is switched on.
+
+### Source advisories — warnings {#storage-source}
+
+Three **warnings**, read from your source the way the
+[`BLOCK_READY` advisory](#the-block-ready-advisory) reads it (source only,
+comments stripped, `node_modules` and build output skipped). They exit `0`
+unless you pass `--strict`.
+
+| Catches | `field` | Fix |
+| --- | --- | --- |
+| `storage.collection('<name>')` with a string-literal name `storage.collections` does not declare — every call on it is refused `collection_not_declared` | `storage.collections.<name>` | Declare the collection, or correct the name. |
+| The document store called while the manifest has neither `apps:storage` nor a `storage` declaration — every call is refused `insufficient_scope` | `scopes` | Add `apps:storage` and declare each collection. |
+| A call to `useAppStorage()` with neither `apps:storage:read` nor `apps:storage:write` in `scopes`, or to `useSharedStorage()` with neither `apps:storage:shared:read` nor `apps:storage:shared:write` — every call 403s in production | `scopes` | Add the scopes it uses, each with a `scopeJustifications` entry, or [move off the legacy stores](./storage#moving-from-the-legacy-stores). |
+
+When `storage` is declared but `apps:storage` is missing, the second advisory
+stays quiet: the manifest error above already says so. One scope for a legacy
+store silences that store's advisory, and the two stores are checked
+separately.
+
+What counts as a call:
+
+- **A document-store call is `.collection(` (or `?.collection(`) on a storage
+  client:** a name ending in `storage` / `Storage` (`app.storage`,
+  `docStorage`), or an awaited call with no arguments,
+  `(await docs()).collection(…)`. A chain split across lines and a type
+  argument (`collection<Row>(`) still match. Other `.collection(` calls, such
+  as `PATHS.collection(id)`, are not the store.
+- **Only a single string literal is checked as a name.** A computed name
+  (`collection(name)`, a template with `${}`) is not flagged.
+- **Missed:** a client held in a variable whose name does not end in
+  `storage` (`const s = app.storage; s.collection('x')`), or returned by a call
+  that takes arguments or is not awaited. **False alarm:** a call written
+  inside a string literal.
+- **Test code is not read:** `*.test.*` and `*.spec.*` files, files whose name
+  starts with `fake-`, `test-` or `mock-`, and anything under `__tests__/`,
+  `__mocks__/` or `testing/`. A production file named that way is skipped too.
+- **It stays quiet when it cannot read the whole tree** — an unreadable file,
+  a file over 2 MiB, or a very large tree.
 
 ## The `--json` result shape
 
