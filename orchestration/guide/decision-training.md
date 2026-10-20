@@ -166,6 +166,8 @@ Reports include confusion matrices (rows are ground truth, columns are predictio
 
 ## Serving and extending
 
+The Python training service and Docker build are maintained in the private [civitai-decision-trainer repository](https://github.com/civitai/civitai-decision-trainer). The controller repository owns the .NET worker integration. Maintainers can find container build and rollout settings in the trainer's [deployment guide](https://github.com/civitai/civitai-decision-trainer/blob/main/docs/deployment.md).
+
 Serve the pinned base plus exported adapter and decision head using the manifest's questions, answer order, prompt layout, and preprocessing. An arbitrary export is not automatically compatible with the existing fixed Civitai prompt-moderation wrapper. Validate a suitable serving wrapper before deployment.
 
 This first version supports fresh task-specific runs from the original Imajev adapter. It does not accept arbitrary base models, optimizer resume archives, or continuously update a deployed model. Additional backends can implement the trainer's prepare, loss, predict, and export interface while retaining this dataset and workflow structure.
