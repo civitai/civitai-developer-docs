@@ -168,11 +168,7 @@ accept. Until it does, treat these as blocking:
 | `ttlSeconds` | remove ttlSeconds for now |
 | `dailyWritesPerAuthor` | remove dailyWritesPerAuthor for now (the platform default applies) |
 
-The message is the server's text plus why it is only a warning, for example:
-
-```text
-storage.collections.chat_log.kind "log" is not available yet — append-only log collections arrive in a later phase of App Storage; declare kind "docs" (or omit kind) for now. civitai.com refuses this at submit today; it is a warning here, not an error, because the platform enables these features with a server-side switch and a CLI already installed must not refuse a manifest the server has started to accept.
-```
+Each message is the server's refusal plus why the CLI only warns about it.
 
 - An out-of-range value (`ttlSeconds: 59`) gets the schema's range **error**
   instead, as on the server.
@@ -189,7 +185,7 @@ unless you pass `--strict`.
 
 | Catches | `field` | Fix |
 | --- | --- | --- |
-| `storage.collection('<name>')` with a string-literal name `storage.collections` does not declare — every call on it is refused `collection_not_declared` | `storage.collections.<name>` | Declare the collection, or correct the name. |
+| `storage.collection('<name>')` with a string-literal name `storage.collections` does not declare — every call on it is refused `collection_not_declared` | `storage.collections.<name>` (`storage.collections` when the name is not a valid collection name) | Declare the collection, or correct the name. |
 | The document store called while the manifest has neither `apps:storage` nor a `storage` declaration — every call is refused `insufficient_scope` | `scopes` | Add `apps:storage` and declare each collection. |
 | A call to `useAppStorage()` with neither `apps:storage:read` nor `apps:storage:write` in `scopes`, or to `useSharedStorage()` with neither `apps:storage:shared:read` nor `apps:storage:shared:write` — every call 403s in production | `scopes` | Add the scopes it uses, each with a `scopeJustifications` entry, or [move off the legacy stores](./storage#moving-from-the-legacy-stores). |
 
