@@ -16,7 +16,7 @@ For example, a five-level image rating task can use one question with `PG`, `PG1
 
 ## Prepare the dataset
 
-Upload a ZIP containing `examples.jsonl` at its root and any referenced images. Each line has this shape:
+Upload either a **JSONL file directly** or a **ZIP containing `examples.jsonl` at its root** and any bundled images. Each line has this shape:
 
 ```json
 {"id":"example-001","groupId":"source-001","split":"train","input":{"state":"A red square.","images":[]},"labels":{"color":"red"}}
@@ -24,13 +24,23 @@ Upload a ZIP containing `examples.jsonl` at its root and any referenced images. 
 {"id":"example-003","groupId":"source-003","split":"test","input":{"state":"A red balloon.","images":[]},"labels":{"color":"red"}}
 ```
 
-`input.state` is a string or JSON object supplied to the model. Image paths are relative to the ZIP root; external image URLs are not fetched. An example supports up to two images. IDs and labels are bookkeeping and are not added to the model's input.
+`input.state` is a string or JSON object supplied to the model. Omit `input.images` or leave it empty for text-only training. Images can be paths relative to the ZIP root, public HTTPS URLs, or both. An example supports up to two images. IDs and labels are bookkeeping and are not added to the model's input.
+
+For image training without a ZIP, put HTTPS URLs in the JSONL:
+
+```json
+{"id":"image-001","groupId":"source-001","split":"train","input":{"state":"Classify the visible object.","images":["https://your-storage.example/images/001.png"]},"labels":{"color":"blue"}}
+```
+
+The trainer downloads up to four images concurrently before loading the model, reusing each distinct URL within the run. URLs must be accessible without extra headers; signed query strings are supported. Redirects must also resolve to public HTTPS destinations. Private addresses, URL user-info credentials, and invalid images are rejected. Download failures fail the run rather than silently removing examples.
 
 Use `groupId` to keep variants, near duplicates, and examples from the same source in the same split. The trainer rejects duplicate IDs, groups crossing splits, identical inputs crossing splits, and byte-identical images crossing splits. It cannot discover every near duplicate: grouping remains the dataset author's responsibility.
 
 Every question needs labeled training and validation examples. Test examples are optional and are evaluated only after checkpoint selection. A missing label or JSON `null` is excluded for that question. **Null does not mean a negative label.** The explicit label `"__unknown__"` trains abstention; it is reserved and must not appear in the options list.
 
-The archive is limited to 20 GiB compressed, 32 GiB expanded, and 200,000 examples. Compute SHA-256 over the exact ZIP bytes and supply an HTTPS URL that the worker can download without extra headers. A signed URL must remain valid through queueing and download.
+The input file is limited to 20 GiB, the extracted dataset including downloaded images to 32 GiB, and the dataset to 200,000 examples. Remote images are limited to 32 MiB and 40 million pixels each, with a 15-second socket timeout and 120-second transfer deadline. Compute SHA-256 over the exact JSONL or ZIP bytes and supply an HTTPS `datasetUrl` the worker can download without extra headers. The format is detected from contents; no extension or extra format setting is required. All signed URLs must remain valid through queueing and download.
+
+`datasetSha256` identifies the submitted file, not mutable remote image contents. Use immutable image URLs or bundle images in the ZIP for reproducibility. The report includes remote image counts, bytes, and an aggregate content checksum. Downloaded image bytes are also used for the cross-split duplicate checks.
 
 ## Submit training
 
@@ -133,6 +143,7 @@ The response is `application/x-ndjson`: buffer incomplete lines and parse each c
 | Event | Contents |
 | --- | --- |
 | `phase`, `progress` | Preparation, model loading, profiling/tuning, training, evaluation, export, and upload |
+| `download` | Dataset/image download state, bytes received, file counts, and download fraction |
 | `step` | Step/planned steps, epoch, loss, learning rate, gradient norm, progress fraction, seconds per step, peak VRAM, resolved settings |
 | `validation` | Split, checkpoint, mean question loss, per-question accuracy/counts, per-class precision/recall/support/false-positive rate |
 | `checkpoint` | Newly selected checkpoint step and validation loss; the initial step zero is eligible |
@@ -140,6 +151,8 @@ The response is `application/x-ndjson`: buffer incomplete lines and parse each c
 | `error`, `complete` | Error type or attempt completion (`succeeded`, `failed`, `cancelled`) |
 
 Validation events distinguish `checkpoint: "baseline"`, `"current"`, and `"selected"`. Test scores have `split: "test"` and appear only after checkpoint selection and export verification. Undefined metrics are null rather than zero. Full confusion matrices are in the report.
+
+Download events contain `downloadTarget` (`dataset` or `images`), `downloadState` (`started`, `downloading`, `verifying`, or `completed`), `downloadedBytes`, `totalBytes`, `completedFiles`, `totalFiles`, and `downloadProgress` (0–1). Dataset fractions use bytes when Content-Length is available, otherwise null until completion. Image fractions use completed unique URLs; their total bytes are unknown until completion. Dataset completion includes checksum verification; image completion includes image validation. Signed URLs are excluded. Download events arrive about once per second plus start/completion events, through the same `traceUrl`.
 
 The controller forwards events about once per second without skipping optimizer steps between polls. `estimatedTrainingSecondsRemaining` estimates optimizer work only; evaluation, checkpoint writes, and uploads add time. It is not an overall completion estimate.
 
