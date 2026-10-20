@@ -147,6 +147,7 @@ The response is `application/x-ndjson`: buffer incomplete lines and parse each c
 | `step` | Step/planned steps, epoch, loss, learning rate, gradient norm, progress fraction, seconds per step, peak VRAM, resolved settings |
 | `validation` | Split, checkpoint, mean question loss, per-question accuracy/counts, per-class precision/recall/support/false-positive rate |
 | `checkpoint` | Newly selected checkpoint step and validation loss; the initial step zero is eligible |
+| `merge` | Adapter-to-merged validation agreement, probability drift, accuracy/loss changes and acceptance limits |
 | `result` | Trainer artifacts are ready; uploads may still be in progress |
 | `error`, `complete` | Error type or attempt completion (`succeeded`, `failed`, `cancelled`) |
 
@@ -166,14 +167,17 @@ The step returns `model`, `policyVersion`, `traceUrl` when tracing has started, 
 
 The artifact ZIP contains:
 
-- `model/`: LoRA weights, FP32 decision head, tokenizer and processor files.
+- `model/`: full sharded BF16 model with the selected LoRA already merged, FP32 decision head, tokenizer and processor files.
+- `adapter/`: the selected LoRA and matching decision head, preserved for reuse.
 - `manifest.json`: task definition, pinned base and initial adapter revisions, preprocessing, requested and resolved training parameters, dataset checksum, and selected step.
-- `report.json`: baseline validation, selected validation, optional test metrics, optimizer history, tuning measurements, memory usage, and export reload verification.
-- The upstream Imajev license.
+- `report.json`: baseline validation, selected adapter/merged validation, optional merged test metrics, merge drift, optimizer history, tuning measurements, memory usage, and export reload verification.
+- `SERVING.md` and the model/upstream licenses.
 
-Base weights are referenced by pinned repository revision, not duplicated inside the export. Paths within the ZIP are relative. The source dataset, signed download URL, and individual example content are not included.
+The manifest/report use schema version 2. `exportFormat` is `merged-bf16`; `modelDirectory` and `adapterDirectory` are relative paths. Base weights are included, so the merged model requires no base download or conversion. The source dataset, signed download URL, and individual example content are not included. Large artifacts use multipart storage upload and are returned through the same single artifact URL.
 
-Checkpoint selection minimizes the mean validation loss across questions, including the initial checkpoint. The initial model can remain selected if training does not improve that loss. The exported checkpoint is reloaded and must reproduce every selected validation decision and the validation loss before the job succeeds.
+Checkpoint selection minimizes the mean validation loss across questions, including the initial checkpoint. The initial model can remain selected if training does not improve that loss. The selected adapter is reloaded and merged with FP32 CPU accumulation, followed by one rounding to BF16. Its decision head stays FP32.
+
+Merge validation rejects more than 1% changed decisions, more than one percentage point accuracy loss on any question, or a mean-question-loss increase above the larger of 0.01 and 5%. The report records the measured differences and limits. The saved merged model is independently reloaded and must reproduce its in-memory merged validation decisions and loss. `selectedValidation` and `test` describe the final merged model; `selectedAdapterValidation` describes the adapter before merging. Test data does not select the checkpoint.
 
 Reports include confusion matrices (rows are ground truth, columns are predictions), accuracy, per-class precision and recall, and false-positive rates. Counts and class support accompany percentages. Scores are **uncalibrated**; the initial adapter's old calibration is not reused after training.
 
@@ -181,6 +185,6 @@ Reports include confusion matrices (rows are ground truth, columns are predictio
 
 The Python training service and Docker build are maintained in the private [civitai-decision-trainer repository](https://github.com/civitai/civitai-decision-trainer). The controller repository owns the .NET worker integration. Maintainers can find container build and rollout settings in the trainer's [deployment guide](https://github.com/civitai/civitai-decision-trainer/blob/main/docs/deployment.md).
 
-Serve the pinned base plus exported adapter and decision head using the manifest's questions, answer order, prompt layout, and preprocessing. An arbitrary export is not automatically compatible with the existing fixed Civitai prompt-moderation wrapper. Validate a suitable serving wrapper before deployment.
+Load `model/` directly and use its FP32 decision head with the manifest's questions, answer order, prompt layout, and preprocessing. Do not apply `adapter/` again. The included `SERVING.md` gives a reference inference command using the trainer image and only the extracted export. SGLang can load the merged backbone; its Imajev wrapper must use the matching decision head and task definition. An arbitrary export is not automatically compatible with the existing fixed Civitai prompt-moderation wrapper.
 
 This first version supports fresh task-specific runs from the original Imajev adapter. It does not accept arbitrary base models, optimizer resume archives, or continuously update a deployed model. Additional backends can implement the trainer's prepare, loss, predict, and export interface while retaining this dataset and workflow structure.
