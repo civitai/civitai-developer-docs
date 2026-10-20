@@ -129,7 +129,6 @@ const sidebar: DefaultTheme.Sidebar = {
       items: [
         { text: 'Workflows', link: '/orchestration/guide/workflows' },
         { text: 'Submitting Work', link: '/orchestration/guide/submitting-work' },
-        { text: 'Decision model training', link: '/orchestration/guide/decision-training' },
         { text: 'Results & Webhooks', link: '/orchestration/guide/results-and-webhooks' },
         { text: 'Errors & Retries', link: '/orchestration/guide/errors-and-retries' },
         { text: 'Loaded Resources', link: '/orchestration/guide/loaded-resources' },
