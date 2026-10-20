@@ -1,6 +1,6 @@
 civitai CLI help snapshot (the WHOLE command tree)
 Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
-Binary version: civitai 0.1.128
+Binary version: civitai 0.1.130
 Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
 else parses this committed snapshot. To refresh: run
 node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).
@@ -770,6 +770,7 @@ Examples:
   civitai app listing set-text --tagline "Batch upscaling, in your browser"
   civitai app listing set-icon ./assets/icon.png
   civitai app listing set-cover ./assets/cover.png
+  civitai app listing set-cover ./assets/cover-red.png --red
   civitai app listing add-screenshot ./shot.png --caption "Grid view"
   civitai app listing rm-screenshot alsc_01H...
   civitai app listing reorder alsc_02 alsc_01 alsc_03
@@ -777,6 +778,7 @@ Examples:
 
 Available Commands:
   add-screenshot  Add a screenshot (up to 8) with an optional caption
+  clear-red       Remove the civitai.red-only icon or cover override
   reorder         Reorder screenshots (pass ALL current screenshot ids in the new order)
   rm-screenshot   Remove a screenshot by its id (see `app listing status`)
   set-cover       Set the listing cover (png, jpeg or webp, at most 4.0 MiB)
@@ -797,6 +799,7 @@ Global Flags:
 Use "civitai app listing [command] --help" for more information about a command.
 ===CMD complete app listing===
 add-screenshot	Add a screenshot (up to 8) with an optional caption
+clear-red	Remove the civitai.red-only icon or cover override
 reorder	Reorder screenshots (pass ALL current screenshot ids in the new order)
 rm-screenshot	Remove a screenshot by its id (see `app listing status`)
 set-cover	Set the listing cover (png, jpeg or webp, at most 4.0 MiB)
@@ -821,6 +824,9 @@ the longer side) and the platform caps that re-encoded image — a different
 measurement from the cap above, which is on your file. A detailed 1024x1024
 icon can pass here and be refused there; the lever is smaller pixel dimensions.
 
+--red sets the civitai.red-only icon override instead (shown there in place of
+this icon); `clear-red icon` removes it.
+
 Platform bounds: https://developer.civitai.com/apps/guide/store-listing
 
 On a listing that is already LIVE this opens a REVISION for moderator re-review
@@ -837,11 +843,13 @@ Examples:
   civitai app listing set-icon ./assets/icon.png
   civitai app listing set-icon ./icon.png --slug my-app
   civitai app listing set-icon ./icon.png --changelog "New brand mark" -y
+  civitai app listing set-icon ./icon-red.png --red
 
 Flags:
       --changelog string   changelog for the moderator review (used only when the listing is already live)
       --dir string         app directory holding block.manifest.json (when --slug is not given) (default ".")
   -h, --help               help for set-icon
+      --red                set the civitai.red-only icon override instead of the listing's own icon
       --slug string        app slug (defaults to block.manifest.json's blockId)
   -y, --yes                skip the live-listing revision confirmation
 
@@ -861,6 +869,9 @@ Nothing is uploaded if the local check fails. The platform validates the
 image's dimensions and aspect at the ATTACH step, so a wrongly-shaped image is
 refused in seconds rather than after the scan.
 
+--red sets the civitai.red-only cover override instead (shown there in place of
+this cover); `clear-red cover` removes it.
+
 Platform bounds: https://developer.civitai.com/apps/guide/store-listing
 
 On a listing that is already LIVE this opens a REVISION for moderator re-review
@@ -877,11 +888,13 @@ Examples:
   civitai app listing set-cover ./assets/cover.png
   civitai app listing set-cover ./cover.jpg --slug my-app
   civitai app listing set-cover ./cover.png --changelog "Updated hero" -y
+  civitai app listing set-cover ./cover-red.png --red
 
 Flags:
       --changelog string   changelog for the moderator review (used only when the listing is already live)
       --dir string         app directory holding block.manifest.json (when --slug is not given) (default ".")
   -h, --help               help for set-cover
+      --red                set the civitai.red-only cover override instead of the listing's own cover
       --slug string        app slug (defaults to block.manifest.json's blockId)
   -y, --yes                skip the live-listing revision confirmation
 
@@ -1050,6 +1063,36 @@ Global Flags:
       --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
 ===CMD complete app listing status===
 :0
+===CMD app listing clear-red===
+Remove your listing's civitai.red-only ICON or COVER override (the image
+`set-icon --red` / `set-cover --red` attached). civitai.red then shows the
+listing's own icon or cover, as civitai.com does.
+
+On a listing that is already LIVE the removal lands in the open REVISION and
+is NOT submitted: civitai.red keeps showing the override until a moderator
+approves the revision. Run `civitai app listing submit-revision` when the
+revision is what you want. On a DRAFT listing it applies to the listing itself.
+
+Usage:
+  civitai app listing clear-red <icon|cover> [flags]
+
+Examples:
+  civitai app listing clear-red icon
+  civitai app listing clear-red cover --slug my-app
+
+Flags:
+      --dir string    app directory holding block.manifest.json (when --slug is not given) (default ".")
+  -h, --help          help for clear-red
+      --slug string   app slug (defaults to block.manifest.json's blockId)
+
+Global Flags:
+      --color             force colored output even when stdout is not a TTY (also via CLICOLOR_FORCE)
+      --no-color          disable colored/styled output (also via NO_COLOR or CIVITAI_NO_COLOR)
+      --no-update-check   skip the background check for a newer release (also via CIVITAI_NO_UPDATE_CHECK)
+===CMD complete app listing clear-red===
+icon
+cover
+:4
 ===CMD app listing set-source-repo===
 Publish a link to your app's PUBLIC SOURCE on its store detail page.
 

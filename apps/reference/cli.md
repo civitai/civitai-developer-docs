@@ -131,7 +131,7 @@ documented here; run `civitai completion --help` for it.
 <ReferenceIndex kind="cli">
 <!-- BEGIN GENERATED: cli-index — markdown fallback for the .md/LLM channel. Do not edit by hand; run `npm run gen:appblocks:md`. -->
 
-64 commands across 5 pages. Each link goes to the page that documents the command; fetch that page's `.md` for the full entry.
+65 commands across 5 pages. Each link goes to the page that documents the command; fetch that page's `.md` for the full entry.
 
 **[civitai app — authoring commands](./cli/app)** — Scaffold, validate, submit and operate an App: every `civitai app` command except the listing group.
 
@@ -163,6 +163,7 @@ documented here; run `civitai completion --help` for it.
 - [`civitai app listing rm-screenshot`](./cli/app-listing#cli-app-listing-rm-screenshot) — Remove a screenshot by its id (see `app listing status`)
 - [`civitai app listing reorder`](./cli/app-listing#cli-app-listing-reorder) — Reorder screenshots (pass ALL current screenshot ids in the new order)
 - [`civitai app listing status`](./cli/app-listing#cli-app-listing-status) — Show attached media and what's missing vs the publish floor
+- [`civitai app listing clear-red`](./cli/app-listing#cli-app-listing-clear-red) — Remove the civitai.red-only icon or cover override
 - [`civitai app listing set-source-repo`](./cli/app-listing#cli-app-listing-set-source-repo) — Set (or clear) the public source-repository link on your listing
 - [`civitai app listing set-text`](./cli/app-listing#cli-app-listing-set-text) — Set your listing's tagline, description or category
 - [`civitai app listing submit-revision`](./cli/app-listing#cli-app-listing-submit-revision) — Submit your live listing's open revision for moderator review

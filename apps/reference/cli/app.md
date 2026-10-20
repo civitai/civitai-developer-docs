@@ -10,7 +10,7 @@ outline: [2, 4]
 
 Scaffold, validate, submit and operate an App: every `civitai app` command except the listing group.
 
-This page documents 18 of the 64 commands in the [CLI reference](../cli), which indexes every command by name. Generated from the `civitai` binary's own help output.
+This page documents 18 of the 65 commands in the [CLI reference](../cli), which indexes every command by name. Generated from the `civitai` binary's own help output.
 
 Other pages: [civitai app listing — store listing commands](./app-listing) · [Catalog and download commands](./catalog) · [Generation commands](./generation) · [Account, setup and utility commands](./account-and-setup)
 
