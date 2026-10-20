@@ -120,9 +120,36 @@ For example, a fully specified image configuration is:
 
 With automatic tuning enabled, an unexpected activation-memory failure retries the entire pending gradient group using smaller microbatches or checkpointing. Its effective batch and loss weighting stay unchanged. Explicit overrides are respected; an impossible manual configuration fails instead of silently changing your settings. Training progress reports profiling/tuning phases before optimizer steps begin.
 
+## Live progress and scores
+
+Live tracing is enabled by default. Set `input.trace` to `false` to disable it. Once a worker starts the attempt, `steps[].output.traceUrl` becomes available even while the artifact and report are still unavailable. Open it with `fetch()` and a streaming reader, or:
+
+```bash
+curl --no-buffer "$TRACE_URL"
+```
+
+The response is `application/x-ndjson`: buffer incomplete lines and parse each complete line as JSON. It uses the same streaming-blob transport as AI Toolkit. Each event includes `t` (Unix milliseconds), `type`, `attemptId`, `seq`, and `source`.
+
+| Event | Contents |
+| --- | --- |
+| `phase`, `progress` | Preparation, model loading, profiling/tuning, training, evaluation, export, and upload |
+| `step` | Step/planned steps, epoch, loss, learning rate, gradient norm, progress fraction, seconds per step, peak VRAM, resolved settings |
+| `validation` | Split, checkpoint, mean question loss, per-question accuracy/counts, per-class precision/recall/support/false-positive rate |
+| `checkpoint` | Newly selected checkpoint step and validation loss; the initial step zero is eligible |
+| `result` | Trainer artifacts are ready; uploads may still be in progress |
+| `error`, `complete` | Error type or attempt completion (`succeeded`, `failed`, `cancelled`) |
+
+Validation events distinguish `checkpoint: "baseline"`, `"current"`, and `"selected"`. Test scores have `split: "test"` and appear only after checkpoint selection and export verification. Undefined metrics are null rather than zero. Full confusion matrices are in the report.
+
+The controller forwards events about once per second without skipping optimizer steps between polls. `estimatedTrainingSecondsRemaining` estimates optimizer work only; evaluation, checkpoint writes, and uploads add time. It is not an overall completion estimate.
+
+Reconnecting replays that attempt from the beginning; deduplicate by `(attemptId, seq)`. A retry gets a new trace URL, so continue polling the workflow and switch URLs when it changes. A connection may return 404 before its first bytes; retry while the workflow remains active. `complete` describes a worker attempt; the workflow status determines final success, cancellation, or failure.
+
+Streaming is best effort and may drop updates under backpressure. An unavailable stream does not stop training. The final report is authoritative. Raw examples and trainer logs are excluded, but task option names appear in per-class scores. Anyone holding the trace URL can read it.
+
 ## Read and preserve the result
 
-The step returns `model`, `policyVersion`, and two blobs: `artifact` and `report`. Download their `url` values while available. Follow the standard [blob retention rules](./results-and-webhooks) and copy artifacts into durable storage before they expire.
+The step returns `model`, `policyVersion`, `traceUrl` when tracing has started, and two blobs: `artifact` and `report`. Download their `url` values while available. Follow the standard [blob retention rules](./results-and-webhooks) and copy artifacts into durable storage before they expire.
 
 The artifact ZIP contains:
 

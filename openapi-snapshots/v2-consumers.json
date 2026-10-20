@@ -23198,6 +23198,10 @@
           },
           "parameters": {
             "$ref": "#/components/schemas/DecisionTrainingParameters"
+          },
+          "trace": {
+            "type": "boolean",
+            "default": true
           }
         },
         "additionalProperties": false
@@ -23240,6 +23244,13 @@
           },
           "report": {
             "$ref": "#/components/schemas/Blob"
+          },
+          "traceUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
           }
         },
         "additionalProperties": false
