@@ -9787,6 +9787,7 @@
                 "qwen21": "#/components/schemas/Qwen21AIToolkitTrainingInput",
                 "zimageturbo": "#/components/schemas/ZImageTurboAIToolkitTrainingInput",
                 "zimagebase": "#/components/schemas/ZImageBaseAIToolkitTrainingInput",
+                "mossImage": "#/components/schemas/MossImageAIToolkitTrainingInput",
                 "flux3klein": "#/components/schemas/Flux3KleinAIToolkitTrainingInput",
                 "flux2klein": "#/components/schemas/Flux2KleinAIToolkitTrainingInput",
                 "ltx2": "#/components/schemas/Ltx2AIToolkitTrainingInput",
@@ -16232,6 +16233,7 @@
                 "sd1": "#/components/schemas/ComfySd1ImageGenInput",
                 "sdxl": "#/components/schemas/ComfySdxlImageGenInput",
                 "flux1": "#/components/schemas/ComfyFlux1ImageGenInput",
+                "mossImage": "#/components/schemas/ComfyMossImageGenInput",
                 "flux3Klein": "#/components/schemas/ComfyFlux3KleinImageGenInput",
                 "flux2Dev": "#/components/schemas/ComfyFlux2DevImageGenInput",
                 "ernie": "#/components/schemas/ComfyErnieImageGenInput",
@@ -19557,6 +19559,315 @@
           }
         ]
       },
+      "ComfyMossImageBaseCreateImageInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyMossImageBaseImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "model",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "enum": [
+                  "createImage"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "base"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "mossImage"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "ComfyMossImageBaseImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyMossImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "model",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": "createImage"
+              },
+              "model": {
+                "enum": [
+                  "base"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "mossImage"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "operation",
+              "mapping": {
+                "createImage": "#/components/schemas/ComfyMossImageBaseCreateImageInput"
+              }
+            }
+          }
+        ]
+      },
+      "ComfyMossImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "model",
+              "prompt"
+            ],
+            "type": "object",
+            "properties": {
+              "model": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": "sft"
+              },
+              "prompt": {
+                "maxLength": 10000,
+                "minLength": 0,
+                "type": "string"
+              },
+              "negativePrompt": {
+                "maxLength": 10000,
+                "minLength": 0,
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "width": {
+                "maximum": 2048,
+                "minimum": 64,
+                "type": "integer",
+                "format": "int32",
+                "default": 1024
+              },
+              "height": {
+                "maximum": 2048,
+                "minimum": 64,
+                "type": "integer",
+                "format": "int32",
+                "default": 1024
+              },
+              "seed": {
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int64"
+              },
+              "quantity": {
+                "maximum": 4,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 1
+              },
+              "steps": {
+                "maximum": 150,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 25
+              },
+              "cfgScale": {
+                "maximum": 30,
+                "minimum": 1,
+                "type": "number",
+                "format": "double",
+                "default": 2.5
+              },
+              "sampler": {
+                "default": "er_sde",
+                "$ref": "#/components/schemas/ComfySampler"
+              },
+              "scheduler": {
+                "default": "simple",
+                "$ref": "#/components/schemas/ComfyScheduler"
+              },
+              "loras": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number",
+                  "format": "double"
+                }
+              },
+              "diffusionModel": {
+                "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Compatible MOSS-Image diffusion checkpoint AIR. Omit or set null to use the selected model's int8 checkpoint; the int8 text encoder and VAE remain unchanged."
+              },
+              "ecosystem": {
+                "enum": [
+                  "mossImage"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "model",
+              "mapping": {
+                "base": "#/components/schemas/ComfyMossImageBaseImageGenInput",
+                "sft": "#/components/schemas/ComfyMossImageSftImageGenInput"
+              }
+            }
+          }
+        ]
+      },
+      "ComfyMossImageSftCreateImageInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyMossImageSftImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "model",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "enum": [
+                  "createImage"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "sft"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "mossImage"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "ComfyMossImageSftImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyMossImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "model",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": "createImage"
+              },
+              "model": {
+                "enum": [
+                  "sft"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "mossImage"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "operation",
+              "mapping": {
+                "createImage": "#/components/schemas/ComfyMossImageSftCreateImageInput"
+              }
+            }
+          }
+        ]
+      },
       "ComfyNode": {
         "required": [
           "classType",
@@ -21216,7 +21527,7 @@
               "checkpointModel": {
                 "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
                 "type": "string",
-                "default": "urn:air:sdxl:checkpoint:civitai:101055@128078+92696"
+                "default": "urn:air:sdxl:checkpoint:civitai:101055@128078"
               },
               "ecosystem": {
                 "enum": [
@@ -22693,6 +23004,7 @@
                 "format": "uri"
               },
               "refText": {
+                "maxLength": 1000,
                 "type": [
                   "null",
                   "string"
@@ -22729,6 +23041,8 @@
                 "description": "Optional style instruction for CustomVoice mode."
               },
               "maxNewTokens": {
+                "maximum": 2048,
+                "minimum": 1,
                 "type": [
                   "null",
                   "integer"
@@ -25639,6 +25953,230 @@
           }
         ]
       },
+      "Flux3MaxImageToVideoInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Flux3MaxVideoGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "image",
+              "operation",
+              "version"
+            ],
+            "type": "object",
+            "properties": {
+              "image": {
+                "type": "string",
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
+              },
+              "endImage": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
+              },
+              "operation": {
+                "enum": [
+                  "imageToVideo"
+                ],
+                "type": "string"
+              },
+              "version": {
+                "enum": [
+                  "v3.0-max"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "flux"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "Flux3MaxKeyframesToVideoInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Flux3MaxVideoGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "keyframes",
+              "operation",
+              "version"
+            ],
+            "type": "object",
+            "properties": {
+              "keyframes": {
+                "maxItems": 10,
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "description": "An image pinned to a frame position in the generated video.",
+                  "$ref": "#/components/schemas/Flux3Keyframe"
+                }
+              },
+              "operation": {
+                "enum": [
+                  "keyframesToVideo"
+                ],
+                "type": "string"
+              },
+              "version": {
+                "enum": [
+                  "v3.0-max"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "flux"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "Flux3MaxTextToVideoInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Flux3MaxVideoGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "operation",
+              "version"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "enum": [
+                  "textToVideo"
+                ],
+                "type": "string"
+              },
+              "version": {
+                "enum": [
+                  "v3.0-max"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "flux"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "Flux3MaxVideoGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Flux3VideoGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "operation",
+              "version"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "type": "string"
+              },
+              "duration": {
+                "maximum": 20,
+                "minimum": 5,
+                "type": "integer",
+                "format": "int32",
+                "default": 5
+              },
+              "resolution": {
+                "enum": [
+                  "720p",
+                  "1080p"
+                ],
+                "type": "string",
+                "default": "720p"
+              },
+              "aspectRatio": {
+                "enum": [
+                  "auto",
+                  "21:9",
+                  "2:1",
+                  "16:9",
+                  "4:3",
+                  "1:1",
+                  "3:4",
+                  "9:16"
+                ],
+                "type": "string",
+                "default": "auto"
+              },
+              "generateAudio": {
+                "type": "boolean",
+                "default": true
+              },
+              "reasoningLevel": {
+                "enum": [
+                  "low",
+                  "high"
+                ],
+                "type": "string",
+                "description": "Higher reasoning effort increases generation time.",
+                "default": "high"
+              },
+              "seed": {
+                "maximum": 2147483647,
+                "minimum": 0,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int32"
+              },
+              "version": {
+                "enum": [
+                  "v3.0-max"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "flux"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "operation",
+              "mapping": {
+                "textToVideo": "#/components/schemas/Flux3MaxTextToVideoInput",
+                "imageToVideo": "#/components/schemas/Flux3MaxImageToVideoInput",
+                "keyframesToVideo": "#/components/schemas/Flux3MaxKeyframesToVideoInput"
+              }
+            }
+          }
+        ]
+      },
       "Flux3V3DraftEnhanceInput": {
         "allOf": [
           {
@@ -26182,7 +26720,8 @@
             "discriminator": {
               "propertyName": "version",
               "mapping": {
-                "v3.0": "#/components/schemas/Flux3V3VideoGenInput"
+                "v3.0": "#/components/schemas/Flux3V3VideoGenInput",
+                "v3.0-max": "#/components/schemas/Flux3MaxVideoGenInput"
               }
             }
           }
@@ -30351,7 +30890,8 @@
           "propertyName": "type",
           "mapping": {
             "resize": "#/components/schemas/ResizeTransform",
-            "blur": "#/components/schemas/BlurTransform"
+            "blur": "#/components/schemas/BlurTransform",
+            "watermark": "#/components/schemas/WatermarkTransform"
           }
         }
       },
@@ -32010,6 +32550,8 @@
                 "type": "string"
               },
               "maxNewTokens": {
+                "maximum": 2048,
+                "minimum": 1,
                 "type": [
                   "null",
                   "integer"
@@ -35430,6 +35972,148 @@
           }
         ],
         "description": "ModelPickleScan"
+      },
+      "MossImageAIToolkitTrainingInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AIToolkitTrainingInput"
+          },
+          {
+            "required": [
+              "defaultSteps",
+              "ecosystem",
+              "engine",
+              "modelVariant"
+            ],
+            "type": "object",
+            "properties": {
+              "modelVariant": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": "sft"
+              },
+              "defaultSteps": {
+                "type": "integer",
+                "format": "int32",
+                "readOnly": true
+              },
+              "ecosystem": {
+                "enum": [
+                  "mossImage"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "ai-toolkit"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "modelVariant",
+              "mapping": {
+                "base": "#/components/schemas/MossImageBaseAIToolkitTrainingInput",
+                "sft": "#/components/schemas/MossImageSftAIToolkitTrainingInput"
+              }
+            }
+          }
+        ]
+      },
+      "MossImageBaseAIToolkitTrainingInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MossImageAIToolkitTrainingInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "modelVariant"
+            ],
+            "type": "object",
+            "properties": {
+              "modelVariant": {
+                "enum": [
+                  "base"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "mossImage"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "ai-toolkit"
+                ],
+                "type": "string"
+              },
+              "batchSize": {
+                "maximum": 1,
+                "minimum": 1,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "description": "Training batch size. Fixed at 1 for this ecosystem.",
+                "default": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "MossImageSftAIToolkitTrainingInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MossImageAIToolkitTrainingInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "modelVariant"
+            ],
+            "type": "object",
+            "properties": {
+              "modelVariant": {
+                "enum": [
+                  "sft"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "mossImage"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "ai-toolkit"
+                ],
+                "type": "string"
+              },
+              "batchSize": {
+                "maximum": 1,
+                "minimum": 1,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "description": "Training batch size. Fixed at 1 for this ecosystem.",
+                "default": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
       },
       "MuseImageCreateFalImageGenInput": {
         "allOf": [
@@ -40381,6 +41065,7 @@
                 "format": "uri"
               },
               "refText": {
+                "maxLength": 1000,
                 "type": [
                   "null",
                   "string"
@@ -40490,6 +41175,8 @@
                 "type": "string"
               },
               "maxNewTokens": {
+                "maximum": 2048,
+                "minimum": 1,
                 "type": [
                   "null",
                   "integer"
@@ -42130,7 +42817,7 @@
               "checkpointModel": {
                 "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
                 "type": "string",
-                "default": "urn:air:sdxl:checkpoint:civitai:101055@128078+92696"
+                "default": "urn:air:sdxl:checkpoint:civitai:101055@128078"
               },
               "ecosystem": {
                 "enum": [
@@ -43990,6 +44677,20 @@
               "boolean"
             ],
             "description": "Removes the source's container tags and chapters; the video and audio streams are untouched."
+          },
+          "maxDuration": {
+            "maximum": 86400,
+            "minimum": 0.1,
+            "type": [
+              "null",
+              "number"
+            ],
+            "description": "Cuts the output after this many seconds.",
+            "format": "double"
+          },
+          "watermark": {
+            "description": "An image repeated across the whole output, burned into every frame.",
+            "$ref": "#/components/schemas/Watermark"
           }
         },
         "additionalProperties": false
@@ -49216,6 +49917,71 @@
                 "v3.0": "#/components/schemas/Wan30VideoGenInput"
               }
             }
+          }
+        ]
+      },
+      "Watermark": {
+        "required": [
+          "image"
+        ],
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "The tile, typically a PNG with transparency. It is imported and moderated like any other input image.",
+            "format": "source-image"
+          },
+          "opacity": {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number",
+            "format": "float",
+            "default": 0.3
+          },
+          "scale": {
+            "maximum": 1,
+            "minimum": 0.01,
+            "type": "number",
+            "description": "Width of one tile as a fraction of the output width.",
+            "format": "float",
+            "default": 0.25
+          },
+          "angle": {
+            "maximum": 90,
+            "minimum": -90,
+            "type": "number",
+            "description": "Counter-clockwise rotation of the tiled pattern, in degrees.",
+            "format": "float",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "description": "An image repeated across the whole output, burned into every frame."
+      },
+      "WatermarkTransform": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ImageTransform"
+          },
+          {
+            "required": [
+              "type",
+              "watermark"
+            ],
+            "type": "object",
+            "properties": {
+              "watermark": {
+                "description": "An image repeated across the whole output, burned into every frame.",
+                "$ref": "#/components/schemas/Watermark"
+              },
+              "type": {
+                "enum": [
+                  "watermark"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
           }
         ]
       },

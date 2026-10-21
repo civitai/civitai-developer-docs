@@ -140,12 +140,16 @@ bounds, except `ownedModelVersions`, which it lists once these docs' pinned
 `@civitai/app-sdk` is bumped to a version that carries it (see
 [below](#owned-model-versions) for its rules).
 
-`civitai app validate` checks only the JSON schema, which admits the reserved
-fields. The server's own manifest validation, which applies the reserved-feature
+The server's own manifest validation, which applies the reserved-feature
 refusal and the [scope rules](#scopes-and-consent), runs when a moderator
 approves the version (and on a direct git push), not when `civitai app submit`
 uploads it. A declaration it refuses therefore waits in review until approval
-fails, so check it against this page before you submit.
+fails, so check it before you submit. From `civitai` CLI **0.1.131**,
+`civitai app validate` mirrors those rules locally: the scope rules and a
+counter/mark name clash are errors, the reserved features are warnings, and it
+warns when your source calls an undeclared collection or the store without its
+scope ([Storage checks](./validate#storage)). Older CLIs check only the JSON
+schema, which admits the reserved fields.
 
 ### Fields that must name the author's own model version {#owned-model-versions}
 
