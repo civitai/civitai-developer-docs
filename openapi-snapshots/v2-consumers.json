@@ -94,7 +94,7 @@
         "tags": [
           "Blobs"
         ],
-        "summary": "Handles HTTP HEAD requests for a specific blob, checking its existence and NSFW level.",
+        "summary": "Same as GET, but answers 204 with the redirect target in Location, so a client can read the verdict headers\nbefore loading the content.",
         "operationId": "HeadBlob",
         "parameters": [
           {
@@ -103,6 +103,34 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "workflowId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "nsfwLevel",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/NSFWLevel"
+            }
+          },
+          {
+            "name": "filename",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "download",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
             }
           }
         ],
@@ -129,6 +157,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Service Unavailable"
           }
         }
       }
@@ -1266,6 +1297,329 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AudioCaptioningOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/consumer/recipes/audioClassification": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "operationId": "InvokeAudioClassificationStepTemplate",
+        "parameters": [
+          {
+            "name": "experimental",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "allowMatureContent",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "whatif",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ephemeral",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "tier",
+            "in": "query",
+            "description": "How a workflow is paid for.",
+            "schema": {
+              "$ref": "#/components/schemas/WorkflowTier"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioClassificationInput"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioClassificationInput"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioClassificationInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioClassificationOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/consumer/recipes/audioModeration": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Transcribe every audio track and classify the lyrics for sexualized minors.",
+        "operationId": "InvokeAudioModerationStepTemplate",
+        "parameters": [
+          {
+            "name": "experimental",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "allowMatureContent",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "whatif",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ephemeral",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "tier",
+            "in": "query",
+            "description": "How a workflow is paid for.",
+            "schema": {
+              "$ref": "#/components/schemas/WorkflowTier"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioModerationInput"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioModerationInput"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioModerationInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioModerationOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/consumer/recipes/audioTextModeration": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Classify transcribed lyrics for sexualized minors.",
+        "operationId": "InvokeAudioTextModerationStepTemplate",
+        "parameters": [
+          {
+            "name": "experimental",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "allowMatureContent",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "whatif",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ephemeral",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "tier",
+            "in": "query",
+            "description": "How a workflow is paid for.",
+            "schema": {
+              "$ref": "#/components/schemas/WorkflowTier"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioTextModerationInput"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioTextModerationInput"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioTextModerationInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioTextModerationOutput"
                 }
               }
             }
@@ -11148,8 +11502,10 @@
       },
       "AudioCaptioningInput": {
         "required": [
+          "includeCaption",
           "maxNewTokens",
           "mediaUrl",
+          "prepareForModeration",
           "temperature"
         ],
         "type": "object",
@@ -11168,6 +11524,12 @@
             "type": "integer",
             "description": "Maximum number of tokens to generate for each ACE-Step request.",
             "format": "int32"
+          },
+          "includeCaption": {
+            "type": "boolean"
+          },
+          "prepareForModeration": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -11183,6 +11545,12 @@
             "additionalProperties": {
               "$ref": "#/components/schemas/AudioCaptioningOutputItem"
             }
+          },
+          "hasAudio": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         },
         "additionalProperties": false
@@ -11233,6 +11601,12 @@
             ]
           },
           "language": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "finishReason": {
             "type": [
               "null",
               "string"
@@ -11299,6 +11673,92 @@
         ],
         "description": "Audio Captioning"
       },
+      "AudioClassificationInput": {
+        "required": [
+          "mediaUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "mediaUrl": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioClassificationOutput": {
+        "required": [
+          "classificationMilliseconds",
+          "hasAudio",
+          "model",
+          "segments"
+        ],
+        "type": "object",
+        "properties": {
+          "hasAudio": {
+            "type": "boolean"
+          },
+          "model": {
+            "type": "string"
+          },
+          "segments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AudioClassificationSegment"
+            }
+          },
+          "classificationMilliseconds": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioClassificationSegment": {
+        "required": [
+          "blobKey",
+          "durationSeconds",
+          "kind",
+          "musicScore",
+          "name",
+          "singingScore",
+          "speechFraction",
+          "speechScore"
+        ],
+        "type": "object",
+        "properties": {
+          "blobKey": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "durationSeconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "speechScore": {
+            "type": "number",
+            "format": "double"
+          },
+          "musicScore": {
+            "type": "number",
+            "format": "double"
+          },
+          "singingScore": {
+            "type": "number",
+            "format": "double"
+          },
+          "speechFraction": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
       "AudioComposeMediaOutput": {
         "allOf": [
           {
@@ -11325,6 +11785,221 @@
           }
         ],
         "description": "An audio mixdown produced when the composition has no video."
+      },
+      "AudioModerationInput": {
+        "required": [
+          "mediaUrl",
+          "transcriber"
+        ],
+        "type": "object",
+        "properties": {
+          "mediaUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "transcriber": {
+            "enum": [
+              "auto",
+              "aceStep",
+              "asr"
+            ],
+            "type": "string",
+            "description": "auto classifies each segment on CPU and sends speech to ASR when the language is supported, everything else to ACE-Step."
+          },
+          "language": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioModerationOutput": {
+        "required": [
+          "blocked",
+          "lyrics",
+          "model",
+          "policyHash",
+          "score",
+          "sexualizedMinors"
+        ],
+        "type": "object",
+        "properties": {
+          "lyrics": {
+            "type": "string"
+          },
+          "sexualizedMinors": {
+            "type": "boolean"
+          },
+          "score": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "model": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "policyHash": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasAudio": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "skippedReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "blocked": {
+            "type": "boolean",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioModerationStep": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStep"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/AudioModerationInput"
+              },
+              "output": {
+                "$ref": "#/components/schemas/AudioModerationOutput"
+              },
+              "$type": {
+                "enum": [
+                  "audioModeration"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Transcribe every audio track and classify the lyrics for sexualized minors."
+      },
+      "AudioModerationStepTemplate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStepTemplate"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "description": "Input for the AudioModerationStep step.",
+                "$ref": "#/components/schemas/AudioModerationInput"
+              },
+              "$type": {
+                "enum": [
+                  "audioModeration"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Transcribe every audio track and classify the lyrics for sexualized minors."
+      },
+      "AudioTextModerationInput": {
+        "type": "object",
+        "properties": {
+          "lyrics": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "audioCaptioning": {
+            "$ref": "#/components/schemas/AudioCaptioningOutput"
+          },
+          "transcription": {
+            "$ref": "#/components/schemas/TranscriptionOutput"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioTextModerationOutput": {
+        "required": [
+          "blocked",
+          "lyrics",
+          "model",
+          "policyHash",
+          "score",
+          "sexualizedMinors"
+        ],
+        "type": "object",
+        "properties": {
+          "lyrics": {
+            "type": "string"
+          },
+          "sexualizedMinors": {
+            "type": "boolean"
+          },
+          "score": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "model": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "policyHash": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasAudio": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "skippedReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "blocked": {
+            "type": "boolean",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
       },
       "AvailableResourceAvailability": {
         "allOf": [
@@ -23492,7 +24167,7 @@
               "propertyName": "model",
               "mapping": {
                 "meshy": "#/components/schemas/MeshyFalPolyGenInput",
-                "tripo": "#/components/schemas/TripoFalPolyGenInput"
+                "tripo": "#/components/schemas/TripoVersionedFalPolyGenInput"
               }
             }
           }
@@ -32149,7 +32824,8 @@
               "thinkingMode": {
                 "enum": [
                   "instant",
-                  "medium"
+                  "medium",
+                  "ultra"
                 ],
                 "type": "string",
                 "default": "instant"
@@ -32474,6 +33150,62 @@
           }
         ]
       },
+      "LiveQwen3BaseTTSInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/LiveQwen3TextToSpeechInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "operation",
+              "refAudioUrl"
+            ],
+            "type": "object",
+            "properties": {
+              "refAudioUrl": {
+                "type": "string",
+                "description": "Reference audio AIR URN or external URL for voice cloning.\nAccepts AIR URNs (existing resources) or HTTP(S) URLs.",
+                "format": "uri"
+              },
+              "refText": {
+                "maxLength": 1000,
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Transcript of the reference audio.\nRequired unless XVectorOnlyMode is true."
+              },
+              "xVectorOnlyMode": {
+                "type": "boolean",
+                "description": "If true, clones from the speaker embedding alone and ignores refText.\nDefaults to true on live: in-context mode has been seen generating to the token cap on short sentences.",
+                "default": true
+              },
+              "operation": {
+                "enum": [
+                  "base"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "qwen3"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "vllm-omni"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Qwen3 Base: speaks in a voice cloned from Civitai.Orchestration.Grains.Workflows.Steps.LiveTextToSpeech.LiveQwen3BaseTTSInput.RefAudioUrl, like `textToSpeech`'s `base` operation."
+      },
       "LiveQwen3CustomVoiceTTSInput": {
         "allOf": [
           {
@@ -32576,6 +33308,7 @@
             "discriminator": {
               "propertyName": "operation",
               "mapping": {
+                "base": "#/components/schemas/LiveQwen3BaseTTSInput",
                 "customVoice": "#/components/schemas/LiveQwen3CustomVoiceTTSInput"
               }
             }
@@ -44860,6 +45593,13 @@
           "elapsedSeconds": {
             "type": "number",
             "format": "double"
+          },
+          "hasAudio": {
+            "type": [
+              "null",
+              "boolean"
+            ],
+            "description": "False when the media has no audio track; null when the worker did not check."
           }
         },
         "additionalProperties": false
@@ -45241,13 +45981,14 @@
       "TripoFalPolyGenInput": {
         "allOf": [
           {
-            "$ref": "#/components/schemas/FalPolyGenInput"
+            "$ref": "#/components/schemas/TripoVersionedFalPolyGenInput"
           },
           {
             "required": [
               "engine",
               "imageUrl",
-              "model"
+              "model",
+              "version"
             ],
             "type": "object",
             "properties": {
@@ -45316,6 +46057,12 @@
                 ],
                 "format": "int32"
               },
+              "version": {
+                "enum": [
+                  "v2.5"
+                ],
+                "type": "string"
+              },
               "model": {
                 "enum": [
                   "tripo"
@@ -45330,6 +46077,356 @@
               }
             },
             "additionalProperties": false
+          }
+        ]
+      },
+      "TripoH31FalPolyGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TripoVersionedFalPolyGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "model",
+              "operation",
+              "version"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "type": "string"
+              },
+              "texture": {
+                "type": "boolean",
+                "default": true
+              },
+              "pbr": {
+                "type": "boolean",
+                "description": "PBR enables textures even when texture is false.",
+                "default": true
+              },
+              "faceLimit": {
+                "maximum": 2000000,
+                "minimum": 1000,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int32"
+              },
+              "autoSize": {
+                "type": "boolean",
+                "default": false
+              },
+              "quad": {
+                "type": "boolean",
+                "default": false
+              },
+              "geometryQuality": {
+                "enum": [
+                  "standard",
+                  "detailed"
+                ],
+                "type": "string",
+                "default": "standard"
+              },
+              "textureQuality": {
+                "enum": [
+                  "standard",
+                  "detailed"
+                ],
+                "type": "string",
+                "default": "standard"
+              },
+              "seed": {
+                "maximum": 2147483647,
+                "minimum": 0,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int32"
+              },
+              "textureSeed": {
+                "maximum": 2147483647,
+                "minimum": 0,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int32"
+              },
+              "version": {
+                "enum": [
+                  "h3.1"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "tripo"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "fal"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "operation",
+              "mapping": {
+                "textTo3D": "#/components/schemas/TripoH31TextTo3DFalPolyGenInput",
+                "imageTo3D": "#/components/schemas/TripoH31ImageTo3DFalPolyGenInput",
+                "multiviewTo3D": "#/components/schemas/TripoH31MultiviewTo3DFalPolyGenInput"
+              }
+            }
+          }
+        ]
+      },
+      "TripoH31ImageTo3DFalPolyGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TripoH31FalPolyGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "imageUrl",
+              "model",
+              "operation",
+              "version"
+            ],
+            "type": "object",
+            "properties": {
+              "imageUrl": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "textureAlignment": {
+                "enum": [
+                  "original_image",
+                  "geometry"
+                ],
+                "type": "string",
+                "default": "original_image"
+              },
+              "orientation": {
+                "enum": [
+                  "default",
+                  "align_image"
+                ],
+                "type": "string",
+                "default": "default"
+              },
+              "operation": {
+                "enum": [
+                  "imageTo3D"
+                ],
+                "type": "string"
+              },
+              "version": {
+                "enum": [
+                  "h3.1"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "tripo"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "fal"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "TripoH31MultiviewTo3DFalPolyGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TripoH31FalPolyGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "imageUrls",
+              "model",
+              "operation",
+              "version"
+            ],
+            "type": "object",
+            "properties": {
+              "imageUrls": {
+                "maxItems": 4,
+                "minItems": 2,
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "2–4 views of the same object, ordered front, left, back, right."
+              },
+              "textureAlignment": {
+                "enum": [
+                  "original_image",
+                  "geometry"
+                ],
+                "type": "string",
+                "default": "original_image"
+              },
+              "orientation": {
+                "enum": [
+                  "default",
+                  "align_image"
+                ],
+                "type": "string",
+                "default": "default"
+              },
+              "operation": {
+                "enum": [
+                  "multiviewTo3D"
+                ],
+                "type": "string"
+              },
+              "version": {
+                "enum": [
+                  "h3.1"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "tripo"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "fal"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "TripoH31TextTo3DFalPolyGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TripoH31FalPolyGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "model",
+              "operation",
+              "prompt",
+              "version"
+            ],
+            "type": "object",
+            "properties": {
+              "prompt": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              "negativePrompt": {
+                "maxLength": 1024,
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "imageSeed": {
+                "maximum": 2147483647,
+                "minimum": 0,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int32"
+              },
+              "operation": {
+                "enum": [
+                  "textTo3D"
+                ],
+                "type": "string"
+              },
+              "version": {
+                "enum": [
+                  "h3.1"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "tripo"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "fal"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "TripoVersionedFalPolyGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/FalPolyGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "model",
+              "version"
+            ],
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": "v2.5"
+              },
+              "model": {
+                "enum": [
+                  "tripo"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "fal"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "version",
+              "mapping": {
+                "v2.5": "#/components/schemas/TripoFalPolyGenInput",
+                "h3.1": "#/components/schemas/TripoH31FalPolyGenInput"
+              }
+            }
           }
         ]
       },
@@ -47436,6 +48533,14 @@
                 ],
                 "default": "civitai"
               },
+              "sourceImage": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
+              },
               "version": {
                 "enum": [
                   "v2.1"
@@ -47811,6 +48916,14 @@
             ],
             "type": "object",
             "properties": {
+              "sourceImage": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
+              },
               "width": {
                 "maximum": 2048,
                 "minimum": 64,
@@ -49850,14 +50963,6 @@
                 ],
                 "default": "v2.1"
               },
-              "sourceImage": {
-                "type": [
-                  "null",
-                  "string"
-                ],
-                "description": "Either A URL, A DataURL or a Base64 string",
-                "format": "source-image"
-              },
               "cfgScale": {
                 "maximum": 100,
                 "minimum": 0,
@@ -50826,6 +51931,7 @@
             "aceStepAudio": "#/components/schemas/AceStepAudioStep",
             "ageClassification": "#/components/schemas/AgeClassificationStep",
             "audioCaptioning": "#/components/schemas/AudioCaptioningStep",
+            "audioModeration": "#/components/schemas/AudioModerationStep",
             "blobArchive": "#/components/schemas/BlobArchiveStep",
             "chatCompletion": "#/components/schemas/ChatCompletionStep",
             "comfy": "#/components/schemas/ComfyStep",
@@ -51179,6 +52285,7 @@
             "aceStepAudio": "#/components/schemas/AceStepAudioStepTemplate",
             "ageClassification": "#/components/schemas/AgeClassificationStepTemplate",
             "audioCaptioning": "#/components/schemas/AudioCaptioningStepTemplate",
+            "audioModeration": "#/components/schemas/AudioModerationStepTemplate",
             "blobArchive": "#/components/schemas/BlobArchiveStepTemplate",
             "chatCompletion": "#/components/schemas/ChatCompletionStepTemplate",
             "comfy": "#/components/schemas/ComfyStepTemplate",
