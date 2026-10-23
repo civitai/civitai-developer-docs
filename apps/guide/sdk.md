@@ -261,7 +261,7 @@ it as this app's and submits it. The block never calls the orchestrator.
 
 | Call | Does |
 |---|---|
-| `estimate(body)` | Prices the body. `snapshot.cost.total` is whole Buzz. Nothing is charged or reserved |
+| `estimate(body)` | Prices the body. Nothing is charged or reserved. It is priced when `status` is not `'failed'` and `cost.total` is a number; that number is the price in whole Buzz. A priced estimate is not `'succeeded'` (see [Pricing an estimate](#pricing-an-estimate)) |
 | `submit(body, { idempotencyKey })` | Runs it, spending the viewer's Buzz |
 | `get(workflowId)` | The workflow as it stands now |
 | `watch(workflowId)` | An async iterator: the workflow now, then each time it changes, until a final status |
@@ -312,12 +312,18 @@ async function generate(
 
   // 1. Price it. Nothing is charged or reserved.
   const estimate = await app.workflows.estimate(body);
-  if (estimate.status === 'failed') {
+  // Priced = not 'failed' AND a numeric cost.total. A priced estimate is NOT
+  // 'succeeded' ('pending' in practice), so never require 'succeeded'.
+  const price =
+    estimate.status !== 'failed' && typeof estimate.cost?.total === 'number'
+      ? estimate.cost.total
+      : null;
+  if (price === null) {
     // A refusal RESOLVES. Log `error`; don't render it.
     console.warn('estimate refused:', estimate.errorCode, estimate.error);
     return null;
   }
-  if (!(await confirmSpend(estimate.cost?.total))) return null;
+  if (!(await confirmSpend(price))) return null;
 
   // 2. Run it.
   const submitted = await app.workflows.submit(body, { idempotencyKey });
@@ -336,6 +342,18 @@ async function generate(
 The `WorkflowBody` shapes and what each costs are in the
 [generation bridge reference](../reference/generation); the multi-step kind is
 in [Multi-step workflows](./workflows).
+
+### Pricing an estimate {#pricing-an-estimate}
+
+An estimate is **priced** when its `status` is not `'failed'` **and** it
+carries a numeric `cost.total`; that number is the price in whole Buzz, and `0`
+is a price. 🔴 **Do not require `'succeeded'`.** Nothing runs on an estimate, so
+a priced one comes back with a status that has not finished (`'pending'` in
+practice), and a check for `'succeeded'` shows "no price" for every estimate. A
+`'failed'` snapshot is never a price, even one carrying a `cost.total`: a budget
+refusal carries the total it would not charge. Newer `@civitai/sdk` releases
+export this check as `estimatedCost(snapshot)`, which returns the price or
+`null`.
 
 ### The idempotency key
 

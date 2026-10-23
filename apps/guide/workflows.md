@@ -112,13 +112,18 @@ const app = await initialize();
 // `idempotencyKey` is minted by the caller when the viewer presses the button,
 // and kept there: a retry of the same press sends the same key.
 async function run(body: WorkflowBody, idempotencyKey: string) {
-  // 1. Price it. Nothing is charged or reserved.
+  // 1. Price it. Nothing is charged or reserved. Priced = not 'failed' AND a
+  // numeric cost.total. A priced estimate is not 'succeeded' ('pending' in practice).
   const estimate = await app.workflows.estimate(body);
-  if (estimate.status === 'failed') {
+  const price =
+    estimate.status !== 'failed' && typeof estimate.cost?.total === 'number'
+      ? estimate.cost.total
+      : null;
+  if (price === null) {
     // A refusal RESOLVES: read `errorCode` from the snapshot itself.
     return showMessage(`Cannot price this: ${estimate.errorCode ?? 'refused'}`);
   }
-  if (!(await confirmSpend(estimate.cost?.total))) return;
+  if (!(await confirmSpend(price))) return;
 
   // 2. Run it.
   const submitted = await app.workflows.submit(body, { idempotencyKey });
