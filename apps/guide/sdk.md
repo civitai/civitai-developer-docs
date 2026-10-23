@@ -81,8 +81,8 @@ lists the harness origin for you.
 | `app.host` | the host's own UI: pickers, uploads, sign-in, navigation, sizing |
 | `app.site` | the Civitai REST API at `/api/v1`, with the app's token |
 | `app.workflows` | generation for a block, through the host's block workflow routes — see [money calls](#money-calls) |
-| `app.storage` | the [document store](./storage): `collection(name)` and `info()` (0.14.0 or later); its `get`/`set`/`delete`/`list`/`getQuota` are the deprecated per-viewer key/value store |
-| `app.sharedStorage` | the deprecated cross-viewer key/value store; new apps use a shared collection |
+| `app.storage` | the [document store](./storage): `collection(name)` and `info()` (0.14.0 or later); its `get`/`set`/`delete`/`list`/`getQuota` are the deprecated per-viewer key/value store, shut down on 2026-11-10 (its routes answer `410` from then) |
+| `app.sharedStorage` | the deprecated cross-viewer key/value store, shut down on 2026-11-10 (its routes answer `410` from then); new apps use a shared collection |
 | `app.requestGrants(scopes, opts?)` | asks the viewer for more scopes |
 | `app.getToken(opts?)` | the token, for a call this client does not make itself |
 | `app.orchestration` | the raw orchestrator — **not** for a block; see [money calls](#money-calls) |

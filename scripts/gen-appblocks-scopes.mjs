@@ -28,15 +28,16 @@ const BINDING_NOTES = {
   'block:settings:write':
     'No OAuth bit — gated by the issuance-time caller-is-installer check instead.',
   // The four legacy key/value scopes are deprecated in favour of the document store's
-  // two (apps/guide/storage.md). They still work; no removal date is set, so none is named.
+  // two (apps/guide/storage.md). They are shut down on 2026-11-10, after which their routes
+  // answer HTTP 410.
   'apps:storage:read':
-    "Deprecated: the legacy per-viewer store (`useAppStorage`, `/api/v1/blocks/app-storage/*`); new apps use `apps:storage` and a private collection. Scoped to this app's private per-install store; asserted per read op.",
+    "Deprecated, shut down 2026-11-10 (routes answer 410 from then): the legacy per-viewer store (`useAppStorage`, `/api/v1/blocks/app-storage/*`); new apps use `apps:storage` and a private collection. Scoped to this app's private per-install store; asserted per read op.",
   'apps:storage:write':
-    "Deprecated: the legacy per-viewer store (`useAppStorage`, `/api/v1/blocks/app-storage/*`); new apps use `apps:storage` and a private collection. Scoped to this app's private per-install store; asserted per write op.",
+    "Deprecated, shut down 2026-11-10 (routes answer 410 from then): the legacy per-viewer store (`useAppStorage`, `/api/v1/blocks/app-storage/*`); new apps use `apps:storage` and a private collection. Scoped to this app's private per-install store; asserted per write op.",
   'apps:storage:shared:read':
-    "Deprecated: the legacy shared store (`useSharedStorage`, `/api/v1/blocks/shared-storage/*`); new apps use `apps:storage` and a shared collection. Scoped to this app's shared (cross-user) store; fail-closed flag. Anonymous viewers may read; the min-trust gate applies to writes only. Never minted for dev-tunnel / dev-token sessions.",
+    "Deprecated, shut down 2026-11-10 (routes answer 410 from then): the legacy shared store (`useSharedStorage`, `/api/v1/blocks/shared-storage/*`); new apps use `apps:storage` and a shared collection. Scoped to this app's shared (cross-user) store; fail-closed flag. Anonymous viewers may read; the min-trust gate applies to writes only. Never minted for dev-tunnel / dev-token sessions.",
   'apps:storage:shared:write':
-    "Deprecated: the legacy shared store (`useSharedStorage`, `/api/v1/blocks/shared-storage/*`); new apps use `apps:storage:publish` and a shared collection. Scoped to this app's shared (cross-user) store; min-trust gate + fail-closed flag. Never minted for dev-tunnel / dev-token sessions.",
+    "Deprecated, shut down 2026-11-10 (routes answer 410 from then): the legacy shared store (`useSharedStorage`, `/api/v1/blocks/shared-storage/*`); new apps use `apps:storage:publish` and a shared collection. Scoped to this app's shared (cross-user) store; min-trust gate + fail-closed flag. Never minted for dev-tunnel / dev-token sessions.",
   'apps:storage':
     "Scoped to this app's own document store (reads, the viewer's private collections, marks and counters). Consent-exempt. Required by any manifest that declares a `storage` collection. The store's routes answer `503 storage_disabled` on a host where the store is not enabled.",
   'apps:storage:publish':

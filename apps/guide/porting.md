@@ -204,7 +204,7 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 
 | Bridge hook | Replacement |
 |---|---|
-| `useAppStorage` | The [document store](./storage): a `private` collection through `app.storage.collection(name)` (`@civitai/sdk` 0.14.0 or later) or `/api/v1/blocks/storage/*`. The legacy `/api/v1/blocks/app-storage/{get,set,delete,list,quota}` routes (block-token only) still work and are deprecated; see [Moving from the legacy stores](./storage#moving-from-the-legacy-stores) |
+| `useAppStorage` | The [document store](./storage): a `private` collection through `app.storage.collection(name)` (`@civitai/sdk` 0.14.0 or later) or `/api/v1/blocks/storage/*`. The legacy `/api/v1/blocks/app-storage/{get,set,delete,list,quota}` routes (block-token only) are deprecated and shut down on 2026-11-10, after which they answer `410`; see [Moving from the legacy stores](./storage#moving-from-the-legacy-stores) |
 | `useAppWorkflows` | `POST /api/v1/blocks/workflows/query`. In `@civitai/sdk` (0.12.0 or later): `app.workflows.list({ cursor?, limit? })`, which resolves `{ workflows, cursor }` |
 | `useBatchEstimate` | **No route yet** — `ESTIMATE_WORKFLOW_BATCH` is a bridge message, and no `/api/v1/blocks/*` route prices a batch. Over REST, price each body with `POST /api/v1/blocks/workflows/estimate`; in `@civitai/sdk` that is one `app.workflows.estimate(body)` per body |
 | `useBlockAnalytics` | **Keep** — a bridge message with no route. Its events are recorded once your manifest declares them; `@civitai/sdk`'s `app.host.track()` sends the same message (from 0.11.0). See the note below |
@@ -245,7 +245,7 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 | `useRunConfirmedStep` | **Keep** — host UI; the job runs only after the viewer confirms its price in a dialog Civitai shows in its own chrome |
 | `useRunTraining` | **Keep** — host UI; the run starts only from the consent dialog Civitai shows in its own chrome |
 | `useSaveImage` | **Keep** — host UI; the host fetches from origins it allowlists |
-| `useSharedStorage` | The [document store](./storage): a `shared` collection, with votes as a declared mark. The legacy `/api/v1/blocks/shared-storage/*` routes still work and are deprecated; their `list` takes a `mine` filter the hook has no equivalent for — see [Listing only rows the viewer wrote](#listing-only-rows-the-viewer-wrote). [App Store sub-listings](./sub-listings) still read the legacy shared store |
+| `useSharedStorage` | The [document store](./storage): a `shared` collection, with votes as a declared mark. The legacy `/api/v1/blocks/shared-storage/*` routes are deprecated and shut down on 2026-11-10, after which they answer `410`; until then their `list` takes a `mine` filter the hook has no equivalent for — see [Listing only rows the viewer wrote](#listing-only-rows-the-viewer-wrote). [App Store sub-listings](./sub-listings) read a shared collection once the approved manifest declares one viewers write, and the legacy shared store until then |
 | `useTip` | `POST /api/v1/blocks/tip` |
 | `useTipAllowance` | `GET /api/v1/blocks/tip-allowance` |
 | `useUploadImageBytes` | **Keep** — a bridge message with no route. It sends `OPEN_IMAGE_UPLOAD` with `bytes`, and the host stores, persists and scans the image; no `/api/v1/blocks/*` route accepts an image upload. Page apps only, and the token needs `posts:write:self`. See [Posting from an app](./posting#upload-then-post) |

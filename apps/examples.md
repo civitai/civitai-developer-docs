@@ -167,7 +167,8 @@ rejection with `classifyAppStorageError`, and the anonymous-viewer case.
 - **Run** — `npm run dev:harness` → `localhost:5183`. App Storage refuses under
   `dev:live`; the README explains why.
 - **Deprecated store** — `useAppStorage` is superseded by a private collection
-  of the [document store](./guide/storage); it keeps working while apps move.
+  of the [document store](./guide/storage); it is shut down on 2026-11-10, after
+  which its routes answer `410`.
 
 ### scopes-api
 
@@ -209,7 +210,8 @@ flag- and approval-gated (see the box above).
 - **Run** — `npm run dev:harness` → `localhost:5187`. This is the only local
   way to run it: the shared scopes are refused under `dev:live`.
 - **Deprecated store** — `useSharedStorage` is superseded by a shared collection
-  of the [document store](./guide/storage); it keeps working while apps move.
+  of the [document store](./guide/storage); it is shut down on 2026-11-10, after
+  which its routes answer `410`.
 
 ### page-app
 

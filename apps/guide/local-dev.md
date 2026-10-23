@@ -85,7 +85,9 @@ success; use mock mode for those.
   approved, the refusal is about scope: the shared scopes are never minted on a
   dev token.
 
-Exercise the legacy stores under `dev:harness`, and the document store with
+Exercise the legacy stores under `dev:harness` (they are
+[shut down on 2026-11-10](./storage#moving-from-the-legacy-stores), after which
+their routes answer `410`), and the document store with
 [`createFakeStorage`](./storage#testing).
 
 ## Minting a dev block token

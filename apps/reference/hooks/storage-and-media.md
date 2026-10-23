@@ -138,7 +138,7 @@ the write without it would let dev prove out a flow production does not have.
 useAppStorage(): UseAppStorage
 ```
 
-> Deprecated: new apps keep per-viewer data in a private collection of the document store. This hook and its routes keep working while apps move; no removal date is set. See [Storing data](/apps/guide/storage#moving-from-the-legacy-stores).
+> Deprecated: new apps keep per-viewer data in a private collection of the document store. This hook and its routes are shut down on 2026-11-10; from then on the routes answer HTTP 410. See [Storing data](/apps/guide/storage#moving-from-the-legacy-stores).
 
 ```ts
 interface UseAppStorage {
@@ -340,7 +340,7 @@ production.
 useSharedStorage(): UseSharedStorage
 ```
 
-> Deprecated: new apps keep data every viewer reads in a shared collection of the document store, which has authorship, counters and marks built in. This hook and its routes keep working while apps move; no removal date is set. See [Storing data](/apps/guide/storage#moving-from-the-legacy-stores).
+> Deprecated: new apps keep data every viewer reads in a shared collection of the document store, which has authorship, counters and marks built in. This hook and its routes are shut down on 2026-11-10; from then on the routes answer HTTP 410. See [Storing data](/apps/guide/storage#moving-from-the-legacy-stores).
 
 ```ts
 interface UseSharedStorage {
