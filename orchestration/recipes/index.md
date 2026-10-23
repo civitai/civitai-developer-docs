@@ -51,7 +51,7 @@ These are **Orchestration REST API** recipes — you hold a Bearer token and POS
 
 ## 3D
 
-- [3D model generation](./3d) — text or image → 3D; Hunyuan3D on Civitai's Comfy workers (image-only, from 60 Buzz), Meshy via FAL (text + image, rigging + animation), and Tripo v2.5 / H3.1 via FAL (text, image and multiview, PBR, quad topology, from 130 Buzz)
+- [3D model generation](./3d) — text or image → 3D; Hunyuan3D on Civitai's Comfy workers (image-only, most control, cheapest — from 60 Buzz), Meshy v6/v7/v7.1 via FAL (text, image and multi-image, rigging + animation, from 1040 Buzz), and Tripo v2.5 / H3.1 via FAL (image, plus text and multiview with H3.1, PBR, quad topology, from 130 Buzz)
 
 ## Audio
 
