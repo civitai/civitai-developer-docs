@@ -33,8 +33,11 @@ The examples on this page are React (`useBuzzWorkflow()` from
 `app.workflows.estimate(body)`, `app.workflows.submit(body, { idempotencyKey })`
 and `app.workflows.wait(workflowId)` from `@civitai/sdk` 0.12.0 or later. Three
 differences to carry through this page: a refusal **resolves** with a `failed`
-snapshot there instead of rejecting, `submit` requires the `idempotencyKey`,
-and a `submit` that rejects has an **unknown** outcome (the run may exist).
+snapshot there instead of rejecting, so an estimate is priced only when its
+`status` is not `'failed'` **and** `cost.total` is a number (a priced estimate
+is not `'succeeded'`; see [Pricing an estimate](./sdk#pricing-an-estimate));
+`submit` requires the `idempotencyKey`; and a `submit` that rejects has an
+**unknown** outcome (the run may exist).
 [Money calls](./sdk#money-calls) has the calling code.
 :::
 
