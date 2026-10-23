@@ -39,7 +39,9 @@
     "check:cli-snapshot": "node scripts/check-appblocks-cli-snapshot.mjs",
     "refresh:cli-snapshot": "node scripts/refresh-cli-snapshot.mjs",
     "check:manifest-parity": "node scripts/check-manifest-parity.mjs",
-    "check:pins": "node scripts/check-appblocks-pins.mjs",
+    "check:example-apps": "node scripts/check-example-apps.mjs",
+    "update:example-apps-scopes": "node scripts/update-example-apps-scopes.mjs",
+
     "check:spec-drift": "node scripts/check-openapi-drift.mjs",
     "check:ds-pins": "node scripts/check-design-system-pins.mjs",
     "check:cli-install-parity": "node scripts/check-cli-install-parity.mjs",
