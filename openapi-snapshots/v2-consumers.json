@@ -887,7 +887,7 @@
         "tags": [
           "Funds"
         ],
-        "summary": "Whatever is left goes to Civitai, not back to the depositors. A fund is also deleted on its own at `expiresAt`.",
+        "summary": "What is left goes back to the depositor when only one user deposited, else to Civitai. A fund is also deleted on its own at `expiresAt`.",
         "operationId": "DeleteFund",
         "parameters": [
           {
@@ -996,6 +996,68 @@
           },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/consumer/funds/{fundId}/refund": {
+      "post": {
+        "tags": [
+          "Funds"
+        ],
+        "summary": "Pays what is left back to the depositor now, when only one user deposited. The fund stays open, empty, for new deposits.",
+        "operationId": "RefundFund",
+        "parameters": [
+          {
+            "name": "fundId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -1188,6 +1250,115 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AgeClassificationOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/consumer/recipes/archiveExtraction": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Archive Extraction",
+        "description": "Extracts the media and text files of a zip or tar archive into blobs once each is scanned; fails if any is blocked.",
+        "operationId": "InvokeArchiveExtractionStepTemplate",
+        "parameters": [
+          {
+            "name": "experimental",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "allowMatureContent",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "whatif",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ephemeral",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "tier",
+            "in": "query",
+            "description": "How a workflow is paid for.",
+            "schema": {
+              "$ref": "#/components/schemas/WorkflowTier"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchiveExtractionInput"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchiveExtractionInput"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchiveExtractionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveExtractionOutput"
                 }
               }
             }
@@ -4778,6 +4949,115 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ModelPickleScanOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/consumer/recipes/multimodalEmbedding": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Multimodal Embedding",
+        "description": "Embeds a batch of images or text into the same vector space.",
+        "operationId": "InvokeMultimodalEmbeddingStepTemplate",
+        "parameters": [
+          {
+            "name": "experimental",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "allowMatureContent",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "whatif",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ephemeral",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "tier",
+            "in": "query",
+            "description": "How a workflow is paid for.",
+            "schema": {
+              "$ref": "#/components/schemas/WorkflowTier"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MultimodalEmbeddingStepInput"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MultimodalEmbeddingStepInput"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MultimodalEmbeddingStepInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MultimodalEmbeddingStepOutput"
                 }
               }
             }
@@ -11386,6 +11666,170 @@
         ],
         "type": "string"
       },
+      "ArchiveEntry": {
+        "required": [
+          "air",
+          "blob",
+          "mediaType",
+          "path",
+          "size"
+        ],
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "The entry's normalized path inside the archive."
+          },
+          "air": {
+            "type": "string",
+            "description": "The blob AIR (urn:air:other:other:orchestrator:blob@{blobKey})."
+          },
+          "mediaType": {
+            "$ref": "#/components/schemas/ArchiveEntryMediaType"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "blob": {
+            "$ref": "#/components/schemas/Blob"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ArchiveEntryMediaType": {
+        "enum": [
+          "image",
+          "video",
+          "audio",
+          "text"
+        ],
+        "type": "string"
+      },
+      "ArchiveEntryRejectionReason": {
+        "enum": [
+          "unsupportedType",
+          "tooLarge",
+          "invalidPath",
+          "nestedArchive",
+          "limitExceeded",
+          "blocked"
+        ],
+        "type": "string"
+      },
+      "ArchiveExtractionInput": {
+        "required": [
+          "sourceUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "sourceUrl": {
+            "type": "string",
+            "description": "A .zip, .tar or .tar.gz archive.",
+            "format": "uri"
+          },
+          "mediaTypes": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ArchiveEntryMediaType"
+            },
+            "description": "The kinds of entries to extract; anything else is reported as rejected. Defaults to all."
+          },
+          "maxEntries": {
+            "maximum": 2000,
+            "minimum": 1,
+            "type": "integer",
+            "description": "Extracted entries beyond this many are reported as rejected.",
+            "format": "int32",
+            "default": 2000
+          }
+        },
+        "additionalProperties": false
+      },
+      "ArchiveExtractionOutput": {
+        "required": [
+          "entries",
+          "rejected"
+        ],
+        "type": "object",
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArchiveEntry"
+            },
+            "description": "The extracted entries, in archive order."
+          },
+          "rejected": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RejectedArchiveEntry"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "ArchiveExtractionStep": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStep"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/ArchiveExtractionInput"
+              },
+              "output": {
+                "$ref": "#/components/schemas/ArchiveExtractionOutput"
+              },
+              "$type": {
+                "enum": [
+                  "archiveExtraction"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Archive Extraction"
+      },
+      "ArchiveExtractionStepTemplate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStepTemplate"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "description": "Input for the ArchiveExtractionStep step.",
+                "$ref": "#/components/schemas/ArchiveExtractionInput"
+              },
+              "$type": {
+                "enum": [
+                  "archiveExtraction"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Archive Extraction"
+      },
       "ArchiveFormat": {
         "enum": [
           "zip",
@@ -12397,6 +12841,13 @@
               "string"
             ],
             "description": "Optional caption for this item, written as the trainer's sidecar caption file."
+          },
+          "path": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Optional relative file name to stage the blob under. A .txt blob is the caption of the media item whose path\nmatches it up to the extension, as in a training zip."
           }
         },
         "additionalProperties": false
@@ -24167,7 +24618,7 @@
               "propertyName": "model",
               "mapping": {
                 "meshy": "#/components/schemas/MeshyFalPolyGenInput",
-                "tripo": "#/components/schemas/TripoFalPolyGenInput"
+                "tripo": "#/components/schemas/TripoVersionedFalPolyGenInput"
               }
             }
           }
@@ -27540,7 +27991,8 @@
           "balances",
           "createdAt",
           "expiresAt",
-          "id"
+          "id",
+          "leftoverRefundable"
         ],
         "type": "object",
         "properties": {
@@ -27556,6 +28008,10 @@
               "null",
               "string"
             ]
+          },
+          "leftoverRefundable": {
+            "type": "boolean",
+            "description": "Only one user has deposited, so what is left goes back to them when the fund expires or is deleted, or on `POST /funds/{id}/refund`. Otherwise it stays with Civitai."
           },
           "createdAt": {
             "type": "string",
@@ -37155,6 +37611,192 @@
           }
         ]
       },
+      "MultimodalEmbeddingInput": {
+        "required": [
+          "id"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 20000,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "imageUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MultimodalEmbeddingResult": {
+        "required": [
+          "embedding",
+          "id",
+          "index"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "index": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "embedding": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "format": "float"
+            },
+            "description": "Normalized FP32 values, in the requested number of dimensions."
+          }
+        },
+        "additionalProperties": false
+      },
+      "MultimodalEmbeddingStep": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStep"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/MultimodalEmbeddingStepInput"
+              },
+              "output": {
+                "$ref": "#/components/schemas/MultimodalEmbeddingStepOutput"
+              },
+              "$type": {
+                "enum": [
+                  "multimodalEmbedding"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Multimodal Embedding"
+      },
+      "MultimodalEmbeddingStepInput": {
+        "required": [
+          "inputs"
+        ],
+        "type": "object",
+        "properties": {
+          "model": {
+            "enum": [
+              "wemm-2b"
+            ],
+            "type": "string",
+            "default": "wemm-2b"
+          },
+          "dimensions": {
+            "enum": [
+              64,
+              128,
+              256,
+              512,
+              1024,
+              2048
+            ],
+            "type": "integer",
+            "format": "int32",
+            "default": 256
+          },
+          "inputs": {
+            "maxItems": 128,
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MultimodalEmbeddingInput"
+            },
+            "description": "1–128 inputs with unique IDs, each containing either text or an HTTP(S) image URL."
+          }
+        },
+        "additionalProperties": false
+      },
+      "MultimodalEmbeddingStepOutput": {
+        "required": [
+          "data",
+          "dimensions",
+          "model",
+          "modelRevision",
+          "normalized",
+          "profile"
+        ],
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string"
+          },
+          "modelRevision": {
+            "type": "string"
+          },
+          "profile": {
+            "type": "string"
+          },
+          "dimensions": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "normalized": {
+            "type": "boolean"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MultimodalEmbeddingResult"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "MultimodalEmbeddingStepTemplate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStepTemplate"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "description": "Input for the MultimodalEmbeddingStep step.",
+                "$ref": "#/components/schemas/MultimodalEmbeddingStepInput"
+              },
+              "$type": {
+                "enum": [
+                  "multimodalEmbedding"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Multimodal Embedding"
+      },
       "MuseImageCreateFalImageGenInput": {
         "allOf": [
           {
@@ -42775,6 +43417,22 @@
           }
         ]
       },
+      "RejectedArchiveEntry": {
+        "required": [
+          "path",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/ArchiveEntryRejectionReason"
+          }
+        },
+        "additionalProperties": false
+      },
       "RepeatForClause": {
         "required": [
           "$ref",
@@ -46288,13 +46946,14 @@
       "TripoFalPolyGenInput": {
         "allOf": [
           {
-            "$ref": "#/components/schemas/FalPolyGenInput"
+            "$ref": "#/components/schemas/TripoVersionedFalPolyGenInput"
           },
           {
             "required": [
               "engine",
               "imageUrl",
-              "model"
+              "model",
+              "version"
             ],
             "type": "object",
             "properties": {
@@ -46363,6 +47022,12 @@
                 ],
                 "format": "int32"
               },
+              "version": {
+                "enum": [
+                  "v2.5"
+                ],
+                "type": "string"
+              },
               "model": {
                 "enum": [
                   "tripo"
@@ -46377,6 +47042,356 @@
               }
             },
             "additionalProperties": false
+          }
+        ]
+      },
+      "TripoH31FalPolyGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TripoVersionedFalPolyGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "model",
+              "operation",
+              "version"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "type": "string"
+              },
+              "texture": {
+                "type": "boolean",
+                "default": true
+              },
+              "pbr": {
+                "type": "boolean",
+                "description": "PBR enables textures even when texture is false.",
+                "default": true
+              },
+              "faceLimit": {
+                "maximum": 2000000,
+                "minimum": 1000,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int32"
+              },
+              "autoSize": {
+                "type": "boolean",
+                "default": false
+              },
+              "quad": {
+                "type": "boolean",
+                "default": false
+              },
+              "geometryQuality": {
+                "enum": [
+                  "standard",
+                  "detailed"
+                ],
+                "type": "string",
+                "default": "standard"
+              },
+              "textureQuality": {
+                "enum": [
+                  "standard",
+                  "detailed"
+                ],
+                "type": "string",
+                "default": "standard"
+              },
+              "seed": {
+                "maximum": 2147483647,
+                "minimum": 0,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int32"
+              },
+              "textureSeed": {
+                "maximum": 2147483647,
+                "minimum": 0,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int32"
+              },
+              "version": {
+                "enum": [
+                  "h3.1"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "tripo"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "fal"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "operation",
+              "mapping": {
+                "textTo3D": "#/components/schemas/TripoH31TextTo3DFalPolyGenInput",
+                "imageTo3D": "#/components/schemas/TripoH31ImageTo3DFalPolyGenInput",
+                "multiviewTo3D": "#/components/schemas/TripoH31MultiviewTo3DFalPolyGenInput"
+              }
+            }
+          }
+        ]
+      },
+      "TripoH31ImageTo3DFalPolyGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TripoH31FalPolyGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "imageUrl",
+              "model",
+              "operation",
+              "version"
+            ],
+            "type": "object",
+            "properties": {
+              "imageUrl": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "textureAlignment": {
+                "enum": [
+                  "original_image",
+                  "geometry"
+                ],
+                "type": "string",
+                "default": "original_image"
+              },
+              "orientation": {
+                "enum": [
+                  "default",
+                  "align_image"
+                ],
+                "type": "string",
+                "default": "default"
+              },
+              "operation": {
+                "enum": [
+                  "imageTo3D"
+                ],
+                "type": "string"
+              },
+              "version": {
+                "enum": [
+                  "h3.1"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "tripo"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "fal"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "TripoH31MultiviewTo3DFalPolyGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TripoH31FalPolyGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "imageUrls",
+              "model",
+              "operation",
+              "version"
+            ],
+            "type": "object",
+            "properties": {
+              "imageUrls": {
+                "maxItems": 4,
+                "minItems": 2,
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "2–4 views of the same object, ordered front, left, back, right."
+              },
+              "textureAlignment": {
+                "enum": [
+                  "original_image",
+                  "geometry"
+                ],
+                "type": "string",
+                "default": "original_image"
+              },
+              "orientation": {
+                "enum": [
+                  "default",
+                  "align_image"
+                ],
+                "type": "string",
+                "default": "default"
+              },
+              "operation": {
+                "enum": [
+                  "multiviewTo3D"
+                ],
+                "type": "string"
+              },
+              "version": {
+                "enum": [
+                  "h3.1"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "tripo"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "fal"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "TripoH31TextTo3DFalPolyGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TripoH31FalPolyGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "model",
+              "operation",
+              "prompt",
+              "version"
+            ],
+            "type": "object",
+            "properties": {
+              "prompt": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              "negativePrompt": {
+                "maxLength": 1024,
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "imageSeed": {
+                "maximum": 2147483647,
+                "minimum": 0,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int32"
+              },
+              "operation": {
+                "enum": [
+                  "textTo3D"
+                ],
+                "type": "string"
+              },
+              "version": {
+                "enum": [
+                  "h3.1"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "tripo"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "fal"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "TripoVersionedFalPolyGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/FalPolyGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "model",
+              "version"
+            ],
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": "v2.5"
+              },
+              "model": {
+                "enum": [
+                  "tripo"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "fal"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "version",
+              "mapping": {
+                "v2.5": "#/components/schemas/TripoFalPolyGenInput",
+                "h3.1": "#/components/schemas/TripoH31FalPolyGenInput"
+              }
+            }
           }
         ]
       },
@@ -51880,6 +52895,7 @@
           "mapping": {
             "aceStepAudio": "#/components/schemas/AceStepAudioStep",
             "ageClassification": "#/components/schemas/AgeClassificationStep",
+            "archiveExtraction": "#/components/schemas/ArchiveExtractionStep",
             "audioCaptioning": "#/components/schemas/AudioCaptioningStep",
             "audioModeration": "#/components/schemas/AudioModerationStep",
             "blobArchive": "#/components/schemas/BlobArchiveStep",
@@ -51909,6 +52925,7 @@
             "modelHash": "#/components/schemas/ModelHashStep",
             "modelParseMetadata": "#/components/schemas/ModelParseMetadataStep",
             "modelPickleScan": "#/components/schemas/ModelPickleScanStep",
+            "multimodalEmbedding": "#/components/schemas/MultimodalEmbeddingStep",
             "polyGen": "#/components/schemas/PolyGenStep",
             "preprocessImage": "#/components/schemas/PreprocessImageStep",
             "preprocessVideo": "#/components/schemas/PreprocessVideoStep",
@@ -52234,6 +53251,7 @@
           "mapping": {
             "aceStepAudio": "#/components/schemas/AceStepAudioStepTemplate",
             "ageClassification": "#/components/schemas/AgeClassificationStepTemplate",
+            "archiveExtraction": "#/components/schemas/ArchiveExtractionStepTemplate",
             "audioCaptioning": "#/components/schemas/AudioCaptioningStepTemplate",
             "audioModeration": "#/components/schemas/AudioModerationStepTemplate",
             "blobArchive": "#/components/schemas/BlobArchiveStepTemplate",
@@ -52263,6 +53281,7 @@
             "modelHash": "#/components/schemas/ModelHashStepTemplate",
             "modelParseMetadata": "#/components/schemas/ModelParseMetadataStepTemplate",
             "modelPickleScan": "#/components/schemas/ModelPickleScanStepTemplate",
+            "multimodalEmbedding": "#/components/schemas/MultimodalEmbeddingStepTemplate",
             "polyGen": "#/components/schemas/PolyGenStepTemplate",
             "preprocessImage": "#/components/schemas/PreprocessImageStepTemplate",
             "preprocessVideo": "#/components/schemas/PreprocessVideoStepTemplate",
