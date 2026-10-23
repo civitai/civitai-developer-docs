@@ -50,7 +50,7 @@ const refBody = {
 
 The open MiniMax H3 weights, run on Civitai's own ComfyUI workers instead of MiniMax's hosted API. It is a fraction of the price of the [hosted `minimax-h3` engine](./minimax-h3), generates a clip **with a native audio track**, and accepts LoRAs, but it renders at up to 1344 px per side rather than 2K. Three operations: text- or frame-to-video, reference-images-to-video, and structure-controlled video-to-video.
 
-**Default choice**: `operation: "imageToVideo"`, `duration: 5`, the default 864×480. Add `turbo: true` for drafts: it costs about a third as much and finishes in under a minute.
+**Default choice**: `operation: "imageToVideo"`, `duration: 5`, the default 864×480. Add `turbo: true` for drafts: it costs a little over a third as much and finishes in under a minute.
 
 ::: tip Voice references (`referenceAudios`)
 `referenceAudios` works on `referenceToVideo` with `turbo: true`, alongside `images`. Pass each clip as the **original blob URL** or the **blob AIR** of your upload. A redirected blob URL (one that looks like `/blobs/content/<token>`) is not accepted as an input and fails, even on a `whatif=true` preview.
@@ -208,8 +208,8 @@ Billed per second of output. Resolution, `steps`, `fast` and the number of refer
 
 | Mode | Per second | 5 s | 10 s | 15 s |
 |---|---|---|---|---|
-| Standard | 35 | **175** | **350** | **525** |
-| `turbo: true` | 12 | **60** | **120** | **180** |
+| Standard | 68 | **340** | **680** | **1020** |
+| `turbo: true` | 25 | **125** | **250** | **375** |
 
 For comparison, the [hosted `minimax-h3` engine](./minimax-h3#cost) is 170 Buzz per second at 2K.
 
