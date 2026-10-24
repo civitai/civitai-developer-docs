@@ -56,6 +56,12 @@ on:
 permissions:
   contents: read
 
+# Cancel superseded PR runs only (see civitai/civitai-developer-docs#252). Push, schedule
+# and dispatch runs each get their own group, so none is ever cancelled or displaced.
+concurrency:
+  group: example-apps-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   check-example-apps:
     runs-on: ubuntu-latest
