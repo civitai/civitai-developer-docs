@@ -227,6 +227,7 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Image conversion', link: '/orchestration/recipes/convert-image' },
         { text: 'Image background removal', link: '/orchestration/recipes/image-background-removal' },
         { text: 'Web search', link: '/orchestration/recipes/web-search' },
+        { text: 'Multimodal embeddings', link: '/orchestration/recipes/multimodal-embeddings' },
         { text: 'Web scrape', link: '/orchestration/recipes/web-scrape' },
       ],
     },
