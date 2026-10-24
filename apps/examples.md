@@ -103,8 +103,9 @@ matter for that example.
 | a real generator page: pickers, LoRAs, img2img, history, publish | [generate-studio](#generate-studio) |
 | `customComfy` recipes and chat completions through the same money flow | [generation-kinds](#generation-kinds) |
 | topping up a viewer's Buzz mid-flow, and when not to | [buzz-purchase](#buzz-purchase) |
-| a per-viewer key-value store (`useAppStorage`) | [kv-storage](#kv-storage) |
-| a cross-viewer shared store (`useSharedStorage`) | [shared-board](#shared-board) |
+| storing per-viewer or shared data in a new app: the [document store](./guide/storage) | [App Requests](#app-requests), a shared collection with votes |
+| the **legacy** per-viewer store (`useAppStorage`, shut down on 2026-11-10) | [kv-storage](#kv-storage) |
+| the **legacy** shared store (`useSharedStorage`, shut down on 2026-11-10) | [shared-board](#shared-board) |
 | declared vs granted scopes, and calling REST with the block token | [scopes-api](#scopes-api) |
 | selling digital goods, gating on entitlements, taking tips | [monetize](#monetize) |
 | many generations in flight at once, with per-cell retry | [Gen Matrix](#gen-matrix) |
@@ -168,7 +169,7 @@ rejection with `classifyAppStorageError`, and the anonymous-viewer case.
   `dev:live`; the README explains why.
 - **Deprecated store** — `useAppStorage` is superseded by a private collection
   of the [document store](./guide/storage); it is shut down on 2026-11-10, after
-  which its routes answer `410`.
+  which its calls fail with an error.
 
 ### scopes-api
 
@@ -211,7 +212,7 @@ flag- and approval-gated (see the box above).
   way to run it: the shared scopes are refused under `dev:live`.
 - **Deprecated store** — `useSharedStorage` is superseded by a shared collection
   of the [document store](./guide/storage); it is shut down on 2026-11-10, after
-  which its routes answer `410`.
+  which its calls fail with an error.
 
 ### page-app
 
@@ -231,6 +232,10 @@ declaration the platform records [custom events](./guide/custom-events) against.
   storage calls are refused, as for every app
   ([why](./guide/local-dev#dev-live-works-on-a-pending-app)), so exercise
   storage under `dev:harness`.
+- **Deprecated store** — its storage uses `useAppStorage`, which is shut down
+  on 2026-11-10; after that date its storage calls fail. Copy the page shape,
+  not the storage: keep per-viewer data in a private collection of the
+  [document store](./guide/storage) instead.
 
 ### generate-studio
 

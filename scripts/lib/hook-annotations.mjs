@@ -53,15 +53,15 @@ export const SUPERSEDED_HOOKS = {
   useAppStorage: {
     text:
       'Deprecated: new apps keep per-viewer data in a private collection of the document store. ' +
-      'This hook and its routes are shut down on 2026-11-10; from then on the routes answer HTTP 410.',
+      'This hook is shut down on 2026-11-10; from then on its calls fail with an error.',
     linkText: 'Storing data',
     href: `${STORAGE_GUIDE}#moving-from-the-legacy-stores`,
   },
   useSharedStorage: {
     text:
       'Deprecated: new apps keep data every viewer reads in a shared collection of the document store, ' +
-      'which has authorship, counters and marks built in. This hook and its routes are shut down on ' +
-      '2026-11-10; from then on the routes answer HTTP 410.',
+      'which has authorship, counters and marks built in. This hook is shut down on ' +
+      '2026-11-10; from then on its calls fail with an error.',
     linkText: 'Storing data',
     href: `${STORAGE_GUIDE}#moving-from-the-legacy-stores`,
   },

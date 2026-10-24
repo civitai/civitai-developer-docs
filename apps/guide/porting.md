@@ -281,21 +281,27 @@ import { useApi } from './platform/useApi';
 
 declare const call: ReturnType<typeof useApi>;
 
-// Read. Paging differs per route — shared-storage nests its cursor under
-// `metadata`, while app-storage returns a top-level one. Check the route.
-const page = await call<{ items: unknown[]; metadata: { nextCursor?: string } }>(
-  'shared-storage/list?limit=50',
+// Read a page of a document-store collection (`entries` is a collection your
+// manifest declares). Paging differs per route family — check the route.
+const page = await call<{ items: unknown[]; nextCursor?: string }>(
+  'storage/entries?limit=50',
 );
 
-// Write
-await call('shared-storage/append', {
+// Write: create a document in the same collection
+await call('storage/entries', {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
   body: JSON.stringify({
-    value: { title: 'My entry', body: 'optional', data: { anything: true } },
+    data: { title: 'My entry', body: 'optional', anything: true },
   }),
 });
 ```
+
+The document store's routes are listed in its
+[REST reference](./storage#rest-reference). The legacy
+`/api/v1/blocks/app-storage/*` and `/api/v1/blocks/shared-storage/*` routes are
+deprecated and shut down on 2026-11-10, after which they answer `410`; do not
+port onto them.
 
 - **Treat every refusal as a refusal.** No route has a success shape that means
   "could not read", so branch on the error, never on an empty result. A missing

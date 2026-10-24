@@ -761,21 +761,33 @@ curl -s "https://civitai.com/api/v1/blocks/storage/requests?where%5Bstatus%5D=op
 `/api/v1/blocks/shared-storage/*` are **deprecated and shut down on
 2026-11-10**. Until then they keep working, with their scopes
 (`apps:storage:read`, `apps:storage:write`, `apps:storage:shared:read`,
-`apps:storage:shared:write`). From 2026-11-10 every one of those routes answers
-**HTTP `410 Gone`**, so a hook or SDK method that still calls them fails. Move
-your app to the document store before that date.
+`apps:storage:shared:write`). From 2026-11-10 the legacy REST routes answer
+**HTTP `410 Gone`**, and the legacy hooks, bridge messages and SDK methods stop
+working: their calls fail with an error. Move your app to the document store
+before that date.
 
 **Nothing is copied automatically.** The document store starts empty; data in
 the legacy stores stays there. If your app has data viewers care about, you
 have two options:
 
 - **Copy it yourself before 2026-11-10**: read it from the legacy store and
-  write it into a collection, as described below. Once the routes answer `410`,
-  the app can no longer read the legacy store.
+  write it into a collection, as described below. After 2026-11-10 the app can
+  no longer read the legacy store. A self-copy has two limits:
+  - **Per-viewer data** can be read only with that viewer's own token, so the
+    copy runs inside the app as each viewer opens it. Only viewers who open the
+    app before 2026-11-10 are moved; everyone else's data is left behind.
+  - **Shared data** copied by the app is authored by whoever runs the copy, so
+    that viewer becomes the author of every copied row (see
+    [Authorship](#shared-storage-usesharedstorage) below). The original
+    authors no longer own their rows, so they cannot edit or withdraw them or
+    publish them as [sub-listings](./sub-listings), which need an item the
+    viewer authored.
 - **Ask Civitai to copy it at cutover.** On request, Civitai can copy an app's
-  legacy data into its document store when the legacy stores shut down. This is
-  not automatic: contact the Civitai team (or your Civitai contact) before
-  2026-11-10.
+  legacy data into its document store when the legacy stores shut down. The
+  cutover copy keeps each row's key, author and hidden state, and runs on
+  Civitai's side, so it does not wait for each viewer to open the app. This is not
+  automatic: contact the Civitai team (or your Civitai contact) before
+  2026-11-10. **For shared data, ask for the cutover copy.**
 
 ### Per-viewer storage (`useAppStorage`)
 
@@ -796,7 +808,8 @@ characters, while a document key is limited to the characters and length in the
 outside that set, or one longer than the limit, is refused `invalid_request`, so
 map such keys (hash them, for example) when you copy. A viewer's legacy data can
 be read only with that viewer's own token, so the copy runs per viewer, inside
-the app, as each viewer opens it.
+the app, as each viewer opens it — and only viewers who open the app before
+2026-11-10 are copied. The cutover copy has no such limit.
 
 ### Shared storage (`useSharedStorage`)
 
@@ -824,8 +837,10 @@ Two things do not carry over from a legacy board:
   created it, and there is no app-owned write yet (`write: "owner"` is
   reserved). Copying a legacy board makes whoever runs the copy the author of
   every copied document: each one counts toward that viewer's quota and spends
-  their shared write budget, and no other viewer can edit or delete it. Keep reading
-  old rows from the legacy store, or have each author post again.
+  their shared write budget, and no other viewer can edit or delete it. To keep
+  the original authors, ask for the cutover copy before 2026-11-10; otherwise
+  read or copy the old rows before that date, or have each author post again.
+  The legacy store cannot be read after 2026-11-10.
 - **Votes.** A mark belongs to the viewer who set it, so legacy vote counts
   cannot become `vote` marks. They start at zero.
 

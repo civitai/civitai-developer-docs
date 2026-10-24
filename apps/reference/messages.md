@@ -39,8 +39,8 @@ This page is the contract for advanced use and non-React SDK consumers.
   against the current SDK picks up every push added since, automatically.
 - **The *Per-app storage* and *Shared storage* families are deprecated.** They
   carry the legacy `useAppStorage` / `useSharedStorage` stores, which are shut
-  down on 2026-11-10; from then on their routes answer HTTP `410`, so these
-  messages fail. The [document store](../guide/storage) that replaces them is
+  down on 2026-11-10; from then on these messages stop working and their
+  requests fail with an error. The [document store](../guide/storage) that replaces them is
   not on the bridge: blocks call it over HTTP.
 
 <MessageTable>
