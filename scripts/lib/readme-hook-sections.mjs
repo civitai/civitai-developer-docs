@@ -89,14 +89,16 @@ export function scanSections(md) {
   let current = null;
   let interstitial = null;
   let hookLevel = null; // level of the hook list we are inside, until a shallower heading leaves it
-  for (const tok of tokenize(md)) {
+  const tokens = tokenize(md);
+  const dedicated = dedicatedHooks(tokens);
+  for (const tok of tokens) {
     if (tok.kind === 'text') {
       const atx = tok.text.match(ATX_HEADING);
       if (atx) {
         const level = atx[1].length;
         const hook = tok.text.match(HOOK_HEADING);
         if (hook) {
-          current = { name: hook[2], level: hook[1].length, heading: tok.text, tokens: [] };
+          current = { name: headingHook(tok.text, dedicated), level: hook[1].length, heading: tok.text, tokens: [] };
           sections.push(current);
           hookLevel = current.level;
           interstitial = null;
@@ -119,6 +121,44 @@ export function scanSections(md) {
   }
   sections.interstitials = interstitials;
   return sections;
+}
+
+/**
+ * The hook a section heading is attributed to.
+ *
+ * A heading can name SEVERAL hooks — a combined walkthrough such as
+ * "### `useImageUpload({ purpose: 'trainingData' })` and `useRunTraining()` — LoRA
+ * training" (@civitai/blocks-react 0.77.0). Taking the first name, as HOOK_HEADING
+ * alone does, gives that section to useImageUpload, which ALSO has a dedicated
+ * "### `useImageUpload()`" section: two sections then share one entry, the later one
+ * wins in `parseReadme`, and the walkthrough is dropped (`verifyPublished` names it).
+ *
+ * So a multi-hook heading goes to the first hook it names that has NO single-hook
+ * heading of its own anywhere in the README (`dedicated`), and only when every named
+ * hook has one, to the first name — the original behaviour. A single-hook heading is
+ * unaffected.
+ *
+ * @param {string} text the heading line (already known to match HOOK_HEADING)
+ * @param {Set<string>} dedicated hooks that head a single-hook section somewhere
+ */
+export function headingHook(text, dedicated) {
+  const names = [...text.matchAll(/`(use[A-Za-z0-9]+)/g)].map((m) => m[1]);
+  const first = text.match(HOOK_HEADING)[2];
+  if (names.length < 2) return first;
+  return names.find((n) => !dedicated.has(n)) ?? first;
+}
+
+/** Hooks that head a heading naming ONLY them (see `headingHook`). Fence-aware. */
+function dedicatedHooks(tokens) {
+  const out = new Set();
+  for (const tok of tokens) {
+    if (tok.kind !== 'text') continue;
+    const hook = tok.text.match(HOOK_HEADING);
+    if (!hook) continue;
+    const names = new Set([...tok.text.matchAll(/`(use[A-Za-z0-9]+)/g)].map((m) => m[1]));
+    if (names.size <= 1) out.add(hook[2]);
+  }
+  return out;
 }
 
 /** Drop leading/trailing blank lines; keep everything else verbatim. */

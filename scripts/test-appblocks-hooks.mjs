@@ -325,6 +325,69 @@ check('verifyPublished is clean on what the splitter produces', () => {
   assert(problems.length === 0, problems.join('; '));
 });
 
+// A heading that names SEVERAL hooks, whose first-named hook ALSO has a dedicated
+// section — the shape @civitai/blocks-react 0.77.0's README introduced:
+// "### `useImageUpload({ purpose: 'trainingData' })` and `useRunTraining()` — LoRA training"
+// before a later "### `useImageUpload()`". Names are fixture-only so the case is
+// about the shape, not the live corpus.
+const MULTI_HOOK_FIXTURE = [
+  "### `useUp({ purpose: 'train' })` and `useRun()` — walkthrough",
+  '',
+  'Walkthrough lead.',
+  '',
+  '🔴 Walkthrough warning.',
+  '',
+  '### `useUp()`',
+  '',
+  'Upload lead.',
+  '',
+  '### `usePair()` and `useOther()` — both dedicated',
+  '',
+  'Pair walkthrough.',
+  '',
+  '### `usePair()`',
+  '',
+  'Pair lead.',
+  '',
+  '### `useOther()`',
+  '',
+  'Other lead.',
+].join('\n');
+
+check('a multi-hook heading goes to the first named hook WITHOUT a dedicated section', () => {
+  const names = scanSections(MULTI_HOOK_FIXTURE).map((s) => s.name).join(',');
+  // useRun has no section of its own, so the walkthrough is its; useUp keeps its own.
+  // When every named hook is dedicated (usePair, useOther), the first name wins — the
+  // original behaviour.
+  assert(names === 'useRun,useUp,usePair,usePair,useOther', `sections: ${names}`);
+  const byHook = parseReadme(MULTI_HOOK_FIXTURE).byHook;
+  assert(byHook.useRun?.prose?.startsWith('Walkthrough lead.'), `useRun: ${JSON.stringify(byHook.useRun)}`);
+  assert(byHook.useUp?.prose === 'Upload lead.', `useUp: ${JSON.stringify(byHook.useUp)}`);
+});
+
+check('NEGATIVE — first-name attribution of that heading drops the walkthrough, and the guard names it', () => {
+  // Reproduce the pre-fix attribution: rename the walkthrough section to its FIRST
+  // backticked hook, as HOOK_HEADING alone did. The later dedicated section then
+  // overwrites the shared entry, and verifyPublished must report the loss.
+  const sections = scanSections(MULTI_HOOK_FIXTURE);
+  sections[0].name = 'useUp';
+  const byHook = {};
+  for (const s of sections) byHook[s.name] = splitSection(s.tokens);
+  const problems = verifyPublished(sections, entriesFrom(byHook));
+  assert(
+    problems.some((p) => p.startsWith('useUp:') && /\(1 of them 🔴\)/.test(p)),
+    `first-name attribution was not reported as a loss: ${problems.join('; ')}`,
+  );
+  // And the fixed attribution is clean on the same fixture.
+  const fixed = verifyPublished(scanSections(MULTI_HOOK_FIXTURE), entriesFrom(parseReadme(MULTI_HOOK_FIXTURE).byHook));
+  // usePair heads two sections even after the fix (every named hook is dedicated),
+  // so it is the one expected report; useUp and useRun must not appear.
+  assert(
+    !fixed.some((p) => p.startsWith('useUp:') || p.startsWith('useRun:')),
+    `fixed attribution still loses content: ${fixed.join('; ')}`,
+  );
+});
+
 // NEGATIVE CONTROL — the splitter this replaced, verbatim from origin/main at
 // 1697554 (`git show 1697554:scripts/gen-appblocks-hooks.mjs`). The guard must
 // name the hook it drops content from, and count the 🔴 line among the losses.
