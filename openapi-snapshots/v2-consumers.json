@@ -37611,68 +37611,6 @@
           }
         ]
       },
-      "MultimodalEmbeddingInput": {
-        "required": [
-          "id"
-        ],
-        "type": "object",
-        "properties": {
-          "id": {
-            "maxLength": 128,
-            "minLength": 1,
-            "type": "string"
-          },
-          "text": {
-            "maxLength": 20000,
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "imageUrl": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "uri"
-          },
-          "videoUrl": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "description": "A video to embed or use as a search query. At most 60 seconds and 100 MiB; audio is ignored.",
-            "format": "uri"
-          }
-        },
-        "additionalProperties": false
-      },
-      "MultimodalEmbeddingResult": {
-        "required": [
-          "embedding",
-          "id",
-          "index"
-        ],
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "index": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "embedding": {
-            "type": "array",
-            "items": {
-              "type": "number",
-              "format": "float"
-            },
-            "description": "Normalized FP32 values, in the requested number of dimensions."
-          }
-        },
-        "additionalProperties": false
-      },
       "MultimodalEmbeddingStep": {
         "allOf": [
           {
@@ -37704,9 +37642,6 @@
         "description": "Multimodal Embedding"
       },
       "MultimodalEmbeddingStepInput": {
-        "required": [
-          "inputs"
-        ],
         "type": "object",
         "properties": {
           "model": {
@@ -37729,22 +37664,37 @@
             "format": "int32",
             "default": 256
           },
-          "inputs": {
-            "maxItems": 128,
-            "minItems": 1,
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MultimodalEmbeddingInput"
-            },
-            "description": "1–128 inputs with unique IDs, each containing either text or an HTTP(S) image URL."
+          "text": {
+            "maxLength": 20000,
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Text to embed. Provide exactly one of text, imageUrl or videoUrl."
+          },
+          "imageUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Absolute HTTP(S) image URL to index or use as a search query.",
+            "format": "uri"
+          },
+          "videoUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Absolute HTTP(S) video URL; at most 60 seconds, 100 MiB and 4096 pixels per side.",
+            "format": "uri"
           }
         },
         "additionalProperties": false
       },
       "MultimodalEmbeddingStepOutput": {
         "required": [
-          "data",
           "dimensions",
+          "embedding",
           "model",
           "modelRevision",
           "normalized",
@@ -37768,18 +37718,20 @@
           "normalized": {
             "type": "boolean"
           },
-          "data": {
+          "embedding": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/MultimodalEmbeddingResult"
-            }
+              "type": "number",
+              "format": "float"
+            },
+            "description": "One normalized FP32 vector with exactly the requested number of dimensions."
           },
           "videoProfile": {
             "type": [
               "null",
               "string"
             ],
-            "description": "Video preprocessing profile, present when the batch contains videos."
+            "description": "Video preprocessing profile, present for a video input."
           }
         },
         "additionalProperties": false
