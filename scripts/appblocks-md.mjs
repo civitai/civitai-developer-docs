@@ -68,6 +68,8 @@ import { outDir, repoRoot } from './appblocks-util.mjs';
 import { cliLongBody } from '../.vitepress/theme/components/cliReference.shared.mjs';
 // The island's table names, so a region exists for exactly the tables the page renders.
 import { STORAGE_TABLES } from '../.vitepress/theme/components/storageReference.shared.mjs';
+// The manifest table's rows, shared with <JsonSchemaTable>.
+import { manifestRows } from '../.vitepress/theme/components/manifestSchema.shared.mjs';
 // The same notes -> markdown join the hooks generator's guard reasons about.
 import { notesMarkdown } from './lib/readme-hook-sections.mjs';
 // Which entry lives on which sub-page — shared with the Vue islands and the
@@ -484,42 +486,24 @@ function renderStorage(which) {
   throw new Error(`appblocks-md: unknown storage table ${JSON.stringify(which)}`);
 }
 
-/** apps/reference/manifest.md — mirrors <JsonSchemaTable>'s typeText/constraintText. */
-function typeText(prop) {
-  if (!prop) return '';
-  let t = Array.isArray(prop.type) ? prop.type.join(' | ') : prop.type ?? '';
-  if (prop.enum) t = prop.enum.map((v) => JSON.stringify(v)).join(' | ');
-  if (t === 'array' && prop.items?.type) t = `${prop.items.type}[]`;
-  if (prop.format) t += ` (${prop.format})`;
-  return t;
-}
-function constraintText(prop) {
-  if (!prop) return '';
-  const bits = [];
-  if (prop.pattern) bits.push(`pattern: ${prop.pattern}`);
-  if (prop.minLength != null) bits.push(`minLength ${prop.minLength}`);
-  if (prop.maxLength != null) bits.push(`maxLength ${prop.maxLength}`);
-  if (prop.minimum != null) bits.push(`min ${prop.minimum}`);
-  if (prop.maximum != null) bits.push(`max ${prop.maximum}`);
-  if (prop.exclusiveMinimum != null) bits.push(`> ${prop.exclusiveMinimum}`);
-  if (prop.maxItems != null) bits.push(`maxItems ${prop.maxItems}`);
-  if (prop.default !== undefined) bits.push(`default: ${JSON.stringify(prop.default)}`);
-  return bits.join(', ');
-}
-function renderManifest() {
-  const schema = loadArtifact('manifest-schema.json');
-  const props = schema.properties ?? {};
-  const required = new Set(schema.required ?? []);
-  const entries = Object.entries(props);
-  if (!entries.length) throw new Error('appblocks-md: manifest-schema.json has no properties');
+/**
+ * apps/reference/manifest.md — mirrors <JsonSchemaTable>. The rows (top-level
+ * fields plus the nested `storage.collections.<name>.*` ones) are computed once,
+ * in manifestSchema.shared.mjs; both channels only lay them out.
+ */
+function renderManifestTable(schema) {
+  const rows = manifestRows(schema);
+  if (!Object.keys(schema?.properties ?? {}).length) throw new Error('appblocks-md: manifest-schema.json has no properties');
   return table(
     ['Field', 'Type', 'Required', 'Notes'],
-    entries.map(([field, prop]) => {
-      const constraints = constraintText(prop);
-      const notes = [cell(prop.description ?? ''), constraints ? codeCell(constraints) : ''].filter(Boolean).join(' ');
-      return [codeCell(field), codeOrDash(typeText(prop)), required.has(field) ? 'required' : 'optional', notes || '—'];
+    rows.map((r) => {
+      const notes = [cell(r.description), r.constraints ? codeCell(r.constraints) : ''].filter(Boolean).join(' ');
+      return [codeCell(r.field), codeOrDash(r.type), r.required ? 'required' : 'optional', notes || '—'];
     }),
   );
+}
+function renderManifest() {
+  return renderManifestTable(loadArtifact('manifest-schema.json'));
 }
 
 /**

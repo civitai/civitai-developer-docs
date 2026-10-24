@@ -28,6 +28,7 @@
     "test:appblocks:hooks": "node scripts/test-appblocks-hooks.mjs",
     "test:appblocks:bridge": "node scripts/test-appblocks-bridge.mjs",
     "test:appblocks:cli": "node scripts/test-appblocks-cli.mjs",
+    "test:appblocks:manifest": "node scripts/test-appblocks-manifest.mjs",
     "test:refresh-cli-snapshot": "node scripts/test-refresh-cli-snapshot.mjs",
     "test:copy-spec": "node scripts/test-copy-spec.mjs",
     "check:spec-scrub": "node scripts/check-spec-scrub.mjs",
