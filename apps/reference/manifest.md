@@ -221,7 +221,8 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
 - **`storage`** (enforced) — the collections of the app's
   [document store](../guide/storage): `storage.collections` maps each
   collection name to its `visibility`, its `write` policy, and its `counters`,
-  `marks`, `indexes` and `showAuthor`. A collection that is not declared here
+  `marks`, `indexes`, `showAuthor` and
+  [`ownedModelVersions`](../guide/storage#owned-model-versions). A collection that is not declared here
   does not exist at runtime. The scopes it needs are in
   [Scopes and consent](../guide/storage#scopes-and-consent), and how it is
   declared and checked is in

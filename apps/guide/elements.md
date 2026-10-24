@@ -138,27 +138,36 @@ if (button) {
 }
 ```
 
-### Apps cannot register Civitai reactions yet
+### Real Civitai reactions go through `useReactions`
 
-The platform has **no reaction scope, no hook and no bridge message** today. A
-block cannot add or remove a real Civitai reaction on an image, a post or
-anything else, and it cannot read which reactions the viewer already has. The
-social actions an app can take are tips (the `social:tip:self` scope, in the
-[Scopes reference](../reference/scopes)) and collection follows. A follow needs
-no scope: `<FollowButton>` from `@civitai/blocks-react/ui`, or the
+To set a real reaction, wire the element to the
+[`useReactions`](../reference/hooks/viewer-and-navigation#hook-useReactions)
+hook. It reads and sets the viewer's reactions on **images** over the bridge,
+and needs the consent-gated `social:react:self` scope (in the
+[Scopes reference](../reference/scopes)). A reaction made this way **is** a
+Civitai reaction: it pays, ranks and notifies exactly as the site's own button
+does. Its limits are in the hook reference: images only, no `Dislike`, and a
+per-image `reactTicket` that only the REST image routes supply.
+
+The hook's example reads `event.detail.reaction`. `ReactionDetail` carries that
+field from `@civitai/components` 0.13.0 on; on an older version it is
+`undefined`, so the element flips itself and nothing is written. Use 0.13.0 or
+later.
+
+Other entity types (posts, models, articles) have no reaction support. The
+other social actions an app can take are tips (the `social:tip:self` scope) and
+collection follows. A follow needs no scope: `<FollowButton>` from
+`@civitai/blocks-react/ui`, or the
 [`useCollectionFollow`](../reference/hooks/viewer-and-navigation#hook-useCollectionFollow)
 hook beneath it, asks the host to follow, and the host confirms each follow with
 the viewer.
 
-Support for real reactions is **planned and under discussion** in
-[civitai-app-starters#669](https://github.com/civitai/civitai-app-starters/issues/669).
-Nothing proposed there has shipped. Do not build against it.
-
-If you want a reaction-style button now, you can keep app-local "marks" in your
-app's own [storage](./storage). They are **not** Civitai reactions. They never
-reach civitai.com, their counts do not match the counts on the site, and the
-creator never sees them. Your app's copy must not call them Civitai reactions,
-and must not suggest the creator is notified.
+If you only want a reaction-style button that stays inside your app, you can
+keep app-local "marks" in your app's own [storage](./storage), as the example
+above does. They are **not** Civitai reactions. They never reach civitai.com,
+their counts do not match the counts on the site, and the creator never sees
+them. Your app's copy must not call them Civitai reactions, and must not suggest
+the creator is notified.
 
 ## `<civitai-tag>` votes go nowhere either
 
