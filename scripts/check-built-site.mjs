@@ -58,6 +58,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, posix, relative } from 'node:path';
 import { repoRoot } from './appblocks-util.mjs';
 import { cliLongBody } from '../.vitepress/theme/components/cliReference.shared.mjs';
+import { manifestRows } from '../.vitepress/theme/components/manifestSchema.shared.mjs';
 import {
   REFERENCE_SPLITS,
   bridgeItems,
@@ -931,6 +932,38 @@ check('no sidebar group is emitted twice in dist/llms.txt', () => {
   llmsGroupCount = groups.length;
 });
 if (llmsGroupCount !== null) console.log(`       ${llmsGroupCount} groups parsed, 0 duplicated`);
+
+// ── <JsonSchemaTable>: the built manifest table carries every row, nested ones included ──
+//
+// The .md channel's rows are pinned by scripts/test-appblocks-manifest.mjs; this
+// is the HTML channel's half. Expected rows are recomputed from the artifact
+// through the SAME `manifestRows` the island calls, never read back off the page.
+// Rows are compared IN ORDER by their Field cell, so a component that stopped
+// expanding `storage` (dropping the `storage.collections.<name>.*` rows) or that
+// rendered the placeholder `<name>` as raw markup fails here.
+const MANIFEST_PAGE = join(distDir, 'apps', 'reference', 'manifest.html');
+const manifestArtifact = join(repoRoot, 'public', 'appblocks', 'manifest-schema.json');
+let manifestRowCount = null;
+check('manifest.html renders every <JsonSchemaTable> row, nested storage fields included', () => {
+  assert(existsSync(MANIFEST_PAGE), `${MANIFEST_PAGE} does not exist — the manifest reference was not built.`);
+  assert(existsSync(manifestArtifact), `${manifestArtifact} does not exist — run \`npm run gen:appblocks\` before building.`);
+  const want = manifestRows(JSON.parse(readFileSync(manifestArtifact, 'utf8'))).map((r) => r.field);
+  // POSITIVE CONTROL: the nested rows this check exists for are in the expected set.
+  assert(
+    want.includes('storage.collections.<name>.ownedModelVersions'),
+    `manifestRows() produced no storage.collections.<name>.ownedModelVersions row, so this check would ` +
+      `assert nothing about nested fields. Expected rows: ${want.length}.`,
+  );
+  const table = readFileSync(MANIFEST_PAGE, 'utf8').match(/<div class="ab-schema"[^>]*>([\s\S]*?)<\/table>/);
+  assert(table, `no <div class="ab-schema"> table in ${MANIFEST_PAGE} — the island rendered nothing.`);
+  const got = [...table[1].matchAll(/<tr[^>]*>\s*<td[^>]*><code[^>]*>([\s\S]*?)<\/code><\/td>/g)].map((m) => m[1]);
+  // Raw markup check BEFORE unescaping: `<name>` must arrive as `&lt;name&gt;`.
+  assert(!got.some((f) => /<[a-z]/i.test(f)), `a Field cell carries raw markup: ${got.find((f) => /<[a-z]/i.test(f))}`);
+  const fields = got.map(unescapeHTML);
+  assertEqual(fields.join('\n'), want.join('\n'), 'built manifest table Field column (in order)');
+  manifestRowCount = fields.length;
+});
+if (manifestRowCount !== null) console.log(`       ${manifestRowCount} manifest rows rendered`);
 
 console.log(failures ? `\n${failures} check(s) FAILED` : '\nall built-site checks passed');
 process.exit(failures ? 1 : 0);

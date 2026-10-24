@@ -140,9 +140,9 @@ new name.
 Some of the schema is reserved for later phases, and the server refuses it with
 a message saying so. The [limits table](#limits) lists which fields are refused
 today, and the [manifest reference](../reference/manifest) has the bounds of
-each top-level field. The manifest reference does not list fields nested inside
-a collection. Their bounds are in the limits table, and
-`ownedModelVersions` has its own rules [below](#owned-model-versions).
+each field, including the ones nested inside a collection (its
+`storage.collections.<name>.*` rows). `ownedModelVersions` has its own rules
+[below](#owned-model-versions).
 
 The server's own manifest validation, which applies the reserved-feature
 refusal and the [scope rules](#scopes-and-consent), runs when a moderator
@@ -865,5 +865,5 @@ before then.
 
 - [The `@civitai/sdk` client](./sdk) — `initialize()`, consent and the rest of `app`.
 - [Scopes reference](../reference/scopes) — `apps:storage` and `apps:storage:publish` beside every other scope.
-- [Manifest reference](../reference/manifest) — the `storage` property and its bounds.
+- [Manifest reference](../reference/manifest) — the `storage` property, each collection field, and their bounds.
 - [Local dev loop](./local-dev) — the harness modes.
