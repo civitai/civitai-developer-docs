@@ -64,17 +64,11 @@ on:
 permissions:
   contents: read
 
-# Concurrency: PR and push runs group per ref, newest wins (ported from
-# civitai/civitai#6718 / #6728); the org's Actions plan has a fixed concurrent-
-# job limit shared by every repo, so a superseded run still holds a slot. On a
-# PR a new push cancels the run for the old head (the new head still reports);
-# on `main` a newer commit cancels the older one's run, whose tree it contains.
-# Scheduled and dispatched runs carry the live-origin half that PR/push runs
-# skip, so each gets a group of its own (`github.run_id`): a push to `main`
-# never cancels one, and nothing else does either.
+# Cancel superseded PR runs only (see civitai/civitai-developer-docs#252). Push, schedule
+# and dispatch runs each get their own group, so none is ever cancelled or displaced.
 concurrency:
-  group: ai-catalog-${{ (github.event_name == 'pull_request' || github.event_name == 'push') && github.ref || github.run_id }}
-  cancel-in-progress: true
+  group: ai-catalog-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check-ai-catalog:

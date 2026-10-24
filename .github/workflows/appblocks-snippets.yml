@@ -27,17 +27,11 @@ on:
 permissions:
   contents: read
 
-# Concurrency: one run per ref, newest wins (ported from civitai/civitai#6718 /
-# #6728). The org's Actions plan has a fixed concurrent-job limit shared by every
-# repo, so a superseded run left going still holds a slot. On a PR `github.ref`
-# is `refs/pull/N/merge`, so a new push cancels the run for the old head; the
-# check for the NEW head still reports, so a required context is not left
-# pending. This workflow has no push trigger; a dispatch on a branch groups by
-# that branch's ref, so a re-dispatch cancels the stale one. This job only
-# reads: no deploy, push or publish is cut short by a cancel.
+# Cancel superseded PR runs only (see civitai/civitai-developer-docs#252). Push, schedule
+# and dispatch runs each get their own group, so none is ever cancelled or displaced.
 concurrency:
-  group: appblocks-snippets-${{ github.ref }}
-  cancel-in-progress: true
+  group: appblocks-snippets-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   typecheck-snippets:
