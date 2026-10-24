@@ -2,7 +2,7 @@
 title: Responsive blocks
 description: Making a block fit the slot the host gives it — the --civitai-bp-* scale, useBlockBreakpoint(), the em-vs-px breakpoint trap, and what the design system reflows for you.
 sources:
-  - npm:@civitai/blocks-react@0.73.2#useBlockBreakpoint
+  - npm:@civitai/blocks-react@0.77.0#useBlockBreakpoint
   - npm:@civitai/theme@0.5.2#breakpoints
   - npm:@civitai/components@0.10.1
 ---

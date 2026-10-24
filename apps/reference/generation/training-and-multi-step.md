@@ -9,7 +9,7 @@ description: "The training body and its ai-toolkit parameter types, and the mult
 
 The `training` body and its ai-toolkit parameter types, and the multi-step `workflow` body.
 
-This page documents 11 of the 27 types in the [Generation bridge reference](../generation), which indexes every type by name. Generated from `@civitai/app-sdk@0.71.0` and `@civitai/blocks-react@0.73.2`.
+This page documents 11 of the 27 types in the [Generation bridge reference](../generation), which indexes every type by name. Generated from `@civitai/app-sdk@0.77.0` and `@civitai/blocks-react@0.77.0`.
 
 Other pages: [useBuzzWorkflow lifecycle and snapshot types](./lifecycle) · [Workflow body types](./bodies)
 
@@ -18,17 +18,17 @@ Other pages: [useBuzzWorkflow lifecycle and snapshot types](./lifecycle) · [Wor
 
 **`WorkflowBodyTraining`** — object
 
-Train a LoRA with the ai-toolkit engine on a dataset Civitai prepared from the VIEWER'S OWN images — the App Blocks `kind: 'training'` workflow body. ## Availability — read before building on it - 🔴 Behind the host flag **`app-blocks-training-kind`**, which ships OFF and is evaluated per viewer. Where it is off, every training call is refused (`training from apps is not enabled`). - **Page apps only** (`/apps/run/<slug>`). The model slot answers both training messages with an error, and the server refuses a non-page token. - The manifest must declare **`ai:write:budgeted`** and the viewer must have granted it; the viewer must be signed in. - **Not from a development or review session**: dev tokens (`dev:live`, dev tunnel) and review-sandbox tokens are refused, run-for-real included. Use the mock host (`createMockHost` / `Harness`) to build the flow. ## The flow 1. **Dataset** — `usePrepareTrainingDataset()` (`PREPARE_TRAINING_DATASET`) with `[{ imageId, caption }]`. Only the viewer's OWN scanned, unflagged images within the page's maturity ceiling are admitted; the rest come back in `rejected`. You get an opaque {@link WorkflowBodyTraining.datasetId}. 2. **Quote** — `useBuzzWorkflow().estimate(body)` with this body, `quoteId` ABSENT. The reply's {@link BlockWorkflowSnapshot.trainingQuote} is the orchestrator's own price for exactly this run, stored server-side. 3. **Run** — `useRunTraining().runTraining({ ...body, quoteId })` (`RUN_TRAINING`). Civitai shows the viewer a consent dialog in ITS chrome — price, base model, length, dataset size, all read back from the server, never from your body — and submits only on their click. 4. **Follow** — `useBuzzWorkflow().watch(snapshot.workflowId)`. 🔴 `useBuzzWorkflow().submit()` REFUSES THIS BODY before sending it. The server charges a training run only against a quote the viewer confirmed from a signed-in session, which only `RUN_TRAINING`'s dialog can record. ## Money There is no `maxBuzz` and no timeout knob, on purpose: the price is the quote. A run may cost more than the token's per-call `buzzBudget` (the viewer confirms the exact price), up to {@link BLOCK_TRAINING_MAX_BUZZ_PER_RUN} (5,000 Buzz); an estimate above that is refused.
+Train a LoRA with the ai-toolkit engine on images the VIEWER uploaded through the host — the App Blocks `kind: 'training'` workflow body. ## Availability — read before building on it - 🔴 Behind the host flag **`app-blocks-training-kind`**, which ships OFF and is evaluated per viewer. Where it is off, every training call is refused (`training from apps is not enabled`). - **Page apps only** (`/apps/run/<slug>`). The model slot answers `RUN_TRAINING` with an error, and the server refuses a non-page token. - The manifest must declare **`ai:write:budgeted`** and the viewer must have granted it; the viewer must be signed in. - **Not from a development or review session**: dev tokens (`dev:live`, dev tunnel) and review-sandbox tokens are refused, run-for-real included. Use the mock host (`createMockHost` / `Harness`) to build the flow. ## The flow 1. **Upload** — `useImageUpload({ purpose: 'trainingData' }).open()` (`OPEN_IMAGE_UPLOAD { purpose: 'trainingData' }`). The viewer picks up to {@link BLOCK_TRAINING_DATASET_MAX_ITEMS} images in a host modal; you get `[{ url, air }]` ({@link BlockTrainingDataImage}), or `null` on cancel. Pair each `air` with your caption to build {@link WorkflowBodyTraining.items}. 2. **Quote** — `useBuzzWorkflow().estimate(body)` with this body, `quoteId` ABSENT. The reply's {@link BlockWorkflowSnapshot.trainingQuote} is the orchestrator's own price for exactly this run, stored server-side. 3. **Run** — `useRunTraining().runTraining({ ...body, quoteId })` (`RUN_TRAINING`). Civitai shows the viewer a consent dialog in ITS chrome — price, base model, length, dataset size, all read back from the server, never from your body, with the host's own copies of the uploads as thumbnails — and submits only on their click. A quote naming an image this host did not upload for the block is refused with no dialog (`training data not uploaded here`) — upload in the same page session as the run; a reload forgets the uploads. 4. **Follow** — `useBuzzWorkflow().watch(snapshot.workflowId)`. 🔴 `useBuzzWorkflow().submit()` REFUSES THIS BODY before sending it. The server charges a training run only against a quote the viewer confirmed from a signed-in session, which only `RUN_TRAINING`'s dialog can record. ## Money There is no `maxBuzz` and no timeout knob, on purpose: the price is the quote. A run may cost more than the token's per-call `buzzBudget` (the viewer confirms the exact price), up to {@link BLOCK_TRAINING_MAX_BUZZ_PER_RUN} (5,000 Buzz); an estimate above that is refused.
 
 | Field | Type | Notes |
 |---|---|---|
 | `kind` | `'training'` |  |
-| `datasetId` | `string` | The handle `usePrepareTrainingDataset()` returned — `tds_` + 32 hex characters. |
+| `items` | `BlockTrainingDatasetItem[]` | The dataset: 1…{@link BLOCK_TRAINING_DATASET_MAX_ITEMS} images this host uploaded for the viewer, each with its caption — see {@link BlockTrainingDatasetItem}. One blob may appear once. |
 | `engine` | `'ai-toolkit'` | The only engine accepted. |
 | `model` | `string` | A base-model key from Civitai's training catalog (1…64 characters), resolved and gated server-side. Custom AIRs are not accepted. |
 | `params` | `AiToolkitTrainingParams` |  |
-| `triggerWord` | `string` | At most {@link BLOCK_TRAINING_TRIGGER_WORD_MAX_CHARS} characters. Moderated like a prompt. |
-| `samplePrompts` | `string[]` | At most {@link BLOCK_TRAINING_SAMPLE_PROMPTS_MAX} prompts of at most {@link BLOCK_TRAINING_SAMPLE_PROMPT_MAX_CHARS} characters each. Moderated like prompts. |
+| `triggerWord` | `string` | At most {@link BLOCK_TRAINING_TRIGGER_WORD_MAX_CHARS} characters. The host runs it through the same trigger-word check Civitai's trainer and Training Studio use, at the estimate and again at the submit, before anything is reserved; a refused trigger word fails the estimate. |
+| `samplePrompts` | `string[]` | At most {@link BLOCK_TRAINING_SAMPLE_PROMPTS_MAX} prompts of at most {@link BLOCK_TRAINING_SAMPLE_PROMPT_MAX_CHARS} characters each. Checked for those bounds only, as in the Training Studio. |
 | `quoteId?` | `string` | The quote this run is charged against — {@link BlockTrainingQuote.quoteId} from the estimate (`tq_` + 32 hex characters). OMIT it on the estimate; REQUIRED on `RUN_TRAINING`. The server checks the rest of the body against the body that was quoted, so change nothing else between the two. |
 
 **`BlockTrainedEpoch`** — object
@@ -153,7 +153,7 @@ The ai-toolkit ecosystems that take NO `modelVariant` — send the key absent. (
 |---|---|---|
 | `quoteId` | `string` | `tq_` + 32 hex characters. Opaque — pass it back verbatim. |
 | `total` | `number` | The quoted price, in Buzz. |
-| `imageCount` | `number` | How many images the prepared dataset holds. |
+| `imageCount` | `number` | How many images the quoted dataset holds. |
 | `expiresAt` | `string` | ISO-8601. The quote cannot be run after this. |
 
 **`WorkflowBodyWorkflow`** — object

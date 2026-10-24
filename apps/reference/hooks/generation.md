@@ -9,7 +9,7 @@ description: "useBuzzWorkflow and the hooks that list, publish and resource a ge
 
 `useBuzzWorkflow` and the hooks that list, publish and resource a generation.
 
-This page documents 4 of the 47 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.73.2` package's type definitions and README.
+This page documents 4 of the 48 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.77.0` package's type definitions and README.
 
 Other pages: [Context, frame and analytics hooks](./context) · [Batch, confirmed-step and training hooks](./batches-and-training) · [Buzz, purchase and tip hooks](./buzz-and-purchases) · [Viewer, consent and navigation hooks](./viewer-and-navigation) · [Storage, picker and media hooks](./storage-and-media)
 
@@ -388,6 +388,14 @@ showImages(done.imageUrls ?? []);
   KB (262144 bytes) for every step's `input` plus `arguments` together. An
   unknown key on the body or on a step is rejected. The app's velocity limit
   counts one unit per step, and a `repeat` step one per iteration instead.
+- **No inline media** in a step `input` or in `arguments` — here or in a
+  pass-through `kind: 'step'` body's `input`: no `data:image|video|audio` URI
+  and no raw base64 string of 4096+ characters, at any depth. Upload the image,
+  video or audio with [`useMediaUpload()`](#usemediaupload) (an image also works
+  with `useImageUpload({ purpose: 'generationSource' })` or `useImagePicker()`)
+  and pass the returned `url`. A body holding more than
+  262144 values in those fields is refused outright. `createMockHost` refuses
+  both as the host does, naming the path.
 - `suppressOutput: true` marks an intermediate step. Its images are left out of
   `snapshot.imageUrls` and out of its own `steps[i].imageUrls`. It still runs
   and is still charged.

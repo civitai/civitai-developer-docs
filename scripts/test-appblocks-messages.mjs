@@ -250,7 +250,7 @@ try {
 }
 
 check('every reply in the committed snapshot resolves (no lost payloads / phantom pushes)', () => {
-  const unresolved = findUnresolvedReplies(inventory, sdkParentToBlock);
+  const unresolved = findUnresolvedReplies(inventory, sdkParentToBlock, sdkBlockToParent);
   assertEqual(
     unresolved.length,
     0,
@@ -259,15 +259,54 @@ check('every reply in the committed snapshot resolves (no lost payloads / phanto
   );
 });
 
-check('NEGATIVE — a reply that names no SDK message IS reported by the guard', () => {
+check('NEGATIVE — an EMITTED entry whose reply names no SDK message IS reported by the guard', () => {
   // Positive control for the guard itself: without this, a green "0 unresolved" is
-  // indistinguishable from a relation wired to nothing.
-  const mutated = { ...inventory, FAKE_REQUEST: { request: true, reply: 'NO_SUCH_RESULT', replyNote: null } };
-  const unresolved = findUnresolvedReplies(mutated, sdkParentToBlock);
+  // indistinguishable from a relation wired to nothing. The mutated key is a REAL
+  // published block->host message, so this exercises the path the page renders.
+  assert(inventory.GET_VIEWER, 'fixture precondition: GET_VIEWER is an INVENTORY entry');
   assert(
-    unresolved.some((u) => u.startsWith('FAKE_REQUEST ->')),
-    'resolution guard did NOT flag a reply naming a nonexistent message — the guard is broken'
+    sdkBlockToParent.some((m) => m.name === 'GET_VIEWER'),
+    'fixture precondition: GET_VIEWER is a published SDK block->host message'
   );
+  const mutated = { ...inventory, GET_VIEWER: { ...inventory.GET_VIEWER, reply: 'NO_SUCH_RESULT' } };
+  const unresolved = findUnresolvedReplies(mutated, sdkParentToBlock, sdkBlockToParent);
+  assert(
+    unresolved.includes('GET_VIEWER -> "NO_SUCH_RESULT"'),
+    `resolution guard did NOT flag an emitted reply naming a nonexistent message — the guard is broken (got: ${unresolved.join(', ')})`
+  );
+});
+
+check('SCOPE — an entry the SDK does NOT publish is out of scope; the same entry published IS graded', () => {
+  // The host keeps INVENTORY entries the SDK does not publish: keys answered ahead of
+  // an SDK release, and keys an SDK release removed (PREPARE_TRAINING_DATASET, whose
+  // TRAINING_DATASET_RESULT reply app-sdk 0.77.0 also dropped). buildMessages never
+  // emits them, so their reply cannot lose a payload. The pair below pins the
+  // boundary in both directions with ONE fixture, so the filter is what differs.
+  const fake = { request: true, reply: 'NO_SUCH_RESULT', replyNote: null };
+  const mutated = { ...inventory, FAKE_REQUEST: fake };
+  const unpublished = findUnresolvedReplies(mutated, sdkParentToBlock, sdkBlockToParent);
+  assert(
+    !unpublished.some((u) => u.startsWith('FAKE_REQUEST ->')),
+    `an entry the SDK does not publish was graded: ${unpublished.join(', ')}`
+  );
+  const published = findUnresolvedReplies(mutated, sdkParentToBlock, [
+    ...sdkBlockToParent,
+    { name: 'FAKE_REQUEST' },
+  ]);
+  assert(
+    published.includes('FAKE_REQUEST -> "NO_SUCH_RESULT"'),
+    `the same entry, once published, was NOT graded: ${published.join(', ')}`
+  );
+});
+
+check('the blockToParent argument is required (an omitted union must not grade nothing)', () => {
+  let threw = false;
+  try {
+    findUnresolvedReplies(inventory, sdkParentToBlock);
+  } catch {
+    threw = true;
+  }
+  assert(threw, 'findUnresolvedReplies accepted a missing blockToParent and would report 0 unresolved');
 });
 
 console.log('EMITTED ARTIFACT — the three fields the drift actually corrupted');

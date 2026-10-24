@@ -67,15 +67,30 @@ export function loadSdkParentToBlock() {
 }
 
 /**
- * RESOLUTION relation the generator hard-fails on: every `reply` an INVENTORY entry
- * names must be a published SDK host->block message. Returns `NAME -> "reply"` strings
- * for the ones that do NOT (empty array == healthy). Exported so the regression test
- * asserts the exact same relation the generator's guard uses.
+ * RESOLUTION relation the generator hard-fails on: every `reply` named by an INVENTORY
+ * entry the generator EMITS must be a published SDK host->block message. Returns
+ * `NAME -> "reply"` strings for the ones that do NOT (empty array == healthy). Exported
+ * so the regression test asserts the exact same relation the generator's guard uses.
+ *
+ * "Emits" = the entry's key is a published SDK block->host message: buildMessages
+ * walks `blockToParent` only, so an INVENTORY entry the SDK does not publish never
+ * reaches the page and its `reply` can neither lose a payload nor turn into a phantom
+ * push (the push loop excludes only replies of EMITTED requests). Such entries are
+ * legitimate upstream: keys the host answers ahead of an SDK release, and keys an SDK
+ * release REMOVED that the host still answers with an error for old bundles
+ * (`PREPARE_TRAINING_DATASET` -> `TRAINING_DATASET_RESULT`, both dropped from the
+ * app-sdk 0.77.0 unions). Grading those would fail the build on a reply the page
+ * never renders.
  */
-export function findUnresolvedReplies(inventory, parentToBlock) {
-  const known = new Set(parentToBlock.map((m) => (typeof m === 'string' ? m : m.name)));
+export function findUnresolvedReplies(inventory, parentToBlock, blockToParent) {
+  if (!Array.isArray(blockToParent)) {
+    throw new Error('findUnresolvedReplies: blockToParent (the published SDK block->host union) is required');
+  }
+  const nameOf = (m) => (typeof m === 'string' ? m : m.name);
+  const known = new Set(parentToBlock.map(nameOf));
+  const emitted = new Set(blockToParent.map(nameOf));
   return Object.entries(inventory)
-    .filter(([, inv]) => inv.reply && !known.has(inv.reply))
+    .filter(([name, inv]) => emitted.has(name) && inv.reply && !known.has(inv.reply))
     .map(([name, inv]) => `${name} -> ${JSON.stringify(inv.reply)}`);
 }
 
@@ -453,8 +468,10 @@ function main() {
   assertFlags('GET_VIEWER', { pageOnly: true, request: true, hasReply: true });
   assertFlags('GET_BUZZ_BALANCE', { pageOnly: false, request: true, hasReply: true });
 
-  // (3) REPLY RESOLUTION: every `reply` an INVENTORY entry names MUST resolve to a
-  // published SDK host->block message. This is the guard the drift that motivated
+  // (3) REPLY RESOLUTION: every `reply` named by an INVENTORY entry this page EMITS
+  // (a published block->host message — see findUnresolvedReplies for why entries the
+  // SDK does not publish are out of scope) MUST resolve to a published SDK
+  // host->block message. This is the guard the drift that motivated
   // splitReply walked straight past: coverage (1) was fine and the flag sanity
   // sample (2) does not include REQUEST_TOKEN, so a `reply` that had become prose
   // just... stopped resolving. `replyPayload` went null and the orphaned type got
@@ -463,7 +480,7 @@ function main() {
   // here has no false-positive population; an unresolvable reply means the parse is
   // wrong or the snapshot is stale, and both should stop the build rather than
   // quietly publish.
-  const unresolvedReplies = findUnresolvedReplies(inventory, parentToBlock);
+  const unresolvedReplies = findUnresolvedReplies(inventory, parentToBlock, blockToParent);
   if (unresolvedReplies.length) {
     throw new Error(
       `gen-appblocks-messages: ${unresolvedReplies.length} INVENTORY reply value(s) do not name a published SDK ` +

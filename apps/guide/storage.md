@@ -139,10 +139,10 @@ new name.
 
 Some of the schema is reserved for later phases, and the server refuses it with
 a message saying so. The [limits table](#limits) lists which fields are refused
-today, and the [manifest reference](../reference/manifest) has every field's
-bounds, except `ownedModelVersions`, which it lists once these docs' pinned
-`@civitai/app-sdk` is bumped to a version that carries it (see
-[below](#owned-model-versions) for its rules).
+today, and the [manifest reference](../reference/manifest) has the bounds of
+each top-level field. The manifest reference does not list fields nested inside
+a collection. Their bounds are in the limits table, and
+`ownedModelVersions` has its own rules [below](#owned-model-versions).
 
 The server's own manifest validation, which applies the reserved-feature
 refusal and the [scope rules](#scopes-and-consent), runs when a moderator
