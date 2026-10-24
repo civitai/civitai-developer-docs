@@ -67,11 +67,21 @@ Three properties of the scope decide how you call it:
   so these routes can only be exercised from an **approved** version of your
   app. Build the publish path so its refusal degrades quietly.
 
-The item itself must already exist in your app's shared storage, so in practice
-the app also holds `apps:storage:shared:write`. That is the **legacy** shared
-store (`useSharedStorage`, `/api/v1/blocks/shared-storage/*`): a sub-listing
-reads its item from there, not from a [document store](./storage) collection,
-so keep listable items in the legacy store even after the rest of the app moves.
+The item itself must already exist in your app's shared data, written by the
+viewer who lists it. Which store that is depends on your app's **approved**
+manifest:
+
+- **It declares a shared [document store](./storage) collection viewers write**
+  (`write: "own"`, so the app holds `apps:storage:publish`): `itemKey` is the
+  key of one production document in such a collection. The legacy store is no
+  longer read, even for old keys, and a key found in two such collections is
+  not found.
+- **It declares none:** `itemKey` names a row in the **legacy** shared store
+  (`useSharedStorage`, `/api/v1/blocks/shared-storage/*`, with
+  `apps:storage:shared:write`). That store is
+  [shut down on 2026-11-10](./storage#moving-from-the-legacy-stores), after
+  which its routes answer `410`, so move listable items into a shared collection
+  before then.
 
 ## The routes
 
@@ -94,7 +104,7 @@ const app = await initialize();
 
 try {
   const item = await app.site.post('blocks/sub-listings/upsert', {
-    itemKey: 'preset-7f3a', // the key of the viewer's own shared-storage row
+    itemKey: 'preset-7f3a', // the key of the viewer's own shared item
     title: 'Moody film portraits',
     subPath: 'p/preset-7f3a', // opens /apps/run/<your-app-slug>/p/preset-7f3a
   });
@@ -114,7 +124,7 @@ at most 8 KB.
 
 | Field | Rule |
 |---|---|
-| `itemKey` | 1–64 characters: the key of a row in **your app's shared storage** that the viewer **authored** and that is not hidden. One sub-listing per key; publishing the same key again edits it. |
+| `itemKey` | 1–64 characters: the key of an item in **your app's shared data** (a shared-collection document, or a legacy shared-storage row — see above) that the viewer **authored** and that is not hidden. One sub-listing per key; publishing the same key again edits it. |
 | `title` | 1–80 characters after cleaning. Must pass the same text-safety check as shared-storage posts (`400 text_rejected`). |
 | `tagline` | Optional, at most 140 characters, same check. |
 | `imageId` | Optional. An image **the viewer uploaded** (`403 image_not_yours` otherwise) that is **publicly visible** — in a published, non-private post, and reviewed — else `400 image_not_public`. Without one, the card shows your app's cover. |
@@ -172,7 +182,7 @@ server sentence, not copy for your UI.
 | `403` | `untrusted` | the viewer's account does not yet clear the shared-storage write trust gate |
 | `403` | `not_your_item` | the shared row, or the existing sub-listing, belongs to someone else |
 | `403` | `image_not_yours` | `imageId` is someone else's image |
-| `404` | `item_not_found` | no live shared-storage row with that `itemKey` |
+| `404` | `item_not_found` | no live shared item with that `itemKey` |
 | `409` | `conflict` | the item kept changing under the write — retry |
 | `429` | `rate_limited` | over the hourly or daily allowance; honour `Retry-After` |
 | `429` | `author_cap` | the viewer already has the maximum number of items in the store for your app |
