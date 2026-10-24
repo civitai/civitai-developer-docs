@@ -44,6 +44,20 @@ on:
 permissions:
   contents: read
 
+# Concurrency: one run per ref, newest wins (ported from civitai/civitai#6718 /
+# #6728). The org's Actions plan has a fixed concurrent-job limit shared by every
+# repo, so a superseded run left going still holds a slot. On a PR `github.ref`
+# is `refs/pull/N/merge`, so a new push cancels the run for the old head; the
+# check for the NEW head still reports, so a required context is not left
+# pending. On `main` it is `refs/heads/main`, so a newer commit cancels the
+# older one's run: the newest run checks a tree containing every older commit,
+# and intermediate commits show `cancelled` instead of their own verdict. A
+# dispatch on a branch shares that ref's group. This job only reads: no deploy,
+# push or publish is cut short by a cancel.
+concurrency:
+  group: agent-setup-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check-agent-setup:
     runs-on: ubuntu-latest
