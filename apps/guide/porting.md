@@ -2,7 +2,7 @@
 title: Moving a block off the bridge
 description: Replace a block's postMessage data calls with /api/v1/blocks/* REST calls — what each credential reaches, what auth oauth gives up, and a hook-by-hook replacement table.
 sources:
-  - npm:@civitai/blocks-react@0.78.0/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.78.1/dist/index.d.ts
   - npm:@civitai/sdk@0.14.1/dist/index.d.ts
   - npm:@civitai/sdk@0.14.1/dist/workflows/index.d.ts
   - civitai-app-starters:packages/civitai-sdk/BREAKING.md

@@ -2,7 +2,7 @@
 title: Reading a workflow file
 description: Read a published Workflows model's file as parsed JSON graphs from a page app with useResourceFile — where it works, which file is served, who is served what, and a worked example.
 sources:
-  - npm:@civitai/blocks-react@0.78.0#useResourceFile
+  - npm:@civitai/blocks-react@0.78.1#useResourceFile
   - npm:@civitai/app-sdk@0.79.0/blocks#BlockResourceFile
   - npm:@civitai/app-sdk@0.79.0/blocks#BlockResourceFileErrorCode
   - civitai:src/server/services/resource-file.service.ts#resolveResourceFileForUser
@@ -79,10 +79,11 @@ Only `.json` and `.zip` files can be parsed; any other file type answers
 - **Workflows models only.** The version must belong to a `Workflows` or
   `ComfyWorkflows` model. A Checkpoint, a LoRA or any other type answers
   `not-found`.
-- **Signed-in viewers only.** A signed-out viewer gets `unauthorized`. The hook
-  does not refetch by itself when the viewer signs in: offer sign-in
-  ([`useRequestSignIn()`](../reference/hooks/viewer-and-navigation#hook-useRequestSignIn)),
-  then call `refetch()` once the viewer is signed in.
+- **Signed-in viewers only.** A signed-out viewer gets `unauthorized`, and
+  retrying will not change that. Offer sign-in with
+  [`useRequestSignIn()`](../reference/hooks/viewer-and-navigation#hook-useRequestSignIn):
+  after login the page reloads signed in, the block re-inits, and the hook
+  fetches again on mount. There is nothing to refetch by hand.
 - **Everyone except the model's owner gets only free, public content.** For
   them the version must be published, not in early access or any other paid
   access, downloadable, not a POI model, with both the model's and the
@@ -108,7 +109,12 @@ moderators are not rate-limited.
 ```tsx
 import { useEffect } from 'react';
 import { isPageSlotContext } from '@civitai/app-sdk/blocks';
-import { ResourceFileError, useBlockContext, useResourceFile } from '@civitai/blocks-react';
+import {
+  ResourceFileError,
+  useBlockContext,
+  useRequestSignIn,
+  useResourceFile,
+} from '@civitai/blocks-react';
 
 export function WorkflowGraphs({ modelVersionId }: { modelVersionId: number }) {
   const { ready, context } = useBlockContext();
@@ -117,10 +123,13 @@ export function WorkflowGraphs({ modelVersionId }: { modelVersionId: number }) {
   // A non-positive id fetches nothing, so a model-slot block never sends a request
   // that would only time out.
   const { file, loading, error, refetch } = useResourceFile(onPage ? modelVersionId : 0);
+  const { requestSignIn } = useRequestSignIn();
 
   const retryable =
     error instanceof ResourceFileError && (error.code === 'busy' || error.code === 'rate-limited');
-  // Retry from an effect, after a delay, never during render.
+  // Retry from an effect, after a delay, never during render. Only `busy` and
+  // `rate-limited` loop here: `parse-failed` gets one user-clicked retry below,
+  // because this loop would re-download a file of up to 32 MB every 2 s.
   useEffect(() => {
     if (!retryable) return;
     const t = setTimeout(refetch, 2_000);
@@ -133,7 +142,9 @@ export function WorkflowGraphs({ modelVersionId }: { modelVersionId: number }) {
   if (error instanceof ResourceFileError) {
     if (error.code === 'not-found') return <p>This workflow isn't available to read.</p>;
     if (error.code === 'forbidden') return <p>This workflow is above your content settings.</p>;
-    if (error.code === 'unauthorized') return <p>Sign in to read this workflow.</p>;
+    // After login the page reloads and the hook fetches again on mount.
+    if (error.code === 'unauthorized')
+      return <button onClick={() => requestSignIn()}>Sign in to read this workflow</button>;
     if (error.code === 'parse-failed') return <button onClick={refetch}>Try again</button>;
     if (error.code === 'too-large') return <p>This workflow is too large to read here.</p>;
     return <p>Busy, retrying…</p>; // `busy` or `rate-limited`: the effect above retries
