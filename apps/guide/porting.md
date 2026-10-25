@@ -2,7 +2,7 @@
 title: Moving a block off the bridge
 description: Replace a block's postMessage data calls with /api/v1/blocks/* REST calls — what each credential reaches, what auth oauth gives up, and a hook-by-hook replacement table.
 sources:
-  - npm:@civitai/blocks-react@0.73.2/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.77.0/dist/index.d.ts
   - npm:@civitai/sdk@0.14.1/dist/index.d.ts
   - npm:@civitai/sdk@0.14.1/dist/workflows/index.d.ts
   - civitai-app-starters:packages/civitai-sdk/BREAKING.md
@@ -236,9 +236,10 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 | `useHostOrigin` | **Keep** — it is the validated base URL every direct fetch needs |
 | `useImagePicker` | **Keep** — host UI; Civitai opens the picker over the viewer's own posted and generated images in its own chrome, and the block receives only the pick. Page apps only. `@civitai/sdk` has no equivalent yet |
 | `useImageUpload` | **Keep** — host UI. (`@civitai/sdk` has covered it since 0.3.0 as `host.openImageUpload`, usable on either credential — but that is still a bridge message, not a route.) |
+| `useMediaUpload` | **Keep** — a bridge message with no route. It sends `OPEN_MEDIA_UPLOAD` (the host's picker, or your own `bytes` with no picker), and the host stores the file as a private generation input; no `/api/v1/blocks/*` route accepts a media upload. Page apps only |
 | `useNestedDocument` | Local — fetches one of your own bundled documents into a `srcdoc` string; it never talks to the platform |
-| `usePrepareTrainingDataset` | **No route yet** — `PREPARE_TRAINING_DATASET` is a bridge message, and no `/api/v1/blocks/*` route prepares a training dataset |
 | `usePublishGenerationOutputs` | **Stays on the bridge, by design** |
+| `useReactions` | **No route yet** — `GET_ENTITY_REACTIONS` and `SET_ENTITY_REACTION` are bridge messages, and no `/api/v1/blocks/*` route reads or sets a reaction. The tickets it needs do come from REST: each image `/api/v1/blocks/images`, `/api/v1/blocks/gated-images` or `/api/v1/blocks/collections/{id}` serves to a signed-in viewer carries a `reactTicket` |
 | `useRequestConsent` | **Keep** — consent is host UI |
 | `useRequestSignIn` | **Keep** — host UI |
 | `useResourcePicker` | **Keep** — host UI; a sandboxed frame cannot draw the picker |

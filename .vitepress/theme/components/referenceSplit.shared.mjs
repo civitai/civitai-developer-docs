@@ -88,7 +88,7 @@ const HOOKS = {
       title: 'Batch, confirmed-step and training hooks',
       description:
         'Estimating and running batches, running one job above the per-call budget, and LoRA training.',
-      members: ['useBatchEstimate', 'useWorkflowBatch', 'useRunConfirmedStep', 'usePrepareTrainingDataset', 'useRunTraining'],
+      members: ['useBatchEstimate', 'useWorkflowBatch', 'useRunConfirmedStep', 'useRunTraining'],
     },
     {
       slug: 'buzz-and-purchases',
@@ -110,7 +110,7 @@ const HOOKS = {
       slug: 'viewer-and-navigation',
       title: 'Viewer, consent and navigation hooks',
       description:
-        'The viewer, sign-in and consent prompts, maturity and gated images, following collections, and navigating the host.',
+        'The viewer, sign-in and consent prompts, maturity and gated images, following collections, reacting to images, and navigating the host.',
       members: [
         'useViewer',
         'useRequestSignIn',
@@ -119,6 +119,7 @@ const HOOKS = {
         'useDomainMaturity',
         'useGatedImages',
         'useCollectionFollow',
+        'useReactions',
         'useCivitaiNavigate',
         'useCivitaiRoute',
       ],
@@ -127,7 +128,7 @@ const HOOKS = {
       slug: 'storage-and-media',
       title: 'Storage, picker and media hooks',
       description:
-        'Per-app and shared storage, wildcard packs, checkpoint, resource and image pickers, uploading and saving images, and creating posts.',
+        'Per-app and shared storage, wildcard packs, checkpoint, resource and image pickers, uploading images and other media, saving images, and creating posts.',
       members: [
         'useAppStorage',
         'useSharedStorage',
@@ -136,6 +137,7 @@ const HOOKS = {
         'useResourcePicker',
         'useImageUpload',
         'useUploadImageBytes',
+        'useMediaUpload',
         'useImagePicker',
         'useSaveImage',
         'useCreatePostFromApp',
