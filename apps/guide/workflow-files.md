@@ -66,10 +66,13 @@ picks, in this order:
 2. then a `.zip` file of type **Archive**,
 3. then the file with the lowest id.
 
-Within a rank the lowest id wins, so the pick does not depend on the order the
-files were uploaded or returned. `file.meta.fileId` and `file.meta.fileName`
-say which one you got. Only `.json` and `.zip` files can be parsed; any other
-file type answers `parse-failed`.
+Within a rank the lowest id wins — in practice, the file uploaded first — so
+the pick does not depend on the order the database returns the files in.
+`file.meta.fileId` and `file.meta.fileName` say which one you got.
+
+Only `.json` and `.zip` files can be parsed; any other file type answers
+`parse-failed`. The 32 MB size cap is checked first, though: a file over
+32 MB answers `too-large` whatever its type.
 
 ## What is served, and to whom
 
@@ -108,8 +111,9 @@ import { isPageSlotContext } from '@civitai/app-sdk/blocks';
 import { ResourceFileError, useBlockContext, useResourceFile } from '@civitai/blocks-react';
 
 export function WorkflowGraphs({ modelVersionId }: { modelVersionId: number }) {
-  const { context } = useBlockContext();
-  const onPage = isPageSlotContext(context);
+  const { ready, context } = useBlockContext();
+  // `ready` is false until the host's BLOCK_INIT arrives; only then is `context` real.
+  const onPage = ready && isPageSlotContext(context);
   // A non-positive id fetches nothing, so a model-slot block never sends a request
   // that would only time out.
   const { file, loading, error, refetch } = useResourceFile(onPage ? modelVersionId : 0);
@@ -123,6 +127,7 @@ export function WorkflowGraphs({ modelVersionId }: { modelVersionId: number }) {
     return () => clearTimeout(t);
   }, [retryable, refetch]);
 
+  if (!ready) return <p>Loading…</p>;
   if (!onPage) return <p>Open this app's page to read the workflow.</p>;
   if (loading) return <p>Loading workflow…</p>;
   if (error instanceof ResourceFileError) {
