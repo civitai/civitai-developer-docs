@@ -9,7 +9,7 @@ description: "The useBuzzWorkflow() lifecycle, the submit and watch options, and
 
 The `useBuzzWorkflow()` lifecycle, the submit and watch options, and the workflow snapshots and app-workflow records it returns.
 
-This page documents 7 of the 27 types in the [Generation bridge reference](../generation), which indexes every type by name. Generated from `@civitai/app-sdk@0.77.0` and `@civitai/blocks-react@0.77.0`.
+This page documents 7 of the 27 types in the [Generation bridge reference](../generation), which indexes every type by name. Generated from `@civitai/app-sdk@0.79.0` and `@civitai/blocks-react@0.78.0`.
 
 Other pages: [Workflow body types](./bodies) · [Training and multi-step workflow types](./training-and-multi-step)
 
