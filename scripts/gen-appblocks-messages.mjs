@@ -26,7 +26,7 @@ const FAMILY_RULES = [
   ['pickers', /PICKER|CHECKPOINT|IMAGE_UPLOAD|IMAGE_SCAN/],
   ['shared', /^SHARED_/],
   ['storage', /^APP_STORAGE_/],
-  ['wildcard', /WILDCARD/],
+  ['wildcard', /WILDCARD|RESOURCE_FILE/],
   ['auth', /TOKEN|SIGN_IN|CONSENT/],
   ['lifecycle', /^(BLOCK_INIT|BLOCK_READY|BLOCK_ERROR|RESIZE_IFRAME|NAVIGATE|TRACK_EVENT|SUSPEND|RESUME)$/],
 ];

@@ -27,7 +27,8 @@ Both serve on `http://localhost:5186`.
 
 ::: tip `dev:harness` is the wide one — do not infer its limits from `dev:live`'s
 The mock host answers the whole block→host protocol, so hooks that `dev:live`
-refuses work there, including posting, image save/upload, wildcard packs and the
+refuses work there, including posting, image save/upload, wildcard packs,
+[workflow files](./workflow-files) and the
 legacy App-Storage message families. It has no
 [document store](./storage#local-development), which is not on the bridge. You do not need beta access, a token, or any Buzz
 to exercise any of them.

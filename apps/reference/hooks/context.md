@@ -9,7 +9,7 @@ description: "The host handshake, theme, sizing, the block token and settings, d
 
 The host handshake, theme, sizing, the block token and settings, direct-load and nested documents, and analytics.
 
-This page documents 10 of the 48 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.77.0` package's type definitions and README.
+This page documents 10 of the 49 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.78.0` package's type definitions and README.
 
 Other pages: [Generation hooks](./generation) · [Batch, confirmed-step and training hooks](./batches-and-training) · [Buzz, purchase and tip hooks](./buzz-and-purchases) · [Viewer, consent and navigation hooks](./viewer-and-navigation) · [Storage, picker and media hooks](./storage-and-media)
 

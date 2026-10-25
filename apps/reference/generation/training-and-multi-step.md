@@ -9,7 +9,7 @@ description: "The training body and its ai-toolkit parameter types, and the mult
 
 The `training` body and its ai-toolkit parameter types, and the multi-step `workflow` body.
 
-This page documents 11 of the 27 types in the [Generation bridge reference](../generation), which indexes every type by name. Generated from `@civitai/app-sdk@0.77.0` and `@civitai/blocks-react@0.77.0`.
+This page documents 11 of the 27 types in the [Generation bridge reference](../generation), which indexes every type by name. Generated from `@civitai/app-sdk@0.79.0` and `@civitai/blocks-react@0.78.0`.
 
 Other pages: [useBuzzWorkflow lifecycle and snapshot types](./lifecycle) · [Workflow body types](./bodies)
 

@@ -102,6 +102,11 @@ platform provisions all of that when your app is approved.
   naming a server-registered recipe (`{ kind, recipe, params }`) or by shipping
   your own graph inline (`mode: 'inline'`); the gates on each arm and the budget
   rules.
+- **[Reading a workflow file](./workflow-files)** — read a published Workflows
+  model's file as parsed ComfyUI graphs with `useResourceFile()`: why it works
+  only on a full-page app, which file is served by default, who is served what,
+  and a worked example, with links to the reference for the error codes and
+  limits.
 - **[Multi-step workflows](./workflows)** — chain up to eight orchestrator steps
   in one generation (`kind: 'workflow'`), a later step reading an earlier one's
   result; `repeat`, `merge`, the limits and how the price works.

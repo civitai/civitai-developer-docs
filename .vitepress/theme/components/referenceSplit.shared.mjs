@@ -128,11 +128,12 @@ const HOOKS = {
       slug: 'storage-and-media',
       title: 'Storage, picker and media hooks',
       description:
-        'Per-app and shared storage, wildcard packs, checkpoint, resource and image pickers, uploading images and other media, saving images, and creating posts.',
+        'Per-app and shared storage, wildcard packs and workflow files, checkpoint, resource and image pickers, uploading images and other media, saving images, and creating posts.',
       members: [
         'useAppStorage',
         'useSharedStorage',
         'useWildcardPack',
+        'useResourceFile',
         'useCheckpointPicker',
         'useResourcePicker',
         'useImageUpload',

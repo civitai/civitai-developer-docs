@@ -2,7 +2,7 @@
 title: Moving a block off the bridge
 description: Replace a block's postMessage data calls with /api/v1/blocks/* REST calls — what each credential reaches, what auth oauth gives up, and a hook-by-hook replacement table.
 sources:
-  - npm:@civitai/blocks-react@0.77.0/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.78.0/dist/index.d.ts
   - npm:@civitai/sdk@0.14.1/dist/index.d.ts
   - npm:@civitai/sdk@0.14.1/dist/workflows/index.d.ts
   - civitai-app-starters:packages/civitai-sdk/BREAKING.md
@@ -242,6 +242,7 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 | `useReactions` | **No route yet** — `GET_ENTITY_REACTIONS` and `SET_ENTITY_REACTION` are bridge messages, and no `/api/v1/blocks/*` route reads or sets a reaction. The tickets it needs do come from REST: each image `/api/v1/blocks/images`, `/api/v1/blocks/gated-images` or `/api/v1/blocks/collections/{id}` serves to a signed-in viewer carries a `reactTicket` |
 | `useRequestConsent` | **Keep** — consent is host UI |
 | `useRequestSignIn` | **Keep** — host UI |
+| `useResourceFile` | **Keep** — a bridge message with no route. The page host resolves the file as the signed-in viewer and parses it in the viewer's tab; no `/api/v1/blocks/*` route serves a model file's contents. Page apps only. See [Reading a workflow file](./workflow-files) |
 | `useResourcePicker` | **Keep** — host UI; a sandboxed frame cannot draw the picker |
 | `useRunConfirmedStep` | **Keep** — host UI; the job runs only after the viewer confirms its price in a dialog Civitai shows in its own chrome |
 | `useRunTraining` | **Keep** — host UI; the run starts only from the consent dialog Civitai shows in its own chrome |

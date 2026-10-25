@@ -619,7 +619,7 @@ const FAMILY_LABELS = {
   pickers: 'Pickers & upload',
   storage: 'Per-app storage',
   shared: 'Shared storage',
-  wildcard: 'Wildcard packs',
+  wildcard: 'Wildcard packs & resource files',
   other: 'Other',
 };
 function renderMessages() {
