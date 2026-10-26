@@ -2,8 +2,8 @@
 title: Comfy on Civitai (customComfy)
 description: Drive ComfyUI from an App Block — either by naming a server-registered recipe, or by shipping your own graph inline. The two arms, the gates on each, the budget rules, and how to try it in the local harness.
 sources:
-  - npm:@civitai/app-sdk@0.77.0/blocks#WorkflowBodyCustomComfy
-  - npm:@civitai/blocks-react@0.77.0#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.80.0/blocks#WorkflowBodyCustomComfy
+  - npm:@civitai/blocks-react@0.78.1#useBuzzWorkflow
   - go:github.com/civitai/cli#app-create (page-money scaffold: src/comfy.ts)
   - civitai:public/schemas/app-block/v1.json#page.buzzBudgetPerGen
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
@@ -183,6 +183,13 @@ All of these **reject** the body; none truncates it.
 Each node is exactly `{ class_type, inputs }` and the node schema is strict, so a
 raw ComfyUI **Save (API Format)** export needs its per-node `_meta` key stripped
 — otherwise the whole body bounces rather than the key being dropped.
+
+If you call the REST routes directly (`POST /api/v1/blocks/workflows/estimate`
+and `/submit`, with a block token), they also cap the **whole request body** at
+256 KB and refuse a larger one with a 413. The body carries `resources`,
+`prompt` and the rest as well as the graph, so a graph just under the size
+limit above can still be refused. A page app that submits through the SDK hooks
+goes through the host bridge instead, and this cap does not apply to it.
 
 An `inputs` value is either a literal or a `[nodeId, outputIndex]` pair wiring
 that input to another node's output, exactly as in ComfyUI.

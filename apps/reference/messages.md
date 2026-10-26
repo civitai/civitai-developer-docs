@@ -2,7 +2,7 @@
 title: Message bridge reference
 description: The full postMessage protocol between a Civitai App and its host — payloads, directions, request/reply pairing, and page-only messages.
 sources:
-  - npm:@civitai/app-sdk@0.77.0/blocks#messages.d.ts
+  - npm:@civitai/app-sdk@0.80.0/blocks#messages.d.ts
   - civitai:src/components/AppBlocks/hostHandlerParity.ts#INVENTORY
 ---
 
@@ -1012,7 +1012,31 @@ reply `SHARED_WITHDRAW_RESULT`:
 }
 ```
 
-**Wildcard packs**
+**Wildcard packs & resource files**
+
+**`GET_RESOURCE_FILE`** — block → host · request → reply · page-only
+
+payload:
+
+```ts
+{
+    requestId: string;
+    modelVersionId: number;
+    fileId?: number;
+}
+```
+
+reply `RESOURCE_FILE_RESULT`:
+
+```ts
+{
+    requestId: string;
+    file?: BlockResourceFile;
+    error?: BlockResourceFileErrorCode;
+}
+```
+
+Model slot: model slot has no resource-file surface; page-only by decision (civitai-app-starters#664)
 
 **`GET_WILDCARD_PACK`** — block → host · request → reply · page-only
 

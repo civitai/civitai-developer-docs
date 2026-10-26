@@ -2,9 +2,9 @@
 title: Posting from an app
 description: Publish a post to the viewer's Civitai profile from a page app — the two source kinds, the upload-then-post flow, requirements, limits and testing.
 sources:
-  - npm:@civitai/blocks-react@0.77.0#useCreatePostFromApp
-  - npm:@civitai/blocks-react@0.77.0#useUploadImageBytes
-  - npm:@civitai/app-sdk@0.77.0/blocks#BlockCreatePostRequest
+  - npm:@civitai/blocks-react@0.78.1#useCreatePostFromApp
+  - npm:@civitai/blocks-react@0.78.1#useUploadImageBytes
+  - npm:@civitai/app-sdk@0.80.0/blocks#BlockCreatePostRequest
   - civitai:src/server/routers/blocks.router.ts#createPostFromApp
   - civitai:src/server/routers/blocks.router.ts#persistAppUploadImage
   - civitai:src/server/services/blocks/block-post.logic.ts
