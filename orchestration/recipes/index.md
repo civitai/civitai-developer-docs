@@ -14,7 +14,7 @@ These are **Orchestration REST API** recipes — you hold a Bearer token and POS
 
 - [WAN video generation](./wan) — all WAN versions (2.1–3.0) across FAL, Comfy, Civitai, and Alibaba, with text-to-video, image-to-video, reference-to-video, and edit-video operations
 - [LTX2 video generation](./ltx2) — Lightricks LTX2 and LTX2.3 on Comfy, including the new videoToVideo (style transfer) and audioToVideo (talking-head) operations
-- [Kling video generation](./kling) — Kuaishou Kling (v1/v1.5/v1.6/v2/v2.5-turbo with camera control) and Kling V3 (5 operations, multi-prompt, audio, video-to-video)
+- [Kling video generation](./kling) — Kuaishou Kling (v1/v1.5/v1.6/v2/v2.5-turbo with camera control) Kling V3, and Kling 4 (text/image/reference generation and video editing via FAL)
 - [Vidu video generation](./vidu) — Vidu 2.0 (flat 600 Buzz, anime style, first-last-frame), Vidu Q3 (per-second pricing, 4 resolution tiers, turbo mode, native audio) and Vidu Q4 via FAL (image- and reference-to-video, up to 4K)
 - [Veo 3 video generation](./veo3) — Google Veo 3.0/3.1 in standard / fast / lite tiers; operation inferred from image count; optional synchronized audio track
 - [Gemini Omni video generation](./gemini-omni) — Google Gemini Omni 1.1 Flash; 360p–4K with audio, up to 6 reference images; billed on the seconds actually delivered
