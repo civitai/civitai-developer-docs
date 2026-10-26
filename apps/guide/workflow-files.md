@@ -268,14 +268,12 @@ succeed. Three things the check does not cover:
   version.** It can name classes newer than the ComfyUI the generation worker
   runs, so a graph that uses one passes the check and can still fail on the
   worker.
-- **Strip per-node extras before you submit.** Each node must be exactly
-  `{ class_type, inputs }`; a node that carries anything else, such as an
-  export's `_meta`, gets the whole body rejected. The `too-large` check already
+- **Per-node extras such as `_meta` must be stripped before you submit**
+  ([graph limits](./comfy-cloud#graph-limits)). The `too-large` check already
   measures the graph without them.
-- **The request body is capped at 256 KB for the whole request.** The estimate
-  and submit routes refuse a larger body with a 413, and the body carries
-  `resources`, `prompt` and the rest as well as the graph. A graph just under
-  the graph limit can still be refused.
+- **The whole request body has its own 256 KB cap**, so a graph just under the
+  graph limit can still be refused with a 413
+  ([graph limits](./comfy-cloud#graph-limits)).
 
 The host also still runs its own checks on what you submit, such as requiring
 every AIR in the graph to be declared in
@@ -283,7 +281,5 @@ every AIR in the graph to be declared in
 
 ### The estimate is a ceiling, never a price
 
-Estimating a `customComfy` body returns your `maxBuzz` as `cost.total`; it is
-not a quote. Billing settles to the real GPU time after the run. Show the
-estimate as "up to N Buzz", never as the price
+A `customComfy` estimate returns your `maxBuzz`, not a quote
 ([how generation is billed](./comfy-cloud#how-generation-is-billed)).
