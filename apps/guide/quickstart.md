@@ -402,7 +402,8 @@ failure, so commit it (and re-run your install after changing dependencies).
 :::
 
 That flow is gated to approved builders during the closed beta. To request access,
-**reach out to the Civitai team** (see [Introduction](./)). See the
+use **Request access** on [civitai.com/apps/build](https://civitai.com/apps/build)
+(see [Introduction](./)). See the
 [CLI reference](../reference/cli) for every command and flag.
 
 ## Store-listing media

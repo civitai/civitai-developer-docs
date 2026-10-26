@@ -91,11 +91,11 @@ or ship the graph with the inline arm.
 
 ### Requesting a new recipe
 
-Adding a recipe is a change the Civitai team makes. Open a
-[Request access](https://github.com/civitai/cli/issues/new?template=request-access.yml)
-issue on `civitai/cli` describing the workflow (what the graph should do, the
-models involved, rough runtime), or contact the Civitai team if you already have
-builder access. Ask for a recipe when you want a reviewed graph you do not have
+Adding a recipe is a change the Civitai team makes. If you don't have builder
+access yet, use **Request access** on
+[civitai.com/apps/build](https://civitai.com/apps/build) and describe the workflow
+there (what the graph should do, the models involved, rough runtime); contact the
+Civitai team if you already have builder access. Ask for a recipe when you want a reviewed graph you do not have
 to ship in the body.
 
 ## The inline arm (ship your own graph)
