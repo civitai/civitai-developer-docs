@@ -215,8 +215,8 @@ SFW Workflows models, measured in
 
 `checkComfyGraph` from `@civitai/app-sdk/blocks` (0.80.0 or later) answers from
 the entry alone: it is pure, synchronous and makes no request. Call it on each
-`useResourceFile` entry and disable "Run" with the reason, so the viewer never
-spends Buzz on a job that cannot run. It returns `{ runnable: true }` or
+`useResourceFile` entry and disable "Run" with the reason, so the viewer
+doesn't spend Buzz on a job the check knows cannot run. It returns `{ runnable: true }` or
 `{ runnable: false, reasons }`; `reasons` is never empty, and its `code` is a
 closed set.
 
@@ -229,7 +229,10 @@ function whyNot(reason: ComfyGraphRefusal): string {
     case 'not-api-format':
       return 'Not an API-format graph. Re-export it with "Save (API Format)".';
     case 'custom-nodes':
-      return `Needs custom nodes: ${(reason.packs.length > 0 ? reason.packs : reason.classes).join(', ')}`;
+      return (
+        `Needs custom nodes: ${reason.classes.join(', ')}` +
+        (reason.packs.length > 0 ? ` (from packs including ${reason.packs.join(', ')})` : '')
+      );
     case 'model-filenames':
       return `Names models by file, not AIR: ${reason.inputs.map((i) => i.value).join(', ')}`;
     case 'too-many-nodes':
@@ -256,9 +259,11 @@ export function RunButton({ entry, onRun }: { entry: BlockResourceFileEntry; onR
 ```
 
 When `not-api-format` fires, the filename, node-count and size checks are
-skipped, because they are defined on an API graph. `packs` comes from the
-`properties.cnr_id` that UI graphs carry, so it is empty for an API graph; fall
-back to `classes`, as above. The full table of codes and fields is in the
+skipped, because they are defined on an API graph. `classes` is the complete
+list of custom node classes. `packs` is only a hint: it comes from the
+`properties.cnr_id` that UI graphs carry on some nodes, so it can miss packs
+and is empty for an API graph. Show `classes`, and add `packs` when there are
+any, as above. The full table of codes and fields is in the
 [`@civitai/app-sdk` README](https://www.npmjs.com/package/@civitai/app-sdk).
 
 `runnable: true` means no known blocker was found, not that the job will
@@ -271,9 +276,10 @@ succeed. Three things the check does not cover:
 - **Per-node extras such as `_meta` must be stripped before you submit**
   ([graph limits](./comfy-cloud#graph-limits)). The `too-large` check already
   measures the graph without them.
-- **The whole request body has its own 256 KB cap**, so a graph just under the
-  graph limit can still be refused with a 413
-  ([graph limits](./comfy-cloud#graph-limits)).
+- **If you call the REST routes directly, the whole request body has its own
+  256 KB cap**, so a graph just under the graph limit can still be refused with
+  a 413 ([graph limits](./comfy-cloud#graph-limits)). Page apps that use the
+  SDK hooks are not subject to it.
 
 The host also still runs its own checks on what you submit, such as requiring
 every AIR in the graph to be declared in
