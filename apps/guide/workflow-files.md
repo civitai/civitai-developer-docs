@@ -1,10 +1,12 @@
 ---
 title: Reading a workflow file
-description: Read a published Workflows model's file as parsed JSON graphs from a page app with useResourceFile — where it works, which file is served, who is served what, and a worked example.
+description: Read a published Workflows model's file as parsed JSON graphs from a page app with useResourceFile — where it works, which file is served, who is served what, a worked example, and checking with checkComfyGraph whether a graph can run inline before offering Run.
 sources:
   - npm:@civitai/blocks-react@0.78.1#useResourceFile
-  - npm:@civitai/app-sdk@0.79.0/blocks#BlockResourceFile
-  - npm:@civitai/app-sdk@0.79.0/blocks#BlockResourceFileErrorCode
+  - npm:@civitai/app-sdk@0.80.0/blocks#BlockResourceFile
+  - npm:@civitai/app-sdk@0.80.0/blocks#BlockResourceFileErrorCode
+  - npm:@civitai/app-sdk@0.80.0/blocks#checkComfyGraph
+  - npm:@civitai/app-sdk@0.80.0#README
   - civitai:src/server/services/resource-file.service.ts#resolveResourceFileForUser
   - civitai:src/server/routers/generation.router.ts#resolveResourceFile
   - civitai:src/components/AppBlocks/resourceFileParse.ts
@@ -176,9 +178,114 @@ export function WorkflowGraphs({ modelVersionId }: { modelVersionId: number }) {
 ```
 
 A `ui` graph is the editor format; an `api` graph is the format a ComfyUI
-server queues. If you run one on Civitai with
-[`customComfy`](./comfy-cloud), check which format that path expects before
-you pass a graph through.
+server queues. Before you offer to run one, see
+[Can this graph run?](#can-this-graph-run).
 
 The mock host cannot show you the access rules, the size caps or the
 model-slot timeout. Those exist only on the real page host.
+
+## Can this graph run?
+
+Reading a workflow file is not the same as being able to run it. Almost no
+posted workflow can run as an
+[inline `customComfy` graph](./comfy-cloud#the-inline-arm-ship-your-own-graph).
+
+**What can run inline:** a graph that is
+
+- in ComfyUI's **API format** (what **Save (API Format)** exports);
+- built from **core ComfyUI nodes only**;
+- naming every model by **AIR** (`urn:air:…`), not by filename;
+- within **300 nodes** and **256 KiB** serialized
+  ([graph limits](./comfy-cloud#graph-limits)).
+
+**What can't:** a UI (editor) graph, a graph that uses custom nodes, or a graph
+whose loaders name local model files such as `sd_xl_base_1.0.safetensors`.
+The SDK does not convert a UI graph to API format, and custom node packs are
+turned off on the inline path.
+
+That rules out most posted workflows. In a sample of the 130 most-downloaded
+SFW Workflows models, measured in
+[civitai-app-starters#772](https://github.com/civitai/civitai-app-starters/issues/772):
+
+- **0 of 178** JSON files were in API format;
+- **98%** of the graphs (161 of 165) used custom nodes;
+- **164 of 165** graphs named at least one model by local filename.
+
+### Check before you offer "Run"
+
+`checkComfyGraph` from `@civitai/app-sdk/blocks` (0.80.0 or later) answers from
+the entry alone: it is pure, synchronous and makes no request. Call it on each
+`useResourceFile` entry and disable "Run" with the reason, so the viewer
+doesn't spend Buzz on a job the check knows cannot run. It returns `{ runnable: true }` or
+`{ runnable: false, reasons }`; `reasons` is never empty, and its `code` is a
+closed set.
+
+```tsx
+import { checkComfyGraph } from '@civitai/app-sdk/blocks';
+import type { BlockResourceFileEntry, ComfyGraphRefusal } from '@civitai/app-sdk/blocks';
+
+function whyNot(reason: ComfyGraphRefusal): string {
+  switch (reason.code) {
+    case 'not-api-format':
+      return 'Not an API-format graph. Re-export it with "Save (API Format)".';
+    case 'custom-nodes':
+      return (
+        `Needs custom nodes: ${reason.classes.join(', ')}` +
+        (reason.packs.length > 0 ? ` (from packs including ${reason.packs.join(', ')})` : '')
+      );
+    case 'model-filenames':
+      return `Names models by file, not AIR: ${reason.inputs.map((i) => i.value).join(', ')}`;
+    case 'too-many-nodes':
+      return `${reason.nodes} nodes, over the limit of ${reason.max}`;
+    case 'too-large':
+      return `${reason.bytes} bytes, over the limit of ${reason.max}`;
+  }
+}
+
+export function RunButton({ entry, onRun }: { entry: BlockResourceFileEntry; onRun: () => void }) {
+  const check = checkComfyGraph(entry);
+  if (check.runnable) return <button onClick={onRun}>Run</button>;
+  return (
+    <div>
+      <button disabled>Run</button>
+      <ul>
+        {check.reasons.map((r) => (
+          <li key={r.code}>{whyNot(r)}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+When `not-api-format` fires, the filename, node-count and size checks are
+skipped, because they are defined on an API graph. `classes` is the complete
+list of custom node classes. `packs` is only a hint: it comes from the
+`properties.cnr_id` that UI graphs carry on some nodes, so it can miss packs
+and is empty for an API graph. Show `classes`, and add `packs` when there are
+any, as above. The full table of codes and fields is in the
+[`@civitai/app-sdk` README](https://www.npmjs.com/package/@civitai/app-sdk).
+
+`runnable: true` means no known blocker was found, not that the job will
+succeed. Three things the check does not cover:
+
+- **The core-node list is pinned to a ComfyUI commit, not the worker's ComfyUI
+  version.** It can name classes newer than the ComfyUI the generation worker
+  runs, so a graph that uses one passes the check and can still fail on the
+  worker.
+- **Per-node extras such as `_meta` must be stripped before you submit**
+  ([graph limits](./comfy-cloud#graph-limits)). The `too-large` check already
+  measures the graph without them.
+- **If you call the REST routes directly, the whole request body has its own
+  256 KB cap**, so a graph just under the graph limit can still be refused with
+  a 413 ([graph limits](./comfy-cloud#graph-limits)). Page apps that use the
+  SDK hooks are not subject to it.
+
+The host also still runs its own checks on what you submit, such as requiring
+every AIR in the graph to be declared in
+[`resources`](./comfy-cloud#resources-is-a-declared-manifest-not-an-inference).
+
+### The estimate is a ceiling, never a price
+
+A `customComfy` estimate returns your `maxBuzz`, not a quote
+([how generation is billed](./comfy-cloud#how-generation-is-billed)).

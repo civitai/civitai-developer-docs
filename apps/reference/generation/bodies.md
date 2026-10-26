@@ -9,7 +9,7 @@ description: "The WorkflowBody union and its text-to-image, ComfyUI and orchestr
 
 The `WorkflowBody` union and its text-to-image, ComfyUI and orchestrator-step members, with their parameter types.
 
-This page documents 9 of the 27 types in the [Generation bridge reference](../generation), which indexes every type by name. Generated from `@civitai/app-sdk@0.79.0` and `@civitai/blocks-react@0.78.1`.
+This page documents 9 of the 27 types in the [Generation bridge reference](../generation), which indexes every type by name. Generated from `@civitai/app-sdk@0.80.0` and `@civitai/blocks-react@0.78.1`.
 
 Other pages: [useBuzzWorkflow lifecycle and snapshot types](./lifecycle) · [Training and multi-step workflow types](./training-and-multi-step)
 
