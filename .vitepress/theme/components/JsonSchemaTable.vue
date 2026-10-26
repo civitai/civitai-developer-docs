@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { computed, inject } from 'vue';
+// The rows (including the nested `storage.collections.<name>.*` ones) are
+// computed in ONE place, shared with the .md fallback in scripts/appblocks-md.mjs.
+import { manifestRows } from './manifestSchema.shared.mjs';
 
 interface Schema {
   properties?: Record<string, any>;
@@ -8,40 +11,7 @@ interface Schema {
 
 const schema = inject<Schema>('appblocks:manifest', {});
 
-function typeText(prop: any): string {
-  if (!prop) return '';
-  let t = Array.isArray(prop.type) ? prop.type.join(' | ') : prop.type ?? '';
-  if (prop.enum) t = prop.enum.map((v: any) => JSON.stringify(v)).join(' | ');
-  if (t === 'array' && prop.items?.type) t = `${prop.items.type}[]`;
-  if (prop.format) t += ` (${prop.format})`;
-  return t;
-}
-
-function constraintText(prop: any): string {
-  if (!prop) return '';
-  const bits: string[] = [];
-  if (prop.pattern) bits.push(`pattern: ${prop.pattern}`);
-  if (prop.minLength != null) bits.push(`minLength ${prop.minLength}`);
-  if (prop.maxLength != null) bits.push(`maxLength ${prop.maxLength}`);
-  if (prop.minimum != null) bits.push(`min ${prop.minimum}`);
-  if (prop.maximum != null) bits.push(`max ${prop.maximum}`);
-  if (prop.exclusiveMinimum != null) bits.push(`> ${prop.exclusiveMinimum}`);
-  if (prop.maxItems != null) bits.push(`maxItems ${prop.maxItems}`);
-  if (prop.default !== undefined) bits.push(`default: ${JSON.stringify(prop.default)}`);
-  return bits.join(', ');
-}
-
-const rows = computed(() => {
-  const props = schema.properties ?? {};
-  const required = new Set(schema.required ?? []);
-  return Object.entries(props).map(([field, prop]: [string, any]) => ({
-    field,
-    type: typeText(prop),
-    required: required.has(field),
-    description: prop.description ?? '',
-    constraints: constraintText(prop),
-  }));
-});
+const rows = computed(() => manifestRows(schema));
 </script>
 
 <template>

@@ -28,15 +28,16 @@ const BINDING_NOTES = {
   'block:settings:write':
     'No OAuth bit — gated by the issuance-time caller-is-installer check instead.',
   // The four legacy key/value scopes are deprecated in favour of the document store's
-  // two (apps/guide/storage.md). They still work; no removal date is set, so none is named.
+  // two (apps/guide/storage.md). They are shut down on 2026-11-10, after which their routes
+  // answer HTTP 410.
   'apps:storage:read':
-    "Deprecated: the legacy per-viewer store (`useAppStorage`, `/api/v1/blocks/app-storage/*`); new apps use `apps:storage` and a private collection. Scoped to this app's private per-install store; asserted per read op.",
+    "Deprecated, shut down 2026-11-10 (routes answer 410 from then): the legacy per-viewer store (`useAppStorage`, `/api/v1/blocks/app-storage/*`); new apps use `apps:storage` and a private collection. Scoped to this app's private per-install store; asserted per read op.",
   'apps:storage:write':
-    "Deprecated: the legacy per-viewer store (`useAppStorage`, `/api/v1/blocks/app-storage/*`); new apps use `apps:storage` and a private collection. Scoped to this app's private per-install store; asserted per write op.",
+    "Deprecated, shut down 2026-11-10 (routes answer 410 from then): the legacy per-viewer store (`useAppStorage`, `/api/v1/blocks/app-storage/*`); new apps use `apps:storage` and a private collection. Scoped to this app's private per-install store; asserted per write op.",
   'apps:storage:shared:read':
-    "Deprecated: the legacy shared store (`useSharedStorage`, `/api/v1/blocks/shared-storage/*`); new apps use `apps:storage` and a shared collection. Scoped to this app's shared (cross-user) store; fail-closed flag. Anonymous viewers may read; the min-trust gate applies to writes only. Never minted for dev-tunnel / dev-token sessions.",
+    "Deprecated, shut down 2026-11-10 (routes answer 410 from then): the legacy shared store (`useSharedStorage`, `/api/v1/blocks/shared-storage/*`); new apps use `apps:storage` and a shared collection. Scoped to this app's shared (cross-user) store; fail-closed flag. Anonymous viewers may read; the min-trust gate applies to writes only. Never minted for dev-tunnel / dev-token sessions.",
   'apps:storage:shared:write':
-    "Deprecated: the legacy shared store (`useSharedStorage`, `/api/v1/blocks/shared-storage/*`); new apps use `apps:storage:publish` and a shared collection. Scoped to this app's shared (cross-user) store; min-trust gate + fail-closed flag. Never minted for dev-tunnel / dev-token sessions.",
+    "Deprecated, shut down 2026-11-10 (routes answer 410 from then): the legacy shared store (`useSharedStorage`, `/api/v1/blocks/shared-storage/*`); new apps use `apps:storage:publish` and a shared collection. Scoped to this app's shared (cross-user) store; min-trust gate + fail-closed flag. Never minted for dev-tunnel / dev-token sessions.",
   'apps:storage':
     "Scoped to this app's own document store (reads, the viewer's private collections, marks and counters). Consent-exempt. Required by any manifest that declares a `storage` collection. The store's routes answer `503 storage_disabled` on a host where the store is not enabled.",
   'apps:storage:publish':
@@ -53,6 +54,8 @@ const BINDING_NOTES = {
     "Self-bound, and app-bound: the reply is scoped server-side to the calling app's own blockId, so an app only ever sees the entitlements IT sold to this viewer — never their purchases in any other app. Consent-exempt for that reason (the server-side app scoping is the gate, as with the collections read scopes); a non-anonymous subject is still required. No OAuth bit — an app good is a platform-mediated entitlement that touches none of the viewer's Civitai resources through the OAuth surface.",
   'goods:purchase:self':
     "Self-bound: the purchase is billed to the token subject, and an anonymous subject is rejected — there is nobody to bill. CONSENT-GATED and SENSITIVE: money leaves the viewer's balance, so it needs an explicit grant AND a scopeJustifications entry or submit is rejected. Bounded rather than prohibited on page apps: the price is review-gated and hard-capped per purchase, with a per-user daily ceiling across every app. It does NOT consult the per-app daily Buzz budget that governs ai:write:budgeted — that is a separate rail. No OAuth bit, deliberately: reusing social:tip:self's SocialTip bit would let every app already approved to tip start selling goods.",
+  'social:react:self':
+    "Self-bound: the reaction is set as the token subject, and an anonymous subject is rejected. CONSENT-GATED and SENSITIVE: a reaction is public, attributed to the viewer and pays Buzz exactly as a reaction on the site does, so it needs an explicit grant AND a scopeJustifications entry or submit is rejected. There is no per-reaction confirm — the grant is the consent. Limited to images a block endpoint served this app, and bounded by the site's own per-user reaction quota. No OAuth bit, deliberately: the natural bit also gates chat, comments and answers, so deriving it would open those to the app.",
   'apps:store:items:write':
     "Self-bound: the item is published under the token subject's name, so an anonymous subject is rejected. App-bound: the parent is the calling app's own listing, taken from the token and never from the request. SENSITIVE but CONSENT-EXEMPT: a manifest declaring it must carry a scopeJustifications entry, and the per-call server checks (an app enabled for sub-listings, the caller's own shared-storage item, rate limits, moderator review of every item) are the gate rather than a consent prompt. Never minted for dev-token, dev-tunnel or review sessions, so it reaches only an approved app's token.",
 };

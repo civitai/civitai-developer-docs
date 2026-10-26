@@ -10,9 +10,13 @@
  * WHY A HAND TABLE EXISTS HERE AT ALL (it is not the flag-table mistake)
  * ---------------------------------------------------------------------
  * `scripts/gen-appblocks-manifest.mjs` emits the schema and `<JsonSchemaTable />`
- * renders TOP-LEVEL fields only. `goods` is an array of objects, so its per-entry
- * properties are one level below anything the generated region can express — the
- * page says so in its own words ("here is the per-entry shape it cannot expand").
+ * renders TOP-LEVEL fields, expanding nested ones only under the fields named in
+ * `EXPANDED_FIELDS` (.vitepress/theme/components/manifestSchema.shared.mjs — today
+ * `storage` alone). `goods` is not one of them, so its per-entry properties are
+ * below anything the generated region expresses — the page says so in its own
+ * words ("here is the per-entry shape it does not expand"). Adding `goods` there
+ * would still not generate this table: `goods` is an ARRAY of objects, and the
+ * expansion walks object properties and pattern maps, not `items`.
  * Deleting the table in favour of a link, the remedy
  * `check-no-hand-flag-tables.mjs` prescribes, would leave the per-entry contract
  * documented NOWHERE. So the duplicate is justified, and the cost of a justified

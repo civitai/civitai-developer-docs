@@ -4,8 +4,8 @@ description: The Civitai Apps mental model — block, install, slot, page apps v
 sources:
   - civitai:docs/features/app-blocks.md
   - civitai:src/components/AppBlocks/hostHandlerParity.ts#INVENTORY
-  - npm:@civitai/app-sdk@0.71.0/blocks#BlockInitPayload
-  - npm:@civitai/blocks-react@0.73.2#README
+  - npm:@civitai/app-sdk@0.80.0/blocks#BlockInitPayload
+  - npm:@civitai/blocks-react@0.78.1#README
 ---
 
 # Concepts
@@ -197,10 +197,12 @@ under `/api/v1/blocks/*`. That list is illustrative, not a route reference: the
 `@civitai/blocks-react` hook, and these docs do not yet carry a full
 request/response reference for the block routes.
 
-**Reactions are not on that list.** No route, hook, bridge message or scope
-reads or writes a Civitai reaction, so an app cannot react as the viewer or
-see the viewer's reactions. The `<civitai-reaction>` element only displays one;
-see [`<civitai-reaction>` records nothing](./elements#civitai-reaction-records-nothing).
+**Reactions are not on that list.** No `/api/v1/blocks/*` route reads or sets
+a reaction. They go over the bridge instead: the
+[`useReactions`](../reference/hooks/viewer-and-navigation#hook-useReactions) hook
+reads and sets the viewer's reactions on images, behind the consent-gated
+`social:react:self` scope. The `<civitai-reaction>` element on its own only
+displays one; see [`<civitai-reaction>` records nothing](./elements#civitai-reaction-records-nothing).
 
 ::: danger Generation goes through the block routes, not the raw orchestrator
 `app.orchestration` reaches the orchestrator directly, and that path carries

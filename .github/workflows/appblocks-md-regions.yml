@@ -55,6 +55,12 @@ on:
 permissions:
   contents: read
 
+# Cancel superseded PR runs only (see civitai/civitai-developer-docs#252). Push, schedule
+# and dispatch runs each get their own group, so none is ever cancelled or displaced.
+concurrency:
+  group: appblocks-md-regions-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test-md-regions:
     runs-on: ubuntu-latest
@@ -83,6 +89,15 @@ jobs:
       # and the refresh command.
       - name: Markdown-fallback region drift (content + in-slot structure)
         run: npm run check:md-regions
+
+      # Rides this job: it pins the manifest table's NESTED storage rows
+      # (storage.collections.<name>.*) in the committed .md region, the shared
+      # row builder both channels call, and JsonSchemaTable.vue's use of it.
+      # check:md-regions alone cannot see an omission the generator and the
+      # page agree on, which is how ownedModelVersions went unlisted.
+      # Offline and repo-local, therefore blocking.
+      - name: Manifest table lists nested storage-collection fields
+        run: npm run test:appblocks:manifest
 
       # Rides this job rather than getting its own: it needs exactly the two
       # steps above (the pinned devDeps, and hooks.json as the control it grades

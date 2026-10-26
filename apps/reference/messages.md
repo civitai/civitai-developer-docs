@@ -2,7 +2,7 @@
 title: Message bridge reference
 description: The full postMessage protocol between a Civitai App and its host — payloads, directions, request/reply pairing, and page-only messages.
 sources:
-  - npm:@civitai/app-sdk@0.71.0/blocks#messages.d.ts
+  - npm:@civitai/app-sdk@0.80.0/blocks#messages.d.ts
   - civitai:src/components/AppBlocks/hostHandlerParity.ts#INVENTORY
 ---
 
@@ -38,9 +38,10 @@ This page is the contract for advanced use and non-React SDK consumers.
   behalf, so it stays frozen at its build-time SDK until you resubmit; rebuilding
   against the current SDK picks up every push added since, automatically.
 - **The *Per-app storage* and *Shared storage* families are deprecated.** They
-  carry the legacy `useAppStorage` / `useSharedStorage` stores, which keep
-  working while apps move. The [document store](../guide/storage) that
-  replaces them is not on the bridge: blocks call it over HTTP.
+  carry the legacy `useAppStorage` / `useSharedStorage` stores, which are shut
+  down on 2026-11-10; from then on these messages stop working and their
+  requests fail with an error. The [document store](../guide/storage) that replaces them is
+  not on the bridge: blocks call it over HTTP.
 
 <MessageTable>
 <!-- BEGIN GENERATED: messages — markdown fallback for the .md/LLM channel. Do not edit by hand; run `npm run gen:appblocks:md`. -->
@@ -548,6 +549,25 @@ payload:
     multiple?: {
         max: number;
     };
+    /**
+     * Offer only images in a published, non-`Private` post: `true`
+     * narrows the `'posted'` library to those. It does not filter by
+     * rating or by any other post setting. The `'generated'` library is
+     * unaffected. OMIT it (or `false`) for today's behaviour, which also
+     * offers images in a `Private` post. Send a boolean or nothing: the
+     * host refuses any other value with `{ requestId, error }`.
+     *
+     * Set it when the pick becomes PUBLIC-FACING, e.g. an App Store
+     * sub-listing card image (`imageId` on
+     * `POST /api/v1/blocks/sub-listings/upsert`, `app.subListings.upsert`
+     * in `@civitai/sdk`), which the store refuses for a non-public image.
+     * Leave it off when the pick is a private input (a generation source).
+     *
+     * 🔴 A HOST THAT PREDATES THIS FIELD IGNORES IT and still offers
+     * `Private`-post images, so an app setting it must still handle the
+     * store's `image_not_public` refusal.
+     */
+    publicOnly?: boolean;
 }
 ```
 
@@ -585,7 +605,7 @@ reply `IMAGE_UPLOAD_RESULT`:
 ```ts
 {
     requestId: string;
-    selected?: BlockUploadedImageInfo | BlockGenerationSourceImageInfo | BlockPendingImageInfo;
+    selected?: BlockUploadedImageInfo | BlockGenerationSourceImageInfo | BlockPendingImageInfo | BlockTrainingDataUploadResult;
     /** A `bytes` upload's refusal or failure: a host string or a forwarded server message. */
     error?: string;
 }
@@ -992,7 +1012,31 @@ reply `SHARED_WITHDRAW_RESULT`:
 }
 ```
 
-**Wildcard packs**
+**Wildcard packs & resource files**
+
+**`GET_RESOURCE_FILE`** — block → host · request → reply · page-only
+
+payload:
+
+```ts
+{
+    requestId: string;
+    modelVersionId: number;
+    fileId?: number;
+}
+```
+
+reply `RESOURCE_FILE_RESULT`:
+
+```ts
+{
+    requestId: string;
+    file?: BlockResourceFile;
+    error?: BlockResourceFileErrorCode;
+}
+```
+
+Model slot: model slot has no resource-file surface; page-only by decision (civitai-app-starters#664)
 
 **`GET_WILDCARD_PACK`** — block → host · request → reply · page-only
 
@@ -1063,6 +1107,31 @@ reply `CREATE_POST_RESULT`:
 
 Model slot: every eligible image comes from the app subqueue, which is a page-only affordance; a model-slot block has no source images to post
 
+**`GET_ENTITY_REACTIONS`** — block → host · request → reply
+
+payload:
+
+```ts
+{
+    requestId: string;
+    entityType: BlockReactionEntityType;
+    /** 1 to `REACTION_READ_MAX_IDS` positive integers. Duplicates are collapsed. */
+    ids: number[];
+    /** A ticket per id, keyed by the id as a string. */
+    tickets?: Record<string, string>;
+}
+```
+
+reply `ENTITY_REACTIONS_RESULT`:
+
+```ts
+{
+    requestId: string;
+    result?: BlockEntityReactionsResult;
+    error?: BlockEntityReactionErrorCode | string;
+}
+```
+
 **`GET_IMAGES_BY_IDS`** — block → host · request → reply · page-only
 
 payload:
@@ -1088,28 +1157,35 @@ reply `IMAGES_RESULT`:
 
 Model slot: shared-grid gated read is a page-only affordance today; the model slot has no such surface
 
-**`PREPARE_TRAINING_DATASET`** — block → host · request → reply · page-only
+**`OPEN_MEDIA_UPLOAD`** — block → host · request → reply · page-only
 
 payload:
 
 ```ts
 {
     requestId: string;
-    items: BlockTrainingDatasetItem[];
+    /** What kind of media to upload. The host refuses any other value. */
+    kind: BlockMediaKind;
+    /** Required. The only accepted value today. */
+    purpose: 'generationSource';
+    /** In-tab bytes: present = bytes mode (no picker), absent = picker mode. */
+    bytes?: ArrayBuffer;
+    /** Bytes mode only: the type the app believes it is sending; must match the content. */
+    mimeType?: string;
 }
 ```
 
-reply `TRAINING_DATASET_RESULT`:
+reply `MEDIA_UPLOAD_RESULT`:
 
 ```ts
 {
     requestId: string;
-    result?: BlockTrainingDatasetResult;
+    selected?: BlockMediaUploadInfo;
     error?: string;
 }
 ```
 
-Model slot: training is page-only on the server; the shared dispatcher NACKs it with a TRAINING_DATASET_RESULT error
+Model slot: media upload is a page-only affordance today; the shared dispatcher NACKs it with a MEDIA_UPLOAD_RESULT error
 
 **`PUBLISH_GENERATION_OUTPUTS`** — block → host · request → reply · page-only
 
@@ -1252,6 +1328,35 @@ reply `COLLECTION_FOLLOW_RESULT`:
     requestId: string;
     result?: BlockCollectionFollowResult;
     error?: BlockCollectionFollowErrorCode | string;
+}
+```
+
+**`SET_ENTITY_REACTION`** — block → host · request → reply
+
+payload:
+
+```ts
+{
+    requestId: string;
+    entityType: BlockReactionEntityType;
+    /** Positive integer. A numeric STRING is refused, never coerced. */
+    entityId: number;
+    /** One of `APP_REACTIONS`. `Dislike` is refused as `invalid-request`. */
+    reaction: BlockAppReaction;
+    /** `true` ⇒ the reaction exists afterwards; `false` ⇒ it does not. */
+    reacted: boolean;
+    /** 1 to `REACT_TICKET_MAX_LENGTH` characters. */
+    ticket?: string;
+}
+```
+
+reply `ENTITY_REACTION_RESULT`:
+
+```ts
+{
+    requestId: string;
+    result?: BlockEntityReactionResult;
+    error?: BlockEntityReactionErrorCode | string;
 }
 ```
 

@@ -28,6 +28,7 @@
     "test:appblocks:hooks": "node scripts/test-appblocks-hooks.mjs",
     "test:appblocks:bridge": "node scripts/test-appblocks-bridge.mjs",
     "test:appblocks:cli": "node scripts/test-appblocks-cli.mjs",
+    "test:appblocks:manifest": "node scripts/test-appblocks-manifest.mjs",
     "test:refresh-cli-snapshot": "node scripts/test-refresh-cli-snapshot.mjs",
     "test:copy-spec": "node scripts/test-copy-spec.mjs",
     "check:spec-scrub": "node scripts/check-spec-scrub.mjs",
@@ -64,8 +65,8 @@
     "test:reference:e2e": "node scripts/test-reference-forward-e2e.mjs"
   },
   "devDependencies": {
-    "@civitai/app-sdk": "0.71.0",
-    "@civitai/blocks-react": "0.73.2",
+    "@civitai/app-sdk": "0.80.0",
+    "@civitai/blocks-react": "0.78.1",
     "@civitai/components": "0.10.1",
     "@civitai/components-react": "0.9.2",
     "@civitai/sdk": "0.14.1",

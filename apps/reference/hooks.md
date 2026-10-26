@@ -2,9 +2,9 @@
 title: Hooks reference
 description: Every @civitai/blocks-react hook, indexed by name and linked to the topic page that documents it — signature, example and README notes, generated from the published package.
 sources:
-  - npm:@civitai/blocks-react@0.73.2/dist/index.d.ts
-  - npm:@civitai/blocks-react@0.73.2#README
-  - npm:@civitai/app-sdk@0.71.0/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.78.1/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.78.1#README
+  - npm:@civitai/app-sdk@0.80.0/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
 
@@ -86,7 +86,7 @@ cannot find in this index is not in the pinned package.
 <ReferenceIndex kind="hooks">
 <!-- BEGIN GENERATED: hooks-index — markdown fallback for the .md/LLM channel. Do not edit by hand; run `npm run gen:appblocks:md`. -->
 
-47 hooks across 6 pages. Each link goes to the page that documents the hook; fetch that page's `.md` for the full entry.
+49 hooks across 6 pages. Each link goes to the page that documents the hook; fetch that page's `.md` for the full entry.
 
 **[Context, frame and analytics hooks](./hooks/context)** — The host handshake, theme, sizing, the block token and settings, direct-load and nested documents, and analytics.
 
@@ -112,9 +112,8 @@ cannot find in this index is not in the pinned package.
 
 - [`useBatchEstimate`](./hooks/batches-and-training#hook-useBatchEstimate)
 - [`useWorkflowBatch`](./hooks/batches-and-training#hook-useWorkflowBatch)
-- [`usePrepareTrainingDataset`](./hooks/batches-and-training#hook-usePrepareTrainingDataset)
-- [`useRunConfirmedStep`](./hooks/batches-and-training#hook-useRunConfirmedStep)
 - [`useRunTraining`](./hooks/batches-and-training#hook-useRunTraining)
+- [`useRunConfirmedStep`](./hooks/batches-and-training#hook-useRunConfirmedStep)
 
 **[Buzz, purchase and tip hooks](./hooks/buzz-and-purchases)** — Buzz balance and transactions, Buzz and goods purchases, entitlements, compensation and tips.
 
@@ -128,10 +127,11 @@ cannot find in this index is not in the pinned package.
 - [`useTip`](./hooks/buzz-and-purchases#hook-useTip)
 - [`useTipAllowance`](./hooks/buzz-and-purchases#hook-useTipAllowance)
 
-**[Viewer, consent and navigation hooks](./hooks/viewer-and-navigation)** — The viewer, sign-in and consent prompts, maturity and gated images, following collections, and navigating the host.
+**[Viewer, consent and navigation hooks](./hooks/viewer-and-navigation)** — The viewer, sign-in and consent prompts, maturity and gated images, following collections, reacting to images, and navigating the host.
 
 - [`useViewer`](./hooks/viewer-and-navigation#hook-useViewer)
 - [`useCollectionFollow`](./hooks/viewer-and-navigation#hook-useCollectionFollow)
+- [`useReactions`](./hooks/viewer-and-navigation#hook-useReactions)
 - [`useCivitaiNavigate`](./hooks/viewer-and-navigation#hook-useCivitaiNavigate)
 - [`useCivitaiRoute`](./hooks/viewer-and-navigation#hook-useCivitaiRoute)
 - [`useRequestSignIn`](./hooks/viewer-and-navigation#hook-useRequestSignIn)
@@ -140,9 +140,10 @@ cannot find in this index is not in the pinned package.
 - [`useDomainMaturity`](./hooks/viewer-and-navigation#hook-useDomainMaturity)
 - [`useGatedImages`](./hooks/viewer-and-navigation#hook-useGatedImages)
 
-**[Storage, picker and media hooks](./hooks/storage-and-media)** — Per-app and shared storage, wildcard packs, checkpoint, resource and image pickers, uploading and saving images, and creating posts.
+**[Storage, picker and media hooks](./hooks/storage-and-media)** — Per-app and shared storage, wildcard packs and workflow files, checkpoint, resource and image pickers, uploading images and other media, saving images, and creating posts.
 
 - [`useWildcardPack`](./hooks/storage-and-media#hook-useWildcardPack)
+- [`useResourceFile`](./hooks/storage-and-media#hook-useResourceFile)
 - [`useCreatePostFromApp`](./hooks/storage-and-media#hook-useCreatePostFromApp)
 - [`useAppStorage`](./hooks/storage-and-media#hook-useAppStorage)
 - [`useSharedStorage`](./hooks/storage-and-media#hook-useSharedStorage)
@@ -151,6 +152,7 @@ cannot find in this index is not in the pinned package.
 - [`useImageUpload`](./hooks/storage-and-media#hook-useImageUpload)
 - [`useUploadImageBytes`](./hooks/storage-and-media#hook-useUploadImageBytes)
 - [`useImagePicker`](./hooks/storage-and-media#hook-useImagePicker)
+- [`useMediaUpload`](./hooks/storage-and-media#hook-useMediaUpload)
 - [`useSaveImage`](./hooks/storage-and-media#hook-useSaveImage)
 
 <!-- END GENERATED: hooks-index -->
@@ -165,7 +167,7 @@ same `estimate → submit → watch` lifecycle
 [`useBuzzWorkflow`](./hooks/generation#hook-useBuzzWorkflow) documents. `training` is quoted with
 `estimate()` but run with `useRunTraining()`, and `submit()` refuses it.
 
-As of the pinned `@civitai/app-sdk@0.71.0` the union has five `kind` values, and
+As of the pinned `@civitai/app-sdk@0.80.0` the union has five `kind` values, and
 `kind: 'step'` is itself two arms — six members in all:
 
 | `kind` | what it runs | what your block sends |
@@ -174,12 +176,12 @@ As of the pinned `@civitai/app-sdk@0.71.0` the union has five `kind` values, and
 | `customComfy` | a **ComfyUI workflow** — a server-registered recipe, **or your own graph** | a registered `recipe` id, or `mode: 'inline'` plus the graph itself |
 | `step` (`step` present) | a **server-registered orchestrator step** (`convert-image`, `chat-completion`) | a registered `step` id + bounded `params` |
 | `step` (`step` omitted) | an orchestrator step type **named directly**, `input` forwarded unmodified | a `$type` + `input` + a `maxBuzz` amount — a reservation, **not** a spend ceiling |
-| `training` | an ai-toolkit **LoRA training** run on a dataset of the viewer's own images | a `datasetId` from `usePrepareTrainingDataset()` + a base-model key + `params`; the `quoteId` from the estimate on the run |
+| `training` | an ai-toolkit **LoRA training** run on images the viewer uploaded | `items` (`{ air, caption }`) from `useImageUpload({ purpose: 'trainingData' })` + a base-model key + `params`; the `quoteId` from the estimate on the run |
 | `workflow` | **up to 8 orchestrator steps as one generation**, a later step reading an earlier one's result | `steps` (each a `$type` + `input`, where any value may be a `{ $ref, path }` reference) + optional `arguments`; no `maxBuzz`. See [Multi-step workflows](../guide/workflows) |
 
 `training` is a page-app flow behind a host flag that ships off; its availability,
 money rules and the three hooks it uses are under
-[`usePrepareTrainingDataset`](./hooks/batches-and-training#hook-usePrepareTrainingDataset).
+[`useRunTraining`](./hooks/batches-and-training#hook-useRunTraining).
 
 Narrow on `body.kind` before touching member-specific fields — and note that
 `kind === 'step'` alone leaves both step arms in play, so narrow further on

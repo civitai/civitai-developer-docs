@@ -43,16 +43,20 @@ npm ls @civitai/sdk
 npm install @civitai/sdk@^0.14.0
 ```
 
+To use the store in a `civitai app dev-tunnel` preview, you need 0.18.0 or later
+(see [Local development](#local-development)).
+
 This store replaces two older ones, `useAppStorage` and `useSharedStorage`
-(and their `app-storage` / `shared-storage` routes). Those keep working while
-apps move; see [Moving from the legacy stores](#moving-from-the-legacy-stores).
+(and their `app-storage` / `shared-storage` routes). Those are **shut down on
+2026-11-10**, after which their routes answer `410 Gone`; see
+[Moving from the legacy stores](#moving-from-the-legacy-stores).
 Which client reaches which store:
 
 | Store | `@civitai/sdk` | `@civitai/blocks-react` (bridge) | REST |
 |---|---|---|---|
 | Document store | `app.storage.collection(name)`, `app.storage.info()` | none | `/api/v1/blocks/storage/*` |
-| Legacy per-viewer store (deprecated) | `app.storage.get` / `set` / `delete` / `list` / `getQuota` | `useAppStorage` | `/api/v1/blocks/app-storage/*` |
-| Legacy shared store (deprecated) | `app.sharedStorage` | `useSharedStorage` | `/api/v1/blocks/shared-storage/*` |
+| Legacy per-viewer store (deprecated; shut down 2026-11-10) | `app.storage.get` / `set` / `delete` / `list` / `getQuota` | `useAppStorage` | `/api/v1/blocks/app-storage/*` |
+| Legacy shared store (deprecated; shut down 2026-11-10) | `app.sharedStorage` | `useSharedStorage` | `/api/v1/blocks/shared-storage/*` |
 
 ## Declare your collections {#declare}
 
@@ -135,10 +139,10 @@ new name.
 
 Some of the schema is reserved for later phases, and the server refuses it with
 a message saying so. The [limits table](#limits) lists which fields are refused
-today, and the [manifest reference](../reference/manifest) has every field's
-bounds, except `ownedModelVersions`, which it lists once these docs' pinned
-`@civitai/app-sdk` is bumped to a version that carries it (see
-[below](#owned-model-versions) for its rules).
+today, and the [manifest reference](../reference/manifest) has the bounds of
+each field, including the ones nested inside a collection (its
+`storage.collections.<name>.*` rows). `ownedModelVersions` has its own rules
+[below](#owned-model-versions).
 
 The server's own manifest validation, which applies the reserved-feature
 refusal and the [scope rules](#scopes-and-consent), runs when a moderator
@@ -618,7 +622,17 @@ too.
   `@civitai/sdk`. (The `page-elements` template, which does, has no `dev:live`
   script.)
 - **The dev tunnel** (`civitai app dev-tunnel`) mints a token without either
-  storage scope, so every call is refused `insufficient_scope`.
+  storage scope. With `@civitai/sdk` **0.18.0 or later** the preview's document
+  store is local to the tab: the host marks the frame
+  `storageMode: 'local-preview'`, and the SDK serves `app.storage.collection(name)`
+  and `app.storage.info()` from an in-memory store that enforces your local
+  manifest's declarations, sending nothing to `/api/v1/blocks/storage/*`
+  (`app.storage.mode` reads `'local-preview'`). The manifest reaches the SDK only
+  through `blockManifestPlugin()` on the Vite dev server; without it every call
+  is refused `local_preview_no_manifest`. `ownedModelVersions` is not checked
+  locally. From 0.19.1, `requestGrants` in a preview treats `apps:storage` and
+  `apps:storage:publish` as held instead of asking the host, which refuses them.
+  On an SDK older than 0.18.0 every call is refused `insufficient_scope`.
 - **A `civitai app dev-token` token** carries `apps:storage` and
   `apps:storage:publish` when your app's manifest declares them (the approved
   version's, once there is one), without a consent prompt, and the store serves
@@ -744,15 +758,36 @@ curl -s "https://civitai.com/api/v1/blocks/storage/requests?where%5Bstatus%5D=op
 `useAppStorage` and `useSharedStorage` in `@civitai/blocks-react`, the matching
 `app.storage.get/set/delete/list/getQuota` and `app.sharedStorage` methods in
 `@civitai/sdk`, and the routes under `/api/v1/blocks/app-storage/*` and
-`/api/v1/blocks/shared-storage/*` are **deprecated**. They keep working, with
-their scopes (`apps:storage:read`, `apps:storage:write`,
-`apps:storage:shared:read`, `apps:storage:shared:write`), while apps move. No
-removal date has been set.
+`/api/v1/blocks/shared-storage/*` are **deprecated and shut down on
+2026-11-10**. Until then they keep working, with their scopes
+(`apps:storage:read`, `apps:storage:write`, `apps:storage:shared:read`,
+`apps:storage:shared:write`). From 2026-11-10 the legacy REST routes answer
+**HTTP `410 Gone`**, and the legacy hooks, bridge messages and SDK methods stop
+working: their calls fail with an error. Move your app to the document store
+before that date.
 
-**Nothing is copied for you.** The document store starts empty; data in the
-legacy stores stays there. If your app has data viewers care about, read it from
-the legacy store and write it into a collection yourself, or keep reading the
-legacy store for old data while new data goes to the collection.
+**Nothing is copied automatically.** The document store starts empty; data in
+the legacy stores stays there. If your app has data viewers care about, you
+have two options:
+
+- **Copy it yourself before 2026-11-10**: read it from the legacy store and
+  write it into a collection, as described below. After 2026-11-10 the app can
+  no longer read the legacy store. A self-copy has two limits:
+  - **Per-viewer data** can be read only with that viewer's own token, so the
+    copy runs inside the app as each viewer opens it. Only viewers who open the
+    app before 2026-11-10 are moved; everyone else's data is left behind.
+  - **Shared data** copied by the app is authored by whoever runs the copy, so
+    that viewer becomes the author of every copied row (see
+    [Authorship](#shared-storage-usesharedstorage) below). The original
+    authors no longer own their rows, so they cannot edit or withdraw them or
+    publish them as [sub-listings](./sub-listings), which need an item the
+    viewer authored.
+- **Ask Civitai to copy it at cutover.** On request, Civitai can copy an app's
+  legacy data into its document store when the legacy stores shut down. The
+  cutover copy keeps each row's key, author and hidden state, and runs on
+  Civitai's side, so it does not wait for each viewer to open the app. This is not
+  automatic: contact the Civitai team (or your Civitai contact) before
+  2026-11-10. **For shared data, ask for the cutover copy.**
 
 ### Per-viewer storage (`useAppStorage`)
 
@@ -773,7 +808,8 @@ characters, while a document key is limited to the characters and length in the
 outside that set, or one longer than the limit, is refused `invalid_request`, so
 map such keys (hash them, for example) when you copy. A viewer's legacy data can
 be read only with that viewer's own token, so the copy runs per viewer, inside
-the app, as each viewer opens it.
+the app, as each viewer opens it — and only viewers who open the app before
+2026-11-10 are copied. The cutover copy has no such limit.
 
 ### Shared storage (`useSharedStorage`)
 
@@ -801,22 +837,33 @@ Two things do not carry over from a legacy board:
   created it, and there is no app-owned write yet (`write: "owner"` is
   reserved). Copying a legacy board makes whoever runs the copy the author of
   every copied document: each one counts toward that viewer's quota and spends
-  their shared write budget, and no other viewer can edit or delete it. Keep reading
-  old rows from the legacy store, or have each author post again.
+  their shared write budget, and no other viewer can edit or delete it. To keep
+  the original authors, ask for the cutover copy before 2026-11-10; otherwise
+  read or copy the old rows before that date, or have each author post again.
+  The legacy store cannot be read after 2026-11-10.
 - **Votes.** A mark belongs to the viewer who set it, so legacy vote counts
   cannot become `vote` marks. They start at zero.
 
-Two things still read **only** the legacy shared store, so keep using it for
-them:
+Two things resolve an item key the app supplies:
 
-- **[App Store sub-listings](./sub-listings)**: `itemKey` must name a row the
-  viewer wrote in the legacy shared store.
+- **[App Store sub-listings](./sub-listings)**: `itemKey` names the item being
+  listed.
 - **`sharedContentKey`** on a [`textToImage` body](../reference/generation/bodies):
-  it resolves the author of a legacy shared-store row.
+  it resolves the item's author.
+
+Which store answers is decided by the app's **approved** manifest. Once it
+declares a shared collection that viewers write (`write: "own"`), the key is
+looked up in the document store only: it must name one production document in
+such a collection, a key found in two of them names nothing, and the legacy
+shared store is no longer read, even for old keys. A `write: "none"` collection
+(counters and marks only) is never searched. An app whose approved manifest
+declares no such collection still resolves keys from the legacy shared store,
+which shuts down on 2026-11-10, so move listable items into a shared collection
+before then.
 
 ## Related
 
 - [The `@civitai/sdk` client](./sdk) — `initialize()`, consent and the rest of `app`.
 - [Scopes reference](../reference/scopes) — `apps:storage` and `apps:storage:publish` beside every other scope.
-- [Manifest reference](../reference/manifest) — the `storage` property and its bounds.
+- [Manifest reference](../reference/manifest) — the `storage` property, each collection field, and their bounds.
 - [Local dev loop](./local-dev) — the harness modes.

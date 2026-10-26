@@ -2,8 +2,8 @@
 title: Generation bridge reference
 description: The field-level generation contract — the WorkflowBody union, the useBuzzWorkflow lifecycle (incl. cancel), and the BlockWorkflowSnapshot result — with every type indexed and linked to the page that documents it, generated from the published SDK type JSDoc.
 sources:
-  - npm:@civitai/app-sdk@0.71.0/blocks#WorkflowBody
-  - npm:@civitai/blocks-react@0.73.2#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.80.0/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.78.1#useBuzzWorkflow
 ---
 
 # Generation bridge reference
@@ -124,7 +124,7 @@ members, and they are the whole surface:
 | `customComfy` | a **server-registered** ComfyUI recipe, **or your own graph** | a registered `recipe` id — or, with `mode: 'inline'`, the graph itself plus a declared `resources` manifest |
 | `step` (`step` present) | a **server-registered** orchestrator step (`convert-image`, `chat-completion`) | a registered `step` id |
 | `step` (`step` omitted) | an orchestrator step type **named directly**, with `input` forwarded unmodified | the orchestrator's own `$type` — not a Civitai id |
-| `training` | an ai-toolkit **LoRA training** run on a dataset of the viewer's own images | a base-model key from Civitai's training catalog (`model`), plus the `datasetId` that `usePrepareTrainingDataset()` returned |
+| `training` | an ai-toolkit **LoRA training** run on images the viewer uploaded | a base-model key from Civitai's training catalog (`model`), plus the `items` (`{ air, caption }`) that `useImageUpload({ purpose: 'trainingData' })` uploaded |
 | `workflow` | **up to 8 orchestrator steps submitted as one workflow**, a later step reading an earlier step's result through a `{ $ref, path }` reference | each step's own `$type`, as on the pass-through arm |
 
 `workflow` is the multi-step member: the same denylist as the pass-through arm
@@ -140,7 +140,7 @@ call is refused. It is a page-app flow, quoted with `estimate()` and run with
 `useRunTraining()` (`submit()` refuses it). The field table is at
 [`WorkflowBodyTraining`](./generation/training-and-multi-step#bridge-WorkflowBodyTraining); availability and money
 rules are under
-[`usePrepareTrainingDataset`](./hooks/batches-and-training#hook-usePrepareTrainingDataset).
+[`useRunTraining`](./hooks/batches-and-training#hook-useRunTraining).
 
 The **registry arm** of `step` (added in `@civitai/app-sdk@0.30.0`) carries a
 registered **step id** plus bounded `params` validated per-step by the host's own

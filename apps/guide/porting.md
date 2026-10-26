@@ -2,7 +2,7 @@
 title: Moving a block off the bridge
 description: Replace a block's postMessage data calls with /api/v1/blocks/* REST calls — what each credential reaches, what auth oauth gives up, and a hook-by-hook replacement table.
 sources:
-  - npm:@civitai/blocks-react@0.73.2/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.78.1/dist/index.d.ts
   - npm:@civitai/sdk@0.14.1/dist/index.d.ts
   - npm:@civitai/sdk@0.14.1/dist/workflows/index.d.ts
   - civitai-app-starters:packages/civitai-sdk/BREAKING.md
@@ -204,7 +204,7 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 
 | Bridge hook | Replacement |
 |---|---|
-| `useAppStorage` | The [document store](./storage): a `private` collection through `app.storage.collection(name)` (`@civitai/sdk` 0.14.0 or later) or `/api/v1/blocks/storage/*`. The legacy `/api/v1/blocks/app-storage/{get,set,delete,list,quota}` routes (block-token only) still work and are deprecated; see [Moving from the legacy stores](./storage#moving-from-the-legacy-stores) |
+| `useAppStorage` | The [document store](./storage): a `private` collection through `app.storage.collection(name)` (`@civitai/sdk` 0.14.0 or later) or `/api/v1/blocks/storage/*`. The legacy `/api/v1/blocks/app-storage/{get,set,delete,list,quota}` routes (block-token only) are deprecated and shut down on 2026-11-10, after which they answer `410`; see [Moving from the legacy stores](./storage#moving-from-the-legacy-stores) |
 | `useAppWorkflows` | `POST /api/v1/blocks/workflows/query`. In `@civitai/sdk` (0.12.0 or later): `app.workflows.list({ cursor?, limit? })`, which resolves `{ workflows, cursor }` |
 | `useBatchEstimate` | **No route yet** — `ESTIMATE_WORKFLOW_BATCH` is a bridge message, and no `/api/v1/blocks/*` route prices a batch. Over REST, price each body with `POST /api/v1/blocks/workflows/estimate`; in `@civitai/sdk` that is one `app.workflows.estimate(body)` per body |
 | `useBlockAnalytics` | **Keep** — a bridge message with no route. Its events are recorded once your manifest declares them; `@civitai/sdk`'s `app.host.track()` sends the same message (from 0.11.0). See the note below |
@@ -236,16 +236,18 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 | `useHostOrigin` | **Keep** — it is the validated base URL every direct fetch needs |
 | `useImagePicker` | **Keep** — host UI; Civitai opens the picker over the viewer's own posted and generated images in its own chrome, and the block receives only the pick. Page apps only. `@civitai/sdk` has no equivalent yet |
 | `useImageUpload` | **Keep** — host UI. (`@civitai/sdk` has covered it since 0.3.0 as `host.openImageUpload`, usable on either credential — but that is still a bridge message, not a route.) |
+| `useMediaUpload` | **Keep** — a bridge message with no route. It sends `OPEN_MEDIA_UPLOAD` (the host's picker, or your own `bytes` with no picker), and the host stores the file as a private generation input; no `/api/v1/blocks/*` route accepts a media upload. Page apps only |
 | `useNestedDocument` | Local — fetches one of your own bundled documents into a `srcdoc` string; it never talks to the platform |
-| `usePrepareTrainingDataset` | **No route yet** — `PREPARE_TRAINING_DATASET` is a bridge message, and no `/api/v1/blocks/*` route prepares a training dataset |
 | `usePublishGenerationOutputs` | **Stays on the bridge, by design** |
+| `useReactions` | **No route yet** — `GET_ENTITY_REACTIONS` and `SET_ENTITY_REACTION` are bridge messages, and no `/api/v1/blocks/*` route reads or sets a reaction. The tickets it needs do come from REST: each image `/api/v1/blocks/images`, `/api/v1/blocks/gated-images` or `/api/v1/blocks/collections/{id}` serves to a signed-in viewer carries a `reactTicket` |
 | `useRequestConsent` | **Keep** — consent is host UI |
 | `useRequestSignIn` | **Keep** — host UI |
+| `useResourceFile` | **Keep** — a bridge message with no route. The page host resolves the file as the signed-in viewer and parses it in the viewer's tab; no `/api/v1/blocks/*` route serves a model file's contents. Page apps only. See [Reading a workflow file](./workflow-files) |
 | `useResourcePicker` | **Keep** — host UI; a sandboxed frame cannot draw the picker |
 | `useRunConfirmedStep` | **Keep** — host UI; the job runs only after the viewer confirms its price in a dialog Civitai shows in its own chrome |
 | `useRunTraining` | **Keep** — host UI; the run starts only from the consent dialog Civitai shows in its own chrome |
 | `useSaveImage` | **Keep** — host UI; the host fetches from origins it allowlists |
-| `useSharedStorage` | The [document store](./storage): a `shared` collection, with votes as a declared mark. The legacy `/api/v1/blocks/shared-storage/*` routes still work and are deprecated; their `list` takes a `mine` filter the hook has no equivalent for — see [Listing only rows the viewer wrote](#listing-only-rows-the-viewer-wrote). [App Store sub-listings](./sub-listings) still read the legacy shared store |
+| `useSharedStorage` | The [document store](./storage): a `shared` collection, with votes as a declared mark. The legacy `/api/v1/blocks/shared-storage/*` routes are deprecated and shut down on 2026-11-10, after which they answer `410`; until then their `list` takes a `mine` filter the hook has no equivalent for — see [Listing only rows the viewer wrote](#listing-only-rows-the-viewer-wrote). [App Store sub-listings](./sub-listings) read a shared collection once the approved manifest declares one viewers write, and the legacy shared store until then |
 | `useTip` | `POST /api/v1/blocks/tip` |
 | `useTipAllowance` | `GET /api/v1/blocks/tip-allowance` |
 | `useUploadImageBytes` | **Keep** — a bridge message with no route. It sends `OPEN_IMAGE_UPLOAD` with `bytes`, and the host stores, persists and scans the image; no `/api/v1/blocks/*` route accepts an image upload. Page apps only, and the token needs `posts:write:self`. See [Posting from an app](./posting#upload-then-post) |
@@ -281,21 +283,27 @@ import { useApi } from './platform/useApi';
 
 declare const call: ReturnType<typeof useApi>;
 
-// Read. Paging differs per route — shared-storage nests its cursor under
-// `metadata`, while app-storage returns a top-level one. Check the route.
-const page = await call<{ items: unknown[]; metadata: { nextCursor?: string } }>(
-  'shared-storage/list?limit=50',
+// Read a page of a document-store collection (`entries` is a collection your
+// manifest declares). Paging differs per route family — check the route.
+const page = await call<{ items: unknown[]; nextCursor?: string }>(
+  'storage/entries?limit=50',
 );
 
-// Write
-await call('shared-storage/append', {
+// Write: create a document in the same collection
+await call('storage/entries', {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
   body: JSON.stringify({
-    value: { title: 'My entry', body: 'optional', data: { anything: true } },
+    data: { title: 'My entry', body: 'optional', anything: true },
   }),
 });
 ```
+
+The document store's routes are listed in its
+[REST reference](./storage#rest-reference). The legacy
+`/api/v1/blocks/app-storage/*` and `/api/v1/blocks/shared-storage/*` routes are
+deprecated and shut down on 2026-11-10, after which they answer `410`; do not
+port onto them.
 
 - **Treat every refusal as a refusal.** No route has a success shape that means
   "could not read", so branch on the error, never on an empty result. A missing

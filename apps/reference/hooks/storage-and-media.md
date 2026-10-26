@@ -1,15 +1,15 @@
 ---
 title: "Storage, picker and media hooks"
-description: "Per-app and shared storage, wildcard packs, checkpoint, resource and image pickers, uploading and saving images, and creating posts. Part of the Hooks reference."
+description: "Per-app and shared storage, wildcard packs and workflow files, checkpoint, resource and image pickers, uploading images and other media, saving images, and creating posts. Part of the Hooks reference."
 ---
 
 <!-- GENERATED PAGE — do not edit by hand. Written by `npm run gen:appblocks:md` (scripts/appblocks-md.mjs); which entry lives on which page is decided in .vitepress/theme/components/referenceSplit.shared.mjs. -->
 
 # Storage, picker and media hooks
 
-Per-app and shared storage, wildcard packs, checkpoint, resource and image pickers, uploading and saving images, and creating posts.
+Per-app and shared storage, wildcard packs and workflow files, checkpoint, resource and image pickers, uploading images and other media, saving images, and creating posts.
 
-This page documents 10 of the 47 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.73.2` package's type definitions and README.
+This page documents 12 of the 49 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.78.1` package's type definitions and README.
 
 Other pages: [Context, frame and analytics hooks](./context) · [Generation hooks](./generation) · [Batch, confirmed-step and training hooks](./batches-and-training) · [Buzz, purchase and tip hooks](./buzz-and-purchases) · [Viewer, consent and navigation hooks](./viewer-and-navigation)
 
@@ -38,6 +38,90 @@ const { pack, loading, error, refetch } = useWildcardPack(modelVersionId);
 // `error.code === 'busy'` is retryable — call refetch(); the other codes are terminal.
 if (error instanceof WildcardPackError && error.code === 'busy') void refetch();
 if (!loading && pack) console.log(Object.keys(pack.lists));
+```
+
+**`useResourceFile`**
+
+```ts
+useResourceFile(modelVersionId: number, fileId?: number): UseResourceFile
+```
+
+```ts
+interface UseResourceFile {
+  file: BlockResourceFile | null;
+  loading: boolean;
+  error: Error | null;
+  refetch: () => void;
+}
+```
+
+```md
+Read a resource file's parsed JSON — for a workflow, its graphs — by model
+version. The host resolves, fetches, unzips and parses the file **in the
+viewer's own page session**, enforcing the real download gates, so the iframe
+never sees the session, a signed URL or the raw bytes. No block scope is needed.
+Returns `{ file, loading, error, refetch }`.
+
+- `file.meta` names what was served (`modelId`, `modelVersionId`, `fileId`,
+  `fileName`, `modelName`, `versionName`, `creatorUsername`).
+- `file.entries` holds one `{ path, format, graph }` per JSON document: one for a
+  plain `.json`, several for a `.zip` (non-JSON entries are skipped). `format`
+  is `'ui'` (a `nodes` array), `'api'` (every top-level value has `class_type`
+  and `inputs`) or `'unknown'`; check it before treating `graph` as a graph.
+  `file.truncated` is `true` when an entry was dropped: past 20 entries, over
+  the 4 MB per-entry or 16 MB total cap, unreadable, or not valid JSON.
+- Pass `fileId` to pin one file of a multi-file version. Without it the host
+  picks one.
+- Changing `modelVersionId` or `fileId` resets `file` and `error` to `null`
+  before the new fetch, so a file never shows for ids it does not belong to.
+- The request waits up to 120 s, because the host downloads and unzips the file.
+
+On failure `error` is a `ResourceFileError` whose `code` is one of a closed set:
+
+| `code` | Means | Retry? |
+|---|---|---|
+| `not-found` | No such version or file, not a workflow, or not downloadable for free (see below) | No |
+| `forbidden` | Above the viewer's maturity ceiling on this site, or the app is in review preview | No |
+| `unauthorized` | The viewer is signed out | No. Offer sign-in with `useRequestSignIn()`: the page reloads signed in, the block re-inits, and the hook fetches again on mount |
+| `too-large` | Over 32 MB, or every entry was over a size cap (4 MB per entry, 16 MB in total) | No |
+| `parse-failed` | Not a `.json`/`.zip`, corrupt, or no valid JSON — **or** the host's catch-all: a network error, a failed fetch, no answer within its 110 s deadline, a transient storage failure, or another server error | Once, maybe: it can be transient |
+| `busy` | Three fetches already in flight in this tab | Yes |
+| `rate-limited` | The viewer's 30-a-minute budget is spent | Yes, later |
+
+🔴 **Full-page app hosts only — not the model-page slot, not `dev:live`.** The
+model-page slot does not answer it (the request times out), and `dev:live`
+replies `parse-failed`. Develop against `dev:mock`: `createMockHost` takes a
+`resourceFile` (the canned reply) and a `resourceFileError` (force a code);
+`setScenario({ resourceFileError: undefined })` clears the forced error.
+
+🔴 **Only free, public versions are served.** An unpublished draft (the owner's
+included) and an early-access or paid version answer `not-found` — even for a
+viewer who bought it. Only the owner gets their own published early-access
+version. A POI model, or a model or version whose availability is not `Public`
+or `Unsearchable` (e.g. `Private`), is refused to everyone but the owner,
+moderators included. The owner can also read their own non-public files and a
+version with downloads disabled; an archived or deleted model is `not-found`
+for everyone, the owner included.
+
+The example below retries `busy` and `rate-limited` with no limit. `parse-failed`
+is worth at most one retry, so keep it out of that loop: the loop would
+re-download a file of up to 32 MB every 2 s.
+```
+
+```tsx
+const { file, loading, error, refetch } = useResourceFile(modelVersionId);
+// Retry a retryable code from an effect, after a delay — never during render.
+// Never add `parse-failed` here: it is worth at most ONE retry, and this loop
+// would refetch a file of up to 32 MB every 2 s.
+const retryable =
+  error instanceof ResourceFileError && (error.code === 'busy' || error.code === 'rate-limited');
+useEffect(() => {
+  if (!retryable) return;
+  const t = setTimeout(refetch, 2_000);
+  return () => clearTimeout(t);
+}, [retryable, refetch]);
+const graphs = file?.entries.filter((e) => e.format !== 'unknown') ?? [];
+if (!loading && file) console.log(file.meta.fileName, graphs.length, file.truncated);
 ```
 
 **`useCreatePostFromApp`**
@@ -138,7 +222,7 @@ the write without it would let dev prove out a flow production does not have.
 useAppStorage(): UseAppStorage
 ```
 
-> Deprecated: new apps keep per-viewer data in a private collection of the document store. This hook and its routes keep working while apps move; no removal date is set. See [Storing data](/apps/guide/storage#moving-from-the-legacy-stores).
+> Deprecated: new apps keep per-viewer data in a private collection of the document store. This hook is shut down on 2026-11-10; from then on its calls fail with an error. See [Storing data](/apps/guide/storage#moving-from-the-legacy-stores).
 
 ```ts
 interface UseAppStorage {
@@ -340,7 +424,7 @@ production.
 useSharedStorage(): UseSharedStorage
 ```
 
-> Deprecated: new apps keep data every viewer reads in a shared collection of the document store, which has authorship, counters and marks built in. This hook and its routes keep working while apps move; no removal date is set. See [Storing data](/apps/guide/storage#moving-from-the-legacy-stores).
+> Deprecated: new apps keep data every viewer reads in a shared collection of the document store, which has authorship, counters and marks built in. This hook is shut down on 2026-11-10; from then on its calls fail with an error. See [Storing data](/apps/guide/storage#moving-from-the-legacy-stores).
 
 ```ts
 interface UseSharedStorage {
@@ -579,7 +663,7 @@ interface UseImageUploadGenerationSource {
 }
 ```
 
-Host-mediated image upload — the host opens its native upload modal and the iframe never handles the bytes. Resolves with a moderated image (or `null` on dismiss); pass `{ purpose: 'generationSource' }` for an unscanned img2img source or `{ asyncScan: true }` for the early-resolve + `scanStatus()` flow.
+Host-mediated image upload — the host opens its native upload modal and the iframe never handles the bytes. Resolves with a moderated image (or `null` on dismiss); pass `{ purpose: 'generationSource' }` for an unscanned img2img source, `{ purpose: 'trainingData' }` for several private training images in one call (`[{ url, air }] | null` — see the LoRA training section), or `{ asyncScan: true }` for the early-resolve + `scanStatus()` flow.
 
 ```tsx
 const { open } = useImageUpload();
@@ -607,7 +691,7 @@ interface UseUploadImageBytes {
 }
 ```
 
-Upload an image the block **produced in the tab** (a healed PNG, an edited render), with no picker, so the app can then post it. Returns `{ upload }`. `upload(bytes, { filename? })` resolves with the same moderated image a picked `useImageUpload()` upload returns (`imageId`, `nsfwLevel`, `contentRating`, `url`). That `imageId` is postable by this app through `useCreatePostFromApp()` as a `{ kind: 'published', imageIds }` source. - 🔴 **Page apps only.** A slot (model) block's host has no handler for it. The host answers an unhandled request at once with its generic refusal, so on a slot `upload` rejects immediately with `unsupported on this host` rather than waiting out the 10-minute timeout. - 🔴 **Requires `posts:write:self`.** The server refuses the upload without it, and this hook does not prompt. Ask for the scope first with `useRequestConsent()` and upload only once `useBlockToken().scopes` holds it (the example below), because the upload runs before the `createPost()` call that would otherwise prompt. - **Images only:** PNG, WebP or JPEG by magic bytes. Anything else is refused with `file type is not allowed`. The host names the stored file from the sniffed type, whatever `filename` says. - **The cap is 40 MiB.** The hook refuses a larger buffer before sending it, with the host's error `file exceeds the maximum upload size`. The host also allows at most 3 uploads and 80 MiB per 60 seconds per page, and replies `busy` past that. - **The upload is blocking.** The host replies once the image is scanned, so allow for a wait of up to a few minutes. An image above the SFW ceiling or flagged by the scan is refused with the scan's message. - Pass an `ArrayBuffer` (`await blob.arrayBuffer()`). A `Blob`, a `Uint8Array` or an empty buffer is refused with `invalid image-upload request`. The buffer is copied, not transferred. `upload` **rejects** with the host's error string on every refusal: the ones above, `no block token`, or a server message passed through verbatim (the missing scope, the posting flag, page-only, a rate limit, the scan). It rejects with `the host returned no uploaded image` if the reply carries neither an image nor an error. If no reply arrives within 10 minutes it rejects with a `RequestTimeoutError`; the host may still have stored the image, so retrying after a timeout can create a duplicate. The hook ships in `@civitai/blocks-react` 0.67.0, and the `bytes` payload type it sends is in `@civitai/app-sdk` 0.62.0. What the upload does and does not give you on civitai.com: - 🔴 **Generation metadata embedded in the file is not read.** The posted image has no generation details (prompt, resources, sampler settings), whatever the PNG or JPEG carries. In the example below the healed pixels are posted, and the metadata the app repaired is not shown on the post. - 🔴 **Each uploaded image goes into exactly one post.** Once a post holds it, `createPost()` refuses that `imageId` with `an image is not available to post`. To post the same picture again, upload it again. - **An uploaded image never appears in `useGatedImages()`.** That read returns only what the app published with `usePublishGenerationOutputs()`. Keep the `imageId` and `url` that `upload` resolves with if you need to show it. - **A post holds at most 20 images and names at most 10 sources.** Past 20 images the server refuses with `a post may contain at most 20 images`. - **Posting from apps is still being rolled out.** A viewer who does not have it yet is refused with `posting from apps is not enabled`, and the refusal arrives from `upload` as well as from `createPost()`. Handle it as an ordinary error branch, not as a bug in your app. - **Creating the post needs an account with a verified email or a linked sign-in provider.** Other account checks apply too: onboarding must be finished, the account must not be brand new, and it must not be muted or banned. `upload` refuses a banned account but checks none of the rest, so a viewer can upload and then be refused at `createPost()`. - **Server-side limits also apply**, to the upload and to the post, beyond the host's per-page window above. A `busy` reply or a rate-limit error such as `Rate limit exceeded, please retry shortly.` means wait and retry.
+Upload an image the block **produced in the tab** (a healed PNG, an edited render), with no picker, so the app can then post it. Returns `{ upload }`. `upload(bytes, { filename? })` resolves with the same moderated image a picked `useImageUpload()` upload returns (`imageId`, `nsfwLevel`, `contentRating`, `url`). That `imageId` is postable by this app through `useCreatePostFromApp()` as a `{ kind: 'published', imageIds }` source. - 🔴 **Page apps only.** A slot (model) block's host has no handler for it. The host answers an unhandled request at once with its generic refusal, so on a slot `upload` rejects immediately with `unsupported on this host` rather than waiting out the 10-minute timeout. - 🔴 **Requires `posts:write:self`.** The server refuses the upload without it, and this hook does not prompt. Ask for the scope first with `useRequestConsent()` and upload only once `useBlockToken().scopes` holds it (the example below), because the upload runs before the `createPost()` call that would otherwise prompt. - **Images only:** PNG, WebP or JPEG by magic bytes. Anything else is refused with `file type is not allowed`. The host names the stored file from the sniffed type, whatever `filename` says. - **The cap is 40 MiB.** The hook refuses a larger buffer before sending it, with the host's error `file exceeds the maximum upload size`. The host also allows at most 8 uploads and 80 MiB per 60 seconds per page, and replies `busy` past that. - **The upload is blocking.** The host replies once the image is scanned, so allow for a wait of up to a few minutes. An image above the SFW ceiling or flagged by the scan is refused with the scan's message. - Pass an `ArrayBuffer` (`await blob.arrayBuffer()`). A `Blob`, a `Uint8Array` or an empty buffer is refused with `invalid image-upload request`. The buffer is copied, not transferred. `upload` **rejects** with the host's error string on every refusal: the ones above, `no block token`, or a server message passed through verbatim (the missing scope, the posting flag, page-only, a rate limit, the scan). It rejects with `the host returned no uploaded image` if the reply carries neither an image nor an error. If no reply arrives within 10 minutes it rejects with a `RequestTimeoutError`; the host may still have stored the image, so retrying after a timeout can create a duplicate. The hook ships in `@civitai/blocks-react` 0.67.0, and the `bytes` payload type it sends is in `@civitai/app-sdk` 0.62.0. What the upload does and does not give you on civitai.com: - 🔴 **Generation metadata embedded in the file is not read.** The posted image has no generation details (prompt, resources, sampler settings), whatever the PNG or JPEG carries. In the example below the healed pixels are posted, and the metadata the app repaired is not shown on the post. - 🔴 **Each uploaded image goes into exactly one post.** Once a post holds it, `createPost()` refuses that `imageId` with `an image is not available to post`. To post the same picture again, upload it again. - **An uploaded image never appears in `useGatedImages()`.** That read returns only what the app published with `usePublishGenerationOutputs()`. Keep the `imageId` and `url` that `upload` resolves with if you need to show it. - **A post holds at most 20 images and names at most 10 sources.** Past 20 images the server refuses with `a post may contain at most 20 images`. - **Posting from apps is still being rolled out.** A viewer who does not have it yet is refused with `posting from apps is not enabled`, and the refusal arrives from `upload` as well as from `createPost()`. Handle it as an ordinary error branch, not as a bug in your app. - **Creating the post needs an account with a verified email or a linked sign-in provider.** Other account checks apply too: onboarding must be finished, the account must not be brand new, and it must not be muted or banned. `upload` refuses a banned account but checks none of the rest, so a viewer can upload and then be refused at `createPost()`. - **Server-side limits also apply**, to the upload and to the post, beyond the host's per-page window above. A `busy` reply or a rate-limit error such as `Rate limit exceeded, please retry shortly.` means wait and retry.
 
 ```tsx
 import {
@@ -800,6 +884,129 @@ an invalid `sources` or `multiple` with an error, and answers
 `unsupported on this host` when its `context` is a model slot. `dev:live` cannot
 list the viewer's images, so there `open` rejects with a message saying to use
 the mock host.
+````
+
+**`useMediaUpload`**
+
+```ts
+useMediaUpload(): UseMediaUpload
+```
+
+```ts
+interface UseMediaUpload {
+  open: (options: MediaUploadOpenOptions) => Promise<BlockMediaUploadInfo | null>;
+  upload: (options: MediaUploadBytesOptions) => Promise<BlockMediaUploadInfo>;
+}
+```
+
+\**The way to pass any media (image, video or audio) into a workflow step.** The host refuses data URIs and inline base64 in step inputs, so upload the file with this hook and pass the `url` it returns into the step input. Returns `{ open, upload }`. - **`open({ kind })`** opens the host's own file picker for that kind. The viewer picks a file, the host uploads it, and `open` resolves with the upload, or `null` if nothing was uploaded. - **`upload({ kind, bytes, mimeType? })`** uploads media your app already holds in the tab, with no picker: a canvas export, a crop, a `MediaRecorder` recording. It resolves with the upload, and never resolves without one.
+
+```tsx
+import { useMediaUpload } from '@civitai/blocks-react';
+
+function UseRecording({ recording }: { recording: Blob }) {
+  const { upload } = useMediaUpload();
+
+  async function onClick() {
+    const audio = await upload({
+      kind: 'audio',
+      bytes: await recording.arrayBuffer(),
+      mimeType: recording.type, // optional; checked against the content
+    });
+    // audio.url goes into the step's audio input
+    startStep({ audioUrl: audio.url });
+  }
+
+  return <button onClick={onClick}>Use this recording</button>;
+}
+```
+
+````md
+```tsx
+const { open } = useMediaUpload();
+
+const video = await open({ kind: 'video' }); // BlockMediaUploadInfo | null
+if (video) {
+  // video.url, video.width, video.height, video.durationMs (when known)
+}
+```
+
+What each kind accepts, decided by the file's **content** (its first bytes),
+never by its name or declared type:
+
+| `kind` | Accepted | What you get back |
+|---|---|---|
+| `'image'` | PNG, JPEG, WebP | Resized so both sides are 64 to 2048 pixels and re-encoded as JPEG: `mimeType` is always `'image/jpeg'`, and `sizeBytes`, `width` and `height` describe that JPEG. |
+| `'video'` | MP4, WebM | Uploaded as sent. `width` and `height` are always set (a file with no video track is refused). `durationMs` when the browser reports a duration. |
+| `'audio'` | MP3, WAV, WebM | Uploaded as sent. No `width` or `height`. `durationMs` when the browser reports a duration: a `MediaRecorder` WebM often reports none, so do not rely on it. |
+
+- **At most 24 MB per image, and 64 MB per video or audio file.** The image
+  cap is lower because the host decodes an image in full before it resizes it.
+  `upload` refuses a larger buffer before sending it, with the host's own
+  message: `file exceeds the 24 MB image upload limit` or
+  `file exceeds the 64 MB upload limit`.
+- **`upload` is rate-limited:** at most 8 uploads and 128 MB per 60 seconds
+  per page. Past that the host replies `busy`; wait and retry. A refused upload
+  does not count. `open` is not limited this way, because a person picks each
+  file.
+- **`mimeType` is optional.** When you pass it (for example `blob.type`) it
+  must match the content, or the upload is refused with
+  `mimeType does not match the file's content`. Case and parameters such as
+  `;codecs=opus` are ignored, and `audio/x-wav` counts as `audio/wav`.
+- Pass an `ArrayBuffer` (`await blob.arrayBuffer()`). A `Blob`, a typed array
+  or an empty buffer is refused before sending with
+  `invalid media-upload request`. The buffer is copied, not transferred.
+- A file whose content is not one of its kind's types is refused with
+  `images must be PNG, JPEG or WebP`, `videos must be MP4 or WebM` or
+  `audio must be MP3, WAV or WebM`. The host also refuses a file it cannot
+  read (`could not read this video file`, `could not read this audio file`), a
+  video with no video track (`this file has no video track`), and an image too
+  small to resize to 64 pixels. A failed upload rejects with
+  `media upload failed — please try again`, and a file the upload service
+  refuses with `this video was refused by the upload service` or
+  `this audio was refused by the upload service`. A bytes upload made while
+  the host holds no block token rejects with `no block token`.
+
+What `open` and `upload` resolve and reject with:
+
+- **`open` resolves `null` when nothing was uploaded.** Usually the viewer
+  closed the picker. The host also answers that way at once, without showing a
+  picker, while your app is viewed in review mode or is not ready yet. A
+  problem with the picked file is shown in the picker, where the viewer can
+  pick another one.
+- **`upload` never resolves `null`.** When the host declines without
+  uploading (review mode, not ready), `upload` rejects with
+  `the host did not upload the media (the app is in review mode or not ready)`.
+- **A refusal rejects** with the host's message, in both modes. On a surface
+  other than a page app the host answers at once with
+  `unsupported on this host`.
+- **Both wait up to 10 minutes** for the host (a person picking a file, or a
+  large upload), then reject with a `RequestTimeoutError`.
+
+For images only, `useImageUpload().open({ purpose: 'generationSource' })` still
+works and returns `{ url, width, height }`. Use `useMediaUpload` for video,
+audio, or bytes your app made in the tab.
+
+🔴 **Needs a host that answers `OPEN_MEDIA_UPLOAD`** (civitai/civitai#6149).
+On a civitai.com that predates it, the request gets no answer and both calls reject with a
+`RequestTimeoutError` after 10 minutes.
+
+With the mock host (`createMockHost` or `Harness` from
+`@civitai/blocks-react/testing`) there is no picker: `open` resolves at once
+with a built-in upload for the kind. Set `cannedMediaUploads: { video: {...} }`
+to choose what a kind returns, or `{ audio: null }` for a viewer who closes
+that picker. `upload` runs the host's checks in the host's order (kind,
+purpose, an invalid buffer, the per-kind cap, the rate window, the content type,
+a mismatching `mimeType`) and answers with that kind's upload, carrying the
+sniffed `mimeType` and the buffer's size for video and audio. The mock cannot
+decode media, so it never produces the host's decode-time refusals (an
+unreadable file, no video track, an image too small, an upload failure): set
+`mediaUploadError: 'this file has no video track'` to force one.
+`mediaUploadError: 'no block token'` is checked where the host checks it: a
+bytes upload is refused before the cap and the window, and is not counted. A model-slot
+`context` answers `unsupported on this host`. `dev:live` cannot upload
+generation inputs, so there both calls reject with a message saying to use the
+mock host.
 ````
 
 **`useSaveImage`**

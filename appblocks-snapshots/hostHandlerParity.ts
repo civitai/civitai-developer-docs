@@ -58,8 +58,10 @@ export type HostFile = 'IframeHost.tsx' | 'PageBlockHost.tsx' | 'InlineHost.tsx'
  * gate below is intentionally ONE-DIRECTIONAL: every PUBLISHED SDK type must be
  * an INVENTORY key, but INVENTORY may carry extra ahead-of-published keys.
  *
- * As of the installed `@civitai/app-sdk@0.65.1` TWO keys are ahead: `RUN_CONFIRMED_STEP` and
- * `OPEN_IMAGE_PICKER`. The published union's 50 types are all inventory keys.
+ * As of the installed `@civitai/app-sdk@0.65.1` SIX keys are ahead: `RUN_CONFIRMED_STEP`,
+ * `OPEN_IMAGE_PICKER`, `SET_ENTITY_REACTION`, `GET_ENTITY_REACTIONS`, `OPEN_MEDIA_UPLOAD` and
+ * `GET_RESOURCE_FILE`. The
+ * published union's 50 types are all inventory keys.
  * The gate reads the INSTALLED
  * dist, so it is only as current as the `@civitai/app-sdk` range in
  * `package.json` — a caret on a 0.x version admits patch releases only, and
@@ -514,7 +516,8 @@ export const INVENTORY = {
   // is needed here. Do NOT "add" IMAGE_SCAN_RESOLVED to this map.
   //
   // The `bytes` variant (an app's own image, no picker) is the same type and the same reply, so
-  // it needs no entry either.
+  // it needs no entry either. Nor does `purpose: 'trainingData'` (several training images,
+  // `selected: { images }`): same type, same reply key.
   OPEN_IMAGE_UPLOAD: {
     request: true,
     reply: 'IMAGE_UPLOAD_RESULT',
@@ -535,6 +538,19 @@ export const INVENTORY = {
     errorKeys: ['error'],
     IframeHost:
       'the image picker is a page-only affordance today; the shared dispatcher NACKs it with an IMAGE_PICKER_RESULT error',
+    PageBlockHost: 'required',
+    InlineHost: INLINE_STUB,
+  },
+  // An image, video or audio file uploaded as a PRIVATE generation input, picked in host chrome or
+  // sent as `bytes` — see `mediaUploadLogic.ts`. REQUEST-style; ahead of the published SDK dist
+  // union (the SDK pair lands in the SDK repo).
+  OPEN_MEDIA_UPLOAD: {
+    request: true,
+    reply: 'MEDIA_UPLOAD_RESULT',
+    replyKeys: ['selected?'],
+    errorKeys: ['error'],
+    IframeHost:
+      'media upload is a page-only affordance today; the shared dispatcher NACKs it with a MEDIA_UPLOAD_RESULT error',
     PageBlockHost: 'required',
     InlineHost: INLINE_STUB,
   },
@@ -752,6 +768,18 @@ export const INVENTORY = {
     PageBlockHost: 'required',
     InlineHost: INLINE_STUB,
   },
+  // Workflow-file read (civitai-app-starters#664): the GET_WILDCARD_PACK pattern
+  // for Workflows / ComfyWorkflows versions. Page-only by decision on that issue.
+  GET_RESOURCE_FILE: {
+    request: true,
+    reply: 'RESOURCE_FILE_RESULT',
+    replyKeys: ['file'],
+    errorKeys: ['error'],
+    IframeHost:
+      'model slot has no resource-file surface; page-only by decision (civitai-app-starters#664)',
+    PageBlockHost: 'required',
+    InlineHost: INLINE_STUB,
+  },
   // ── Collection follow/unfollow (host bridge) ───────────────────────────────
   // A block asks the HOST to follow/unfollow a collection as the logged-in
   // viewer. Replaces the block's own `POST /api/v1/blocks/collections/[id]/follow`
@@ -778,6 +806,31 @@ export const INVENTORY = {
   SET_COLLECTION_FOLLOW: {
     request: true,
     reply: 'COLLECTION_FOLLOW_RESULT',
+    replyKeys: ['result'],
+    errorKeys: ['error'],
+    IframeHost: 'required',
+    PageBlockHost: 'required',
+    InlineHost: INLINE_STUB,
+  },
+  // ── App reactions (image only, v1) ─────────────────────────────────────────
+  // A block sets or reads the VIEWER'S reaction on an image a block endpoint served it,
+  // through `blocks.setReactionFromApp` / `blocks.getReactionsForApp` (block token + session).
+  // No per-tap confirm: the consent is the consent-gated `social:react:self` grant. Shared
+  // decision layer: `reactionGate.ts`. BOTH real hosts, like SET_COLLECTION_FOLLOW: a model-slot
+  // block showing images has the same reason to offer a ♥ as a page block. Ahead of the
+  // published SDK dist union (the SDK pair ships after this deploys). REQUEST-style.
+  SET_ENTITY_REACTION: {
+    request: true,
+    reply: 'ENTITY_REACTION_RESULT',
+    replyKeys: ['result'],
+    errorKeys: ['error'],
+    IframeHost: 'required',
+    PageBlockHost: 'required',
+    InlineHost: INLINE_STUB,
+  },
+  GET_ENTITY_REACTIONS: {
+    request: true,
+    reply: 'ENTITY_REACTIONS_RESULT',
     replyKeys: ['result'],
     errorKeys: ['error'],
     IframeHost: 'required',
@@ -851,13 +904,13 @@ export const INVENTORY = {
     PageBlockHost: 'required',
     InlineHost: INLINE_STUB,
   },
-  // Prepare the dataset a `kind:'training'` body names — see
-  // `prepareTrainingDatasetGate.ts`. The host calls `blocks.prepareTrainingDataset`
-  // with the page token, which the block's own origin cannot reach. REQUEST-style.
+  // REMOVED: training images are uploaded through OPEN_IMAGE_UPLOAD { purpose:
+  // 'trainingData' }. The page host still answers it, with the fixed error `removed`,
+  // so an older bundle fails at once instead of hanging. REQUEST-style.
   PREPARE_TRAINING_DATASET: {
     request: true,
     reply: 'TRAINING_DATASET_RESULT',
-    replyKeys: ['result'],
+    replyKeys: [],
     errorKeys: ['error'],
     IframeHost:
       'training is page-only on the server; the shared dispatcher NACKs it with a TRAINING_DATASET_RESULT error',
@@ -940,8 +993,9 @@ type SdkBlockToParentType = BlockToParentMessageType;
 // graph (under `src`, not excluded; not a `*.test.ts` corner case).
 //
 // ONE-DIRECTIONAL by design: every PUBLISHED SDK type must be an INVENTORY key;
-// INVENTORY MAY carry extra ahead-of-published keys (`RUN_CONFIRMED_STEP` and
-// `OPEN_IMAGE_PICKER` as of app-sdk 0.65.1).
+// INVENTORY MAY carry extra ahead-of-published keys (`RUN_CONFIRMED_STEP`,
+// `OPEN_IMAGE_PICKER`, `SET_ENTITY_REACTION`, `GET_ENTITY_REACTIONS`, `OPEN_MEDIA_UPLOAD`,
+// `GET_RESOURCE_FILE` as of app-sdk 0.65.1).
 // We do NOT assert the reverse — that would delete real forward coverage every
 // time the published dist lags.
 //
