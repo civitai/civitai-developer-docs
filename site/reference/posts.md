@@ -47,6 +47,7 @@ Key fields shown; each entry in `images` carries every field of an
   "modelVersionId": 345685,
   "user": { "id": 4021, "username": "some-creator" },
   "tags": [{ "id": 5133, "name": "portrait" }],
+  "hasMoreImages": false,
   "images": [
     {
       "id": 9173928,
@@ -73,8 +74,12 @@ Key fields shown; each entry in `images` carries every field of an
   shape as an item from [`GET /images`](./images), including `thumbnail` for
   videos, with `meta` always `null`; use `/images?postId=` with
   `withMeta=true` for generation data.
-- `images` holds the first 100 entries in post order, with no cursor. Use
-  `/images?postId=` to page through a larger post.
+- `images` holds the first 100 eligible entries in post order, with no cursor.
+  `hasMoreImages` is `true` when more eligible images exist beyond that page;
+  exactly 100 entries can still be a complete gallery. Use `/images?postId=`
+  to page through a larger post; that endpoint uses its own sort order.
+- `hasMoreImages` follows the same visibility and regional filters as `images`.
+  It is not a total count of every image uploaded to the post.
 - An image above the browsing level served to your region, or one not yet
   scanned, is left out of `images` rather than returned, so `images` can be
   empty.
@@ -86,7 +91,7 @@ Key fields shown; each entry in `images` carries every field of an
 | `400` | `id` is not a positive integer. |
 | `404` | The post doesn't exist, isn't published yet, is private or in early access, or hasn't finished moderation scanning (or was blocked). In a restricted region, a post with any mature content is also a `404`. These cases are indistinguishable: `{ "error": "Post not found" }`. |
 | `429` | Rate limit exceeded. Retry after the `Retry-After` header. |
-| `503` | The server is busy. Retry after the `Retry-After` header. |
+| `503` | The server is busy or a database query timed out. The response is not cached (`Cache-Control: no-store`). Retry after the `Retry-After` header. |
 
 ### Example
 
