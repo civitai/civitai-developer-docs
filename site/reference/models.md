@@ -124,6 +124,7 @@ When using `page` pagination, `metadata` additionally includes `currentPage` and
 - Including `query` without `cursor` is fine; combining `query` with `page` returns `400`.
 - Only `Published` versions are returned to non-moderator callers. Files marked non-public by the uploader are hidden from `files[]`.
 - `mode` is non-null when the parent model has been moderated. Values: `Archived` (drops `files[]` and `downloadUrl`) and `TakenDown` (also drops `images[]`). Omitted entirely on healthy models.
+- For a model marked `minor` or `sfwOnly`, each version's `images[]` holds only the images within that model's safe-for-work gallery level, regardless of `nsfw`. The model is still returned, and `images[]` can be empty.
 
 ### Example
 
@@ -152,6 +153,9 @@ GET /api/v1/models/{id}
 Returns the same shape as a single item from the list endpoint — same
 top-level keys (`id`, `name`, `type`, `modelVersions`, `creator`, `tags`,
 `stats`, ...).
+
+As in the list, a model marked `minor` or `sfwOnly` returns only the images
+within its safe-for-work gallery level in each version's `images[]`.
 
 Returns `404` if the model doesn't exist:
 
