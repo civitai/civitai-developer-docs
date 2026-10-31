@@ -1,0 +1,151 @@
+name: checks
+
+# THE NON-REQUIRED PR CHECKS, IN ONE JOB. Each of these used to be its own
+# workflow with its own job: agent-setup, ai-catalog (offline half), example-apps,
+# copy-spec, cli-snapshot-refresh-test and nginx-negotiation. Six jobs meant six
+# runner slots on every PR push and five on every push to `main`, and the org's
+# hosted runners are a shared pool with a concurrency cap: every slot one PR
+# takes is a slot another repository's run waits for. Most of the six finished
+# in 10-30 s, so each one spent more time being scheduled and checking out than
+# checking anything.
+#
+# Each check is now a STEP whose name starts with the old workflow's name, so a
+# red run still says which check failed. Every step runs even when an earlier
+# one failed (`!cancelled()`), so one red never hides another; the steps after
+# the install additionally need the install to have succeeded, so a registry
+# outage reads as one red `npm ci`, not as five unrelated failures.
+#
+# THE SIX REQUIRED CONTEXTS ON `main` (test-cli, test-messages, test-bridge,
+# typecheck-snippets, build-site, test-md-regions) ARE NOT HERE, ON PURPOSE.
+# Branch protection names each by its job, so folding one in here would leave
+# that context pending on every PR. This job is not a required context; it is
+# not named like one either (scripts/test-refresh-cli-snapshot.mjs refuses
+# that collision for the refresher's own workflow, and the same reasoning holds
+# here: a job silently promoted into a gate).
+#
+# RUNS ON EVERY PR, DELIBERATELY UNFILTERED. Same reasoning as build-site.yml
+# and appblocks-cli.yml: GitHub does not synthesise a passing status for a
+# workflow that never triggers, so a path-filtered workflow that later becomes
+# REQUIRED strands every PR touching none of its paths at
+# mergeStateStatus=BLOCKED forever (measured live on #42).
+#
+# The agent-setup step's sequencing (held red until civitai/cli shipped
+# `civitai agent-setup`) is settled and the step is green; the authority is the
+# SEQUENCING NOTE in scripts/check-agent-setup.mjs. Do not soften that guard to
+# turn a future red green: it is the only thing asserting that a file this site
+# hosts, and that agents execute, names commands that exist.
+#
+# The DEPLOYED half of ai-catalog (does the live origin serve what the catalog
+# advertises) cannot gate a PR and stays in ai-catalog.yml on its daily
+# schedule; see that file's header.
+on:
+  pull_request: {}
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# LEAST PRIVILEGE. Checkout, install, offline node scripts, a site build, and
+# one container on the runner answering loopback GETs. No upload, no deploy, no
+# comment, no push, no `gh` call, no token beyond the read-only default.
+# `scripts/test-refresh-cli-snapshot.mjs` asserts the refresher workflow's
+# permission SHAPE by reading YAML as text; it needs no scope to do that.
+permissions:
+  contents: read
+
+# Cancel superseded PR runs only (see civitai/civitai-developer-docs#252). Push
+# and dispatch runs each get their own group, so none is ever cancelled or
+# displaced.
+concurrency:
+  group: checks-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  checks:
+    name: checks (agent-setup, ai-catalog, example-apps, copy-spec, cli-snapshot-refresh-test, nginx-negotiation)
+    runs-on: ubuntu-latest
+    # The old per-workflow caps summed to 75 minutes; the measured job times
+    # (p50, 2026-10-23..30) summed to under 8. 30 is slack, not a budget.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # Same version as every other job here. `cache: npm` restores ~/.npm
+      # only; there is no node_modules until the Install step below.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      # ── BEFORE THE INSTALL, AND THAT ORDER IS A GUARD ───────────────────────
+      # The next four steps import node builtins and committed files only. Run
+      # with no node_modules on disk, a node_modules import added to any of
+      # them fails here with MODULE_NOT_FOUND, which is what keeps them offline
+      # and keeps the registry from being a way for them to fail. Moving them
+      # below `npm ci` silently drops that guarantee. The hand-written markdown
+      # block scanner in scripts/check-agent-setup.mjs exists because of it.
+      - name: 'agent-setup: prompt.md vs the CLI help snapshot, and the page vs its constants'
+        if: ${{ !cancelled() }}
+        run: node scripts/check-agent-setup.mjs
+
+      - name: 'ai-catalog: catalog and nginx advertisement agree (offline)'
+        if: ${{ !cancelled() }}
+        run: npm run check:ai-catalog -- --offline
+
+      - name: 'example-apps: the guard self-tests, and apps/examples.md parses and agrees with itself'
+        if: ${{ !cancelled() }}
+        run: npm run check:example-apps -- --offline
+
+      # scripts/drift-notify.mjs decides whether the daily appblocks-drift sweep
+      # opens, refreshes or closes its tracking issue, and only executes on that
+      # schedule, so this is the one place a PR exercises its decision table.
+      # The branch that matters most cannot be observed when it is wrong: a
+      # sweep that verified ZERO repositories must alert, not resolve.
+      # `--self-test` reads no environment and opens no socket.
+      - name: "example-apps: the drift notifier's decision table still holds"
+        if: ${{ !cancelled() }}
+        run: npm run notify:drift -- --self-test
+
+      - name: Install
+        id: install
+        if: ${{ !cancelled() }}
+        run: npm ci
+
+      # ── AFTER THE INSTALL ───────────────────────────────────────────────────
+      # copy-spec: `npm run build` resolves the OpenAPI spec from the COMMITTED
+      # `openapi-snapshots/v2-consumers.json` and touches no network. This
+      # suite never leaves loopback and guards that contract.
+      - name: 'copy-spec: spec resolution contract (offline)'
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run test:copy-spec
+
+      # The scrub only WARNS in a build when a rule matches nothing. Here,
+      # against the committed snapshot, that is a failure, so the re-snapshot PR
+      # that picks up an upstream fix is told which rule to delete.
+      - name: 'copy-spec: every spec scrub rule still matches the committed snapshot'
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run check:spec-scrub
+
+      # The tests for cli-snapshot-refresh.yml's script. Offline: a throwaway
+      # clone with a bare local origin and a fake `civitai` replaying the
+      # committed bundle. The workflow they guard stays scheduled; these run on
+      # PRs (the suite asserts that some pull_request workflow runs it). Push
+      # runs now run it too, which costs a few minutes and no extra slot.
+      - name: 'cli-snapshot-refresh-test: floor, decision, PR body, branch safety'
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run test:refresh-cli-snapshot
+
+      # nginx-negotiation: serve the BUILT site with the real nginx.conf under
+      # `nginx:alpine` (what the Dockerfile ships) and assert the agent-facing
+      # HTTP contract. Not folded into the required build-site job, which stays
+      # hermetic: this pulls an image from Docker Hub, and a registry outage
+      # must not block every merge.
+      - name: 'nginx-negotiation: build the site'
+        id: build
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        env:
+          APPBLOCKS_SNAPSHOT_ONLY: '1'
+        run: npm run build
+
+      - name: 'nginx-negotiation: serve dist/ with the real nginx.conf and assert the HTTP contract'
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: npm run test:nginx-negotiation -- --matrix
