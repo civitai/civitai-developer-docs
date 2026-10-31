@@ -78,6 +78,10 @@ Key fields shown; each entry in `images` carries every field of an
 - An image above the browsing level served to your region, or one not yet
   scanned, is left out of `images` rather than returned, so `images` can be
   empty.
+- If the post was published to a model marked `minor` or `sfwOnly` (see
+  [Models](./models)), `images` holds only the images within that model's
+  safe-for-work gallery level, whatever your region allows. The post itself is
+  still returned, and `images` can be empty.
 
 ### Errors
 
