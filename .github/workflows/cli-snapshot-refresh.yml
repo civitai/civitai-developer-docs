@@ -50,7 +50,7 @@ name: cli-snapshot-refresh
 # appblocks-drift.yml off the PR path (read its header). Do NOT add this job to
 # the required contexts on `main`, and do NOT add a `pull_request:` trigger. (The
 # TESTS for the refresher are a different thing entirely: they are repo-local and
-# offline, so they DO block a PR — see cli-snapshot-refresh-test.yml.)
+# offline, so they DO run on every PR — see the `checks` job in checks.yml.)
 #
 # 🔴 IT OPENS A PR; IT NEVER PUSHES TO `main`. The human read of that diff is the
 # product: the MB→MiB change was only legible as a real user-facing fix rather
@@ -149,8 +149,8 @@ name: cli-snapshot-refresh
 #
 # THE LOGIC LIVES IN scripts/refresh-cli-snapshot.mjs, not here. A workflow body
 # is untestable by construction; that script is covered by
-# scripts/test-refresh-cli-snapshot.mjs, which runs on every PR from
-# cli-snapshot-refresh-test.yml.
+# scripts/test-refresh-cli-snapshot.mjs, which runs on every PR from the
+# `checks` job in checks.yml.
 on:
   schedule:
     # 07:07 UTC daily — 30 minutes after the appblocks-drift sweep at 06:37, so

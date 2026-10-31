@@ -553,7 +553,7 @@ const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 // 🔴 WHY THIS IS HAND-WRITTEN AND NOT `markdown-it`. markdown-it IS in this
 // repo's node_modules (VitePress depends on it) and it is the right oracle — the
 // scanner below was validated against it, see the header. It is NOT imported,
-// because `.github/workflows/agent-setup.yml` runs this guard with NO `npm ci`:
+// because `.github/workflows/checks.yml` runs this guard BEFORE its `npm ci`:
 // the job's stated property is that it reads committed files, makes no network
 // request and cannot false-fail on a registry outage, which is what this repo
 // requires of anything that blocks a PR. Importing markdown-it would either

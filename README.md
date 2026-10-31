@@ -77,7 +77,7 @@ rel="describedby"` (plus a matching `<link rel="alternate">` in the page head).
 Claude Code's WebFetch sends `Accept: text/markdown, text/html, */*`, so it gets
 markdown. The q-value comparison is done in nginx `map`s with no arithmetic —
 `npm run test:nginx-negotiation` runs the built site under a real `nginx:alpine`
-with this `nginx.conf` and asserts the whole contract (CI: `nginx-negotiation.yml`).
+with this `nginx.conf` and asserts the whole contract (CI: the `checks` job in `checks.yml`).
 
 **The machine surface is self-contained.** In every twin, every internal page
 link is an absolute `https://developer.civitai.com/<page>.md` URL and a one-line
@@ -341,7 +341,7 @@ CIVITAI_CLI_BIN=/path/to/civitai CLI_SNAPSHOT_REFRESH_TAG=v0.1.92 \
   npm run refresh:cli-snapshot -- --dry-run
 ```
 
-The refresher's own tests run on every PR from `cli-snapshot-refresh-test.yml`
+The refresher's own tests run on every PR from the `checks` job in `checks.yml`
 (`npm run test:refresh-cli-snapshot`). They are repo-local and offline — a
 throwaway clone with a bare local `origin` and a `civitai` stand-in that replays
 the committed bundle — so they block a PR under the same doctrine as

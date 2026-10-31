@@ -1,10 +1,18 @@
 name: ai-catalog
 
-# The PR-side half of the guard for machine discovery:
+# The SCHEDULED half of the guard for machine discovery:
 # `public/.well-known/ai-catalog.json` (what this site publishes for agents) and
 # the `Link:` header in `nginx.conf` (how an agent is told it exists).
 #
-# WHY ONLY HALF RUNS HERE. `scripts/check-ai-catalog.mjs` asserts two different
+# 🔴 THE PR AND PUSH HALF MOVED TO checks.yml. This workflow used to run the
+# offline step on every PR and every push to `main` as its own job, which cost a
+# runner slot each time for a 9-second check. It now runs only on the daily
+# schedule and on manual dispatch; the offline step is the
+# `ai-catalog: catalog and nginx advertisement agree (offline)` step of the
+# `checks` job. Everything below about where each half belongs still holds; read
+# "this job" in the next paragraphs as "the offline step", wherever it runs.
+#
+# WHY THE HALVES ARE SPLIT. `scripts/check-ai-catalog.mjs` asserts two different
 # kinds of thing, and this repo's doctrine (see appblocks-drift.yml's header)
 # puts them in different places:
 #
@@ -33,20 +41,11 @@ name: ai-catalog
 # 530. Nothing on their side was red, because a Link header is consumed by
 # fetchers and no human ever sees the result. Only a scheduled fetch can see it.
 #
-# RUNS ON EVERY PR, DELIBERATELY UNFILTERED — do not add a `paths:` filter. Same
-# reasoning as example-apps.yml, agent-setup.yml and build-site.yml: GitHub does
-# not synthesise a passing status for a workflow that never triggers, so a
-# path-filtered check that later becomes REQUIRED strands every PR touching none
-# of the watched files at mergeStateStatus=BLOCKED forever (measured live on
-# #42).
-#
-# NOT YET A REQUIRED CONTEXT. Adding it to branch protection on `main` is a
-# maintainer decision and a separate change; until then it reports without
-# blocking.
+# The offline step runs on every PR, unfiltered, from checks.yml (see its header
+# for why it has no `paths:` filter). It is not a required context; adding the
+# `checks` job to branch protection on `main` is a maintainer decision and a
+# separate change.
 on:
-  pull_request: {}
-  push:
-    branches: [main]
   schedule:
     # Daily, offset from appblocks-drift so two network jobs do not collide.
     - cron: '37 6 * * *'
@@ -64,8 +63,9 @@ on:
 permissions:
   contents: read
 
-# Cancel superseded PR runs only (see civitai/civitai-developer-docs#252). Push, schedule
-# and dispatch runs each get their own group, so none is ever cancelled or displaced.
+# Schedule and dispatch runs each get their own group, so none is ever cancelled
+# or displaced. (The pull_request arm is inert since the PR half moved to
+# checks.yml; kept so re-adding a PR trigger cannot silently stack runs.)
 concurrency:
   group: ai-catalog-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
