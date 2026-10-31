@@ -51,7 +51,7 @@
  *
  * THE LOGIC LIVES HERE, NOT IN THE WORKFLOW. A workflow body is untestable by
  * construction; the decision table below runs its fixtures on EVERY invocation
- * and is additionally run as its own PR-gating step from example-apps.yml.
+ * and is additionally run as its own step on every PR from checks.yml.
  *
  * USAGE
  *   node scripts/drift-notify.mjs --self-test   # fixtures only, no env, no network

@@ -170,8 +170,8 @@ jobs:
         # The UPSTREAM half of the example-apps guard; the repo-local half
         # (`--offline`: the guard's own fixture tables, the page parsing and
         # still naming >= MIN_EXAMPLE_REPOS repositories, and the page agreeing
-        # with its own stated counts and anchors) blocks a PR from
-        # example-apps.yml. Note this job runs BOTH halves — the self-test and
+        # with its own stated counts and anchors) runs on every PR from the
+        # `checks` job in checks.yml. Note this job runs BOTH halves — the self-test and
         # the page checks run here too, before any request is made.
         #
         # A repository named on that page can be deleted, made private, archived
@@ -230,7 +230,7 @@ jobs:
   # neither of which renders as red anywhere, and both of which mean nothing was
   # verified. The decision table lives in scripts/drift-notify.mjs, which
   # self-tests on every invocation and is additionally run as a PR-gating step
-  # from example-apps.yml; a workflow body is untestable by construction.
+  # from checks.yml; a workflow body is untestable by construction.
   #
   # 🔴 NO `npm ci` IN THIS JOB, DELIBERATELY, AND IT IS A CONSTRAINT ON THE
   # SCRIPT. scripts/drift-notify.mjs imports node:crypto, node:fs and node:url

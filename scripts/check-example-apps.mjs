@@ -162,12 +162,12 @@
  * false-fail on someone else's action. This guard is both things at once, so it
  * is split rather than compromised:
  *   - `--offline` (checks 0–3) is repo-local -> runs on every PR, from
- *     `.github/workflows/example-apps.yml`. It imports only node builtins, so
- *     that job needs no `npm ci`.
+ *     `.github/workflows/checks.yml`. It imports only node builtins, and it
+ *     runs there BEFORE the job's `npm ci`, so a node_modules import fails.
  *   - the full run (checks 0–4) reads other people's repositories -> runs on the
  *     daily schedule, from `.github/workflows/appblocks-drift.yml`.
  *
- * 🔴 NO node_modules IMPORTS. example-apps.yml runs this with NO `npm ci` on
+ * 🔴 NO node_modules IMPORTS. checks.yml runs this BEFORE its `npm ci` on
  * purpose (its comment says so in as many words), so the self-test above lives
  * in this file as plain exported tables rather than in a test runner. Adding an
  * import from node_modules breaks the PR gate with MODULE_NOT_FOUND.
