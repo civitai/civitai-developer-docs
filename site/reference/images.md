@@ -163,6 +163,12 @@ Besides the validation errors common to all list endpoints (see
   requires `cursor`. See [Pagination](../guide/pagination).
 - On Civitai's "green" domain or from restricted regions, results are
   filtered to SFW regardless of the `nsfw` / `browsingLevel` parameter.
+- Images of a model marked `minor` or `sfwOnly` (see [Models](./models)) are
+  served only within that model's safe-for-work gallery level, regardless of
+  the `nsfw` / `browsingLevel` parameter. A request by `modelId`,
+  `modelVersionId` or `postId` for such a model returns only those images, and
+  a lookup by `imageId` leaves out an image above that level on a post of such
+  a model. Either can return an empty `items`.
 - `/images` defaults to `limit=50`. Lower it explicitly if you're only after
   a handful, or raise it up to `200` for fewer round-trips.
 
