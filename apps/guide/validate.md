@@ -152,6 +152,45 @@ The four scope rules run only once the declaration itself has no errors: an
 invalid declaration declares nothing, as on the server. Where a message lists
 collection names, they are sorted, not in declaration order.
 
+### Collection schemas {#storage-schema}
+
+A collection's [`schema`](./storage#collection-schemas) is checked in two
+layers. A CLI release from before the key reports it as an unknown property.
+
+- **The JSON Schema** checks the keyword subset (any other keyword is an
+  unknown property at its location), each keyword's shape, a `pattern` of at
+  most 256 characters, a `pattern` with no `maxLength` of at most 1000 on the
+  same schema, and a schema on a `write: "none"` collection.
+- **These errors** carry the server's message, for the bounds the JSON Schema
+  cannot express:
+
+| Catches | `field` |
+| --- | --- |
+| A schema over 16384 bytes of JSON, counted the way the server counts `JSON.stringify` | `storage.collections.<name>.schema` |
+| Schemas nested more than 16 deep | the innermost schema's location |
+| More than 16 patterns in one collection schema | `storage.collections.<name>.schema` |
+| `minLength`, `minItems` or `minimum` above its maximum | the lower bound's location |
+| A count keyword above 2^53 − 1 | that keyword's location |
+| A schema on a `write: "none"` collection, with the server's message beside the JSON Schema's bare `false schema` | `storage.collections.<name>.schema` |
+
+**Patterns are a warning, never an error, and passing is not parity.** The
+server compiles a `pattern` as a JavaScript regular expression with the `u`
+flag. The CLI is written in Go, and Go's engine (RE2) is a different language,
+so neither one's verdict predicts the other's:
+
+- A pattern RE2 cannot compile, such as a lookahead `(?=…)`, a backreference or
+  `\u{…}`, is a **warning** that the CLI cannot check it offline and the server
+  decides at submit. Valid JavaScript gets this warning too.
+- A pattern RE2 compiles draws nothing, but that does not mean the server accepts
+  it: `(?i)x`, `\z`, `\pL` and `[[:alpha:]]` compile in RE2 and are refused by
+  the server.
+- The server also refuses, at submit, a pattern that can backtrack
+  catastrophically. The CLI has no check for that.
+
+`createFakeStorage` in `@civitai/sdk` reads patterns the way the server does,
+as JavaScript `u`-flag regular expressions, but does not run the backtracking
+check (see [Testing](./storage#testing)).
+
 ### Features not available yet — warnings
 
 The schema describes five features the server
