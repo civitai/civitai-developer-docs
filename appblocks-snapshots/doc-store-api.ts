@@ -30,7 +30,10 @@ import type {
   BlockScopeRefusal,
   BlockScopeRefusalKind,
 } from '~/server/middleware/block-scope.middleware';
-import type { AppBlockEndpoint } from '~/server/metrics/app-block-runtime.metrics';
+import {
+  recordDocStoreError,
+  type DocStoreEndpoint,
+} from '~/server/metrics/app-block-runtime.metrics';
 import {
   hasLinkedOAuthAccount,
   sharedWriteTrustRefusal,
@@ -38,12 +41,14 @@ import {
 import {
   assertCollection,
   assertShareWritable,
+  PUBLISHED_NS,
   refuseReportWithdrawal,
   type DocStore,
 } from '~/server/services/apps/doc-store';
 import { resolveStorageAccess, type StorageAccess } from '~/server/services/apps/doc-store-access';
 import { getDocStore } from '~/server/services/apps/doc-store.instance';
 import { assertOwnedModelVersions } from '~/server/services/apps/doc-store-ownership';
+import { validateDocAgainstCollectionSchema } from '~/server/services/apps/doc-store-schema';
 import type {
   DocAuthor,
   DocCollection,
@@ -60,11 +65,14 @@ import {
   emitSharedBlockAlert,
   enforcedBlockingHit,
   recordSharedDataScan,
+  resolveSharedDataModerationMode,
   scanCounterKey,
   scanSharedData,
+  scheduleSharedDataShadow,
   type SharedDataSurface,
   type SharedTextScan,
 } from '~/server/services/apps/shared-data-moderation';
+import { syncStoreItem } from '~/server/services/blocks/app-sub-listing-sync';
 import { resolveClientIp } from '~/server/utils/client-ip';
 import { rateLimitMetaFor } from '~/server/utils/rate-limit-error';
 import { GENERIC_SERVER_ERROR_MESSAGE } from '~/server/utils/rest-error-envelope';
@@ -150,7 +158,7 @@ export function matchStorageRoute(method: string, segments: readonly string[]): 
 }
 
 /** The metrics label for a request, from its method and path shape only. */
-export function storageEndpointLabel(req: NextApiRequest): AppBlockEndpoint {
+export function storageEndpointLabel(req: NextApiRequest): DocStoreEndpoint {
   const m = matchStorageRoute(req.method ?? 'GET', pathSegments(req));
   const op = m && 'route' in m ? m.route.op : 'info';
   if (op === 'info') return 'storage_info';
@@ -174,6 +182,7 @@ export type StorageApiCode = DocStoreErrorCode | 'internal_error' | 'method_not_
 export const STORAGE_ERROR_STATUS: Record<StorageApiCode, number> = {
   invalid_request: 400,
   index_not_declared: 400,
+  schema_violation: 400,
   unauthenticated: 401,
   sign_in_required: 401,
   insufficient_scope: 403,
@@ -215,6 +224,8 @@ export type StorageErrorBody = {
  */
 const CLIENT_MESSAGE: Partial<Record<StorageApiCode, string>> = {
   storage_disabled: 'document storage is unavailable',
+  // The store's connection-fault message names the driver error (`doc-store.ts`).
+  service_unavailable: 'storage is temporarily unavailable',
 };
 
 function envelope(code: StorageApiCode, message: string, details?: Record<string, unknown>) {
@@ -223,7 +234,21 @@ function envelope(code: StorageApiCode, message: string, details?: Record<string
   return body;
 }
 
-function sendError(res: NextApiResponse, err: unknown): void {
+/**
+ * Every error envelope this route sends leaves through here or `storageRefusalBody`, and both
+ * count it in `civitai_app_block_doc_store_errors_total` under the envelope's own code.
+ */
+function sendEnvelope(
+  req: NextApiRequest,
+  res: NextApiResponse,
+  status: number,
+  body: StorageErrorBody
+): void {
+  recordDocStoreError(storageEndpointLabel(req), body.code);
+  res.status(status).json(body);
+}
+
+function sendError(req: NextApiRequest, res: NextApiResponse, err: unknown): void {
   if (!(err instanceof DocStoreError)) {
     logToAxiom(
       {
@@ -234,7 +259,7 @@ function sendError(res: NextApiResponse, err: unknown): void {
       },
       'app-blocks'
     ).catch(() => undefined);
-    res.status(500).json(envelope('internal_error', GENERIC_SERVER_ERROR_MESSAGE));
+    sendEnvelope(req, res, 500, envelope('internal_error', GENERIC_SERVER_ERROR_MESSAGE));
     return;
   }
   const body = envelope(err.code, CLIENT_MESSAGE[err.code] ?? err.message, err.details);
@@ -244,7 +269,7 @@ function sendError(res: NextApiResponse, err: unknown): void {
     res.setHeader('Retry-After', String(retryAfter));
     if (err.code === 'rate_limited') body.rateLimit = rateLimitMetaFor(retryAfter);
   }
-  res.status(STORAGE_ERROR_STATUS[err.code]).json(body);
+  sendEnvelope(req, res, STORAGE_ERROR_STATUS[err.code], body);
 }
 
 /**
@@ -264,8 +289,13 @@ const MIDDLEWARE_REFUSAL: Record<BlockScopeRefusalKind, { code: StorageApiCode; 
     context_binding: { code: 'not_eligible', reason: 'context_binding' },
   };
 
-export function storageRefusalBody(refusal: BlockScopeRefusal): StorageErrorBody {
+export function storageRefusalBody(
+  refusal: BlockScopeRefusal,
+  req: NextApiRequest
+): StorageErrorBody {
   const { code, reason } = MIDDLEWARE_REFUSAL[refusal.kind];
+  // The middleware sends this body; it is counted here, the one place it is built.
+  recordDocStoreError(storageEndpointLabel(req), code);
   return envelope(code, refusal.error, reason ? { reason } : undefined);
 }
 
@@ -535,9 +565,26 @@ async function charge(
 const COARSE_CATEGORY = { link: 'link', overflow: 'unreviewable' } as Record<string, string>;
 
 /**
- * Enforce-mode moderation of one shared write: every string leaf and object key of `data`
- * and, when the app chose it, the document key. A scan that cannot run is refused as
- * retryable; a hit is refused with a coarse category, never the matched text.
+ * What `moderate` hands back: run it once the write has committed — with the stored key when the
+ * store assigned it (a create); otherwise the key `moderate` was given is used.
+ */
+type AfterCommit = (committedKey?: string) => void;
+const nothingAfterCommit: AfterCommit = () => undefined;
+
+/**
+ * Moderation of one shared write — every string leaf and object key of `data` and, when the app
+ * chose it, the document key — in the app's shared-data moderation mode
+ * (`resolveSharedDataModerationMode`):
+ *
+ * - `off`: nothing is scanned or recorded.
+ * - `shadow`: nothing is scanned NOW. The returned `AfterCommit` schedules each scan through
+ *   `scheduleSharedDataShadow`, the legacy surface's own shadow path: after the write, off the
+ *   request path, recorded with mode `shadow`, never refusing, never alerting. A scanner failure
+ *   is logged there and reaches nobody. The caller runs it only once the store has committed, so a
+ *   write that fails records nothing.
+ * - `enforce`: scanned inline, before the write. A scan that cannot run is refused as retryable
+ *   (`moderation_unavailable`); a hit is refused (`content_rejected`) with a coarse category,
+ *   never the matched text, and raises the shared block alert.
  */
 async function moderate(
   access: StorageAccess,
@@ -545,7 +592,9 @@ async function moderate(
   surface: SharedDataSurface,
   rowKey: string,
   input: { data?: Record<string, unknown>; key?: string }
-): Promise<void> {
+): Promise<AfterCommit> {
+  const mode = await resolveSharedDataModerationMode(access.ctx.appId);
+  if (mode === 'off') return nothingAfterCommit;
   // Moderators are exempt from the pattern list here exactly as on the legacy surface.
   const scanOpts = { isModerator: user.isModerator };
   const scans: { field: 'data' | 'key'; run: () => Promise<SharedTextScan> }[] = [];
@@ -556,6 +605,17 @@ async function moderate(
   if (input.key !== undefined) {
     const key = input.key;
     scans.push({ field: 'key', run: () => scanCounterKey(key, scanOpts) });
+  }
+  if (mode === 'shadow') {
+    return (committedKey = rowKey) => {
+      for (const { run } of scans) {
+        scheduleSharedDataShadow(run, {
+          appBlockId: access.ctx.appId,
+          rowKey: committedKey,
+          surface,
+        });
+      }
+    };
   }
   for (const { field, run } of scans) {
     let scan: SharedTextScan;
@@ -597,6 +657,7 @@ async function moderate(
       });
     }
   }
+  return nothingAfterCommit;
 }
 
 /**
@@ -610,7 +671,8 @@ async function moderate(
  * charges a raw error from its INSERT/UPDATE, because a value can make those fail. Here a raw
  * error is refunded, which is sound only because the store validates a document fully before
  * any SQL runs and `translatePgError` (`doc-store.ts`) maps the one value-reachable database
- * error (the stored-size CHECK) to `too_large`. A new constraint a value can violate must be
+ * error (the stored-size CHECK) to `too_large`, and connection faults to `service_unavailable`
+ * (refunded above). A new constraint a value can violate must be
  * mapped there too, or every such failure becomes a free retry of the moderation scan.
  */
 function isOurFault(err: unknown): boolean {
@@ -618,15 +680,17 @@ function isOurFault(err: unknown): boolean {
   if (err.code === 'rate_limited') return err.details?.reason === 'contention';
   return (
     err.code === 'storage_disabled' ||
+    // The store's database could not be reached (`translatePgError`), or a gate's read failed.
+    err.code === 'service_unavailable' ||
     err.code === 'moderation_unavailable' ||
     err.code === 'consent_unavailable'
   );
 }
 
 /**
- * A shared document write spends the shared write budget: reserved before moderation (the
- * expensive part) and given back only if the write does not land. `fn` calls `landed()` the
- * moment the store has committed, so a failure after that (presenting the result) spends the
+ * A shared document write spends the shared write budget: reserved before the write and any
+ * inline moderation scan, and given back only if the write does not land. `fn` calls `landed()`
+ * the moment the store has committed, so a failure after that (presenting the result) spends the
  * token like any landed write.
  */
 async function withSharedWriteBudget<T>(
@@ -667,7 +731,9 @@ async function run(
 ): Promise<Reply> {
   const { ctx } = access;
   const ok = (body: unknown, status = 200): Reply => ({ status, body });
-  // Info is signed-in only: its body carries the app-wide usage (documents, bytes).
+  // Info is signed-in only: its body carries the app-wide usage (documents, bytes) — the app's
+  // SHARED documents, which is what `appBytes`/`appDocs` bound; private documents count toward
+  // the viewer's own usage and `viewerBytes`/`viewerDocs` only (`DocStoreUsage`).
   // Every read is charged first, so a read of an undeclared collection is limited too.
   // Writes are charged below, once the collection says which bucket they spend.
   if (route.op === 'info') requireViewer(access);
@@ -741,23 +807,44 @@ async function run(
       // the write budget and the moderation scan — the manifest schema documents a refusal as
       // spending no write budget and no scan.
       const newData = created?.data ?? putIn?.data;
+      // The collection's schema first: the store checks it again itself (any caller), but here a
+      // refusal also spends no ownership lookup. A put replaces the whole body, so `newData` IS
+      // the resulting document.
+      if (newData) validateDocAgainstCollectionSchema(ctx, coll, newData);
       if (newData) await assertOwnedModelVersions(decl, newData, uid);
       const write = async (user: SessionUser | null, landed: () => void): Promise<Reply> => {
         if (created) {
-          if (user) await moderate(access, user, 'append', '', { data: created.data });
+          const afterCommit = user
+            ? await moderate(access, user, 'append', '', { data: created.data })
+            : nothingAfterCommit;
           const doc = await store.create(ctx, coll, created.data);
           landed();
+          afterCommit(doc.key);
           return ok(await presentDoc(doc, decl), 201);
         }
         if (putIn && route.op === 'put') {
           const { data, ifVersion } = putIn;
-          if (user) await moderate(access, user, 'update', route.key, { data, key: route.key });
+          const afterCommit = user
+            ? await moderate(access, user, 'update', route.key, { data, key: route.key })
+            : nothingAfterCommit;
           const doc = await store.put(ctx, coll, route.key, data, { ifVersion });
           landed();
+          afterCommit();
           return ok(await presentDoc(doc, decl));
         }
         if (route.op !== 'delete') throw new Error('doc-store-api: unreachable write op');
-        return ok(await store.delete(ctx, coll, route.key, { ifVersion: deleteVersion }));
+        const result = await store.delete(ctx, coll, route.key, { ifVersion: deleteVersion });
+        // The author removed a published item: its App Store card follows. Production only: a
+        // dev namespace's key is not the published item's.
+        if (result.deleted && shared && ctx.ns === PUBLISHED_NS) {
+          await syncStoreItem({
+            appBlockId: ctx.appId,
+            itemKey: route.key,
+            change: 'withdrawn',
+            authorUserId: uid,
+          });
+        }
+        return ok(result);
       };
       if (!shared || route.op === 'delete') {
         await charge('write', access, req);
@@ -772,11 +859,15 @@ async function run(
       // The bucket first: a refused request costs no subject lookup.
       await charge('tally', access, req);
       const user = shared ? await assertTrusted(uid) : null;
-      // Under `write: 'none'` an increment can CREATE a public document under the app's key.
-      if (user && decl.write === 'none') {
-        await moderate(access, user, 'counter', route.key, { key: route.key });
-      }
-      return ok(await store.increment(ctx, coll, route.key, route.name, by));
+      // Under `write: 'none'` an increment can CREATE a public document under the app's key. The
+      // store does not say whether this one did, so the key is scanned on every such increment.
+      const afterCommit =
+        user && decl.write === 'none'
+          ? await moderate(access, user, 'counter', route.key, { key: route.key })
+          : nothingAfterCommit;
+      const counted = await store.increment(ctx, coll, route.key, route.name, by);
+      afterCommit();
+      return ok(counted);
     }
     case 'mark':
     case 'unmark': {
@@ -831,9 +922,12 @@ export function createStorageHandler(deps: StorageApiDeps = { store: getDocStore
       if (!match) throw new DocStoreError('not_found', 'no such storage route');
       if ('methods' in match) {
         res.setHeader('Allow', match.methods.join(', '));
-        res
-          .status(STORAGE_ERROR_STATUS.method_not_allowed)
-          .json(envelope('method_not_allowed', 'method not allowed'));
+        sendEnvelope(
+          req,
+          res,
+          STORAGE_ERROR_STATUS.method_not_allowed,
+          envelope('method_not_allowed', 'method not allowed')
+        );
         return;
       }
       const claims = (req as BlockScopedNextApiRequest).blockClaims;
@@ -850,11 +944,11 @@ export function createStorageHandler(deps: StorageApiDeps = { store: getDocStore
         // A client abort is not a server fault: no error log, and nothing written to a
         // connection that is already gone. A still-open one gets a plain refusal.
         if (!req.destroyed && !res.destroyed && !res.writableEnded) {
-          res.status(400).json(envelope('invalid_request', 'request body was not received'));
+          sendEnvelope(req, res, 400, envelope('invalid_request', 'request body was not received'));
         }
         return;
       }
-      sendError(res, err);
+      sendError(req, res, err);
     }
   };
 }
