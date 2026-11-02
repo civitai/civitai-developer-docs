@@ -297,7 +297,9 @@ look enforced.
 - the schema's size in bytes of JSON;
 - how many schemas may nest inside one another (the collection's own schema
   counts as one);
-- how many `pattern`s it may declare;
+- how many `pattern`s it may declare, and how many all of the manifest's
+  collection schemas may declare together (every place a pattern appears
+  counts, even when the same pattern repeats);
 - each pattern's length.
 
 A schema with a `pattern` must also declare a `maxLength` on the same schema, so
@@ -702,7 +704,7 @@ SDK, and `info()` is what the running server enforces.
 | Declaration | Counters / marks per collection | 8 / 8 |
 | Declaration | Indexes per collection | 4, each a field path of up to 3 segments, typed `string`, `number`, `boolean`, `time` |
 | Declaration | Owned model-version fields (`ownedModelVersions`) | 1 to 4 distinct pointers per collection, each matching `^(/[A-Za-z_][A-Za-z0-9_]{0,63}){1,4}$`; shared collections with `write: "own"` only |
-| Declaration | Collection document schema (`schema`) | the keywords `type`, `properties`, `required`, `additionalProperties`, `items`, `enum`, `const`, `minLength`, `maxLength`, `pattern`, `minimum`, `maximum`, `minItems`, `maxItems`, `description`; at most 16,384 bytes (16 KiB) of JSON, 16 nested schemas and 16 patterns per collection; a `pattern` of at most 256 characters, on a schema with a `maxLength` of at most 1,000; not on `write: "none"` |
+| Declaration | Collection document schema (`schema`) | the keywords `type`, `properties`, `required`, `additionalProperties`, `items`, `enum`, `const`, `minLength`, `maxLength`, `pattern`, `minimum`, `maximum`, `minItems`, `maxItems`, `description`; at most 16,384 bytes (16 KiB) of JSON, 16 nested schemas and 16 patterns per collection, and 32 patterns across all of the manifest's collection schemas; a `pattern` of at most 256 characters, on a schema with a `maxLength` of at most 1,000; not on `write: "none"` |
 | Declaration | Built-in marks (never declared) | `report` |
 | Declaration | Refused by the server (not available yet) | `write: "anyone"`, `write: "owner"`, `kind: "log"` (and `maxEntries`), `ttlSeconds`, `dailyWritesPerAuthor` |
 | Quota | Per app | 52,428,800 bytes (50 MiB) and 1,000,000 documents |

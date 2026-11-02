@@ -335,7 +335,8 @@ that JSON Schema can't:
 - **`outputDir` traversal** — the schema blocks a leading `/`; the validator also
   rejects `..`, backslashes, and other traversal/escape sequences.
 - **A collection `schema`'s bounds** — at most 16384 bytes of JSON, 16 nested
-  schemas and 16 patterns per collection schema, no `minLength` / `minItems` /
+  schemas and 16 patterns per collection schema, 32 patterns across all of the
+  manifest's collection schemas, no `minLength` / `minItems` /
   `minimum` above its maximum, every `pattern` compiling as a JavaScript
   regular expression with the `u` flag, and no pattern that can backtrack
   catastrophically.

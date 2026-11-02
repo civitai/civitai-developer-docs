@@ -169,6 +169,7 @@ layers. A CLI release from before the key reports it as an unknown property.
 | A schema over 16384 bytes of JSON, counted the way the server counts `JSON.stringify` | `storage.collections.<name>.schema` |
 | Schemas nested more than 16 deep | the innermost schema's location |
 | More than 16 patterns in one collection schema | `storage.collections.<name>.schema` |
+| More than 32 patterns across all of the manifest's collection schemas, counting every place one appears, in the collections that are otherwise valid | `storage.collections` |
 | `minLength`, `minItems` or `minimum` above its maximum | the lower bound's location |
 | A count keyword above 2^53 − 1 | that keyword's location |
 | A schema on a `write: "none"` collection, with the server's message beside the JSON Schema's bare `false schema` | `storage.collections.<name>.schema` |
