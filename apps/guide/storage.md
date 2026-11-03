@@ -367,7 +367,24 @@ A refusal is `400` with code `schema_violation`:
 }
 ```
 
-Checking offline:
+The server enforces the schema today. The offline checks below arrive in
+tooling releases that are not all out yet.
+
+Tooling versions that know the field:
+
+- `@civitai/sdk`: the first release after **0.22.0** names `schema_violation`
+  in `StorageErrorCode`, and its [`createFakeStorage`](#testing) and the local
+  preview enforce the schema. 0.22.0 and older do not check it.
+- `@civitai/app-sdk`: the first release after **0.80.1** types `schema` on a
+  collection and bundles a manifest schema that knows the key.
+- `civitai` CLI: the first release after **0.1.134** checks it in
+  `civitai app validate`. 0.1.134 and older refuse a manifest with `schema` as
+  an unknown property, in both `civitai app validate` and
+  `civitai app submit`. Until a newer CLI is out,
+  `civitai app submit --skip-validate` submits anyway, and the server
+  validates the schema at submit.
+
+Checking offline, with those releases:
 
 - **`createFakeStorage`** in `@civitai/sdk`, and the dev-tunnel
   [local preview](#local-development) built on it, enforce the schema the way
@@ -383,8 +400,6 @@ Checking offline:
   pattern RE2 does compile is not proven valid either: `(?i)x`, `\z` and `\pL`
   compile in RE2 and are refused by the server. The CLI does not check for
   catastrophic backtracking. See [Storage checks](./validate#storage).
-- A `civitai` CLI or SDK release from before `schema` refuses the key as an
-  unknown property or ignores it.
 
 ## Scopes and consent {#scopes-and-consent}
 
@@ -856,7 +871,8 @@ await codeOf(requestsIn(fake.storage).create({ title: FAKE_STORAGE_MODERATION.bl
   `modelVersions`, the ids that viewer owns; the default is none, so every id is
   refused, as the server refuses a version that is not the writer's:
   `fake.as({ viewer: { username: 'bob', modelVersions: [4317] } })`.
-- It enforces a collection's [`schema`](#collection-schemas) as the server does
+- From the first release after 0.22.0, it enforces a collection's
+  [`schema`](#collection-schemas) as the server does
   (`schema_violation`, the same pointers and messages), and throws when it is
   created on a schema the server would refuse, except for the server's check for
   catastrophic backtracking, which it does not run.

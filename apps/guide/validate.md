@@ -154,8 +154,14 @@ collection names, they are sorted, not in declaration order.
 
 ### Collection schemas {#storage-schema}
 
-A collection's [`schema`](./storage#collection-schemas) is checked in two
-layers. A CLI release from before the key reports it as an unknown property.
+These checks ship in the first `civitai` CLI release after **0.1.134**.
+0.1.134 and older report `schema` as an unknown property, so `validate`
+fails and `civitai app submit` refuses the manifest. Until a newer CLI is out,
+`civitai app submit --skip-validate` submits anyway; the server enforces the
+schema and validates it at submit.
+
+With that release, a collection's [`schema`](./storage#collection-schemas) is
+checked in two layers.
 
 - **The JSON Schema** checks the keyword subset (any other keyword is an
   unknown property at its location), each keyword's shape, a `pattern` of at
