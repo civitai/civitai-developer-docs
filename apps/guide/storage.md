@@ -11,6 +11,7 @@ sources:
   - civitai:src/server/services/apps/doc-store-api.ts
   - civitai:src/server/services/apps/doc-store-access.ts
   - civitai:src/server/services/apps/doc-store-ownership.ts
+  - civitai:src/server/services/apps/doc-store-schema.ts
   - civitai:src/server/services/apps/doc-store.ts
   - civitai:src/server/services/apps/doc-store.types.ts
   - civitai:src/server/utils/shared-storage-rate-limit.ts
@@ -108,6 +109,9 @@ Each collection declares:
 - **`ownedModelVersions`** — shared collections with `write: "own"` only. Fields
   of `data` that, when present, must hold a model version the writing viewer
   owns. See [Fields that must name the author's own model version](#owned-model-versions).
+- **`schema`** — optional, on any collection that holds documents. A JSON Schema
+  subset that every document's `data` must match. See
+  [A schema for each document](#collection-schemas).
 
 Renaming a collection or changing its visibility makes it a **new** collection,
 and the old one's documents are not moved into it. They are not deleted either:
@@ -245,6 +249,157 @@ Tooling versions that know the field:
   `StorageErrorCode`, and its [`createFakeStorage`](#testing) enforces the rule.
 - `@civitai/app-sdk` **0.73.0** or later types `ownedModelVersions` on a shared
   collection.
+
+### A schema for each document {#collection-schemas}
+
+A collection can declare **`schema`**, and the server then refuses any document
+whose `data` does not match it. Without a schema, a collection's documents are
+not checked, so existing apps are unaffected.
+
+```json
+{
+  "storage": {
+    "collections": {
+      "cards": {
+        "visibility": "private",
+        "schema": {
+          "type": "object",
+          "required": ["title"],
+          "additionalProperties": false,
+          "properties": {
+            "title": { "type": "string", "minLength": 1, "maxLength": 40 },
+            "tags": { "type": "array", "maxItems": 3, "items": { "enum": ["red", "green", "blue"] } }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+**Keywords.** Only a subset of JSON Schema exists here:
+
+- `type`: one of `object`, `array`, `string`, `number`, `integer`, `boolean`,
+  `null`, or a list of them.
+- Object keywords: `properties`, `required`, and `additionalProperties`
+  (`true`, `false` or a schema).
+- Array keywords: `items` (one schema for every element), `minItems`, `maxItems`.
+- String keywords: `minLength`, `maxLength`, `pattern`.
+- Number keywords: `minimum`, `maximum`.
+- Any type: `enum`, `const`, `description`.
+
+Any other keyword (`format`, `$ref`, `oneOf` and the rest) is refused, and the
+refusal names the keyword. A keyword the store would ignore can therefore never
+look enforced.
+
+**Bounds.** The [limits table](#limits) has the numbers:
+
+- the schema's size in bytes of JSON;
+- how many schemas may nest inside one another (the collection's own schema
+  counts as one);
+- how many `pattern`s it may declare, and how many all of the manifest's
+  collection schemas may declare together (every place a pattern appears
+  counts, even when the same pattern repeats);
+- each pattern's length.
+
+A schema with a `pattern` must also declare a `maxLength` on the same schema, so
+a pattern only ever runs against a bounded string. A pattern must compile as a
+JavaScript regular expression with the `u` flag. A pattern that can backtrack
+catastrophically (such as `^(a+)+$`) is refused. A `minLength`, `minItems` or
+`minimum` above its maximum is refused. A schema is not allowed on a
+`write: "none"` collection, which has no document bodies to check.
+
+**What it means.** The same rules apply to every evaluator, including the CLI's
+and the SDK's:
+
+- A keyword for another type is ignored: `minLength` says nothing about a number.
+- `integer` is a number with no fraction, and `number` includes integers.
+- `null` is its own type, and an array is not an `object`.
+- String lengths count code points, so an emoji is one character.
+- `pattern` is unanchored (write `^…$` to match the whole string) and is a
+  JavaScript regular expression with the `u` flag.
+- `enum` and `const` compare JSON values: `1` does not equal `"1"`, and object
+  key order does not matter.
+- `required` and `additionalProperties` look at the object's own keys only.
+
+**Which failure is reported.** When `data` fails in several places, only the
+**first** is reported. Within one schema the order is:
+
+1. `type`
+2. `const`, then `enum`
+3. the string, number and array keywords, with `maxLength` before `pattern`
+4. `items`, element by element
+5. `required`, in its declared order
+6. the object's own keys, in ascending order, each against its `properties`
+   entry or `additionalProperties`
+
+**When it is checked.**
+
+- On every create (`POST /{collection}`, `create`) and every replace
+  (`PUT /{collection}/{key}`, `put`).
+- A `put` replaces the whole body, so the check always sees the document that
+  would be stored. Send the whole merged document, not a patch.
+- Counters, marks and deletes do not write `data` and are not checked.
+- The check runs before the [`ownedModelVersions`](#owned-model-versions)
+  check, the minimum-trust gate, the shared write budget and
+  [moderation](#moderation). A refused write is not stored and spends none of
+  them.
+- Changing a collection's schema does not re-check the documents already
+  stored. Each one is checked the next time it is written, so a document
+  written under the old schema can be read but must match the new one to be
+  replaced.
+
+A refusal is `400` with code `schema_violation`:
+
+- `details.pointer` is the first failing JSON pointer (RFC 6901) into `data`.
+  `""` is the root. `~` and `/` in a key are escaped as `~0` and `~1`.
+- `details.keyword` is the keyword it failed.
+- `details.collection` is the collection.
+- The message names the pointer too. A pointer longer than 200 characters is cut
+  short in the message, but `details.pointer` always carries it whole.
+
+```json
+{
+  "code": "schema_violation",
+  "message": "document does not match the schema of collection cards at \"/tags/1\": must be one of the schema's enum values",
+  "error": "document does not match the schema of collection cards at \"/tags/1\": must be one of the schema's enum values",
+  "details": { "collection": "cards", "pointer": "/tags/1", "keyword": "enum" }
+}
+```
+
+The server enforces the schema today. The offline checks below arrive in
+tooling releases that are not all out yet.
+
+Tooling versions that know the field:
+
+- `@civitai/sdk`: the first release after **0.22.0** names `schema_violation`
+  in `StorageErrorCode`, and its [`createFakeStorage`](#testing) and the local
+  preview enforce the schema. 0.22.0 and older do not check it.
+- `@civitai/app-sdk`: the first release after **0.80.1** types `schema` on a
+  collection and bundles a manifest schema that knows the key.
+- `civitai` CLI: the first release after **0.1.134** checks it in
+  `civitai app validate`. 0.1.134 and older refuse a manifest with `schema` as
+  an unknown property, in both `civitai app validate` and
+  `civitai app submit`. Until a newer CLI is out,
+  `civitai app submit --skip-validate` submits anyway, and the server
+  validates the schema at submit.
+
+Checking offline, with those releases:
+
+- **`createFakeStorage`** in `@civitai/sdk`, and the dev-tunnel
+  [local preview](#local-development) built on it, enforce the schema the way
+  the server does: the same keywords, order, pointers and messages, and
+  patterns read as JavaScript `u`-flag regular expressions. When the fake is created, a
+  schema the server would refuse throws, with the server's message. It does not
+  run the server's check for catastrophic backtracking.
+- **`civitai app validate`** checks the subset and the bounds: the size, depth,
+  pattern count, min above max, and no schema on `write: "none"`. The CLI is
+  written in Go, whose regular-expression engine (RE2) is a different language
+  from JavaScript's. A pattern RE2 cannot compile, such as a lookahead, is a
+  **warning**: the CLI cannot check it, and the server decides at submit. A
+  pattern RE2 does compile is not proven valid either: `(?i)x`, `\z` and `\pL`
+  compile in RE2 and are refused by the server. The CLI does not check for
+  catastrophic backtracking. See [Storage checks](./validate#storage).
 
 ## Scopes and consent {#scopes-and-consent}
 
@@ -418,8 +573,8 @@ const { value } = await plays.increment('model-123', 'plays'); // creates the do
 |---|---|---|---|
 | Read a shared collection | anyone, signed out included | `apps:storage` | — |
 | Read a private collection, `info()`, `author: 'me'` / `markedBy: 'me'` lists | signed in | `apps:storage` | — |
-| Write or delete in a private collection | signed in | `apps:storage` | — |
-| Create or edit in a shared `"own"` collection | signed in | `apps:storage` + `apps:storage:publish` | the minimum-trust gate, moderation, the shared write budget, and the [`ownedModelVersions`](#owned-model-versions) check when declared (before moderation and the budget); editing another viewer's document is refused `not_author`, or `resource_not_owned` when its `data` carries a version the editor does not own |
+| Write or delete in a private collection | signed in | `apps:storage` | a write is checked against the collection's [`schema`](#collection-schemas) when declared |
+| Create or edit in a shared `"own"` collection | signed in | `apps:storage` + `apps:storage:publish` | the minimum-trust gate, moderation, the shared write budget, and the collection's [`schema`](#collection-schemas) and [`ownedModelVersions`](#owned-model-versions) checks when declared (in that order, before the trust gate, moderation and the budget); editing another viewer's document is refused `not_author`, or `schema_violation` / `resource_not_owned` first when its `data` fails those checks |
 | Delete in a shared `"own"` collection | signed in, the author | `apps:storage` | — |
 | Write a document in a `"none"` collection | — | — | refused `write_policy` for a signed-in viewer (a signed-out one gets `sign_in_required` first) |
 | `increment`, `mark`, `unmark` | signed in | `apps:storage` | the minimum-trust gate |
@@ -466,7 +621,7 @@ Every refusal has one shape, whichever layer refused:
 
 Branch on `code`; `message` is prose and `error` repeats it. `details` carries
 what the code needs (`currentVersion`, `reason`, `category`, `ceiling`,
-`bucket`, `pointer`, `retryAfter`). A refusal that names a wait sends a `Retry-After`
+`bucket`, `pointer`, `keyword`, `collection`, `retryAfter`). A refusal that names a wait sends a `Retry-After`
 header too, and a `429` also carries `rateLimit: { retryAfterSeconds, retryAt }`.
 
 In `@civitai/sdk` a refusal in this envelope is a `StorageError`, an `ApiError`
@@ -506,6 +661,7 @@ Every code the routes return, generated from the server's own table:
 |---|---|---|
 | `invalid_request` | 400 | The request is malformed: a bad key, body, query parameter, value or cursor, an increment or mark naming an undeclared counter or mark, a counter or mark on a private collection, or withdrawing a `report`. |
 | `index_not_declared` | 400 | A `where` or `sort` names a field, counter or mark the collection does not declare. |
+| `schema_violation` | 400 | The document's `data` does not match its collection's declared `schema`. The message and `details.pointer` name the first failing JSON pointer into `data` (`""` is the root); `details.keyword` names the keyword it failed and `details.collection` the collection. Nothing is stored and nothing is spent. |
 | `unauthenticated` | 401 | No usable token. |
 | `sign_in_required` | 401 | The operation needs a signed-in viewer: writes, marks, counters, `info`, any read of a private collection, and `author=me` / `markedBy=me` lists. |
 | `insufficient_scope` | 403 | The token does not carry `apps:storage`. |
@@ -563,6 +719,7 @@ SDK, and `info()` is what the running server enforces.
 | Declaration | Counters / marks per collection | 8 / 8 |
 | Declaration | Indexes per collection | 4, each a field path of up to 3 segments, typed `string`, `number`, `boolean`, `time` |
 | Declaration | Owned model-version fields (`ownedModelVersions`) | 1 to 4 distinct pointers per collection, each matching `^(/[A-Za-z_][A-Za-z0-9_]{0,63}){1,4}$`; shared collections with `write: "own"` only |
+| Declaration | Collection document schema (`schema`) | the keywords `type`, `properties`, `required`, `additionalProperties`, `items`, `enum`, `const`, `minLength`, `maxLength`, `pattern`, `minimum`, `maximum`, `minItems`, `maxItems`, `description`; at most 16,384 bytes (16 KiB) of JSON, 16 nested schemas and 16 patterns per collection, and 32 patterns across all of the manifest's collection schemas; a `pattern` of at most 256 characters, on a schema with a `maxLength` of at most 1,000; not on `write: "none"` |
 | Declaration | Built-in marks (never declared) | `report` |
 | Declaration | Refused by the server (not available yet) | `write: "anyone"`, `write: "owner"`, `kind: "log"` (and `maxEntries`), `ttlSeconds`, `dailyWritesPerAuthor` |
 | Quota | Per app | 52,428,800 bytes (50 MiB) and 1,000,000 documents |
@@ -714,6 +871,11 @@ await codeOf(requestsIn(fake.storage).create({ title: FAKE_STORAGE_MODERATION.bl
   `modelVersions`, the ids that viewer owns; the default is none, so every id is
   refused, as the server refuses a version that is not the writer's:
   `fake.as({ viewer: { username: 'bob', modelVersions: [4317] } })`.
+- From the first release after 0.22.0, it enforces a collection's
+  [`schema`](#collection-schemas) as the server does
+  (`schema_violation`, the same pointers and messages), and throws when it is
+  created on a schema the server would refuse, except for the server's check for
+  catastrophic backtracking, which it does not run.
 - It does not model moderator hides, the review namespace, or a failed
   ownership lookup (the server's retryable `503 service_unavailable`).
 
