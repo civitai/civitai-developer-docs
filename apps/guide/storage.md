@@ -2,9 +2,9 @@
 title: Storing data (document store)
 description: Keep an app's data on Civitai with the document store — declare collections in the manifest, the apps:storage, apps:storage:publish and apps:storage:import scopes, documents, conditional writes, lists, counters and marks, reaching another app's data through storage.imports and ?from=, what viewers can do with their own data, moderation, error codes, limits, local development, createFakeStorage, the REST routes, and moving off the legacy useAppStorage / useSharedStorage stores.
 sources:
-  - npm:@civitai/sdk@0.14.1/dist/doc-store/index.d.ts
-  - npm:@civitai/sdk@0.14.1/dist/doc-store/fake.d.ts
-  - npm:@civitai/sdk@0.14.1#README
+  - npm:@civitai/sdk@0.23.0/dist/doc-store/index.d.ts
+  - npm:@civitai/sdk@0.23.0/dist/doc-store/fake.d.ts
+  - npm:@civitai/sdk@0.23.0#README
   - civitai:public/schemas/app-block/v1.json#storage
   - civitai:public/schemas/app-block/storage-contract.v1.json
   - civitai:src/shared/constants/block-storage.constants.ts
@@ -375,24 +375,19 @@ A refusal is `400` with code `schema_violation`:
 }
 ```
 
-The server enforces the schema today. The offline checks below arrive in
-tooling releases that are not all out yet.
+The server enforces the schema whatever tooling you use. Tooling versions that
+know the field:
 
-Tooling versions that know the field:
-
-- `@civitai/sdk`: the first release after **0.22.0** names `schema_violation`
-  in `StorageErrorCode`, and its [`createFakeStorage`](#testing) and the local
+- `@civitai/sdk` **0.23.0** or later names `schema_violation` in
+  `StorageErrorCode`, and its [`createFakeStorage`](#testing) and the local
   preview enforce the schema. 0.22.0 and older do not check it.
-- `@civitai/app-sdk`: the first release after **0.80.1** types `schema` on a
-  collection and bundles a manifest schema that knows the key.
-- `civitai` CLI: the first release after **0.1.134** checks it in
-  `civitai app validate`. 0.1.134 and older refuse a manifest with `schema` as
-  an unknown property, in both `civitai app validate` and
-  `civitai app submit`. Until a newer CLI is out,
-  `civitai app submit --skip-validate` submits anyway, and the server
-  validates the schema at submit.
+- `@civitai/app-sdk` **0.81.0** or later types `schema` on a collection and
+  bundles a manifest schema that knows the key.
+- `civitai` CLI **0.1.135** or later checks it in `civitai app validate`.
+  0.1.134 and older refuse a manifest with `schema` as an unknown property, in
+  both `civitai app validate` and `civitai app submit`, so upgrade the CLI.
 
-Checking offline, with those releases:
+Checking offline, with those versions:
 
 - **`createFakeStorage`** in `@civitai/sdk`, and the dev-tunnel
   [local preview](#local-development) built on it, enforce the schema the way
@@ -696,9 +691,8 @@ viewer allows again:
 Ask with [`app.requestGrants(['apps:storage:import'])`](./sdk#consent-app-requestgrants).
 A token minted before the viewer's grant stopped covering the import can still
 carry the scope, so fetch a fresh token first (`app.getToken({ fresh: true })`).
-In `@civitai/sdk` 0.22.0 and older the `Scope` type does not list
-`apps:storage:import`, so TypeScript needs a cast there; the request itself is
-sent the same way.
+`@civitai/sdk` 0.23.0 or later lists `apps:storage:import` in its `Scope`
+type.
 
 **`apps:storage:publish`, in the source app.** A create, put, increment, mark or
 unmark in one of the source's **shared** collections changes what other viewers
@@ -757,7 +751,7 @@ separate key space that starts empty. A worked example, with each reply, is in
 
 Tooling versions that know imports:
 
-- `@civitai/sdk`: the first release after **0.22.0** takes
+- `@civitai/sdk` **0.23.0** or later takes
   `app.storage.collection(name, { from })` and sends `from` on every call it
   makes. When a write through it is refused for want of publish consent in the
   source, `app.storage` asks the host once and retries once on the next
@@ -765,22 +759,19 @@ Tooling versions that know imports:
   types the refusals, `app.requestGrants(['apps:storage:publish'], { from })`
   asks directly, and [`createFakeStorage`](#testing) serves imports. 0.22.0 and
   older have no `from` option: use REST.
-- `@civitai/app-sdk`: the first release after **0.80.1** types
+- `@civitai/app-sdk` **0.81.0** or later types
   `storage.imports`, `exportable` and the `apps:storage:import` scope, and
   bundles a manifest schema that knows them.
-- `@civitai/blocks-react`: the first release after **0.78.1** lets
+- `@civitai/blocks-react` **0.79.0** or later lets
   `useRequestConsent()` pass `from`.
-- `civitai` CLI: the first release after **0.1.134** checks `storage.imports` in
+- `civitai` CLI **0.1.135** or later checks `storage.imports` in
   `civitai app validate`, as the server does. 0.1.134 and older refuse a
   manifest with `storage.imports`, `exportable` or `apps:storage:import`, in
-  both `civitai app validate` and `civitai app submit`. Until a newer CLI is
-  out, `civitai app submit --skip-validate` submits anyway, and the server
-  validates the manifest.
+  both `civitai app validate` and `civitai app submit`, so upgrade the CLI.
 
-With the SDK release after 0.22.0:
+With `@civitai/sdk` 0.23.0 or later:
 
 ```ts
-// @ts-skip-snippet: collection(name, { from }) and storageImportRefusal arrive in the first @civitai/sdk release after 0.22.0, newer than the version these docs pin
 import { initialize, storageImportRefusal } from '@civitai/sdk';
 
 const app = await initialize();
@@ -1106,12 +1097,12 @@ await codeOf(requestsIn(fake.storage).create({ title: FAKE_STORAGE_MODERATION.bl
   `modelVersions`, the ids that viewer owns; the default is none, so every id is
   refused, as the server refuses a version that is not the writer's:
   `fake.as({ viewer: { username: 'bob', modelVersions: [4317] } })`.
-- From the first release after 0.22.0, it enforces a collection's
+- From 0.23.0, it enforces a collection's
   [`schema`](#collection-schemas) as the server does
   (`schema_violation`, the same pointers and messages), and throws when it is
   created on a schema the server would refuse, except for the server's check for
   catastrophic backtracking, which it does not run.
-- From the first release after 0.22.0, it serves [imports](#imports): pass
+- From 0.23.0, it serves [imports](#imports): pass
   `blockId` and `sources` (the other apps, each with its own manifest, `status`
   and `consent`) and `importGrants`, and act as a source with `as({ app })`.
   Its `requestGrants` option stands in for the host's prompt for publish

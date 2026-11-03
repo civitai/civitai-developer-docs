@@ -145,22 +145,24 @@ hard **error**:
 | A shared collection that uses one name for both a counter and a mark | `storage.collections.<name>` | Rename one of them. |
 | Collections declared without `apps:storage` in `scopes` | `scopes` | Add `apps:storage`, or remove `storage`. |
 | A shared collection that viewers write (`write: "own"`) without `apps:storage:publish` | `scopes` | Add the scope, with a `scopeJustifications` entry. |
-| `apps:storage` with no collection declared | `storage` | Declare the collections under `storage.collections`, or remove the scope. |
+| `apps:storage` with no collection or import declared | `storage` | Declare the collections under `storage.collections`, or remove the scope. |
 | `apps:storage:publish` with no shared `write: "own"` collection | `storage` | Remove the scope, or declare the collection it is for. |
+| Imports declared without `apps:storage:import`, or (with no collections of the app's own) without `apps:storage` (0.1.135 or later) | `scopes` | Add the scope, with a `scopeJustifications` entry for `apps:storage:import`. |
+| `apps:storage:import` with no import declared (0.1.135 or later) | `storage` | Declare the imports under `storage.imports`, or remove the scope. |
+| An import `from` this app itself, or a second import from the same app (0.1.135 or later) | `storage.imports[<i>].from` / `storage.imports[<i>]` | Declare the app's own collections instead; merge the two imports into one. |
 
-The four scope rules run only once the declaration itself has no errors: an
+The scope rules run only once the declaration itself has no errors: an
 invalid declaration declares nothing, as on the server. Where a message lists
 collection names, they are sorted, not in declaration order.
 
 ### Collection schemas {#storage-schema}
 
-These checks ship in the first `civitai` CLI release after **0.1.134**.
-0.1.134 and older report `schema` as an unknown property, so `validate`
-fails and `civitai app submit` refuses the manifest. Until a newer CLI is out,
-`civitai app submit --skip-validate` submits anyway; the server enforces the
-schema and validates it at submit.
+These checks ship in `civitai` CLI **0.1.135**. 0.1.134 and older report
+`schema` as an unknown property, so `validate` fails and `civitai app submit`
+refuses the manifest: upgrade the CLI. The server enforces the schema and
+validates it at submit either way.
 
-With that release, a collection's [`schema`](./storage#collection-schemas) is
+From 0.1.135, a collection's [`schema`](./storage#collection-schemas) is
 checked in two layers.
 
 - **The JSON Schema** checks the keyword subset (any other keyword is an

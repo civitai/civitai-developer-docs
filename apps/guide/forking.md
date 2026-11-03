@@ -133,7 +133,7 @@ pre-filled import does nothing until the code asks for the parent's
 collection by passing `from`:
 
 - over REST, `?from=<parent blockId>` on the collection route;
-- with the `@civitai/sdk` release after 0.22.0,
+- with `@civitai/sdk` 0.23.0 or later,
   `app.storage.collection(name, { from: '<parent blockId>' })`.
 
 What such a call does, the consents it needs, and every refusal are in
@@ -252,15 +252,17 @@ answers `200` with `{ "deleted": true }`.
 ## Publishing a fork {#publishing}
 
 A fork is published like any app ([Review, approval and deploy](./review-and-deploy)),
-with two things to know while the tooling catches up:
+with two things to check first:
 
-- **`civitai` CLI 0.1.134 and older refuse the pre-filled manifest**:
-  `storage.imports` and the `apps:storage:import` scope are unknown to them,
-  in both `civitai app validate` and `civitai app submit`. Until the first
-  release after 0.1.134, submit with `civitai app submit --skip-validate`;
-  the server validates the manifest. That release checks imports offline.
-- **Remove `iframe.src`** if the copy still has it (see
-  [How the manifest is rewritten](#manifest)).
+- **Use `civitai` CLI 0.1.135 or later.** It validates `storage.imports`,
+  `exportable` and the `apps:storage:import` scope offline. 0.1.134 and older
+  refuse the pre-filled manifest, in both `civitai app validate` and
+  `civitai app submit`.
+- **Delete `iframe.src` from `block.manifest.json`** if the copy still has it
+  (see [How the manifest is rewritten](#manifest)). `civitai app validate`
+  refuses it, and the server stamps the fork's own on submit, so there is
+  nothing to keep. Delete the key rather than reaching for
+  `civitai app submit --skip-validate`, which also skips every other check.
 
 Keep the `blockId` the fork was given if you want the "Forked from" credit
 ([above](#provenance)).
