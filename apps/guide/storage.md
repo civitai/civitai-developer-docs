@@ -1,10 +1,10 @@
 ---
 title: Storing data (document store)
-description: Keep an app's data on Civitai with the document store — declare collections in the manifest, the apps:storage and apps:storage:publish scopes, documents, conditional writes, lists, counters and marks, moderation, error codes, limits, local development, createFakeStorage, the REST routes, and moving off the legacy useAppStorage / useSharedStorage stores.
+description: Keep an app's data on Civitai with the document store — declare collections in the manifest, the apps:storage, apps:storage:publish and apps:storage:import scopes, documents, conditional writes, lists, counters and marks, reaching another app's data through storage.imports and ?from=, what viewers can do with their own data, moderation, error codes, limits, local development, createFakeStorage, the REST routes, and moving off the legacy useAppStorage / useSharedStorage stores.
 sources:
-  - npm:@civitai/sdk@0.14.1/dist/doc-store/index.d.ts
-  - npm:@civitai/sdk@0.14.1/dist/doc-store/fake.d.ts
-  - npm:@civitai/sdk@0.14.1#README
+  - npm:@civitai/sdk@0.23.0/dist/doc-store/index.d.ts
+  - npm:@civitai/sdk@0.23.0/dist/doc-store/fake.d.ts
+  - npm:@civitai/sdk@0.23.0#README
   - civitai:public/schemas/app-block/v1.json#storage
   - civitai:public/schemas/app-block/storage-contract.v1.json
   - civitai:src/shared/constants/block-storage.constants.ts
@@ -18,6 +18,10 @@ sources:
   - civitai:src/server/services/blocks/block-write-trust.service.ts
   - civitai:src/server/services/blocks/dev-scoped-mint.service.ts
   - civitai:src/server/routers/apps-mod-doc-store.router.ts
+  - civitai:src/server/services/apps/storage-import-grant.service.ts
+  - civitai:src/components/AppBlocks/BlockConsentModal.tsx
+  - civitai:src/components/Account/AppStorageCard.tsx
+  - civitai:src/shared/utils/app-storage-usage.ts
 ---
 
 # Storing data (document store)
@@ -112,6 +116,10 @@ Each collection declares:
 - **`schema`** — optional, on any collection that holds documents. A JSON Schema
   subset that every document's `data` must match. See
   [A schema for each document](#collection-schemas).
+- **`exportable`** — optional, `true` when omitted. Whether another app may
+  reach this collection, for a viewer who allows it, through an
+  [import](#imports). Set `false` on a collection no other app should reach:
+  every call to it through an import is then refused `not_exportable`.
 
 Renaming a collection or changing its visibility makes it a **new** collection,
 and the old one's documents are not moved into it. They are not deleted either:
@@ -367,24 +375,19 @@ A refusal is `400` with code `schema_violation`:
 }
 ```
 
-The server enforces the schema today. The offline checks below arrive in
-tooling releases that are not all out yet.
+The server enforces the schema whatever tooling you use. Tooling versions that
+know the field:
 
-Tooling versions that know the field:
-
-- `@civitai/sdk`: the first release after **0.22.0** names `schema_violation`
-  in `StorageErrorCode`, and its [`createFakeStorage`](#testing) and the local
+- `@civitai/sdk` **0.23.0** or later names `schema_violation` in
+  `StorageErrorCode`, and its [`createFakeStorage`](#testing) and the local
   preview enforce the schema. 0.22.0 and older do not check it.
-- `@civitai/app-sdk`: the first release after **0.80.1** types `schema` on a
-  collection and bundles a manifest schema that knows the key.
-- `civitai` CLI: the first release after **0.1.134** checks it in
-  `civitai app validate`. 0.1.134 and older refuse a manifest with `schema` as
-  an unknown property, in both `civitai app validate` and
-  `civitai app submit`. Until a newer CLI is out,
-  `civitai app submit --skip-validate` submits anyway, and the server
-  validates the schema at submit.
+- `@civitai/app-sdk` **0.81.0** or later types `schema` on a collection and
+  bundles a manifest schema that knows the key.
+- `civitai` CLI **0.1.135** or later checks it in `civitai app validate`.
+  0.1.134 and older refuse a manifest with `schema` as an unknown property, in
+  both `civitai app validate` and `civitai app submit`, so upgrade the CLI.
 
-Checking offline, with those releases:
+Checking offline, with those versions:
 
 - **`createFakeStorage`** in `@civitai/sdk`, and the dev-tunnel
   [local preview](#local-development) built on it, enforce the schema the way
@@ -403,12 +406,13 @@ Checking offline, with those releases:
 
 ## Scopes and consent {#scopes-and-consent}
 
-Two scopes:
+Three scopes:
 
 | Scope | Covers | Consent |
 |---|---|---|
 | `apps:storage` | everything except authoring shared documents: reads, the viewer's private collections, deleting documents the viewer wrote, marks and counters | consent-exempt |
 | `apps:storage:publish` | creating and editing documents in a shared collection whose `write` is `"own"` | consent-gated, and needs a `scopeJustifications` entry |
+| `apps:storage:import` | the viewer's documents in another app, through `storage.imports` ([Another app's data](#imports)) | consent-gated, and needs a `scopeJustifications` entry |
 
 The rules the server's manifest validation enforces at approval (only the
 `scopeJustifications` entry is checked earlier, when `civitai app submit`
@@ -417,7 +421,10 @@ uploads the version):
 - Declaring any collection requires `apps:storage`.
 - A shared collection with `write: "own"` requires `apps:storage:publish`.
   `write: "none"` does not: no viewer authors a document there.
-- Declaring either scope with nothing in `storage` for it to reach is refused.
+- Declaring any import requires `apps:storage:import`, and `apps:storage` too,
+  even when the app declares no collections of its own.
+- Declaring any of the three scopes with nothing in `storage` for it to reach is
+  refused.
 - `auth: "oauth"` cannot be declared alongside any `apps:storage*` scope.
 
 `apps:storage:publish` reaches the token only after the viewer agrees in the
@@ -592,6 +599,204 @@ viewer's account, not your app: a refusal is `not_eligible` with
 `email_unverified` or `account_too_new`. Treat it as a normal outcome and show
 the viewer why, rather than as an error.
 
+## Another app's data: imports {#imports}
+
+An app can read, and write, a viewer's documents in **another** app. A fork
+reaching the data its users already keep in the app it was forked from is the
+case this exists for ([Forking an app](./forking)). Declare each source app
+under `storage.imports`, then call that app's collection with
+`?from=<its blockId>`.
+
+```json
+{
+  "blockId": "my-notes-fork-ab12",
+  "scopes": ["apps:storage", "apps:storage:import"],
+  "scopeJustifications": {
+    "apps:storage:import": "This app is a fork of My Notes. It reads and updates the notes you already keep in My Notes."
+  },
+  "storage": {
+    "imports": [
+      { "from": "my-notes", "collections": ["notes", "board"], "access": "readwrite" }
+    ]
+  }
+}
+```
+
+Each import declares:
+
+- **`from`** — the source app's `blockId`. One import per source app, and never
+  the app itself.
+- **`collections`** — which of the source's collections the import reaches. A
+  name the source does not declare is refused when it is called,
+  `collection_not_declared` with `details.from`.
+- **`access`** — `"read"`, or `"readwrite"` to write as well. Through a `"read"`
+  import every write and delete is refused `write_policy` with
+  `details.reason: "import_read_only"`.
+
+`storage.collections` is optional once `storage.imports` is there: an app that
+only reaches other apps' data declares no collections of its own. The bounds
+are in the [limits table](#limits).
+
+### What a call through an import does {#import-calls}
+
+Every collection route takes `?from=`, with the same method, path, body and
+reply. `info` does not: it refuses `from` as an unknown query parameter, so a
+source app's limits and usage cannot be read through an import.
+
+- **It runs in the source app, as the same viewer**, in the source's production
+  data. A private collection holds that viewer's own documents in the source,
+  and a shared one reads as the source shows it to them. A write follows the
+  source collection's `write` policy and [`schema`](#collection-schemas), is
+  stored with the viewer as its author, and counts toward the source's
+  [quotas](#limits).
+- **It is charged twice.** Each call is first charged to the calling app's read
+  limit for the viewer. After that it is gated as a call made in the source:
+  the source's rate limits, shared write budget, minimum-trust gate and
+  [moderation](#moderation) all apply.
+- **It needs a signed-in viewer**, for reads of shared collections too
+  (`sign_in_required`).
+- **It goes one hop.** A source app's own imports are never followed.
+- **It needs an ordinary token** of an approved app, in production. A
+  `civitai app dev-token` token, a dev-tunnel preview, a hub token and a
+  moderator's review run are refused `not_eligible`, with `details.reason`
+  `import_dev_token`, `import_hub_token`, `import_in_review` or
+  `import_namespace`. Imports therefore cannot be tried with a dev token: test
+  against [`createFakeStorage`](#testing), then on the approved app.
+- **The source must be available.** It must be an approved app
+  (`source_not_approved` otherwise). A mature-rated source is refused on a host
+  that cannot show it (`import_source_rating`). A collection the source
+  declares `exportable: false` is refused `not_exportable`.
+
+### Two consents {#import-consent}
+
+**`apps:storage:import`, in your app.** The consent prompt lists each source app
+and its collections, and says whether your app "reads" them or "reads and
+changes" them. The grant is recorded per viewer, per your app and per source
+app, with the collections and access the viewer was shown. When a newer version
+of your app imports more (another collection, or `"read"` widened to
+`"readwrite"`), the old grant does not cover it, and calls are refused
+`consent_required` with
+`details: { "scope": "apps:storage:import", "from": "<source>" }` until the
+viewer allows again:
+
+```json
+{
+  "code": "consent_required",
+  "message": "apps:storage:import has not been granted",
+  "error": "apps:storage:import has not been granted",
+  "details": { "scope": "apps:storage:import", "from": "my-notes" }
+}
+```
+
+Ask with [`app.requestGrants(['apps:storage:import'])`](./sdk#consent-app-requestgrants),
+and pass a `signal` to bound the wait: without `from` it has no timeout of its
+own, and a viewer who presses "Not now" sends nothing. A token minted before the viewer's grant stopped covering the import can still
+carry the scope, so fetch a fresh token first (`app.getToken({ fresh: true })`).
+`@civitai/sdk` 0.23.0 or later lists `apps:storage:import` in its `Scope`
+type.
+
+**`apps:storage:publish`, in the source app.** A create, put, increment, mark or
+unmark in one of the source's **shared** collections changes what other viewers
+of the source see, so it also needs the viewer's own `apps:storage:publish`
+grant **in the source app**. The import grant is not that consent, and your
+app's own publish grant is never consulted. Without it the write is refused
+`consent_required` with
+`details: { "scope": "apps:storage:publish", "from": "<source>" }`. Neither a
+delete nor a write to the viewer's private collections in the source needs it.
+The source app's own approved manifest must declare `apps:storage:publish`, or
+the grant cannot be given, and an app can declare that scope only when it has a
+shared collection with `write: "own"`. The rule covers counters and marks in a
+`write: "none"` collection too, so when the source's only shared collections
+are `write: "none"`, a vote, like or count through an import is always refused.
+
+To ask for it, the block sends
+`REQUEST_CONSENT { scopes: ['apps:storage:publish'], from: '<source blockId>' }`,
+with exactly that one scope:
+
+- On the app page (`/apps/run/<slug>`) the host opens the consent prompt **for
+  the source app**. The prompt names the source app and tells the viewer that
+  what your app adds there appears publicly under their account. It also tells
+  them that the permission is given to the source app, so the source app can
+  do the same. On **Allow** the host re-mints the token and pushes
+  `TOKEN_REFRESH`. Retry the write then; the token's scopes do not change,
+  because the grant is the source's.
+- For a `from` your app does not import with `"readwrite"`, the prompt offers
+  nothing to allow. A request that is malformed (another scope alongside, or a
+  `from` that is not a blockId) gets `CONSENT_UNAVAILABLE`.
+- In a model slot the host answers `CONSENT_UNAVAILABLE` and opens nothing.
+
+::: warning "Not now" sends nothing
+When the viewer presses **Not now**, the host sends the block no message at all.
+The block cannot tell a dismissed prompt from one still open, and a
+`TOKEN_REFRESH` the host pushes for its own reasons looks the same as one that
+follows an Allow. So retry the write once after the next `TOKEN_REFRESH`, treat
+that retry's answer as the authority (a refusal means no grant), give up after
+a timeout, and do not ask again until the viewer acts again.
+:::
+
+### Calling it {#import-rest}
+
+Over REST, add `from` to the query string. This works with any client today:
+
+```bash
+# The viewer's notes in my-notes, read by my-notes-fork-ab12 with its own block token
+curl -s "https://civitai.com/api/v1/blocks/storage/notes?from=my-notes&limit=20" \
+  -H "Authorization: Bearer $BLOCK_TOKEN"
+
+# Write one, as the viewer, into my-notes
+curl -s -X PUT "https://civitai.com/api/v1/blocks/storage/notes/n1?from=my-notes" \
+  -H "Authorization: Bearer $BLOCK_TOKEN" -H "Content-Type: application/json" \
+  -d '{"data":{"value":{"text":"Carried over from the original app"}}}'
+```
+
+The same call without `from` reaches your app's own `notes` collection, a
+separate key space that starts empty. A worked example, with each reply, is in
+[Forking an app](./forking#worked-example).
+
+Tooling versions that know imports:
+
+- `@civitai/sdk` **0.23.0** or later takes
+  `app.storage.collection(name, { from })` and sends `from` on every call it
+  makes. When a write through it is refused for want of publish consent in the
+  source, `app.storage` asks the host once and retries once on the next
+  host-pushed `TOKEN_REFRESH`, within 60 seconds. `storageImportRefusal(error)`
+  types the refusals, `app.requestGrants(['apps:storage:publish'], { from })`
+  asks directly, and [`createFakeStorage`](#testing) serves imports. 0.22.0 and
+  older have no `from` option: use REST.
+- `@civitai/app-sdk` **0.81.0** or later types
+  `storage.imports`, `exportable` and the `apps:storage:import` scope, and
+  bundles a manifest schema that knows them.
+- `@civitai/blocks-react` **0.79.0** or later lets
+  `useRequestConsent()` pass `from`.
+- `civitai` CLI **0.1.135** or later checks `storage.imports` in
+  `civitai app validate`, as the server does. 0.1.134 and older refuse a
+  manifest with `storage.imports`, `exportable` or `apps:storage:import`, in
+  both `civitai app validate` and `civitai app submit`, so upgrade the CLI.
+
+With `@civitai/sdk` 0.23.0 or later:
+
+```ts
+import { initialize, storageImportRefusal } from '@civitai/sdk';
+
+const app = await initialize();
+const notes = app.storage.collection<{ value: { text: string } }>('notes', { from: 'my-notes' });
+
+try {
+  await notes.put('n1', { value: { text: 'Carried over from the original app' } });
+} catch (error) {
+  const refusal = storageImportRefusal(error);
+  if (refusal?.kind !== 'import_consent') throw error;
+  await app.getToken({ fresh: true });
+  // "Not now" sends nothing, so bound the wait; a timeout rejects, and counts as "no".
+  const granted = await app
+    .requestGrants(['apps:storage:import'], { signal: AbortSignal.timeout(60_000) })
+    .catch(() => false);
+  if (granted) {
+    await notes.put('n1', { value: { text: 'Carried over from the original app' } });
+  }
+}
+```
+
 ## Moderation {#moderation}
 
 Every create or edit in a shared collection is scanned before it is stored:
@@ -621,7 +826,7 @@ Every refusal has one shape, whichever layer refused:
 
 Branch on `code`; `message` is prose and `error` repeats it. `details` carries
 what the code needs (`currentVersion`, `reason`, `category`, `ceiling`,
-`bucket`, `pointer`, `keyword`, `collection`, `retryAfter`). A refusal that names a wait sends a `Retry-After`
+`bucket`, `pointer`, `keyword`, `collection`, `scope`, `from`, `retryAfter`). A refusal that names a wait sends a `Retry-After`
 header too, and a `429` also carries `rateLimit: { retryAfterSeconds, retryAt }`.
 
 In `@civitai/sdk` a refusal in this envelope is a `StorageError`, an `ApiError`
@@ -659,19 +864,21 @@ Every code the routes return, generated from the server's own table:
 
 | Code | HTTP | Meaning |
 |---|---|---|
-| `invalid_request` | 400 | The request is malformed: a bad key, body, query parameter, value or cursor, an increment or mark naming an undeclared counter or mark, a counter or mark on a private collection, or withdrawing a `report`. |
+| `invalid_request` | 400 | The request is malformed: a bad key, body, query parameter (a `from` that is not a blockId included), value or cursor, an increment or mark naming an undeclared counter or mark, a counter or mark on a private collection, or withdrawing a `report`. |
 | `index_not_declared` | 400 | A `where` or `sort` names a field, counter or mark the collection does not declare. |
 | `schema_violation` | 400 | The document's `data` does not match its collection's declared `schema`. The message and `details.pointer` name the first failing JSON pointer into `data` (`""` is the root); `details.keyword` names the keyword it failed and `details.collection` the collection. Nothing is stored and nothing is spent. |
 | `unauthenticated` | 401 | No usable token. |
-| `sign_in_required` | 401 | The operation needs a signed-in viewer: writes, marks, counters, `info`, any read of a private collection, and `author=me` / `markedBy=me` lists. |
+| `sign_in_required` | 401 | The operation needs a signed-in viewer: writes, marks, counters, `info`, any read of a private collection, `author=me` / `markedBy=me` lists, and every call through an import (`?from=`), shared reads included. |
 | `insufficient_scope` | 403 | The token does not carry `apps:storage`. |
-| `consent_required` | 403 | The viewer has not granted `apps:storage:publish`, or withdrew a consent-gated scope. Ask with `requestGrants`. |
-| `not_eligible` | 403 | The app or the viewer cannot use storage here. `details.reason` says which, for example `app_not_approved` or `account_too_new`. |
+| `consent_required` | 403 | The viewer has not granted a consent-gated scope the call needs, or withdrew it: `apps:storage:publish` for a shared write; through an import, `apps:storage:import` (or a grant that does not cover what this version imports), or `apps:storage:publish` in the source app. `details.scope`, when present, names the scope, and `details.from` the source app. Ask with `requestGrants`. |
+| `import_not_declared` | 403 | A call through an import (`?from=`) names a source app or collection that the app's approved manifest does not import, or names the app itself. |
+| `not_exportable` | 403 | Through an import: the source app declares the collection `exportable: false`. |
+| `not_eligible` | 403 | The app or the viewer cannot use storage here. `details.reason` says which, for example `app_not_approved` or `account_too_new`; through an import, also `import_dev_token`, `import_hub_token`, `import_in_review`, `import_namespace`, `source_not_approved` or `import_source_rating`. |
 | `not_author` | 403 | Only a document's author may change or delete it. |
-| `write_policy` | 403 | The collection's `write` policy does not let viewers write documents. |
+| `write_policy` | 403 | The collection's `write` policy does not let viewers write documents, or the import is read-only (`details.reason` `import_read_only`). |
 | `resource_not_owned` | 403 | A field the collection declares in `ownedModelVersions` holds a model version the writing viewer does not own (or one that does not exist, is deleted, or is not a positive integer). `details.pointer` names the field. |
 | `not_found` | 404 | No such document (hidden documents read the same way), or no such route. |
-| `collection_not_declared` | 404 | The collection is not declared in the app's approved manifest (in a moderator's review run, the pending one). |
+| `collection_not_declared` | 404 | The collection is not declared in the app's approved manifest (in a moderator's review run, the pending one). Through an import, the source app does not declare it, and `details.from` names the source. |
 | `version_conflict` | 409 | An `ifVersion` write found another version. `details.currentVersion` is the one stored. |
 | `index_building` | 409 | Declared for a later phase; not raised today. |
 | `cursor_expired` | 410 | Declared for a later phase; not raised today. |
@@ -720,6 +927,8 @@ SDK, and `info()` is what the running server enforces.
 | Declaration | Indexes per collection | 4, each a field path of up to 3 segments, typed `string`, `number`, `boolean`, `time` |
 | Declaration | Owned model-version fields (`ownedModelVersions`) | 1 to 4 distinct pointers per collection, each matching `^(/[A-Za-z_][A-Za-z0-9_]{0,63}){1,4}$`; shared collections with `write: "own"` only |
 | Declaration | Collection document schema (`schema`) | the keywords `type`, `properties`, `required`, `additionalProperties`, `items`, `enum`, `const`, `minLength`, `maxLength`, `pattern`, `minimum`, `maximum`, `minItems`, `maxItems`, `description`; at most 16,384 bytes (16 KiB) of JSON, 16 nested schemas and 16 patterns per collection, and 32 patterns across all of the manifest's collection schemas; a `pattern` of at most 256 characters, on a schema with a `maxLength` of at most 1,000; not on `write: "none"` |
+| Declaration | Imports (`storage.imports`) | at most 8, one per source app and never the app itself, each naming 1 to 16 distinct collections, with `access` `"read"` or `"readwrite"` |
+| Declaration | An import's source (`from`) | the source app's `blockId`, matching `^[a-z][a-z0-9-]{1,38}[a-z0-9]$` |
 | Declaration | Built-in marks (never declared) | `report` |
 | Declaration | Refused by the server (not available yet) | `write: "anyone"`, `write: "owner"`, `kind: "log"` (and `maxEntries`), `ttlSeconds`, `dailyWritesPerAuthor` |
 | Quota | Per app | 52,428,800 bytes (50 MiB) and 1,000,000 documents |
@@ -770,6 +979,31 @@ The same app sees different data depending on who is running it:
 Quotas count each namespace separately. When a moderator wipes an account's
 content, that account's documents and marks are removed from every app's store
 too.
+
+## Your users control their data {#user-controls}
+
+Viewers can see and remove what apps keep for them, without your app's help:
+
+- **Account settings → Security & Apps → App storage** lists every app the
+  viewer keeps production data in, with a bar for their use of that app's
+  per-viewer [quota](#limits), and a **Near limit** badge from 80% of either
+  the bytes or the documents.
+- On the app page, the host shows the viewer a notice when they are at 80% or
+  more of either, checked once each time the app is opened.
+- **Empty** deletes the viewer's private documents in one app. A checkbox,
+  off by default, also deletes the shared documents they wrote there, which
+  disappear for every viewer along with the marks on them. Counter documents
+  their increments created, documents moderation hid, and the marks they set on
+  other viewers' documents stay.
+- **Deleting a Civitai account** offers "Also delete my data in apps", off by
+  default. Ticked, the account's private documents, the shared documents it
+  wrote, and its marks are removed from every app 7 days after the deletion.
+  Restoring the account in that time cancels the removal, and a legal hold on
+  the account postpones it for as long as the hold stands.
+
+So a document your app wrote for a viewer can be gone the next time they open
+it, and a shared list can get shorter. Treat a `null` from `get` and a missing
+key as normal states, not errors.
 
 ## Local development {#local-development}
 
@@ -871,11 +1105,17 @@ await codeOf(requestsIn(fake.storage).create({ title: FAKE_STORAGE_MODERATION.bl
   `modelVersions`, the ids that viewer owns; the default is none, so every id is
   refused, as the server refuses a version that is not the writer's:
   `fake.as({ viewer: { username: 'bob', modelVersions: [4317] } })`.
-- From the first release after 0.22.0, it enforces a collection's
+- From 0.23.0, it enforces a collection's
   [`schema`](#collection-schemas) as the server does
   (`schema_violation`, the same pointers and messages), and throws when it is
   created on a schema the server would refuse, except for the server's check for
   catastrophic backtracking, which it does not run.
+- From 0.23.0, it serves [imports](#imports): pass
+  `blockId` and `sources` (the other apps, each with its own manifest, `status`
+  and `consent`) and `importGrants`, and act as a source with `as({ app })`.
+  Its `requestGrants` option stands in for the host's prompt for publish
+  consent in a source. A `token: 'dev'` caller is refused every import, as on
+  the server.
 - It does not model moderator hides, the review namespace, or a failed
   ownership lookup (the server's retryable `503 service_unavailable`).
 
@@ -903,7 +1143,8 @@ exposed.
 
 A list takes these query parameters, each at most once:
 `where[<index>]=<value>`, `sort`, `author=me`, `markedBy=me` with `mark`,
-`keyPrefix`, `limit` and `cursor`. A `where` value is read by the index's
+`keyPrefix`, `limit` and `cursor`. Every route but `info` also takes `from`,
+to reach another app's collection through an [import](#imports). A `where` value is read by the index's
 declared type: a number for `number`, `true` or `false` for `boolean`, and an
 ISO-8601 string or epoch milliseconds for `time`. Any other query parameter, on
 any route, is refused `invalid_request` rather than ignored. A path that exists
@@ -1026,6 +1267,7 @@ before then.
 ## Related
 
 - [The `@civitai/sdk` client](./sdk) — `initialize()`, consent and the rest of `app`.
-- [Scopes reference](../reference/scopes) — `apps:storage` and `apps:storage:publish` beside every other scope.
+- [Forking an app](./forking) — what a fork starts with, and how it reaches its parent's data.
+- [Scopes reference](../reference/scopes) — `apps:storage`, `apps:storage:publish` and `apps:storage:import` beside every other scope.
 - [Manifest reference](../reference/manifest) — the `storage` property, each collection field, and their bounds.
 - [Local dev loop](./local-dev) — the harness modes.

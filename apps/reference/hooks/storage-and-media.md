@@ -9,7 +9,7 @@ description: "Per-app and shared storage, wildcard packs and workflow files, che
 
 Per-app and shared storage, wildcard packs and workflow files, checkpoint, resource and image pickers, uploading images and other media, saving images, and creating posts.
 
-This page documents 12 of the 49 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.78.1` package's type definitions and README.
+This page documents 12 of the 49 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.79.0` package's type definitions and README.
 
 Other pages: [Context, frame and analytics hooks](./context) · [Generation hooks](./generation) · [Batch, confirmed-step and training hooks](./batches-and-training) · [Buzz, purchase and tip hooks](./buzz-and-purchases) · [Viewer, consent and navigation hooks](./viewer-and-navigation)
 

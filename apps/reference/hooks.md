@@ -2,9 +2,9 @@
 title: Hooks reference
 description: Every @civitai/blocks-react hook, indexed by name and linked to the topic page that documents it — signature, example and README notes, generated from the published package.
 sources:
-  - npm:@civitai/blocks-react@0.78.1/dist/index.d.ts
-  - npm:@civitai/blocks-react@0.78.1#README
-  - npm:@civitai/app-sdk@0.80.0/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.79.0/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.79.0#README
+  - npm:@civitai/app-sdk@0.81.0/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
 
@@ -167,7 +167,7 @@ same `estimate → submit → watch` lifecycle
 [`useBuzzWorkflow`](./hooks/generation#hook-useBuzzWorkflow) documents. `training` is quoted with
 `estimate()` but run with `useRunTraining()`, and `submit()` refuses it.
 
-As of the pinned `@civitai/app-sdk@0.80.0` the union has five `kind` values, and
+As of the pinned `@civitai/app-sdk@0.81.0` the union has five `kind` values, and
 `kind: 'step'` is itself two arms — six members in all:
 
 | `kind` | what it runs | what your block sends |

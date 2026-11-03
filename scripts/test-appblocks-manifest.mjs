@@ -71,7 +71,9 @@ check('visibility row: required within a collection, enum type', () => {
 check('collections map row carries its size bounds and key pattern', () => {
   const r = row('storage.collections');
   assert(r, 'no storage.collections row');
-  assertEqual(r.required, true, 'required (within storage)');
+  // Not required since civitai#7494: `storage` takes `collections`, `imports` or both
+  // (`anyOf`), so an app that only imports another app's data declares no collections.
+  assertEqual(r.required, false, 'required (within storage)');
   assertEqual(r.constraints, 'minProperties 1, maxProperties 16, key pattern: ^[a-z][a-z0-9_]{0,31}$', 'constraints');
 });
 
@@ -93,7 +95,7 @@ check('nested rows sit directly after `storage`, in schema order', () => {
   const nested = rows.slice(at + 1, rows.findIndex((r, i) => i > at && !r.field.startsWith('storage.')));
   assertEqual(
     nested.map((r) => r.field.replace('storage.collections.<name>.', '')).join(','),
-    'storage.collections,kind,visibility,write,counters,marks,indexes,showAuthor,ttlSeconds,maxEntries,dailyWritesPerAuthor,ownedModelVersions',
+    'storage.imports,storage.collections,kind,visibility,write,counters,marks,indexes,showAuthor,ttlSeconds,maxEntries,dailyWritesPerAuthor,exportable,ownedModelVersions,schema',
     'nested row order',
   );
 });
