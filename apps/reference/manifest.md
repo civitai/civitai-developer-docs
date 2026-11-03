@@ -267,18 +267,11 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
 
   The semantics, which failure counts as first, and the error are in
   [A schema for each document](../guide/storage#collection-schemas).
-- **`storage.imports`** (enforced) — optional. Collections of **other** apps
-  this app reaches as the viewer, such as a fork reaching its parent's data:
-  an array of `{ from, collections, access }`, where `from` is the source
-  app's `blockId`, `collections` names 1 to 16 of its collections, and
-  `access` is `"read"` or `"readwrite"`. At most 8, one per source app, never
-  the app itself. Declaring it requires the consent-gated
-  `apps:storage:import` scope with a `scopeJustifications` entry, and
-  `apps:storage`. With it, `storage.collections` becomes optional. See
+- **`storage.imports`** (enforced) — once it is declared,
+  `storage.collections` becomes optional: an app that only reaches other apps'
+  data declares no collections of its own. What a call through an import does,
+  and its two consents, are in
   [Another app's data: imports](../guide/storage#imports).
-- **`storage.collections.<name>.exportable`** (enforced) — optional boolean,
-  `true` when omitted. `false` refuses every other app's import of the
-  collection.
 
 ### Sizing `page.buzzBudgetPerGen`
 

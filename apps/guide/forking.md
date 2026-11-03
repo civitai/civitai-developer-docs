@@ -82,10 +82,9 @@ parent's:
 - **`repository`** is removed: it is the parent's source link, and left in it
   would show on the fork's store page as the fork's.
 - **`iframe.src`** is removed. It is [server-owned](../reference/manifest#server-owned-fields),
-  and the server stamps the fork's own on submit. This step arrives with a
-  civitai.com release newer than the one live at the time of writing: until it
-  is out, the copy still carries the parent's `iframe.src`, which
-  `civitai app validate` refuses. If your copy has one, delete the key by hand.
+  and the server stamps the fork's own on submit. A fork started from an older
+  copy can still carry the parent's `iframe.src`, which `civitai app validate`
+  refuses: delete it, and the platform sets your own.
 - **`storage.imports`** gains an import from the parent: every collection the
   parent declares that is not `exportable: false` (at most 16), with
   `access: "readwrite"`. `scopes` gains `apps:storage` and
@@ -146,7 +145,10 @@ What such a call does, the consents it needs, and every refusal are in
   `schema`, write policy, quotas and limits.
 - Writing to the parent's **shared** collections (create, put, increment, mark,
   unmark) also needs the viewer's `apps:storage:publish` **in the parent**. A
-  delete does not.
+  delete does not. The parent can only be granted that scope if it declares it,
+  which needs a shared `write: "own"` collection, so when its only shared
+  collections are `write: "none"`, votes, likes and counts through the import
+  never work.
 
 Decide what the fork needs. Change `access` to `"read"` to copy entries over
 without ever writing back, name fewer collections, or remove the import and
@@ -258,11 +260,12 @@ with two things to check first:
   `exportable` and the `apps:storage:import` scope offline. 0.1.134 and older
   refuse the pre-filled manifest, in both `civitai app validate` and
   `civitai app submit`.
-- **Delete `iframe.src` from `block.manifest.json`** if the copy still has it
-  (see [How the manifest is rewritten](#manifest)). `civitai app validate`
-  refuses it, and the server stamps the fork's own on submit, so there is
-  nothing to keep. Delete the key rather than reaching for
-  `civitai app submit --skip-validate`, which also skips every other check.
+- **Delete `iframe.src` from `block.manifest.json`** if the copy has it: a
+  fork started from an older copy can still carry the parent's. `civitai app
+  validate` refuses it and the platform sets your own, so there is nothing to
+  keep (see [How the manifest is rewritten](#manifest)). Delete the key rather
+  than reaching for `civitai app submit --skip-validate`, which also skips
+  every other check.
 
 Keep the `blockId` the fork was given if you want the "Forked from" credit
 ([above](#provenance)).

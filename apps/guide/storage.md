@@ -688,8 +688,9 @@ viewer allows again:
 }
 ```
 
-Ask with [`app.requestGrants(['apps:storage:import'])`](./sdk#consent-app-requestgrants).
-A token minted before the viewer's grant stopped covering the import can still
+Ask with [`app.requestGrants(['apps:storage:import'])`](./sdk#consent-app-requestgrants),
+and pass a `signal` to bound the wait: without `from` it has no timeout of its
+own, and a viewer who presses "Not now" sends nothing. A token minted before the viewer's grant stopped covering the import can still
 carry the scope, so fetch a fresh token first (`app.getToken({ fresh: true })`).
 `@civitai/sdk` 0.23.0 or later lists `apps:storage:import` in its `Scope`
 type.
@@ -703,7 +704,10 @@ app's own publish grant is never consulted. Without it the write is refused
 `details: { "scope": "apps:storage:publish", "from": "<source>" }`. Neither a
 delete nor a write to the viewer's private collections in the source needs it.
 The source app's own approved manifest must declare `apps:storage:publish`, or
-the grant cannot be given.
+the grant cannot be given, and an app can declare that scope only when it has a
+shared collection with `write: "own"`. The rule covers counters and marks in a
+`write: "none"` collection too, so when the source's only shared collections
+are `write: "none"`, a vote, like or count through an import is always refused.
 
 To ask for it, the block sends
 `REQUEST_CONSENT { scopes: ['apps:storage:publish'], from: '<source blockId>' }`,
@@ -783,7 +787,11 @@ try {
   const refusal = storageImportRefusal(error);
   if (refusal?.kind !== 'import_consent') throw error;
   await app.getToken({ fresh: true });
-  if (await app.requestGrants(['apps:storage:import'])) {
+  // "Not now" sends nothing, so bound the wait; a timeout rejects, and counts as "no".
+  const granted = await app
+    .requestGrants(['apps:storage:import'], { signal: AbortSignal.timeout(60_000) })
+    .catch(() => false);
+  if (granted) {
     await notes.put('n1', { value: { text: 'Carried over from the original app' } });
   }
 }
@@ -860,7 +868,7 @@ Every code the routes return, generated from the server's own table:
 | `index_not_declared` | 400 | A `where` or `sort` names a field, counter or mark the collection does not declare. |
 | `schema_violation` | 400 | The document's `data` does not match its collection's declared `schema`. The message and `details.pointer` name the first failing JSON pointer into `data` (`""` is the root); `details.keyword` names the keyword it failed and `details.collection` the collection. Nothing is stored and nothing is spent. |
 | `unauthenticated` | 401 | No usable token. |
-| `sign_in_required` | 401 | The operation needs a signed-in viewer: writes, marks, counters, `info`, any read of a private collection, and `author=me` / `markedBy=me` lists. |
+| `sign_in_required` | 401 | The operation needs a signed-in viewer: writes, marks, counters, `info`, any read of a private collection, `author=me` / `markedBy=me` lists, and every call through an import (`?from=`), shared reads included. |
 | `insufficient_scope` | 403 | The token does not carry `apps:storage`. |
 | `consent_required` | 403 | The viewer has not granted a consent-gated scope the call needs, or withdrew it: `apps:storage:publish` for a shared write; through an import, `apps:storage:import` (or a grant that does not cover what this version imports), or `apps:storage:publish` in the source app. `details.scope`, when present, names the scope, and `details.from` the source app. Ask with `requestGrants`. |
 | `import_not_declared` | 403 | A call through an import (`?from=`) names a source app or collection that the app's approved manifest does not import, or names the app itself. |
@@ -990,8 +998,8 @@ Viewers can see and remove what apps keep for them, without your app's help:
 - **Deleting a Civitai account** offers "Also delete my data in apps", off by
   default. Ticked, the account's private documents, the shared documents it
   wrote, and its marks are removed from every app 7 days after the deletion.
-  Restoring the account in that time, or a hold placed on it, stops the
-  removal.
+  Restoring the account in that time cancels the removal, and a legal hold on
+  the account postpones it for as long as the hold stands.
 
 So a document your app wrote for a viewer can be gone the next time they open
 it, and a shared list can get shorter. Treat a `null` from `get` and a missing

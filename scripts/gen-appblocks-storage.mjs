@@ -232,7 +232,7 @@ const MEANING = {
   invalid_request: 'The request is malformed: a bad key, body, query parameter (a `from` that is not a blockId included), value or cursor, an increment or mark naming an undeclared counter or mark, a counter or mark on a private collection, or withdrawing a `report`.',
   index_not_declared: 'A `where` or `sort` names a field, counter or mark the collection does not declare.',
   unauthenticated: 'No usable token.',
-  sign_in_required: 'The operation needs a signed-in viewer: writes, marks, counters, `info`, any read of a private collection, and `author=me` / `markedBy=me` lists.',
+  sign_in_required: 'The operation needs a signed-in viewer: writes, marks, counters, `info`, any read of a private collection, `author=me` / `markedBy=me` lists, and every call through an import (`?from=`), shared reads included.',
   insufficient_scope: 'The token does not carry `apps:storage`.',
   consent_required: 'The viewer has not granted a consent-gated scope the call needs, or withdrew it: `apps:storage:publish` for a shared write; through an import, `apps:storage:import` (or a grant that does not cover what this version imports), or `apps:storage:publish` in the source app. `details.scope`, when present, names the scope, and `details.from` the source app. Ask with `requestGrants`.',
   import_not_declared: 'A call through an import (`?from=`) names a source app or collection that the app\'s approved manifest does not import, or names the app itself.',
