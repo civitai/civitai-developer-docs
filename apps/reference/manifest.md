@@ -246,6 +246,26 @@ Note the tightened constraints the schema now surfaces (all server-enforced):
   [Scopes and consent](../guide/storage#scopes-and-consent), and how it is
   declared and checked is in
   [Declare your collections](../guide/storage#declare).
+- **`storage.collections.<name>.schema`** (enforced) — optional. A JSON Schema
+  subset that every document's `data` in the collection must match. A create or
+  put that does not match is refused `400 schema_violation`, and
+  `details: { collection, pointer, keyword }` names the first failing JSON
+  pointer. The rules:
+  - The keywords are `type`, `properties`, `required`, `additionalProperties`,
+    `items`, `enum`, `const`, `minLength`, `maxLength`, `pattern`, `minimum`,
+    `maximum`, `minItems`, `maxItems` and `description`. Any other keyword is
+    refused by name.
+  - A `pattern` is an unanchored JavaScript regular expression with the `u`
+    flag, of at most 256 characters, and needs a `maxLength` of at most 1000 on
+    the same schema.
+  - A schema is not allowed on a `write: "none"` collection.
+  - The bounds the server adds are listed under
+    [What the schema can't express](#what-the-schema-can-t-express-the-validator-wins).
+
+  The table above has no `schema` row yet. It is generated from the schema
+  that the published `@civitai/app-sdk` bundles, and that release predates the
+  key. The semantics, which failure counts as first, and the error are in
+  [A schema for each document](../guide/storage#collection-schemas).
 
 ### Sizing `page.buzzBudgetPerGen`
 
@@ -314,6 +334,12 @@ that JSON Schema can't:
 - **Sandbox-token allowlisting by trust tier.**
 - **`outputDir` traversal** — the schema blocks a leading `/`; the validator also
   rejects `..`, backslashes, and other traversal/escape sequences.
+- **A collection `schema`'s bounds** — at most 16384 bytes of JSON, 16 nested
+  schemas and 16 patterns per collection schema, 32 patterns across all of the
+  manifest's collection schemas, no `minLength` / `minItems` /
+  `minimum` above its maximum, every `pattern` compiling as a JavaScript
+  regular expression with the `u` flag, and no pattern that can backtrack
+  catastrophically.
 
 In two small spots the published schema is *marginally stricter* than the
 runtime validator: it locks `type` to `["block"]` and requires `outputDir`
