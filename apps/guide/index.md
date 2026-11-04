@@ -112,8 +112,11 @@ platform provisions all of that when your app is approved.
   result; `repeat`, `merge`, the limits and how the price works.
 - **[Storing data (document store)](./storage)** — declare collections in the
   manifest, read and write documents, counters and marks, the scopes and limits,
-  testing with `createFakeStorage`, and moving off `useAppStorage` /
-  `useSharedStorage`.
+  testing with `createFakeStorage`, reaching another app's data through
+  `storage.imports`, and moving off `useAppStorage` / `useSharedStorage`.
+- **[Forking an app](./forking)** — letting others fork your app, what a fork
+  starts from and does not inherit, the "Forked from" credit, and how a fork
+  reaches its parent's data.
 - **[Running embedded & direct traffic](./embedding)** — why your app runs
   embedded in the Civitai host, why you share the `/apps/run/<slug>` route, and
   how `<BlockGate>` degrades a direct visit gracefully.

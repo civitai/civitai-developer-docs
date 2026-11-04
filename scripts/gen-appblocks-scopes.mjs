@@ -42,6 +42,8 @@ const BINDING_NOTES = {
     "Scoped to this app's own document store (reads, the viewer's private collections, marks and counters). Consent-exempt. Required by any manifest that declares a `storage` collection. The store's routes answer `503 storage_disabled` on a host where the store is not enabled.",
   'apps:storage:publish':
     "Create or edit documents in this app's SHARED collections as the viewer. Sensitive (needs a justification) and consent-gated: granted only after the viewer approves it for this app. Required by a shared collection whose `write` is `own` or `anyone` — the policies under which a viewer authors documents; a `write: \"none\"` (counters and marks only) or `write: \"owner\"` collection does not need it. The store's routes answer `503 storage_disabled` on a host where the store is not enabled.",
+  'apps:storage:import':
+    "Reach the viewer's documents in ANOTHER app, as the viewer, through the imports the manifest declares under `storage.imports` (`?from=<source blockId>` on a collection route). Sensitive (needs a justification) and consent-gated, and narrower than the token: every call also needs the viewer's grant for this app and that source, covering the collections and access this version imports, so a version that imports more asks again. It is not publish consent in the source: a create, put, increment, mark or unmark in one of the source's shared collections also needs the viewer's `apps:storage:publish` there. Refused for dev, dev-tunnel, hub and review tokens. Required by any manifest that declares `storage.imports`.",
   'collections:read:self':
     "Self-bound; public collections + the viewer's own public collections. Consent-exempt (server visibility/ownership is the gate).",
   'collections:write:self':
@@ -72,11 +74,15 @@ function parseScopeBits(ts) {
 }
 
 function parseDescriptions(ts) {
-  // Only the SCOPE_DESCRIPTIONS map (stop at the SLOT_DESCRIPTIONS const). Anchor
-  // on the actual `export const` so the JSDoc mention above it isn't matched.
+  // Only the SCOPE_DESCRIPTIONS map: stop at the NEXT `export const`, whatever it is.
+  // Anchor on the actual `export const` so the JSDoc mention above it isn't matched.
+  // (Stopping at a named successor broke when upstream added SCOPE_PLAIN_TITLES, a
+  // second scope-keyed map, between it and SLOT_DESCRIPTIONS: its short titles
+  // silently overwrote every description.)
   const start = ts.indexOf('export const SCOPE_DESCRIPTIONS');
-  const slice = start >= 0 ? ts.slice(start) : ts;
-  const end = slice.indexOf('export const SLOT_DESCRIPTIONS');
+  if (start < 0) throw new Error('gen-appblocks-scopes: no `export const SCOPE_DESCRIPTIONS` in scope-descriptions.constants.ts');
+  const slice = ts.slice(start);
+  const end = slice.indexOf('\nexport ', 1);
   const region = end >= 0 ? slice.slice(0, end) : slice;
   const out = {};
   // Line and block comments may sit between the key and its string (upstream annotates
