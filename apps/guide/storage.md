@@ -531,7 +531,9 @@ whose migrations run on it, or one that declares its `schema`, `migrations`,
 collection alone can be approved, and the run carries on. A version that is
 rejected or withdrawn has its run closed, so the run blocks nothing.
 
-The server applies all of this whatever tooling you use. `civitai app validate`
+The server applies all of this whatever tooling you use. `@civitai/app-sdk`
+**0.82.0** or later types `migrations` and bundles a manifest schema that knows
+the key. `civitai app validate`
 and `civitai app submit` accept `migrations` from the first CLI release after
 v0.1.135 ([releases](https://github.com/civitai/cli/releases)), and v0.1.135 and
 older refuse it as an unknown property. The CLI checks only the shape of the
