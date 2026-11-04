@@ -20215,6 +20215,11 @@
                 "type": "boolean",
                 "default": false
               },
+              "upscale": {
+                "type": "boolean",
+                "description": "Refine draft latents in three steps to a 2560-pixel long edge (2560x1440 for widescreen), preserving draft audio. Width and height describe the draft.",
+                "default": false
+              },
               "engine": {
                 "enum": [
                   "minimax-h3-comfy"
