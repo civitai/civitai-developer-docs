@@ -534,12 +534,14 @@ rejected or withdrawn has its run closed, so the run blocks nothing.
 The server applies all of this whatever tooling you use. `@civitai/app-sdk`
 **0.82.0** or later types `migrations` and bundles a manifest schema that knows
 the key. `civitai app validate`
-and `civitai app submit` accept `migrations` from the first CLI release after
-v0.1.135 ([releases](https://github.com/civitai/cli/releases)), and v0.1.135 and
-older refuse it as an unknown property. The CLI checks only the shape of the
-ops. Whether an op covers a change depends on the previous approved version,
-which only the server has, so that is decided at submit. The CLI does not print
-`storageMigrationWarnings`.
+and `civitai app submit` accept `migrations` from CLI **v0.1.136**
+([releases](https://github.com/civitai/cli/releases)); v0.1.135 and older refuse
+it as an unknown property. The CLI checks only the shape of the ops. Whether an
+op covers a change depends on the previous approved version, which only the
+server has, so that is decided at submit. From v0.1.136, an accepted
+`civitai app submit` prints the server's `storageMigrationWarnings` under the
+success line; a refused one prints the server's message, which lists each
+uncovered change.
 
 ## Scopes and consent {#scopes-and-consent}
 
