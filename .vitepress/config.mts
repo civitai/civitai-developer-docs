@@ -225,6 +225,7 @@ const sidebar: DefaultTheme.Sidebar = {
     {
       text: 'Utilities',
       items: [
+        { text: 'Model merge analysis', link: '/orchestration/recipes/model-analysis' },
         { text: 'Prompt enhancement', link: '/orchestration/recipes/prompt-enhancement' },
         { text: 'Image conversion', link: '/orchestration/recipes/convert-image' },
         { text: 'Image background removal', link: '/orchestration/recipes/image-background-removal' },
