@@ -20215,6 +20215,11 @@
                 "type": "boolean",
                 "default": false
               },
+              "upscale": {
+                "type": "boolean",
+                "description": "Refine draft latents in three steps to a 2560-pixel long edge (2560x1440 for widescreen), preserving draft audio. Width and height describe the draft.",
+                "default": false
+              },
               "engine": {
                 "enum": [
                   "minimax-h3-comfy"
@@ -47743,8 +47748,41 @@
             "maximum": 4,
             "minimum": 2,
             "type": "integer",
+            "description": "FlashVSR scale factor. H3 and LTX-2.5 return a 2560-pixel long edge instead.",
             "format": "int32",
             "default": 2
+          },
+          "model": {
+            "enum": [
+              "flashvsr",
+              "minimax-h3",
+              "ltx25"
+            ],
+            "type": "string",
+            "default": "flashvsr"
+          },
+          "prompt": {
+            "maxLength": 7000,
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Describe the source video's content and motion for H3 or LTX-2.5 refinement."
+          },
+          "seed": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "diffusionModel": {
+            "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Optional compatible H3 FL2VA or distilled LTX-2.5 checkpoint. Omission or null uses the default."
           }
         },
         "additionalProperties": false
@@ -47786,7 +47824,7 @@
             "additionalProperties": false
           }
         ],
-        "description": "Upscale videos using FlashVSR"
+        "description": "Upscale videos using FlashVSR, H3 or LTX-2.5. Latent refinement returns 2K at 24 fps for clips of 1–15 seconds, preserving source audio."
       },
       "VideoUpscalerStepTemplate": {
         "allOf": [
@@ -47814,7 +47852,7 @@
             "additionalProperties": false
           }
         ],
-        "description": "Upscale videos using FlashVSR"
+        "description": "Upscale videos using FlashVSR, H3 or LTX-2.5. Latent refinement returns 2K at 24 fps for clips of 1–15 seconds, preserving source audio."
       },
       "ViduQ3VideoGenInput": {
         "allOf": [
