@@ -569,6 +569,7 @@ export default withMermaid({
           { text: 'Apps Design Tokens', link: '/apps/tokens' },
         ],
       },
+      { text: 'Safety', link: '/safety', activeMatch: '/safety' },
     ],
 
     sidebar,
