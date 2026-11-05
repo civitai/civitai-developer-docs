@@ -21,7 +21,9 @@ enabled for yours it answers `404`, as if it did not exist.
 GET /api/v1/creator/engagement
 ```
 
-*Authenticated.* The results are always the authenticated user's own items.
+*Authenticated with a full-access personal API key, or a signed-in session.*
+OAuth tokens and keys with a narrower scope are refused with `403`.
+The results are always the authenticated user's own items.
 There is no `userId` or `username` parameter; you cannot read another
 creator's numbers.
 
@@ -111,6 +113,7 @@ header. Responses are not cached (`Cache-Control: private, no-store`).
 |--------|------|
 | `400` | A parameter is out of range, or the cursor is not one this endpoint issued. |
 | `401` | No valid API token or session. |
+| `403` | The token is not a full-access personal API key (for example an OAuth token, or a key with limited scopes). |
 | `404` | The endpoint is not enabled for your account. |
 | `429` | Over the rate limit. |
 
