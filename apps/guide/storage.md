@@ -12,6 +12,9 @@ sources:
   - civitai:src/server/services/apps/doc-store-access.ts
   - civitai:src/server/services/apps/doc-store-ownership.ts
   - civitai:src/server/services/apps/doc-store-schema.ts
+  - civitai:src/server/services/apps/storage-schema-migrations.ts
+  - civitai:src/server/services/apps/storage-migration-run.service.ts
+  - civitai:src/server/services/blocks/publish-request.service.ts
   - civitai:src/server/services/apps/doc-store.ts
   - civitai:src/server/services/apps/doc-store.types.ts
   - civitai:src/server/utils/shared-storage-rate-limit.ts
@@ -352,10 +355,10 @@ and the SDK's:
   check, the minimum-trust gate, the shared write budget and
   [moderation](#moderation). A refused write is not stored and spends none of
   them.
-- Changing a collection's schema does not re-check the documents already
-  stored. Each one is checked the next time it is written, so a document
-  written under the old schema can be read but must match the new one to be
-  replaced.
+- A schema change that could leave stored documents unwritable is refused at
+  submit unless the version declares `migrations` for it, which run over the
+  stored documents when the version is approved. See
+  [Changing a collection's schema](#schema-changes).
 
 A refusal is `400` with code `schema_violation`:
 
@@ -403,6 +406,142 @@ Checking offline, with those versions:
   pattern RE2 does compile is not proven valid either: `(?i)x`, `\z` and `\pL`
   compile in RE2 and are refused by the server. The CLI does not check for
   catastrophic backtracking. See [Storage checks](./validate#storage).
+
+### Changing a collection's schema {#schema-changes}
+
+When you submit a version, the server compares each collection's `schema` with
+the one in your app's **previous approved version**. It compares the two
+declarations only and never reads a stored document. A change that could leave
+a stored document unwritable is **breaking**, and the submit is refused unless
+the collection's `migrations` covers it. These are breaking, at any depth
+(inside `properties`, `items` or an `additionalProperties` schema):
+
+- a property newly in `required`;
+- a declared property removed while `additionalProperties` is `false`;
+- `additionalProperties` newly `false`, or newly a schema;
+- a `type` removed (`number` to `integer` counts);
+- `enum` or `const` narrowed, or a `const` added;
+- `minimum`, `minLength` or `minItems` added or raised; `maximum`, `maxLength`
+  or `maxItems` added or lowered; `pattern` added or changed;
+- a schema on a collection that had none. It is compared with a schema that
+  accepts anything, so each constraint it adds is a breaking change of its own.
+
+Loosening a bound, adding a `type` or an `enum` value, and declaring a new
+optional property are not breaking. (A new optional property on a schema that
+left undeclared keys open gets a warning: stored documents may already hold that
+key with another type, and those are refused on their next write.) A first
+version has nothing to compare against. A collection removed from the manifest
+is a warning, not a refusal: its documents are kept, and come back if a later
+version declares it again, compared with the last approved schema that declared
+it.
+
+The refusal is a `400` whose message lists each uncovered change as
+`<collection> <pointer> <keyword>: <old> → <new>` (the first 20). The REST
+response of `POST /api/v1/blocks/submit-version` also carries the whole list as
+`storageBreakingChanges`, each entry `{ collection, pointer, keyword, old, new }`.
+A pointer is a JSON Pointer into `data`: `""` is the document itself, and the
+segment `*` stands for every array element (`items`) or every undeclared
+property (an `additionalProperties` schema).
+
+Say the approved version declares `cards` with `title` (`maxLength: 80`),
+`color` and a `tags` array of `"red"`, `"green"`, `"blue"` or `"gold"`, under
+`additionalProperties: false`. This next version breaks it in five places, and
+four ops cover all of them:
+
+```json
+{
+  "storage": {
+    "collections": {
+      "cards": {
+        "visibility": "private",
+        "schema": {
+          "type": "object",
+          "required": ["title", "status"],
+          "additionalProperties": false,
+          "properties": {
+            "title": { "type": "string", "maxLength": 40 },
+            "status": { "enum": ["draft", "published"] },
+            "colour": { "type": "string", "maxLength": 20 },
+            "tags": { "type": "array", "maxItems": 3, "items": { "enum": ["red", "green", "blue"] } }
+          }
+        },
+        "migrations": [
+          { "op": "default", "path": "/status", "value": "draft" },
+          { "op": "rename", "from": "/color", "to": "/colour" },
+          { "op": "remove", "path": "/tags" },
+          { "op": "acknowledge", "path": "/title", "keyword": "maxLength" }
+        ]
+      }
+    }
+  }
+}
+```
+
+| Op | Covers | What it does to a stored document |
+|---|---|---|
+| `default` | a newly required property, at exactly `path`. Nothing else can cover one. | Sets `value` where the field is missing and its parent object exists. `value` must match the new schema there, or the submit is refused, and is at most 4096 bytes of JSON. |
+| `rename` | a declared property removed under `additionalProperties: false`, at `from` | Moves the value when `from` is present and `to` is absent. The new schema must allow `to`. |
+| `remove` | every breaking change at or under `path`, as long as the new schema does not require that field | Deletes the value only where the new schema refuses it. A value that is valid under the new schema is kept. |
+| `acknowledge` | exactly one change: the one whose pointer is `path` and whose keyword is `keyword`, matched literally, never as a prefix. `path` may be `""` or contain `*`, as in `"/tags/*"`. | Nothing. Documents that violate it stay stored and readable, and their next write is refused until it matches. `keyword` cannot be `required`: a newly required field needs a `default`. |
+
+In the example, `{ "title": "a", "color": "teal", "tags": ["red", "gold"] }`
+becomes `{ "title": "a", "status": "draft", "colour": "teal" }`: `tags` holds
+`"gold"`, so it is removed. A document already in the new shape is left alone,
+and a title longer than 40 characters stays as it is.
+
+- `default`, `rename` and `remove` take paths of 1 to 15 segments with no `*`,
+  and must touch disjoint fields: no path equal to or inside another's. Every
+  op is idempotent, so a run that repeats a page changes nothing.
+- 1 to 32 ops per collection, and none on a `write: "none"` collection.
+- Only the ops that cover a breaking change of this version run. An op that
+  covers nothing never runs and is listed in the submit response's
+  `storageMigrationWarnings`, so a `migrations` list left in a later version
+  does nothing. Remove it.
+- No op can fill a newly required field inside an array element or an
+  `additionalProperties` schema (`…/*/…`): declare it optional, or `remove` the
+  whole optional array or object. A newly required object with a newly required
+  field inside it takes two versions: first require the object, with a
+  `default` that already holds the field, then require the field with its own
+  `default`.
+
+**When the ops run.** At approval. From that moment the new schema applies to
+every write, including writes from a build that is still serving the old code.
+The ops then run in the background over the collection's production documents:
+every viewer's key space, hidden documents, and the documents
+[forks](./forking) of your app wrote into it. Development and review data are
+not migrated. Whatever the first pass does not finish is picked up by a job
+that runs every 10 minutes. A migrated document is written like any other: its
+`version` goes up, so a [conditional write](#conditional-writes) holding the
+old version gets `version_conflict`, and its size counts against the quotas. A
+document whose rewrite would be refused (over the size cap, for example) is
+left as it was. A document that still does not match the new schema afterwards,
+because an op acknowledged the change or the rewrite was refused, stays readable,
+and its next write must match the new schema.
+
+**What you can see.** There is no API that reports a run's progress or result
+to you. What you can see is the submit's refusal or its
+`storageMigrationWarnings`, and the documents themselves: read one, and a
+migrated document has the new shape and a higher `version`. Until the run
+reaches every document, your code will read documents in both shapes.
+
+**Approving the next version.** While an earlier version's run is unfinished, a
+moderator cannot approve a version that changes that collection's storage: one
+whose migrations run on it, or one that declares its `schema`, `migrations`,
+`visibility`, `write` or `exportable` differently. A version that leaves the
+collection alone can be approved, and the run carries on. A version that is
+rejected or withdrawn has its run closed, so the run blocks nothing.
+
+The server applies all of this whatever tooling you use. `@civitai/app-sdk`
+**0.82.0** or later types `migrations` and bundles a manifest schema that knows
+the key. `civitai app validate`
+and `civitai app submit` accept `migrations` from CLI **v0.1.136**
+([releases](https://github.com/civitai/cli/releases)); v0.1.135 and older refuse
+it as an unknown property. The CLI checks only the shape of the ops. Whether an
+op covers a change depends on the previous approved version, which only the
+server has, so that is decided at submit. From v0.1.136, an accepted
+`civitai app submit` prints the server's `storageMigrationWarnings` under the
+success line; a refused one prints the server's message, which lists each
+uncovered change.
 
 ## Scopes and consent {#scopes-and-consent}
 

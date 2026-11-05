@@ -66,6 +66,92 @@ allowlists the origin. If the Try It above fails with a CORS error from
 working.
 :::
 
+## Get your usage limits
+
+```
+GET /api/v1/me/limits
+```
+
+**Auth:** Authenticated — a valid token is required. Returns `401` otherwise.
+A scoped token needs **either** the `UserRead` or the `MediaWrite` scope;
+one with neither gets `403`.
+
+Shows how much of each product limit the caller has used, so an app can
+tell a user how many posts they have left before it tries to create one.
+Reading your limits never counts against them.
+
+### Query parameters
+
+| Name | Type | Description |
+|------|------|-------------|
+| `ids` | string | Optional. Limit ids to return, comma-separated (`ids=posts.daily,posts.hourly`) or repeated (`ids=posts.daily&ids=posts.hourly`). At most 20. Unknown ids are ignored. |
+
+### Response
+
+```json
+{
+  "limits": [
+    {
+      "id": "posts.daily",
+      "area": "posts",
+      "label": "Posts per day",
+      "limit": 20,
+      "used": 3,
+      "remaining": 17,
+      "windowSeconds": 86400,
+      "nextAt": null,
+      "resetAt": "2026-11-06T09:41:52.000Z"
+    }
+  ]
+}
+```
+
+Every limit that applies to the caller right now is listed. A new account
+also has `posts.hourly` on the day it signs up. Each limit is a sliding
+window: an attempt counts for `windowSeconds` after it is made.
+
+### Field notes
+
+| Field | Description |
+|-------|-------------|
+| `id` | Stable limit id. The same id is sent as `rateLimit.id` on a `429` refusal. |
+| `area` | What the limit covers, e.g. `posts`. |
+| `label` | Short human-readable name. |
+| `limit` | How many are allowed per window. `null` when the limit does not apply to the caller. |
+| `used` | How many count in the current window. `null` when `limit` is. |
+| `remaining` | `limit - used`, never below 0. `null` when `limit` is. |
+| `windowSeconds` | The window length. `null` when `limit` is. |
+| `nextAt` | Once `remaining` is 0, the ISO time the caller can next use it. `null` while `remaining` is above 0. |
+| `resetAt` | ISO time every counted attempt has aged out. `null` when none count. |
+
+### Errors
+
+```
+HTTP/2 401
+{"error":"Unauthorized"}
+```
+
+```
+HTTP/2 403
+{"error":"This token lacks the scope to read usage limits."}
+```
+
+```
+HTTP/2 400
+{"error":"Invalid ids."}
+```
+
+The response is never cached (`Cache-Control: private, no-store`).
+
+### Example
+
+```bash
+curl -H "Authorization: Bearer $CIVITAI_TOKEN" \
+  "https://civitai.com/api/v1/me/limits?ids=posts.daily"
+```
+
+<ApiTry path="/api/v1/me/limits" require-auth />
+
 ## Look up users
 
 ```
