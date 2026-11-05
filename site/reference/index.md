@@ -16,6 +16,7 @@ All endpoints below live under `https://civitai.com/api/v1/`.
 | [Articles](./articles) | `GET /articles`, `GET /articles/{id}` |
 | [Collections](./collections) | `GET /collections`, `GET /collections/{id}` |
 | [Creators](./creators) | `GET /creators` |
+| [Creator engagement](./creator-engagement) | `GET /creator/engagement` |
 | [Tags](./tags) | `GET /tags` |
 | [Users](./users) | `GET /me`, `GET /me/limits`, `GET /users` |
 | [Permissions](./permissions) | `GET /permissions/check` |

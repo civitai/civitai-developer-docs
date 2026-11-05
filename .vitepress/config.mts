@@ -347,6 +347,7 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Articles', link: '/site/reference/articles' },
         { text: 'Collections', link: '/site/reference/collections' },
         { text: 'Creators', link: '/site/reference/creators' },
+        { text: 'Creator engagement', link: '/site/reference/creator-engagement' },
         { text: 'Tags', link: '/site/reference/tags' },
         { text: 'Users', link: '/site/reference/users' },
         { text: 'Permissions', link: '/site/reference/permissions' },
