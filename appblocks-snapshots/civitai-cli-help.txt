@@ -1,6 +1,6 @@
 civitai CLI help snapshot (the WHOLE command tree)
 Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
-Binary version: civitai 0.1.135
+Binary version: civitai 0.1.136
 Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
 else parses this committed snapshot. To refresh: run
 node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).
@@ -599,6 +599,14 @@ Listing-completeness gate:
 
   Your FIRST submit is what creates the store listing, so there is nothing to
   check yet and nothing is refused; the gate applies from the second one on.
+
+Storage migration notes:
+  An app that declares App Storage collections is checked by the SERVER
+  against the previous approved version. An accepted submit prints the
+  server's migration notes under the success line — for example a
+  storage.collections.<name>.migrations op that covers nothing and so will
+  never run. They never block the submit. (A breaking change no migration
+  covers refuses the submit, and the server's error lists each one.)
 
 Defaults to the current directory.
 
