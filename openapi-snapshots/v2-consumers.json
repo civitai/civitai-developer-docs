@@ -276,109 +276,6 @@
         }
       }
     },
-    "/v2/consumer/blobs/ingest": {
-      "post": {
-        "tags": [
-          "Blobs"
-        ],
-        "summary": "Copy a trusted url into a blob named after that source, so the caller can ask for it again\nwithout holding the bytes. 200 when it already existed, 201 when copied.",
-        "operationId": "IngestConsumerBlob",
-        "parameters": [
-          {
-            "name": "sourceUrl",
-            "in": "query",
-            "description": "Object to copy; must resolve to a configured trusted source.",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "public",
-            "in": "query",
-            "description": "Store in the public tier and return a durable, unsigned URL.",
-            "schema": {
-              "type": "boolean"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Blob"
-                }
-              }
-            }
-          },
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Blob"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Content",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "502": {
-            "description": "Bad Gateway"
-          }
-        },
-        "security": [ ]
-      }
-    },
     "/v2/consumer/blobs/content/{encryptedToken}": {
       "get": {
         "tags": [
@@ -756,7 +653,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -887,7 +784,7 @@
         "tags": [
           "Funds"
         ],
-        "summary": "Whatever is left goes to Civitai, not back to the depositors. A fund is also deleted on its own at `expiresAt`.",
+        "summary": "What is left goes back to the depositor when only one user deposited, else to Civitai. A fund is also deleted on its own at `expiresAt`.",
         "operationId": "DeleteFund",
         "parameters": [
           {
@@ -1007,6 +904,68 @@
         }
       }
     },
+    "/v2/consumer/funds/{fundId}/refund": {
+      "post": {
+        "tags": [
+          "Funds"
+        ],
+        "summary": "Pays what is left back to the depositor now, when only one user deposited. The fund stays open, empty, for new deposits.",
+        "operationId": "RefundFund",
+        "parameters": [
+          {
+            "name": "fundId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/consumer/recipes/aceStepAudio": {
       "post": {
         "tags": [
@@ -1050,6 +1009,16 @@
             "schema": {
               "description": "How a workflow is paid for.",
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -1160,6 +1129,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -1188,6 +1167,125 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AgeClassificationOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/consumer/recipes/archiveExtraction": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Archive Extraction",
+        "description": "Extracts the media and text files of a zip or tar archive into blobs once each is scanned; fails if any is blocked.",
+        "operationId": "InvokeArchiveExtractionStepTemplate",
+        "parameters": [
+          {
+            "name": "experimental",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "allowMatureContent",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "whatif",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ephemeral",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "tier",
+            "in": "query",
+            "description": "How a workflow is paid for.",
+            "schema": {
+              "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchiveExtractionInput"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchiveExtractionInput"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchiveExtractionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveExtractionOutput"
                 }
               }
             }
@@ -1268,6 +1366,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -1375,6 +1483,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -1484,6 +1602,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -1592,6 +1720,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -1698,6 +1836,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -1807,6 +1955,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -1915,6 +2073,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -2028,6 +2196,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -2134,6 +2312,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -2248,6 +2436,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -2355,6 +2553,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -2465,6 +2673,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -2574,6 +2792,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -2680,6 +2908,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -2788,6 +3026,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -2898,6 +3146,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -3006,6 +3264,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -3116,6 +3384,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -3223,6 +3501,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -3333,6 +3621,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -3439,6 +3737,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -3548,6 +3856,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -3661,6 +3979,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -3769,6 +4097,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -3879,6 +4217,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -3987,6 +4335,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -4097,6 +4455,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -4204,6 +4572,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -4314,6 +4692,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -4422,6 +4810,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -4532,6 +4930,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -4640,6 +5048,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -4750,6 +5168,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -4778,6 +5206,128 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ModelPickleScanOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/consumer/recipes/multimodalEmbedding": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Multimodal Embedding",
+        "description": "Embeds a batch of images or text into the same vector space.",
+        "operationId": "InvokeMultimodalEmbeddingStepTemplate",
+        "parameters": [
+          {
+            "name": "experimental",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "allowMatureContent",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "whatif",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ephemeral",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "tier",
+            "in": "query",
+            "description": "How a workflow is paid for.",
+            "schema": {
+              "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "description": "Exactly one of text, imageUrl or videoUrl.",
+                "$ref": "#/components/schemas/MultimodalEmbeddingStepInput"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "description": "Exactly one of text, imageUrl or videoUrl.",
+                "$ref": "#/components/schemas/MultimodalEmbeddingStepInput"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "description": "Exactly one of text, imageUrl or videoUrl.",
+                "$ref": "#/components/schemas/MultimodalEmbeddingStepInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MultimodalEmbeddingStepOutput"
                 }
               }
             }
@@ -4858,6 +5408,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -4968,6 +5528,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -5075,6 +5645,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -5181,6 +5761,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -5291,6 +5881,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -5399,6 +5999,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -5509,6 +6119,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -5616,6 +6236,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -5726,6 +6356,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -5833,6 +6473,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -5946,6 +6596,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -6054,6 +6714,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -6164,6 +6834,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -6271,6 +6951,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -6381,6 +7071,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -6487,6 +7187,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -6596,6 +7306,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -6703,6 +7423,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -6813,6 +7543,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -6922,6 +7662,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -7029,6 +7779,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -7138,6 +7898,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -7245,6 +8015,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -7355,6 +8135,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -7463,6 +8253,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -7573,6 +8373,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -7682,6 +8492,16 @@
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
             }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "requestBody": {
@@ -7789,6 +8609,16 @@
             "description": "How a workflow is paid for.",
             "schema": {
               "$ref": "#/components/schemas/WorkflowTier"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -9041,7 +9871,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
                 }
               }
             }
@@ -9061,7 +9891,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -9097,6 +9927,8 @@
             "name": "take",
             "in": "query",
             "schema": {
+              "maximum": 2147483647,
+              "minimum": 0,
               "type": "integer",
               "format": "int32",
               "default": 100
@@ -10142,6 +10974,7 @@
                 "zimageturbo": "#/components/schemas/ZImageTurboAIToolkitTrainingInput",
                 "zimagebase": "#/components/schemas/ZImageBaseAIToolkitTrainingInput",
                 "mossImage": "#/components/schemas/MossImageAIToolkitTrainingInput",
+                "fibo2": "#/components/schemas/Fibo2AIToolkitTrainingInput",
                 "flux3klein": "#/components/schemas/Flux3KleinAIToolkitTrainingInput",
                 "flux2klein": "#/components/schemas/Flux2KleinAIToolkitTrainingInput",
                 "ltx2": "#/components/schemas/Ltx2AIToolkitTrainingInput",
@@ -11386,6 +12219,170 @@
         ],
         "type": "string"
       },
+      "ArchiveEntry": {
+        "required": [
+          "air",
+          "blob",
+          "mediaType",
+          "path",
+          "size"
+        ],
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "The entry's normalized path inside the archive."
+          },
+          "air": {
+            "type": "string",
+            "description": "The blob AIR (urn:air:other:other:orchestrator:blob@{blobKey})."
+          },
+          "mediaType": {
+            "$ref": "#/components/schemas/ArchiveEntryMediaType"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "blob": {
+            "$ref": "#/components/schemas/Blob"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ArchiveEntryMediaType": {
+        "enum": [
+          "image",
+          "video",
+          "audio",
+          "text"
+        ],
+        "type": "string"
+      },
+      "ArchiveEntryRejectionReason": {
+        "enum": [
+          "unsupportedType",
+          "tooLarge",
+          "invalidPath",
+          "nestedArchive",
+          "limitExceeded",
+          "blocked"
+        ],
+        "type": "string"
+      },
+      "ArchiveExtractionInput": {
+        "required": [
+          "sourceUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "sourceUrl": {
+            "type": "string",
+            "description": "A .zip, .tar or .tar.gz archive.",
+            "format": "uri"
+          },
+          "mediaTypes": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ArchiveEntryMediaType"
+            },
+            "description": "The kinds of entries to extract; anything else is reported as rejected. Defaults to all."
+          },
+          "maxEntries": {
+            "maximum": 2000,
+            "minimum": 1,
+            "type": "integer",
+            "description": "Extracted entries beyond this many are reported as rejected.",
+            "format": "int32",
+            "default": 2000
+          }
+        },
+        "additionalProperties": false
+      },
+      "ArchiveExtractionOutput": {
+        "required": [
+          "entries",
+          "rejected"
+        ],
+        "type": "object",
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArchiveEntry"
+            },
+            "description": "The extracted entries, in archive order."
+          },
+          "rejected": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RejectedArchiveEntry"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "ArchiveExtractionStep": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStep"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "$ref": "#/components/schemas/ArchiveExtractionInput"
+              },
+              "output": {
+                "$ref": "#/components/schemas/ArchiveExtractionOutput"
+              },
+              "$type": {
+                "enum": [
+                  "archiveExtraction"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Archive Extraction"
+      },
+      "ArchiveExtractionStepTemplate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStepTemplate"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "description": "Input for the ArchiveExtractionStep step.",
+                "$ref": "#/components/schemas/ArchiveExtractionInput"
+              },
+              "$type": {
+                "enum": [
+                  "archiveExtraction"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Archive Extraction"
+      },
       "ArchiveFormat": {
         "enum": [
           "zip",
@@ -12225,14 +13222,14 @@
               "null",
               "string"
             ],
-            "description": "Deprecated: use Civitai.Orchestration.Grains.Workflows.Steps.Common.Blob.PublicUrl to tell a public blob. Get the storage tier holding this blob, when\none was declared. Null resolves to the private managed tier, falling back to the classic one for blobs\nwritten before producers moved off it."
+            "description": "Deprecated: a public blob's Civitai.Orchestration.Grains.Workflows.Steps.Common.Blob.Url is its public url. The storage tier holding this blob, when one was declared."
           },
           "publicUrl": {
             "type": [
               "null",
               "string"
             ],
-            "description": "The durable, unsigned url of a blob requested public, which a CDN can cache. Set as soon as the blob is\nrequested, so it may 404 until the workflow that produces it completes; Civitai.Orchestration.Grains.Workflows.Steps.Common.Blob.Url waits instead.",
+            "description": "Deprecated and always null: Civitai.Orchestration.Grains.Workflows.Steps.Common.Blob.Url becomes the public url once the blob has passed moderation.",
             "format": "uri"
           }
         },
@@ -12397,6 +13394,13 @@
               "string"
             ],
             "description": "Optional caption for this item, written as the trainer's sidecar caption file."
+          },
+          "path": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Optional relative file name to stage the blob under. A .txt blob is the caption of the media item whose path\nmatches it up to the extension, as in a training zip."
           }
         },
         "additionalProperties": false
@@ -14899,6 +15903,340 @@
           }
         ]
       },
+      "ComfyFibo2DevCreateImageInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyFibo2DevImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "model",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "enum": [
+                  "createImage"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "dev"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "fibo2"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "ComfyFibo2DevImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyFibo2ImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "model",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": "createImage"
+              },
+              "model": {
+                "enum": [
+                  "dev"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "fibo2"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "operation",
+              "mapping": {
+                "createImage": "#/components/schemas/ComfyFibo2DevCreateImageInput"
+              }
+            }
+          }
+        ]
+      },
+      "ComfyFibo2EditTurboEditImageInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyFibo2EditTurboImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "images",
+              "model",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "images": {
+                "maxItems": 16,
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
+                }
+              },
+              "operation": {
+                "enum": [
+                  "editImage"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "editTurbo"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "fibo2"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "ComfyFibo2EditTurboImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyFibo2ImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "model",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": "editImage"
+              },
+              "steps": {
+                "maximum": 150,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 4
+              },
+              "cfgScale": {
+                "maximum": 30,
+                "minimum": 1,
+                "type": "number",
+                "format": "double",
+                "default": 1
+              },
+              "model": {
+                "enum": [
+                  "editTurbo"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "fibo2"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "operation",
+              "mapping": {
+                "editImage": "#/components/schemas/ComfyFibo2EditTurboEditImageInput"
+              }
+            }
+          }
+        ]
+      },
+      "ComfyFibo2ImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "model",
+              "prompt"
+            ],
+            "type": "object",
+            "properties": {
+              "model": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": "dev"
+              },
+              "prompt": {
+                "maxLength": 10000,
+                "minLength": 0,
+                "type": "string"
+              },
+              "negativePrompt": {
+                "maxLength": 10000,
+                "minLength": 0,
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "width": {
+                "maximum": 2048,
+                "minimum": 64,
+                "type": "integer",
+                "format": "int32",
+                "default": 1024
+              },
+              "height": {
+                "maximum": 2048,
+                "minimum": 64,
+                "type": "integer",
+                "format": "int32",
+                "default": 1024
+              },
+              "seed": {
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int64"
+              },
+              "quantity": {
+                "maximum": 4,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 1
+              },
+              "steps": {
+                "maximum": 150,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 30
+              },
+              "cfgScale": {
+                "maximum": 30,
+                "minimum": 1,
+                "type": "number",
+                "format": "double",
+                "default": 5
+              },
+              "sampler": {
+                "default": "euler",
+                "$ref": "#/components/schemas/ComfySampler"
+              },
+              "scheduler": {
+                "default": "simple",
+                "$ref": "#/components/schemas/ComfyScheduler"
+              },
+              "loras": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number",
+                  "format": "double"
+                }
+              },
+              "diffusionModel": {
+                "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Compatible Fibo 2.0 diffusion checkpoint AIR. Omit or set null to use the selected model's int8 checkpoint; the int8 text encoder and VAE remain unchanged."
+              },
+              "ecosystem": {
+                "enum": [
+                  "fibo2"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "model",
+              "mapping": {
+                "dev": "#/components/schemas/ComfyFibo2DevImageGenInput",
+                "editTurbo": "#/components/schemas/ComfyFibo2EditTurboImageGenInput"
+              }
+            }
+          }
+        ]
+      },
       "ComfyFlux1CreateImageGenInput": {
         "allOf": [
           {
@@ -15480,13 +16818,14 @@
             "type": "object",
             "properties": {
               "images": {
-                "maxItems": 2,
+                "maxItems": 7,
                 "type": "array",
                 "items": {
                   "type": "string",
                   "description": "Either A URL, A DataURL or a Base64 string",
                   "format": "source-image"
-                }
+                },
+                "description": "Up to seven reference images, or four for the 9b and 9b-kv variants."
               },
               "operation": {
                 "enum": [
@@ -15529,7 +16868,7 @@
                 "type": "string"
               },
               "prompt": {
-                "maxLength": 1000,
+                "maxLength": 10000,
                 "minLength": 0,
                 "type": "string"
               },
@@ -15555,7 +16894,7 @@
                 "format": "int64"
               },
               "quantity": {
-                "maximum": 4,
+                "maximum": 12,
                 "minimum": 1,
                 "type": "integer",
                 "format": "int32",
@@ -16908,6 +18247,7 @@
                 "sd1": "#/components/schemas/ComfySd1ImageGenInput",
                 "sdxl": "#/components/schemas/ComfySdxlImageGenInput",
                 "flux1": "#/components/schemas/ComfyFlux1ImageGenInput",
+                "fibo2": "#/components/schemas/ComfyFibo2ImageGenInput",
                 "mossImage": "#/components/schemas/ComfyMossImageGenInput",
                 "flux3Klein": "#/components/schemas/ComfyFlux3KleinImageGenInput",
                 "flux2Dev": "#/components/schemas/ComfyFlux2DevImageGenInput",
@@ -20785,7 +22125,8 @@
               "propertyName": "model",
               "mapping": {
                 "hunyuan3D": "#/components/schemas/Hunyuan3DComfyPolyGenInput",
-                "trellis2": "#/components/schemas/Trellis2ComfyPolyGenInput"
+                "trellis2": "#/components/schemas/Trellis2ComfyPolyGenInput",
+                "idol": "#/components/schemas/IdolComfyPolyGenInput"
               }
             }
           }
@@ -23363,6 +24704,16 @@
         "properties": {
           "blob": {
             "$ref": "#/components/schemas/ImageBlob"
+          },
+          "errors": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Why the source cannot be converted. Retrying the same source fails the same way."
           }
         },
         "additionalProperties": false
@@ -23866,6 +25217,13 @@
         ],
         "description": "Echo"
       },
+      "EmbeddingPrecision": {
+        "enum": [
+          "float32",
+          "float16"
+        ],
+        "type": "string"
+      },
       "EpochResult": {
         "required": [
           "blobName",
@@ -24167,9 +25525,54 @@
               "propertyName": "model",
               "mapping": {
                 "meshy": "#/components/schemas/MeshyFalPolyGenInput",
-                "tripo": "#/components/schemas/TripoFalPolyGenInput"
+                "tripo": "#/components/schemas/TripoVersionedFalPolyGenInput"
               }
             }
+          }
+        ]
+      },
+      "Fibo2AIToolkitTrainingInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AIToolkitTrainingInput"
+          },
+          {
+            "required": [
+              "defaultSteps",
+              "ecosystem",
+              "engine"
+            ],
+            "type": "object",
+            "properties": {
+              "defaultSteps": {
+                "type": "integer",
+                "format": "int32",
+                "readOnly": true
+              },
+              "ecosystem": {
+                "enum": [
+                  "fibo2"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "ai-toolkit"
+                ],
+                "type": "string"
+              },
+              "batchSize": {
+                "maximum": 1,
+                "minimum": 1,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "description": "Training batch size. Fixed at 1 for this ecosystem.",
+                "default": 1
+              }
+            },
+            "additionalProperties": false
           }
         ]
       },
@@ -25773,13 +27176,14 @@
             "type": "object",
             "properties": {
               "images": {
-                "maxItems": 2,
+                "maxItems": 7,
                 "type": "array",
                 "items": {
                   "type": "string",
                   "description": "Either A URL, A DataURL or a Base64 string",
                   "format": "source-image"
-                }
+                },
+                "description": "Up to seven reference images, or four for the 9b-kv variant."
               },
               "operation": {
                 "enum": [
@@ -25940,7 +27344,7 @@
             "type": "object",
             "properties": {
               "images": {
-                "maxItems": 2,
+                "maxItems": 7,
                 "type": "array",
                 "items": {
                   "type": "string",
@@ -27540,7 +28944,8 @@
           "balances",
           "createdAt",
           "expiresAt",
-          "id"
+          "id",
+          "leftoverRefundable"
         ],
         "type": "object",
         "properties": {
@@ -27556,6 +28961,10 @@
               "null",
               "string"
             ]
+          },
+          "leftoverRefundable": {
+            "type": "boolean",
+            "description": "Only one user has deposited, so what is left goes back to them when the fund expires or is deleted, or on `POST /funds/{id}/refund`. Otherwise it stays with Civitai."
           },
           "createdAt": {
             "type": "string",
@@ -29503,7 +30912,8 @@
               "resolution": {
                 "enum": [
                   "480p",
-                  "768p"
+                  "768p",
+                  "2K"
                 ],
                 "type": "string"
               },
@@ -30368,6 +31778,96 @@
                 ],
                 "description": "Training batch size. Fixed at 1 for this ecosystem.",
                 "default": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "IdolComfyPolyGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyPolyGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "imageUrl",
+              "model"
+            ],
+            "type": "object",
+            "properties": {
+              "imageUrl": {
+                "type": "string",
+                "format": "uri"
+              },
+              "diffusionModel": {
+                "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "seed": {
+                "maximum": 9.223372036854776E+18,
+                "minimum": 0,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int64"
+              },
+              "steps": {
+                "maximum": 100,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 50
+              },
+              "cfgScale": {
+                "maximum": 30,
+                "minimum": 0,
+                "type": "number",
+                "format": "double",
+                "default": 4
+              },
+              "mode": {
+                "enum": [
+                  "synthetic",
+                  "real"
+                ],
+                "type": "string",
+                "default": "synthetic"
+              },
+              "numGaussians": {
+                "maximum": 1048576,
+                "minimum": 32768,
+                "type": "integer",
+                "format": "int32",
+                "default": 262144
+              },
+              "minOpacity": {
+                "maximum": 1,
+                "minimum": 0,
+                "type": "number",
+                "format": "double",
+                "default": 0.05
+              },
+              "removeBackground": {
+                "type": "boolean",
+                "default": true
+              },
+              "model": {
+                "enum": [
+                  "idol"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
               }
             },
             "additionalProperties": false
@@ -32337,6 +33837,207 @@
           }
         ]
       },
+      "KlingV4ElementInput": {
+        "type": "object",
+        "properties": {
+          "frontalImage": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Either A URL, A DataURL or a Base64 string",
+            "format": "source-image"
+          },
+          "referenceImages": {
+            "maxItems": 3,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "Either A URL, A DataURL or a Base64 string",
+              "format": "source-image"
+            }
+          },
+          "videoUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Public HTTP(S) video, 3-8 seconds, instead of image views.",
+            "format": "uri"
+          },
+          "voiceId": {
+            "minLength": 1,
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "KlingV4Shot": {
+        "required": [
+          "prompt"
+        ],
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "duration": {
+            "maximum": 30,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32",
+            "default": 5
+          }
+        },
+        "additionalProperties": false
+      },
+      "KlingV4VideoGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/VideoGenInput"
+          },
+          {
+            "required": [
+              "engine"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "enum": [
+                  "textToVideo",
+                  "imageToVideo",
+                  "referenceToVideo",
+                  "videoToVideoEdit"
+                ],
+                "type": "string",
+                "default": "textToVideo"
+              },
+              "duration": {
+                "maximum": 30,
+                "minimum": 3,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "description": "Defaults to 5 seconds for generation or the source length for edits. MultiPrompt overrides this.",
+                "format": "int32"
+              },
+              "resolution": {
+                "enum": [
+                  "720p",
+                  "1080p"
+                ],
+                "type": "string",
+                "default": "1080p"
+              },
+              "aspectRatio": {
+                "enum": [
+                  null,
+                  "auto",
+                  "16:9",
+                  "9:16",
+                  "1:1",
+                  "21:9"
+                ],
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Text/reference generation only. Defaults to 16:9; auto requires references."
+              },
+              "sourceImage": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
+              },
+              "endImage": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Either A URL, A DataURL or a Base64 string",
+                "format": "source-image"
+              },
+              "middleImages": {
+                "maxItems": 8,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
+                }
+              },
+              "images": {
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
+                }
+              },
+              "videoUrl": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Public HTTP(S) source video for edits, 3-30 seconds.",
+                "format": "uri"
+              },
+              "videos": {
+                "maxItems": 5,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "description": "Public HTTP(S) reference videos, 3-30 seconds each. Edits allow four; reference generation allows five."
+              },
+              "elements": {
+                "maxItems": 7,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/KlingV4ElementInput"
+                }
+              },
+              "voiceIds": {
+                "maxItems": 3,
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "At most three voices, including those bound to elements."
+              },
+              "multiPrompt": {
+                "minItems": 1,
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "$ref": "#/components/schemas/KlingV4Shot"
+                },
+                "description": "Generation only. Shot durations must total 3-30 seconds; use an empty prompt for shots only."
+              },
+              "engine": {
+                "enum": [
+                  "kling-v4"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
       "KlingVideoGenAspectRatio": {
         "enum": [
           "16:9",
@@ -33280,6 +34981,26 @@
             "properties": {
               "operation": {
                 "type": "string"
+              },
+              "language": {
+                "enum": [
+                  null,
+                  "Auto",
+                  "Chinese",
+                  "English",
+                  "French",
+                  "German",
+                  "Italian",
+                  "Japanese",
+                  "Korean",
+                  "Portuguese",
+                  "Russian",
+                  "Spanish"
+                ],
+                "type": [
+                  "null",
+                  "string"
+                ]
               },
               "maxNewTokens": {
                 "maximum": 2048,
@@ -35991,6 +37712,14 @@
         ],
         "description": "MiniMax H3 Max and H3 Max Turbo core generation through FAL."
       },
+      "MiniMaxH3Model": {
+        "enum": [
+          "standard",
+          "highspeed",
+          "lite"
+        ],
+        "type": "string"
+      },
       "MiniMaxH3VideoGenInput": {
         "allOf": [
           {
@@ -36025,7 +37754,9 @@
               },
               "resolution": {
                 "enum": [
-                  "2K"
+                  "2K",
+                  "768P",
+                  "480P"
                 ],
                 "type": "string"
               },
@@ -36075,6 +37806,10 @@
                 "type": "integer",
                 "description": "Measured total duration of Civitai.Orchestration.Grains.Workflows.Steps.VideoGen.MiniMaxH3VideoGenInput.ReferenceVideos, filled in during initialization; MiniMax bills uploaded\nreference video at the output per-second rate, so it must be known before the estimate is charged.",
                 "format": "int32"
+              },
+              "model": {
+                "default": "standard",
+                "$ref": "#/components/schemas/MiniMaxH3Model"
               },
               "engine": {
                 "enum": [
@@ -37154,6 +38889,162 @@
             "additionalProperties": false
           }
         ]
+      },
+      "MultimodalEmbeddingStep": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStep"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "description": "Exactly one of text, imageUrl or videoUrl.",
+                "$ref": "#/components/schemas/MultimodalEmbeddingStepInput"
+              },
+              "output": {
+                "$ref": "#/components/schemas/MultimodalEmbeddingStepOutput"
+              },
+              "$type": {
+                "enum": [
+                  "multimodalEmbedding"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Multimodal Embedding"
+      },
+      "MultimodalEmbeddingStepInput": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "enum": [
+              "wemm-2b"
+            ],
+            "type": "string",
+            "default": "wemm-2b"
+          },
+          "dimensions": {
+            "enum": [
+              64,
+              128,
+              256,
+              512,
+              1024,
+              2048
+            ],
+            "type": "integer",
+            "format": "int32",
+            "default": 256
+          },
+          "text": {
+            "maxLength": 20000,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "imageUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
+          },
+          "videoUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "At most 60 seconds, 100 MiB and 4096 pixels per side; audio is ignored.",
+            "format": "uri"
+          },
+          "precision": {
+            "description": "Number format of the stored blob; Float16 halves its size.",
+            "default": "float32",
+            "$ref": "#/components/schemas/EmbeddingPrecision"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Exactly one of text, imageUrl or videoUrl."
+      },
+      "MultimodalEmbeddingStepOutput": {
+        "required": [
+          "blob",
+          "dimensions",
+          "embedding",
+          "model",
+          "modelRevision",
+          "precision",
+          "profile"
+        ],
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string"
+          },
+          "modelRevision": {
+            "type": "string"
+          },
+          "profile": {
+            "type": "string"
+          },
+          "dimensions": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "precision": {
+            "$ref": "#/components/schemas/EmbeddingPrecision"
+          },
+          "embedding": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "format": "float"
+            },
+            "description": "L2-normalized values, exactly representable in the requested precision; empty until the blob is available."
+          },
+          "blob": {
+            "description": "The same values as raw little-endian bytes in the requested precision.",
+            "$ref": "#/components/schemas/Blob"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MultimodalEmbeddingStepTemplate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WorkflowStepTemplate"
+          },
+          {
+            "required": [
+              "$type",
+              "input"
+            ],
+            "type": "object",
+            "properties": {
+              "input": {
+                "description": "Input for the MultimodalEmbeddingStep step.",
+                "$ref": "#/components/schemas/MultimodalEmbeddingStepInput"
+              },
+              "$type": {
+                "enum": [
+                  "multimodalEmbedding"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "Multimodal Embedding"
       },
       "MuseImageCreateFalImageGenInput": {
         "allOf": [
@@ -39231,7 +41122,7 @@
         "type": "object",
         "properties": {
           "model": {
-            "description": "Generated 3D model in GLB format. Null when the engine only produces FBX (Tripo with quad enabled).",
+            "description": "Generated model in GLB format, or a Gaussian splat in PLY format for Idol. Null for FBX-only output.",
             "$ref": "#/components/schemas/Model3DBlob"
           },
           "fbxModel": {
@@ -42214,6 +44105,26 @@
               "operation": {
                 "type": "string"
               },
+              "language": {
+                "enum": [
+                  null,
+                  "Auto",
+                  "Chinese",
+                  "English",
+                  "French",
+                  "German",
+                  "Italian",
+                  "Japanese",
+                  "Korean",
+                  "Portuguese",
+                  "Russian",
+                  "Spanish"
+                ],
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
               "maxNewTokens": {
                 "maximum": 2048,
                 "minimum": 1,
@@ -42774,6 +44685,22 @@
             }
           }
         ]
+      },
+      "RejectedArchiveEntry": {
+        "required": [
+          "path",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/ArchiveEntryRejectionReason"
+          }
+        },
+        "additionalProperties": false
       },
       "RepeatForClause": {
         "required": [
@@ -45468,7 +47395,7 @@
               "description": "Either A URL, A DataURL or a Base64 string",
               "format": "source-image"
             },
-            "description": "Source images for edit-LoRA sample generation, passed as reference images when rendering samples."
+            "description": "One source image per edit-LoRA preview, in prompt order. Repeated when there are fewer images than prompts."
           },
           "cfgScale": {
             "type": [
@@ -45772,14 +47699,14 @@
               "null",
               "string"
             ],
-            "description": "Deprecated: use Civitai.Orchestration.Grains.Workflows.Steps.Transcode.TranscodeOutput.PublicUrl to tell a public blob. Storage tier holding the blob; null when none\nwas declared."
+            "description": "Deprecated: a public blob's Civitai.Orchestration.Grains.Workflows.Steps.Transcode.TranscodeOutput.Url is its public url. Storage tier holding the blob; null when none\nwas declared."
           },
           "publicUrl": {
             "type": [
               "null",
               "string"
             ],
-            "description": "The durable, unsigned url of a blob requested public, which a CDN can cache. May 404 until the workflow that\nproduces it completes; Civitai.Orchestration.Grains.Workflows.Steps.Transcode.TranscodeOutput.Url waits instead.",
+            "description": "Deprecated and always null: Civitai.Orchestration.Grains.Workflows.Steps.Transcode.TranscodeOutput.Url becomes the public url once the blob has passed moderation.",
             "format": "uri"
           }
         },
@@ -46288,13 +48215,14 @@
       "TripoFalPolyGenInput": {
         "allOf": [
           {
-            "$ref": "#/components/schemas/FalPolyGenInput"
+            "$ref": "#/components/schemas/TripoVersionedFalPolyGenInput"
           },
           {
             "required": [
               "engine",
               "imageUrl",
-              "model"
+              "model",
+              "version"
             ],
             "type": "object",
             "properties": {
@@ -46363,6 +48291,12 @@
                 ],
                 "format": "int32"
               },
+              "version": {
+                "enum": [
+                  "v2.5"
+                ],
+                "type": "string"
+              },
               "model": {
                 "enum": [
                   "tripo"
@@ -46377,6 +48311,356 @@
               }
             },
             "additionalProperties": false
+          }
+        ]
+      },
+      "TripoH31FalPolyGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TripoVersionedFalPolyGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "model",
+              "operation",
+              "version"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "type": "string"
+              },
+              "texture": {
+                "type": "boolean",
+                "default": true
+              },
+              "pbr": {
+                "type": "boolean",
+                "description": "PBR enables textures even when texture is false.",
+                "default": true
+              },
+              "faceLimit": {
+                "maximum": 2000000,
+                "minimum": 1000,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int32"
+              },
+              "autoSize": {
+                "type": "boolean",
+                "default": false
+              },
+              "quad": {
+                "type": "boolean",
+                "default": false
+              },
+              "geometryQuality": {
+                "enum": [
+                  "standard",
+                  "detailed"
+                ],
+                "type": "string",
+                "default": "standard"
+              },
+              "textureQuality": {
+                "enum": [
+                  "standard",
+                  "detailed"
+                ],
+                "type": "string",
+                "default": "standard"
+              },
+              "seed": {
+                "maximum": 2147483647,
+                "minimum": 0,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int32"
+              },
+              "textureSeed": {
+                "maximum": 2147483647,
+                "minimum": 0,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int32"
+              },
+              "version": {
+                "enum": [
+                  "h3.1"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "tripo"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "fal"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "operation",
+              "mapping": {
+                "textTo3D": "#/components/schemas/TripoH31TextTo3DFalPolyGenInput",
+                "imageTo3D": "#/components/schemas/TripoH31ImageTo3DFalPolyGenInput",
+                "multiviewTo3D": "#/components/schemas/TripoH31MultiviewTo3DFalPolyGenInput"
+              }
+            }
+          }
+        ]
+      },
+      "TripoH31ImageTo3DFalPolyGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TripoH31FalPolyGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "imageUrl",
+              "model",
+              "operation",
+              "version"
+            ],
+            "type": "object",
+            "properties": {
+              "imageUrl": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "textureAlignment": {
+                "enum": [
+                  "original_image",
+                  "geometry"
+                ],
+                "type": "string",
+                "default": "original_image"
+              },
+              "orientation": {
+                "enum": [
+                  "default",
+                  "align_image"
+                ],
+                "type": "string",
+                "default": "default"
+              },
+              "operation": {
+                "enum": [
+                  "imageTo3D"
+                ],
+                "type": "string"
+              },
+              "version": {
+                "enum": [
+                  "h3.1"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "tripo"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "fal"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "TripoH31MultiviewTo3DFalPolyGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TripoH31FalPolyGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "imageUrls",
+              "model",
+              "operation",
+              "version"
+            ],
+            "type": "object",
+            "properties": {
+              "imageUrls": {
+                "maxItems": 4,
+                "minItems": 2,
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "2–4 views of the same object, ordered front, left, back, right."
+              },
+              "textureAlignment": {
+                "enum": [
+                  "original_image",
+                  "geometry"
+                ],
+                "type": "string",
+                "default": "original_image"
+              },
+              "orientation": {
+                "enum": [
+                  "default",
+                  "align_image"
+                ],
+                "type": "string",
+                "default": "default"
+              },
+              "operation": {
+                "enum": [
+                  "multiviewTo3D"
+                ],
+                "type": "string"
+              },
+              "version": {
+                "enum": [
+                  "h3.1"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "tripo"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "fal"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "TripoH31TextTo3DFalPolyGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TripoH31FalPolyGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "model",
+              "operation",
+              "prompt",
+              "version"
+            ],
+            "type": "object",
+            "properties": {
+              "prompt": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              "negativePrompt": {
+                "maxLength": 1024,
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "imageSeed": {
+                "maximum": 2147483647,
+                "minimum": 0,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int32"
+              },
+              "operation": {
+                "enum": [
+                  "textTo3D"
+                ],
+                "type": "string"
+              },
+              "version": {
+                "enum": [
+                  "h3.1"
+                ],
+                "type": "string"
+              },
+              "model": {
+                "enum": [
+                  "tripo"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "fal"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "TripoVersionedFalPolyGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/FalPolyGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "model",
+              "version"
+            ],
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": "v2.5"
+              },
+              "model": {
+                "enum": [
+                  "tripo"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "fal"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "version",
+              "mapping": {
+                "v2.5": "#/components/schemas/TripoFalPolyGenInput",
+                "h3.1": "#/components/schemas/TripoH31FalPolyGenInput"
+              }
+            }
           }
         ]
       },
@@ -47429,6 +49713,7 @@
             "gemini-omni": "#/components/schemas/GeminiOmniVideoGenInput",
             "sora": "#/components/schemas/SoraVideoGenInput",
             "kling-v3": "#/components/schemas/KlingV3VideoGenInput",
+            "kling-v4": "#/components/schemas/KlingV4VideoGenInput",
             "grok": "#/components/schemas/GrokVideoGenInput",
             "seedance": "#/components/schemas/SeedanceVideoGenInput",
             "happyHorse": "#/components/schemas/HappyHorseVideoGenInput",
@@ -48515,6 +50800,75 @@
           }
         ]
       },
+      "Wan225bComfyVideoGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Wan225bVideoGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "provider",
+              "version"
+            ],
+            "type": "object",
+            "properties": {
+              "resolution": {
+                "enum": [
+                  "480p",
+                  "580p",
+                  "720p"
+                ],
+                "type": "string",
+                "default": "720p"
+              },
+              "aspectRatio": {
+                "enum": [
+                  "1:1",
+                  "16:9",
+                  "9:16",
+                  "auto"
+                ],
+                "type": "string",
+                "default": "16:9"
+              },
+              "images": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
+                }
+              },
+              "negativePrompt": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "provider": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              },
+              "version": {
+                "enum": [
+                  "v2.2-5b"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "wan"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
       "Wan225bFalImageGenInput": {
         "allOf": [
           {
@@ -48828,7 +51182,7 @@
                   "null",
                   "string"
                 ],
-                "default": "fal"
+                "default": "comfy"
               },
               "version": {
                 "enum": [
@@ -48847,6 +51201,7 @@
             "discriminator": {
               "propertyName": "provider",
               "mapping": {
+                "comfy": "#/components/schemas/Wan225bComfyVideoGenInput",
                 "fal": "#/components/schemas/Wan225bFalVideoGenInput"
               }
             }
@@ -51880,6 +54235,7 @@
           "mapping": {
             "aceStepAudio": "#/components/schemas/AceStepAudioStep",
             "ageClassification": "#/components/schemas/AgeClassificationStep",
+            "archiveExtraction": "#/components/schemas/ArchiveExtractionStep",
             "audioCaptioning": "#/components/schemas/AudioCaptioningStep",
             "audioModeration": "#/components/schemas/AudioModerationStep",
             "blobArchive": "#/components/schemas/BlobArchiveStep",
@@ -51909,6 +54265,7 @@
             "modelHash": "#/components/schemas/ModelHashStep",
             "modelParseMetadata": "#/components/schemas/ModelParseMetadataStep",
             "modelPickleScan": "#/components/schemas/ModelPickleScanStep",
+            "multimodalEmbedding": "#/components/schemas/MultimodalEmbeddingStep",
             "polyGen": "#/components/schemas/PolyGenStep",
             "preprocessImage": "#/components/schemas/PreprocessImageStep",
             "preprocessVideo": "#/components/schemas/PreprocessVideoStep",
@@ -52234,6 +54591,7 @@
           "mapping": {
             "aceStepAudio": "#/components/schemas/AceStepAudioStepTemplate",
             "ageClassification": "#/components/schemas/AgeClassificationStepTemplate",
+            "archiveExtraction": "#/components/schemas/ArchiveExtractionStepTemplate",
             "audioCaptioning": "#/components/schemas/AudioCaptioningStepTemplate",
             "audioModeration": "#/components/schemas/AudioModerationStepTemplate",
             "blobArchive": "#/components/schemas/BlobArchiveStepTemplate",
@@ -52263,6 +54621,7 @@
             "modelHash": "#/components/schemas/ModelHashStepTemplate",
             "modelParseMetadata": "#/components/schemas/ModelParseMetadataStepTemplate",
             "modelPickleScan": "#/components/schemas/ModelPickleScanStepTemplate",
+            "multimodalEmbedding": "#/components/schemas/MultimodalEmbeddingStepTemplate",
             "polyGen": "#/components/schemas/PolyGenStepTemplate",
             "preprocessImage": "#/components/schemas/PreprocessImageStepTemplate",
             "preprocessVideo": "#/components/schemas/PreprocessVideoStepTemplate",
@@ -52339,7 +54698,6 @@
       },
       "WorkflowTemplate": {
         "required": [
-          "currencies",
           "steps"
         ],
         "type": "object",
