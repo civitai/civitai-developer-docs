@@ -32786,7 +32786,7 @@
                   "null",
                   "integer"
                 ],
-                "description": "Total optimizer steps; otherwise derived from epochs, repeats, declared image count and batch size. Supply an accurate count or explicit steps when migrating legacy datasets.",
+                "description": "Total optimizer steps; otherwise derived from epochs, repeats, declared image count and batch size. Supply an accurate count or explicit steps.",
                 "format": "int32"
               },
               "continueFrom": {
