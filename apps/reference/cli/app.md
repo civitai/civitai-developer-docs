@@ -10,7 +10,7 @@ outline: [2, 4]
 
 Scaffold, validate, submit and operate an App: every `civitai app` command except the listing group.
 
-This page documents 18 of the 64 commands in the [CLI reference](../cli), which indexes every command by name. Generated from the `civitai` binary's own help output.
+This page documents 18 of the 65 commands in the [CLI reference](../cli), which indexes every command by name. Generated from the `civitai` binary's own help output.
 
 Other pages: [civitai app listing — store listing commands](./app-listing) · [Catalog and download commands](./catalog) · [Generation commands](./generation) · [Account, setup and utility commands](./account-and-setup)
 
@@ -240,6 +240,16 @@ plus the ported semantic rules and structural checks:
   - renderMode inline/hybrid is rejected (requires a verified tier the platform
     only assigns post-submit)
   - targets[].slotId must be a known registered slot
+  - the storage declaration, as the server checks it beyond the schema: a
+    counter and a mark sharing a name, collections declared without
+    apps:storage, a viewer-written shared collection without
+    apps:storage:publish, and either scope requested with nothing in storage
+    for it to reach
+  - a storage collection's document schema (storage.collections.<name>.schema)
+    within the server's bounds: at most 16384 bytes of JSON, 16 nested
+    schemas and 16 patterns (32 across the manifest), no
+    minLength/minItems/minimum above its max, and none on a write "none"
+    collection
   - the committed LOCKFILE matches the package manager the platform build
     derives from buildCommand (its first word): pnpm -> pnpm-lock.yaml,
     yarn -> yarn.lock, and npm/vite/npx/unset -> package-lock.json. The
@@ -270,18 +280,35 @@ It also emits non-fatal WARNINGS the schema can't catch as hard errors:
     connects at mount (in those releases useBuzzWorkflow alone never acks):
     call useBlockContext() in your root component. It reads source only —
     never outputDir, node_modules, markdown, or comments.
+  - storage features the schema describes but the platform does not accept
+    yet (kind "log", write "anyone"/"owner", ttlSeconds, dailyWritesPerAuthor).
+    civitai.com refuses them at submit today; they are warnings, not errors,
+    because the platform enables each with a server-side switch and an
+    installed CLI must not refuse a manifest the server has started to accept.
+  - a collection schema pattern with a syntax error in JavaScript regular
+    expressions with the "u" flag, which is how the server compiles it (an
+    escape like \- or \z, a lone { } or ], an inline flag like (?i)). The
+    check is conservative: a pattern it says nothing about is not proven
+    valid, and the server decides at submit.
+  - source that calls the document store, app.storage.collection(<name>), with
+    a string-literal name the manifest does not declare under
+    storage.collections (every call on it is refused collection_not_declared),
+    or while the manifest has neither the apps:storage scope nor a storage
+    declaration (every call is refused insufficient_scope). A computed name is
+    not checked; a .collection( call on anything but a storage client (a name
+    ending in storage, or an awaited call such as (await docs())) is not the
+    document store.
   - source that calls useAppStorage() or useSharedStorage() while the manifest
-    declares NO scope for that store. The server gates storage by PRESENCE in the
-    approved scope set, so an undeclared scope means every call 403s in
-    production while working locally against the mock host — the exact shape of
-    an app that passed its whole suite, the dev harness and a submit, then failed
-    every save. The two stores are asked independently: declaring
-    apps:storage:shared:* says nothing about the per-viewer store. It does NOT
-    second-guess WHICH scope you picked — one storage scope is someone who knows
-    scopes exist and chose, so only a store with NONE is reported. Advisory ONLY:
-    it reads source statically, so a hook imported but never called is a false
-    positive. Same corpus rules as the ready-ack check — source only, comments
-    stripped, node_modules and build output skipped.
+    declares NO scope for that store (apps:storage:read / apps:storage:write,
+    or apps:storage:shared:read / apps:storage:shared:write). The server gates
+    storage by PRESENCE in the approved scope set, so every call 403s in
+    production while working locally against the mock host. One scope for the
+    store is enough to silence it; the two stores are asked independently.
+    Advisory ONLY: these read source statically. Same corpus rules as the
+    ready-ack check — source only, comments stripped, node_modules and build
+    output skipped — and test code is not read: *.test.*, *.spec.*, a file
+    named fake-*, test-* or mock-*, or anything under __tests__/, __mocks__/
+    or testing/.
 Warnings do NOT fail validation (exit 0) unless --strict is passed.
 
 Defaults to the current directory.
@@ -408,6 +435,14 @@ Listing-completeness gate:
 
   Your FIRST submit is what creates the store listing, so there is nothing to
   check yet and nothing is refused; the gate applies from the second one on.
+
+Storage migration notes:
+  An app that declares App Storage collections is checked by the SERVER
+  against the previous approved version. An accepted submit prints the
+  server's migration notes under the success line — for example a
+  storage.collections.<name>.migrations op that covers nothing and so will
+  never run. They never block the submit. (A breaking change no migration
+  covers refuses the submit, and the server's error lists each one.)
 
 Defaults to the current directory.
 ```
