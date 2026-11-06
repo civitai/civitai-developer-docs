@@ -32603,6 +32603,234 @@
           }
         ]
       },
+      "KohyaTrainingInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TrainingInput"
+          },
+          {
+            "required": [
+              "clipSkip",
+              "enableBucket",
+              "engine",
+              "flipAugmentation",
+              "keepTokens",
+              "lrScheduler",
+              "lrSchedulerNumCycles",
+              "maxTrainEpochs",
+              "model",
+              "networkAlpha",
+              "networkDim",
+              "noiseOffset",
+              "numRepeats",
+              "optimizerType",
+              "seed",
+              "shuffleCaption",
+              "textEncoderLR",
+              "trace",
+              "trainBatchSize",
+              "unetLR",
+              "usesStepPricing"
+            ],
+            "type": "object",
+            "properties": {
+              "model": {
+                "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
+                "type": "string"
+              },
+              "maxTrainEpochs": {
+                "maximum": 20,
+                "minimum": 1,
+                "type": "integer",
+                "description": "Number of saved checkpoints across the training run.",
+                "format": "int32"
+              },
+              "numRepeats": {
+                "maximum": 5000,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32"
+              },
+              "trainBatchSize": {
+                "maximum": 9,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32"
+              },
+              "resolution": {
+                "maximum": 1024,
+                "minimum": 512,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int32"
+              },
+              "enableBucket": {
+                "type": "boolean"
+              },
+              "shuffleCaption": {
+                "type": "boolean"
+              },
+              "keepTokens": {
+                "maximum": 3,
+                "minimum": 0,
+                "type": "integer",
+                "format": "int32"
+              },
+              "clipSkip": {
+                "maximum": 4,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32"
+              },
+              "flipAugmentation": {
+                "type": "boolean"
+              },
+              "unetLR": {
+                "maximum": 1,
+                "minimum": 1E-09,
+                "type": "number",
+                "format": "double"
+              },
+              "textEncoderLR": {
+                "maximum": 1,
+                "minimum": 0,
+                "type": "number",
+                "format": "double"
+              },
+              "lrScheduler": {
+                "enum": [
+                  "constant",
+                  "constant_with_warmup",
+                  "cosine",
+                  "cosine_with_restarts",
+                  "linear",
+                  "polynomial"
+                ],
+                "type": "string"
+              },
+              "lrSchedulerNumCycles": {
+                "maximum": 4,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32"
+              },
+              "minSnrGamma": {
+                "maximum": 20,
+                "minimum": 0,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int32"
+              },
+              "networkDim": {
+                "maximum": 256,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32"
+              },
+              "networkAlpha": {
+                "maximum": 256,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32"
+              },
+              "noiseOffset": {
+                "maximum": 1,
+                "minimum": 0,
+                "type": "number",
+                "format": "double"
+              },
+              "optimizerType": {
+                "type": "string"
+              },
+              "trainTextEncoder": {
+                "type": [
+                  "null",
+                  "boolean"
+                ]
+              },
+              "steps": {
+                "maximum": 100000,
+                "minimum": 1,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "description": "Total optimizer steps; otherwise derived from epochs, repeats, image count and batch size.",
+                "format": "int32"
+              },
+              "continueFrom": {
+                "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Starts a new schedule from these LoRA weights. Worker handoffs restore full state automatically."
+              },
+              "clipLModel": {
+                "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "textEncoderModel": {
+                "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "vaeModel": {
+                "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "fp8Base": {
+                "type": [
+                  "null",
+                  "boolean"
+                ]
+              },
+              "blocksToSwap": {
+                "maximum": 35,
+                "minimum": 0,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int32"
+              },
+              "seed": {
+                "maximum": 2147483647,
+                "minimum": 0,
+                "type": "integer",
+                "format": "int32"
+              },
+              "trace": {
+                "description": "What an epoch job records to its live trace stream (`output.epochs[].traceUrl`), which the consumer can tail\nwhile the job runs.",
+                "$ref": "#/components/schemas/TrainingTraceMode"
+              },
+              "usesStepPricing": {
+                "type": "boolean",
+                "readOnly": true
+              },
+              "engine": {
+                "enum": [
+                  "kohya"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
       "Krea2AIToolkitTrainingInput": {
         "allOf": [
           {
@@ -45441,6 +45669,7 @@
           "propertyName": "engine",
           "mapping": {
             "ai-toolkit": "#/components/schemas/AIToolkitTrainingInput",
+            "kohya": "#/components/schemas/KohyaTrainingInput",
             "comfy": "#/components/schemas/ComfyTrainingInput"
           }
         }
