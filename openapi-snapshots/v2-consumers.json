@@ -8434,9 +8434,11 @@
                     "steps": [
                       {
                         "input": {
+                          "model": "urn:air:sdxl:checkpoint:civitai:101055@128078",
                           "maxTrainEpochs": 5,
                           "numRepeats": 8,
-                          "resolution": 512,
+                          "trainBatchSize": 1,
+                          "resolution": 1024,
                           "enableBucket": true,
                           "shuffleCaption": false,
                           "keepTokens": 0,
@@ -8444,13 +8446,21 @@
                           "flipAugmentation": false,
                           "unetLR": 0.00005,
                           "textEncoderLR": 0.00005,
+                          "lrScheduler": "cosine_with_restarts",
                           "lrSchedulerNumCycles": 3,
+                          "networkDim": 32,
+                          "networkAlpha": 16,
+                          "noiseOffset": 0,
+                          "optimizerType": "AdamW8bit",
+                          "seed": 42,
+                          "trace": "none",
+                          "usesStepPricing": true,
                           "engine": "kohya",
-                          "model": "urn:air:sdxl:model:civitai:101055@128078",
-                          "trainingData": "https://example.com/training-data",
-                          "trainingDataImagesCount": 10,
-                          "loraName": "mylora",
-                          "samplePrompts": [ ]
+                          "trainingData": {
+                            "type": "zip",
+                            "sourceUrl": "urn:air:other:archive:civitai:1@1",
+                            "count": 10
+                          }
                         },
                         "priority": "normal",
                         "retries": 1
@@ -8648,9 +8658,11 @@
                     "steps": [
                       {
                         "input": {
+                          "model": "urn:air:sdxl:checkpoint:civitai:101055@128078",
                           "maxTrainEpochs": 5,
                           "numRepeats": 8,
-                          "resolution": 512,
+                          "trainBatchSize": 1,
+                          "resolution": 1024,
                           "enableBucket": true,
                           "shuffleCaption": false,
                           "keepTokens": 0,
@@ -8658,13 +8670,21 @@
                           "flipAugmentation": false,
                           "unetLR": 0.00005,
                           "textEncoderLR": 0.00005,
+                          "lrScheduler": "cosine_with_restarts",
                           "lrSchedulerNumCycles": 3,
+                          "networkDim": 32,
+                          "networkAlpha": 16,
+                          "noiseOffset": 0,
+                          "optimizerType": "AdamW8bit",
+                          "seed": 42,
+                          "trace": "none",
+                          "usesStepPricing": true,
                           "engine": "kohya",
-                          "model": "urn:air:sdxl:model:civitai:101055@128078",
-                          "trainingData": "https://example.com/training-data",
-                          "trainingDataImagesCount": 10,
-                          "loraName": "mylora",
-                          "samplePrompts": [ ]
+                          "trainingData": {
+                            "type": "zip",
+                            "sourceUrl": "urn:air:other:archive:civitai:1@1",
+                            "count": 10
+                          }
                         },
                         "priority": "normal",
                         "retries": 1
@@ -8862,9 +8882,11 @@
                     "steps": [
                       {
                         "input": {
+                          "model": "urn:air:sdxl:checkpoint:civitai:101055@128078",
                           "maxTrainEpochs": 5,
                           "numRepeats": 8,
-                          "resolution": 512,
+                          "trainBatchSize": 1,
+                          "resolution": 1024,
                           "enableBucket": true,
                           "shuffleCaption": false,
                           "keepTokens": 0,
@@ -8872,13 +8894,21 @@
                           "flipAugmentation": false,
                           "unetLR": 0.00005,
                           "textEncoderLR": 0.00005,
+                          "lrScheduler": "cosine_with_restarts",
                           "lrSchedulerNumCycles": 3,
+                          "networkDim": 32,
+                          "networkAlpha": 16,
+                          "noiseOffset": 0,
+                          "optimizerType": "AdamW8bit",
+                          "seed": 42,
+                          "trace": "none",
+                          "usesStepPricing": true,
                           "engine": "kohya",
-                          "model": "urn:air:sdxl:model:civitai:101055@128078",
-                          "trainingData": "https://example.com/training-data",
-                          "trainingDataImagesCount": 10,
-                          "loraName": "mylora",
-                          "samplePrompts": [ ]
+                          "trainingData": {
+                            "type": "zip",
+                            "sourceUrl": "urn:air:other:archive:civitai:1@1",
+                            "count": 10
+                          }
                         },
                         "priority": "normal",
                         "retries": 1
