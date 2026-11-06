@@ -32636,7 +32636,8 @@
             "properties": {
               "model": {
                 "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
-                "type": "string"
+                "type": "string",
+                "description": "Any compatible SD1.5, SDXL (including Pony, Illustrious and NoobAI), FLUX.1 or Chroma checkpoint AIR."
               },
               "maxTrainEpochs": {
                 "maximum": 20,
@@ -32649,12 +32650,14 @@
                 "maximum": 5000,
                 "minimum": 1,
                 "type": "integer",
+                "description": "Number of times each training image is repeated per dataset epoch.",
                 "format": "int32"
               },
               "trainBatchSize": {
                 "maximum": 9,
                 "minimum": 1,
                 "type": "integer",
+                "description": "Images per optimizer step.",
                 "format": "int32"
               },
               "resolution": {
@@ -32664,39 +32667,47 @@
                   "null",
                   "integer"
                 ],
+                "description": "Training resolution; defaults to 512 for SD1.5 and 1024 for other families.",
                 "format": "int32"
               },
               "enableBucket": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "Group images into aspect-ratio buckets."
               },
               "shuffleCaption": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "Shuffle comma-separated caption tokens during training."
               },
               "keepTokens": {
                 "maximum": 3,
                 "minimum": 0,
                 "type": "integer",
+                "description": "Leading caption tokens kept in place while shuffling.",
                 "format": "int32"
               },
               "clipSkip": {
                 "maximum": 4,
                 "minimum": 1,
                 "type": "integer",
+                "description": "CLIP layer skip for SD1.5; other families use 1.",
                 "format": "int32"
               },
               "flipAugmentation": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "Random horizontal image flips."
               },
               "unetLR": {
                 "maximum": 1,
                 "minimum": 1E-09,
                 "type": "number",
+                "description": "Learning rate for the diffusion model LoRA.",
                 "format": "double"
               },
               "textEncoderLR": {
                 "maximum": 1,
                 "minimum": 0,
                 "type": "number",
+                "description": "Learning rate for text encoder LoRA modules.",
                 "format": "double"
               },
               "lrScheduler": {
@@ -32708,12 +32719,14 @@
                   "linear",
                   "polynomial"
                 ],
-                "type": "string"
+                "type": "string",
+                "description": "Learning-rate schedule over the total optimizer-step budget."
               },
               "lrSchedulerNumCycles": {
                 "maximum": 4,
                 "minimum": 1,
                 "type": "integer",
+                "description": "Number of cosine scheduler cycles.",
                 "format": "int32"
               },
               "minSnrGamma": {
@@ -32723,34 +32736,48 @@
                   "null",
                   "integer"
                 ],
+                "description": "Min-SNR loss weighting; defaults to 5 for SD models and 0 for flow models.",
                 "format": "int32"
               },
               "networkDim": {
                 "maximum": 256,
                 "minimum": 1,
                 "type": "integer",
+                "description": "LoRA rank; must match ContinueFrom weights.",
                 "format": "int32"
               },
               "networkAlpha": {
                 "maximum": 256,
                 "minimum": 1,
                 "type": "integer",
+                "description": "LoRA alpha; must match ContinueFrom weights.",
                 "format": "int32"
               },
               "noiseOffset": {
                 "maximum": 1,
                 "minimum": 0,
                 "type": "number",
+                "description": "Noise offset for SD training; flow models require 0.",
                 "format": "double"
               },
               "optimizerType": {
-                "type": "string"
+                "enum": [
+                  "AdamW",
+                  "AdamW8bit",
+                  "Adafactor",
+                  "Prodigy",
+                  "Lion",
+                  "Lion8bit"
+                ],
+                "type": "string",
+                "description": "Optimizer used for the LoRA parameters."
               },
               "trainTextEncoder": {
                 "type": [
                   "null",
                   "boolean"
-                ]
+                ],
+                "description": "Train text encoder LoRAs; FLUX supports CLIP-L and Chroma does not support this option."
               },
               "steps": {
                 "maximum": 100000,
@@ -32775,27 +32802,31 @@
                 "type": [
                   "null",
                   "string"
-                ]
+                ],
+                "description": "Optional FLUX CLIP-L resource override."
               },
               "textEncoderModel": {
                 "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
                 "type": [
                   "null",
                   "string"
-                ]
+                ],
+                "description": "Optional FLUX or Chroma T5 text encoder resource override."
               },
               "vaeModel": {
                 "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
                 "type": [
                   "null",
                   "string"
-                ]
+                ],
+                "description": "Optional VAE resource override."
               },
               "fp8Base": {
                 "type": [
                   "null",
                   "boolean"
-                ]
+                ],
+                "description": "Use FP8 base weights for FLUX or Chroma; defaults to true for these families."
               },
               "blocksToSwap": {
                 "maximum": 35,
@@ -32804,17 +32835,33 @@
                   "null",
                   "integer"
                 ],
+                "description": "Transformer blocks swapped to CPU for FLUX or Chroma; defaults to 18.",
                 "format": "int32"
               },
               "seed": {
                 "maximum": 2147483647,
                 "minimum": 0,
                 "type": "integer",
+                "description": "Random seed for training and generated samples.",
                 "format": "int32"
               },
               "trace": {
-                "description": "What an epoch job records to its live trace stream (`output.epochs[].traceUrl`), which the consumer can tail\nwhile the job runs.",
+                "description": "Optional training trace output.",
                 "$ref": "#/components/schemas/TrainingTraceMode"
+              },
+              "vParameterization": {
+                "type": [
+                  "null",
+                  "boolean"
+                ],
+                "description": "Use the v-prediction objective. Omit to detect checkpoint markers; unmarked checkpoints default to epsilon."
+              },
+              "zeroTerminalSnr": {
+                "type": [
+                  "null",
+                  "boolean"
+                ],
+                "description": "Use zero terminal SNR. Omit to detect the checkpoint ztsnr marker."
               },
               "usesStepPricing": {
                 "type": "boolean",
