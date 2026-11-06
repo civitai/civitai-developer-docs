@@ -32777,7 +32777,7 @@
                   "null",
                   "boolean"
                 ],
-                "description": "Train text encoder LoRAs; FLUX supports CLIP-L and Chroma does not support this option."
+                "description": "Train text encoder LoRAs; must match ContinueFrom coverage. FLUX supports CLIP-L; Chroma does not support this option."
               },
               "steps": {
                 "maximum": 100000,
