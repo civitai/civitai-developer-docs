@@ -32786,7 +32786,7 @@
                   "null",
                   "integer"
                 ],
-                "description": "Total optimizer steps; otherwise derived from epochs, repeats, image count and batch size.",
+                "description": "Total optimizer steps; otherwise derived from epochs, repeats, declared image count and batch size. Supply an accurate count or explicit steps when migrating legacy datasets.",
                 "format": "int32"
               },
               "continueFrom": {
@@ -32854,14 +32854,14 @@
                   "null",
                   "boolean"
                 ],
-                "description": "Training objective override. Omit to detect checkpoint markers; unmarked checkpoints default to epsilon. Previews use their own checkpoint detection."
+                "description": "Training objective override: true trains with v-prediction. Omit to detect checkpoint markers; unmarked checkpoints default to epsilon. Previews use their own checkpoint detection."
               },
               "zeroTerminalSnr": {
                 "type": [
                   "null",
                   "boolean"
                 ],
-                "description": "Training schedule override. Omit to detect the checkpoint ztsnr marker. Previews use their own checkpoint detection."
+                "description": "Training schedule override: true trains with zero terminal SNR. Omit to detect the checkpoint ztsnr marker. Previews use their own checkpoint detection."
               },
               "usesStepPricing": {
                 "type": "boolean",
