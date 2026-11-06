@@ -6,6 +6,8 @@ title: Results & Webhooks
 
 To learn that a workflow finished, either **poll** [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) until it reaches a terminal state, or register **callbacks** (webhooks) and let the orchestrator push events to you. For anything that may outlast [your HTTP client's timeout](./getting-started#_3-poll-if-you-didn-t-wait-inline), prefer webhooks.
 
+For [multimodal embeddings](/orchestration/recipes/multimodal-embeddings), completed vectors are inline in `steps[].output.data[].embedding`, with the caller's ID and index. Other steps can reference that output. Preserve the returned model revision, profile and dimensions when storing vectors for search.
+
 ## Registering callbacks
 
 Callbacks live on the workflow body you submit via [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow), alongside `steps`:
