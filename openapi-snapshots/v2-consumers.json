@@ -32726,7 +32726,7 @@
                 "maximum": 4,
                 "minimum": 1,
                 "type": "integer",
-                "description": "Number of cosine scheduler cycles.",
+                "description": "Number of cycles used by cosine_with_restarts; ignored by other schedulers.",
                 "format": "int32"
               },
               "minSnrGamma": {
@@ -32770,7 +32770,7 @@
                   "Lion8bit"
                 ],
                 "type": "string",
-                "description": "Optimizer used for the LoRA parameters."
+                "description": "Optimizer used for the LoRA parameters; names are case-insensitive."
               },
               "trainTextEncoder": {
                 "type": [
@@ -32846,7 +32846,7 @@
                 "format": "int32"
               },
               "trace": {
-                "description": "Optional training trace output.",
+                "description": "What an epoch job records to its live trace stream (`output.epochs[].traceUrl`), which the consumer can tail\nwhile the job runs.",
                 "$ref": "#/components/schemas/TrainingTraceMode"
               },
               "vParameterization": {
@@ -32854,14 +32854,14 @@
                   "null",
                   "boolean"
                 ],
-                "description": "Use the v-prediction objective. Omit to detect checkpoint markers; unmarked checkpoints default to epsilon."
+                "description": "Training objective override. Omit to detect checkpoint markers; unmarked checkpoints default to epsilon. Previews use their own checkpoint detection."
               },
               "zeroTerminalSnr": {
                 "type": [
                   "null",
                   "boolean"
                 ],
-                "description": "Use zero terminal SNR. Omit to detect the checkpoint ztsnr marker."
+                "description": "Training schedule override. Omit to detect the checkpoint ztsnr marker. Previews use their own checkpoint detection."
               },
               "usesStepPricing": {
                 "type": "boolean",
