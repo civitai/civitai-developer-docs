@@ -10,6 +10,8 @@ The orchestrator has three nested concepts. You mostly work with the first two; 
 - **Step** — a unit of work inside a workflow. Each step has a `$type` (the step type — `imageGen`, `videoGen`, `transcription`, …) and an `input`, and produces one or more outputs.
 - **Job** — a unit of work the step needs done. A step emits zero, one or many. Compatible providers race to claim each job and the winner runs it; you don't schedule jobs directly.
 
+For example, the moderator-only [model analysis step](/orchestration/recipes/model-analysis) creates missing fingerprints before comparing a checkpoint with candidate LoRAs. A cached report can complete the same step without any worker jobs.
+
 (*A **recipe** is a typed endpoint at `/v2/consumer/recipes/{name}` that wraps a single-step workflow, without the polymorphic `$type`. See [The per-recipe path](./submitting-work#the-per-recipe-path).*)
 
 ```mermaid
