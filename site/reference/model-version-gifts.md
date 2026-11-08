@@ -1,6 +1,6 @@
 ---
 title: Model version gifts
-description: Claim a gift code for a paid or early-access model version, and mint, list and revoke gift codes for your own.
+description: Claim a gift code for a paid or early-access model version, and mint, list and revoke gift codes for your own, and see who claimed them.
 ---
 
 # Model version gifts
@@ -103,8 +103,34 @@ GET /api/v1/model-versions/{id}/gifts
 ```
 
 `links` holds your gift links and `batches` one summary per batch of single-use codes, live ones first;
-`live` counts codes that are still claimable. Codes themselves are never returned, and neither is who
-claimed them.
+`live` counts codes that are still claimable. Codes themselves are never returned; who claimed them is
+the next endpoint.
+
+## List who claimed
+
+```
+GET /api/v1/model-versions/{id}/gifts/{giftId}/claims?limit=100&cursor=…
+GET /api/v1/model-versions/{id}/gifts/batch/{batchId}/claims?limit=100&cursor=…
+```
+
+The accounts that claimed one gift link, or any code of one batch, newest first. Available to the
+version's creator.
+
+| Query | Type | Description |
+|-------|------|-------------|
+| `limit` | integer, 1–100, optional | Claims per page. Defaults to 100. |
+| `cursor` | string, optional | The `nextCursor` of the previous page. |
+
+```json
+{
+  "claims": [
+    { "giftLinkId": 42, "userId": 1234, "username": "someone", "claimedAt": "2026-11-07T12:00:00.000Z" }
+  ],
+  "nextCursor": null
+}
+```
+
+A `limit` above 100 or a malformed cursor answers `400`; a version you do not own answers `403`.
 
 ## Revoke
 
