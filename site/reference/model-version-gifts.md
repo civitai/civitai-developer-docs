@@ -30,11 +30,13 @@ POST /api/v1/model-versions/gifts/claim
 ### Response
 
 ```json
-{ "modelVersionId": 555, "modelId": 123, "alreadyHadAccess": false }
+{ "modelVersionId": 555, "modelId": 123, "alreadyHadAccess": false,
+  "notice": "The creator can see that you claimed this." }
 ```
 
 `alreadyHadAccess: true` means the account already had this access (or the version is no longer
-gated), and the claim was not used up.
+gated), and the claim was not used up. A claim that is used up carries `notice`: the version's creator
+can list the accounts that claimed their gifts. Show it to the person claiming.
 
 | Status | When |
 |--------|------|
@@ -131,7 +133,8 @@ version's creator.
 }
 ```
 
-`hiddenCount` counts claims made before claimers were told the creator can see them; those are never
+`hiddenCount` (first page only; `null` on later pages) counts claims made before claimers were told the
+creator can see them; those are never
 listed by name. A `limit` above 100 or a malformed cursor answers `400`; a version you do not own answers `403`.
 
 ## Revoke
