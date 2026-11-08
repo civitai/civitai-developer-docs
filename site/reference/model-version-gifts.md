@@ -126,11 +126,13 @@ version's creator.
   "claims": [
     { "giftLinkId": 42, "userId": 1234, "username": "someone", "claimedAt": "2026-11-07T12:00:00.000Z" }
   ],
-  "nextCursor": null
+  "nextCursor": null,
+  "hiddenCount": 3
 }
 ```
 
-A `limit` above 100 or a malformed cursor answers `400`; a version you do not own answers `403`.
+`hiddenCount` counts claims made before claimers were told the creator can see them; those are never
+listed by name. A `limit` above 100 or a malformed cursor answers `400`; a version you do not own answers `403`.
 
 ## Revoke
 
