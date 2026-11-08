@@ -342,6 +342,7 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Overview', link: '/site/reference/' },
         { text: 'Models', link: '/site/reference/models' },
         { text: 'Model Versions', link: '/site/reference/model-versions' },
+        { text: 'Model version gifts', link: '/site/reference/model-version-gifts' },
         { text: 'Images', link: '/site/reference/images' },
         { text: 'Posts', link: '/site/reference/posts' },
         { text: 'Articles', link: '/site/reference/articles' },
