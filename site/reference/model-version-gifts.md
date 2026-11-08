@@ -120,6 +120,7 @@ own.
 |-------|------|-------------|
 | `limit` | integer, 1–100, optional | Items per page. Defaults to 100. |
 | `cursor` | string, optional | The `nextCursor` of the previous page. |
+| `fresh` | `1`, optional | Read your latest writes, for a list fetched right after a revoke. Without it the list can lag a write by a few seconds. |
 
 ```json
 {
