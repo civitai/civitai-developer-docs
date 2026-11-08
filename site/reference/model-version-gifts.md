@@ -10,11 +10,6 @@ code is either a shareable link with an optional expiry and claim cap, or one of
 single-use codes. Claiming a code gives the account the same access a purchase would, and no Buzz is
 charged.
 
-::: warning Early access
-These endpoints are enabled for a limited group of accounts. When they are not enabled for yours they
-answer `404`, as if they did not exist.
-:::
-
 *Every endpoint here is authenticated with an API key or OAuth token carrying the `ModelsWrite` scope, a
 full-access personal API key, or a signed-in session.* Other tokens are refused with `403`. Responses
 are never cached. Creating, minting, revoking and claiming also need an account in good standing with a
