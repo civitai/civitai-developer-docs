@@ -99,16 +99,49 @@ Reading your limits never counts against them.
       "used": 3,
       "remaining": 17,
       "windowSeconds": 86400,
+      "window": "rolling",
       "nextAt": null,
       "resetAt": "2026-11-06T09:41:52.000Z"
+    },
+    {
+      "id": "gifts.monthly",
+      "area": "gifts",
+      "label": "Gift claims per month",
+      "limit": 10,
+      "used": 2,
+      "remaining": 8,
+      "windowSeconds": null,
+      "window": "utc-month",
+      "nextAt": null,
+      "resetAt": "2026-12-01T00:00:00.000Z"
     }
   ]
 }
 ```
 
 Every limit that applies to the caller right now is listed. A new account
-also has `posts.hourly` on the day it signs up. Each limit is a sliding
-window: an attempt counts for `windowSeconds` after it is made.
+also has `posts.hourly` on the day it signs up.
+
+A limit counts over one of two kinds of window, given in `window`:
+
+- **`rolling`**: a sliding window. An attempt counts for `windowSeconds`
+  after it is made.
+- **`utc-day`** or **`utc-month`**: a calendar window in UTC. Everything in
+  the current UTC day or month counts, and the count starts again at the next
+  boundary, which is `resetAt`.
+
+### Limits listed
+
+| Id | Covers | Window |
+|----|--------|--------|
+| `posts.hourly`, `posts.daily` | Posts | `rolling` |
+| `comments.hourly`, `comments.daily` | Comments. One allowance covers every place you can comment on the site, including model discussions. | `rolling` |
+| `gifts.monthly` | Gift claims. Listed only for callers who can claim gifts. | `utc-month` |
+
+Limits that guard against abuse are never listed here.
+
+The values of each limit can change; read them from this endpoint rather than
+hard-coding them.
 
 ### Field notes
 
@@ -120,9 +153,10 @@ window: an attempt counts for `windowSeconds` after it is made.
 | `limit` | How many are allowed per window. `null` when the limit does not apply to the caller. |
 | `used` | How many count in the current window. `null` when `limit` is. |
 | `remaining` | `limit - used`, never below 0. `null` when `limit` is. |
-| `windowSeconds` | The window length. `null` when `limit` is. |
+| `windowSeconds` | A `rolling` window's length. `null` for a calendar window, and when `limit` is `null`. |
+| `window` | `rolling`, `utc-day` or `utc-month`. `null` when `limit` is. |
 | `nextAt` | Once `remaining` is 0, the ISO time the caller can next use it. `null` while `remaining` is above 0. |
-| `resetAt` | ISO time every counted attempt has aged out. `null` when none count. |
+| `resetAt` | For a `rolling` window, the ISO time every counted attempt has aged out (`null` when none count). For a calendar window, the next UTC day or month boundary. |
 
 ### Errors
 
