@@ -7208,7 +7208,7 @@
         "tags": [
           "Recipes"
         ],
-        "summary": "Upscale videos using FlashVSR",
+        "summary": "Upscale videos using FlashVSR or RelayVSR.",
         "operationId": "InvokeVideoUpscalerStepTemplate",
         "parameters": [
           {
@@ -47756,6 +47756,14 @@
             "type": "integer",
             "format": "int32",
             "default": 2
+          },
+          "model": {
+            "enum": [
+              "flashvsr",
+              "relayvsr"
+            ],
+            "type": "string",
+            "default": "flashvsr"
           }
         },
         "additionalProperties": false
@@ -47797,7 +47805,7 @@
             "additionalProperties": false
           }
         ],
-        "description": "Upscale videos using FlashVSR"
+        "description": "Upscale videos using FlashVSR or RelayVSR."
       },
       "VideoUpscalerStepTemplate": {
         "allOf": [
@@ -47825,7 +47833,7 @@
             "additionalProperties": false
           }
         ],
-        "description": "Upscale videos using FlashVSR"
+        "description": "Upscale videos using FlashVSR or RelayVSR."
       },
       "ViduQ3VideoGenInput": {
         "allOf": [

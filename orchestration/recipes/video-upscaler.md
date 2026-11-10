@@ -40,7 +40,7 @@ const chainBody = {
 
 # Video upscaling
 
-The `videoUpscaler` step type takes a video and returns a higher-resolution version using **[FlashVSR](https://huggingface.co/JunhaoZhuang/FlashVSR)** — a real-time video super-resolution model. One model, one knob: `scaleFactor` multiplies both dimensions by `2`, `3`, or `4`. A 720p input upscaled at `scaleFactor: 2` becomes 1440p; at `scaleFactor: 4` it becomes 2880p.
+The `videoUpscaler` step takes a video and returns a higher-resolution MP4. Choose `model: "flashvsr"` (the default) for 2x, 3x or 4x scaling, or `model: "relayvsr"` for native 2x or 4x scaling. Both preserve the source frame rate and audio. RelayVSR uses a one-step model and needs no prompt.
 
 Common uses:
 
@@ -68,7 +68,7 @@ Content-Type: application/json
 
 <RecipeRun :body="recipeBody" path="/v2/consumer/recipes/videoUpscaler" :wait="0" />
 
-Defaults apply `scaleFactor: 2`. The recipe endpoint blocks until the step finishes and returns the step output directly — the `video` blob described in [Reading the result](#reading-the-result).
+Defaults apply `model: "flashvsr"` and `scaleFactor: 2`. The recipe endpoint blocks until the step finishes and returns the step output directly — the `video` blob described in [Reading the result](#reading-the-result).
 
 ::: tip Long clips: use the generic endpoint
 FlashVSR on a multi-second clip almost always outlasts [your HTTP client's timeout](/orchestration/guide/getting-started#_3-poll-if-you-didn-t-wait-inline), and the recipe endpoint cancels the run if the client disconnects. Submit through the [generic workflow endpoint](#via-the-generic-workflow-endpoint) with `wait=0`, then poll or [subscribe via webhook](/orchestration/guide/results-and-webhooks).
@@ -96,6 +96,25 @@ Content-Type: application/json
 
 <RecipeRun :body="workflowBody" :wait="0" />
 
+## RelayVSR
+
+Set `model` to `relayvsr` and choose `scaleFactor: 2` or `4`. Each scale selects its matching checkpoint and decoder from [Comfy-Org/RelayVSR](https://huggingface.co/Comfy-Org/RelayVSR).
+
+```json
+{
+  "steps": [{
+    "$type": "videoUpscaler",
+    "input": {
+      "video": "https://.../input.mp4",
+      "model": "relayvsr",
+      "scaleFactor": 4
+    }
+  }]
+}
+```
+
+The existing 2560 px per-side limit still applies. For example, a 512×288 clip becomes 2048×1152 at 4x. A 3x RelayVSR request is rejected.
+
 ## Input fields
 
 See the [`VideoUpscalerInput` schema](/orchestration/reference/operations/InvokeVideoUpscalerStepTemplate) for the full definition.
@@ -103,14 +122,15 @@ See the [`VideoUpscalerInput` schema](/orchestration/reference/operations/Invoke
 | Field | Required | Default | Notes |
 |-------|----------|---------|-------|
 | `video` | ✅ | — | URL of the source video. Must be publicly fetchable without auth. |
-| `scaleFactor` | | `2` | Integer `2`–`4`. Output dimensions are `input × scaleFactor` on both axes. |
+| `model` | | `flashvsr` | `flashvsr` or `relayvsr`. |
+| `scaleFactor` | | `2` | FlashVSR: `2`, `3`, `4`. RelayVSR: `2`, `4`. Multiplies both dimensions. |
 
 ### Picking a scale factor
 
 FlashVSR applies a single pass at your chosen scale — there's no equivalent to image-upscaling's `numberOfRepeats`. Higher factors quadratically increase output pixels *and* runtime.
 
 ::: warning Output is capped at 2560 px per side
-The orchestrator probes your source at submit time and **rejects the request** (`400 Bad Request`) if `width × scaleFactor` or `height × scaleFactor` would exceed **2560**. This keeps FlashVSR within a shape it can reliably deliver.
+The orchestrator probes your source at submit time and **rejects the request** (`400 Bad Request`) if `width × scaleFactor` or `height × scaleFactor` would exceed **2560**. This cap applies to both models.
 :::
 
 Practical combinations that land inside the cap:
@@ -199,7 +219,16 @@ Blob URLs expire — see [Reading results](/orchestration/recipes/#reading-resul
 
 Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
-`videoUpscaler` uses an empirical polynomial fit to real FlashVSR runtimes — cost scales with both the input pixel-frame product and the `scaleFactor`:
+RelayVSR costs **5 Buzz plus 0.06 Buzz per output megapixel-frame**, rounded up before tips:
+
+```
+outputMegapixels = width × height × scaleFactor² / 1,000,000
+total = 5 + ceil(durationSeconds × fps × outputMegapixels × 0.06)
+```
+
+For a 10-second 320×176 clip at 25 fps, that is about 9 Buzz at 2x or 19 Buzz at 4x. Source duration includes container timing, so use `whatif=true` for the exact quote. The rate includes video decoding and encoding overhead and is based on local RTX 4090 measurements.
+
+FlashVSR uses an empirical polynomial fit to measured runtimes — cost scales with both the input pixel-frame product and the `scaleFactor`:
 
 ```
 Pin = totalFrames × (width × height)        // frames × pixels
