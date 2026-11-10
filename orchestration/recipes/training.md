@@ -29,6 +29,8 @@ Training takes minutes to hours depending on dataset size and `steps`. Always su
 
 Use `engine: "ai-toolkit"` and `ecosystem: "minimaxh3image"` to train H3 Image LoRAs. Defaults are 3000 steps, rank/alpha 16, `adamw8bit`, a constant learning rate of `0.0001`, and a frozen text encoder. Training uses the pruned INT8 ConvRot model, NVFP4 text encoder, and upstream H3 Image training adapter with cached latents and text embeddings. Training buckets are 512, 768 and 1024 pixels.
 
+The training rate is 0.45 Buzz per step plus 10 Buzz per saved checkpoint, subject to the [minimum price](#cost). An explicit `steps: 3000` request with no `epochs` override selects 15 checkpoints and costs 1,500 Buzz.
+
 `samples.prompts` generates 2048×2048 Comfy H3 Image previews with the trained LoRA at six steps and guidance 1. The training adapter is excluded from previews. Use the trained LoRA through `engine: "comfy"`, `ecosystem: "h3-image"`, and `loras` for subsequent generation.
 
 ## Training data {#training-data}

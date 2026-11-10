@@ -35673,19 +35673,13 @@
             "required": [
               "defaultSteps",
               "ecosystem",
-              "engine",
-              "storageBuzzPerEpoch"
+              "engine"
             ],
             "type": "object",
             "properties": {
               "defaultSteps": {
                 "type": "integer",
                 "format": "int32",
-                "readOnly": true
-              },
-              "storageBuzzPerEpoch": {
-                "type": "number",
-                "format": "double",
                 "readOnly": true
               },
               "ecosystem": {
