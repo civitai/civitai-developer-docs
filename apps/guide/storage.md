@@ -2,9 +2,9 @@
 title: Storing data (document store)
 description: Keep an app's data on Civitai with the document store — declare collections in the manifest, the apps:storage, apps:storage:publish and apps:storage:import scopes, documents, conditional writes, lists, counters and marks, reaching another app's data through storage.imports and ?from=, what viewers can do with their own data, moderation, error codes, limits, local development, createFakeStorage, the REST routes, and moving off the legacy useAppStorage / useSharedStorage stores.
 sources:
-  - npm:@civitai/sdk@0.23.0/dist/doc-store/index.d.ts
-  - npm:@civitai/sdk@0.23.0/dist/doc-store/fake.d.ts
-  - npm:@civitai/sdk@0.23.0#README
+  - npm:@civitai/sdk@0.25.0/dist/doc-store/index.d.ts
+  - npm:@civitai/sdk@0.25.0/dist/doc-store/fake.d.ts
+  - npm:@civitai/sdk@0.25.0#README
   - civitai:public/schemas/app-block/v1.json#storage
   - civitai:public/schemas/app-block/storage-contract.v1.json
   - civitai:src/shared/constants/block-storage.constants.ts
@@ -52,12 +52,8 @@ npm install @civitai/sdk@^0.14.0
 ```
 
 To use the store in a `civitai app dev-tunnel` preview, you need 0.18.0 or later
-(see [Local development](#local-development)).
-
-::: warning `update` needs the next `@civitai/sdk` release
-[`collection.update`](#counters-and-marks) is added in 0.25.0, not yet published
-to npm. Until then, use the deprecated `increment`, `mark` and `unmark`.
-:::
+(see [Local development](#local-development)), and
+[`update`](#counters-and-marks) 0.25.0 or later.
 
 This store replaces two older ones, `useAppStorage` and `useSharedStorage`
 (and their `app-storage` / `shared-storage` routes). Those are **shut down on
@@ -698,7 +694,6 @@ counter or mark is an **update operator**: `update(key, op)` sends exactly one,
 as `PATCH /{collection}/{key}` with the operator as the body.
 
 ```ts
-// @ts-skip-snippet: collection.update is added in @civitai/sdk 0.25.0, newer than the version these docs pin
 import { initialize } from '@civitai/sdk';
 
 const app = await initialize();
@@ -1216,7 +1211,6 @@ Write your data layer against the `DocumentStorage` type, pass `app.storage` in
 the app and the fake's `storage` in tests:
 
 ```ts
-// @ts-skip-snippet: collection.update is added in @civitai/sdk 0.25.0, newer than the version these docs pin
 import { StorageError, type DocumentStorage } from '@civitai/sdk';
 import { createFakeStorage, FAKE_STORAGE_MODERATION } from '@civitai/sdk/testing';
 
