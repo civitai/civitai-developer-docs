@@ -45,6 +45,7 @@ These are **Orchestration REST API** recipes — you hold a Bearer token and POS
 - [Krea v2 image generation](./krea) — Krea v2 medium and large tiers via FAL, text-to-image
 - [Gemini image generation](./gemini) — Gemini 2.5 Flash Image (same product as Nano Banana) via the direct Gemini API
 - [Seedream image generation](./seedream) — ByteDance Seedream v3 / v4 / v4.5 / v5.0-lite with native up-to-4096 output + editing
+- [MiniMax H3 image generation](./minimax-h3-image) — Standard and Highspeed, text-to-image and up to 16 references, 1K/2K/4K or custom sizes
 - [Grok image generation](./grok) — xAI Grok with wide aspect-ratio menu (21 options) + editing
 - [WAN image generation](./wan-image) — WAN v2.2 / v2.2-5b / v2.5 / v2.7 via FAL (image counterpart to the WAN video recipe)
 - [Image upscaling](./image-upscaler) — ESRGAN-family upscalers, chain after `imageGen` or use standalone

@@ -196,6 +196,7 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Google image generation', link: '/orchestration/recipes/google' },
         { text: 'Gemini image generation', link: '/orchestration/recipes/gemini' },
         { text: 'Seedream image generation', link: '/orchestration/recipes/seedream' },
+        { text: 'MiniMax H3 image generation', link: '/orchestration/recipes/minimax-h3-image' },
         { text: 'Grok image generation', link: '/orchestration/recipes/grok' },
         { text: 'WAN image generation', link: '/orchestration/recipes/wan-image' },
         { text: 'Image upscaling', link: '/orchestration/recipes/image-upscaler' },
