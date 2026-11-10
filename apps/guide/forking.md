@@ -143,9 +143,9 @@ What such a call does, the consents it needs, and every refusal are in
 - The call runs in the parent as that viewer: their private documents there,
   the parent's shared collections as the parent shows them, and the parent's
   `schema`, write policy, quotas and limits.
-- Writing to the parent's **shared** collections (create, put, increment, mark,
-  unmark) also needs the viewer's `apps:storage:publish` **in the parent**. A
-  delete does not. The parent can only be granted that scope if it declares it,
+- Writing to the parent's **shared** collections (create, put, and a counter or
+  mark through `update`) also needs the viewer's `apps:storage:publish` **in
+  the parent**. A delete does not. The parent can only be granted that scope if it declares it,
   which needs a shared `write: "own"` collection, so when its only shared
   collections are `write: "none"`, votes, likes and counts through the import
   never work.
