@@ -2,9 +2,9 @@
 title: Storing data (document store)
 description: Keep an app's data on Civitai with the document store — declare collections in the manifest, the apps:storage, apps:storage:publish and apps:storage:import scopes, documents, conditional writes, lists, counters and marks, reaching another app's data through storage.imports and ?from=, what viewers can do with their own data, moderation, error codes, limits, local development, createFakeStorage, the REST routes, and moving off the legacy useAppStorage / useSharedStorage stores.
 sources:
-  - npm:@civitai/sdk@0.23.0/dist/doc-store/index.d.ts
-  - npm:@civitai/sdk@0.23.0/dist/doc-store/fake.d.ts
-  - npm:@civitai/sdk@0.23.0#README
+  - npm:@civitai/sdk@0.25.0/dist/doc-store/index.d.ts
+  - npm:@civitai/sdk@0.25.0/dist/doc-store/fake.d.ts
+  - npm:@civitai/sdk@0.25.0#README
   - civitai:public/schemas/app-block/v1.json#storage
   - civitai:public/schemas/app-block/storage-contract.v1.json
   - civitai:src/shared/constants/block-storage.constants.ts
@@ -52,7 +52,8 @@ npm install @civitai/sdk@^0.14.0
 ```
 
 To use the store in a `civitai app dev-tunnel` preview, you need 0.18.0 or later
-(see [Local development](#local-development)).
+(see [Local development](#local-development)), and
+[`update`](#counters-and-marks) 0.25.0 or later.
 
 This store replaces two older ones, `useAppStorage` and `useSharedStorage`
 (and their `app-storage` / `shared-storage` routes). Those are **shut down on
@@ -613,7 +614,6 @@ const requests = app.storage.collection<Request>('requests');
 const created = await requests.create({ title: 'More lighting presets', status: 'open' });
 const doc = await requests.get(created.key); // null when there is none
 await requests.put(created.key, { title: 'More lighting presets', status: 'done' }, { ifVersion: doc?.version });
-await requests.mark(created.key, 'vote'); // { marked: true, count }
 
 const page = await requests.list({ where: { status: 'open' }, sort: '-mark:vote', limit: 20 });
 for (const item of page.items) {
@@ -629,8 +629,7 @@ for (const item of page.items) {
 | `create(data)` | creates a document under a key the server chooses, a sortable id |
 | `delete(key, { ifVersion? })` | `{ deleted: false }` when there was nothing to delete; calling it twice is safe |
 | `list(query?)` | one page; see [Lists](#lists) |
-| `increment(key, counter, by?)` | adds to a declared counter, `{ value }` |
-| `mark(key, name)` / `unmark(key, name)` | sets or clears the viewer's mark, `{ marked, count }` |
+| `update(key, op)` | a counter or mark; see [Counters and marks](#counters-and-marks) |
 | `app.storage.info()` | the declared collections, the [limits](#limits) and the usage so far; signed-in viewers only |
 
 ### Documents
@@ -690,7 +689,9 @@ undeclared is refused `index_not_declared`.
 
 ### Counters and marks {#counters-and-marks}
 
-Both exist on shared collections only, and both need a signed-in viewer.
+Both exist on shared collections only, and both need a signed-in viewer. A
+counter or mark is an **update operator**: `update(key, op)` sends exactly one,
+as `PATCH /{collection}/{key}` with the operator as the body.
 
 ```ts
 import { initialize } from '@civitai/sdk';
@@ -698,20 +699,42 @@ import { initialize } from '@civitai/sdk';
 const app = await initialize();
 const plays = app.storage.collection('plays'); // write: "none", counters: ["plays"]
 
-const { value } = await plays.increment('model-123', 'plays'); // creates the document on first use
+const { value } = await plays.update('model-123', { $inc: { plays: 1 } }); // creates the document on first use
+await app.storage.collection('requests').update('r1', { $mark: 'vote' });
 ```
 
-- `increment(key, counter, by)` adds `by` (1 when omitted) and resolves the new
-  value. In a `write: "none"` collection the first increment of a missing key
-  creates the document.
-- `mark` and `unmark` are idempotent and resolve the mark's new count. Use a
-  mark for anything one viewer does once per document: a vote, a like, a
-  bookmark. `viewer.marks` on each document tells you which ones this viewer has
-  set, so a toggle can render its state on load.
+- `{ $inc: { <counter>: by } }` adds `by` to one declared counter and resolves
+  `{ value }`, the new total. `by` is required. In a `write: "none"` collection
+  the first `$inc` of a missing key creates the document.
+- `{ $mark: name }` and `{ $unmark: name }` are idempotent and resolve
+  `{ marked, count }`. Use a mark for anything one viewer does once per
+  document: a vote, a like, a bookmark. `viewer.marks` on each document tells
+  you which ones this viewer has set, so a toggle can render its state on load.
 - `report` is the built-in mark that sends a document to moderators. Its count
-  is never returned, and **a report cannot be withdrawn**: `unmark(key,
-  'report')` is refused `invalid_request` for every caller. Reports have their
-  own daily limit on top of the marks-and-counters one.
+  is never returned, and **a report cannot be withdrawn**: `{ $unmark: 'report' }`
+  is refused `invalid_request` for every caller. Reports have their own daily
+  limit on top of the marks-and-counters one.
+
+#### Refused bodies {#update-refusals}
+
+A body that is not exactly one operator is refused `invalid_request` with a
+`details.reason`: `empty_patch` (none, or `{}`), `unknown_operator`,
+`multiple_operators`, `merge_patch_unsupported` (plain fields only; to change
+`data`, `put` it) or `malformed_operator` (not an object, an operator beside
+another field, an `$inc` naming other than one counter, a non-string mark
+name). A bad value in a well-formed operator, such as an undeclared counter,
+is refused without a `details.reason`.
+
+#### Moving off `increment`, `mark` and `unmark` {#moving-off-increment-mark-unmark}
+
+They and their routes (`POST …/counters/{name}`, `PUT`/`DELETE …/marks/{name}`)
+are **deprecated**, keep working with the same replies, and have no removal
+date. Their responses carry `Deprecation: @1794182400` (2026-11-09) and a
+`Link` with `rel="deprecation"` to this page. `increment(key, counter, by?)`
+becomes `update(key, { $inc: { [counter]: by } })` (`by` required),
+`mark(key, name)` becomes `update(key, { $mark: name })`, and `unmark`
+likewise `$unmark`; over REST, `PATCH` the document with that operator. In
+0.25.0 the deprecated methods still call the old routes.
 
 ## Who can do what {#who-can-do-what}
 
@@ -723,7 +746,7 @@ const { value } = await plays.increment('model-123', 'plays'); // creates the do
 | Create or edit in a shared `"own"` collection | signed in | `apps:storage` + `apps:storage:publish` | the minimum-trust gate, moderation, the shared write budget, and the collection's [`schema`](#collection-schemas) and [`ownedModelVersions`](#owned-model-versions) checks when declared (in that order, before the trust gate, moderation and the budget); editing another viewer's document is refused `not_author`, or `schema_violation` / `resource_not_owned` first when its `data` fails those checks |
 | Delete in a shared `"own"` collection | signed in, the author | `apps:storage` | — |
 | Write a document in a `"none"` collection | — | — | refused `write_policy` for a signed-in viewer (a signed-out one gets `sign_in_required` first) |
-| `increment`, `mark`, `unmark` | signed in | `apps:storage` | the minimum-trust gate |
+| Counters and marks (`update`) | signed in | `apps:storage` | the minimum-trust gate |
 
 Signed-out viewers get `sign_in_required` for everything but shared reads, so
 gate write affordances on `app.viewer`, and render shared reads regardless.
@@ -834,8 +857,8 @@ carry the scope, so fetch a fresh token first (`app.getToken({ fresh: true })`).
 `@civitai/sdk` 0.23.0 or later lists `apps:storage:import` in its `Scope`
 type.
 
-**`apps:storage:publish`, in the source app.** A create, put, increment, mark or
-unmark in one of the source's **shared** collections changes what other viewers
+**`apps:storage:publish`, in the source app.** A create, put, counter or mark
+in one of the source's **shared** collections changes what other viewers
 of the source see, so it also needs the viewer's own `apps:storage:publish`
 grant **in the source app**. The import grant is not that consent, and your
 app's own publish grant is never consulted. Without it the write is refused
@@ -1003,7 +1026,7 @@ Every code the routes return, generated from the server's own table:
 
 | Code | HTTP | Meaning |
 |---|---|---|
-| `invalid_request` | 400 | The request is malformed: a bad key, body, query parameter (a `from` that is not a blockId included), value or cursor, an increment or mark naming an undeclared counter or mark, a counter or mark on a private collection, or withdrawing a `report`. |
+| `invalid_request` | 400 | The request is malformed: a bad key, body, query parameter (a `from` that is not a blockId included), value or cursor, a `PATCH` body that is not one update operator (`details.reason` says why), an increment or mark naming an undeclared counter or mark, a counter or mark on a private collection, or withdrawing a `report`. |
 | `index_not_declared` | 400 | A `where` or `sort` names a field, counter or mark the collection does not declare. |
 | `schema_violation` | 400 | The document's `data` does not match its collection's declared `schema`. The message and `details.pointer` name the first failing JSON pointer into `data` (`""` is the root); `details.keyword` names the keyword it failed and `details.collection` the collection. Nothing is stored and nothing is spent. |
 | `unauthenticated` | 401 | No usable token. |
@@ -1212,7 +1235,7 @@ const created = await requestsIn(fake.storage).create({ title: 'Dark mode', stat
 
 // The same store, as other callers.
 const bob = requestsIn(fake.as({ viewer: { username: 'bob' } }).storage);
-await bob.mark(created.key, 'vote'); // { marked: true, count: 1 }
+await bob.update(created.key, { $mark: 'vote' }); // { marked: true, count: 1 }
 await codeOf(bob.put(created.key, { title: 'Light mode', status: 'open' })); // 'not_author'
 
 const newbie = requestsIn(fake.as({ viewer: { username: 'dan', trusted: false } }).storage);
@@ -1255,6 +1278,7 @@ await codeOf(requestsIn(fake.storage).create({ title: FAKE_STORAGE_MODERATION.bl
   Its `requestGrants` option stands in for the host's prompt for publish
   consent in a source. A `token: 'dev'` caller is refused every import, as on
   the server.
+- From 0.25.0, it serves `update` with the server's checks and refusal reasons.
 - It does not model moderator hides, the review namespace, or a failed
   ownership lookup (the server's retryable `503 service_unavailable`).
 
@@ -1264,8 +1288,8 @@ Base URL `https://civitai.com/api/v1/blocks/storage`, with
 `Authorization: Bearer <block token>`. Every route needs `apps:storage` on the
 token. Bodies and responses are JSON; refusals use the [envelope](#errors).
 Block origins are allowed by CORS, including the opaque `Origin: null` of a
-sandboxed block, with `PUT` and `DELETE` in the preflight and `Retry-After`
-exposed.
+sandboxed block, with `PUT`, `DELETE` and `PATCH` in the preflight and
+`Retry-After`, `Deprecation` and `Link` exposed.
 
 | Method | Path | Body | Response |
 |---|---|---|---|
@@ -1276,9 +1300,10 @@ exposed.
 | `GET` | `/{collection}/{key}` | — | the document, or `404 not_found` |
 | `PUT` | `/{collection}/{key}` | `{ data, ifVersion? }` | the stored document |
 | `DELETE` | `/{collection}/{key}` | — (`?ifVersion=` in the query) | `{ deleted }` |
-| `POST` | `/{collection}/{key}/counters/{name}` | `{ by? }` | `{ value }` |
-| `PUT` | `/{collection}/{key}/marks/{name}` | none, or `{}` | `{ marked: true, count }` (no `count` for `report`) |
-| `DELETE` | `/{collection}/{key}/marks/{name}` | — | `{ marked: false, count }` |
+| `PATCH` | `/{collection}/{key}` | one [update operator](#counters-and-marks) | `{ value }`, or `{ marked, count }` (no `count` for `report`) |
+| `POST` | `/{collection}/{key}/counters/{name}` | `{ by? }` | deprecated: `{ value }` |
+| `PUT` | `/{collection}/{key}/marks/{name}` | none, or `{}` | deprecated: `{ marked: true, count }` (no `count` for `report`) |
+| `DELETE` | `/{collection}/{key}/marks/{name}` | — | deprecated: `{ marked: false, count }` |
 
 A list takes these query parameters, each at most once:
 `where[<index>]=<value>`, `sort`, `author=me`, `markedBy=me` with `mark`,
@@ -1367,11 +1392,11 @@ voting, and both scopes; `apps:storage:publish` replaces
 | `get(key)` | `get(key)` |
 | `update(key, value)` | `put(key, data)`, by the author |
 | `withdraw(key)` | `delete(key)`, by the author |
-| `vote(key)` / `unvote(key)` | `mark(key, 'vote')` / `unmark(key, 'vote')` |
+| `vote(key)` / `unvote(key)` | `update(key, { $mark: 'vote' })` / `update(key, { $unmark: 'vote' })` |
 | `count` on an item, `getCount(key)`, `getCounts(keys)` | `marks.vote` on the document; `getMany(keys)` for several |
 | `viewerVoted` on an item | `viewer.marks.includes('vote')` |
 | `authorUserId` on an item | `author` (`isViewer`, and `username` when the collection sets `showAuthor`); no user id |
-| `report(key, reason?)` | `mark(key, 'report')` — no free-text reason, and it cannot be withdrawn |
+| `report(key, reason?)` | `update(key, { $mark: 'report' })` — no free-text reason, and it cannot be withdrawn |
 
 Two things do not carry over from a legacy board:
 
