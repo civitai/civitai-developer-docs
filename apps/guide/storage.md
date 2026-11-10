@@ -1308,7 +1308,7 @@ sandboxed block, with `PUT`, `DELETE` and `PATCH` in the preflight and
 | `DELETE` | `/{collection}/{key}` | — (`?ifVersion=` in the query) | `{ deleted }` |
 | `PATCH` | `/{collection}/{key}` | one [update operator](#counters-and-marks) | `{ value }`, or `{ marked, count }` (no `count` for `report`) |
 | `POST` | `/{collection}/{key}/counters/{name}` | `{ by? }` | deprecated: `{ value }` |
-| `PUT` | `/{collection}/{key}/marks/{name}` | none, or `{}` | deprecated: `{ marked: true, count }` |
+| `PUT` | `/{collection}/{key}/marks/{name}` | none, or `{}` | deprecated: `{ marked: true, count }` (no `count` for `report`) |
 | `DELETE` | `/{collection}/{key}/marks/{name}` | — | deprecated: `{ marked: false, count }` |
 
 A list takes these query parameters, each at most once:
