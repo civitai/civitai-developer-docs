@@ -218,6 +218,11 @@ accept. Until it does, treat these as blocking:
 
 Each message is the server's refusal plus why the CLI only warns about it.
 
+The server also refuses two RESERVED collection fields, `hook` and `registry`
+([limits](./storage#limits)). The CLI through v0.1.136 does not know them yet,
+so `validate` rejects either one as an unknown property: an **error**, not one
+of the warnings above. Do not declare them yet.
+
 - An out-of-range value (`ttlSeconds: 59`) gets the schema's range **error**
   instead, as on the server.
 - These warnings do not hold back the scope rules: `write: "anyone"` without

@@ -1092,7 +1092,7 @@ SDK, and `info()` is what the running server enforces.
 | Declaration | Imports (`storage.imports`) | at most 8, one per source app and never the app itself, each naming 1 to 16 distinct collections, with `access` `"read"` or `"readwrite"` |
 | Declaration | An import's source (`from`) | the source app's `blockId`, matching `^[a-z][a-z0-9-]{1,38}[a-z0-9]$` |
 | Declaration | Built-in marks (never declared) | `report` |
-| Declaration | Refused by the server (not available yet) | `write: "anyone"`, `write: "owner"`, `kind: "log"` (and `maxEntries`), `ttlSeconds`, `dailyWritesPerAuthor` |
+| Declaration | Refused by the server (not available yet) | `write: "anyone"`, `write: "owner"`, `kind: "log"` (and `maxEntries`), `ttlSeconds`, `dailyWritesPerAuthor`, `hook`, `registry` |
 | Quota | Per app | 52,428,800 bytes (50 MiB) and 1,000,000 documents |
 | Quota | Per viewer, within one app | 2,097,152 bytes (2 MiB) and 1,000 documents |
 | Rate | Reads (`info`, `list`, `get`, `getMany`) | 300 a minute per viewer, or per IP address for a signed-out viewer |
