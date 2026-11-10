@@ -307,14 +307,13 @@ caller can generate** with it. Skips heavy fields like `images[]`,
 | `canGenerate` | `true` when the resource can be used in an Orchestration workflow for the calling user. Combines coverage, availability, and permission checks. |
 | `checkPermission` | `true` when the resource is gated (early-access window active, or `Private`). Pair with [`/permissions/check`](./permissions) for an explicit yes/no. |
 | `requireAuth` | When `true`, the `downloadUrls` require a token (passed as `Authorization: Bearer` or `?token=`). |
-| `downloadUrls` | May be empty for callers without access. |
 | `earlyAccessEndsAt` | Only present when `checkPermission` is `true`. ISO timestamp when the early-access window ends. |
 | `freeTrialLimit` | Number of free generations allowed during early access, when configured. |
 | `additionalResourceCharge` | `true` when generating with this resource costs extra Buzz beyond the base workflow cost. |
 
 Returns `404` if the version doesn't exist, isn't published, the primary
-file is missing, or (for private training results) the requested `epoch`
-isn't found.
+file is missing, (for private training results) the requested `epoch`
+isn't found, or the caller has no access to the version.
 
 ### Example
 
