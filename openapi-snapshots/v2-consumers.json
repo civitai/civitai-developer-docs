@@ -9903,6 +9903,104 @@
   },
   "components": {
     "schemas": {
+      "MiniMaxH3ImageModel": {
+        "enum": [
+          "standard",
+          "highspeed"
+        ],
+        "type": "string"
+      },
+      "MiniMaxH3ImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ImageGenInput"
+          },
+          {
+            "required": [
+              "engine",
+              "prompt"
+            ],
+            "type": "object",
+            "properties": {
+              "prompt": {
+                "minLength": 1,
+                "type": "string",
+                "description": "Up to 32,000 Unicode characters, excluding leading and trailing whitespace."
+              },
+              "model": {
+                "default": "standard",
+                "$ref": "#/components/schemas/MiniMaxH3ImageModel"
+              },
+              "quantity": {
+                "maximum": 10,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 1
+              },
+              "images": {
+                "maxItems": 16,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
+                }
+              },
+              "resolution": {
+                "enum": [
+                  null,
+                  "1K",
+                  "2K",
+                  "4K"
+                ],
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "1K, 2K or 4K target area; defaults to 4K. Omit when specifying width and height."
+              },
+              "aspectRatio": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Auto, or X:Y with integers 1–300 and a ratio between 1:3 and 3:1. Omit with width and height."
+              },
+              "width": {
+                "maximum": 7745,
+                "minimum": 1,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int32"
+              },
+              "height": {
+                "maximum": 7745,
+                "minimum": 1,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int32"
+              },
+              "disablePromptEnhancement": {
+                "type": "boolean",
+                "description": "Text-to-image only; requires explicit dimensions or a fixed aspect ratio.",
+                "default": false
+              },
+              "engine": {
+                "enum": [
+                  "minimax-h3-image"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
       "AIRecognitionResult": {
         "required": [
           "confidence",
@@ -16879,6 +16977,182 @@
           }
         ]
       },
+      "ComfyMiniMaxH3CreateImageInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyMiniMaxH3ImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "enum": [
+                  "createImage"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "h3-image"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "ComfyMiniMaxH3EditImageInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyMiniMaxH3ImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "images",
+              "operation"
+            ],
+            "type": "object",
+            "properties": {
+              "images": {
+                "maxItems": 16,
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "Either A URL, A DataURL or a Base64 string",
+                  "format": "source-image"
+                }
+              },
+              "operation": {
+                "enum": [
+                  "editImage"
+                ],
+                "type": "string"
+              },
+              "ecosystem": {
+                "enum": [
+                  "h3-image"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "ComfyMiniMaxH3ImageGenInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ComfyImageGenInput"
+          },
+          {
+            "required": [
+              "ecosystem",
+              "engine",
+              "operation",
+              "prompt"
+            ],
+            "type": "object",
+            "properties": {
+              "operation": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": "createImage"
+              },
+              "prompt": {
+                "maxLength": 20000,
+                "minLength": 0,
+                "type": "string"
+              },
+              "width": {
+                "maximum": 8192,
+                "minimum": 512,
+                "type": "integer",
+                "format": "int32",
+                "default": 2048
+              },
+              "height": {
+                "maximum": 8192,
+                "minimum": 512,
+                "type": "integer",
+                "format": "int32",
+                "default": 2048
+              },
+              "seed": {
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "format": "int32"
+              },
+              "quantity": {
+                "maximum": 4,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 1
+              },
+              "loras": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number",
+                  "format": "double"
+                }
+              },
+              "diffusionModel": {
+                "pattern": "^(?:urn:)?(?:air:)?(?:(?<ecosystem>[a-zA-Z0-9_\\-\\/]+):)?(?:(?<type>[a-zA-Z0-9_\\-\\/]+):)?(?<source>[a-zA-Z0-9_\\-\\/]+):(?<id>[a-zA-Z0-9_\\-\\/\\.]+)(?:@(?<version>[a-zA-Z0-9_\\-\\/.=,%+:]+))?(?:\\.(?<format>[a-zA-Z0-9_\\-]+))?$",
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "description": "Compatible six-step MiniMax H3 Image checkpoint AIR. Omit or set null for pruned INT8; the NVFP4 text encoder and image VAE are unchanged."
+              },
+              "ecosystem": {
+                "enum": [
+                  "h3-image"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "comfy"
+                ],
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "discriminator": {
+              "propertyName": "operation",
+              "mapping": {
+                "createImage": "#/components/schemas/ComfyMiniMaxH3CreateImageInput",
+                "editImage": "#/components/schemas/ComfyMiniMaxH3EditImageInput"
+              }
+            }
+          }
+        ]
+      },
       "ComfyImageGenInput": {
         "allOf": [
           {
@@ -16905,6 +17179,7 @@
             "discriminator": {
               "propertyName": "ecosystem",
               "mapping": {
+                "h3-image": "#/components/schemas/ComfyMiniMaxH3ImageGenInput",
                 "sd1": "#/components/schemas/ComfySd1ImageGenInput",
                 "sdxl": "#/components/schemas/ComfySdxlImageGenInput",
                 "flux1": "#/components/schemas/ComfyFlux1ImageGenInput",
@@ -30568,7 +30843,8 @@
             "fal": "#/components/schemas/FalImageGenInput",
             "qwen": "#/components/schemas/QwenApiImageGenInput",
             "krea": "#/components/schemas/KreaImageGenInput",
-            "krea3": "#/components/schemas/Krea3ImageGenInput"
+            "krea3": "#/components/schemas/Krea3ImageGenInput",
+            "minimax-h3-image": "#/components/schemas/MiniMaxH3ImageGenInput"
           }
         }
       },
