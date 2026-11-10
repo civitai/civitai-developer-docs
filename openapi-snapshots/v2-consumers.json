@@ -53082,9 +53082,8 @@
             "description": "Musical style, instrumentation, mood, tempo, and vocal description."
           },
           "lyrics": {
-            "minLength": 1,
             "type": "string",
-            "description": "Lyrics with section markers such as [verse] and [chorus]."
+            "description": "Lyrics with section markers. Empty lyrics select instrumental generation."
           },
           "seed": {
             "type": "integer",
@@ -53135,6 +53134,11 @@
               "format": "double"
             },
             "description": "Optional LoRAs for both YuE2 experts."
+          },
+          "instrumental": {
+            "type": "boolean",
+            "description": "Generate an instrumental score without sung lyrics. Score planning is required.",
+            "default": false
           }
         },
         "additionalProperties": false,
