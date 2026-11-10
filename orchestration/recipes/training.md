@@ -25,6 +25,12 @@ Every LoRA training recipe is a single `training` step with `engine: "ai-toolkit
 
 Training takes minutes to hours depending on dataset size and `steps`. Always submit with `wait=0` and follow up by polling [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) or with a webhook — see [Results & webhooks](/orchestration/guide/results-and-webhooks). The `<RecipeRun>` widgets on the training pages preview cost via `whatif=true`, so you can see the price without starting a run.
 
+### MiniMax H3 Image
+
+Use `engine: "ai-toolkit"` and `ecosystem: "minimaxh3image"` to train H3 Image LoRAs. Defaults are 3000 steps, rank/alpha 16, `adamw8bit`, a constant learning rate of `0.0001`, and a frozen text encoder. Training uses the pruned INT8 ConvRot model, NVFP4 text encoder, and upstream H3 Image training adapter with cached latents and text embeddings. Training buckets are 512, 768 and 1024 pixels.
+
+`samples.prompts` generates 2048×2048 Comfy H3 Image previews with the trained LoRA at six steps and guidance 1. The training adapter is excluded from previews. Use the trained LoRA through `engine: "comfy"`, `ecosystem: "h3-image"`, and `loras` for subsequent generation.
+
 ## Training data {#training-data}
 
 `trainingData` is either a zip (`type: "zip"`) or a list of uploaded blobs (`type: "blobs"`).
