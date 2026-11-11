@@ -16913,7 +16913,11 @@
             },
             "additionalProperties": false
           }
-        ]
+        ],
+        "x-service": {
+          "category": "image",
+          "hosting": "partner"
+        }
       },
       "ComfyMiniMaxH3EditImageInput": {
         "allOf": [
@@ -16960,7 +16964,11 @@
             },
             "additionalProperties": false
           }
-        ]
+        ],
+        "x-service": {
+          "category": "image",
+          "hosting": "partner"
+        }
       },
       "ComfyMiniMaxH3ImageGenInput": {
         "allOf": [
@@ -17030,6 +17038,28 @@
                   "string"
                 ],
                 "description": "Compatible six-step MiniMax H3 Image checkpoint AIR. Omit or set null for pruned INT8; the NVFP4 text encoder and image VAE are unchanged."
+              },
+              "steps": {
+                "maximum": 150,
+                "minimum": 1,
+                "type": "integer",
+                "format": "int32",
+                "default": 6
+              },
+              "cfgScale": {
+                "maximum": 30,
+                "minimum": 1,
+                "type": "number",
+                "format": "double",
+                "default": 1
+              },
+              "sampler": {
+                "default": "euler",
+                "$ref": "#/components/schemas/ComfySampler"
+              },
+              "scheduler": {
+                "default": "simple",
+                "$ref": "#/components/schemas/ComfyScheduler"
               },
               "ecosystem": {
                 "enum": [
