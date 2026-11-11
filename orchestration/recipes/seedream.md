@@ -52,6 +52,27 @@ const v4EditBody = {
     },
   }],
 };
+const v55Body = {
+  steps: [{
+    $type: 'imageGen',
+    input: {
+      engine: 'seedream', version: 'v5.5',
+      prompt: 'A blue ceramic teapot on a wooden table in soft morning light',
+      width: 2048, height: 2048, outputFormat: 'png',
+    },
+  }],
+};
+
+const v55EditBody = {
+  steps: [{
+    $type: 'imageGen',
+    input: {
+      engine: 'seedream', version: 'v5.5',
+      prompt: 'Make it a winter scene with snow falling',
+      width: 1024, height: 1024, images: [sampleImage],
+    },
+  }],
+};
 </script>
 
 # Seedream image generation
@@ -63,7 +84,9 @@ Seedream is ByteDance's image-generation family. Single engine, multiple version
 | `v3` | Earliest version. Compatibility only — prefer `v4.5` or newer. |
 | `v4` | Balanced quality and speed; lower cost than `v4.5`. |
 | `v4.5` | **Default** — refined v4, better detail. Returned when `version` is omitted. |
-| `v5.0-lite` | Latest fast tier — lighter than v4.5 with similar output characteristics for most workloads. |
+| `v5.0-lite` | Fast tier. |
+| `v5.0-pro` | BytePlus Pro; resolution-based pricing. |
+| `v5.5` | Text-to-image and editing through BytePlus at every resolution. |
 
 **Default choice**: `version: "v4.5"` (also the API default when the field is omitted). Use `v4` when you want lower cost with slightly less detail; try `v5.0-lite` for faster / cheaper output on the newest release.
 
@@ -102,7 +125,7 @@ Content-Type: application/json
 
 | Field | Default | Range | Notes |
 |-------|---------|-------|-------|
-| `version` | `v4.5` | `v3` / `v4` / `v4.5` / `v5.0-lite` | Optional; defaults to `v4.5`. |
+| `version` | `v4.5` | `v3` / `v4` / `v4.5` / `v5.0-lite` / `v5.0-pro` / `v5.5` | Optional; defaults to `v4.5`. |
 | `prompt` | — ✅ | ≥ 1 char | Natural-language works best. |
 | `width` / `height` | `1024` | `256`–`4096` | Plain pixel dimensions. Stay near ~1 MP for native output; push higher only when you need print-size output. |
 | `quantity` | `1` | `1`–`12` | |
@@ -111,7 +134,35 @@ Content-Type: application/json
 | `enableSafetyChecker` | `false` | boolean | |
 | `images[]` | *(none)* | max 10 | Passing `images[]` switches to edit mode. URLs, data URLs, or Base64. |
 
-### Newer version (`v5.0-lite`)
+### Seedream 5.5
+
+Use `version: "v5.5"` with the same `imageGen` request shape. BytePlus handles every 5.5 request, including smaller outputs. The API default remains `v4.5` when `version` is omitted.
+
+```json
+{
+  "steps": [{
+    "$type": "imageGen",
+    "input": {
+      "engine": "seedream",
+      "version": "v5.5",
+      "prompt": "A blue ceramic teapot on a wooden table in soft morning light",
+      "width": 2048,
+      "height": 2048,
+      "outputFormat": "png"
+    }
+  }]
+}
+```
+
+<RecipeRun :body="v55Body" :wait="0" />
+
+For editing, add up to 10 references in `images`. `quantity` requests separate generations using the same prompt and references. JPEG, PNG, and WebP outputs use the existing image pipeline. Seed, guidance, and the provider safety-checker toggle are not forwarded to BytePlus.
+
+<RecipeRun :body="v55EditBody" :wait="0" />
+
+Width and height must each be between 256 and 4096, with **921,600–4,624,220 total pixels**. For example, 1024×1024 and 2048×2048 are valid; 512×512 is too small and 4096×4096 is too large for 5.5.
+
+### Fast version (`v5.0-lite`)
 
 ```json
 {
@@ -133,7 +184,7 @@ Content-Type: application/json
 
 ### High-resolution output
 
-Seedream can render up to 4096×4096 natively — useful when you need print-size output without a separate upscaling pass. Expect higher runtime:
+Seedream 4.5 can render up to 4096×4096 natively — useful when you need print-size output without a separate upscaling pass. Expect higher runtime:
 
 ```json
 {
@@ -199,7 +250,7 @@ Combined with `quantity > 2`, high-res outputs cross the timeout quickly. Always
 
 Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
-Flat per-image pricing by `version`:
+For versions with a fixed base price:
 
 ```
 total = base × quantity
@@ -210,6 +261,8 @@ total = base × quantity
 | `v4.5` | **60** |
 | `v5.0-lite` | **52** |
 | `v4` / `v3` | **40** |
+| `v5.0-pro` | **68** up to 2.36 MP; **135** above |
+| `v5.5` | Configured BytePlus rates; preview with `whatif=true` |
 
 Examples:
 - `v4.5`, 1024², `quantity: 1` → **60 Buzz**
@@ -218,7 +271,7 @@ Examples:
 - `v4.5` at 2048², `quantity: 1` → 60 Buzz *(dimensions don't affect the fixed base)*
 - `v4` with 3 reference images, `quantity: 1` → 40 Buzz *(editing uses the same base)*
 
-Dimensions and `images[]` count don't change Seedream's Buzz price — the provider charges per-image-generated, not per-megapixel. If you need 4K output, you pay the same as 1K.
+Seedream 5.5 pricing is pending confirmation. Requests are rejected with "Seedream 5.5 pricing is not configured" until its rates are set. Its configured price supports output-resolution tiers, input-image charges, and a dated launch discount. The quote uses the workflow creation time so the discount cannot expire midway through generation. Output-format and priority fees still apply.
 
 ## Troubleshooting
 
@@ -226,8 +279,9 @@ Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| `400` with "version must be one of" | Typo or unsupported version slug | Use `v3`, `v4`, `v4.5`, or `v5.0-lite` (note the `v` prefix). |
+| `400` with "version must be one of" | Typo or unsupported version slug | Use a version from the table above, including `v5.5` (note the `v` prefix). |
 | `400` with "width/height out of range" | Below 256 or above 4096 | Clamp to `256`–`4096`. |
+| `400` with "between 921,600 and 4,624,220 pixels" | Seedream 5.5 output area is out of range | Keep width × height within that range. |
 | `400` with "images maxItems" | More than 10 source images on edit | Trim to 10. |
 | Output too saturated / painterly | `guidanceScale` too high | Seedream prefers `2`–`3` — values above 5 typically degrade output. |
 
