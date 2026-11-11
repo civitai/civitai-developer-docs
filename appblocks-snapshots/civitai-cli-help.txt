@@ -1,6 +1,6 @@
 civitai CLI help snapshot (the WHOLE command tree)
 Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
-Binary version: civitai 0.1.136
+Binary version: civitai 0.1.137
 Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
 else parses this committed snapshot. To refresh: run
 node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).
@@ -442,7 +442,8 @@ It also emits non-fatal WARNINGS the schema can't catch as hard errors:
     call useBlockContext() in your root component. It reads source only —
     never outputDir, node_modules, markdown, or comments.
   - storage features the schema describes but the platform does not accept
-    yet (kind "log", write "anyone"/"owner", ttlSeconds, dailyWritesPerAuthor).
+    yet (kind "log", write "anyone"/"owner", ttlSeconds, dailyWritesPerAuthor,
+    registry, hook).
     civitai.com refuses them at submit today; they are warnings, not errors,
     because the platform enables each with a server-side switch and an
     installed CLI must not refuse a manifest the server has started to accept.
