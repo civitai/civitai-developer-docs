@@ -183,6 +183,8 @@ const FEATURE_SPELLING = {
   logCollections: '`kind: "log"` (and `maxEntries`)',
   ttl: '`ttlSeconds`',
   perAuthorWriteBudget: '`dailyWritesPerAuthor`',
+  hooks: '`hook`',
+  registryExport: '`registry`',
 };
 for (const f of Object.keys(features)) {
   if (!(f in FEATURE_SPELLING)) throw new Error(`gen-appblocks-storage: APP_STORAGE_ENABLED_FEATURES.${f} has no FEATURE_SPELLING entry`);

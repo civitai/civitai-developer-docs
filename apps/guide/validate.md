@@ -202,7 +202,7 @@ check (see [Testing](./storage#testing)).
 
 ### Features not available yet — warnings
 
-The schema describes five features the server
+The schema describes seven features the server
 [refuses today](./storage#limits). `validate` reports each as a **warning**,
 not an error: the platform enables each one with a server-side switch, and a
 CLI you already installed must not refuse a manifest the server has started to
@@ -215,8 +215,16 @@ accept. Until it does, treat these as blocking:
 | `write: "owner"` on a shared collection | use "own" or "none" for now |
 | `ttlSeconds` | remove ttlSeconds for now |
 | `dailyWritesPerAuthor` | remove dailyWritesPerAuthor for now (the platform default applies) |
+| `registry` (RESERVED) | remove it to keep the collection on Civitai only |
+| `hook` (RESERVED) | remove hook (the collection schema still applies) |
 
 Each message is the server's refusal plus why the CLI only warns about it.
+
+- A `hook` gets the warning only once its shape is valid. A malformed hook gets
+  the schema's **error** instead, as on the server.
+- `registry` and `hook` need CLI v0.1.137 or later. An older CLI does not know
+  them and rejects either one as an unknown property: an **error**, not this
+  warning.
 
 - An out-of-range value (`ttlSeconds: 59`) gets the schema's range **error**
   instead, as on the server.
