@@ -172,6 +172,7 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'FLUX-3 video generation', link: '/orchestration/recipes/flux3-video' },
         { text: 'MiniMax H3 video generation', link: '/orchestration/recipes/minimax-h3' },
         { text: 'MiniMax H3 (ComfyUI) video generation', link: '/orchestration/recipes/minimax-h3-comfy' },
+        { text: 'MiniMax H3 Image (ComfyUI)', link: '/orchestration/recipes/minimax-h3-image-comfy' },
         { text: 'Seedance video generation', link: '/orchestration/recipes/seedance' },
         { text: 'HunyuanVideo generation', link: '/orchestration/recipes/hunyuan' },
         { text: 'Video upscaling', link: '/orchestration/recipes/video-upscaler' },
