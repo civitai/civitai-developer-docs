@@ -543,6 +543,8 @@ Most chat completions finish in 5–30 seconds depending on model and output len
 
 ## Related
 
+- [Multimodal embeddings](/orchestration/recipes/multimodal-embeddings) — image and text vectors for search.
+
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) — for the workflow-step path
 - [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow) — for polling
 - [Results & webhooks](/orchestration/guide/results-and-webhooks) — production result handling
