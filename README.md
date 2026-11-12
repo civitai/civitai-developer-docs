@@ -319,12 +319,11 @@ carries NUL bytes, or came from a binary whose version disagrees with the target
 tag **fails the job instead of opening a PR** — a short capture otherwise looks
 like an ordinary refresh whose diff has quietly deleted whole command subtrees.
 
-⚠️ **One repository setting must be on**, and it is off today: *Settings →
-Actions → General → Workflow permissions → "Allow GitHub Actions to create and
-approve pull requests"*. It is a repo/org Actions policy, so no `permissions:`
-block can grant it. While it is off the job pushes the branch and then exits RED
-with the setting to flip and a compare URL — measured live, `gh pr create` fails
-with `GitHub Actions is not permitted to create or approve pull requests`.
+PR creation needs the org Actions policy to allow GitHub Actions to create pull
+requests (currently allowed; no `permissions:` block can grant it). If it is
+turned off again, the job pushes the branch and then exits RED with a compare
+URL, because `gh pr create` fails with `GitHub Actions is not permitted to create
+or approve pull requests`.
 
 ⚠️ A PR opened with the default `GITHUB_TOKEN` does **not** get its checks run,
 so that PR shows zero checks and `main`'s required contexts never report — the

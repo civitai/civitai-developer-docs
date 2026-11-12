@@ -159,14 +159,11 @@
  *
  * 🔴 PREREQUISITE: "ALLOW GITHUB ACTIONS TO CREATE AND APPROVE PULL REQUESTS"
  * ---------------------------------------------------------------------------
- * This is OFF on this repository today, and while it is off the PR step CANNOT
- * succeed — no `permissions:` block can grant it, because it is a repo/org
- * Actions policy rather than a token scope. Measured live end-to-end: the
- * branch pushed fine and `gh pr create` failed with `GitHub Actions is not
- * permitted to create or approve pull requests (createPullRequest)`. Flipping
- * the setting and re-running the identical workflow opened the PR.
- *   gh api repos/civitai/civitai-developer-docs/actions/permissions/workflow
- *   -> {"default_workflow_permissions":"write","can_approve_pull_request_reviews":false}
+ * The org Actions policy must allow it (currently allowed); no `permissions:`
+ * block can grant it, because it is a policy rather than a token scope. If it
+ * is turned off again, the branch still pushes and `gh pr create` fails with
+ * `GitHub Actions is not permitted to create or approve pull requests
+ * (createPullRequest)`.
  * `prCreationBlockedAdvice` turns that failure into instructions plus a
  * one-click compare URL, and the run still exits non-zero — the branch exists
  * but nobody has been told, which is the state this whole workflow exists to
@@ -599,15 +596,12 @@ sides named rather than opening a conflicted PR.
 }
 
 /**
- * 🔴 THE ONE PREREQUISITE THIS FEATURE CANNOT SATISFY ITSELF, AND IT IS OFF
- * TODAY. `gh pr create` with GITHUB_TOKEN fails outright when the repository's
- * "Allow GitHub Actions to create and approve pull requests" setting is off —
- * measured live: `GitHub Actions is not permitted to create or approve pull
- * requests (createPullRequest)`, with the branch already pushed. That setting
- * is off on this repo (`gh api
- * repos/civitai/civitai-developer-docs/actions/permissions/workflow` ->
- * `can_approve_pull_request_reviews: false`), and NO `permissions:` block in a
- * workflow can override it — it is a repo/org-level Actions policy.
+ * 🔴 THE ONE PREREQUISITE THIS FEATURE CANNOT SATISFY ITSELF (currently
+ * satisfied). `gh pr create` with GITHUB_TOKEN fails outright when the Actions
+ * policy does not allow GitHub Actions to create pull requests — `GitHub
+ * Actions is not permitted to create or approve pull requests
+ * (createPullRequest)`, with the branch already pushed. NO `permissions:` block
+ * in a workflow can override it.
  *
  * So the failure is turned into an INSTRUCTION rather than a stack trace. The
  * branch IS pushed by this point, so the work is not lost: the message names
