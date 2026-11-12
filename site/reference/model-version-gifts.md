@@ -106,6 +106,40 @@ GET /api/v1/model-versions/{id}/gifts
 `live` counts codes that are still claimable. Codes themselves are never returned, and neither is who
 claimed them.
 
+## List all your gift codes
+
+```
+GET /api/v1/model-versions/gifts?limit=100&cursor=…
+```
+
+Every gift link and batch on every version of every model you own, newest first, with the version and
+model each belongs to. Unlike the per-version list, this one is yours alone: it lists only models you
+own.
+
+| Query | Type | Description |
+|-------|------|-------------|
+| `limit` | integer, 1–100, optional | Items per page. Defaults to 100. |
+| `cursor` | string, optional | The `nextCursor` of the previous page. |
+| `fresh` | `1`, optional | Read your latest writes, for a list fetched right after a revoke. Without it the list can lag a write by a few seconds. |
+
+```json
+{
+  "items": [
+    { "kind": "link", "id": 42, "codeHint": "7KQ2", "label": null, "maxRedemptions": 10,
+      "redemptionCount": 3, "expiresAt": null, "revokedAt": null,
+      "createdAt": "2026-11-07T12:00:00.000Z",
+      "modelVersionId": 123, "versionName": "v2", "modelId": 45, "modelName": "My model" },
+    { "kind": "batch", "batchId": "0b6f6a3e-…", "label": "Patreon", "total": 500, "claimed": 120,
+      "live": 380, "createdAt": "2026-11-06T12:00:00.000Z", "expiresAt": null,
+      "modelVersionId": 124, "versionName": "v1", "modelId": 46, "modelName": "Another model" }
+  ],
+  "nextCursor": "MjAyNi0xMS0wNlQx…"
+}
+```
+
+`nextCursor` is `null` on the last page. A `limit` above 100 or a malformed cursor answers `400`.
+Revoke an item with the endpoints below, using its `modelVersionId`.
+
 ## Revoke
 
 ```

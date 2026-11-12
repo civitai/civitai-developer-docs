@@ -15,7 +15,7 @@ All endpoints below live under `https://civitai.com/api/v1/`.
 | [Posts](./posts) | `GET /posts/{id}` |
 | [Articles](./articles) | `GET /articles`, `GET /articles/{id}` |
 | [Collections](./collections) | `GET /collections`, `GET /collections/{id}` |
-| [Model version gifts](./model-version-gifts) | `POST /model-versions/gifts/claim`, `GET`/`POST /model-versions/{id}/gifts`, `POST /model-versions/{id}/gifts/link`, `DELETE /model-versions/{id}/gifts/{giftId}`, `DELETE /model-versions/{id}/gifts/batch/{batchId}` |
+| [Model version gifts](./model-version-gifts) | `POST /model-versions/gifts/claim`, `GET /model-versions/gifts`, `GET`/`POST /model-versions/{id}/gifts`, `POST /model-versions/{id}/gifts/link`, `DELETE /model-versions/{id}/gifts/{giftId}`, `DELETE /model-versions/{id}/gifts/batch/{batchId}` |
 | [Creators](./creators) | `GET /creators` |
 | [Creator engagement](./creator-engagement) | `GET /creator/engagement` |
 | [Tags](./tags) | `GET /tags` |
