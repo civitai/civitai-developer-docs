@@ -853,29 +853,51 @@ enrolled the mint reports "not available" — ask to be added to the cohort.
 Clone or sync your app's repository from Civitai
 
 ```text
-Clone (or, if [dir] is already a checkout, pull) the canonical repository
-backing one of YOUR approved Apps. This is the read side of git authoring:
-it fetches the current block.manifest.json + source so you can edit locally and
-then submit (`civitai app submit`) or push.
+Clone (or, if [dir] is already a checkout, pull) the repository backing one
+of YOUR Apps. This is the read side of git authoring: it fetches the current
+block.manifest.json + source so you can edit locally and then submit
+(`civitai app submit`) or push.
+
+WHICH REPOSITORY: a forked app, or one App Assistant built, has a SOURCE
+repository (civitai-apps-src/<slug>) from its first day, before any approval:
+its git history, with App Assistant's saves as commits. When the app has one,
+this command clones it, and `git push` there keeps your history on the
+platform. Pushing to the source repository never builds or submits anything;
+submit a version with `civitai app submit`. An app without one gets its
+build repository (civitai-apps/<slug>), which holds the approved versions.
 
 Authentication uses your stored credential (`civitai login` or a personal
-API key). The command calls an owner-only endpoint that lazily provisions a
-scoped, read-only Forgejo identity for you and returns a clone URL with a push/
-pull token embedded.
+API key). The command calls an owner-only endpoint that lazily provisions your
+platform git identity, then clones the TOKEN-LESS repository URL. That
+identity's token is a WRITE token (scope write:repository): it can push to every
+app repository you have write access to, not only this one, which is why it is
+kept out of the checkout. (A push never deploys: it is queued for review.)
 
-⚠  SECURITY — TOKEN-IN-URL LEAKAGE: the clone URL embeds your access token as
-HTTP-Basic credentials (https://<user>:<token>@...). On a fresh CLONE, git
-stores the remote URL in .git/config, so the token lands on disk in the clone;
-treat the checkout as sensitive: do NOT commit .git/config or share the
-directory, and consider clearing the remote URL (or replacing it with the
-credential-less HTTPS URL `git remote set-url origin <httpUrl>`) after the
-clone if you rely on a git credential helper. On a SYNC (pull into an existing
-checkout) the URL is passed explicitly and is NOT persisted to .git/config, but
-the token still transiently appears in the git child process's arguments, so it
-is briefly visible to other processes via `ps` / /proc/<pid>/cmdline.
+NO TOKEN ON DISK: the clone's .git/config gets a repo-local git credential
+helper, scoped to the platform git host, instead of a token in the remote URL:
 
-The repo only exists once your FIRST version has been submitted as a ZIP and
-approved; before then the command tells you so instead of failing obscurely.
+  [credential "https://<git host>"]
+      helper =
+      helper = !civitai git-credential --app <slug>
+      useHttpPath = true
+
+git runs `civitai git-credential` on each fetch/push; it asks the platform
+for your git credential with your stored Civitai login and hands it to git
+only for this app's repository. The empty `helper =` line stops any helper from
+your global git config (e.g. `store`) from saving that credential to disk. So
+the checkout is safe to copy, and a `git push` keeps working for as long as
+your `civitai login` does.
+
+OLDER CLONES: a checkout made by an earlier CLI stored the token in its remote
+URL. Running `civitai app pull` in it removes the token from every remote that
+points at this app's repository, installs the helper, and says so; a remote
+that carries a credential but points elsewhere is left alone and the command
+prints the `git remote set-url` that would clean it. The token itself is not
+rotated by this.
+
+An app with no source repository has a build repository only once its FIRST
+version has been submitted as a ZIP and approved; before then the command tells
+you so instead of failing obscurely.
 ```
 
 ```bash
