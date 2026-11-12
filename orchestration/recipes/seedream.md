@@ -262,7 +262,7 @@ total = base × quantity
 | `v5.0-lite` | **52** |
 | `v4` / `v3` | **40** |
 | `v5.0-pro` | **68** up to 2.36 MP; **135** above |
-| `v5.5` | Configured BytePlus rates; preview with `whatif=true` |
+| `v5.5` | **30** up to 2.601124 MP; **53** above, before launch discount and references |
 
 Examples:
 - `v4.5`, 1024², `quantity: 1` → **60 Buzz**
@@ -271,7 +271,11 @@ Examples:
 - `v4.5` at 2048², `quantity: 1` → 60 Buzz *(dimensions don't affect the fixed base)*
 - `v4` with 3 reference images, `quantity: 1` → 40 Buzz *(editing uses the same base)*
 
-Seedream 5.5 pricing is pending confirmation. Requests are rejected with "Seedream 5.5 pricing is not configured" until its rates are set. Its configured price supports output-resolution tiers, input-image charges, and a dated launch discount. The quote uses the workflow creation time so the discount cannot expire midway through generation. Output-format and priority fees still apply.
+Seedream 5.5 uses $0.020 per output up to 2.601124 MP and $0.035 above that threshold. Each reference image adds $0.008 per output; there are no free references. Multiply the USD total by 1500 to get Buzz.
+
+From **2026-11-12 20:44:37 UTC** until **2026-12-12 20:44:37 UTC**, the image and reference rates are discounted by 40%. Outputs without references cost **18 / 32 Buzz**. A discounted reference contributes **7.2 Buzz** before the combined charge is rounded up: one lower-tier output with one reference costs **26 Buzz**, and one upper-tier output with one reference costs **39 Buzz**. Batch prices are rounded after multiplying by quantity.
+
+The quote uses the workflow creation time, so crossing the discount end during generation does not change the quote. Full rates resume automatically after the window. Output-format and priority fees still apply; use `whatif=true` to preview the final charge.
 
 ## Troubleshooting
 
