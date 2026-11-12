@@ -29,8 +29,8 @@ the generated [CLI reference](../reference/cli).
    `<blockId>.civit.ai` DNS record. A few minutes after approval the app serves
    at `https://<blockId>.civit.ai/`.
 
-A `git push` to the app's build repository creates a publish request too, and
-waits for the same review; a push to a source repository creates nothing. See
+A `git push` to the `main` branch of the app's build repository creates a
+publish request too, when its manifest is valid, and waits for the same review; a push to a source repository creates nothing. See
 [Your app's git repositories](./repositories#push).
 
 ::: warning Before approval, `https://<blockId>.civit.ai/` returns 404
@@ -87,18 +87,18 @@ An approved, deployed submission ends with `Live at:` and the app's
 ### Deploy states
 
 The `DEPLOY` column (`Deploy state:` in the detail view, `deployState` in
-`--json`) is printed exactly as the server stores it:
+`--json`) is the value the server stores:
 
 | State | Meaning |
 | --- | --- |
 | `-` (`null`) | no deploy has run: a pending submission with no review preview, or an approval from before deploy tracking (which can still be live) |
 | `building` | an approved version's image is being built |
 | `deploying` | the image is built and rolling out |
-| `live` | the approved version is deployed |
+| `live` | the approved version was deployed. An older approved row keeps reading `live` after a newer deploy replaces it; the detail view marks it `live (superseded: …)` and names the serving submission under **Live submission** (`liveSubmission` in `--json`), so read that, not `deployState`, to find what is serving |
 | `failed` | the build or the rollout failed |
 | `preview-queued` | a **pending** submission waiting for a review-preview build slot |
 | `preview-building`, `preview-deploying` | its review preview is being built, then rolled out |
-| `preview-live` | its review preview is up for the moderator; the app is still not public |
+| `preview-live` | its review preview was deployed for the moderator; the app is still not public. The value stays after the preview expires and is torn down |
 | `preview-failed` | its review preview failed |
 
 The `preview-*` states belong to a submission that is still `pending`: a

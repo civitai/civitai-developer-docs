@@ -21,7 +21,7 @@ one you get, how to clone it, and what the platform writes into it.
 An app you built locally and submitted as a ZIP has only a build repository,
 and only after its first approval. Both repositories are private. You can read
 and push to them if you own the app or are one of its accepted collaborators.
-Until the app's first submission, only the person who forked or built it can
+Until the app's first approval, only the person who forked or built it can
 use its source repository.
 
 ## Cloning: `civitai app pull` {#pull}
@@ -38,8 +38,9 @@ the app, which is the reverse of every other `civitai app` command, so
 
 - When the app has a **source repository**, `app pull` clones that (CLI
   **0.1.139** or later). Otherwise it clones the build repository.
-- Run it again inside a checkout to sync it. A sync fetches and fast-forwards
-  the branch you have checked out, and never creates a merge commit.
+- Run it again inside a checkout to sync it. A sync fetches the repository's
+  default branch and fast-forwards the branch you have checked out onto it; it
+  never creates a merge commit.
 - A checkout of the **build** repository keeps syncing from the build
   repository, and the CLI tells you where the source repository is. If the app
   has no approved version at that moment, the sync stops instead and names the
@@ -86,16 +87,21 @@ exposed.
 - **To the source repository:** the push is stored, and that is all. It never
   builds, never opens a review, and never submits a version. Submit with
   [`civitai app submit`](./review-and-deploy).
-- **To the build repository:** the push becomes a publish request, which waits
-  for review like a submit. It never deploys by itself.
+- **To the build repository's `main` branch:** the push becomes a publish
+  request, which waits for review like a submit. It never deploys by itself.
+  A push to any other branch creates nothing, and a push whose manifest is
+  invalid, whose `blockId` does not match the repository, or whose `iframe.src`
+  is set to anything but the canonical value creates no request either: the
+  commit gets a failed status that says why. Pushes recorded for review are
+  rate-limited.
 
 ## App Assistant saves {#assistant-saves}
 
 App Assistant commits its work to the source repository as it goes. If a save
 would overwrite a change you pushed to the same file, the save goes to the
-`civitai-assistant` branch instead and `main` is left alone. `app pull` syncs
-only the branch you have checked out, so fetch the assistant's branch yourself
-and merge it when you choose:
+`civitai-assistant` branch instead and `main` is left alone. `app pull` only
+ever fetches the default branch, so fetch the assistant's branch yourself and
+merge it when you choose:
 
 ```bash
 git fetch origin civitai-assistant

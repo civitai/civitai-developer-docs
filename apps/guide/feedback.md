@@ -70,7 +70,8 @@ civitai app feedback my-app --json                # for a script or an agent
 From CLI **0.1.138**, the human view prints the commits, the environment and
 the recent errors as indented `  - ` lines between a report's header and its
 message, and a fork's origin once, above the first report. With `--json`, a
-report carries these keys, each **absent** when the server sent nothing:
+report carries these keys. `appVersion`, `appSha` and `untrustedMessage` are
+always present; the others are **absent** when the server sent nothing:
 
 | Key | Holds |
 | --- | --- |

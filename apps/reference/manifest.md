@@ -102,8 +102,7 @@ until approval fails. See
 
 `blockId`, `version`, `name`, `contentRating`, and `scopes` are always required.
 `iframe.src` is **server-owned** — do not set it (see below); the platform stamps
-the canonical bundle URL during build/approve. A pulled checkout that already
-carries that exact value is accepted with a warning.
+the canonical bundle URL during build/approve.
 
 Note the tightened constraints the schema now surfaces (all server-enforced):
 
