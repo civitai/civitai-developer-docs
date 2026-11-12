@@ -312,8 +312,8 @@ caller can generate** with it. Skips heavy fields like `images[]`,
 | `additionalResourceCharge` | `true` when generating with this resource costs extra Buzz beyond the base workflow cost. |
 
 Returns `404` if the version doesn't exist, isn't published, the primary
-file is missing, or (for private training results) the requested `epoch`
-isn't found.
+file is missing, (for private training results) the requested `epoch`
+isn't found, or the caller has no access to the version.
 
 ### Example
 
