@@ -10,7 +10,7 @@ outline: [2, 4]
 
 Scaffold, validate, submit and operate an App: every `civitai app` command except the listing group.
 
-This page documents 18 of the 64 commands in the [CLI reference](../cli), which indexes every command by name. Generated from the `civitai` binary's own help output.
+This page documents 18 of the 65 commands in the [CLI reference](../cli), which indexes every command by name. Generated from the `civitai` binary's own help output.
 
 Other pages: [civitai app listing — store listing commands](./app-listing) · [Catalog and download commands](./catalog) · [Generation commands](./generation) · [Account, setup and utility commands](./account-and-setup)
 
@@ -240,6 +240,16 @@ plus the ported semantic rules and structural checks:
   - renderMode inline/hybrid is rejected (requires a verified tier the platform
     only assigns post-submit)
   - targets[].slotId must be a known registered slot
+  - the storage declaration, as the server checks it beyond the schema: a
+    counter and a mark sharing a name, collections declared without
+    apps:storage, a viewer-written shared collection without
+    apps:storage:publish, and either scope requested with nothing in storage
+    for it to reach
+  - a storage collection's document schema (storage.collections.<name>.schema)
+    within the server's bounds: at most 16384 bytes of JSON, 16 nested
+    schemas and 16 patterns (32 across the manifest), no
+    minLength/minItems/minimum above its max, and none on a write "none"
+    collection
   - the committed LOCKFILE matches the package manager the platform build
     derives from buildCommand (its first word): pnpm -> pnpm-lock.yaml,
     yarn -> yarn.lock, and npm/vite/npx/unset -> package-lock.json. The
@@ -270,18 +280,36 @@ It also emits non-fatal WARNINGS the schema can't catch as hard errors:
     connects at mount (in those releases useBuzzWorkflow alone never acks):
     call useBlockContext() in your root component. It reads source only —
     never outputDir, node_modules, markdown, or comments.
+  - storage features the schema describes but the platform does not accept
+    yet (kind "log", write "anyone"/"owner", ttlSeconds, dailyWritesPerAuthor,
+    registry, hook).
+    civitai.com refuses them at submit today; they are warnings, not errors,
+    because the platform enables each with a server-side switch and an
+    installed CLI must not refuse a manifest the server has started to accept.
+  - a collection schema pattern with a syntax error in JavaScript regular
+    expressions with the "u" flag, which is how the server compiles it (an
+    escape like \- or \z, a lone { } or ], an inline flag like (?i)). The
+    check is conservative: a pattern it says nothing about is not proven
+    valid, and the server decides at submit.
+  - source that calls the document store, app.storage.collection(<name>), with
+    a string-literal name the manifest does not declare under
+    storage.collections (every call on it is refused collection_not_declared),
+    or while the manifest has neither the apps:storage scope nor a storage
+    declaration (every call is refused insufficient_scope). A computed name is
+    not checked; a .collection( call on anything but a storage client (a name
+    ending in storage, or an awaited call such as (await docs())) is not the
+    document store.
   - source that calls useAppStorage() or useSharedStorage() while the manifest
-    declares NO scope for that store. The server gates storage by PRESENCE in the
-    approved scope set, so an undeclared scope means every call 403s in
-    production while working locally against the mock host — the exact shape of
-    an app that passed its whole suite, the dev harness and a submit, then failed
-    every save. The two stores are asked independently: declaring
-    apps:storage:shared:* says nothing about the per-viewer store. It does NOT
-    second-guess WHICH scope you picked — one storage scope is someone who knows
-    scopes exist and chose, so only a store with NONE is reported. Advisory ONLY:
-    it reads source statically, so a hook imported but never called is a false
-    positive. Same corpus rules as the ready-ack check — source only, comments
-    stripped, node_modules and build output skipped.
+    declares NO scope for that store (apps:storage:read / apps:storage:write,
+    or apps:storage:shared:read / apps:storage:shared:write). The server gates
+    storage by PRESENCE in the approved scope set, so every call 403s in
+    production while working locally against the mock host. One scope for the
+    store is enough to silence it; the two stores are asked independently.
+    Advisory ONLY: these read source statically. Same corpus rules as the
+    ready-ack check — source only, comments stripped, node_modules and build
+    output skipped — and test code is not read: *.test.*, *.spec.*, a file
+    named fake-*, test-* or mock-*, or anything under __tests__/, __mocks__/
+    or testing/.
 Warnings do NOT fail validation (exit 0) unless --strict is passed.
 
 Defaults to the current directory.
@@ -408,6 +436,14 @@ Listing-completeness gate:
 
   Your FIRST submit is what creates the store listing, so there is nothing to
   check yet and nothing is refused; the gate applies from the second one on.
+
+Storage migration notes:
+  An app that declares App Storage collections is checked by the SERVER
+  against the previous approved version. An accepted submit prints the
+  server's migration notes under the success line — for example a
+  storage.collections.<name>.migrations op that covers nothing and so will
+  never run. They never block the submit. (A breaking change no migration
+  covers refuses the submit, and the server's error lists each one.)
 
 Defaults to the current directory.
 ```
@@ -817,29 +853,51 @@ enrolled the mint reports "not available" — ask to be added to the cohort.
 Clone or sync your app's repository from Civitai
 
 ```text
-Clone (or, if [dir] is already a checkout, pull) the canonical repository
-backing one of YOUR approved Apps. This is the read side of git authoring:
-it fetches the current block.manifest.json + source so you can edit locally and
-then submit (`civitai app submit`) or push.
+Clone (or, if [dir] is already a checkout, pull) the repository backing one
+of YOUR Apps. This is the read side of git authoring: it fetches the current
+block.manifest.json + source so you can edit locally and then submit
+(`civitai app submit`) or push.
+
+WHICH REPOSITORY: a forked app, or one App Assistant built, has a SOURCE
+repository (civitai-apps-src/<slug>) from its first day, before any approval:
+its git history, with App Assistant's saves as commits. When the app has one,
+this command clones it, and `git push` there keeps your history on the
+platform. Pushing to the source repository never builds or submits anything;
+submit a version with `civitai app submit`. An app without one gets its
+build repository (civitai-apps/<slug>), which holds the approved versions.
 
 Authentication uses your stored credential (`civitai login` or a personal
-API key). The command calls an owner-only endpoint that lazily provisions a
-scoped, read-only Forgejo identity for you and returns a clone URL with a push/
-pull token embedded.
+API key). The command calls an owner-only endpoint that lazily provisions your
+platform git identity, then clones the TOKEN-LESS repository URL. That
+identity's token is a WRITE token (scope write:repository): it can push to every
+app repository you have write access to, not only this one, which is why it is
+kept out of the checkout. (A push never deploys: it is queued for review.)
 
-⚠  SECURITY — TOKEN-IN-URL LEAKAGE: the clone URL embeds your access token as
-HTTP-Basic credentials (https://<user>:<token>@...). On a fresh CLONE, git
-stores the remote URL in .git/config, so the token lands on disk in the clone;
-treat the checkout as sensitive: do NOT commit .git/config or share the
-directory, and consider clearing the remote URL (or replacing it with the
-credential-less HTTPS URL `git remote set-url origin <httpUrl>`) after the
-clone if you rely on a git credential helper. On a SYNC (pull into an existing
-checkout) the URL is passed explicitly and is NOT persisted to .git/config, but
-the token still transiently appears in the git child process's arguments, so it
-is briefly visible to other processes via `ps` / /proc/<pid>/cmdline.
+NO TOKEN ON DISK: the clone's .git/config gets a repo-local git credential
+helper, scoped to the platform git host, instead of a token in the remote URL:
 
-The repo only exists once your FIRST version has been submitted as a ZIP and
-approved; before then the command tells you so instead of failing obscurely.
+  [credential "https://<git host>"]
+      helper =
+      helper = !civitai git-credential --app <slug>
+      useHttpPath = true
+
+git runs `civitai git-credential` on each fetch/push; it asks the platform
+for your git credential with your stored Civitai login and hands it to git
+only for this app's repository. The empty `helper =` line stops any helper from
+your global git config (e.g. `store`) from saving that credential to disk. So
+the checkout is safe to copy, and a `git push` keeps working for as long as
+your `civitai login` does.
+
+OLDER CLONES: a checkout made by an earlier CLI stored the token in its remote
+URL. Running `civitai app pull` in it removes the token from every remote that
+points at this app's repository, installs the helper, and says so; a remote
+that carries a credential but points elsewhere is left alone and the command
+prints the `git remote set-url` that would clean it. The token itself is not
+rotated by this.
+
+An app with no source repository has a build repository only once its FIRST
+version has been submitted as a ZIP and approved; before then the command tells
+you so instead of failing obscurely.
 ```
 
 ```bash
