@@ -92,7 +92,7 @@ or ship the graph with the inline arm.
 ### Requesting a new recipe
 
 Adding a recipe is a change the Civitai team makes. Open a
-[Request access](https://github.com/civitai/cli/issues/new?template=request-access.yml)
+[Request a recipe](https://github.com/civitai/cli/issues/new?template=request-recipe.yml)
 issue on `civitai/cli` describing the workflow (what the graph should do, the
 models involved, rough runtime), or contact the Civitai team if you already have
 builder access. Ask for a recipe when you want a reviewed graph you do not have

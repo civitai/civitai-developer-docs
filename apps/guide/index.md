@@ -17,8 +17,11 @@ OAuth, or operate any infrastructure.
 Civitai Apps is currently in **closed beta** and is **not yet generally
 available**. The platform is mod-gated: authoring and publishing apps is limited
 to approved builders, and it is not openly self-serve today. If you'd like to
-build an app, **reach out to the Civitai team** to request access. (There is not
-yet a public self-signup flow.)
+build an app, use **Request access** on
+[civitai.com/apps/build](https://civitai.com/apps/build): tell us what you want to
+build and a moderator reviews it. You don't need to be a developer — the App
+Assistant there builds the app with you. (There is not yet a public self-signup
+flow.)
 
 **"Approved builders" is about you, not about your app.** Once you have that
 access nothing further is gated behind *review*: you can run your app locally and
