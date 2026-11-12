@@ -10157,7 +10157,8 @@
                 "mageflow": "#/components/schemas/MageFlowAIToolkitTrainingInput",
                 "ming": "#/components/schemas/MingAIToolkitTrainingInput",
                 "yue2": "#/components/schemas/YuE2AIToolkitTrainingInput",
-                "minimaxh3": "#/components/schemas/MiniMaxH3AIToolkitTrainingInput"
+                "minimaxh3": "#/components/schemas/MiniMaxH3AIToolkitTrainingInput",
+                "minimaxh3image": "#/components/schemas/MiniMaxH3ImageAIToolkitTrainingInput"
               }
             }
           }
@@ -35639,6 +35640,51 @@
               "ecosystem": {
                 "enum": [
                   "ming"
+                ],
+                "type": "string"
+              },
+              "engine": {
+                "enum": [
+                  "ai-toolkit"
+                ],
+                "type": "string"
+              },
+              "batchSize": {
+                "maximum": 1,
+                "minimum": 1,
+                "type": [
+                  "null",
+                  "integer"
+                ],
+                "description": "Training batch size. Fixed at 1 for this ecosystem.",
+                "default": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "MiniMaxH3ImageAIToolkitTrainingInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AIToolkitTrainingInput"
+          },
+          {
+            "required": [
+              "defaultSteps",
+              "ecosystem",
+              "engine"
+            ],
+            "type": "object",
+            "properties": {
+              "defaultSteps": {
+                "type": "integer",
+                "format": "int32",
+                "readOnly": true
+              },
+              "ecosystem": {
+                "enum": [
+                  "minimaxh3image"
                 ],
                 "type": "string"
               },
