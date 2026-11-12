@@ -4,6 +4,8 @@ title: Recipes
 
 # Recipes
 
+Moderation tools: [Model merge analysis](./model-analysis) checks a checkpoint against its base and suspected LoRAs.
+
 Task-oriented, end-to-end examples. Each recipe walks through a real workflow: what to send, what you get back, common parameter tweaks, and troubleshooting.
 
 ::: tip Not the same as App Blocks recipes
