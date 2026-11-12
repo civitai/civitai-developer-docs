@@ -98,28 +98,333 @@ const dalle2Body = {
     },
   }],
 };
+const gpt26FlareCreateBody = {
+  "steps": [
+    {
+      "$type": "imageGen",
+      "input": {
+        "engine": "openai",
+        "model": "gpt-image-2.6-flare",
+        "operation": "createImage",
+        "prompt": "A small blue ceramic robot waving on a wooden table, warm studio light.",
+        "quality": "medium",
+        "reasoningEffort": "high",
+        "quantity": 1,
+        "width": 1024,
+        "height": 1024
+      }
+    }
+  ]
+};
+
+const gpt26FlareEditBody = {
+  "steps": [
+    {
+      "$type": "imageGen",
+      "input": {
+        "engine": "openai",
+        "model": "gpt-image-2.6-flare",
+        "operation": "editImage",
+        "prompt": "Turn this landscape into a bright summer scene while preserving the tree and camera.",
+        "quality": "medium",
+        "reasoningEffort": "high",
+        "quantity": 1,
+        "images": [
+          "https://v3b.fal.media/files/b/rabbit/NaslJIC7F2WodS6DFZRRJ.png"
+        ]
+      }
+    }
+  ]
+};
+
+const gpt26SunburstCreateBody = {
+  "steps": [
+    {
+      "$type": "imageGen",
+      "input": {
+        "engine": "openai",
+        "model": "gpt-image-2.6-sunburst",
+        "operation": "createImage",
+        "prompt": "A small blue ceramic robot waving on a wooden table, warm studio light.",
+        "quality": "medium",
+        "reasoningEffort": "high",
+        "quantity": 1,
+        "width": 1024,
+        "height": 1024
+      }
+    }
+  ]
+};
+
+const gpt26SunburstEditBody = {
+  "steps": [
+    {
+      "$type": "imageGen",
+      "input": {
+        "engine": "openai",
+        "model": "gpt-image-2.6-sunburst",
+        "operation": "editImage",
+        "prompt": "Turn this landscape into a bright summer scene while preserving the tree and camera.",
+        "quality": "medium",
+        "reasoningEffort": "high",
+        "quantity": 1,
+        "images": [
+          "https://v3b.fal.media/files/b/rabbit/NaslJIC7F2WodS6DFZRRJ.png"
+        ]
+      }
+    }
+  ]
+};
+const gpt26GifBody = {
+  "steps": [
+    {
+      "$type": "imageGen",
+      "input": {
+        "engine": "openai",
+        "model": "gpt-image-2.6-flare",
+        "operation": "createImage",
+        "prompt": "A cheerful blue ceramic robot gently waves one hand and blinks, seamless looping animation.",
+        "quality": "low",
+        "reasoningEffort": "low",
+        "quantity": 1,
+        "outputFormat": "gif",
+        "frameCount": 4,
+        "frameDurationMs": 120,
+        "width": null,
+        "height": null
+      }
+    }
+  ]
+};
+
+const gpt26SvgBody = {
+  "steps": [
+    {
+      "$type": "imageGen",
+      "input": {
+        "engine": "openai",
+        "model": "gpt-image-2.6-sunburst",
+        "operation": "createImage",
+        "prompt": "A simple geometric blue robot icon, flat vector shapes, white background, centered, no text.",
+        "quality": "low",
+        "reasoningEffort": "low",
+        "quantity": 1,
+        "outputFormat": "svg",
+        "svgModel": "gpt-6-luna",
+        "width": 1024,
+        "height": 1024
+      }
+    }
+  ]
+};
 </script>
 
 # OpenAI image generation
 
-The orchestrator routes OpenAI image requests to OpenAI's hosted APIs via the `imageGen` step. Five models, each with its own behaviour and quality tier:
+Use `engine: "openai"` in an `imageGen` step. GPT Image 2.6 runs through FAL with the same model/operation selection as 2.5:
 
 | `model` | Operations | Notes |
 |---------|------------|-------|
-| `gpt-image-2` | `createImage` / `editImage` | **Default** — latest GPT-Image model. Arbitrary `width`/`height` (not fixed presets), optional `maskImage` for regional edits. No `background` control. |
+| `gpt-image-2.6-flare` | `createImage` / `editImage` | Fast generation and editing, reasoning effort, transparency, and annotation-guided edits. |
+| `gpt-image-2.6-sunburst` | `createImage` / `editImage` | Detailed generation and editing with the same controls. |
+| `gpt-image-2.5-flare` / `gpt-image-2.5-sunburst` | `createImage` / `editImage` | Previous Flare and Sunburst versions. |
+| `gpt-image-2` | `createImage` / `editImage` | Earlier GPT-Image model. Arbitrary `width`/`height` (not fixed presets), optional `maskImage` for regional edits. No `background` control. |
 | `gpt-image-1.5` | `createImage` / `editImage` | Previous flagship. Fixed `size` enum, 4 images max, quality + background controls. |
 | `gpt-image-1` | `createImage` / `editImage` | Older GPT-Image. Up to 10 images per call. Supports `background: "transparent"`. |
 | `dall-e-3` | `createImage` only | Stand-alone `natural` vs `vivid` style control, `standard` / `hd` quality, up to 1792 px. |
 | `dall-e-2` | `createImage` / `editImage` | Legacy. Only supports square outputs (256² / 512² / 1024²) and 1000-char prompts. Use only for compatibility reasons. |
 
-**Default choice**: `model: "gpt-image-2"`. It's OpenAI's latest flagship with flexible output dimensions and mask-based editing. Fall back to `gpt-image-1.5` if you need `background` control or prefer the fixed `size` enum; `gpt-image-1` for transparent backgrounds or `quantity > 4`; `dall-e-3` for style-controlled vivid output; avoid `dall-e-2` unless you specifically need it.
+For new integrations, choose `gpt-image-2.6-flare` for fast iteration or `gpt-image-2.6-sunburst` for detailed visual work. Specify the model and operation explicitly.
 
 ## Prerequisites
 
 - For `editImage`: one or more source image URLs, data URLs, or Base64 strings
 - For `gpt-image-2` mask-based edits: a mask image whose fully transparent pixels (alpha = 0) indicate the region to edit
 
-## gpt-image-2 (default)
+## GPT Image 2.6
+
+Both variants support `createImage` and `editImage`. This integration returns PNG, JPEG, or WebP; GIF and SVG output are not exposed.
+
+### Flare generation
+
+```json
+{
+  "steps": [
+    {
+      "$type": "imageGen",
+      "input": {
+        "engine": "openai",
+        "model": "gpt-image-2.6-flare",
+        "operation": "createImage",
+        "prompt": "A small blue ceramic robot waving on a wooden table, warm studio light.",
+        "quality": "medium",
+        "reasoningEffort": "high",
+        "quantity": 1,
+        "width": 1024,
+        "height": 1024
+      }
+    }
+  ]
+}
+```
+
+<RecipeRun :body="gpt26FlareCreateBody" :wait="0" />
+
+### Flare editing
+
+```json
+{
+  "steps": [
+    {
+      "$type": "imageGen",
+      "input": {
+        "engine": "openai",
+        "model": "gpt-image-2.6-flare",
+        "operation": "editImage",
+        "prompt": "Turn this landscape into a bright summer scene while preserving the tree and camera.",
+        "quality": "medium",
+        "reasoningEffort": "high",
+        "quantity": 1,
+        "images": [
+          "https://v3b.fal.media/files/b/rabbit/NaslJIC7F2WodS6DFZRRJ.png"
+        ]
+      }
+    }
+  ]
+}
+```
+
+<RecipeRun :body="gpt26FlareEditBody" :wait="0" />
+
+### Sunburst generation
+
+```json
+{
+  "steps": [
+    {
+      "$type": "imageGen",
+      "input": {
+        "engine": "openai",
+        "model": "gpt-image-2.6-sunburst",
+        "operation": "createImage",
+        "prompt": "A small blue ceramic robot waving on a wooden table, warm studio light.",
+        "quality": "medium",
+        "reasoningEffort": "high",
+        "quantity": 1,
+        "width": 1024,
+        "height": 1024
+      }
+    }
+  ]
+}
+```
+
+<RecipeRun :body="gpt26SunburstCreateBody" :wait="0" />
+
+### Sunburst editing
+
+```json
+{
+  "steps": [
+    {
+      "$type": "imageGen",
+      "input": {
+        "engine": "openai",
+        "model": "gpt-image-2.6-sunburst",
+        "operation": "editImage",
+        "prompt": "Turn this landscape into a bright summer scene while preserving the tree and camera.",
+        "quality": "medium",
+        "reasoningEffort": "high",
+        "quantity": 1,
+        "images": [
+          "https://v3b.fal.media/files/b/rabbit/NaslJIC7F2WodS6DFZRRJ.png"
+        ]
+      }
+    }
+  ]
+}
+```
+
+<RecipeRun :body="gpt26SunburstEditBody" :wait="0" />
+
+### Animated GIF and SVG
+
+Both 2.6 variants support GIF creation and editing. SVG is available only for `createImage`. Set `outputFormat` and use the same model and operation selectors as above.
+
+```json
+{
+  "steps": [
+    {
+      "$type": "imageGen",
+      "input": {
+        "engine": "openai",
+        "model": "gpt-image-2.6-flare",
+        "operation": "createImage",
+        "prompt": "A cheerful blue ceramic robot gently waves one hand and blinks, seamless looping animation.",
+        "quality": "low",
+        "reasoningEffort": "low",
+        "quantity": 1,
+        "outputFormat": "gif",
+        "frameCount": 4,
+        "frameDurationMs": 120,
+        "width": null,
+        "height": null
+      }
+    }
+  ]
+}
+```
+
+<RecipeRun :body="gpt26GifBody" :wait="0" />
+
+```json
+{
+  "steps": [
+    {
+      "$type": "imageGen",
+      "input": {
+        "engine": "openai",
+        "model": "gpt-image-2.6-sunburst",
+        "operation": "createImage",
+        "prompt": "A simple geometric blue robot icon, flat vector shapes, white background, centered, no text.",
+        "quality": "low",
+        "reasoningEffort": "low",
+        "quantity": 1,
+        "outputFormat": "svg",
+        "svgModel": "gpt-6-luna",
+        "width": 1024,
+        "height": 1024
+      }
+    }
+  ]
+}
+```
+
+<RecipeRun :body="gpt26SvgBody" :wait="0" />
+
+GIFs retain all frames and their timing; SVGs retain editable vector paths. Leave dimensions automatic for GIFs: explicit frame dimensions must also fit the provider's animation sheet, so a request can exceed its size limits even when the frame pixel total fits. For example, four 1024×1024 frames are rejected.
+
+### Controls
+
+| Field | Default | Supported values |
+|---|---|---|
+| `width`, `height` | Automatic | Set both or leave both null. Multiples of 16, at most 3840 per edge. Still images require 655,360–8,294,400 total pixels and aspect ratio at most 3:1. GIF frame sizes must fit the animation sheet. |
+| `quality` | `high` | `auto`, `low`, `medium`, `high`, `xhigh`, `max` |
+| `reasoningEffort` | `high` | `low`, `medium`, `high`; planning effort independent of rendering quality |
+| `quantity` | 1 | 1–4 |
+| `outputFormat` | `jpeg` | `jpeg`, `png`, `webP`, `gif`; `svg` for creation only |
+| `background` | `auto` | `auto`, `opaque`, `transparent`; transparency requires PNG or WebP |
+| `outputCompression` | Provider default | 0–100 for JPEG/WebP; controls the provider output before Civitai's standard metadata/encoding pass |
+| `frameCount` | 9 | GIF only: 2–16 frames sharing the provider pixel budget |
+| `frameDurationMs` | 200 | GIF only: 20–2000 ms, rounded to 10 ms |
+| `svgModel` | `gpt-6-astra` | SVG only: `gpt-6-astra`, `gpt-5.5`, `gpt-5.4`, `gpt-5.6-terra`, `gpt-6-luna` |
+| `images` | Required for edits | 1–16 reference images |
+| `mask` | None | Edit mask: white marks regions to edit, black marks regions to keep |
+| `markupImage` | None | Transparent PNG containing annotations matching the first image's dimensions; mutually exclusive with `mask` |
+
+Inputs accept the existing source-image URL/data-URL/Base64 forms. Poll the workflow until its output images are available. Automatic sizing is resolved by the provider; read the returned image dimensions.
+
+## gpt-image-2
 
 ```http
 POST https://orchestration.civitai.com/v2/consumer/workflows?wait=60
@@ -370,7 +675,15 @@ OpenAI's API queue is the dominant factor — Civitai routes your request straig
 
 ## Cost
 
-Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
+Preview the estimated charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
+
+### GPT Image 2.6
+
+The quote estimates image-output tokens using the [OpenAI calculator](https://developers.openai.com/api/docs/guides/image-generation#calculating-costs) and [FAL rates](https://fal.ai/models/openai/gpt-image-2.6/flare/text-to-image). It is marked variable. Final pricing uses FAL's reported USD charge, including input processing, at 1,300 Buzz per USD, plus the existing format/priority surcharges.
+
+At 1024×1024, estimated base Buzz per image is **33 / 57 / 69 / 122 / 274** for low / medium / high / xhigh / max. Both variants share these rates. Automatic quality is estimated as high; automatic size is estimated at 1024×1024. The final charge can differ, particularly for edits or automatically selected dimensions. Use `whatif=true` for the quote and read the completed workflow's `cost` for the settled charge.
+
+GIF quotes conservatively estimate one image per frame; the final charge uses the provider's animation-sheet usage. SVG quotes cover the reference image estimate; any billed vector-conversion usage is included in the final provider charge.
 
 ### gpt-image-2 (size-aware)
 
@@ -429,6 +742,8 @@ Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](
 | Output is PNG when you wanted JPEG | Transparent backgrounds force PNG | Set `background: "opaque"` if you want JPEG, or leave `outputFormat` unset and accept whatever OpenAI returns. |
 
 ## Related
+
+- GPT Image 2.6 schemas: `OpenAIGpt26FlareCreateImageInput`, `OpenAIGpt26FlareEditImageInput`, `OpenAIGpt26SunburstCreateImageInput`, `OpenAIGpt26SunburstEditImageInput`.
 
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Google image generation](./google) — alternative commercial tier with Imagen 4 and Nano Banana
