@@ -55,6 +55,13 @@ The fork gets a new `blockId`, `<parent>-fork-<4 hex digits>` (the parent's
 part is shortened so the whole stays within 40 characters), and App Assistant
 opens a workspace holding the copy, ready to set up and preview.
 
+The fork also gets its own **source repository**, `civitai-apps-src/<fork>`,
+seeded with exactly the copied files as one commit. Its `Forked-From-App` and
+`Forked-From-Commit` trailers come from the platform's record of the fork, never
+from the manifest. App Assistant commits each save there, and
+`civitai app pull <dir> --app <fork>` clones it (CLI 0.1.139 or later). Nothing
+builds from it: see [Your app's git repositories](./repositories).
+
 ### What the copy starts from {#seed}
 
 The parent's approved source, with these left out:
@@ -269,6 +276,12 @@ with two things to check first:
 
 Keep the `blockId` the fork was given if you want the "Forked from" credit
 ([above](#provenance)).
+
+To work on the fork outside App Assistant, clone its source repository with
+`civitai app pull <dir> --app <fork>`, then submit from that checkout with
+`civitai app submit`. Pushing to the source repository keeps your history on
+the platform but never submits anything
+([Pushing](./repositories#push)).
 
 ## Related
 

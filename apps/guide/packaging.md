@@ -127,6 +127,14 @@ A regular **file** named `build` or `dist` **is** packaged — only the
 *directories* are on the fixed list.
 :::
 
+::: warning A `.gitmodules` file fails the build
+`.gitignore`, `.gitattributes` and `.gitmodules` are packaged like any other
+file. The platform builds without git submodules, so a version whose tree has
+a `.gitmodules` file fails its build with `git submodules are not supported in
+app repos`. Commit the submodule's files directly and delete `.gitmodules`.
+See [No git submodules](./repositories#no-submodules).
+:::
+
 ## Which dotenv files end up in the bundle
 
 The rule is a **three-name allow-list with a catch-all**:

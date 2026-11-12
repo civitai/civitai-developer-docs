@@ -1,6 +1,6 @@
 ---
 title: Review, approval and deploy
-description: What happens to a Civitai App after civitai app submit — the review and deploy lifecycle, tracking it, the recorded source commit, and withdrawing a submission.
+description: What happens to a Civitai App after civitai app submit — the review and deploy lifecycle, tracking it, every deploy state, the recorded source commit, and withdrawing a submission.
 sources:
   - go:github.com/civitai/cli
 ---
@@ -23,9 +23,15 @@ the generated [CLI reference](../reference/cli).
 2. **review** — a moderator reads the manifest and the files, then **approves**
    or **rejects**. A rejection carries a reason you can read from the terminal,
    fix, and resubmit against.
-3. **deploy** — on **approval** the platform injects its build recipe, builds
-   the image, deploys it, and programs the `<blockId>.civit.ai` DNS record. A
-   few minutes after approval the app serves at `https://<blockId>.civit.ai/`.
+3. **deploy** — on **approval** the platform commits the version to the app's
+   [build repository](./repositories#approval-commit) and tags it, injects its
+   build recipe, builds the image, deploys it, and programs the
+   `<blockId>.civit.ai` DNS record. A few minutes after approval the app serves
+   at `https://<blockId>.civit.ai/`.
+
+A `git push` to the app's build repository creates a publish request too, and
+waits for the same review; a push to a source repository creates nothing. See
+[Your app's git repositories](./repositories#push).
 
 ::: warning Before approval, `https://<blockId>.civit.ai/` returns 404
 The DNS record is programmed by the **deploy** step, which runs only on
@@ -77,6 +83,28 @@ Not live yet — gen-matrix.civit.ai only serves after the app is approved and d
 
 An approved, deployed submission ends with `Live at:` and the app's
 `<blockId>.civit.ai` URL instead of that last line.
+
+### Deploy states
+
+The `DEPLOY` column (`Deploy state:` in the detail view, `deployState` in
+`--json`) is printed exactly as the server stores it:
+
+| State | Meaning |
+| --- | --- |
+| `-` (`null`) | no deploy has run: a pending submission with no review preview, or an approval from before deploy tracking (which can still be live) |
+| `building` | an approved version's image is being built |
+| `deploying` | the image is built and rolling out |
+| `live` | the approved version is deployed |
+| `failed` | the build or the rollout failed |
+| `preview-queued` | a **pending** submission waiting for a review-preview build slot |
+| `preview-building`, `preview-deploying` | its review preview is being built, then rolled out |
+| `preview-live` | its review preview is up for the moderator; the app is still not public |
+| `preview-failed` | its review preview failed |
+
+The `preview-*` states belong to a submission that is still `pending`: a
+review preview is a separate build for the moderator, on a host of its own.
+`https://<blockId>.civit.ai/` keeps serving the last approved version (or
+404 for an app with none) until this version is approved and reaches `live`.
 
 ### The listing is capped at 100 rows, and cannot be paged
 
@@ -159,6 +187,11 @@ Reading it back, `sourceDirty` is a **tri-state**:
 
 Do not collapse `null` and `false` in a script. The table shows seven
 characters; the detail view and `--json` carry all forty.
+
+When the version is approved, the same two values become the `Source-Commit`
+and `Source-Dirty` trailers of its commit in the build repository, and each
+[feedback report](./feedback) written against that version carries them too.
+See [What an approval writes](./repositories#approval-commit).
 
 ## Is your repo behind what you shipped?
 
@@ -253,6 +286,9 @@ So attach listing media **after** the submission you intend to keep.
   submission, and how to confirm the live build after approval.
 - [Your store listing](./store-listing) — the icon, cover and screenshots your
   app needs before it can publish, and what changes when the listing is live.
+- [Your app's git repositories](./repositories) — cloning with `civitai app
+  pull`, pushing, and what an approval commits and tags.
+- [Your app's feedback inbox](./feedback) — what your users' reports carry.
 - [Local dev loop](./local-dev) — iterating against the real backend while your
   app is still in review.
 - [CLI reference](../reference/cli) — every command, flag and example, generated
