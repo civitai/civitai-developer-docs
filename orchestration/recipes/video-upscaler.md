@@ -40,7 +40,7 @@ const chainBody = {
 
 # Video upscaling
 
-The `videoUpscaler` step type takes a video and returns a higher-resolution version using **[FlashVSR](https://huggingface.co/JunhaoZhuang/FlashVSR)** — a real-time video super-resolution model. One model, one knob: `scaleFactor` multiplies both dimensions by `2`, `3`, or `4`. A 720p input upscaled at `scaleFactor: 2` becomes 1440p; at `scaleFactor: 4` it becomes 2880p.
+The `videoUpscaler` step accepts a video and returns an upscaled video. Choose `flashvsr` (the default), `minimax-h3`, or `ltx25`. FlashVSR multiplies both dimensions by `scaleFactor`. H3 and LTX-2.5 encode the source with their own VAE, enlarge its latents, and refine them in three steps.
 
 Common uses:
 
@@ -102,8 +102,36 @@ See the [`VideoUpscalerInput` schema](/orchestration/reference/operations/Invoke
 
 | Field | Required | Default | Notes |
 |-------|----------|---------|-------|
-| `video` | ✅ | — | URL of the source video. Must be publicly fetchable without auth. |
-| `scaleFactor` | | `2` | Integer `2`–`4`. Output dimensions are `input × scaleFactor` on both axes. |
+| `video` | ✅ | — | Fetchable source video URL or an uploaded blob AIR. |
+| `model` | | `flashvsr` | `flashvsr`, `minimax-h3`, or `ltx25`. |
+| `scaleFactor` | | `2` | FlashVSR only: integer `2`–`4`, multiplying both dimensions. |
+| `prompt` | For H3/LTX | — | Describe the source content and motion; maximum 7000 characters. |
+| `seed` | | Random | H3/LTX refinement seed. |
+| `diffusionModel` | | Model default | Optional compatible H3 FL2VA or distilled LTX-2.5 checkpoint AIR. Omission and null use the default. |
+
+### H3 and LTX-2.5 latent refinement
+
+Both choices accept clips of **1–15 seconds** from any generator or camera. They return **24 fps** with the original audio, or remain silent when the source has no audio track. Frame counts are padded for inference and trimmed afterward; duration is rounded to the nearest output frame.
+
+The output has a **2560-pixel long edge**: 2560×1440 for widescreen, 1440×2560 for portrait, or an aspect-matched size rounded to the model grid. `scaleFactor` does not affect these two models. Refinement generates new detail and can change faces, text or textures.
+
+```json
+{
+  "steps": [{
+    "$type": "videoUpscaler",
+    "input": {
+      "model": "minimax-h3",
+      "video": "https://.../input.mp4",
+      "prompt": "A red kettle steaming on a blue table, gentle camera orbit.",
+      "seed": 42
+    }
+  }]
+}
+```
+
+Use `"model": "ltx25"` for LTX-2.5. To finish an earlier generation, set `video` to `{ "$ref": "clip", "path": "output.video.url" }`, where `clip` is the generation step's name. H3 generation itself has no upscale flag.
+
+These models require worker registration version **43** and spine-comfy **v2.7.56**. H3 refinement uses the existing Turbo rate of **25 Buzz per second**; LTX-2.5 is priced from estimated processing cost. Use `whatif=true` to preview the complete charge.
 
 ### Picking a scale factor
 
@@ -199,7 +227,7 @@ Blob URLs expire — see [Reading results](/orchestration/recipes/#reading-resul
 
 Preview the exact charge with `whatif=true` ([Payments (Buzz)](/orchestration/guide/submitting-work#payments-buzz)).
 
-`videoUpscaler` uses an empirical polynomial fit to real FlashVSR runtimes — cost scales with both the input pixel-frame product and the `scaleFactor`:
+The default FlashVSR model uses an empirical polynomial fit to its runtimes — cost scales with both the input pixel-frame product and the `scaleFactor`:
 
 ```
 Pin = totalFrames × (width × height)        // frames × pixels
