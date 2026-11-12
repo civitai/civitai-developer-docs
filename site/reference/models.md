@@ -122,6 +122,7 @@ When using `page` pagination, `metadata` additionally includes `currentPage` and
 
 - `page * limit` above 1000 returns `429`; use `cursor` for deep paging. See [Pagination](../guide/pagination).
 - Including `query` without `cursor` is fine; combining `query` with `page` returns `400`.
+- With `query`, results are ranked by text relevance unless you pass `sort` yourself; the `Highest Rated` default does not apply to a text search. A `sort` you pass is applied inside the search: `Newest` and `Oldest` order by when the model was created, `Most Downloaded` uses the displayed download count (models whose creator hides it sort last), and `Most Images` keeps relevance order. With `query`, `period` filters each page after the search has picked it, so a page can hold fewer than `limit` items even when more results exist.
 - Only `Published` versions are returned to non-moderator callers. Files marked non-public by the uploader are hidden from `files[]`. Training Data files may also be omitted, and carry no `metadata`.
 - `mode` is non-null when the parent model has been moderated. Values: `Archived` (drops `files[]` and `downloadUrl`) and `TakenDown` (also drops `images[]`). Omitted entirely on healthy models.
 
