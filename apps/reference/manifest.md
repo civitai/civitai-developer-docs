@@ -328,7 +328,12 @@ platform** — a value you submit is normalized or overridden server-side:
 
 - **`iframe.src`** — normalized and host-allowlisted at registration. You don't
   point this at your own host; the platform serves your app from
-  `https://<slug>.civit.ai/`.
+  `https://<slug>.civit.ai/`, and sets that value on submit and again at build.
+  A checkout from `civitai app pull` can carry it, because the platform writes
+  it into the build repository: `civitai app validate` (CLI 0.1.138 or later)
+  accepts **exactly** `https://<blockId>.civit.ai/` with a warning, and refuses
+  any other value. See
+  [Reading `iframe.src` in a pulled checkout](../guide/repositories#iframe-src).
 - **`trustTier`** — always assigned by the server; a submitted value is ignored.
 
 ## What the schema can't express (the validator wins)

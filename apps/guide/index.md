@@ -77,7 +77,9 @@ A block can render in two places:
   `@civitai/blocks-react`.
 
 You do **not** need Docker, a domain, a git host, or an OAuth client — the
-platform provisions all of that when your app is approved.
+platform provisions all of that when your app is approved (a fork or an App
+Assistant app gets its [source repository](./repositories) earlier, on its
+first day).
 
 ## Where to start
 
