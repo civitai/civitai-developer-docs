@@ -32,6 +32,8 @@
     "test:appblocks:manifest": "node scripts/test-appblocks-manifest.mjs",
     "test:appblocks:platform-feedback": "node scripts/test-appblocks-platform-feedback.mjs",
     "test:refresh-cli-snapshot": "node scripts/test-refresh-cli-snapshot.mjs",
+    "bump:appblocks-pins": "node scripts/bump-appblocks-pins.mjs",
+    "test:bump-appblocks-pins": "node scripts/test-bump-appblocks-pins.mjs",
     "test:copy-spec": "node scripts/test-copy-spec.mjs",
     "check:spec-scrub": "node scripts/check-spec-scrub.mjs",
     "check:agent-setup": "node scripts/check-agent-setup.mjs",

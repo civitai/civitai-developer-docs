@@ -107,9 +107,10 @@
  * fresh `main` and `git push --force`, consulting `origin/<branch>` not at all
  * — so every commit a human had pushed there was silently deleted on the next
  * cron tick, and a force-push reports success. The commit most certain to be
- * destroyed was the one THIS TOOL'S OWN generated PR body tells the reviewer to
- * push: `git commit --allow-empty -m "chore: trigger checks"`, the documented
- * remedy for the zero-checks trap below. So the run now FETCHES the remote
+ * destroyed was the one this tool's own generated PR body USED to tell the
+ * reviewer to push: `git commit --allow-empty -m "chore: trigger checks"`, the
+ * remedy for the zero-checks trap below before the workflow dispatched the
+ * checks itself. So the run now FETCHES the remote
  * branch and builds on top of it when it exists, and the push is an ordinary
  * fast-forward. Never reintroduce `--force` here; if a run cannot fast-forward,
  * that is a concurrent writer and the correct answer is to fail loudly, not to
@@ -169,12 +170,12 @@
  * but nobody has been told, which is the state this whole workflow exists to
  * end, so a green run would be a lie.
  *
- * 🔴 GITHUB_TOKEN AND THE ZERO-CHECKS TRAP
- * ----------------------------------------
- * A pull request opened by GITHUB_TOKEN does not get its checks run — GitHub
- * suppresses it to prevent recursive runs. MEASURED, with a discriminating
- * control, on two PRs carrying the same kind of diff into the same repo and
- * differing only in who opened them:
+ * 🔴 GITHUB_TOKEN AND THE ZERO-CHECKS TRAP (closed by dispatch, #148)
+ * ------------------------------------------------------------------
+ * A pull request opened by GITHUB_TOKEN does not get its `pull_request` runs —
+ * GitHub suppresses them to prevent recursive runs. MEASURED, with a
+ * discriminating control, on two PRs carrying the same kind of diff into the
+ * same repo and differing only in who opened them:
  *
  *   bot PR   (GITHUB_TOKEN) -> statusCheckRollup = 0 entries, `gh pr checks`
  *                              prints "no checks reported"; the seven
@@ -188,12 +189,13 @@
  * and `main`'s six required contexts never report, so the PR also cannot reach
  * a mergeable state on its own.
  *
- * There is no PAT secret in this repo (measured: `gh api
- * repos/civitai/civitai-developer-docs/actions/secrets` -> total_count 0), and
- * creating one is a maintainer decision, not a bot's. So the mitigation here is
- * disclosure rather than a fix: `prBody` states it in the FIRST section, above
- * the diff summary, with the two one-click remedies. If a PAT is ever added,
- * pass it as the `gh` token in the workflow and delete that section.
+ * The fix needs no secret: `workflow_dispatch` IS an event GITHUB_TOKEN may
+ * trigger, and every required workflow accepts it. After this script opens or
+ * updates the PR, the workflow's `dispatch-checks` job runs
+ * scripts/lib/required-checks.mjs, which dispatches each required workflow on
+ * the bot branch; their jobs report the required contexts on the branch head.
+ * The PR body says where the checks come from instead of warning that none
+ * ran. (It used to: no PAT existed, and the operator chose not to add one.)
  *
  * USAGE
  *   node scripts/refresh-cli-snapshot.mjs                # the CI path
@@ -522,36 +524,14 @@ export function prTitle(targetTag) {
 /**
  * The PR body.
  *
- * 🔴 THE ZERO-CHECKS DISCLOSURE IS THE FIRST SECTION, ABOVE THE DIFF SUMMARY,
- * and that placement is the mitigation rather than a nicety. A PR opened by
- * GITHUB_TOKEN shows no checks at all, and "no checks" is visually identical to
- * "everything passed" in the GitHub UI — on the one PR in this repo whose
- * contents nobody has reviewed. There is no PAT to fix it with, so the only
- * available defence is making it impossible to misread. If a PAT secret is ever
- * added and wired into the workflow's `gh` token, DELETE this section — leaving
- * a false warning in place teaches reviewers to skim the body.
+ * It no longer opens with a "checks did NOT run" warning: the workflow now
+ * dispatches the required checks on the branch (#148), and a stale warning
+ * teaches reviewers to skim the body. The "Checks" section says where they come
+ * from, so an absent check is still legible as a failure to dispatch.
  */
 export function prBody({ fromVersion, targetTag, stats, reason, runUrl, branch, regen = null }) {
   const run = runUrl ? `[this workflow run](${runUrl})` : 'the scheduled `cli-snapshot-refresh` run';
-  return `## ⚠️ This PR's checks did NOT run automatically
-
-A pull request opened by a workflow using the default \`GITHUB_TOKEN\` does not
-get its checks run — GitHub suppresses it to prevent recursive runs. So the
-checks list on this PR is **empty, not green**, and \`main\`'s six required
-contexts will never report, which also leaves this PR unable to reach a
-mergeable state on its own. (Measured against a control: the same diff opened by
-a human ran all seven checks; opened by the bot, zero.)
-
-**Before reviewing, trigger them:** close and reopen this PR, or push an empty
-commit to \`${branch}\`:
-
-\`\`\`
-git commit --allow-empty -m "chore: trigger checks" && git push
-\`\`\`
-
-Do not read the absent checks as a pass.
-
-## What this is
+  return `## What this is
 
 The committed \`${SNAPSHOT_REL}\` is the **only** source the published CLI
 reference is generated from — the production image has no \`civitai\` binary, so
@@ -575,7 +555,15 @@ capture failing any of those **fails the job instead of opening a PR** — a sho
 capture (an older binary walks a smaller tree and still exits 0) otherwise ships
 as a normal-looking diff with whole command subtrees quietly deleted.
 
-${regenSection(regen)}## Review this diff by hand
+${regenSection(regen)}## Checks
+
+A PR opened with the default \`GITHUB_TOKEN\` gets no \`pull_request\` runs, so this
+workflow dispatches \`main\`'s required workflows on \`${branch}\` after every
+update (\`workflow_dispatch\`); they report under the usual names. If one is
+missing, the dispatch failed: see the run's \`dispatch-checks\` job. A push of
+your own to this branch starts the ordinary \`pull_request\` runs.
+
+## Review this diff by hand
 
 That is what this PR is for. The last re-capture (docs#56) turned out to carry a
 real user-facing fix — \`2.0 MB\` → \`2.0 MiB\` in 10 places — which was only
@@ -584,7 +572,7 @@ removed flags, and new commands; \`git diff --stat\` alone will not show you any
 of it.
 
 This branch is \`${branch}\`, reused and extended on every run: there is one PR, not
-one per day. Anything **you** push to it — the empty commit above, a fixup —
+one per day. Anything **you** push to it — a fixup, a sentence for the intro —
 stays; the refresher commits on top and never force-pushes. Each run also merges
 the base branch in before capturing, so accepting this PR does not leave the
 branch permanently conflicting with it — that is what a \`chore: sync …\` merge
@@ -1298,8 +1286,8 @@ async function main() {
 
   // 🔴 BUILD ON WHAT IS THERE. See the header: the first cut recreated the
   // branch from `main` and force-pushed, which deleted human commits — the
-  // `--allow-empty` "trigger checks" commit this tool's own PR body asks for,
-  // most of all. Restoring `prev` first is not tidiness: the working tree
+  // `--allow-empty` "trigger checks" commit this tool's own PR body used to ask
+  // for, most of all. Restoring `prev` first is not tidiness: the working tree
   // currently holds the CAPTURE, and `git checkout` refuses to move a branch
   // when that would overwrite a locally modified file. Restore -> checkout ->
   // re-write the capture.

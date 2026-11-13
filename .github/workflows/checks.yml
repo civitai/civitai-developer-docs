@@ -61,7 +61,7 @@ concurrency:
 
 jobs:
   checks:
-    name: checks (agent-setup, ai-catalog, example-apps, copy-spec, cli-snapshot-refresh-test, nginx-negotiation)
+    name: checks (agent-setup, ai-catalog, example-apps, copy-spec, cli-snapshot-refresh-test, pin-bump-test, nginx-negotiation)
     runs-on: ubuntu-latest
     # The old per-workflow caps summed to 75 minutes; the measured job times
     # (p50, 2026-10-23..30) summed to under 8. 30 is slack, not a budget.
@@ -133,6 +133,9 @@ jobs:
       - name: 'cli-snapshot-refresh-test: floor, decision, PR body, branch safety'
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run test:refresh-cli-snapshot
+      - name: 'pin-bump-test: plan, literal rewrite, version-only classification, auto-merge gate, workflow shape'
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run test:bump-appblocks-pins
 
       # nginx-negotiation: serve the BUILT site with the real nginx.conf under
       # `nginx:alpine` (what the Dockerfile ships) and assert the agent-facing

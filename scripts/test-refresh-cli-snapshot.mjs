@@ -16,8 +16,8 @@
 //     in a diff;
 //   - its "we could not ask upstream" and "we asked and the answer was no"
 //     verdicts must stay distinct;
-//   - the PR body must carry the zero-checks disclosure, because that is the
-//     entire mitigation for the GITHUB_TOKEN trap.
+//   - the PR body must say where its checks come from (the workflow
+//     dispatches them, #148), and must no longer warn that none ran.
 //
 // The floor test in particular is written so it WATCHES THE FLOOR FAIL: it
 // truncates a real snapshot and asserts the specific refusal, not merely that
@@ -317,7 +317,7 @@ check('CLI_SNAPSHOT_REFRESH_TAG forces a refresh at that tag even when current',
 
 // ---------------------------------------------------------------------------
 console.log('');
-console.log('THE PR BODY — the zero-checks disclosure IS the mitigation');
+console.log('THE PR BODY — the checks are dispatched, and the body says so');
 
 // Derived, for the same reason every other tag here is: the assertions below
 // ask that the body NAMES these versions, and a literal repeated in both the
@@ -333,20 +333,21 @@ const sampleArgs = {
 };
 const sampleBody = prBody(sampleArgs);
 
-check('the body states that the checks did NOT run, and says so FIRST', () => {
-  // 🔴 Position is load-bearing, not style: "no checks" and "all checks green"
-  // look identical in the GitHub UI, and a warning below the fold is a warning
-  // a skimming reviewer never meets. Require it inside the opening section.
-  assert(/did NOT run/i.test(sampleBody), 'the body does not say the checks did not run');
-  const idx = sampleBody.indexOf('did NOT run');
-  assert(idx >= 0 && idx < 200, `the disclosure is ${idx} chars in — it must open the body`);
-  assert(/GITHUB_TOKEN/.test(sampleBody), 'the body does not name the cause (the default GITHUB_TOKEN)');
-  assert(/empty, not green/.test(sampleBody), 'the body does not spell out how the empty checks list reads');
+check('the stale zero-checks warning is GONE now that the workflow dispatches the checks', () => {
+  // #148: dispatch-checks starts main's required workflows on the branch. A
+  // body still opening with "did NOT run" + "push an empty commit" would be a
+  // false warning, which teaches reviewers to skim the body.
+  assert(!/did NOT run/i.test(sampleBody), 'the body still says the checks did not run');
+  assert(!/--allow-empty/.test(sampleBody), 'the body still asks for an empty "trigger checks" commit');
+  assert(sampleBody.startsWith('## What this is'), `the body no longer opens with what the PR is:\n${sampleBody.slice(0, 200)}`);
 });
 
-check('the body gives BOTH one-click remedies for triggering the checks', () => {
-  assert(/close and reopen/i.test(sampleBody), 'the body does not offer close-and-reopen');
-  assert(/--allow-empty/.test(sampleBody), 'the body does not offer an empty commit');
+check('the body says where the checks come from, and what a missing one means', () => {
+  const sec = sampleBody.slice(sampleBody.indexOf('## Checks'));
+  assert(sampleBody.includes('## Checks'), 'the body has no Checks section');
+  assert(/GITHUB_TOKEN/.test(sec) && /workflow_dispatch/.test(sec), 'the Checks section does not explain the dispatch');
+  assert(sec.includes(DEFAULT_BRANCH), 'the Checks section does not name the branch the checks run on');
+  assert(/dispatch-checks/.test(sec), 'the Checks section does not name the job to look at when one is missing');
 });
 
 check('the body carries the numbers a reviewer needs to sanity-check the capture', () => {
@@ -475,8 +476,8 @@ check('a NEW top-level command is NAMED in the body, with the paragraph to edit 
   assert(b.includes('**add** (new top-level commands): `feedback`, `zzz-new`'), `missing commands not named:\n${b}`);
   assert(b.includes('`## Command reference` in `apps/reference/cli.md`'), 'the paragraph to edit is not named');
   assert(/\*\*`test-cli` stays red on this PR until someone edits that paragraph\*\*/.test(b), 'does not say test-cli stays red');
-  // The disclosure stays FIRST: the new section must not displace it.
-  assert(b.indexOf('did NOT run') < b.indexOf('A human has to write'), 'the zero-checks disclosure is no longer first');
+  // What the PR is stays FIRST: the new section must not displace it.
+  assert(b.indexOf('## What this is') === 0 && b.indexOf('A human has to write') > 0, 'the body no longer opens with what it is');
 });
 
 check('a REMOVED top-level command is named as one to delete from the intro', () => {
@@ -800,7 +801,7 @@ check('DRIFT -> pushes the stable branch with ONE file changed, and prints the P
   assert(onBranch.includes(`Binary version: civitai ${SNAP_RAW}\n`), 'the branch carries the stale header');
   assertEqual(countSnapshotBlocks(onBranch), countSnapshotBlocks(committed), 'the branch carries a short capture');
 
-  assert(/did NOT run/.test(res.stdout), `the printed PR body lacks the zero-checks disclosure:\n${res.stdout}`);
+  assert(/## Checks/.test(res.stdout), `the printed PR body lacks the Checks section:\n${res.stdout}`);
   assert(res.stdout.includes(prTitle(SNAP_TAG)), 'the printed title is not the one the PR would carry');
 
   // 🔴 "ONE file changed" above is only meaningful if the page regeneration RAN
@@ -1180,11 +1181,12 @@ function g(dir, args) {
 
 check('A HUMAN COMMIT ON THE BOT BRANCH SURVIVES THE NEXT RUN', () => {
   // 🔴 THE FORCE-PUSH DESTROYED IT. The branch is a shared, long-lived ref that
-  // the tool's OWN generated PR body instructs a reviewer to push to:
+  // the tool's OWN generated PR body used to instruct a reviewer to push to:
   //
   //     git commit --allow-empty -m "chore: trigger checks" && git push
   //
-  // — the documented remedy for the zero-checks trap. Re-creating the branch
+  // — the old remedy for the zero-checks trap (now closed by dispatching the
+  // checks, #148), and a reviewer's fixup still lands there. Re-creating the branch
   // from a fresh `main` and force-pushing it deleted that commit on the next
   // cron tick, so the reviewer's checks vanished with it and the advice in the
   // body was advice to do something the bot would undo within a day. Anything
@@ -1717,10 +1719,31 @@ check('write permissions are scoped to the ONE job, and the workflow default sta
   assert(/pull-requests:\s*write/.test(jobs), 'the job does not request pull-requests: write (it cannot open a PR)');
   // Nothing else. A bot that runs unattended should not hold a permission it
   // has no call for, and each of these has been the blast radius of a real
-  // supply-chain incident somewhere.
-  for (const scope of ['issues:', 'packages:', 'id-token:', 'actions:', 'deployments:', 'security-events:']) {
+  // supply-chain incident somewhere. (`actions:` is the one exception, held
+  // ONLY by dispatch-checks: see the next check.)
+  for (const scope of ['issues:', 'packages:', 'id-token:', 'deployments:', 'security-events:']) {
     assert(!jobs.includes(scope), `the job requests ${scope} — it has no use for it`);
   }
+  const withActions = Object.entries(jobsOf(WORKFLOW)).filter(([, b]) => /^\s+actions:/m.test(b)).map(([n]) => n);
+  assertEqual(withActions.join(','), 'dispatch-checks', 'a job other than dispatch-checks requests actions:');
+});
+
+check('dispatch-checks starts the required workflows, holding actions: write and nothing else that writes', () => {
+  // #148. The job that holds `actions: write` must not also push or open PRs,
+  // must not run `npm ci` or the upstream binary, and must keep no credential
+  // in its checkout.
+  const body = jobsOf(WORKFLOW)['dispatch-checks'];
+  assert(body, 'no dispatch-checks job — the bot PR gets no checks again (#148)');
+  const scopes = [...body.matchAll(/^ {6}([a-z-]+): (read|write)$/gm)].map((m) => `${m[1]}:${m[2]}`).sort();
+  assertEqual(scopes.join(','), 'actions:write,contents:read,pull-requests:read', 'dispatch-checks holds the wrong scopes');
+  const runnable = body.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
+  assert(/persist-credentials: false/.test(runnable), 'dispatch-checks keeps a credential in its checkout');
+  assert(!/npm (ci|install)|download-artifact|chmod/.test(runnable), 'dispatch-checks runs third-party or upstream code');
+  assert(
+    /node scripts\/lib\/required-checks\.mjs --ref bot\/cli-snapshot-refresh --if-open-pr --base main$/m.test(runnable),
+    `dispatch-checks does not dispatch on the bot branch, gated on an open PR:\n${runnable}`,
+  );
+  assert(/^ {4}needs: \[decide, refresh\]$/m.test(runnable), 'dispatch-checks does not run after refresh');
 });
 
 check('EXACTLY ONE job holds write, and it is not the one that runs upstream code', () => {
@@ -2057,7 +2080,7 @@ console.log('');
 // section, a botched merge — prints a serene "all passed" over zero work. The
 // floor is the positive control on the harness itself: it must have executed at
 // least as many checks as it did when this line was written.
-const MIN_CHECKS = 83;
+const MIN_CHECKS = 84;
 if (executed < MIN_CHECKS) {
   console.error(
     `refresh-cli-snapshot tests: only ${executed} checks RAN, expected at least ${MIN_CHECKS} — ` +

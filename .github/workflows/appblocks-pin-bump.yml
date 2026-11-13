@@ -1,0 +1,139 @@
+name: appblocks-pin-bump
+
+# THE REMEDY FOR A LAGGING @civitai/* PIN.
+#
+# appblocks-drift.yml's check:pins / check:ds-pins DETECT a pinned devDep that
+# trails npm latest. This workflow bumps it: scripts/bump-appblocks-pins.mjs
+# moves the pins, the lockfile and the hand-written `@civitai/<pkg>@x.y.z`
+# literals to npm latest, regenerates the reference pages, and opens or updates
+# ONE pull request on `bot/appblocks-pin-bump`. It never pushes to `main`.
+#
+# The PR auto-merges (squash) once `main`'s required checks pass, but ONLY when
+# the change is version strings alone and every tracked pin lands exactly at npm
+# latest. If the regenerated pages changed beyond their version strings, the PR
+# gets the `content-change` label and waits for a human. The logic and its
+# tests live in the script (scripts/test-bump-appblocks-pins.mjs); this file is
+# a thin caller.
+#
+# CHECKS. A PR opened with GITHUB_TOKEN starts no `pull_request` runs (#148), so
+# the publish job dispatches the six required workflows on the bot branch with
+# `gh workflow run` (scripts/lib/required-checks.mjs). That needs `actions: write`
+# and no secret.
+#
+# PRIVILEGE. Two jobs. `prepare` holds read scopes only, runs `npm ci` /
+# `npm install` and the generators, and hands a git bundle to `publish`, which
+# holds the write scopes, installs nothing, and recomputes the diff and the
+# auto-merge decision itself before pushing.
+#
+# A merge made by GITHUB_TOKEN starts no `push` workflows on `main`. Nothing
+# deploys from one: the site is deployed from `main` by the build pipeline.
+on:
+  schedule:
+    # 07:17 UTC daily, after the appblocks-drift sweep (06:37) and the CLI
+    # snapshot refresher (07:07).
+    - cron: '17 7 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Plan only. Reads npm and prints the bump; no install, no git, no PR.
+        type: boolean
+        default: false
+      rehearse_from:
+        description: >-
+          Rehearsal. @civitai/<pkg>@<lower version>: pin it down first, then bump it
+          back to npm latest, so the whole path runs while the net diff stays empty.
+        required: false
+        default: ''
+  # For a publisher to call after an npm release, e.g.
+  #   gh api repos/civitai/civitai-developer-docs/dispatches -f event_type=appblocks-sdk-published
+  repository_dispatch:
+    types: [appblocks-sdk-published]
+
+# One run at a time. cancel-in-progress stays false: cancelling a run that has
+# already pushed the branch would leave a branch with no PR update.
+concurrency:
+  group: appblocks-pin-bump
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      action: ${{ steps.prepare.outputs.action }}
+    steps:
+      # Full history: the bot branch is extended by merging `main` into it.
+      # No persisted credential: this job runs third-party install code, and
+      # the repo is public, so fetching needs none.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Plan only (dry run)
+        if: ${{ inputs.dry_run }}
+        env:
+          REHEARSE_FROM: ${{ inputs.rehearse_from }}
+        run: node scripts/bump-appblocks-pins.mjs --dry-run
+
+      - name: Bump, regenerate and commit on the bot branch
+        id: prepare
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REHEARSE_FROM: ${{ inputs.rehearse_from }}
+          OUT: ${{ runner.temp }}/pin-bump
+        run: node scripts/bump-appblocks-pins.mjs --prepare --out "$OUT"
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ steps.prepare.outputs.action == 'publish' }}
+        with:
+          name: pin-bump
+          path: ${{ runner.temp }}/pin-bump
+          retention-days: 1
+          if-no-files-found: error
+
+  publish:
+    needs: prepare
+    if: ${{ needs.prepare.outputs.action == 'publish' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # contents: push the bot branch. pull-requests: open/update the PR, label it,
+    # enable auto-merge. actions: dispatch the required workflows.
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: pin-bump
+          path: ${{ runner.temp }}/pin-bump
+
+      - name: Push, open or update the PR, start the checks, set auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IN: ${{ runner.temp }}/pin-bump
+        run: node scripts/bump-appblocks-pins.mjs --publish --in "$IN"
