@@ -407,9 +407,14 @@ function readPins() {
   return pinsOf(readFileSync(join(repoRoot, PKG_JSON), 'utf8'));
 }
 
-/** Paths with any change in the working tree, from `git status -z`. */
+/**
+ * Paths with any change in the working tree, from `git status -z`. Not through
+ * `git()`, which trims: the first record's leading status space would go, and
+ * `slice(3)` would then cut the path's first character.
+ */
 function changedPaths() {
-  const recs = git(['status', '--porcelain=v1', '-z', '--untracked-files=all']).split('\0');
+  const raw = execFileSync('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all'], { cwd: repoRoot, encoding: 'utf8' });
+  const recs = raw.split('\0');
   const out = [];
   for (let i = 0; i < recs.length; i++) {
     if (recs[i].length < 4) continue;
