@@ -57,20 +57,19 @@ name: cli-snapshot-refresh
 # than snapshot churn because somebody looked at it. A bot committing to main
 # turns a review into a notification.
 #
-# PREREQUISITE: the org's Actions policy must allow GitHub Actions to create
-# pull requests. It currently does. If it is turned off again, the push still
-# works and `gh pr create` fails with "GitHub Actions is not permitted to create
-# or approve pull requests".
-#
-# THE PR'S CHECKS ARE DISPATCHED (#148). A pull request opened by GITHUB_TOKEN
-# gets no `pull_request` runs — GitHub suppresses them to prevent recursion
-# (measured: the bot PR's seven pull_request runs existed only as
-# `conclusion=action_required` and its statusCheckRollup had 0 entries). So the
-# `dispatch-checks` job below runs scripts/lib/required-checks.mjs, which
-# dispatches `main`'s six required workflows on `bot/cli-snapshot-refresh`
-# (`gh workflow run <file> --ref <branch>`). `workflow_dispatch` is an event
-# GITHUB_TOKEN may trigger, and each run's job reports its required context on
-# the branch head. No secret is involved; the job needs `actions: write`.
+# THE PR IS OPENED WITH A GITHUB APP TOKEN (#148). A pull request pushed or
+# opened by the default GITHUB_TOKEN gets no `pull_request` runs — GitHub holds
+# them at `action_required` to prevent recursion (measured: the bot PR's seven
+# pull_request runs existed only as `conclusion=action_required` and its
+# statusCheckRollup had 0 entries). `main`'s branch protection counts only the
+# required contexts from `pull_request` runs; dispatching the workflows on the
+# branch instead was tried and did not satisfy it (docs#339). So the `refresh`
+# job mints an installation token for the agent GitHub App (repo variable
+# AGENT_APP_CLIENT_ID, secret AGENT_APP_PRIVATE_KEY), scoped to this repository
+# with contents + pull-requests write, and pushes and opens the PR with it; the
+# push starts the ordinary `pull_request` runs. (The org policy "allow GitHub
+# Actions to create pull requests" governs GITHUB_TOKEN only, so it no longer
+# applies to this path.)
 #
 # The refresher EXTENDS `bot/cli-snapshot-refresh` instead of recreating it, so
 # a commit a reviewer pushes there survives the next run. Do not reintroduce
@@ -115,20 +114,17 @@ concurrency:
 #
 # 🔴 THE `refresh` JOB BELOW USED TO BE DESCRIBED AS "THE ONLY ELEVATION IN THIS
 # REPO". THAT IS NO LONGER TRUE, AND A COMMENT UNDERCOUNTING WHERE WRITE LIVES IS
-# EXACTLY WHAT A MAINTAINER AUDITING TOKEN REACH WOULD INHERIT. There are two,
-# they are disjoint in job and in scope, and both follow the same rule — the
-# privileged job runs no third-party code it did not have to:
-#   - this file's `refresh` job   -> contents + pull-requests (push a branch, open a PR)
-#   - this file's `dispatch-checks` -> actions (start the required workflows on
-#                                     the bot branch). No `npm ci`, no upstream
-#                                     binary, and a checkout with no credential.
+# EXACTLY WHAT A MAINTAINER AUDITING TOKEN REACH WOULD INHERIT. Where write lives:
+#   - this file's `refresh` job   -> an app token with contents + pull-requests
+#                                     write on this repo (push a branch, open a PR).
+#                                     Its own GITHUB_TOKEN is read-only.
 #   - appblocks-drift.yml `notify` -> the issues scope, to deliver the scheduled
 #                                     sweep's red as a tracking issue. That job
 #                                     runs one node script, no `npm ci`.
-#   - appblocks-pin-bump.yml `publish` -> contents + pull-requests + actions
-#                                     (push the pin-bump branch, open the PR,
-#                                     dispatch the checks, set auto-merge). It
-#                                     runs no `npm ci` either.
+#   - appblocks-pin-bump.yml `publish` -> an app token with contents +
+#                                     pull-requests + issues write (push the
+#                                     pin-bump branch, open and label the PR,
+#                                     set auto-merge). It runs no `npm ci`.
 permissions:
   contents: read
 
@@ -250,9 +246,9 @@ jobs:
   #
   # 🔴 WHAT IT DOES NOT BUY: THE UPSTREAM *BINARY* STILL RUNS WITH WRITE. The
   # `refresh` job below downloads this job's artifact, `chmod +x`es it and
-  # EXECUTES it (the capture shells out to it per command) while holding
-  # `contents: write` + `pull-requests: write` and a `persist-credentials: true`
-  # checkout of this repo. Moving from a source build to a release asset narrows
+  # EXECUTES it (the capture shells out to it per command) while holding a
+  # `persist-credentials: true` checkout of this repo carrying the app token
+  # (contents + pull-requests write on this repo, valid for an hour). Moving from a source build to a release asset narrows
   # WHO can put code there — it takes publishing a release rather than moving a
   # tag — and removes upstream's BUILD-TIME code (Makefile recipes, go generate,
   # dependency resolution) from this job entirely. It does not stop the resulting
@@ -357,12 +353,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
-    # The only elevation in THIS workflow, and exactly two scopes:
+    # The only elevation in THIS workflow: the app token minted below, with
+    # exactly two scopes, on this repository only:
     #   contents: write       — push the stable `bot/cli-snapshot-refresh` branch.
     #                           (`main` is protected and is never a push target.)
     #   pull-requests: write  — create the PR, or update the existing one in place.
-    # Nothing else: no issues, no packages, no id-token, no actions. The job
-    # checks out, runs node, pushes ONE branch and opens ONE PR.
+    # Nothing else: no issues, no packages, no id-token, no actions. The job's own
+    # GITHUB_TOKEN is read-only. The job checks out, runs node, pushes ONE branch
+    # and opens ONE PR.
     #
     # This block used to be described as the only elevation in the whole repo;
     # it is not any more. The corrected statement is in this file's header — it
@@ -370,13 +368,22 @@ jobs:
     # test-refresh-cli-snapshot.mjs greps the raw `jobs:` text (comments
     # included) for scope names this job must not request.
     # scripts/test-refresh-cli-snapshot.mjs asserts this block stays this shape —
-    # both that the two scopes are present here and that NO OTHER JOB in this
-    # file holds write.
+    # that the app token requests exactly these two scopes and that NO OTHER JOB
+    # in this file holds write.
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
 
     steps:
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: app-token
+        with:
+          client-id: ${{ vars.AGENT_APP_CLIENT_ID }}
+          private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
+          owner: civitai
+          repositories: civitai-developer-docs
+          permission-contents: write
+          permission-pull-requests: write
+
       # 🔴 FULL HISTORY, DELIBERATELY. actions/checkout defaults to
       # `fetch-depth: 1` — a SHALLOW clone. That was survivable while this job
       # recreated the branch and force-pushed, and it is not the shape it has
@@ -397,9 +404,13 @@ jobs:
       # — without it, the first ACCEPTED bot PR leaves every later one
       # conflicted), and a merge needs a common ancestor. A shallow clone does
       # not have one. This is no longer only about the push.
+      #
+      # The persisted credential is the APP token, so the script's `git push` is
+      # made as the app and starts the PR's `pull_request` runs (#148).
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
 
       - uses: actions/setup-node@v4
         with:
@@ -434,36 +445,9 @@ jobs:
           # The release tag `decide` already resolved — classified normally, not
           # forced. See the decide job: resolving it twice can disagree.
           CLI_SNAPSHOT_REFRESH_LATEST_TAG: ${{ needs.decide.outputs.latest }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # `gh` (and so the PR) uses the app token. GITHUB_TOKEN stays the
+          # read-only job token: it only lifts the releases GET rate limit.
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/refresh-cli-snapshot.mjs
 
-  # ---------------------------------------------------------------------------
-  # 4. START `main`'S REQUIRED CHECKS ON THE BOT BRANCH (#148).
-  #
-  # The PR above was opened by GITHUB_TOKEN, so it got no `pull_request` runs.
-  # Dispatch each required workflow on the branch instead; their jobs report
-  # the required contexts on its head. Only when a PR is open: a run that found
-  # the capture byte-identical opened nothing, and there is nothing to check.
-  #
-  # Its own job, so `actions: write` is held by a job that runs no `npm ci` and
-  # no upstream binary, and whose checkout keeps no credential.
-  dispatch-checks:
-    needs: [decide, refresh]
-    if: needs.decide.outputs.action == 'refresh'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      actions: write
-      contents: read
-      pull-requests: read
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - name: Dispatch the required workflows on the bot branch
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-        run: node scripts/lib/required-checks.mjs --ref bot/cli-snapshot-refresh --if-open-pr --base main

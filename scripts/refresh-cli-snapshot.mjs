@@ -109,8 +109,8 @@
  * cron tick, and a force-push reports success. The commit most certain to be
  * destroyed was the one this tool's own generated PR body USED to tell the
  * reviewer to push: `git commit --allow-empty -m "chore: trigger checks"`, the
- * remedy for the zero-checks trap below before the workflow dispatched the
- * checks itself. So the run now FETCHES the remote
+ * remedy for the zero-checks trap below before the workflow switched to an app
+ * token. So the run now FETCHES the remote
  * branch and builds on top of it when it exists, and the push is an ordinary
  * fast-forward. Never reintroduce `--force` here; if a run cannot fast-forward,
  * that is a concurrent writer and the correct answer is to fail loudly, not to
@@ -158,11 +158,12 @@
  *      claims a version the bytes did not come from, and the next freshness
  *      check reads that claim rather than reality.
  *
- * 🔴 PREREQUISITE: "ALLOW GITHUB ACTIONS TO CREATE AND APPROVE PULL REQUESTS"
+ * "ALLOW GITHUB ACTIONS TO CREATE AND APPROVE PULL REQUESTS" (GITHUB_TOKEN ONLY)
  * ---------------------------------------------------------------------------
- * The org Actions policy must allow it (currently allowed); no `permissions:`
- * block can grant it, because it is a policy rather than a token scope. If it
- * is turned off again, the branch still pushes and `gh pr create` fails with
+ * The org Actions policy governs PRs created with GITHUB_TOKEN. The workflow
+ * now creates the PR with a GitHub App token (below), which this policy does
+ * not govern; the advice stays for a run pointed back at GITHUB_TOKEN. With
+ * GITHUB_TOKEN and the policy off, the branch still pushes and `gh pr create` fails with
  * `GitHub Actions is not permitted to create or approve pull requests
  * (createPullRequest)`.
  * `prCreationBlockedAdvice` turns that failure into instructions plus a
@@ -170,12 +171,12 @@
  * but nobody has been told, which is the state this whole workflow exists to
  * end, so a green run would be a lie.
  *
- * 🔴 GITHUB_TOKEN AND THE ZERO-CHECKS TRAP (closed by dispatch, #148)
- * ------------------------------------------------------------------
- * A pull request opened by GITHUB_TOKEN does not get its `pull_request` runs —
- * GitHub suppresses them to prevent recursive runs. MEASURED, with a
- * discriminating control, on two PRs carrying the same kind of diff into the
- * same repo and differing only in who opened them:
+ * 🔴 GITHUB_TOKEN AND THE ZERO-CHECKS TRAP (closed by an app token, #148)
+ * ----------------------------------------------------------------------
+ * A pull request pushed or opened by GITHUB_TOKEN does not get its
+ * `pull_request` runs — GitHub suppresses them to prevent recursive runs.
+ * MEASURED, with a discriminating control, on two PRs carrying the same kind of
+ * diff into the same repo and differing only in who opened them:
  *
  *   bot PR   (GITHUB_TOKEN) -> statusCheckRollup = 0 entries, `gh pr checks`
  *                              prints "no checks reported"; the seven
@@ -183,19 +184,13 @@
  *                              `conclusion=action_required` and never start.
  *   human PR (same diff)    -> statusCheckRollup = 7 entries, all in_progress.
  *
- * So state the OBSERVABLE — the PR shows zero checks — rather than "no runs are
- * created", which the measurement does not support. Zero checks reads as
- * "nothing to worry about" on exactly the PR whose content nobody has verified,
- * and `main`'s six required contexts never report, so the PR also cannot reach
- * a mergeable state on its own.
- *
- * The fix needs no secret: `workflow_dispatch` IS an event GITHUB_TOKEN may
- * trigger, and every required workflow accepts it. After this script opens or
- * updates the PR, the workflow's `dispatch-checks` job runs
- * scripts/lib/required-checks.mjs, which dispatches each required workflow on
- * the bot branch; their jobs report the required contexts on the branch head.
- * The PR body says where the checks come from instead of warning that none
- * ran. (It used to: no PAT existed, and the operator chose not to add one.)
+ * So `main`'s six required contexts never report, and the PR cannot reach a
+ * mergeable state on its own. Dispatching the required workflows on the branch
+ * (`workflow_dispatch`) was tried and does NOT fix it: branch protection did not
+ * count those check runs (docs#339). So the workflow's `refresh` job mints a
+ * GitHub App installation token and passes it to this script as GH_TOKEN and as
+ * the checkout's credential; the push and the PR are made as the app, and the
+ * ordinary `pull_request` runs start.
  *
  * USAGE
  *   node scripts/refresh-cli-snapshot.mjs                # the CI path
@@ -224,8 +219,10 @@
  *   CLI_SNAPSHOT_REFRESH_BRANCH       override the stable branch name (default bot/cli-snapshot-refresh)
  *   CLI_SNAPSHOT_REFRESH_BASE         override the PR base branch (default main)
  *   APPBLOCKS_CLI_RELEASES_URL        release-endpoint override (shared with check-appblocks-cli-snapshot)
- *   GITHUB_TOKEN / GH_TOKEN           lifts the 60/hr unauthenticated rate limit on the releases GET, and
- *                                     is the `gh` credential. Absent, the GET may 403 and the run SKIPs.
+ *   GITHUB_TOKEN / GH_TOKEN           lifts the 60/hr unauthenticated rate limit on the releases GET
+ *                                     (GITHUB_TOKEN first). GH_TOKEN is the `gh` credential: in CI the
+ *                                     app token, so the PR gets its `pull_request` runs. Absent, the GET
+ *                                     may 403 and the run SKIPs.
  *   GITHUB_SERVER_URL / GITHUB_REPOSITORY / GITHUB_RUN_ID   used to link the run from the PR body
  */
 
@@ -525,9 +522,10 @@ export function prTitle(targetTag) {
  * The PR body.
  *
  * It no longer opens with a "checks did NOT run" warning: the workflow now
- * dispatches the required checks on the branch (#148), and a stale warning
- * teaches reviewers to skim the body. The "Checks" section says where they come
- * from, so an absent check is still legible as a failure to dispatch.
+ * opens the PR with a GitHub App token, so the ordinary `pull_request` runs
+ * start (#148), and a stale warning teaches reviewers to skim the body. The
+ * "Checks" section says where they come from, so an absent check is still
+ * legible as the token having fallen back to GITHUB_TOKEN.
  */
 export function prBody({ fromVersion, targetTag, stats, reason, runUrl, branch, regen = null }) {
   const run = runUrl ? `[this workflow run](${runUrl})` : 'the scheduled `cli-snapshot-refresh` run';
@@ -557,11 +555,11 @@ as a normal-looking diff with whole command subtrees quietly deleted.
 
 ${regenSection(regen)}## Checks
 
-A PR opened with the default \`GITHUB_TOKEN\` gets no \`pull_request\` runs, so this
-workflow dispatches \`main\`'s required workflows on \`${branch}\` after every
-update (\`workflow_dispatch\`); they report under the usual names. If one is
-missing, the dispatch failed: see the run's \`dispatch-checks\` job. A push of
-your own to this branch starts the ordinary \`pull_request\` runs.
+This workflow pushes \`${branch}\` and opens this PR with a GitHub App token, not
+the default \`GITHUB_TOKEN\` (a push made with that starts no \`pull_request\`
+runs). So the ordinary \`pull_request\` checks run on every push, and \`main\`'s
+required checks report here under their usual names. If this PR shows no
+checks at all, the push was not made as the app: see the run's \`refresh\` job.
 
 ## Review this diff by hand
 
@@ -584,8 +582,8 @@ sides named rather than opening a conflicted PR.
 }
 
 /**
- * 🔴 THE ONE PREREQUISITE THIS FEATURE CANNOT SATISFY ITSELF (currently
- * satisfied). `gh pr create` with GITHUB_TOKEN fails outright when the Actions
+ * 🔴 A PREREQUISITE OF THE GITHUB_TOKEN PATH (the workflow now uses an app
+ * token, which it does not govern). `gh pr create` with GITHUB_TOKEN fails outright when the Actions
  * policy does not allow GitHub Actions to create pull requests — `GitHub
  * Actions is not permitted to create or approve pull requests
  * (createPullRequest)`, with the branch already pushed. NO `permissions:` block

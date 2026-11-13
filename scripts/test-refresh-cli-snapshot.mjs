@@ -48,6 +48,7 @@ import {
   validateCapture,
 } from './refresh-cli-snapshot.mjs';
 import { introCommandDrift, introNamedCommands } from './lib/cli-intro-commands.mjs';
+import { appTokenProblems, jobsMintingAppToken } from './lib/app-token-step.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -317,7 +318,7 @@ check('CLI_SNAPSHOT_REFRESH_TAG forces a refresh at that tag even when current',
 
 // ---------------------------------------------------------------------------
 console.log('');
-console.log('THE PR BODY — the checks are dispatched, and the body says so');
+console.log('THE PR BODY — the PR is opened as the app, and the body says so');
 
 // Derived, for the same reason every other tag here is: the assertions below
 // ask that the body NAMES these versions, and a literal repeated in both the
@@ -333,8 +334,8 @@ const sampleArgs = {
 };
 const sampleBody = prBody(sampleArgs);
 
-check('the stale zero-checks warning is GONE now that the workflow dispatches the checks', () => {
-  // #148: dispatch-checks starts main's required workflows on the branch. A
+check('the stale zero-checks warning is GONE now that the PR is opened with an app token', () => {
+  // #148: the app token's push starts the ordinary pull_request runs. A
   // body still opening with "did NOT run" + "push an empty commit" would be a
   // false warning, which teaches reviewers to skim the body.
   assert(!/did NOT run/i.test(sampleBody), 'the body still says the checks did not run');
@@ -343,11 +344,21 @@ check('the stale zero-checks warning is GONE now that the workflow dispatches th
 });
 
 check('the body says where the checks come from, and what a missing one means', () => {
-  const sec = sampleBody.slice(sampleBody.indexOf('## Checks'));
+  // #148 / docs#339. The section is a claim about the mechanism, so the WHOLE
+  // normalised section is pinned: a reword that slips back to "dispatched" (the
+  // mechanism that did not satisfy branch protection) cannot pass by keeping
+  // the right keywords.
   assert(sampleBody.includes('## Checks'), 'the body has no Checks section');
-  assert(/GITHUB_TOKEN/.test(sec) && /workflow_dispatch/.test(sec), 'the Checks section does not explain the dispatch');
-  assert(sec.includes(DEFAULT_BRANCH), 'the Checks section does not name the branch the checks run on');
-  assert(/dispatch-checks/.test(sec), 'the Checks section does not name the job to look at when one is missing');
+  const sec = sampleBody.slice(sampleBody.indexOf('## Checks'), sampleBody.indexOf('## Review this diff by hand'));
+  assertEqual(
+    sec.replace(/\s+/g, ' ').trim(),
+    `## Checks This workflow pushes \`${DEFAULT_BRANCH}\` and opens this PR with a GitHub App token, not the default ` +
+      "`GITHUB_TOKEN` (a push made with that starts no `pull_request` runs). So the ordinary `pull_request` checks " +
+      "run on every push, and `main`'s required checks report here under their usual names. If this PR shows no " +
+      "checks at all, the push was not made as the app: see the run's `refresh` job.",
+    'the Checks section changed',
+  );
+  assert(!/dispatch/i.test(sec), 'the Checks section still describes dispatched checks');
 });
 
 check('the body carries the numbers a reviewer needs to sanity-check the capture', () => {
@@ -1707,43 +1718,47 @@ check('the workflow exists and can be dispatched on demand', () => {
   assert(/force_tag:/.test(on), 'workflow_dispatch takes no force_tag input — the drift path stays unexercisable');
 });
 
-check('write permissions are scoped to the ONE job, and the workflow default stays read', () => {
+/**
+ * Does a job hold write? Either through its own GITHUB_TOKEN `permissions:`
+ * or through the app token it mints. Both count: the app token is where the
+ * write now lives (#148), and a predicate that saw only `permissions:` would
+ * read the privileged job as unprivileged.
+ */
+function holdsWrite(body) {
+  const runnableBody = body.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
+  return /^\s+[a-z-]+:\s*write$/m.test(runnableBody) || /uses: actions\/create-github-app-token@/.test(runnableBody);
+}
+
+check('no job holds a write GITHUB_TOKEN scope, and the workflow default stays read', () => {
   const yml = readFileSync(WORKFLOW, 'utf8');
   const jobsAt = yml.indexOf('\njobs:');
   assert(jobsAt > 0, 'no jobs: block');
   const preamble = yml.slice(0, jobsAt);
-  const jobs = yml.slice(jobsAt);
   assert(/^permissions:\n\s+contents: read\n/m.test(preamble), 'the workflow-level default is not `contents: read`');
   assert(!/contents:\s*write/.test(preamble), 'the workflow-level block grants write — it must be job-scoped');
-  assert(/contents:\s*write/.test(jobs), 'the job does not request contents: write (it cannot push its branch)');
-  assert(/pull-requests:\s*write/.test(jobs), 'the job does not request pull-requests: write (it cannot open a PR)');
-  // Nothing else. A bot that runs unattended should not hold a permission it
-  // has no call for, and each of these has been the blast radius of a real
-  // supply-chain incident somewhere. (`actions:` is the one exception, held
-  // ONLY by dispatch-checks: see the next check.)
-  for (const scope of ['issues:', 'packages:', 'id-token:', 'deployments:', 'security-events:']) {
-    assert(!jobs.includes(scope), `the job requests ${scope} — it has no use for it`);
+  // The write is the app token's (next check). Every job's own GITHUB_TOKEN
+  // is read-only, so a job added later cannot inherit write by accident.
+  for (const [name, body] of Object.entries(jobsOf(WORKFLOW))) {
+    const scopes = [...body.matchAll(/^ {6}([a-z-]+): (read|write)$/gm)].map((m) => `${m[1]}:${m[2]}`);
+    assert(!scopes.some((x) => x.endsWith(':write')), `job ${name} requests a write GITHUB_TOKEN scope: ${scopes}`);
+    // Nothing else, either: each of these has been the blast radius of a real
+    // supply-chain incident somewhere.
+    for (const scope of ['issues', 'packages', 'id-token', 'actions', 'deployments', 'security-events']) {
+      assert(!new RegExp(`^\\s+(permission-)?${scope}:`, 'm').test(body), `job ${name} requests ${scope} — it has no use for it`);
+    }
   }
-  const withActions = Object.entries(jobsOf(WORKFLOW)).filter(([, b]) => /^\s+actions:/m.test(b)).map(([n]) => n);
-  assertEqual(withActions.join(','), 'dispatch-checks', 'a job other than dispatch-checks requests actions:');
 });
 
-check('dispatch-checks starts the required workflows, holding actions: write and nothing else that writes', () => {
-  // #148. The job that holds `actions: write` must not also push or open PRs,
-  // must not run `npm ci` or the upstream binary, and must keep no credential
-  // in its checkout.
-  const body = jobsOf(WORKFLOW)['dispatch-checks'];
-  assert(body, 'no dispatch-checks job — the bot PR gets no checks again (#148)');
-  const scopes = [...body.matchAll(/^ {6}([a-z-]+): (read|write)$/gm)].map((m) => `${m[1]}:${m[2]}`).sort();
-  assertEqual(scopes.join(','), 'actions:write,contents:read,pull-requests:read', 'dispatch-checks holds the wrong scopes');
-  const runnable = body.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
-  assert(/persist-credentials: false/.test(runnable), 'dispatch-checks keeps a credential in its checkout');
-  assert(!/npm (ci|install)|download-artifact|chmod/.test(runnable), 'dispatch-checks runs third-party or upstream code');
-  assert(
-    /node scripts\/lib\/required-checks\.mjs --ref bot\/cli-snapshot-refresh --if-open-pr --base main$/m.test(runnable),
-    `dispatch-checks does not dispatch on the bot branch, gated on an open PR:\n${runnable}`,
-  );
-  assert(/^ {4}needs: \[decide, refresh\]$/m.test(runnable), 'dispatch-checks does not run after refresh');
+check('the refresh job pushes and opens the PR as the app, so the PR gets its pull_request runs (#148)', () => {
+  // A push made with GITHUB_TOKEN starts no pull_request runs, and dispatched
+  // runs did not satisfy branch protection (docs#339). The app token must be
+  // minted in the job that pushes, scoped to this repo, with exactly the two
+  // scopes it uses, and must be both the checkout credential and gh's token.
+  const jobs = jobsOf(WORKFLOW);
+  assertEqual(jobsMintingAppToken(jobs).join(','), 'refresh', 'the app token is minted somewhere other than (or besides) refresh');
+  assertEqual(appTokenProblems(jobs.refresh, { contents: 'write', 'pull-requests': 'write' }).join('; '), '', 'the refresh job uses the app token wrongly');
+  assert(!('dispatch-checks' in jobs), 'the dispatch-checks job is back — dispatched runs do not satisfy branch protection (docs#339)');
+  assert(!/required-checks|gh workflow run/.test(readFileSync(WORKFLOW, 'utf8').split('\n').filter((l) => !/^\s*#/.test(l)).join('\n')), 'the workflow dispatches workflows again');
 });
 
 check('EXACTLY ONE job holds write, and it is not the one that runs upstream code', () => {
@@ -1755,7 +1770,7 @@ check('EXACTLY ONE job holds write, and it is not the one that runs upstream cod
   // actions/checkout's default `persist-credentials: true`, anyone able to move
   // a tag upstream had write on this repo.
   const jobs = jobsOf(WORKFLOW);
-  const writers = Object.entries(jobs).filter(([, body]) => /^\s+(contents|pull-requests):\s*write$/m.test(body));
+  const writers = Object.entries(jobs).filter(([, body]) => holdsWrite(body));
   assertEqual(writers.length, 1, `${writers.length} jobs hold write: ${writers.map(([n]) => n).join(', ')}`);
   const [writerName, writerBody] = writers[0];
 
@@ -1794,15 +1809,15 @@ check('EXACTLY ONE job holds write, and it is not the one that runs upstream cod
     !/uses: actions\/checkout/.test(upstream[0][1]),
     'the binary-supplying job checks this repository out — that re-exposes the token to code it does not own',
   );
-  assert(/pull-requests:\s*write/.test(writerBody), 'the writer job cannot open a PR');
+  assert(/permission-pull-requests:\s*write/.test(writerBody), 'the writer job cannot open a PR');
 });
 
 check('THE DISCLOSED RESIDUAL: the privileged job still EXECUTES the upstream binary', () => {
   // 🔴 THIS GUARD FAILS WHEN THE BOUNDARY IS *IMPROVED*, ON PURPOSE. The job
   // split moved upstream's BUILD code out of the write-scoped job; it did not
   // stop that job from downloading the resulting binary, `chmod +x`ing it and
-  // running it while holding `contents: write` + `pull-requests: write` and a
-  // `persist-credentials: true` checkout. So a tag-mover upstream can still
+  // running it while holding the app token (contents + pull-requests write)
+  // in a `persist-credentials: true` checkout. So a tag-mover upstream can still
   // reach this repo's write token by putting the payload in the Go source
   // instead of the Makefile.
   //
@@ -1812,7 +1827,7 @@ check('THE DISCLOSED RESIDUAL: the privileged job still EXECUTES the upstream bi
   // is what stops the disclosure from silently becoming a lie: change it, and
   // move the header comment with it.
   const jobs = jobsOf(WORKFLOW);
-  const writers = Object.entries(jobs).filter(([, body]) => /^\s+(contents|pull-requests):\s*write$/m.test(body));
+  const writers = Object.entries(jobs).filter(([, body]) => holdsWrite(body));
   assertEqual(writers.length, 1, `${writers.length} jobs hold write`);
   const [, writerBody] = writers[0];
   assert(
