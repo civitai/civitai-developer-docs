@@ -1094,7 +1094,7 @@ SDK, and `info()` is what the running server enforces.
 | Declaration | Built-in marks (never declared) | `report` |
 | Declaration | Refused by the server (not available yet) | `write: "anyone"`, `write: "owner"`, `kind: "log"` (and `maxEntries`), `ttlSeconds`, `dailyWritesPerAuthor`, `hook`, `registry` |
 | Quota | Per app | 52,428,800 bytes (50 MiB) and 1,000,000 documents |
-| Quota | Per viewer, within one app | 2,097,152 bytes (2 MiB) and 1,000 documents |
+| Quota | Per viewer, within one app | 2,097,152 bytes (2 MiB) and 1,000 documents on a free account; a paid membership raises both, and `info().limits.viewerBytes` / `viewerDocs` report the signed-in viewer's own |
 | Rate | Reads (`info`, `list`, `get`, `getMany`) | 300 a minute per viewer, or per IP address for a signed-out viewer |
 | Rate | Writes to private collections, and every delete | 120 a minute per viewer |
 | Rate | Marks and counters | 30 a minute per viewer |

@@ -220,7 +220,10 @@ const limits = [
   ['Declaration', 'Built-in marks (never declared)', builtinMarks.map((m) => `\`${m}\``).join(', ')],
   ['Declaration', 'Refused by the server (not available yet)', notYet.length ? notYet.join(', ') : 'nothing'],
   ['Quota', 'Per app', `${bytes(num(Q.appBytes, 'appBytes'))} and ${n(num(Q.appDocs, 'appDocs'))} documents`],
-  ['Quota', 'Per viewer, within one app', `${bytes(num(Q.userBytes, 'userBytes'))} and ${n(num(Q.userDocs, 'userDocs'))} documents`],
+  // DOC_STORE_LIMITS' user ceiling is the FREE account's. In production the per-viewer ceiling
+  // follows the viewer's membership tier (civitai `docStoreUserLimits`, #8452), and `info()`
+  // reports the viewer's own as `limits.viewerBytes` / `limits.viewerDocs`.
+  ['Quota', 'Per viewer, within one app', `${bytes(num(Q.userBytes, 'userBytes'))} and ${n(num(Q.userDocs, 'userDocs'))} documents on a free account; a paid membership raises both, and \`info().limits.viewerBytes\` / \`viewerDocs\` report the signed-in viewer's own`],
   ['Rate', 'Reads (`info`, `list`, `get`, `getMany`)', `${bucket('read')} per viewer, or per IP address for a signed-out viewer`],
   ['Rate', 'Writes to private collections, and every delete', `${bucket('write')} per viewer`],
   ['Rate', 'Marks and counters', `${bucket('tally')} per viewer`],

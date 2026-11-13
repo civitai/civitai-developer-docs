@@ -659,7 +659,7 @@ grid:
 
 ### The limits {#limits-table}
 
-Values at civitai `3c6d553986`, 2026-10-14. They can change, and the per-app
+Values at civitai `bbfb872194`, 2026-11-13. They can change, and the per-app
 values depend on the app's spend tier. Every app starts on `standard`.
 
 | Limit | Value | Keyed on | Tier | What your app sees when it trips |
@@ -671,7 +671,7 @@ values depend on the app's spend tier. Every app starts on `standard`.
 | Submit request rate | **none** | n/a | n/a | n/a. Submits are bounded by the spend limits below instead |
 | App generation velocity | **120 accepted submits / 60 s** on `standard` (`trusted`: 600, `platform`: 3,000). One submit counts once, whatever its `quantity`; a [`kind: 'workflow'`](./workflows#limits) submit counts once per step, and a `repeat` once per iteration | the **app**: every viewer and every install together | **yes** | `submit()` **resolves**: `status: 'failed'`, `workflowId: 'failed'`, `cost.total`, `error: 'app generation rate limit reached: …'`. Nothing charged |
 | App daily spend | **5,000,000 Buzz / UTC day** on `standard` and `trusted` (`platform`: 25,000,000) | the **app**: every viewer together | **yes** | `submit()` **resolves** failed, `error: 'app daily spend cap reached: …'`. Nothing charged |
-| Viewer daily spend | **50,000 Buzz / UTC day** | the **viewer**, across **all** their apps | no | `submit()` **resolves** failed, `error: 'daily Buzz cap reached: … daily cap is 50000'`. Nothing charged |
+| Viewer daily spend | **50,000 Buzz / UTC day** on a free account; a paid membership raises it (Bronze **75,000**, Silver **100,000**, Gold **200,000**) | the **viewer**, across **all** their apps | no | `submit()` **resolves** failed, `error: 'daily Buzz cap reached: … daily cap is <the viewer's cap>'`. Nothing charged |
 | Viewer's consent budget | whatever the viewer set for your app when they granted spend (optional, at most 50,000 / UTC day) | the viewer **and** your app | no | `submit()` **resolves** failed, with an `error` naming that budget. Nothing charged |
 | Concurrent workflows | **no host-side cap** | n/a | n/a | n/a |
 
@@ -823,8 +823,8 @@ about half of the 1,200 allowed for one viewer, so one viewer can watch up to
 1,200 / 40 = **30 workflows** before polls start returning placeholders (and
 even then nothing breaks, `watch()` just updates more slowly). A full grid's
 estimates are 16 of 150 per 10 s. Spend is the other bound: a grid can reserve
-up to 16 × your per-call budget against one viewer's 50,000 a day. At a budget
-of 3,125 or less a full grid fits; above that, the per-viewer daily cap can
+up to 16 × your per-call budget against one viewer's daily cap, which is 50,000
+on a free account. At a budget of 3,125 or less a full grid fits; above that, the per-viewer daily cap can
 refuse cells partway through a single grid.
 
 So with a per-call budget of 3,125 or less, submitting a 16-cell grid in one go
