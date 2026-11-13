@@ -39,6 +39,7 @@ import {
   countSnapshotBlocks,
   decideAction,
   dirtyOwnedPaths,
+  openSameRepoPr,
   parsePorcelainZ,
   partitionRegenChanges,
   prBody,
@@ -355,7 +356,7 @@ check('the body says where the checks come from, and what a missing one means', 
     `## Checks This workflow pushes \`${DEFAULT_BRANCH}\` and opens this PR with a GitHub App token, not the default ` +
       "`GITHUB_TOKEN` (a push made with that starts no `pull_request` runs). So the ordinary `pull_request` checks " +
       "run on every push, and `main`'s required checks report here under their usual names. If this PR shows no " +
-      "checks at all, the push was not made as the app: see the run's `refresh` job.",
+      "checks at all, the push was not made as the app: see the run's `publish` job.",
     'the Checks section changed',
   );
   assert(!/dispatch/i.test(sec), 'the Checks section still describes dispatched checks');
@@ -1190,6 +1191,65 @@ function g(dir, args) {
   return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', env: { ...process.env, ...GIT_IDENT } }).trim();
 }
 
+check('a FORK PR named like the bot branch is never treated as the bot PR', () => {
+  // `gh pr list --head <name>` also returns fork PRs with that branch name.
+  const fork = () => JSON.stringify([{ number: 9, isCrossRepository: true }]);
+  assertEqual(openSameRepoPr({ branch: DEFAULT_BRANCH, base: DEFAULT_BASE }, fork), null, 'a cross-repository PR was picked');
+  const both = () => JSON.stringify([{ number: 9, isCrossRepository: true }, { number: 10, isCrossRepository: false }]);
+  assertEqual(openSameRepoPr({ branch: DEFAULT_BRANCH, base: DEFAULT_BASE }, both)?.number, 10, 'the same-repo PR was not picked');
+});
+
+check('HANDOFF -> PUBLISH: the build job pushes nothing, and publish pushes exactly its commit', () => {
+  // The CI path is split: `--handoff` (no credential) commits and bundles,
+  // `--publish` (the app token) vets and pushes. The build half must leave
+  // origin untouched, and the publish half, run from a CLEAN checkout of the
+  // base the way the publish job's actions/checkout hands it over, must land
+  // the build job's head on the bot branch.
+  const { work, origin, root, bin } = driftRepo();
+  const out = join(root, 'handoff');
+  const built = runScript(work, ['--handoff', out], { CIVITAI_CLI_BIN: bin, CLI_SNAPSHOT_REFRESH_TAG: SNAP_TAG });
+  assertEqual(built.status, 0, `--handoff exited ${built.status}\n${built.stdout}\n${built.stderr}`);
+  const unpushed = spawnSync('git', ['-C', origin, 'rev-parse', '--verify', '--quiet', `refs/heads/${DEFAULT_BRANCH}`]);
+  assert(unpushed.status !== 0, 'the build half pushed the bot branch itself');
+  const meta = JSON.parse(readFileSync(join(out, 'meta.json'), 'utf8'));
+  assert(meta.bundled && /^[0-9a-f]{40}$/.test(meta.head), `no bundle handed over: ${JSON.stringify(meta)}`);
+
+  const pub = join(root, 'pub');
+  execFileSync('git', ['clone', '-q', origin, pub], { stdio: 'ignore' });
+  const res = runScript(pub, ['--publish', '--in', out, '--no-pr'], {});
+  assertEqual(res.status, 0, `--publish exited ${res.status}\n${res.stdout}\n${res.stderr}`);
+  assertEqual(g(origin, ['rev-parse', `refs/heads/${DEFAULT_BRANCH}`]), meta.head, 'publish did not push the build job\'s head');
+});
+
+check('PUBLISH REFUSES a handed-over branch that changes a path the bot does not own', () => {
+  // The build job runs npm ci and the upstream binary. If that code slipped an
+  // edit to a script into the bundle, the app-token push would start
+  // pull_request workflows that run it. Publish must refuse, name the path,
+  // and push nothing.
+  const { work, origin, root, bin } = driftRepo();
+  const out = join(root, 'handoff');
+  const built = runScript(work, ['--handoff', out], { CIVITAI_CLI_BIN: bin, CLI_SNAPSHOT_REFRESH_TAG: SNAP_TAG });
+  assertEqual(built.status, 0, `--handoff exited ${built.status}\n${built.stdout}\n${built.stderr}`);
+  const meta = JSON.parse(readFileSync(join(out, 'meta.json'), 'utf8'));
+  // Tamper the way install-time code could: one more commit on the bot branch.
+  g(work, ['checkout', '-q', DEFAULT_BRANCH]);
+  writeFileSync(join(work, 'scripts', 'injected.mjs'), 'console.log(process.env)\n');
+  g(work, ['add', '--', 'scripts/injected.mjs']);
+  g(work, ['commit', '-q', '-m', 'injected']);
+  const head = g(work, ['rev-parse', 'HEAD']);
+  rmSync(join(out, 'branch.bundle'));
+  g(work, ['bundle', 'create', join(out, 'branch.bundle'), `${meta.baseSha}..refs/heads/${DEFAULT_BRANCH}`]);
+  writeFileSync(join(out, 'meta.json'), JSON.stringify({ ...meta, head }));
+
+  const pub = join(root, 'pub');
+  execFileSync('git', ['clone', '-q', origin, pub], { stdio: 'ignore' });
+  const res = runScript(pub, ['--publish', '--in', out, '--no-pr'], {});
+  assert(res.status !== 0, `a bundle carrying scripts/injected.mjs was published:\n${res.stdout}`);
+  assert(/does not own, so nothing was pushed: scripts\/injected\.mjs/.test(res.stderr), `wrong refusal:\n${res.stderr}`);
+  const pushed = spawnSync('git', ['-C', origin, 'rev-parse', '--verify', '--quiet', `refs/heads/${DEFAULT_BRANCH}`]);
+  assert(pushed.status !== 0, 'the refused branch reached origin anyway');
+});
+
 check('A HUMAN COMMIT ON THE BOT BRANCH SURVIVES THE NEXT RUN', () => {
   // 🔴 THE FORCE-PUSH DESTROYED IT. The branch is a shared, long-lived ref that
   // the tool's OWN generated PR body used to instruct a reviewer to push to:
@@ -1749,16 +1809,37 @@ check('no job holds a write GITHUB_TOKEN scope, and the workflow default stays r
   }
 });
 
-check('the refresh job pushes and opens the PR as the app, so the PR gets its pull_request runs (#148)', () => {
+check('the publish job pushes and opens the PR as the app, so the PR gets its pull_request runs (#148)', () => {
   // A push made with GITHUB_TOKEN starts no pull_request runs, and dispatched
   // runs did not satisfy branch protection (docs#339). The app token must be
   // minted in the job that pushes, scoped to this repo, with exactly the two
   // scopes it uses, and must be both the checkout credential and gh's token.
   const jobs = jobsOf(WORKFLOW);
-  assertEqual(jobsMintingAppToken(jobs).join(','), 'refresh', 'the app token is minted somewhere other than (or besides) refresh');
-  assertEqual(appTokenProblems(jobs.refresh, { contents: 'write', 'pull-requests': 'write' }).join('; '), '', 'the refresh job uses the app token wrongly');
+  assertEqual(jobsMintingAppToken(jobs).join(','), 'publish', 'the app token is minted somewhere other than (or besides) publish');
+  assertEqual(appTokenProblems(jobs.publish, { contents: 'write', 'pull-requests': 'write' }).join('; '), '', 'the publish job uses the app token wrongly');
+  assert(/node scripts\/refresh-cli-snapshot\.mjs --publish --in "\$IN"$/m.test(jobs.publish), 'publish does not run the --publish half');
   assert(!('dispatch-checks' in jobs), 'the dispatch-checks job is back — dispatched runs do not satisfy branch protection (docs#339)');
   assert(!/required-checks|gh workflow run/.test(readFileSync(WORKFLOW, 'utf8').split('\n').filter((l) => !/^\s*#/.test(l)).join('\n')), 'the workflow dispatches workflows again');
+});
+
+check('the app private key never reaches a job that runs npm or the upstream binary', () => {
+  // A secret referenced anywhere in a job is delivered to that job's runner,
+  // where code in any later step can read it. The key is org-wide, so the job
+  // that references it must run nothing third-party: no npm install, and no
+  // download or execution of the civitai binary. The job that does run those
+  // holds no secret and no persisted credential.
+  const jobs = jobsOf(WORKFLOW);
+  const runnableOf = (b) => b.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
+  for (const [name, body] of Object.entries(jobs)) {
+    const r = runnableOf(body);
+    const secrets = [...r.matchAll(/secrets\.([A-Z_]+)/g)].map((m) => m[1]).filter((n) => n !== 'GITHUB_TOKEN');
+    const thirdParty = /npm (ci|install)|civitai-cli-bin|chmod \+x|CIVITAI_CLI_BIN/.test(r);
+    assert(!(secrets.length && thirdParty), `job ${name} holds ${secrets.join(', ')} AND runs third-party code`);
+  }
+  const refresh = runnableOf(jobs.refresh);
+  assert(/persist-credentials: false/.test(refresh), 'the refresh job persists a credential in a checkout it runs the binary in');
+  assert(/--handoff "\$OUT"$/m.test(refresh), 'the refresh job does not hand its branch over — it must not push itself');
+  assert(!/GH_TOKEN/.test(refresh), 'the refresh job hands gh a token');
 });
 
 check('EXACTLY ONE job holds write, and it is not the one that runs upstream code', () => {
@@ -1788,7 +1869,9 @@ check('EXACTLY ONE job holds write, and it is not the one that runs upstream cod
   // to point at and the artifact hand-off is what remains. Anchored to a real
   // `uses:` step so a comment cannot satisfy it, with the civitai/cli link
   // asserted separately rather than folded into the locator.
-  const upstream = Object.entries(jobs).filter(([, body]) => /^\s+- uses: actions\/upload-artifact/m.test(body));
+  const upstream = Object.entries(jobs).filter(
+    ([, body]) => /^\s+- uses: actions\/upload-artifact@\S+\n\s+with:\n\s+name: civitai-cli-bin$/m.test(body),
+  );
   assertEqual(upstream.length, 1, `expected exactly one job to supply the upstream binary, found ${upstream.length}`);
   assert(
     /civitai\/cli/.test(upstream[0][1]),
@@ -1812,34 +1895,19 @@ check('EXACTLY ONE job holds write, and it is not the one that runs upstream cod
   assert(/permission-pull-requests:\s*write/.test(writerBody), 'the writer job cannot open a PR');
 });
 
-check('THE DISCLOSED RESIDUAL: the privileged job still EXECUTES the upstream binary', () => {
-  // 🔴 THIS GUARD FAILS WHEN THE BOUNDARY IS *IMPROVED*, ON PURPOSE. The job
-  // split moved upstream's BUILD code out of the write-scoped job; it did not
-  // stop that job from downloading the resulting binary, `chmod +x`ing it and
-  // running it while holding the app token (contents + pull-requests write)
-  // in a `persist-credentials: true` checkout. So a tag-mover upstream can still
-  // reach this repo's write token by putting the payload in the Go source
-  // instead of the Makefile.
-  //
-  // The workflow header and the PR description both say so in those words. If
-  // you close it — `persist-credentials: false`, or a third unprivileged job
-  // that runs the binary and hands over only the captured bytes — this check
-  // is what stops the disclosure from silently becoming a lie: change it, and
-  // move the header comment with it.
+check('THE RESIDUAL IS CLOSED: the privileged job never EXECUTES the upstream binary', () => {
+  // It used to: the write-holding job downloaded the binary, `chmod +x`ed it
+  // and ran it with a persisted write credential, and this check pinned that
+  // disclosure. The capture now runs in `refresh`, which holds no credential,
+  // and only `publish` holds write. If the binary ever moves back next to the
+  // write, this fails — update the workflow header with it.
   const jobs = jobsOf(WORKFLOW);
   const writers = Object.entries(jobs).filter(([, body]) => holdsWrite(body));
   assertEqual(writers.length, 1, `${writers.length} jobs hold write`);
   const [, writerBody] = writers[0];
-  assert(
-    /uses: actions\/download-artifact/.test(writerBody) && /chmod \+x/.test(writerBody),
-    'the privileged job no longer runs the upstream binary — good, but the workflow header and the PR body ' +
-      'disclose that it DOES. Update them in the same change.',
-  );
-  assert(
-    !/persist-credentials:\s*false/.test(writerBody),
-    'the privileged checkout now drops its credential — that is the residual being closed, so update the ' +
-      'workflow header, which still discloses it as open.',
-  );
+  const runnable = writerBody.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
+  assert(!/name: civitai-cli-bin|chmod \+x|CIVITAI_CLI_BIN/.test(runnable), 'the privileged job obtains or runs the upstream binary');
+  assert(!/npm (ci|install)/.test(runnable), 'the privileged job installs npm packages');
 });
 
 check('the binary comes from the PUBLISHED RELEASE ASSET, verified before it is made executable', () => {
@@ -1856,7 +1924,9 @@ check('the binary comes from the PUBLISHED RELEASE ASSET, verified before it is 
   // symptom, but it is a second rule in a second place and it makes the header
   // claim a spelling the binary did not print.
   const jobs = jobsOf(WORKFLOW);
-  const supplier = Object.entries(jobs).filter(([, b]) => /^\s+- uses: actions\/upload-artifact/m.test(b));
+  const supplier = Object.entries(jobs).filter(([, b]) =>
+    /^\s+- uses: actions\/upload-artifact@\S+\n\s+with:\n\s+name: civitai-cli-bin$/m.test(b),
+  );
   assertEqual(supplier.length, 1, `expected exactly one job to supply the binary, found ${supplier.length}`);
   // Read the RUNNABLE lines: the job's comments explain the source build it
   // replaced, and a whole-body search would fail on the documentation of the
@@ -1896,7 +1966,7 @@ check('the expensive jobs are GATED on the freshness decision', () => {
   for (const [name, body] of Object.entries(jobs)) {
     if (name === decideName) continue;
     assert(
-      new RegExp(`^\\s+if: needs\\.${decideName}\\.outputs\\.action == 'refresh'$`, 'm').test(body),
+      new RegExp(`^\\s+if: needs\\.${decideName}\\.outputs\\.action == 'refresh'( && .+)?$`, 'm').test(body),
       `job "${name}" runs regardless of the verdict — it pays for a build on a no-op day:\n${body}`,
     );
   }
@@ -2095,7 +2165,7 @@ console.log('');
 // section, a botched merge — prints a serene "all passed" over zero work. The
 // floor is the positive control on the harness itself: it must have executed at
 // least as many checks as it did when this line was written.
-const MIN_CHECKS = 84;
+const MIN_CHECKS = 88;
 if (executed < MIN_CHECKS) {
   console.error(
     `refresh-cli-snapshot tests: only ${executed} checks RAN, expected at least ${MIN_CHECKS} — ` +

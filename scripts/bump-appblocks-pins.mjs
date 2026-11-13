@@ -46,8 +46,10 @@
  *              registry itself (result.json is only used for the title), pushes
  *              the branch, opens or updates the PR, and turns auto-merge on
  *              or off.
- * Third-party install code therefore never runs next to a write token, and
- * the write job does not take the read job's word for what the diff is.
+ * Third-party install code therefore never runs next to a write token or the
+ * app's private key, the write job does not take the read job's word for what
+ * the diff is, and it refuses to push any path the bot does not own
+ * (scripts/lib/bot-push-guard.mjs).
  *
  * ONE BRANCH, NEVER `main`. An open bot PR is extended: `main` is merged into it
  * and the next bump is committed on top, never force-pushed. A bot branch with
@@ -84,6 +86,7 @@ import {
   SDK_PACKAGES,
   UPSTREAM_OWNED_PAGES,
 } from './check-design-system-pins.mjs';
+import { assertOnlyOwnedChanges } from './lib/bot-push-guard.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -677,6 +680,22 @@ async function publish(inDir) {
 
   // Recompute the PR's diff from git, against the merge base (what GitHub shows).
   const mb = git(['merge-base', BASE_REF, HEAD_REF]);
+
+  // 🔴 REFUSE A PATH THE BOT DOES NOT OWN BEFORE ANYTHING IS PUSHED. `prepare`
+  // ran npm install code; the push below is made with the app token and starts
+  // the PR's pull_request workflows, which run the branch's own scripts. The
+  // allowlist is read from THIS checkout (the workflow's ref), not the bundle.
+  // `mb` is on `main`, so a path `main` merged in matches it and passes.
+  const { owned, dirs } = await ownedPages();
+  const inOwnedDir = (p) => dirs.some((d) => p.startsWith(`${d}/`) && p.endsWith('.md') && !p.slice(d.length + 1).includes('/'));
+  const isAuthoredDoc = (p) => p.endsWith('.md') && (DOC_FILES.includes(p) || DOC_ROOTS.some((d) => p.startsWith(`${d}/`)));
+  assertOnlyOwnedChanges({
+    cwd: repoRoot,
+    from: remote || mb,
+    head: HEAD_REF,
+    bases: [BASE_REF, mb],
+    allowed: (p) => p === PKG_JSON || p === LOCKFILE || isAuthoredDoc(p) || owned.has(p) || inOwnedDir(p),
+  });
   const paths = git(['diff', '--name-only', '-z', mb, HEAD_REF]).split('\0').filter(Boolean);
   const changes = paths.map((p) => ({ path: p, before: showOrNull(mb, p), after: showOrNull(HEAD_REF, p) }));
   const headPkg = showOrNull(HEAD_REF, PKG_JSON);

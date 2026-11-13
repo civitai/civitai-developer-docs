@@ -63,11 +63,14 @@ name: cli-snapshot-refresh
 # pull_request runs existed only as `conclusion=action_required` and its
 # statusCheckRollup had 0 entries). `main`'s branch protection counts only the
 # required contexts from `pull_request` runs; dispatching the workflows on the
-# branch instead was tried and did not satisfy it (docs#339). So the `refresh`
+# branch instead was tried and did not satisfy it (docs#339). So the `publish`
 # job mints an installation token for the agent GitHub App (repo variable
 # AGENT_APP_CLIENT_ID, secret AGENT_APP_PRIVATE_KEY), scoped to this repository
 # with contents + pull-requests write, and pushes and opens the PR with it; the
-# push starts the ordinary `pull_request` runs. (The org policy "allow GitHub
+# push starts the ordinary `pull_request` runs. `publish` is a separate job from
+# `refresh` because `refresh` runs `npm ci` and the upstream binary, and a
+# secret referenced anywhere in a job reaches that job's runner, where code in
+# any later step can read it. (The org policy "allow GitHub
 # Actions to create pull requests" governs GITHUB_TOKEN only, so it no longer
 # applies to this path.)
 #
@@ -115,9 +118,10 @@ concurrency:
 # 🔴 THE `refresh` JOB BELOW USED TO BE DESCRIBED AS "THE ONLY ELEVATION IN THIS
 # REPO". THAT IS NO LONGER TRUE, AND A COMMENT UNDERCOUNTING WHERE WRITE LIVES IS
 # EXACTLY WHAT A MAINTAINER AUDITING TOKEN REACH WOULD INHERIT. Where write lives:
-#   - this file's `refresh` job   -> an app token with contents + pull-requests
+#   - this file's `publish` job   -> an app token with contents + pull-requests
 #                                     write on this repo (push a branch, open a PR).
-#                                     Its own GITHUB_TOKEN is read-only.
+#                                     It runs no `npm ci` and no upstream binary;
+#                                     its own GITHUB_TOKEN is read-only.
 #   - appblocks-drift.yml `notify` -> the issues scope, to deliver the scheduled
 #                                     sweep's red as a tracking issue. That job
 #                                     runs one node script, no `npm ci`.
@@ -226,9 +230,9 @@ jobs:
   # scripts/check-appblocks-cli-snapshot.mjs (`resolveReleaseBinary`,
   # `isPlainVersionTag`): read it before editing the block below.
   #
-  # 🔴 THE JOB SPLIT NARROWS A REAL EXPOSURE — AND IT DOES NOT CLOSE IT. STATE
-  # BOTH, because an earlier version of this comment claimed the boundary was
-  # complete and it is not.
+  # 🔴 THIS JOB SPLIT NARROWED A REAL EXPOSURE; THE `refresh`/`publish` SPLIT
+  # BELOW CLOSES THE REST. An earlier version of this comment claimed the
+  # boundary was complete when it was not, so both halves are stated.
   #
   # When upstream code ran inside the job holding `contents: write` +
   # `pull-requests: write`, with actions/checkout's default
@@ -244,27 +248,17 @@ jobs:
   #     checking this repo out here, which re-opens exactly that.
   # Keep both.
   #
-  # 🔴 WHAT IT DOES NOT BUY: THE UPSTREAM *BINARY* STILL RUNS WITH WRITE. The
-  # `refresh` job below downloads this job's artifact, `chmod +x`es it and
-  # EXECUTES it (the capture shells out to it per command) while holding a
-  # `persist-credentials: true` checkout of this repo carrying the app token
-  # (contents + pull-requests write on this repo, valid for an hour). Moving from a source build to a release asset narrows
-  # WHO can put code there — it takes publishing a release rather than moving a
-  # tag — and removes upstream's BUILD-TIME code (Makefile recipes, go generate,
-  # dependency resolution) from this job entirely. It does not stop the resulting
-  # binary reaching this repo's write token. Nor is the asset SIGNED: the sha256
-  # below proves the bytes match what that release's own checksums.txt says, and
-  # the same endpoint serves both, so it is an integrity check on the download
-  # and not a statement about who produced it. Do not describe this as "the token
-  # is no longer reachable from upstream code" — it is reachable, by a longer
-  # route.
-  #
-  # Closing it properly is a separate, deliberate change, not a tightening to
-  # slip in here: either `persist-credentials: false` on the refresh checkout
-  # (plus an explicit credential for the one push), or a THIRD unprivileged job
-  # that runs the binary and uploads the captured bytes, leaving the privileged
-  # job to commit an artifact it never executed. Both are real designs with
-  # their own failure modes; neither is in this PR.
+  # The upstream BINARY then runs in the `refresh` job, which holds no write
+  # credential and no secret either: its checkout persists none, its
+  # GITHUB_TOKEN is read-only, and it hands its commits to `publish` as a git
+  # bundle. `publish` mints the app token, runs only this repo's own scripts
+  # from the workflow's ref, refuses a bundle that changes any path the bot does
+  # not own (scripts/lib/bot-push-guard.mjs), and pushes. Nor is the asset
+  # SIGNED: the sha256 below proves the bytes match what that release's own
+  # checksums.txt says, and the same endpoint serves both, so it is an integrity
+  # check on the download and not a statement about who produced it. What a
+  # malicious binary can still do is write bad bytes into the snapshot and the
+  # owned pages; that is what the human review of the PR is for.
   fetch-cli:
     needs: decide
     if: needs.decide.outputs.action == 'refresh'
@@ -341,8 +335,10 @@ jobs:
           if-no-files-found: error
 
   # ---------------------------------------------------------------------------
-  # 3. CAPTURE, AND OPEN THE PR. The only job that holds write scopes, and it
-  # runs no upstream code: it consumes the binary as an artifact.
+  # 3. CAPTURE AND COMMIT, WITH NO CREDENTIAL. Runs `npm ci` and the upstream
+  # binary, so it holds nothing worth stealing: a read-only GITHUB_TOKEN, a
+  # checkout that persists no credential, no secret. It builds the commits on a
+  # local `bot/cli-snapshot-refresh` and hands them to `publish` as a bundle.
   #
   # Exits 0 and does NOTHING when the snapshot turns out to be current after
   # all; exits NON-ZERO with no branch and no PR when the capture is short,
@@ -352,38 +348,12 @@ jobs:
     if: needs.decide.outputs.action == 'refresh'
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
-    # The only elevation in THIS workflow: the app token minted below, with
-    # exactly two scopes, on this repository only:
-    #   contents: write       — push the stable `bot/cli-snapshot-refresh` branch.
-    #                           (`main` is protected and is never a push target.)
-    #   pull-requests: write  — create the PR, or update the existing one in place.
-    # Nothing else: no issues, no packages, no id-token, no actions. The job's own
-    # GITHUB_TOKEN is read-only. The job checks out, runs node, pushes ONE branch
-    # and opens ONE PR.
-    #
-    # This block used to be described as the only elevation in the whole repo;
-    # it is not any more. The corrected statement is in this file's header — it
-    # is a cross-workflow fact, and it also cannot be written here, because
-    # test-refresh-cli-snapshot.mjs greps the raw `jobs:` text (comments
-    # included) for scope names this job must not request.
-    # scripts/test-refresh-cli-snapshot.mjs asserts this block stays this shape —
-    # that the app token requests exactly these two scopes and that NO OTHER JOB
-    # in this file holds write.
     permissions:
       contents: read
+    outputs:
+      action: ${{ steps.capture.outputs.action }}
 
     steps:
-      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        id: app-token
-        with:
-          client-id: ${{ vars.AGENT_APP_CLIENT_ID }}
-          private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
-          owner: civitai
-          repositories: civitai-developer-docs
-          permission-contents: write
-          permission-pull-requests: write
-
       # 🔴 FULL HISTORY, DELIBERATELY. actions/checkout defaults to
       # `fetch-depth: 1` — a SHALLOW clone. That was survivable while this job
       # recreated the branch and force-pushed, and it is not the shape it has
@@ -405,12 +375,12 @@ jobs:
       # conflicted), and a merge needs a common ancestor. A shallow clone does
       # not have one. This is no longer only about the push.
       #
-      # The persisted credential is the APP token, so the script's `git push` is
-      # made as the app and starts the PR's `pull_request` runs (#148).
+      # No credential persisted: this job runs third-party code and pushes
+      # nothing. Fetching this public repo needs none.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -438,16 +408,73 @@ jobs:
       # body (the PR is the only announcement). It does NOT write the hand-written
       # intro test-cli gates; the PR body names the missing command instead. The
       # `npm ci` above is what the generators need: they read the pinned SDK.
-      - name: Re-capture and open/update the PR
+      - name: Re-capture and commit, then hand the branch to publish
+        id: capture
         env:
           CIVITAI_CLI_BIN: ${{ runner.temp }}/cli-bin/civitai
           CLI_SNAPSHOT_REFRESH_TAG: ${{ github.event.inputs.force_tag }}
           # The release tag `decide` already resolved — classified normally, not
           # forced. See the decide job: resolving it twice can disagree.
           CLI_SNAPSHOT_REFRESH_LATEST_TAG: ${{ needs.decide.outputs.latest }}
-          # `gh` (and so the PR) uses the app token. GITHUB_TOKEN stays the
-          # read-only job token: it only lifts the releases GET rate limit.
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          # Read-only: it only lifts the releases GET rate limit.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/refresh-cli-snapshot.mjs
+          OUT: ${{ runner.temp }}/handoff
+        run: node scripts/refresh-cli-snapshot.mjs --handoff "$OUT"
 
+      - uses: actions/upload-artifact@v4
+        if: ${{ steps.capture.outputs.action == 'publish' }}
+        with:
+          name: cli-snapshot-handoff
+          path: ${{ runner.temp }}/handoff
+          retention-days: 1
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # 4. PUSH AND OPEN THE PR, AS THE APP. The only job holding write, through the
+  # app token minted here:
+  #   contents: write       — push the stable `bot/cli-snapshot-refresh` branch.
+  #                           (`main` is protected and is never a push target.)
+  #   pull-requests: write  — create the PR, or update the existing one in place.
+  # Nothing else: no issues, no packages, no id-token, no actions, no workflows.
+  # It installs nothing and executes nothing it was handed: the bundle is data,
+  # and `--publish` checks it (head, remote tip, base, owned paths) before the
+  # one push. scripts/test-refresh-cli-snapshot.mjs pins this shape.
+  publish:
+    needs: [decide, refresh]
+    if: needs.decide.outputs.action == 'refresh' && needs.refresh.outputs.action == 'publish'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: app-token
+        with:
+          client-id: ${{ vars.AGENT_APP_CLIENT_ID }}
+          private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
+          owner: civitai
+          repositories: civitai-developer-docs
+          permission-contents: write
+          permission-pull-requests: write
+
+      # The persisted credential is the APP token, so the push is made as the
+      # app and starts the PR's `pull_request` runs (#148).
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: cli-snapshot-handoff
+          path: ${{ runner.temp }}/handoff
+
+      - name: Vet the bundle, push, open or update the PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          IN: ${{ runner.temp }}/handoff
+        run: node scripts/refresh-cli-snapshot.mjs --publish --in "$IN"

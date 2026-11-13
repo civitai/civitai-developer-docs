@@ -13,9 +13,10 @@
  *   npm run test:bump-appblocks-pins
  */
 
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -37,6 +38,7 @@ import {
   rewriteLiterals,
 } from './bump-appblocks-pins.mjs';
 import { appTokenProblems, jobsMintingAppToken } from './lib/app-token-step.mjs';
+import { assertOnlyOwnedChanges } from './lib/bot-push-guard.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -596,6 +598,58 @@ check('a FORK PR named like the bot branch is never treated as the bot PR', () =
   assertEqual(openPrFor({ head: BOT_BRANCH, base: 'main' }, both)?.number, 10, 'the same-repo PR was not picked');
 });
 
+check('the push guard refuses a path the bot does not own, and passes what main merged in', () => {
+  // publish pushes a branch an npm-install job built, with the app token, so
+  // the PR's pull_request workflows will run it. A foreign path must stop it.
+  const dir = mkdtempSync(join(tmpdir(), 'pin-bump-guard-'));
+  try {
+    const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' };
+    const gx = (args) => execFileSync('git', ['-C', dir, ...args], { env, encoding: 'utf8' }).trim();
+    const put = (p, t) => {
+      mkdirSync(dirname(join(dir, p)), { recursive: true });
+      writeFileSync(join(dir, p), t);
+    };
+    gx(['init', '-q', '-b', 'main']);
+    put('package.json', '{"v":1}\n');
+    put('scripts/run.mjs', 'ok\n');
+    gx(['add', '-A']);
+    gx(['commit', '-q', '-m', 'base']);
+    const base0 = gx(['rev-parse', 'HEAD']);
+    gx(['checkout', '-q', '-b', 'bot']);
+    put('package.json', '{"v":2}\n');
+    gx(['commit', '-q', '-am', 'bump']);
+    const tip = gx(['rev-parse', 'HEAD']);
+    // main moves a script; the bot branch merges main in — that file is main's.
+    gx(['checkout', '-q', 'main']);
+    put('scripts/run.mjs', 'main changed this\n');
+    gx(['commit', '-q', '-am', 'main moves']);
+    gx(['checkout', '-q', 'bot']);
+    gx(['merge', '-q', '--no-edit', 'main']);
+    const allowed = (p) => p === 'package.json';
+    const ok = assertOnlyOwnedChanges({ cwd: dir, from: tip, head: 'HEAD', bases: ['main', base0], allowed });
+    assertEqual(ok, ['scripts/run.mjs'], 'positive control: the merged-in path was not even in the diff');
+    put('scripts/run.mjs', 'injected\n');
+    gx(['commit', '-q', '-am', 'injected']);
+    let threw = null;
+    try {
+      assertOnlyOwnedChanges({ cwd: dir, from: tip, head: 'HEAD', bases: ['main', base0], allowed });
+    } catch (err) {
+      threw = err;
+    }
+    assert(threw && /does not own, so nothing was pushed: scripts\/run\.mjs\./.test(threw.message), `not refused: ${threw && threw.message}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+check('publish runs the push guard BEFORE its one push', () => {
+  const src = readFileSync(join(repoRoot, 'scripts', 'bump-appblocks-pins.mjs'), 'utf8');
+  const body = src.slice(src.indexOf('async function publish('), src.indexOf('async function main('));
+  const guard = body.indexOf('assertOnlyOwnedChanges(');
+  const push = body.indexOf("git(['push'");
+  assert(guard > 0 && push > 0 && guard < push, 'publish pushes without (or before) the owned-path guard');
+});
+
 check('publish clears auto-merge BEFORE the push and enables it only LAST, failing loudly', () => {
   const src = readFileSync(join(repoRoot, 'scripts', 'bump-appblocks-pins.mjs'), 'utf8');
   const body = src.slice(src.indexOf('async function publish('), src.indexOf('async function main('));
@@ -719,7 +773,7 @@ check('this suite is wired into a pull_request workflow', () => {
 // ---------------------------------------------------------------------------
 for (const t of pending) await t();
 console.log('');
-const MIN_CHECKS = 48;
+const MIN_CHECKS = 50;
 if (executed < MIN_CHECKS) {
   console.error(`bump-appblocks-pins tests: only ${executed} checks ran, expected at least ${MIN_CHECKS}`);
   process.exit(1);

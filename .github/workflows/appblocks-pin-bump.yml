@@ -26,8 +26,10 @@ name: appblocks-pin-bump
 #
 # PRIVILEGE. Two jobs. `prepare` holds read scopes only and no app token, runs
 # `npm ci` / `npm install` and the generators, and hands a git bundle to
-# `publish`, which mints the app token, installs nothing, and recomputes the
-# diff and the auto-merge decision itself before pushing.
+# `publish`, which mints the app token, installs nothing, recomputes the diff
+# and the auto-merge decision itself, and refuses to push a bundle that changes
+# any path the bot does not own (scripts/lib/bot-push-guard.mjs): its push
+# starts the PR's pull_request workflows, which run the branch's own scripts.
 #
 # Auto-merge is enabled by the app, so the merge is made as the app and DOES
 # start `push` workflows on `main`, like a human merge. Nothing deploys from
