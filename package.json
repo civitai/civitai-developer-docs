@@ -19,7 +19,7 @@
     "predev": "npm run copy:spec && npm run gen:appblocks",
     "prebuild": "npm run copy:spec && npm run gen:appblocks",
     "dev": "vitepress dev",
-    "build": "vitepress build",
+    "build": "NODE_OPTIONS=--max-old-space-size=4096 vitepress build",
     "preview": "vitepress preview",
     "test:samples": "node scripts/test-doc-samples.mjs",
     "test:samples:site": "node scripts/test-doc-samples.mjs --site",
