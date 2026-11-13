@@ -109,11 +109,13 @@ work like one. It is **presentational only**: it calls no route, sends no bridge
 message, and needs no scope.
 
 - **Properties:** `emoji`, `count`, `reacted` (the pressed state), `label` (the
-  accessible name, e.g. `Like`) and `disabled`. You set all of them. The element
+  accessible name, e.g. `Like`), `reaction` (which reaction it stands for, e.g.
+  `Like`) and `disabled`. You set all of them. The element
   cannot read an entity's counts or whether this viewer has already reacted.
 - **On click** it toggles itself optimistically: it flips `reacted`, moves
   `count` by one (never below 0), then dispatches a `react` `CustomEvent` with
-  `detail: { emoji, reacted, count }`. The event bubbles and is `composed`, so
+  `detail: { emoji, reacted, count }`, plus `reaction` when the element has a
+  non-empty one. The event bubbles and is `composed`, so
   it crosses shadow roots. In React, `@civitai/components-react`'s
   `<CivitaiReaction>` exposes it as `onReact`.
 - **Saving the change is your job.** If your write fails, set `reacted` and

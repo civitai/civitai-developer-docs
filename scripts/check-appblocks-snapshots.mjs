@@ -267,7 +267,22 @@ const PINNED_CONSTANTS = [
     name: 'apps.buzz-daily bronze',
     re: /id: 'apps\.buzz-daily',(?:(?!\bid: ')[\s\S])*?byTier: \{(?:(?!\bid: ')[\s\S])*?bronze: \{ limit: ([\d_]+) \}/,
     want: '75000',
-    doc: 'Bronze **75,000**',
+    doc: 'Bronze and Founder **75,000**',
+  },
+  {
+    path: 'src/shared/constants/usage-limits.ts',
+    name: 'apps.buzz-daily founder',
+    re: /id: 'apps\.buzz-daily',(?:(?!\bid: ')[\s\S])*?byTier: \{(?:(?!\bid: ')[\s\S])*?founder: \{ limit: ([\d_]+) \}/,
+    want: '75000',
+    doc: 'Bronze and Founder **75,000**',
+  },
+  {
+    // The opt-in multiplier the row's "twice" states (user-app-caps.service.ts).
+    path: 'src/server/services/blocks/user-app-caps.service.ts',
+    name: 'OPT_IN_MULTIPLIER',
+    re: /export const OPT_IN_MULTIPLIER = ([\d_]+);/,
+    want: '2',
+    doc: 'gets **twice** their cap',
   },
   {
     path: 'src/shared/constants/usage-limits.ts',
