@@ -26,6 +26,7 @@ import {
   autoMergeDecision,
   bumpsBetween,
   classifyChanges,
+  parsePorcelainZ,
   parseRehearse,
   planBump,
   prBody,
@@ -406,6 +407,17 @@ check('a rehearsal is parsed, and anything else is refused', () => {
   }
 });
 
+check('git status records keep the first path whole (the leading status space is data)', () => {
+  // Regression: the first --prepare run read this output through a helper that
+  // trimmed it, and ' M apps/guide/porting.md' became 'pps/guide/porting.md'.
+  assertEqual(
+    parsePorcelainZ(' M apps/guide/porting.md\0 M package.json\0?? apps/reference/hooks/new.md\0'),
+    ['apps/guide/porting.md', 'package.json', 'apps/reference/hooks/new.md'],
+    'a path was cut',
+  );
+  assertEqual(parsePorcelainZ('R  new.md\0old.md\0 M x.md\0'), ['new.md', 'x.md'], 'a rename source was read as a path');
+});
+
 // ---------------------------------------------------------------------------
 console.log('');
 console.log('CLI — --dry-run against a fixture registry writes nothing');
@@ -676,7 +688,7 @@ check('this suite is wired into a pull_request workflow', () => {
 // ---------------------------------------------------------------------------
 for (const t of pending) await t();
 console.log('');
-const MIN_CHECKS = 46;
+const MIN_CHECKS = 47;
 if (executed < MIN_CHECKS) {
   console.error(`bump-appblocks-pins tests: only ${executed} checks ran, expected at least ${MIN_CHECKS}`);
   process.exit(1);

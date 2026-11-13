@@ -408,13 +408,13 @@ function readPins() {
 }
 
 /**
- * Paths with any change in the working tree, from `git status -z`. Not through
- * `git()`, which trims: the first record's leading status space would go, and
- * `slice(3)` would then cut the path's first character.
+ * The paths in `git status --porcelain=v1 -z` output. Pure. The input must be
+ * UNTRIMMED: each record starts with a two-character status, and a leading
+ * space is part of the first one (` M path`). Trimming it cut the first path's
+ * first character, found by running --prepare end to end.
  */
-function changedPaths() {
-  const raw = execFileSync('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all'], { cwd: repoRoot, encoding: 'utf8' });
-  const recs = raw.split('\0');
+export function parsePorcelainZ(raw) {
+  const recs = String(raw).split('\0');
   const out = [];
   for (let i = 0; i < recs.length; i++) {
     if (recs[i].length < 4) continue;
@@ -422,6 +422,13 @@ function changedPaths() {
     if (recs[i][0] === 'R' || recs[i][0] === 'C') i++;
   }
   return out;
+}
+
+/** Paths with any change in the working tree. Not through `git()`, which trims. */
+function changedPaths() {
+  return parsePorcelainZ(
+    execFileSync('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all'], { cwd: repoRoot, encoding: 'utf8' }),
+  );
 }
 
 /** The pages the md generator owns: every REGIONS page, and the generated sub-page dirs. */
