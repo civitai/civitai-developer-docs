@@ -281,8 +281,8 @@ movement, unrelated to any docs PR):
 `cli-snapshot-refresh.yml` builds a `civitai` binary at the latest release tag,
 re-captures, and pushes the one stable branch `bot/cli-snapshot-refresh` — reused
 rather than recreated, so there is one PR rather than one per day, and so a
-commit *you* push there (the empty "trigger checks" commit, a fixup) is not
-deleted by the next run. Each run also merges `main` into that branch before it
+commit *you* push there (a fixup, the intro sentence) is not deleted by the
+next run. Each run also merges `main` into that branch before it
 captures. Without that, the first PR you *accept* leaves the branch permanently
 at odds with `main` — the squash-merge puts its bytes on `main` as a commit
 outside the branch's own history — and every later run opens a **conflicted** PR
@@ -325,10 +325,25 @@ turned off again, the job pushes the branch and then exits RED with a compare
 URL, because `gh pr create` fails with `GitHub Actions is not permitted to create
 or approve pull requests`.
 
-⚠️ A PR opened with the default `GITHUB_TOKEN` does **not** get its checks run,
-so that PR shows zero checks and `main`'s required contexts never report — the
-same diff opened by a human ran all seven. Close and reopen it (or push an empty
-commit) before reviewing. The PR body says so in its first section.
+A PR opened with the default `GITHUB_TOKEN` gets no `pull_request` runs (#148),
+so after each update the workflow's `dispatch-checks` job dispatches `main`'s six
+required workflows on the bot branch (`scripts/lib/required-checks.mjs`); they
+report under the required names. No secret is involved.
+
+### The pin-bump bot
+
+`appblocks-pin-bump.yml` (daily, on dispatch, and on a `repository_dispatch` of
+type `appblocks-sdk-published`) is the remedy for `check:pins` / `check:ds-pins`
+going red. `scripts/bump-appblocks-pins.mjs` moves the six `@civitai/*` devDep
+pins to npm `latest`, rewrites the hand-written `@civitai/<pkg>@x.y.z` literals
+that quote the pin, verifies the lockfile with `npm ci`, regenerates the
+reference pages, and opens or updates one PR on `bot/appblocks-pin-bump`. It
+dispatches the required checks the same way, and turns on auto-merge (squash)
+only when the diff is version strings alone and every pin lands exactly at npm
+latest; otherwise the PR is labelled `content-change` and waits for a human.
+`npm run bump:appblocks-pins -- --dry-run` prints the plan without writing
+anything. The `rehearse_from` input pins one package down first and bumps it
+back, which runs the whole path with an empty net diff.
 
 To exercise the drift path on demand while the snapshot is current, run the
 workflow from the Actions tab with a `force_tag` input, or locally with

@@ -62,30 +62,19 @@ name: cli-snapshot-refresh
 # works and `gh pr create` fails with "GitHub Actions is not permitted to create
 # or approve pull requests".
 #
-# 🔴 THE PR'S CHECKS DO NOT RUN. A pull request opened by GITHUB_TOKEN does not
-# get its checks run — GitHub suppresses it to prevent recursion. Measured with
-# a discriminating control: two PRs carrying the same kind of diff into the same
-# repo, differing only in who opened them. The bot PR reported a
-# `statusCheckRollup` of 0 entries and `gh pr checks` printed "no checks
-# reported" (its seven pull_request runs existed only as
-# `conclusion=action_required` and never started); the human PR reported 7, all
-# in_progress. So state the OBSERVABLE — the PR shows ZERO checks — which reads
-# as "nothing to worry about" on exactly the PR whose content nobody has
-# verified; `main`'s six required contexts never report either, so it cannot
-# reach a mergeable state on its own. There is no PAT secret in this repo (measured:
-# `gh api repos/civitai/civitai-developer-docs/actions/secrets` -> total_count 0)
-# and creating one is a maintainer decision, so the mitigation is DISCLOSURE: the
-# PR body says it in its first section, with the two one-click remedies (close +
-# reopen, or push an empty commit). If a PAT is ever added, pass it to the `gh`
-# step as GH_TOKEN and delete that section from `prBody` — a stale warning is
-# worse than none.
+# THE PR'S CHECKS ARE DISPATCHED (#148). A pull request opened by GITHUB_TOKEN
+# gets no `pull_request` runs — GitHub suppresses them to prevent recursion
+# (measured: the bot PR's seven pull_request runs existed only as
+# `conclusion=action_required` and its statusCheckRollup had 0 entries). So the
+# `dispatch-checks` job below runs scripts/lib/required-checks.mjs, which
+# dispatches `main`'s six required workflows on `bot/cli-snapshot-refresh`
+# (`gh workflow run <file> --ref <branch>`). `workflow_dispatch` is an event
+# GITHUB_TOKEN may trigger, and each run's job reports its required context on
+# the branch head. No secret is involved; the job needs `actions: write`.
 #
-# 🔴 AND THE EMPTY "TRIGGER CHECKS" COMMIT THAT REMEDY ASKS FOR USED TO BE
-# DELETED BY THE NEXT RUN. The refresher force-pushed a branch rebuilt from
-# `main`, so a reviewer who followed the PR body's own instructions lost their
-# commit — and their checks with it — on the next cron tick, silently. The script
-# now EXTENDS `bot/cli-snapshot-refresh` instead of recreating it. Do not
-# reintroduce `--force` there.
+# The refresher EXTENDS `bot/cli-snapshot-refresh` instead of recreating it, so
+# a commit a reviewer pushes there survives the next run. Do not reintroduce
+# `--force` there.
 #
 # THE LOGIC LIVES IN scripts/refresh-cli-snapshot.mjs, not here. A workflow body
 # is untestable by construction; that script is covered by
@@ -130,9 +119,16 @@ concurrency:
 # they are disjoint in job and in scope, and both follow the same rule — the
 # privileged job runs no third-party code it did not have to:
 #   - this file's `refresh` job   -> contents + pull-requests (push a branch, open a PR)
+#   - this file's `dispatch-checks` -> actions (start the required workflows on
+#                                     the bot branch). No `npm ci`, no upstream
+#                                     binary, and a checkout with no credential.
 #   - appblocks-drift.yml `notify` -> the issues scope, to deliver the scheduled
 #                                     sweep's red as a tracking issue. That job
 #                                     runs one node script, no `npm ci`.
+#   - appblocks-pin-bump.yml `publish` -> contents + pull-requests + actions
+#                                     (push the pin-bump branch, open the PR,
+#                                     dispatch the checks, set auto-merge). It
+#                                     runs no `npm ci` either.
 permissions:
   contents: read
 
@@ -441,3 +437,33 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/refresh-cli-snapshot.mjs
+
+  # ---------------------------------------------------------------------------
+  # 4. START `main`'S REQUIRED CHECKS ON THE BOT BRANCH (#148).
+  #
+  # The PR above was opened by GITHUB_TOKEN, so it got no `pull_request` runs.
+  # Dispatch each required workflow on the branch instead; their jobs report
+  # the required contexts on its head. Only when a PR is open: a run that found
+  # the capture byte-identical opened nothing, and there is nothing to check.
+  #
+  # Its own job, so `actions: write` is held by a job that runs no `npm ci` and
+  # no upstream binary, and whose checkout keeps no credential.
+  dispatch-checks:
+    needs: [decide, refresh]
+    if: needs.decide.outputs.action == 'refresh'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Dispatch the required workflows on the bot branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: node scripts/lib/required-checks.mjs --ref bot/cli-snapshot-refresh --if-open-pr --base main
