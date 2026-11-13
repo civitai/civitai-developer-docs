@@ -16,6 +16,8 @@ const props = defineProps<{
   tags?: string;
   /** Also define the elements that act through @civitai/sdk. */
   sdk?: boolean;
+  /** Also define <civitai-resource-picker>, which no bundle includes. */
+  picker?: boolean;
 }>();
 
 const { isDark } = useData();
@@ -40,6 +42,7 @@ onMounted(async () => {
       import('@civitai/components/civitai-workflow-button/define'),
     ]);
   }
+  if (props.picker) await import('@civitai/components/civitai-resource-picker/define');
   mounted.value = true;
   await nextTick();
   if (!preview.value) return;

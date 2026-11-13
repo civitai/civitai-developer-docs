@@ -132,6 +132,8 @@ const HIDDEN_BY_DESIGN = new Set([
   'civitai-toast-region',
   'civitai-menu-item',
   'civitai-menu-label',
+  // A modal: nothing renders until show() opens it.
+  'civitai-resource-picker',
 ]);
 
 /** Measure every <ElementDemo> on the page. */
