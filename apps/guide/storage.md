@@ -2,9 +2,9 @@
 title: Storing data (document store)
 description: Keep an app's data on Civitai with the document store — declare collections in the manifest, the apps:storage, apps:storage:publish and apps:storage:import scopes, documents, conditional writes, lists, counters and marks, reaching another app's data through storage.imports and ?from=, what viewers can do with their own data, moderation, error codes, limits, local development, createFakeStorage, the REST routes, and moving off the legacy useAppStorage / useSharedStorage stores.
 sources:
-  - npm:@civitai/sdk@0.25.1/dist/doc-store/index.d.ts
-  - npm:@civitai/sdk@0.25.1/dist/doc-store/fake.d.ts
-  - npm:@civitai/sdk@0.25.1#README
+  - npm:@civitai/sdk@0.25.2/dist/doc-store/index.d.ts
+  - npm:@civitai/sdk@0.25.2/dist/doc-store/fake.d.ts
+  - npm:@civitai/sdk@0.25.2#README
   - civitai:public/schemas/app-block/v1.json#storage
   - civitai:public/schemas/app-block/storage-contract.v1.json
   - civitai:src/shared/constants/block-storage.constants.ts
