@@ -3,7 +3,7 @@ title: Quickstart
 description: Scaffold a Civitai App with the civitai CLI — web components and @civitai/sdk by default, React on request — run it against the local mock host, and build it.
 sources:
   - go:github.com/civitai/cli#app
-  - npm:@civitai/sdk@0.25.2/dist/index.d.ts
+  - npm:@civitai/sdk@0.25.1/dist/index.d.ts
   - npm:@civitai/components@0.13.0/custom-elements.json
   - npm:@civitai/blocks-react@0.80.0#README
   - npm:@civitai/app-sdk@0.86.0/vite#blockManifestPlugin
