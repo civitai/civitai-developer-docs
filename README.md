@@ -332,7 +332,10 @@ the shape both bots' tests assert. In both bots the job that runs `npm ci` (and,
 for the snapshot, the upstream binary) holds no secret and no write credential: it
 hands its commits to `publish` as a git bundle, and `publish` installs nothing,
 refuses a bundle that changes any path the bot does not own
-(`scripts/lib/bot-push-guard.mjs`), and pushes.
+(`scripts/lib/bot-push-guard.mjs`), and pushes. Because those pushes start `pull_request`
+runs, `test-samples.yml` runs a `bot/*` PR's doc samples in a job that holds no
+secret (authenticated samples skip there; the daily schedule runs them on
+`main`).
 
 ### The pin-bump bot
 

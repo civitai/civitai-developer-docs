@@ -1250,6 +1250,17 @@ check('PUBLISH REFUSES a handed-over branch that changes a path the bot does not
   assert(pushed.status !== 0, 'the refused branch reached origin anyway');
 });
 
+check('publish measures the bundle against trusted bases only, never the handoff\'s own baseSha', () => {
+  // Any ancestor of `base` passes the ancestry check, so a baseSha taken from
+  // meta.json would let a bundle roll a file back to an old version that still
+  // "matches base". The bases are base as fetched now and the checkout's HEAD.
+  const src = readFileSync(join(repoRoot, 'scripts', 'refresh-cli-snapshot.mjs'), 'utf8');
+  const body = src.slice(src.indexOf('async function publishHandoff('));
+  const call = body.slice(body.indexOf('assertOnlyOwnedChanges('), body.indexOf('});', body.indexOf('assertOnlyOwnedChanges(')));
+  assert(/bases: \['refs\/cli-snapshot\/base', git\(\['rev-parse', 'HEAD'\]\)\]/.test(call), `untrusted bases:\n${call}`);
+  assert(/from: meta\.remoteSha \|\| 'refs\/cli-snapshot\/base',/.test(call), `a fresh branch is not measured against base:\n${call}`);
+});
+
 check('A HUMAN COMMIT ON THE BOT BRANCH SURVIVES THE NEXT RUN', () => {
   // 🔴 THE FORCE-PUSH DESTROYED IT. The branch is a shared, long-lived ref that
   // the tool's OWN generated PR body used to instruct a reviewer to push to:
@@ -2165,7 +2176,7 @@ console.log('');
 // section, a botched merge — prints a serene "all passed" over zero work. The
 // floor is the positive control on the harness itself: it must have executed at
 // least as many checks as it did when this line was written.
-const MIN_CHECKS = 88;
+const MIN_CHECKS = 89;
 if (executed < MIN_CHECKS) {
   console.error(
     `refresh-cli-snapshot tests: only ${executed} checks RAN, expected at least ${MIN_CHECKS} — ` +

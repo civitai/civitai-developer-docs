@@ -33,8 +33,18 @@ concurrency:
   group: test-samples-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# 🔴 NO SECRET FOR A BOT BRANCH'S PR. The two bots (cli-snapshot-refresh.yml,
+# appblocks-pin-bump.yml) push `bot/*` branches with a GitHub App token, so their
+# PRs DO start this workflow (#148) — and their content was built by a job that
+# ran `npm ci` / an upstream binary. The doc pages this runs can point a sample
+# at any host with `auth="true"`, and `<script setup>` runs in `vm`, which is not
+# a sandbox. So a `bot/*` PR runs the samples in `test-samples-bot`, which never
+# references CIVITAI_TOKEN (a secret referenced anywhere in a job reaches that
+# job's runner), and `test-samples` skips it. Authenticated samples on a bot PR
+# therefore SKIP; the daily schedule still runs them authenticated on `main`.
 jobs:
   test-samples:
+    if: ${{ !(github.event_name == 'pull_request' && startsWith(github.head_ref, 'bot/')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -60,4 +70,24 @@ jobs:
         if: steps.filter.outputs.skip != 'true'
         env:
           CIVITAI_TOKEN: ${{ secrets.CIVITAI_TOKEN }}
+        run: node scripts/test-doc-samples.mjs --${{ matrix.section }}
+
+  test-samples-bot:
+    if: ${{ github.event_name == 'pull_request' && startsWith(github.head_ref, 'bot/') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        section: [site, orch]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run ${{ matrix.section }} samples (unauthenticated)
         run: node scripts/test-doc-samples.mjs --${{ matrix.section }}

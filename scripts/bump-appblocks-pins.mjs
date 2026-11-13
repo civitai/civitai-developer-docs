@@ -685,15 +685,18 @@ async function publish(inDir) {
   // ran npm install code; the push below is made with the app token and starts
   // the PR's pull_request workflows, which run the branch's own scripts. The
   // allowlist is read from THIS checkout (the workflow's ref), not the bundle.
-  // `mb` is on `main`, so a path `main` merged in matches it and passes.
+  // Compared against `main` as fetched now and the commit this job checked out
+  // (the workflow's ref), never against a sha derived from the bundle: an
+  // ancestor of `main` would let a bundle roll a trusted file back to an old
+  // version that still "matches main".
   const { owned, dirs } = await ownedPages();
   const inOwnedDir = (p) => dirs.some((d) => p.startsWith(`${d}/`) && p.endsWith('.md') && !p.slice(d.length + 1).includes('/'));
   const isAuthoredDoc = (p) => p.endsWith('.md') && (DOC_FILES.includes(p) || DOC_ROOTS.some((d) => p.startsWith(`${d}/`)));
   assertOnlyOwnedChanges({
     cwd: repoRoot,
-    from: remote || mb,
+    from: remote || BASE_REF,
     head: HEAD_REF,
-    bases: [BASE_REF, mb],
+    bases: [BASE_REF, git(['rev-parse', 'HEAD'])],
     allowed: (p) => p === PKG_JSON || p === LOCKFILE || isAuthoredDoc(p) || owned.has(p) || inOwnedDir(p),
   });
   const paths = git(['diff', '--name-only', '-z', mb, HEAD_REF]).split('\0').filter(Boolean);
@@ -701,6 +704,11 @@ async function publish(inDir) {
   const headPkg = showOrNull(HEAD_REF, PKG_JSON);
   const bumps = bumpsBetween(showOrNull(mb, PKG_JSON), headPkg);
   const classification = classifyChanges(changes, bumps);
+  // package.json may move only the pins: anything else there (a lifecycle
+  // script, a new dependency) would run in every pull_request job's `npm ci`.
+  if (classification.contentPaths.includes(PKG_JSON)) {
+    throw new Error(`${PKG_JSON} changed beyond the pinned versions; nothing pushed. Bump it by hand.`);
+  }
   const r = await resolveLatest(TRACKED_PACKAGES);
   const decision = autoMergeDecision({ bumps, headPins: pinsOf(headPkg), latest: r.latest, classification });
   console.log(`  diff vs ${BASE}: ${paths.length} file(s); ${classification.versionOnly ? 'version-only' : `CONTENT CHANGE in ${classification.contentPaths.join(', ')}`}`);

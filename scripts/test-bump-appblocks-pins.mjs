@@ -637,17 +637,58 @@ check('the push guard refuses a path the bot does not own, and passes what main 
       threw = err;
     }
     assert(threw && /does not own, so nothing was pushed: scripts\/run\.mjs\./.test(threw.message), `not refused: ${threw && threw.message}`);
+
+    // A ROLLBACK: a fresh bot branch built on an OLD main commit carries an old
+    // script. Measured against main as it is now (from = main), the old version
+    // matches neither main nor the checkout, so it is refused.
+    gx(['checkout', '-q', '-b', 'stale', base0]);
+    put('package.json', '{"v":3}\n');
+    gx(['commit', '-q', '-am', 'bump on an old base']);
+    let rolled = null;
+    try {
+      assertOnlyOwnedChanges({ cwd: dir, from: 'main', head: 'HEAD', bases: ['main'], allowed });
+    } catch (err) {
+      rolled = err;
+    }
+    assert(rolled && /scripts\/run\.mjs/.test(rolled.message), `a rollback to an old script passed: ${rolled && rolled.message}`);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
-check('publish runs the push guard BEFORE its one push', () => {
+check('publish runs the push guard and the package.json refusal BEFORE its one push, against trusted bases', () => {
   const src = readFileSync(join(repoRoot, 'scripts', 'bump-appblocks-pins.mjs'), 'utf8');
   const body = src.slice(src.indexOf('async function publish('), src.indexOf('async function main('));
   const guard = body.indexOf('assertOnlyOwnedChanges(');
+  const pkg = body.indexOf('classification.contentPaths.includes(PKG_JSON)');
   const push = body.indexOf("git(['push'");
   assert(guard > 0 && push > 0 && guard < push, 'publish pushes without (or before) the owned-path guard');
+  assert(pkg > 0 && pkg < push, 'publish pushes a package.json that moved beyond the pins');
+  // The bases must not come from the bundle (`mb` is derived from its history).
+  const call = body.slice(guard, body.indexOf('});', guard));
+  assert(/bases: \[BASE_REF, git\(\['rev-parse', 'HEAD'\]\)\]/.test(call), `the guard's bases are not main + the checkout:\n${call}`);
+  assert(/from: remote \|\| BASE_REF,/.test(call), `a fresh branch is not measured against main:\n${call}`);
+});
+
+check('test-samples never hands CIVITAI_TOKEN to a bot branch PR, and still runs its samples', () => {
+  // Bot PRs now start pull_request runs, and their pages were built by a job
+  // that ran npm install / an upstream binary; a page can aim an authenticated
+  // sample at any host. The secret-holding job must skip bot/* PRs and the
+  // bot job must reference no secret at all.
+  const yml = readFileSync(join(WF_DIR, 'test-samples.yml'), 'utf8');
+  const jobs = jobsOf(runnable(yml));
+  const withSecret = Object.entries(jobs).filter(([, b]) => /secrets\.CIVITAI_TOKEN/.test(b));
+  assertEqual(withSecret.map(([n]) => n), ['test-samples'], 'the secret is referenced by an unexpected job');
+  assert(
+    /^ {4}if: \$\{\{ !\(github\.event_name == 'pull_request' && startsWith\(github\.head_ref, 'bot\/'\)\) \}\}$/m.test(jobs['test-samples']),
+    'the secret-holding job runs on bot/* PRs',
+  );
+  const bot = jobs['test-samples-bot'];
+  assert(bot && /^ {4}if: \$\{\{ github\.event_name == 'pull_request' && startsWith\(github\.head_ref, 'bot\/'\) \}\}$/m.test(bot), 'no unauthenticated job for bot/* PRs');
+  assert(!/secrets\./.test(bot), 'the bot job references a secret');
+  assert(/node scripts\/test-doc-samples\.mjs --\$\{\{ matrix\.section \}\}/.test(bot), 'the bot job does not run the samples');
+  // Both bot branches are covered by the prefix.
+  for (const b of [BOT_BRANCH, 'bot/cli-snapshot-refresh']) assert(b.startsWith('bot/'), `${b} is not under bot/`);
 });
 
 check('publish clears auto-merge BEFORE the push and enables it only LAST, failing loudly', () => {
@@ -773,7 +814,7 @@ check('this suite is wired into a pull_request workflow', () => {
 // ---------------------------------------------------------------------------
 for (const t of pending) await t();
 console.log('');
-const MIN_CHECKS = 50;
+const MIN_CHECKS = 51;
 if (executed < MIN_CHECKS) {
   console.error(`bump-appblocks-pins tests: only ${executed} checks ran, expected at least ${MIN_CHECKS}`);
   process.exit(1);

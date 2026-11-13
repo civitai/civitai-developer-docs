@@ -1521,11 +1521,15 @@ async function publishHandoff(dir, { branch, base }) {
     const head = git(['rev-parse', 'refs/cli-snapshot/head']);
     if (head !== meta.head) throw new Error(`the bundle holds ${head}, but the build job reported ${meta.head}`);
     const pages = await ownedPages();
+    // Bases are `base` as fetched now and the commit this job checked out
+    // (the workflow's ref) — never the handoff's own baseSha: any ancestor of
+    // `base` passes the check above, so trusting it would let a bundle roll a
+    // file back to an old version that still "matches base".
     assertOnlyOwnedChanges({
       cwd: repoRoot,
-      from: meta.remoteSha || meta.baseSha,
+      from: meta.remoteSha || 'refs/cli-snapshot/base',
       head,
-      bases: ['refs/cli-snapshot/base', meta.baseSha],
+      bases: ['refs/cli-snapshot/base', git(['rev-parse', 'HEAD'])],
       allowed: (p) => p === SNAPSHOT_REL || partitionRegenChanges([p], pages).stage.length === 1,
     });
     // 🔴 NO `--force`: a fast-forward of the ref checked above, or a loud failure.
