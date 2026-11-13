@@ -52,7 +52,10 @@ export function resolvePackageRoot(name) {
 // tree — the generators' hard-fail guards live in their `main()`, which no unit test can
 // reach by import, and which no PR workflow runs. Unset everywhere else.
 export const snapshotsDir = process.env.APPBLOCKS_SNAPSHOTS_DIR || join(repoRoot, 'appblocks-snapshots');
-export const outDir = join(repoRoot, 'public', 'appblocks');
+// APPBLOCKS_OUT_DIR redirects the artifacts for the same reason: a test that runs a
+// generator against a doctored snapshot must not overwrite the real artifact. Unset
+// everywhere else.
+export const outDir = process.env.APPBLOCKS_OUT_DIR || join(repoRoot, 'public', 'appblocks');
 
 // Candidate sibling `civitai` repo roots. The first matches the dev-stack layout
 // copy-spec.mjs assumes (repos/<name>/repo/); the rest cover a flat local
@@ -62,6 +65,18 @@ const CIVITAI_SIBLINGS = [
   resolve(repoRoot, '..', 'civitai'),
   resolve(repoRoot, '..', '..', 'civitai'),
 ];
+
+// The same lookup for the other public repos a generator reads a source file
+// from: civitai/cli (Go) and civitai/civitai-mcp-server. Same layouts as above.
+const SIBLINGS = {
+  civitai: CIVITAI_SIBLINGS,
+  cli: [resolve(repoRoot, '..', '..', 'cli', 'repo'), resolve(repoRoot, '..', 'cli'), resolve(repoRoot, '..', '..', 'cli')],
+  mcp: [
+    resolve(repoRoot, '..', '..', 'civitai-mcp-server', 'repo'),
+    resolve(repoRoot, '..', 'civitai-mcp-server'),
+    resolve(repoRoot, '..', '..', 'civitai-mcp-server'),
+  ],
+};
 
 /**
  * Resolve a file from the `civitai` sibling repo, preferring its `origin/main`
@@ -77,9 +92,20 @@ const CIVITAI_SIBLINGS = [
  * @returns {{ text: string, source: string }}
  */
 export function readCivitaiSource(relPath, snapshotName) {
+  return readSiblingSource('civitai', relPath, snapshotName);
+}
+
+/**
+ * readCivitaiSource for any repo in SIBLINGS (`'civitai'`, `'cli'`, `'mcp'`): the
+ * sibling checkout's origin/main blob, then its working tree, then the committed
+ * snapshot. APPBLOCKS_SNAPSHOT_ONLY=1 skips the siblings, as above.
+ */
+export function readSiblingSource(repo, relPath, snapshotName) {
+  const siblings = SIBLINGS[repo];
+  if (!siblings) throw new Error(`readSiblingSource: unknown repo ${JSON.stringify(repo)}`);
   const snapshotOnly = process.env.APPBLOCKS_SNAPSHOT_ONLY === '1';
   if (!snapshotOnly)
-  for (const root of CIVITAI_SIBLINGS) {
+  for (const root of siblings) {
     if (!existsSync(root)) continue;
     // Prefer origin/main via git when this is a git repo.
     if (existsSync(join(root, '.git'))) {
@@ -103,7 +129,7 @@ export function readCivitaiSource(relPath, snapshotName) {
     return { text: readFileSync(snap, 'utf8'), source: `snapshot: ${snap}` };
   }
   throw new Error(
-    `Could not resolve civitai source ${relPath} from any sibling repo or the committed snapshot ${snapshotName}`
+    `Could not resolve ${repo} source ${relPath} from any sibling repo or the committed snapshot ${snapshotName}`
   );
 }
 

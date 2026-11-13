@@ -17,6 +17,7 @@ const steps = [
   'gen-appblocks-hooks.mjs',
   'gen-appblocks-bridge.mjs',
   'gen-appblocks-storage.mjs',
+  'gen-appblocks-platform-feedback.mjs',
 ];
 
 for (const step of steps) {

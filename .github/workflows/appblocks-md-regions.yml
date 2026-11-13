@@ -99,6 +99,9 @@ jobs:
       - name: Manifest table lists nested storage-collection fields
         run: npm run test:appblocks:manifest
 
+      - name: Platform feedback limits come from the CLI's constants (generator guards)
+        run: npm run test:appblocks:platform-feedback
+
       # Rides this job rather than getting its own: it needs exactly the two
       # steps above (the pinned devDeps, and hooks.json as the control it grades
       # its own extractor against) and nothing else, so a separate workflow would

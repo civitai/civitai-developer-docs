@@ -27,6 +27,7 @@ import appblocksMessages from '../../public/appblocks/messages.json' with { type
 import appblocksHooks from '../../public/appblocks/hooks.json' with { type: 'json' };
 import appblocksBridge from '../../public/appblocks/bridge.json' with { type: 'json' };
 import appblocksStorage from '../../public/appblocks/storage.json' with { type: 'json' };
+import appblocksPlatformFeedback from '../../public/appblocks/platform-feedback.json' with { type: 'json' };
 
 import Layout from './Layout.vue';
 import ApiTry from './components/ApiTry.vue';
@@ -41,6 +42,7 @@ import MessageTable from './components/MessageTable.vue';
 import HooksReference from './components/HooksReference.vue';
 import BridgeReference from './components/BridgeReference.vue';
 import StorageReference from './components/StorageReference.vue';
+import PlatformFeedbackLimits from './components/PlatformFeedbackLimits.vue';
 import ReferenceIndex from './components/ReferenceIndex.vue';
 import ComponentDemo from './components/ComponentDemo.vue';
 import ElementDemo from './components/ElementDemo.vue';
@@ -79,6 +81,7 @@ export default {
     ctx.app.provide('appblocks:hooks', appblocksHooks);
     ctx.app.provide('appblocks:bridge', appblocksBridge);
     ctx.app.provide('appblocks:storage', appblocksStorage);
+    ctx.app.provide('appblocks:platform-feedback', appblocksPlatformFeedback);
     ctx.app.component('ScopesTable', ScopesTable);
     ctx.app.component('JsonSchemaTable', JsonSchemaTable);
     ctx.app.component('CliReference', CliReference);
@@ -86,6 +89,7 @@ export default {
     ctx.app.component('HooksReference', HooksReference);
     ctx.app.component('BridgeReference', BridgeReference);
     ctx.app.component('StorageReference', StorageReference);
+    ctx.app.component('PlatformFeedbackLimits', PlatformFeedbackLimits);
     // The index on a split reference hub (hooks / CLI / generation bridge).
     ctx.app.component('ReferenceIndex', ReferenceIndex);
 

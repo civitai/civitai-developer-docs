@@ -27,22 +27,42 @@ civitai feedback status 5123-3f9a01bc
 - `--about` is required: `cli`, `sdk`, `docs`, `review`, `sandbox`, `scopes`,
   `mcp` or `other`. `--kind` is `bug` (the default), `confusing`, `missing` or
   `request`.
-- The message is one quoted argument, up to 2,000 characters. Say what you
-  ran, what you expected and what happened instead.
+- The message is one quoted argument, within the [limits](#limits) below.
+  Say what you ran, what you expected and what happened instead.
 - Optional: `--ref <site-key>` (where it happened, e.g.
   `submit.server-refused`), `--doc <url>` (a page on
   `https://developer.civitai.com/`), `--app <slug>`, and an error excerpt from
-  `--error-file <path>` or from stdin with `--error -` (the first 500
-  characters after redaction are sent).
+  `--error-file <path>` or from stdin with `--error -` (cut to the
+  [limit](#limits) after redaction).
 - The CLI **redacts before sending** — home directory, user names in paths,
   your token, credential-shaped text, e-mail addresses, URL credentials and
   query strings — and prints how much it removed. Redaction matches shapes, so
   it can miss something: `--dry-run` prints the exact request and sends
   nothing.
 - `civitai feedback status` with no ref checks the reports this machine sent;
-  pass up to 50 refs to check specific ones. `--json` on either command emits a
-  versioned envelope.
+  pass refs, up to the [limit](#limits), to check specific ones. `--json` on
+  either command emits a versioned envelope.
 - A default `civitai login` is enough credential.
+
+### Limits
+
+The CLI applies these before it sends anything: a message that is too long,
+or too many refs, fails on your machine with the field named, and an error
+excerpt is cut. The values are generated from the CLI's source.
+
+<PlatformFeedbackLimits>
+
+<!-- BEGIN GENERATED: platform-feedback-limits — markdown fallback for the .md/LLM channel. Do not edit by hand; run `npm run gen:appblocks:md`. -->
+
+| Limit | Value |
+|---|---|
+| Message | 1 to 2,000 characters, counted after redaction |
+| Error excerpt (`--error-file`, `--error -`) | the first 500 characters left after redaction are sent |
+| Refs per `civitai feedback status` | up to 50; with no ref, the newest 50 this machine sent |
+
+<!-- END GENERATED: platform-feedback-limits -->
+
+</PlatformFeedbackLimits>
 
 Run `civitai feedback send --help` for the full text. The verb is in
 `civitai` 0.1.122 and later; until a release lists it in `civitai --help`, the

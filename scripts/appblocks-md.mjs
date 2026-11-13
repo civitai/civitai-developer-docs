@@ -487,6 +487,16 @@ function renderStorage(which) {
 }
 
 /**
+ * site/guide/platform-feedback.md — mirrors <PlatformFeedbackLimits>. The rows are composed
+ * once, in gen-appblocks-platform-feedback.mjs; both channels only lay them out.
+ */
+function renderPlatformFeedback() {
+  const { limits } = loadArtifact('platform-feedback.json');
+  if (!limits?.length) throw new Error('appblocks-md: platform-feedback.json has no limit rows');
+  return table(['Limit', 'Value'], limits.map((r) => [cell(r.item), cell(r.value)]));
+}
+
+/**
  * apps/reference/manifest.md — mirrors <JsonSchemaTable>. The rows (top-level
  * fields plus the nested `storage.collections.<name>.*` ones) are computed once,
  * in manifestSchema.shared.mjs; both channels only lay them out.
@@ -966,6 +976,12 @@ export const REGIONS = [
     openTag: `<StorageReference table="${t}">`,
     render: () => renderStorage(t),
   })),
+  {
+    key: 'platform-feedback-limits',
+    page: 'site/guide/platform-feedback.md',
+    component: 'PlatformFeedbackLimits',
+    render: renderPlatformFeedback,
+  },
 ];
 
 export const pagePath = (region) => join(repoRoot, region.page);
