@@ -56,6 +56,10 @@ const RAW_BASE = process.env.APPBLOCKS_RAW_BASE || 'https://raw.githubuserconten
 const APP_STARTERS_BASE =
   process.env.APPBLOCKS_STARTERS_RAW_BASE ||
   'https://raw.githubusercontent.com/civitai/civitai-app-starters/main';
+// The platform feedback limits come from the Go CLI and the MCP server, two more repos.
+const CLI_BASE = process.env.APPBLOCKS_CLI_RAW_BASE || 'https://raw.githubusercontent.com/civitai/cli/main';
+const MCP_BASE =
+  process.env.APPBLOCKS_MCP_RAW_BASE || 'https://raw.githubusercontent.com/civitai/civitai-mcp-server/main';
 
 // Each committed snapshot ↔ its canonical upstream source path. Entries default
 // to civitai@main (RAW_BASE); an explicit `base` overrides it for sources that
@@ -111,6 +115,21 @@ const SOURCES = [
     path: 'packages/civitai-components/MARKUP.md',
     snapshot: 'MARKUP.md',
     base: APP_STARTERS_BASE,
+  },
+  // The platform feedback limits → site/guide/platform-feedback.md (#limits), via
+  // scripts/gen-appblocks-platform-feedback.mjs (regenerate with `npm run gen:appblocks`,
+  // then `npm run gen:appblocks:md` for the .md region, after re-snapshotting). The CLI's
+  // copy is the source of the values; the MCP server's is read so the generator can fail
+  // when the two disagree (site/mcp/tools.md points at the same table).
+  {
+    path: 'internal/appapi/platform_feedback.go',
+    snapshot: 'platform_feedback.go',
+    base: CLI_BASE,
+  },
+  {
+    path: 'src/lib/platform-feedback.ts',
+    snapshot: 'mcp-platform-feedback.ts',
+    base: MCP_BASE,
   },
 ];
 
@@ -381,7 +400,7 @@ async function main() {
     const snapPath = join(snapshotsDir, snapshot);
     if (!existsSync(snapPath)) {
       console.log(`  ✗ ${snapshot} — committed snapshot MISSING at appblocks-snapshots/${snapshot}`);
-      drifted.push({ snapshot, path, missing: true });
+      drifted.push({ snapshot, path, base, missing: true });
       continue;
     }
     const local = normalize(readFileSync(snapPath, 'utf8'));
@@ -403,12 +422,14 @@ async function main() {
     }
 
     const up = normalize(remote.text);
+    // Name the repo the file came from: three of these sources are not civitai.
+    const upstream = base ? `${base.replace('https://raw.githubusercontent.com/', '')}` : 'civitai@origin/main';
     if (up === local) {
-      console.log(`  ✓ ${snapshot} — matches civitai@origin/main`);
+      console.log(`  ✓ ${snapshot} — matches ${upstream}`);
       ok++;
     } else {
       const d = firstDivergence(local, up);
-      console.log(`  ✗ ${snapshot} — DRIFTED from civitai@origin/main`);
+      console.log(`  ✗ ${snapshot} — DRIFTED from ${upstream}`);
       if (d) {
         console.log(`      first diff at line ${d.line} (snapshot ${d.snapshotLines} lines, upstream ${d.upstreamLines} lines)`);
         console.log(`        snapshot: ${d.snapshot.slice(0, 160)}`);
@@ -446,12 +467,12 @@ async function main() {
   }
 
   if (drifted.length) {
-    console.error('\n--- DRIFT: the committed snapshot(s) no longer match civitai@origin/main ---');
+    console.error('\n--- DRIFT: the committed snapshot(s) no longer match their upstream main ---');
     console.error('The generated App Blocks reference is built from these snapshots in CI, so the');
     console.error('published docs are STALE until they are re-copied. Re-snapshot and commit:');
     for (const d of drifted) {
       if (d.missing) {
-        console.error(`  - ${d.snapshot}: MISSING — restore it from ${RAW_BASE}/${d.path}`);
+        console.error(`  - ${d.snapshot}: MISSING — restore it from ${d.base ?? RAW_BASE}/${d.path}`);
       } else if (d.gone) {
         console.error(
           `  - ${d.snapshot}: source path ${d.path} returned HTTP ${d.status} — it moved/was removed upstream;` +
