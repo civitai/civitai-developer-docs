@@ -28,6 +28,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseSnapshotVersion } from './check-appblocks-cli-snapshot.mjs';
+import { REGIONS } from './appblocks-md.mjs';
 import {
   DEFAULT_BASE,
   DEFAULT_BRANCH,
@@ -581,8 +582,17 @@ function scratchRepo() {
   // pinned SDK out of node_modules and rewrite pages under apps/. Only the
   // TRACKED part of `public` is copied: the generated public/appblocks/ JSON is
   // exactly what each run must produce for itself.
-  for (const rel of ['scripts', 'appblocks-snapshots', '.vitepress', 'apps']) {
+  const dirs = ['scripts', 'appblocks-snapshots', '.vitepress', 'apps'];
+  for (const rel of dirs) {
     cpSync(join(repoRoot, rel), join(work, rel), { recursive: true });
+  }
+  // A generated region can live on a page outside apps/ (site/guide/platform-feedback.md),
+  // and gen-appblocks-md.mjs refuses to run when a REGIONS page is missing. Copy each one
+  // the directories above did not.
+  const extraPages = [...new Set(REGIONS.map((r) => r.page))].filter((p) => !dirs.some((d) => p.startsWith(`${d}/`)));
+  for (const rel of extraPages) {
+    mkdirSync(dirname(join(work, rel)), { recursive: true });
+    cpSync(join(repoRoot, rel), join(work, rel));
   }
   for (const rel of execFileSync('git', ['-C', repoRoot, 'ls-files', '--', 'public'], { encoding: 'utf8' })
     .split('\n')
@@ -599,7 +609,7 @@ function scratchRepo() {
   writeFileSync(join(work, '.gitignore'), `${readFileSync(join(repoRoot, '.gitignore'), 'utf8')}\nnode_modules\n`);
   const env = { GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' };
   const g = (args) => execFileSync('git', ['-C', work, ...args], { stdio: 'ignore', env: { ...process.env, ...env } });
-  g(['add', '--', 'scripts', 'appblocks-snapshots', '.vitepress', 'apps', 'public', 'package.json', '.gitignore']);
+  g(['add', '--', 'scripts', 'appblocks-snapshots', '.vitepress', 'apps', 'public', 'package.json', '.gitignore', ...extraPages]);
   g(['commit', '-m', 'base']);
   g(['remote', 'add', 'origin', origin]);
   g(['push', '-u', 'origin', DEFAULT_BASE]);
