@@ -273,7 +273,7 @@ Examples:
 
 Seedream 5.5 uses $0.020 per output up to 2.601124 MP and $0.035 above that threshold. Each reference image adds $0.008 per output; there are no free references. Multiply the USD total by 1500 to get Buzz.
 
-From **2026-11-12 20:44:37 UTC** until **2026-12-12 20:44:37 UTC**, the image and reference rates are discounted by 40%. Outputs without references cost **18 / 32 Buzz**. A discounted reference contributes **7.2 Buzz** before the combined charge is rounded up: one lower-tier output with one reference costs **26 Buzz**, and one upper-tier output with one reference costs **39 Buzz**. Batch prices are rounded after multiplying by quantity.
+From **2026-11-12 20:44:37 UTC** until **2026-12-10 00:00:00 UTC**, the image and reference rates are discounted by 40%. Outputs without references cost **18 / 32 Buzz**. A discounted reference contributes **7.2 Buzz** before the combined charge is rounded up: one lower-tier output with one reference costs **26 Buzz**, and one upper-tier output with one reference costs **39 Buzz**. Batch prices are rounded after multiplying by quantity.
 
 The quote uses the workflow creation time, so crossing the discount end during generation does not change the quote. Full rates resume automatically after the window. Output-format and priority fees still apply; use `whatif=true` to preview the final charge.
 
