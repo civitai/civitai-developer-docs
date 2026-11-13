@@ -23,8 +23,16 @@
  * ONE LIST. `REQUIRED_CHECKS` maps each required context on `main` to the
  * workflow file whose job carries that name. scripts/test-bump-appblocks-pins.mjs
  * checks that every file exists, accepts `workflow_dispatch`, and has a job of
- * that name. It cannot read branch protection (that needs an admin token), so a
- * context added on `main` must be added here by hand.
+ * that name. At run time the dispatcher also reads `main`'s required contexts
+ * (the public branch endpoint returns them; no admin token is needed) and FAILS
+ * the run, after dispatching what it can, when one has no mapping here — a new
+ * required check would otherwise leave every bot PR waiting on a check nobody
+ * starts, which is #148 again. Add the new context to the list.
+ *
+ * `EXTRA_CHECKS` are dispatched too but are not required: `showcase-e2e` is the
+ * only render test of the design-system packages and is path-filtered, and
+ * `checks` runs the bots' own test suites. They do not gate auto-merge (only
+ * required checks do); their results are on the PR for a reader.
  *
  * USAGE (CI)
  *   node scripts/lib/required-checks.mjs --ref <branch> [--if-open-pr --base main]
@@ -43,15 +51,27 @@ export const REQUIRED_CHECKS = Object.freeze([
   { context: 'test-md-regions', workflow: 'appblocks-md-regions.yml' },
 ]);
 
+/** Dispatched with the required ones, but gating nothing. */
+export const EXTRA_CHECKS = Object.freeze([
+  { context: 'showcase-e2e', workflow: 'showcase-e2e.yml' },
+  { context: 'checks', workflow: 'checks.yml' },
+]);
+
 /**
- * The `gh` argument vectors that dispatch every required workflow on `ref`.
- * Pure, so the test can pin the exact commands.
+ * The `gh` argument vectors that dispatch every required (then extra) workflow
+ * on `ref`. Pure, so the test can pin the exact commands.
  */
 export function dispatchCommands(ref) {
   if (!ref || typeof ref !== 'string' || ref === 'main' || ref.startsWith('-')) {
     throw new Error(`refusing to dispatch the required checks on ref ${JSON.stringify(ref)}`);
   }
-  return REQUIRED_CHECKS.map(({ workflow }) => ['workflow', 'run', workflow, '--ref', ref]);
+  return [...REQUIRED_CHECKS, ...EXTRA_CHECKS].map(({ workflow }) => ['workflow', 'run', workflow, '--ref', ref]);
+}
+
+/** Required contexts on `main` that no entry here maps to a workflow. Pure. */
+export function unmappedContexts(contexts) {
+  const known = new Set(REQUIRED_CHECKS.map((c) => c.context));
+  return [...new Set(contexts)].filter((c) => !known.has(c)).sort();
 }
 
 function gh(args) {
@@ -65,10 +85,17 @@ function gh(args) {
   return (res.stdout || '').trim();
 }
 
-/** The open PR from `head` into `base`, or null. */
+/**
+ * The open PR from `head` IN THIS REPOSITORY into `base`, or null.
+ *
+ * `gh pr list --head <name>` also returns PRs from FORKS whose branch has that
+ * name (measured: `--head ghost-agent/issue-237` returned fork PR #244), so
+ * anyone could open a fork PR named like the bot branch and have the bot edit
+ * it. Cross-repository PRs are dropped.
+ */
 export function openPrFor({ head, base }, run = gh) {
-  const out = run(['pr', 'list', '--head', head, '--base', base, '--state', 'open', '--json', 'number,headRefOid']);
-  const list = JSON.parse(out || '[]');
+  const out = run(['pr', 'list', '--head', head, '--base', base, '--state', 'open', '--json', 'number,headRefOid,isCrossRepository']);
+  const list = JSON.parse(out || '[]').filter((p) => p.isCrossRepository === false);
   return list[0] ?? null;
 }
 
@@ -78,6 +105,16 @@ export function openPrFor({ head, base }, run = gh) {
  * each failure, so the caller's run goes red.
  */
 export function dispatchRequiredChecks(ref, run = gh) {
+  // Read main's required contexts first; dispatch regardless, fail afterwards.
+  let unmapped = [];
+  try {
+    const contexts = JSON.parse(
+      run(['api', 'repos/{owner}/{repo}/branches/main', '--jq', '.protection.required_status_checks.contexts']) || '[]',
+    );
+    unmapped = unmappedContexts(Array.isArray(contexts) ? contexts : []);
+  } catch (err) {
+    console.error(`  ⚠ could not read main's required contexts (${err.message}); dispatching the mapped list`);
+  }
   const failed = [];
   for (const args of dispatchCommands(ref)) {
     try {
@@ -88,9 +125,15 @@ export function dispatchRequiredChecks(ref, run = gh) {
       failed.push(args[2]);
     }
   }
-  if (failed.length) {
-    throw new Error(`${failed.length} of ${REQUIRED_CHECKS.length} required workflow(s) were not dispatched: ${failed.join(', ')}`);
+  const problems = [];
+  if (failed.length) problems.push(`${failed.length} workflow(s) were not dispatched: ${failed.join(', ')}`);
+  if (unmapped.length) {
+    problems.push(
+      `main requires ${unmapped.join(', ')}, which scripts/lib/required-checks.mjs does not map to a workflow, ` +
+        'so nothing starts it on this branch and the PR cannot merge. Add it to REQUIRED_CHECKS.',
+    );
   }
+  if (problems.length) throw new Error(problems.join('; '));
 }
 
 function main() {

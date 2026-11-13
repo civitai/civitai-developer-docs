@@ -26,6 +26,7 @@ import {
   autoMergeDecision,
   bumpsBetween,
   classifyChanges,
+  lockfileMovesOnlyCivitai,
   parsePorcelainZ,
   parseRehearse,
   planBump,
@@ -34,7 +35,14 @@ import {
   resolveLatest,
   rewriteLiterals,
 } from './bump-appblocks-pins.mjs';
-import { REQUIRED_CHECKS, dispatchCommands, dispatchRequiredChecks } from './lib/required-checks.mjs';
+import {
+  EXTRA_CHECKS,
+  REQUIRED_CHECKS,
+  dispatchCommands,
+  dispatchRequiredChecks,
+  openPrFor,
+  unmappedContexts,
+} from './lib/required-checks.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -243,10 +251,25 @@ console.log('CLASSIFY — version strings only, or a content change?');
 const pkgJson = (pins, extra = {}) =>
   `${JSON.stringify({ name: 'x', private: true, ...extra, devDependencies: { ...pins, typescript: '^5.6.0' } }, null, 2)}\n`;
 
+const lock = (pins, extra = {}) =>
+  JSON.stringify({
+    name: 'x',
+    lockfileVersion: 3,
+    requires: true,
+    packages: {
+      '': { name: 'x', devDependencies: { ...pins, typescript: '^5.6.0' } },
+      'node_modules/@civitai/app-sdk': { version: pins['@civitai/app-sdk'], integrity: `sha512-${pins['@civitai/app-sdk']}` },
+      'node_modules/typescript': { version: '5.6.3', integrity: 'sha512-ts' },
+      'node_modules/vitepress': { version: '1.6.4', integrity: 'sha512-vp' },
+      ...extra,
+    },
+  });
+const lockAfter = lock({ ...PIN, '@civitai/app-sdk': '0.87.1' }, { 'node_modules/new-dep': { version: '1.0.0' } });
+
 check('a diff that differs only by the bumped version strings is version-only', () => {
   const changes = [
     { path: 'package.json', before: pkgJson(PIN), after: pkgJson({ ...PIN, '@civitai/app-sdk': '0.87.1' }) },
-    { path: 'package-lock.json', before: '{"a":1}', after: '{"a":2,"b":3}' },
+    { path: 'package-lock.json', before: lock(PIN), after: lockAfter },
     { path: 'apps/reference/hooks.md', before: 'stamp 0.86.0\nbody\n', after: 'stamp 0.87.1\nbody\n' },
   ];
   const c = classifyChanges(changes, bumpSdk);
@@ -293,6 +316,24 @@ check('package.json changing anything but the bumped pins is a content change', 
     },
   ];
   assertEqual(classifyChanges(changes, bumpSdk).contentPaths, ['package.json'], 'a package.json script change was masked');
+});
+
+check('a lockfile moving an UNRELATED package is a content change (publish does not trust prepare)', () => {
+  const tampered = lockAfter.replace('sha512-vp', 'sha512-evil');
+  assert(tampered !== lockAfter, 'fixture: the tamper changed nothing');
+  assertEqual(lockfileMovesOnlyCivitai(lock(PIN), lockAfter, bumpSdk), true, 'a clean @civitai bump was refused');
+  assertEqual(lockfileMovesOnlyCivitai(lock(PIN), tampered, bumpSdk), false, 'a rewritten vitepress integrity passed');
+  assertEqual(
+    classifyChanges([{ path: 'package-lock.json', before: lock(PIN), after: tampered }], bumpSdk).contentPaths,
+    ['package-lock.json'],
+    'the tampered lockfile was not a content change',
+  );
+  const dropped = JSON.parse(lockAfter);
+  delete dropped.packages['node_modules/typescript'];
+  assertEqual(lockfileMovesOnlyCivitai(lock(PIN), JSON.stringify(dropped), bumpSdk), false, 'a removed entry passed');
+  const rootMoved = JSON.parse(lockAfter);
+  rootMoved.packages[''].devDependencies.typescript = '^6.0.0';
+  assertEqual(lockfileMovesOnlyCivitai(lock(PIN), JSON.stringify(rootMoved), bumpSdk), false, 'a root devDep change passed');
 });
 
 check('an empty net diff (a rehearsal) is version-only', () => {
@@ -547,9 +588,64 @@ check('every required context maps to a dispatchable workflow with a job of that
 check('the dispatch commands are exactly `gh workflow run <file> --ref <branch>` per workflow', () => {
   assertEqual(
     dispatchCommands(BOT_BRANCH),
-    REQUIRED_CHECKS.map(({ workflow }) => ['workflow', 'run', workflow, '--ref', BOT_BRANCH]),
+    [...REQUIRED_CHECKS, ...EXTRA_CHECKS].map(({ workflow }) => ['workflow', 'run', workflow, '--ref', BOT_BRANCH]),
     'the dispatch commands drifted',
   );
+  assert(EXTRA_CHECKS.some((c) => c.workflow === 'showcase-e2e.yml'), 'the design-system render test is not dispatched');
+  for (const { workflow } of EXTRA_CHECKS) {
+    const yml = readFileSync(join(WF_DIR, workflow), 'utf8');
+    assert(/^ {2}workflow_dispatch:/m.test(triggersOf(yml)), `${workflow} cannot be dispatched`);
+  }
+});
+
+check('a required context on main with no mapping is reported, never ignored', () => {
+  assertEqual(unmappedContexts(REQUIRED_CHECKS.map((c) => c.context)), [], 'the mapped set reads as unmapped');
+  assertEqual(unmappedContexts(['test-cli', 'test-new-thing']), ['test-new-thing'], 'an unmapped context was missed');
+});
+
+check('an unmapped required context fails the dispatch AFTER every workflow was started', () => {
+  const ran = [];
+  let threw = null;
+  const { log, error } = console;
+  console.log = console.error = () => {};
+  try {
+    dispatchRequiredChecks(BOT_BRANCH, (args) => {
+      if (args[0] === 'api') return JSON.stringify([...REQUIRED_CHECKS.map((c) => c.context), 'test-new-thing']);
+      ran.push(args[2]);
+      return '';
+    });
+  } catch (err) {
+    threw = err;
+  } finally {
+    console.log = log;
+    console.error = error;
+  }
+  assertEqual(ran.length, REQUIRED_CHECKS.length + EXTRA_CHECKS.length, 'not every workflow was dispatched first');
+  assert(threw && /test-new-thing/.test(threw.message), `the unmapped context was not named: ${threw && threw.message}`);
+});
+
+check('a FORK PR named like the bot branch is never treated as the bot PR', () => {
+  const fake = () => JSON.stringify([{ number: 9, headRefOid: 'f', isCrossRepository: true }]);
+  assertEqual(openPrFor({ head: BOT_BRANCH, base: 'main' }, fake), null, 'a cross-repository PR was picked');
+  const both = () =>
+    JSON.stringify([
+      { number: 9, headRefOid: 'f', isCrossRepository: true },
+      { number: 10, headRefOid: 'a', isCrossRepository: false },
+    ]);
+  assertEqual(openPrFor({ head: BOT_BRANCH, base: 'main' }, both)?.number, 10, 'the same-repo PR was not picked');
+});
+
+check('publish clears auto-merge BEFORE the push and enables it only LAST, failing loudly', () => {
+  const src = readFileSync(join(repoRoot, 'scripts', 'bump-appblocks-pins.mjs'), 'utf8');
+  const body = src.slice(src.indexOf('async function publish('), src.indexOf('async function main('));
+  const disable = body.indexOf("'--disable-auto'");
+  const push = body.indexOf("git(['push'");
+  const dispatch = body.indexOf('dispatchRequiredChecks(');
+  const enable = body.indexOf("'--auto'");
+  assert(disable > 0 && push > 0 && dispatch > 0 && enable > 0, 'publish no longer has all four steps');
+  assert(disable < push && push < dispatch && dispatch < enable, 'publish steps are out of order');
+  assert(!/spawnSync\('gh', \['pr', 'merge'/.test(body), 'a gh pr merge call has its failure swallowed');
+  assert((body.match(/'--disable-auto'/g) || []).length === 1, 'auto-merge is cleared in more than one place');
 });
 
 check('dispatching on main, or on nothing, is refused', () => {
@@ -573,8 +669,10 @@ check('one failed dispatch does not stop the rest, and the call still fails', ()
   console.log = console.error = () => {};
   try {
     dispatchRequiredChecks(BOT_BRANCH, (args) => {
+      if (args[0] === 'api') return JSON.stringify(REQUIRED_CHECKS.map((c) => c.context));
       ran.push(args[2]);
       if (args[2] === 'appblocks-bridge.yml') throw new Error('HTTP 500');
+      return '';
     });
   } catch (err) {
     threw = err;
@@ -582,7 +680,7 @@ check('one failed dispatch does not stop the rest, and the call still fails', ()
     console.log = log;
     console.error = error;
   }
-  assertEqual(ran.length, REQUIRED_CHECKS.length, 'a failure stopped the remaining dispatches');
+  assertEqual(ran.length, REQUIRED_CHECKS.length + EXTRA_CHECKS.length, 'a failure stopped the remaining dispatches');
   assert(threw && /appblocks-bridge\.yml/.test(threw.message), 'the failure was swallowed or not named');
 });
 
@@ -688,7 +786,7 @@ check('this suite is wired into a pull_request workflow', () => {
 // ---------------------------------------------------------------------------
 for (const t of pending) await t();
 console.log('');
-const MIN_CHECKS = 47;
+const MIN_CHECKS = 52;
 if (executed < MIN_CHECKS) {
   console.error(`bump-appblocks-pins tests: only ${executed} checks ran, expected at least ${MIN_CHECKS}`);
   process.exit(1);

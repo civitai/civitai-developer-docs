@@ -19,8 +19,8 @@
  *
  * AUTO-MERGE, AND WHEN IT IS REFUSED. The PR is set to auto-merge (squash) when
  *   - the change is VERSION-ONLY: once the bumped packages' old and new version
- *     strings are masked out, every changed file is identical, apart from the
- *     lockfile (derived, and verified by `npm ci`); and
+ *     strings are masked out, every changed file is identical, and the lockfile
+ *     moved only `@civitai/*` entries (plus newly added dependencies); and
  *   - every tracked pin at the PR head equals npm `latest` as read at publish
  *     time. A PR that would leave `main` at an older version than npm, or at
  *     a version nobody could confirm, is never auto-merged.
@@ -172,20 +172,63 @@ export function bumpsBetween(beforeText, afterText) {
 }
 
 /**
+ * Did a lockfile change touch ONLY `@civitai/*` entries? Pure.
+ *
+ * The publish job recomputes the diff itself rather than trusting the job that
+ * ran the install, and the lockfile is where an install-time compromise would
+ * land (an unrelated package's `resolved`/`integrity` rewritten). So: every
+ * pre-existing entry outside the `@civitai` scope must be byte-identical, none
+ * may disappear, the root entry may differ only in the bumped devDeps, and the
+ * file's other top-level fields must not move. ADDED entries are allowed: a new
+ * `@civitai/*` release can bring a new dependency, and `npm ci` verified it.
+ */
+export function lockfileMovesOnlyCivitai(beforeText, afterText, bumps) {
+  let b;
+  let a;
+  try {
+    b = JSON.parse(beforeText);
+    a = JSON.parse(afterText);
+  } catch {
+    return false;
+  }
+  const { packages: bp = {}, ...bTop } = b;
+  const { packages: ap = {}, ...aTop } = a;
+  if (JSON.stringify(bTop) !== JSON.stringify(aTop)) return false;
+  const civitai = (k) => /(^|\/)node_modules\/@civitai\/[^/]+$/.test(k) || /(^|\/)node_modules\/@civitai\/[^/]+\/node_modules\/@civitai\/[^/]+$/.test(k);
+  const root = (e) => {
+    const j = JSON.parse(JSON.stringify(e ?? {}));
+    for (const { pkg } of bumps) if (j.devDependencies) delete j.devDependencies[pkg];
+    return JSON.stringify(j);
+  };
+  for (const k of Object.keys(bp)) {
+    if (k === '') {
+      if (root(bp[k]) !== root(ap[k])) return false;
+      continue;
+    }
+    if (civitai(k)) continue;
+    if (!(k in ap) || JSON.stringify(bp[k]) !== JSON.stringify(ap[k])) return false;
+  }
+  return true;
+}
+
+/**
  * Is a diff version-only?
  *
  * `changes` is `[{ path, before, after }]`, with null for a side where the file
  * does not exist. Each bumped package's old AND new version strings are masked
  * to one token, then the two sides are compared. Only those strings are masked,
  * so any other number that moves counts as content. package.json is compared as
- * JSON with only the bumped devDep keys removed; the lockfile is skipped.
+ * JSON with only the bumped devDep keys removed; the lockfile by `lockfileMovesOnlyCivitai`.
  */
 export function classifyChanges(changes, bumps) {
   const masks = bumps.flatMap(({ from, to }) => [from, to]);
   const mask = (s) => masks.reduce((acc, v) => acc.replace(versionRe(v), '\u0000V\u0000'), s);
   const contentPaths = [];
   for (const { path, before, after } of changes) {
-    if (path === LOCKFILE) continue;
+    if (path === LOCKFILE) {
+      if (before == null || after == null || !lockfileMovesOnlyCivitai(before, after, bumps)) contentPaths.push(path);
+      continue;
+    }
     if (before == null || after == null) {
       contentPaths.push(path);
       continue;
@@ -278,6 +321,8 @@ export function prBody({ bumps, classification, decision, runUrl = null, rehears
     '',
     'A PR opened by the default `GITHUB_TOKEN` gets no `pull_request` runs, so the bot dispatches',
     "`main`'s required workflows on this branch (`workflow_dispatch`). They report under the usual names.",
+    '`showcase-e2e` (the render test of the design-system packages) and `checks` are dispatched too; they',
+    'do not gate auto-merge, so read them on a design-system bump.',
     'A human push to this branch starts the ordinary `pull_request` runs as well.',
     '',
     `This is \`${BOT_BRANCH}\`: one PR, extended by later runs and never force-pushed.`,
@@ -624,6 +669,21 @@ async function publish(inDir) {
   console.log(`  diff vs ${BASE}: ${paths.length} file(s); ${classification.versionOnly ? 'version-only' : `CONTENT CHANGE in ${classification.contentPaths.join(', ')}`}`);
   console.log(`  auto-merge: ${decision.enable ? 'enable' : `off (${decision.reasons.join('; ')})`}`);
 
+  // 🔴 AUTO-MERGE OFF BEFORE THE NEW HEAD EXISTS. An earlier run may have
+  // enabled it on a version-only head; if this head is a content change and
+  // anything below failed before auto-merge was re-decided, the old enable
+  // would merge it once its checks went green. So it is cleared first, a
+  // failure to clear it stops the run before the push, and it is enabled again
+  // only as the LAST step, for this exact head.
+  const existing = openPrFor({ head: BOT_BRANCH, base: BASE }, gh);
+  if (existing) {
+    const am = JSON.parse(gh(['pr', 'view', String(existing.number), '--json', 'autoMergeRequest'])).autoMergeRequest;
+    if (am) {
+      gh(['pr', 'merge', String(existing.number), '--disable-auto']);
+      console.log(`  ↳ auto-merge cleared on #${existing.number} before pushing a new head`);
+    }
+  }
+
   git(['push', 'origin', `${HEAD_REF}:refs/heads/${BOT_BRANCH}`]);
   console.log(`  ✓ pushed ${BOT_BRANCH} at ${head.slice(0, 8)}`);
 
@@ -659,8 +719,7 @@ async function publish(inDir) {
       gh(['pr', 'merge', n, '--auto', '--squash', '--match-head-commit', head]);
       console.log(`  ✓ auto-merge (squash) enabled on #${n} for head ${head.slice(0, 8)}`);
     } else {
-      const off = spawnSync('gh', ['pr', 'merge', n, '--disable-auto'], { cwd: repoRoot, encoding: 'utf8' });
-      console.log(`  auto-merge left OFF on #${n}${off.status === 0 ? ' (disabled a previous enable)' : ''}`);
+      console.log(`  auto-merge left OFF on #${n}`);
     }
   } finally {
     rmSync(dir, { recursive: true, force: true });
