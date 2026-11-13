@@ -467,7 +467,7 @@ async function main() {
   }
 
   if (drifted.length) {
-    console.error('\n--- DRIFT: the committed snapshot(s) no longer match civitai@origin/main ---');
+    console.error('\n--- DRIFT: the committed snapshot(s) no longer match their upstream main ---');
     console.error('The generated App Blocks reference is built from these snapshots in CI, so the');
     console.error('published docs are STALE until they are re-copied. Re-snapshot and commit:');
     for (const d of drifted) {

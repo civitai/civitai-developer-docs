@@ -84,6 +84,16 @@ function check(name, cond, detail) {
   check('…naming the constant', !r.ok && r.stderr.includes('expected exactly one `PlatformFeedbackStatusRefsMax = <n>`'), r.stderr);
 }
 
+// 2b. A constant defined twice is ambiguous and fails, in either source.
+{
+  const r = run(realCli.replace(/^(\s*PlatformFeedbackMessageMax\s*=\s*\d+)$/m, '$1\n\tPlatformFeedbackMessageMax = 9999'), realMcp);
+  check('duplicated CLI constant fails', !r.ok && r.stderr.includes('expected exactly one `PlatformFeedbackMessageMax = <n>` in internal/appapi/platform_feedback.go, found 2'), r.stderr);
+}
+{
+  const r = run(realCli, realMcp.replace(/^(\s*statusRefs:\s*\d+,)$/m, '$1\n  statusRefs: 9999,'));
+  check('duplicated MCP LIMITS key fails', !r.ok && r.stderr.includes('expected exactly one `statusRefs: <n>` in LIMITS in src/lib/platform-feedback.ts, found 2'), r.stderr);
+}
+
 // 3. A non-positive value fails.
 {
   const r = run(cliWith(0, 500, 50), mcpWith(0, 500, 50));
