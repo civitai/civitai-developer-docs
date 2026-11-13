@@ -2,9 +2,9 @@
 title: Storing data (document store)
 description: Keep an app's data on Civitai with the document store — declare collections in the manifest, the apps:storage, apps:storage:publish and apps:storage:import scopes, documents, conditional writes, lists, counters and marks, reaching another app's data through storage.imports and ?from=, what viewers can do with their own data, moderation, error codes, limits, local development, createFakeStorage, the REST routes, and moving off the legacy useAppStorage / useSharedStorage stores.
 sources:
-  - npm:@civitai/sdk@0.25.0/dist/doc-store/index.d.ts
-  - npm:@civitai/sdk@0.25.0/dist/doc-store/fake.d.ts
-  - npm:@civitai/sdk@0.25.0#README
+  - npm:@civitai/sdk@0.25.2/dist/doc-store/index.d.ts
+  - npm:@civitai/sdk@0.25.2/dist/doc-store/fake.d.ts
+  - npm:@civitai/sdk@0.25.2#README
   - civitai:public/schemas/app-block/v1.json#storage
   - civitai:public/schemas/app-block/storage-contract.v1.json
   - civitai:src/shared/constants/block-storage.constants.ts
@@ -1094,7 +1094,7 @@ SDK, and `info()` is what the running server enforces.
 | Declaration | Built-in marks (never declared) | `report` |
 | Declaration | Refused by the server (not available yet) | `write: "anyone"`, `write: "owner"`, `kind: "log"` (and `maxEntries`), `ttlSeconds`, `dailyWritesPerAuthor`, `hook`, `registry` |
 | Quota | Per app | 52,428,800 bytes (50 MiB) and 1,000,000 documents |
-| Quota | Per viewer, within one app | 2,097,152 bytes (2 MiB) and 1,000 documents |
+| Quota | Per viewer, within one app | 2,097,152 bytes (2 MiB) and 1,000 documents on a free account; a paid membership raises both, and `info().limits.viewerBytes` / `viewerDocs` report the signed-in viewer's own |
 | Rate | Reads (`info`, `list`, `get`, `getMany`) | 300 a minute per viewer, or per IP address for a signed-out viewer |
 | Rate | Writes to private collections, and every delete | 120 a minute per viewer |
 | Rate | Marks and counters | 30 a minute per viewer |

@@ -58,10 +58,11 @@ export type HostFile = 'IframeHost.tsx' | 'PageBlockHost.tsx' | 'InlineHost.tsx'
  * gate below is intentionally ONE-DIRECTIONAL: every PUBLISHED SDK type must be
  * an INVENTORY key, but INVENTORY may carry extra ahead-of-published keys.
  *
- * As of the installed `@civitai/app-sdk@0.65.1` SIX keys are ahead: `RUN_CONFIRMED_STEP`,
- * `OPEN_IMAGE_PICKER`, `SET_ENTITY_REACTION`, `GET_ENTITY_REACTIONS`, `OPEN_MEDIA_UPLOAD` and
- * `GET_RESOURCE_FILE`. The
- * published union's 50 types are all inventory keys.
+ * As of the installed `@civitai/app-sdk@0.80.0` the published union's 55 types are all
+ * inventory keys, and the inventory carries two keys the union lacks, neither of them
+ * ahead: `VIEWER_ACTIVITY` (sent by `@civitai/sdk`, which this package does not
+ * describe) and `PREPARE_TRAINING_DATASET` (removed from the SDK in 0.77.0; the page
+ * host still answers it with `removed`).
  * The gate reads the INSTALLED
  * dist, so it is only as current as the `@civitai/app-sdk` range in
  * `package.json` — a caret on a 0.x version admits patch releases only, and
@@ -241,6 +242,21 @@ export const INVENTORY = {
     // host props, never the payload.
     IframeHost: 'required',
     PageBlockHost: 'required',
+    InlineHost: INLINE_STUB,
+  },
+  // `@civitai/sdk`'s throttled report (at most one a minute, no payload) that the viewer pressed,
+  // typed, scrolled or focused inside the frame, which the page cannot see. No host handles it: the
+  // App Assistant's preview pane reads it straight off the window (`previewKeepAlive.ts`), and
+  // fire-and-forget means an unhandled one is dropped with no NACK and nothing waiting on it.
+  VIEWER_ACTIVITY: {
+    request: false,
+    reply: '',
+    replyKeys: null,
+    errorKeys: null,
+    IframeHost:
+      'activity report for the App Assistant preview keep-alive, read off the window there; fire-and-forget, nothing to do on a model slot',
+    PageBlockHost:
+      'activity report read off the window by the App Assistant preview keep-alive (previewKeepAlive.ts), not by the host; fire-and-forget, no reply',
     InlineHost: INLINE_STUB,
   },
   REQUEST_SIGN_IN: {
@@ -734,7 +750,7 @@ export const INVENTORY = {
   // UNSANDBOXED top frame + triggers the browser download (a sandboxed block has
   // no `allow-downloads`). Three variants: an origin-allowlisted OWN-output `url`,
   // a cross-user `imageId` routed through the gated per-viewer read, or block-made
-  // `bytes` classified by content (image / JSON / text only). PAGE-ONLY
+  // `bytes` classified by content (image / JSON / text, or a validated .zip). PAGE-ONLY
   // affordance today (the paid-output apps — gen-matrix / custom-generators /
   // model-benchmarking — are all page apps), so N/A for the model host, mirroring
   // the GET_IMAGES_BY_IDS / PUBLISH_GENERATION_OUTPUTS page-only exemption.
@@ -993,9 +1009,8 @@ type SdkBlockToParentType = BlockToParentMessageType;
 // graph (under `src`, not excluded; not a `*.test.ts` corner case).
 //
 // ONE-DIRECTIONAL by design: every PUBLISHED SDK type must be an INVENTORY key;
-// INVENTORY MAY carry extra ahead-of-published keys (`RUN_CONFIRMED_STEP`,
-// `OPEN_IMAGE_PICKER`, `SET_ENTITY_REACTION`, `GET_ENTITY_REACTIONS`, `OPEN_MEDIA_UPLOAD`,
-// `GET_RESOURCE_FILE` as of app-sdk 0.65.1).
+// INVENTORY MAY carry extra keys the published union lacks (`VIEWER_ACTIVITY` and
+// the removed `PREPARE_TRAINING_DATASET` as of app-sdk 0.80.0).
 // We do NOT assert the reverse — that would delete real forward coverage every
 // time the published dist lags.
 //

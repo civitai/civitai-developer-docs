@@ -352,7 +352,7 @@ next to `@civitai/sdk` for the rest.
 (`/api/v1/blocks/*`, block token as Bearer) rather than `postMessage` hooks,
 behind one swappable `ApiClient` the dev harness fakes.
 
-- **Scopes** — `collections:read:self`, `collections:read:private`, `social:tip:self`, `buzz:read:self`, `apps:storage:read`, `apps:storage:write`, `apps:storage:shared:read`, `apps:storage:shared:write`, `apps:storage`
+- **Scopes** — `collections:read:self`, `collections:read:private`, `social:tip:self`, `buzz:read:self`, `apps:storage`, `social:react:self`
 - **SDK surface** — `createHost`, `initialize` (`@civitai/sdk`); `getTransport`, `sendTypedRequest` (`@civitai/blocks-react`); its hooks are its own, in `src/lib/sdk-runtime.ts`
 
 ### Custom Generators
@@ -363,7 +363,7 @@ behind one swappable `ApiClient` the dev harness fakes.
 block, with a spend path that can top the viewer up mid-flow, and img2img via
 `useImageUpload`.
 
-- **Scopes** — `ai:write:budgeted`, `buzz:read:self`, `apps:storage:read`, `apps:storage:write`, `apps:storage:shared:read`, `apps:storage:shared:write`, `posts:write:self`, `apps:store:items:write`
+- **Scopes** — `ai:write:budgeted`, `buzz:read:self`, `apps:storage`, `apps:storage:publish`, `posts:write:self`, `apps:store:items:write`
 - **SDK surface** — `initialize`, `getTransport`, `ApiError` (`@civitai/sdk`); no `@civitai/blocks-react` dependency; its hooks, `useImageUpload` among them, are its own, in `src/platform/hooks.ts`
 
 ### App Requests

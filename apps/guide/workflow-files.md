@@ -2,11 +2,11 @@
 title: Reading a workflow file
 description: Read a published Workflows model's file as parsed JSON graphs from a page app with useResourceFile — where it works, which file is served, who is served what, a worked example, and checking with checkComfyGraph whether a graph can run inline before offering Run.
 sources:
-  - npm:@civitai/blocks-react@0.79.0#useResourceFile
-  - npm:@civitai/app-sdk@0.84.0/blocks#BlockResourceFile
-  - npm:@civitai/app-sdk@0.84.0/blocks#BlockResourceFileErrorCode
-  - npm:@civitai/app-sdk@0.84.0/blocks#checkComfyGraph
-  - npm:@civitai/app-sdk@0.84.0#README
+  - npm:@civitai/blocks-react@0.80.0#useResourceFile
+  - npm:@civitai/app-sdk@0.86.0/blocks#BlockResourceFile
+  - npm:@civitai/app-sdk@0.86.0/blocks#BlockResourceFileErrorCode
+  - npm:@civitai/app-sdk@0.86.0/blocks#checkComfyGraph
+  - npm:@civitai/app-sdk@0.86.0#README
   - civitai:src/server/services/resource-file.service.ts#resolveResourceFileForUser
   - civitai:src/server/routers/generation.router.ts#resolveResourceFile
   - civitai:src/components/AppBlocks/resourceFileParse.ts

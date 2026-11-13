@@ -35,7 +35,8 @@ light/dark switch.
 `site-elements.js` is the generic kit plus the Civitai vocabulary (rating
 badges, tags, reactions, media cards); `elements.js` is the generic kit alone.
 Neither defines `<civitai-sign-in-button>` or `<civitai-workflow-button>` — see
-[Acting as the viewer](#acting-as-the-viewer). Building a Civitai App?
+[Acting as the viewer](#acting-as-the-viewer) — or
+[`<civitai-resource-picker>`](#resource-picker). Building a Civitai App?
 [Using the elements in a block](./guide/elements#register-the-elements) has the
 table of which import defines which elements, and the token limits that apply
 inside a block.
@@ -47,7 +48,7 @@ npm install @civitai/components
 ```
 
 ```ts
-import '@civitai/components/register-site'; // all but the two viewer elements, or:
+import '@civitai/components/register-site'; // all but the two viewer elements and the picker, or:
 import '@civitai/components/civitai-button/define'; // one element at a time
 ```
 
@@ -1511,6 +1512,65 @@ button.template = {
   }],
 };
 ```
+
+## Resource picker
+
+`<civitai-resource-picker>` lets the viewer pick one version of a published
+resource from the Civitai catalog, their own or anyone's. No bundle includes
+it: import `@civitai/components/civitai-resource-picker/define`. It shows
+nothing until `show()` opens it, and `show()` resolves with the pick, or `null`
+when the viewer closes it. Results come from the `source` you hand it; inside a
+block that is `blockTokenSource()` from `@civitai/components/civitai-resource-picker`.
+The [package README](https://github.com/civitai/civitai-app-starters/tree/main/packages/civitai-components#civitai-resource-picker)
+has its attributes and events.
+
+The demo hands it a stand-in source, so it lists two made-up workflows and
+calls no server.
+
+<ElementDemo title="Resource picker" tags="civitai-resource-picker" picker>
+
+<template #html>
+
+```html
+<civitai-stack gap="sm">
+  <civitai-button class="choose">Choose a workflow</civitai-button>
+  <civitai-text size="sm" class="log">Nothing picked yet.</civitai-text>
+  <civitai-resource-picker types="Workflows" noun="workflow"
+    heading="Choose a workflow"></civitai-resource-picker>
+</civitai-stack>
+```
+
+</template>
+
+<template #js>
+
+```js
+const picker = document.querySelector('civitai-resource-picker');
+const log = document.querySelector('.log');
+
+// A stand-in for blockTokenSource(): one page, filtered by the search text.
+const workflows = [
+  { modelId: 1, name: 'Portrait upscale', type: 'Workflows', creatorUsername: 'demo',
+    versions: [{ id: 11, name: 'v2', baseModel: 'SDXL 1.0' }, { id: 10, name: 'v1', baseModel: 'SDXL 1.0' }] },
+  { modelId: 2, name: 'Sketch to render', type: 'Workflows', creatorUsername: 'demo',
+    versions: [{ id: 21, name: 'v1', baseModel: 'Flux.1 D', access: 'early-access' }] },
+];
+picker.source = {
+  async search({ owner, query = '' }) {
+    const q = query.trim().toLowerCase();
+    return { items: workflows.filter((w) => w.name.toLowerCase().includes(q)), nextCursor: null, owner };
+  },
+};
+
+document.querySelector('.choose').addEventListener('click', async () => {
+  const picked = await picker.show();
+  log.textContent = picked ? `Picked ${picked.name} ${picked.versionName}` : 'Closed without a pick.';
+});
+```
+
+</template>
+
+</ElementDemo>
 
 ## Contributing
 

@@ -250,12 +250,60 @@ const PINNED_CONSTANTS = [
     want: '25000000',
     doc: '`platform`: 25,000,000',
   },
+  // The viewer's daily cap became per membership tier (civitai #8452), so it is no
+  // longer one constant: it is the `apps.buzz-daily` entry of the usage-limit
+  // registry, `base` for a free account and `byTier` for the paid tiers (read
+  // through `resolveUserAppCaps`). Each regex starts at that entry's id and may not
+  // cross the next `id: '`, so another entry's `base` or tier row cannot satisfy it.
+  {
+    path: 'src/shared/constants/usage-limits.ts',
+    name: 'apps.buzz-daily base (free)',
+    re: /id: 'apps\.buzz-daily',(?:(?!\bid: ')[\s\S])*?base: ([\d_]+),/,
+    want: '50000',
+    doc: '**50,000 Buzz / UTC day** on a free account',
+  },
+  {
+    path: 'src/shared/constants/usage-limits.ts',
+    name: 'apps.buzz-daily bronze',
+    re: /id: 'apps\.buzz-daily',(?:(?!\bid: ')[\s\S])*?byTier: \{(?:(?!\bid: ')[\s\S])*?bronze: \{ limit: ([\d_]+) \}/,
+    want: '75000',
+    doc: 'Bronze and Founder **75,000**',
+  },
+  {
+    path: 'src/shared/constants/usage-limits.ts',
+    name: 'apps.buzz-daily founder',
+    re: /id: 'apps\.buzz-daily',(?:(?!\bid: ')[\s\S])*?byTier: \{(?:(?!\bid: ')[\s\S])*?founder: \{ limit: ([\d_]+) \}/,
+    want: '75000',
+    doc: 'Bronze and Founder **75,000**',
+  },
+  {
+    // The opt-in multiplier the row's "twice" states (user-app-caps.service.ts).
+    path: 'src/server/services/blocks/user-app-caps.service.ts',
+    name: 'OPT_IN_MULTIPLIER',
+    re: /export const OPT_IN_MULTIPLIER = ([\d_]+);/,
+    want: '2',
+    doc: 'gets **twice** their cap',
+  },
+  {
+    path: 'src/shared/constants/usage-limits.ts',
+    name: 'apps.buzz-daily silver',
+    re: /id: 'apps\.buzz-daily',(?:(?!\bid: ')[\s\S])*?byTier: \{(?:(?!\bid: ')[\s\S])*?silver: \{ limit: ([\d_]+) \}/,
+    want: '100000',
+    doc: 'Silver **100,000**',
+  },
+  {
+    path: 'src/shared/constants/usage-limits.ts',
+    name: 'apps.buzz-daily gold',
+    re: /id: 'apps\.buzz-daily',(?:(?!\bid: ')[\s\S])*?byTier: \{(?:(?!\bid: ')[\s\S])*?gold: \{ limit: ([\d_]+) \}/,
+    want: '200000',
+    doc: 'Gold **200,000**',
+  },
   {
     path: 'src/shared/constants/block-scope.constants.ts',
-    name: 'BLOCK_BUZZ_CAP_PER_DAY',
-    re: /export const BLOCK_BUZZ_CAP_PER_DAY = ([\d_]+);/,
+    name: 'BLOCK_CONSENT_BUDGET_MAX_PER_DAY',
+    re: /export const BLOCK_CONSENT_BUDGET_MAX_PER_DAY = ([\d_]+);/,
     want: '50000',
-    doc: '**50,000 Buzz / UTC day**',
+    doc: 'at most 50,000 / UTC day',
   },
   {
     path: 'src/shared/constants/block-scope.constants.ts',

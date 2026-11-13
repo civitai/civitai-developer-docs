@@ -2,11 +2,11 @@
 title: Using the civitai-* elements in a block
 description: Using the <civitai-*> custom elements in a block — which import defines which elements, the SDK-backed elements, theming from the host, <civitai-chat>, and why <civitai-reaction> and <civitai-tag> record nothing.
 sources:
-  - npm:@civitai/components@0.10.1/custom-elements.json
-  - npm:@civitai/components@0.10.1/dist/elements/civitai-reaction.js
-  - npm:@civitai/components@0.10.1/dist/elements/civitai-tag.js
-  - npm:@civitai/components@0.10.1/dist/elements/register.js
-  - npm:@civitai/components@0.10.1/dist/elements/register-site.js
+  - npm:@civitai/components@0.13.0/custom-elements.json
+  - npm:@civitai/components@0.13.0/dist/elements/civitai-reaction.js
+  - npm:@civitai/components@0.13.0/dist/elements/civitai-tag.js
+  - npm:@civitai/components@0.13.0/dist/elements/register.js
+  - npm:@civitai/components@0.13.0/dist/elements/register-site.js
   - npm:@civitai/theme@0.5.2
   - npm:@civitai/components-chat#README
 ---
@@ -30,7 +30,7 @@ tag is not an error**: the browser renders it as an unknown inline element — n
 styles, no behaviour, nothing in the console. When an element "renders as plain
 text", check this first.
 
-`@civitai/components@0.10.1` declares **47** elements in its
+`@civitai/components@0.13.0` declares **48** elements in its
 `custom-elements.json`. No single import defines all of them:
 
 | Import (bundler) | CDN bundle (no build step) | Defines |
@@ -38,6 +38,7 @@ text", check this first.
 | `import '@civitai/components/register'` | `elements.js` | the generic kit: **40** elements |
 | `import '@civitai/components/register-site'` | `site-elements.js` | the generic kit plus the civitai vocabulary — `<civitai-avatar>`, `<civitai-media-card>`, `<civitai-reaction>`, `<civitai-rating-badge>`, `<civitai-tag>`: **45** |
 | `import '@civitai/components/civitai-sign-in-button/define'`, `…/civitai-workflow-button/define` | none | the two elements that act as the viewer; **no bundle includes them** |
+| `import '@civitai/components/civitai-resource-picker/define'` | none | `<civitai-resource-picker>`; **no bundle includes it** either |
 
 `register-site` already imports `register`, so one of the two is enough. Of the
 CDN files, load `elements.js` **or** `site-elements.js`, not both: each carries
@@ -108,11 +109,13 @@ work like one. It is **presentational only**: it calls no route, sends no bridge
 message, and needs no scope.
 
 - **Properties:** `emoji`, `count`, `reacted` (the pressed state), `label` (the
-  accessible name, e.g. `Like`) and `disabled`. You set all of them. The element
+  accessible name, e.g. `Like`), `reaction` (which reaction it stands for, e.g.
+  `Like`) and `disabled`. You set all of them. The element
   cannot read an entity's counts or whether this viewer has already reacted.
 - **On click** it toggles itself optimistically: it flips `reacted`, moves
   `count` by one (never below 0), then dispatches a `react` `CustomEvent` with
-  `detail: { emoji, reacted, count }`. The event bubbles and is `composed`, so
+  `detail: { emoji, reacted, count }`, plus `reaction` when the element has a
+  non-empty one. The event bubbles and is `composed`, so
   it crosses shadow roots. In React, `@civitai/components-react`'s
   `<CivitaiReaction>` exposes it as `onReact`.
 - **Saving the change is your job.** If your write fails, set `reacted` and
