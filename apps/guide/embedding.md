@@ -355,6 +355,7 @@ And the manifest key that goes with it — in the same change, never before it:
   "name": "My App",
   "contentRating": "g",
   "scopes": [],
+  "page": { "path": "/", "title": "My App" },
   "bootSkeleton": true
 }
 ```
