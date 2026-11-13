@@ -5,6 +5,7 @@ sources:
   - go:github.com/civitai/cli
   - civitai:src/server/schema/app-feedback.schema.ts
   - civitai:src/server/services/blocks/app-feedback.service.ts
+  - civitai:src/components/AppBlocks/appFeedbackDiagnostics.ts
 ---
 
 # Your app's feedback inbox
@@ -29,7 +30,7 @@ form, what is attached.
 | App version | the version that was live | the platform's record |
 | **Platform commit** | the [build-repository](./repositories) commit of that version | the platform's record |
 | **Reported source commit** and dirty flag | what `civitai app submit` reported for that version: the same `sourceCommit` / `sourceDirty` that [`civitai app status`](./review-and-deploy#build-provenance-which-commit-is-live) shows | **unverified**: your CLI's claim, and the commit may exist only on the machine that submitted |
-| **Recent errors** | up to 10 of the app session's recent failed SDK calls, and requests the host dropped, refused or rewrote | **untrusted**: sent by the reporter's browser |
+| **Recent errors** | the app session's most recent failed SDK calls, and requests the host dropped, refused or rewrote | **untrusted**: sent by the reporter's browser |
 | **Environment** | browser family and major version, OS family, viewport size, device pixel ratio, scrollbar type (`classic` or `overlay`), and the app's route | **untrusted**: sent by the reporter's browser |
 | **Fork origin** | for a fork: the app it was forked from, its version, and the commit the fork started at | the platform's record |
 
@@ -40,11 +41,13 @@ no source commit, recent errors or environment.
 ### Recent errors {#recent-errors}
 
 The host already relays every SDK call your app makes, so it remembers the
-**failed** replies it sent your app in the current session: the last 10,
-from the last 30 minutes, with repeats folded into a count. Each entry has:
+**failed** replies it sent your app in the current session, with repeats
+folded into a count. It keeps only the newest few, and only from the last
+stretch of the session: older failures are dropped without notice, so a report
+can be missing one that happened earlier. Each entry has:
 
 - the bridge message type of the request (or of the reply), and the platform's
-  error text, cut at 300 characters;
+  error text, shortened and ending in `…` when it is long;
 - an error code and the platform's workflow id, when the reply had them;
 - for a workflow request, only its `kind` and `step` and the checkpoint's
   `modelVersionId`;
