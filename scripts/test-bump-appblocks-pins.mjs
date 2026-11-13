@@ -24,6 +24,7 @@ import {
   BOT_BRANCH,
   CONTENT_LABEL,
   TRACKED_PACKAGES,
+  assertPackageJsonPinsOnly,
   autoMergeDecision,
   bumpsBetween,
   classifyChanges,
@@ -39,6 +40,7 @@ import {
 } from './bump-appblocks-pins.mjs';
 import { appTokenProblems, jobsMintingAppToken } from './lib/app-token-step.mjs';
 import { assertOnlyOwnedChanges } from './lib/bot-push-guard.mjs';
+import { DEFAULT_BRANCH as REFRESH_BRANCH } from './refresh-cli-snapshot.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -660,7 +662,7 @@ check('publish runs the push guard and the package.json refusal BEFORE its one p
   const src = readFileSync(join(repoRoot, 'scripts', 'bump-appblocks-pins.mjs'), 'utf8');
   const body = src.slice(src.indexOf('async function publish('), src.indexOf('async function main('));
   const guard = body.indexOf('assertOnlyOwnedChanges(');
-  const pkg = body.indexOf('classification.contentPaths.includes(PKG_JSON)');
+  const pkg = body.indexOf('assertPackageJsonPinsOnly(classification)');
   const push = body.indexOf("git(['push'");
   assert(guard > 0 && push > 0 && guard < push, 'publish pushes without (or before) the owned-path guard');
   assert(pkg > 0 && pkg < push, 'publish pushes a package.json that moved beyond the pins');
@@ -668,6 +670,27 @@ check('publish runs the push guard and the package.json refusal BEFORE its one p
   const call = body.slice(guard, body.indexOf('});', guard));
   assert(/bases: \[BASE_REF, git\(\['rev-parse', 'HEAD'\]\)\]/.test(call), `the guard's bases are not main + the checkout:\n${call}`);
   assert(/from: remote \|\| BASE_REF,/.test(call), `a fresh branch is not measured against main:\n${call}`);
+});
+
+check('a package.json that moved beyond the pins is refused; a pin-only one passes', () => {
+  // Behavioural, through the real classifier: a postinstall added next to the
+  // pin is the shape that would run in every pull_request job's npm ci.
+  const before = JSON.stringify({ name: 'x', devDependencies: { '@civitai/app-sdk': '0.86.0' } }, null, 2);
+  const pinOnly = before.replace('0.86.0', '0.87.1');
+  const withScript = JSON.stringify(
+    { name: 'x', scripts: { postinstall: 'node evil.js' }, devDependencies: { '@civitai/app-sdk': '0.87.1' } },
+    null,
+    2,
+  );
+  const bumps = [{ pkg: '@civitai/app-sdk', from: '0.86.0', to: '0.87.1' }];
+  assertPackageJsonPinsOnly(classifyChanges([{ path: 'package.json', before, after: pinOnly }], bumps));
+  let threw = null;
+  try {
+    assertPackageJsonPinsOnly(classifyChanges([{ path: 'package.json', before, after: withScript }], bumps));
+  } catch (err) {
+    threw = err;
+  }
+  assert(threw && /package\.json changed beyond the pinned versions; nothing pushed/.test(threw.message), `not refused: ${threw && threw.message}`);
 });
 
 check('test-samples never hands CIVITAI_TOKEN to a bot branch PR, and still runs its samples', () => {
@@ -688,7 +711,7 @@ check('test-samples never hands CIVITAI_TOKEN to a bot branch PR, and still runs
   assert(!/secrets\./.test(bot), 'the bot job references a secret');
   assert(/node scripts\/test-doc-samples\.mjs --\$\{\{ matrix\.section \}\}/.test(bot), 'the bot job does not run the samples');
   // Both bot branches are covered by the prefix.
-  for (const b of [BOT_BRANCH, 'bot/cli-snapshot-refresh']) assert(b.startsWith('bot/'), `${b} is not under bot/`);
+  for (const b of [BOT_BRANCH, REFRESH_BRANCH]) assert(b.startsWith('bot/'), `${b} is not under bot/`);
 });
 
 check('publish clears auto-merge BEFORE the push and enables it only LAST, failing loudly', () => {
@@ -814,7 +837,7 @@ check('this suite is wired into a pull_request workflow', () => {
 // ---------------------------------------------------------------------------
 for (const t of pending) await t();
 console.log('');
-const MIN_CHECKS = 51;
+const MIN_CHECKS = 52;
 if (executed < MIN_CHECKS) {
   console.error(`bump-appblocks-pins tests: only ${executed} checks ran, expected at least ${MIN_CHECKS}`);
   process.exit(1);

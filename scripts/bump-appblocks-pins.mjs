@@ -110,6 +110,17 @@ export function openPrFor({ head, base }, run) {
   return list[0] ?? null;
 }
 
+/**
+ * package.json may move only the pins: anything else there (a lifecycle
+ * script, a new dependency) would run in every pull_request job's `npm ci`
+ * once the app-token push starts them. Throws; publish calls it before pushing.
+ */
+export function assertPackageJsonPinsOnly(classification) {
+  if (classification.contentPaths.includes(PKG_JSON)) {
+    throw new Error(`${PKG_JSON} changed beyond the pinned versions; nothing pushed. Bump it by hand.`);
+  }
+}
+
 /** Files whose change is the version bump itself, not regenerated output. */
 const LOCKFILE = 'package-lock.json';
 const PKG_JSON = 'package.json';
@@ -704,11 +715,7 @@ async function publish(inDir) {
   const headPkg = showOrNull(HEAD_REF, PKG_JSON);
   const bumps = bumpsBetween(showOrNull(mb, PKG_JSON), headPkg);
   const classification = classifyChanges(changes, bumps);
-  // package.json may move only the pins: anything else there (a lifecycle
-  // script, a new dependency) would run in every pull_request job's `npm ci`.
-  if (classification.contentPaths.includes(PKG_JSON)) {
-    throw new Error(`${PKG_JSON} changed beyond the pinned versions; nothing pushed. Bump it by hand.`);
-  }
+  assertPackageJsonPinsOnly(classification);
   const r = await resolveLatest(TRACKED_PACKAGES);
   const decision = autoMergeDecision({ bumps, headPins: pinsOf(headPkg), latest: r.latest, classification });
   console.log(`  diff vs ${BASE}: ${paths.length} file(s); ${classification.versionOnly ? 'version-only' : `CONTENT CHANGE in ${classification.contentPaths.join(', ')}`}`);
