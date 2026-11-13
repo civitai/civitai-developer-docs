@@ -101,6 +101,10 @@ until approval fails. See
 ## Required fields
 
 `blockId`, `version`, `name`, `contentRating`, and `scopes` are always required.
+Every manifest must also declare at least one **surface**: a `page` object (a
+full-page app) or a non-empty `targets` array (a model-page slot app), or both.
+The table lists each of them as optional because either one is enough. A
+manifest with neither cannot be built, and the platform refuses it at submit.
 `iframe.src` is **server-owned** — do not set it (see below); the platform stamps
 the canonical bundle URL during build/approve.
 
