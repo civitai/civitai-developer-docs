@@ -20,7 +20,7 @@
  *   cli     a `civitai …` / `npx @civitai/cli … ` invocation in a code block or a
  *           command-shaped inline span. The command path must be a node in the
  *           help snapshot and every flag must appear in that node's --help.
- *           Source: appblocks-snapshots/civitai-cli-help.txt (or --cli-help).
+ *           Source: appblocks-snapshots/civitai-cli-help.txt.
  *   hook    an identifier shaped `useXxx` in an inline code span OUTSIDE a
  *           fence. It must be exported by one of HOOK_PACKAGES (pinned devDeps,
  *           every subpath in their `exports` map) or be a React built-in.
@@ -28,8 +28,8 @@
  *   scope   an inline span shaped like an App Blocks scope (`ns:verb[:qual]`
  *           whose namespace is one the schema's scope enum uses). It must be a
  *           member of that enum. Source: the pinned app-sdk's bundled manifest
- *           schema (or --manifest-schema) — the SAME file the /apps/reference
- *           manifest page is generated from.
+ *           schema — the SAME file the /apps/reference manifest page is
+ *           generated from.
  *   field   a top-level key of a ```json fence that is a manifest (has a
  *           top-level "blockId"). It must be a schema `properties` key.
  *
@@ -51,9 +51,9 @@
  *     only on namespaces the App Blocks enum owns, so a typo in a NEW namespace
  *     is invisible.
  *   - Upstream movement: it grades against the PINNED snapshot/devDeps. A CLI
- *     release that drops a flag is only seen after the snapshot refresh lands —
- *     or by running this with `--cli-help` on a capture from the release binary,
- *     which is what the pre-release gate is for.
+ *     release that drops a flag is only seen after the snapshot refresh lands.
+ *     (A release mode that graded a release artifact was removed: no pipeline
+ *     called it. Re-add it together with the release step that invokes it.)
  *
  * BASELINE (why this is not a permanently-red gate)
  *   Findings already on `main` when this landed are listed in
@@ -65,11 +65,7 @@
  *
  * USAGE
  *   npm run check:doc-claims
- *   node scripts/check-doc-claims.mjs [--cli-help <file>] [--manifest-schema <file>]
- *                                     [--node-modules <dir>] [--no-baseline] [--json]
- *   --cli-help / --manifest-schema / --node-modules point the resolver at a
- *   RELEASE artifact (a help capture from the tagged binary, an unpacked npm
- *   tarball) instead of the committed pins.
+ *   node scripts/check-doc-claims.mjs [--no-baseline] [--json]
  */
 
 import { execFileSync } from 'node:child_process';
@@ -268,10 +264,10 @@ export function packageExports(nodeModules, packages = HOOK_PACKAGES) {
   return { names, specifiers, unresolved };
 }
 
-export function loadSources(opts = {}) {
-  const nodeModules = opts.nodeModules ?? join(repoRoot, 'node_modules');
-  const helpPath = opts.cliHelp ?? join(repoRoot, 'appblocks-snapshots', 'civitai-cli-help.txt');
-  const schemaPath = opts.manifestSchema ?? join(nodeModules, '@civitai', 'app-sdk', 'schemas', 'app-block', 'v1.json');
+export function loadSources() {
+  const nodeModules = join(repoRoot, 'node_modules');
+  const helpPath = join(repoRoot, 'appblocks-snapshots', 'civitai-cli-help.txt');
+  const schemaPath = join(nodeModules, '@civitai', 'app-sdk', 'schemas', 'app-block', 'v1.json');
   const help = readFileSync(helpPath, 'utf8');
   const schema = JSON.parse(readFileSync(schemaPath, 'utf8'));
   const scopes = new Set(schema?.properties?.scopes?.items?.enum ?? []);
@@ -386,10 +382,7 @@ function parseArgs(argv) {
   const opts = { baseline: true, json: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '--cli-help') opts.cliHelp = resolve(argv[++i]);
-    else if (a === '--manifest-schema') opts.manifestSchema = resolve(argv[++i]);
-    else if (a === '--node-modules') opts.nodeModules = resolve(argv[++i]);
-    else if (a === '--no-baseline') opts.baseline = false;
+    if (a === '--no-baseline') opts.baseline = false;
     else if (a === '--json') opts.json = true;
     else throw new Error(`unknown argument ${a}`);
   }
@@ -398,7 +391,7 @@ function parseArgs(argv) {
 
 function main() {
   const opts = parseArgs(process.argv.slice(2));
-  const src = loadSources(opts);
+  const src = loadSources();
   const problems = [];
 
   // Positive controls on the SOURCES: an empty source set makes every claim
