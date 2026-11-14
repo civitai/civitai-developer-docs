@@ -294,7 +294,7 @@
  *   npm run check:agent-setup
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -2295,4 +2295,4 @@ function main() {
 // Run only when executed directly: scripts/check-doc-claims.mjs imports this
 // module's extractor (one CLI-invocation parser, not two), and an unconditional
 // main() would run all seven checks — and possibly process.exit — on import.
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) main();
