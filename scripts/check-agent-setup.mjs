@@ -1088,7 +1088,7 @@ export function helpBody(snapshot, path) {
 }
 
 /** Whole-token match, so `--json` never satisfies itself via `--jsonl`. */
-const mentionsFlag = (body, flag) =>
+export const mentionsFlag = (body, flag) =>
   new RegExp(`(?<![\\w-])${flag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`).test(body);
 
 /**
@@ -2292,4 +2292,7 @@ function main() {
   console.log('\n✓ agent-setup surface is coherent.');
 }
 
-main();
+// Run only when executed directly: scripts/check-doc-claims.mjs imports this
+// module's extractor (one CLI-invocation parser, not two), and an unconditional
+// main() would run all seven checks — and possibly process.exit — on import.
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

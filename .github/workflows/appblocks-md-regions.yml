@@ -148,3 +148,11 @@ jobs:
       # element added upstream ships with no demo and nothing says so.
       - name: Showcase demos every element (and every CSS-only fallback)
         run: npm run check:showcase-coverage
+      - name: Doc-claims checker resolves seeded good/bad claims (unit + e2e on pinned sources)
+        run: npm run test:doc-claims
+      # Hand-written pages: every `civitai …` command + flag, `useXxx` hook span,
+      # App Blocks scope span and manifest-fence key must resolve against the
+      # PINNED help snapshot / devDeps / bundled schema. Pre-existing findings
+      # live in scripts/doc-claims-baseline.json, which can only shrink.
+      - name: Hand-written pages name only CLI flags, hooks, scopes and manifest fields that exist
+        run: npm run check:doc-claims
