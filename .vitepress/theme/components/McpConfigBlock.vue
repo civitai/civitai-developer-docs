@@ -10,7 +10,7 @@ const props = withDefaults(
   }>(),
   {
     serverName: 'civitai-orchestration',
-    url: 'https://orchestration.civitai.com/mcp',
+    url: 'https://orchestration.civitai.com/mcp/v2',
   }
 );
 
