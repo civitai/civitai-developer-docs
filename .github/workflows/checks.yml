@@ -137,6 +137,19 @@ jobs:
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run test:bump-appblocks-pins
 
+      # doc-claims: hand-written pages' `civitai` commands + flags, `useXxx` hook
+      # spans, App Blocks scope spans and manifest-fence keys must resolve
+      # against the PINNED help snapshot / devDeps / bundled schema. SOAKING in
+      # this non-required job (~2 weeks); promotion to a required job is an
+      # operator decision once it has produced no false positive. Pre-existing
+      # findings live in scripts/doc-claims-baseline.json, which only shrinks.
+      - name: 'doc-claims-test: seeded good/bad claims per kind (unit + e2e on pinned sources)'
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run test:doc-claims
+      - name: 'doc-claims: hand-written pages name only CLI flags, hooks, scopes and manifest fields that exist'
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run check:doc-claims
+
       # nginx-negotiation: serve the BUILT site with the real nginx.conf under
       # `nginx:alpine` (what the Dockerfile ships) and assert the agent-facing
       # HTTP contract. Not folded into the required build-site job, which stays
