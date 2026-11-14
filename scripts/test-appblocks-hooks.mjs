@@ -28,6 +28,7 @@ import {
   correctionsFor,
   README_CORRECTIONS,
   retiredCorrections,
+  staleAnnotations,
   SUPERSEDED_HOOKS,
 } from './lib/hook-annotations.mjs';
 import {
@@ -612,6 +613,30 @@ check('a correction retires once the README no longer carries the sentence', () 
   assert(correctionsFor(h, CORR).length === 0, 'still applied to a fixed README');
   const retired = retiredCorrections([h], CORR);
   assert(retired.length === 1 && retired[0].hook === 'useX', `retired: ${JSON.stringify(retired)}`);
+});
+
+// staleAnnotations is what the generator throws on. Each arm is driven on its own,
+// and the clean fixture is the control that the function can return nothing.
+check('staleAnnotations: a retired correction is a problem naming the hook and the fix', () => {
+  const fixed = hookWith([{ kind: 'text', text: 'The budget is live.' }]);
+  const got = staleAnnotations([{ ...fixed, example: 'x' }], CORR, {});
+  assert(got.length === 1 && got[0].startsWith("README_CORRECTIONS { hook: 'useX'") && got[0].endsWith('delete the entry'), JSON.stringify(got));
+});
+
+check('staleAnnotations: a hook with no example must be listed, and a listed one must still lack one', () => {
+  const bare = { name: 'useBare', description: 'd', notes: [] };
+  const got = staleAnnotations([bare], [], {});
+  assert(got.length === 1 && got[0].startsWith('useBare has no example'), `unlisted: ${JSON.stringify(got)}`);
+  assert(staleAnnotations([bare], [], { useBare: 'why' }).length === 0, 'a listed example-less hook was flagged');
+  const grew = staleAnnotations([{ ...bare, example: 'useBare()' }], [], { useBare: 'why' });
+  assert(grew.length === 1 && grew[0].includes('now has an example'), `gained an example: ${JSON.stringify(grew)}`);
+  const gone = staleAnnotations([], [], { useBare: 'why' });
+  assert(gone.length === 1 && gone[0].includes('does not export'), `removed hook: ${JSON.stringify(gone)}`);
+});
+
+check('staleAnnotations: current annotations report nothing (control)', () => {
+  const live = hookWith([{ kind: 'text', text: '> The budget goes live with the next civitai.com\n> release.' }]);
+  assert(staleAnnotations([{ ...live, example: 'x' }], CORR, {}).length === 0, 'flagged a correction that still applies');
 });
 
 check('a correction never applies to a different hook carrying the same sentence', () => {
