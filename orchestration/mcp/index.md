@@ -28,6 +28,10 @@ The snippets on this page are pre-filled with the token you set in the navbar, o
 
 ## Connecting
 
+### `civitai agent-setup`
+
+The supported setup is [`civitai agent-setup`](/apps/reference/cli/account-and-setup#cli-agent-setup): it registers both Civitai MCP servers in your coding agent's config (Claude Code, Cursor, VS Code, Codex and others), this one at `/mcp/v2`. It writes no token into the file; the header refers to `CIVITAI_TOKEN`, so export it.
+
 ### Claude Desktop
 
 Claude Desktop connects to a remote server as a **custom connector**, the same way as [claude.ai](#claude-ai) below. Its `claude_desktop_config.json` is for local (command-based) servers, not a remote URL.
