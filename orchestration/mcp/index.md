@@ -40,11 +40,13 @@ For Claude Code, run:
 
 <McpConfigBlock kind="cli" url="https://orchestration.civitai.com/mcp/v2" />
 
-For Cursor, add this to `.cursor/mcp.json`:
+These snippets hold your API key as plain text. Never put them in a project file such as `.cursor/mcp.json` or `.vscode/mcp.json` in a repo, and never commit a token.
+
+For Cursor, add this to your user-level `~/.cursor/mcp.json`:
 
 <McpConfigBlock kind="json" url="https://orchestration.civitai.com/mcp/v2" />
 
-For VS Code, add this to `.vscode/mcp.json` (VS Code uses `servers` and `"type": "http"`):
+For VS Code, add this to your user `mcp.json`, which the **MCP: Open User Configuration** command opens (VS Code uses `servers` and `"type": "http"`):
 
 <McpConfigBlock kind="vscode" url="https://orchestration.civitai.com/mcp/v2" />
 

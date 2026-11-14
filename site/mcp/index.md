@@ -46,13 +46,15 @@ claude mcp add --transport http civitai https://mcp.civitai.com/mcp \
 
 ### Cursor
 
-Add the server to `.cursor/mcp.json`, then restart:
+These snippets hold your API key as plain text. Never put them in a project file such as `.cursor/mcp.json` or `.vscode/mcp.json` in a repo, and never commit a token.
+
+Add the server to your user-level `~/.cursor/mcp.json`, then restart:
 
 <McpConfigBlock kind="json" url="https://mcp.civitai.com/mcp" serverName="civitai" />
 
 ### VS Code
 
-Add the server to `.vscode/mcp.json` (VS Code uses `servers` and `"type": "http"`):
+Add the server to your user `mcp.json`, which the **MCP: Open User Configuration** command opens (VS Code uses `servers` and `"type": "http"`):
 
 <McpConfigBlock kind="vscode" url="https://mcp.civitai.com/mcp" serverName="civitai" />
 

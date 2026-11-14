@@ -296,6 +296,8 @@ holding an OAuth token, where the substitution type-checks and works. See
 [Transport models](./concepts#transport-models).
 :::
 
+This sample needs `@civitai/sdk` 0.20.0 or later, the first release with `estimatedCost`.
+
 ```ts
 import { estimatedCost } from '@civitai/sdk';
 import type { BlockAppClient, BlockWorkflowSnapshot, WorkflowBody } from '@civitai/sdk';
