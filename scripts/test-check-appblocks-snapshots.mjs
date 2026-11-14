@@ -6,8 +6,9 @@
 //
 // WHY. That guard used to fail on any BYTE difference between a committed
 // snapshot and its upstream file, and the files are mostly comments: it was red
-// on 29 of its last 30 daily runs to 2026-11-14 while the reference it guards
-// would have rendered identically after a re-snapshot. It now grades what the
+// on 29 of its last 30 daily runs to 2026-11-14, mostly on churn after which the
+// reference it guards would have rendered identically (not all: the 2026-11-12
+// run also caught real drift in BLOCK_BUZZ_CAP_PER_DAY). It now grades what the
 // consuming generator RENDERS. This file pins both halves of that contract,
 // because each is a way to get it wrong:
 //   - churn that does not change the rendered output must be GREEN (the old

@@ -140,8 +140,8 @@ jobs:
       # The contract of appblocks-drift.yml's snapshot guard, which only runs on
       # that schedule. Offline: a loopback server stands in for
       # raw.githubusercontent.com. Pins both halves — comment churn upstream is
-      # GREEN (the guard used to byte-diff and was red on 29 of 30 runs for it),
-      # and a change to what a generator renders is RED.
+      # GREEN (the guard used to byte-diff, and most of its daily reds were that
+      # churn), and a change to what a generator renders is RED.
       - name: 'snapshot-guard-test: upstream churn that renders the same is green, a rendered change is red'
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run test:check-snapshots

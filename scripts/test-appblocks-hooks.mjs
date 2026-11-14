@@ -639,6 +639,21 @@ check('staleAnnotations: current annotations report nothing (control)', () => {
   assert(staleAnnotations([{ ...live, example: 'x' }], CORR, {}).length === 0, 'flagged a correction that still applies');
 });
 
+// README_CORRECTIONS ships EMPTY between stale READMEs (every entry retires once
+// upstream fixes its sentence). The mechanism stays for the next wrong README, so the
+// empty list must be a quiet no-op everywhere it is read, not an error or a blank note.
+// Invariant guard: no shipped bug violated this; it pins the empty state staying valid.
+check('an empty README_CORRECTIONS applies nothing, retires nothing and flags nothing', () => {
+  assert(Array.isArray(README_CORRECTIONS), `README_CORRECTIONS must stay an array, got ${typeof README_CORRECTIONS}`);
+  const h = { ...hookWith([{ kind: 'text', text: '> The budget goes live with the next civitai.com\n> release.' }]), example: 'x' };
+  assert(correctionsFor(h, []).length === 0, 'an empty list produced a correction');
+  assert(retiredCorrections([h], []).length === 0, 'an empty list reported a retired entry');
+  assert(staleAnnotations([h], [], {}).length === 0, 'an empty list made the generator fail');
+  assertAnnotatedHooksExist(['useX'], {}, []);
+  // The shipped list (whatever it holds) applies only to hooks it names.
+  assert(correctionsFor({ name: 'useNotAHookAnyCorrectionNames', description: '' }).length === 0, 'shipped list leaked onto an unnamed hook');
+});
+
 check('a correction never applies to a different hook carrying the same sentence', () => {
   const other = { name: 'useY', description: 'goes live with the next civitai.com release' };
   assert(correctionsFor(other, CORR).length === 0, 'applied across hooks');

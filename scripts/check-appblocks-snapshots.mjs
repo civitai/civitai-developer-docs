@@ -24,11 +24,13 @@
  * The snapshotted files are mostly comments and unrelated constants
  * (block-scope.constants.ts is ~1,000 lines; the generator reads its scope
  * bits), so a comment rewrite upstream turned the daily sweep red while the
- * docs it guards were byte-for-byte what re-snapshotting would produce. It was
- * red on 29 of 30 runs to 2026-11-14 and every one of those reds read the same
- * as a real one. Now a byte difference is only the TRIGGER: the guard runs the
- * generator that consumes the snapshot twice — once over the committed
- * snapshots, once with every byte-drifted file replaced by its upstream copy —
+ * docs it guards were byte-for-byte what re-snapshotting would produce. The
+ * workflow was red on 29 of its last 30 runs to 2026-11-14, mostly on that
+ * comment-only churn, and a churn red read the same as a real one (the
+ * 2026-11-12 run also caught real drift: BLOCK_BUZZ_CAP_PER_DAY, behind the
+ * text-to-image limits table). Now a byte difference is only the TRIGGER: the
+ * guard runs the generator that consumes the snapshot twice — once over the
+ * committed snapshots, once with every byte-drifted file replaced by its upstream copy —
  * and fails only when the two outputs differ (the JSON artifact minus its
  * `generatedAt` / `sources` bookkeeping, or the generated page for MARKUP.md).
  * That is the same idea PINNED_CONSTANTS below already applied to the limits

@@ -121,8 +121,10 @@ jobs:
       - name: Snapshot drift — appblocks-snapshots/ vs civitai@origin/main
         # Grades what the generators RENDER from each snapshot, not its bytes:
         # an upstream comment rewrite is reported (≈) but green. It byte-diffed
-        # until 2026-11-14 and was red on 29 of its last 30 runs for exactly
-        # that. Needs the `npm ci` above (it runs the generators).
+        # until 2026-11-14; this workflow was red on 29 of its last 30 runs,
+        # mostly on comment-only upstream churn (not all: the 2026-11-12 run also
+        # caught real drift, BLOCK_BUZZ_CAP_PER_DAY behind the text-to-image
+        # limits table). Needs the `npm ci` above (it runs the generators).
         run: npm run check:snapshots
 
       - name: CLI snapshot freshness — civitai-cli-help.txt vs the latest civitai/cli release
