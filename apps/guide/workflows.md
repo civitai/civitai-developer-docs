@@ -53,18 +53,12 @@ have:
 npm ls @civitai/sdk @civitai/app-sdk @civitai/blocks-react
 ```
 
-On `page-elements`, if `@civitai/sdk` is below `0.12.0` there is no
-`app.workflows`; raise it:
+Minimum: `@civitai/sdk` `0.12.0` on `page-elements`; `@civitai/app-sdk`
+`0.68.0` and `@civitai/blocks-react` `0.72.2` on `page-money`. Raise them:
 
 ```bash
-npm install @civitai/sdk@^0.12.0
-```
-
-On `page-money`, if `@civitai/app-sdk` is below `0.68.0`, or
-`@civitai/blocks-react` below `0.72.2`, raise them together:
-
-```bash
-npm install @civitai/app-sdk@^0.68.0 @civitai/blocks-react@^0.72.2
+npm install @civitai/sdk@latest                                  # page-elements
+npm install @civitai/app-sdk@latest @civitai/blocks-react@latest # page-money, together
 ```
 
 Commit `package.json` and the lockfile, then run the project's typecheck and
@@ -158,16 +152,9 @@ the rest of this page:
   rejects is an `ApiError` carrying the HTTP status (a `400` is a body or key
   the host cannot parse), a `CivitaiError` for a `2xx` reply with no snapshot,
   or whatever `fetch` threw.
-- **`submit` requires an `idempotencyKey`** and refuses to send without one.
-  Mint it once when the viewer presses the button (`crypto.randomUUID()` fits),
-  keep it until that press has a known outcome, and send the same key on every
-  retry.
-- **A `submit` that rejects has an unknown outcome**, not a failed one: the run
-  may exist. Retry with the same key, or look for the run with
-  `app.workflows.list()`; never mint a new key for the same press. The package
-  README has the rules, the two body kinds the key does not identify, and a
-  worked `catch`, under
-  [When a submit rejects](https://github.com/civitai/civitai-app-starters/blob/main/packages/civitai-sdk/README.md#when-a-submit-rejects-the-outcome-is-unknown).
+- **`submit` requires an `idempotencyKey`**, and a `submit` that rejects has an
+  unknown outcome: see [The idempotency key](./sdk#the-idempotency-key) and
+  [When `submit` rejects](./sdk#submit-rejects).
 - **The names differ.** The hook's `poll(id)` is `app.workflows.get(id)`.
   `app.workflows.watch(id)` is an async iterator that yields the workflow now
   and each time it changes, and `wait(id)` resolves with its last value, the

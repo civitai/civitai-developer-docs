@@ -15,8 +15,9 @@ automatic SHA256 verification.
 The **read/search** commands (`models`, `model-versions`, `images`, `articles`,
 `collections`, `tags`, `creators`, `users`) hit **public** endpoints and work
 with no login; pass `--anon` to force a token-free request. The **`download`**
-command is different: Civitai requires a token for **any** model-file download —
-even a small public file — so `civitai download` needs [`civitai login`](#authentication).
+command is different: most model files need a token — a gated file `401`s
+without one, though some public files download anonymously — so run
+[`civitai login`](#authentication) if a download `401`s.
 
 The same binary also **generates**, and that tier spends real Buzz
 irreversibly. This page does not cover it — start at
@@ -85,8 +86,8 @@ Prebuilt binaries for linux/macOS/windows × amd64/arm64 are on the
 [GitHub Releases](https://github.com/civitai/cli/releases) page. Verify with
 `civitai version`.
 
-Logging in is **optional** for the read commands below and **required** for
-[`download`](#download) (see [Authentication](#authentication)). Logging in is
+Logging in is **optional** for the read commands below and needed for most
+[`download`](#download)s (see [Authentication](#authentication)). Logging in is
 also required for the App Blocks authoring commands (`civitai app …`, documented
 in the [Apps CLI reference](/apps/reference/cli)).
 
@@ -114,11 +115,7 @@ civitai models search --base-model Pony --base-model "Illustrious"
 civitai models get 827184
 ```
 
-`models search` flags: `--query`, `--tag`, `--username`, `--type`
-(e.g. `Checkpoint`, `LORA`, `TextualInversion`), `--base-model` (**repeatable**),
-`--sort` (e.g. `"Highest Rated"`, `"Most Downloaded"`, `Newest`), `--period`
-(`AllTime`, `Year`, `Month`, `Week`, `Day`), `--nsfw`, `--limit` (1–100),
-`--page`, `--cursor`. See [Models](../reference/models).
+Flags: [`models search`](/apps/reference/cli/catalog#cli-models-search). See [Models](../reference/models).
 
 ::: tip Filtering by architecture / video models
 `--base-model` filters by base-model family and is the way to disambiguate
@@ -145,10 +142,7 @@ civitai images search --model-version-id 128713 --sort Newest
 civitai images search --username some-user --cursor <cursor>
 ```
 
-`images search` flags: `--limit` (1–200), `--page`, `--cursor`, `--post-id`,
-`--model-id`, `--model-version-id`, `--username`, `--period`, `--sort`
-(`"Most Reactions"`, `"Most Comments"`, `Newest`), `--nsfw`.
-See [Images](../reference/images).
+Flags: [`images search`](/apps/reference/cli/catalog#cli-images-search). See [Images](../reference/images).
 
 ### Tags
 
@@ -156,8 +150,7 @@ See [Images](../reference/images).
 civitai tags search --query anime --limit 10
 ```
 
-`tags search` flags: `--query`, `--limit`, `--page`.
-See [Tags](../reference/tags).
+Flags: [`tags search`](/apps/reference/cli/catalog#cli-tags-search). See [Tags](../reference/tags).
 
 ### Creators
 
@@ -165,8 +158,7 @@ See [Tags](../reference/tags).
 civitai creators search --query artist --limit 10
 ```
 
-`creators search` flags: `--query`, `--limit`, `--page`.
-See [Creators](../reference/creators).
+Flags: [`creators search`](/apps/reference/cli/catalog#cli-creators-search). See [Creators](../reference/creators).
 
 ### Users
 
@@ -187,10 +179,7 @@ civitai articles get 15342
 civitai articles get 15342 --content
 ```
 
-`articles search` flags: `--query` (matches the title), `--tags` (comma-separated
-tag **IDs**, e.g. `5,12`), `--username`, `--sort` (`Newest`,
-`"Recently Updated"`, `"Most Reactions"`, `"Most Comments"`, `"Most Bookmarks"`,
-`"Most Collected"`), `--nsfw`, `--limit` (1–100), `--cursor`.
+Flags: [`articles search`](/apps/reference/cli/catalog#cli-articles-search).
 
 `articles get <id>` prints the article's metadata by default. Pass `--content`
 to also render the article **body** — the actual guide — as readable
@@ -206,9 +195,7 @@ civitai collections search --sort Newest --cursor <cursor>
 civitai collections get 1201
 ```
 
-`collections search` flags: `--query` (matches the name), `--sort`
-(`Newest`, `"Most Followers"`), `--nsfw`, `--limit` (1–100), `--cursor`
-(`Newest` sort only). See [Collections](../reference/collections).
+Flags: [`collections search`](/apps/reference/cli/catalog#cli-collections-search). See [Collections](../reference/collections).
 
 ## Download
 
@@ -225,12 +212,10 @@ civitai download --model 4384 --out ./dreamshaper.safetensors
 civitai download 691639 --dry-run
 ```
 
-::: warning Downloads require authentication
-Civitai requires a token to download **any** model file — even a small public
-one (a 336 KB public embedding returns `401` just like a gated checkpoint). Run
-[`civitai login`](#authentication) first; your stored token or `CIVITAI_TOKEN`
-is sent automatically. `--anon` is meaningful for the read commands but **not**
-for downloads (they still `401` without a token).
+::: warning Most downloads require authentication
+Most model files need a token: a gated file `401`s without one, but some public
+files download with no token at all. Run [`civitai login`](#authentication) if
+a download `401`s; your stored token or `CIVITAI_TOKEN` is sent automatically.
 :::
 
 By default the version's **primary** file is written into the current directory
@@ -311,7 +296,7 @@ prints the same thing locally.
 
 ## Authentication
 
-The read commands don't need it. **`download` and the App Blocks authoring
+The read commands don't need it. **Most downloads and the App Blocks authoring
 commands do.** Authenticate once:
 
 ```bash
@@ -322,7 +307,9 @@ civitai whoami                   # show the current identity and capabilities
 
 `civitai login` runs a browser-based device login and stores short-lived OAuth
 tokens that refresh automatically; the credential is saved owner-readable to
-`~/.config/civitai/config.yaml`. The `CIVITAI_TOKEN` environment variable
+`civitai/config.yaml` under your OS's user config directory
+(`$XDG_CONFIG_HOME` or `~/.config` on Linux, `~/Library/Application Support`
+on macOS, `%AppData%` on Windows). The `CIVITAI_TOKEN` environment variable
 overrides the stored credential. Running `civitai login` again switches the
 active account (no separate logout).
 

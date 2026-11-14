@@ -5,7 +5,7 @@ description: Connect an MCP client to the remote Civitai platform MCP server to 
 
 # Civitai MCP Server
 
-Civitai is exposed as a remote [Model Context Protocol](https://modelcontextprotocol.io) server, so any MCP-aware client — Claude Desktop, claude.ai, Claude Code, Cursor, VS Code — can browse and act on the platform directly. It wraps the same operations as the [Site API](/site/guide/): searching models, images, and creators; creating posts and articles; commenting and reacting; messaging; and (for moderators) managing announcements and the changelog.
+Civitai is exposed as a remote [Model Context Protocol](https://modelcontextprotocol.io) server, so an MCP client that can send a bearer header — Claude Code, Cursor, VS Code — can browse and act on the platform directly. It wraps the same operations as the [Site API](/site/guide/): searching models, images, and creators; creating posts and articles; commenting and reacting; messaging; and (for moderators) managing announcements and the changelog.
 
 This is the **platform** MCP — content and social actions on civitai.com. For generating images, video, audio, and music, use the separate [Orchestration MCP](/orchestration/mcp/).
 
@@ -19,7 +19,7 @@ The server advertises live tool schemas via `tools/list` on connect, so your cli
 https://mcp.civitai.com/mcp
 ```
 
-Transport is **Streamable HTTP** (JSON-RPC over HTTP POST) — the modern MCP HTTP transport used by remote servers in Claude Desktop and claude.ai. There is no binary to install; clients connect directly over HTTPS.
+Transport is **Streamable HTTP** (JSON-RPC over HTTP POST), the MCP transport for remote servers. There is no binary to install; clients connect directly over HTTPS.
 
 ## Authentication
 
@@ -33,6 +33,10 @@ If you've set your Civitai token in the navbar (top-right), the snippets on this
 
 ## Connecting
 
+### `civitai agent-setup`
+
+The supported setup is [`civitai agent-setup`](/apps/reference/cli/account-and-setup#cli-agent-setup): it registers both Civitai MCP servers in your coding agent's config (Claude Code, Cursor, VS Code, Codex and others). It writes no token into the file; the header refers to `CIVITAI_TOKEN`, so export it.
+
 ### Claude Code
 
 ```bash
@@ -40,24 +44,21 @@ claude mcp add --transport http civitai https://mcp.civitai.com/mcp \
   --header "Authorization: Bearer YOUR_CIVITAI_API_KEY"
 ```
 
-### Claude Desktop
+### Cursor
 
-Claude Desktop connects to a remote server as a **custom connector**, the same way as [claude.ai](#claude-ai) below. Its `claude_desktop_config.json` is for local (command-based) servers, not a remote URL.
-
-### Cursor / VS Code
-
-Add the server to your client's `mcp.json`, then restart:
+Add the server to `.cursor/mcp.json`, then restart:
 
 <McpConfigBlock kind="json" url="https://mcp.civitai.com/mcp" serverName="civitai" />
 
-### claude.ai
+### VS Code
 
-Add a custom remote MCP server under **Settings → Connectors → Add custom connector**:
+Add the server to `.vscode/mcp.json` (VS Code uses `servers` and `"type": "http"`):
 
-- **URL:** `https://mcp.civitai.com/mcp`
-- **Authentication:** Custom header `Authorization` with the Bearer value below
+<McpConfigBlock kind="vscode" url="https://mcp.civitai.com/mcp" serverName="civitai" />
 
-<McpConfigBlock kind="header" url="https://mcp.civitai.com/mcp" serverName="civitai" />
+### Claude Desktop and claude.ai
+
+Their custom-connector UI is **OAuth-only**: it has no field for an API key or a custom header. This server runs in token-only mode, so a custom connector cannot connect yet. Use Claude Code, Cursor, VS Code, or another client that sends a bearer header.
 
 ### Standalone CLI
 

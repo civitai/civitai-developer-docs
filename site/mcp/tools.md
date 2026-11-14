@@ -23,10 +23,10 @@ The server exposes **tools only** — no MCP prompts or resources.
 
 | Tool | Purpose |
 |---|---|
-| `search_models` | Search models (checkpoints, LoRAs, embeddings) by `query`, `type`, `baseModel`, `tag`, `creator`, generation capability. Returns [AIR](/site/guide/air) URNs and a `nextCursor`. |
+| `search_models` | Search models (checkpoints, LoRAs, embeddings) by `query`, `type`, `baseModel`, `tag`, `username`, `supportsGeneration`. Returns [AIR](/site/guide/air) URNs and a `nextCursor`. |
 | `get_model` | Batch-fetch full model details by ID (up to 20, concurrency 3): versions, files, trigger words, AIR URNs. |
 | `get_model_version` | Batch-fetch version details (concurrency 3): files, hashes, trigger words, AIR URN. |
-| `search_images` | Search images with full generation metadata (prompt, negative, sampler, steps, CFG, seed, resources). Filter by `query`, `model`, `version`, `baseModel`, `creator`, `type`. |
+| `search_images` | Search images with full generation metadata (prompt, negative, sampler, steps, CFG, seed, resources). Filter by `query`, `modelId`, `modelVersionId`, `baseModel`, `username`, `type`. |
 | `get_image` | Batch-fetch image details with generation metadata. |
 | `search_creators` | Search users / creators by name. |
 | `list_enums` | Valid filter enum values: model types, sorts, base models, timeframes. |
