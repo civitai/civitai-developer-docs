@@ -114,7 +114,7 @@ await check(
   'comment churn in two generator inputs → green, reported as byte-drifted with identical output',
   {
     'block-scope.constants.ts': committed('block-scope.constants.ts') + '\n// upstream comment churn\n',
-    'hostHandlerParity.ts': committed('hostHandlerParity.ts').replace('\n', '\n// a rewritten comment\n'),
+    'hostHandlerParity.ts': '// a rewritten comment\n' + committed('hostHandlerParity.ts'),
   },
   (rc, out) => {
     assert(rc === 0, `rc ${rc} — comment-only churn must not fail the guard`);
