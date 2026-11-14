@@ -27,7 +27,7 @@ sections that `civitai agent-setup` prints) for you to run yourself.
   (`CLAUDE.md` is added as a one-line shim only when you don't already have one).
 - Registers two remote Civitai MCP servers in *your* agent's own config file —
   `https://mcp.civitai.com/mcp` (the platform) and
-  `https://orchestration.civitai.com/mcp` (generation orchestration). The config
+  `https://orchestration.civitai.com/mcp/v2` (generation orchestration). The config
   path and key name differ per agent. This is the only change outside your
   project: your agent will connect to both servers on every start.
 - Verifies the result and prints it.
@@ -139,7 +139,7 @@ modified.
 The two MCP servers are remote:
 
 - `https://mcp.civitai.com/mcp` — the Civitai platform MCP server
-- `https://orchestration.civitai.com/mcp` — the generation orchestration MCP
+- `https://orchestration.civitai.com/mcp/v2` — the generation orchestration MCP
   server
 
 **The command prints the full path of every file it writes, that list is the

@@ -1555,7 +1555,7 @@ for (const u of PROMPT_DOC_TWIN_URLS) {
 const ALLOWED_PAGE_URLS = new Map([
   ['https://github.com/civitai/cli', 'the CLI source, linked from the intro'],
   ['https://mcp.civitai.com/mcp', 'the platform MCP server the setup registers'],
-  ['https://orchestration.civitai.com/mcp', 'the orchestration MCP server the setup registers'],
+  ['https://orchestration.civitai.com/mcp/v2', 'the orchestration MCP server the setup registers'],
   // 🔴 DERIVED, NOT TYPED. Spelling the alias out here would let the constant and
   // this allowlist drift apart — and the drift would present as a stray-URL
   // failure naming a URL the page is supposed to carry, which sends the reader to
