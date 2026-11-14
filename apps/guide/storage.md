@@ -1379,6 +1379,12 @@ declares no such collection still resolves keys from the legacy shared store,
 which shuts down on 2026-11-10, so move listable items into a shared collection
 before then.
 
+## Troubleshooting {#troubleshooting}
+
+- **`civitai app validate` or `submit` refuses `ownedModelVersions`, `schema`, `storage.imports`, `exportable`, `apps:storage:import` or `migrations` as an unknown property:** the CLI is older than the key (v0.1.128 for `ownedModelVersions`, v0.1.135 for `schema` and imports, v0.1.136 for `migrations`). Upgrade the CLI.
+- **Every store call in a `civitai app dev-tunnel` preview is refused `insufficient_scope`:** `@civitai/sdk` is older than 0.18.0. Upgrade it.
+- **A write passes in [`createFakeStorage`](#testing) but civitai.com refuses it `schema_violation` or `resource_not_owned`:** `@civitai/sdk` is older than 0.23.0 (schemas) or 0.16.0 (`ownedModelVersions`), and its fake does not check that rule. Upgrade it.
+
 ## Related
 
 - [The `@civitai/sdk` client](./sdk) — `initialize()`, consent and the rest of `app`.

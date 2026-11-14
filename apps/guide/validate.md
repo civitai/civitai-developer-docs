@@ -344,6 +344,10 @@ case $rc in
 esac
 ```
 
+## Troubleshooting
+
+- **`validate` reports `schema`, `storage.imports`, `exportable`, `apps:storage:import`, `registry` or `hook` as an unknown property (an error, so `submit` refuses the manifest too):** the CLI is older than the key (v0.1.135; v0.1.137 for `registry` and `hook`). Upgrade the CLI.
+
 ## Where to go next
 
 - [What goes in the bundle](./packaging) — what `app submit` packages, and what

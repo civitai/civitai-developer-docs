@@ -414,6 +414,10 @@ Document these as gaps; do not design around them yet.
 Because of the first two, a block that uploads images or publishes generation
 outputs **cannot reach zero bridge messages** — by design.
 
+## Troubleshooting
+
+- **`initialize()` throws on the default block token:** `@civitai/sdk` 0.4.0 refused that token; 0.5.0 and later accept it, and this page needs 0.14.0. Upgrade it.
+
 ## Next
 
 - [Concepts → Transport models](./concepts#transport-models) — the mental model.

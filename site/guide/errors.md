@@ -43,7 +43,7 @@ binary prints.
 | **400** | Bad Request | Invalid query parameters. For list endpoints, response body includes Zod-style validation issues. Combining `?query=` with `?page=` also returns 400. |
 | **401** | Unauthorized | Missing or invalid token on an `Authenticated` endpoint, or an auth-only filter (e.g. `?favorites=true`) on a `Mixed` endpoint without a session. |
 | **403** | Forbidden | Valid token, but the user is not permitted to access the resource. |
-| **404** | Not Found | Unknown model, version, or hash. Body shape: `{"error": "No model with id 0"}`. |
+| **404** | Not Found | Unknown model, version, or hash. The body has only `error` (no `code`), and its text varies by endpoint: `{"error": "No model with id 123"}` from `/api/v1/models/{id}`, `{"error": "Model not found"}` from the model-version and by-hash endpoints. An id that is not a positive integer (`0`, `abc`) is a `400`, not a `404`. |
 | **405** | Method Not Allowed | Wrong HTTP verb for the endpoint. |
 | **429** | Too Many Requests | Either edge rate limiting (Cloudflare) or the `page * limit > 1000` pagination cap — see [Pagination](./pagination). |
 | **500** | Internal Server Error | Unexpected failure. Safe to retry with backoff. |

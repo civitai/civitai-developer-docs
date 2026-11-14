@@ -914,6 +914,10 @@ does. A test that is not about consent needs `consentGranted: true` (or
 `?consent=granted` on the dev harness URL); see
 [Local dev loop](./local-dev#the-mock-host-enforces-the-spend-scope).
 
+## Troubleshooting
+
+- **`app.workflows` is undefined:** `@civitai/sdk` is older than 0.12.0. Upgrade it (on `page-money`, raise `@civitai/app-sdk` and `@civitai/blocks-react` together).
+
 ## Next
 
 - [Generating images (text-to-image)](./text-to-image): the lifecycle, refused
