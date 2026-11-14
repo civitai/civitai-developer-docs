@@ -36,7 +36,11 @@ import { log, repoRoot, resolvePackageRoot, snapshotsDir } from './appblocks-uti
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SNAPSHOT = join(snapshotsDir, 'MARKUP.md');
-const OUT = join(repoRoot, 'apps', 'reference', 'components.md');
+// APPBLOCKS_COMPONENTS_OUT redirects the page, for the same reason appblocks-util's
+// APPBLOCKS_OUT_DIR exists: check-appblocks-snapshots.mjs renders this page from an
+// UPSTREAM copy of MARKUP.md to ask whether re-snapshotting would change it, and must
+// not overwrite the committed page while asking. Unset everywhere else.
+const OUT = process.env.APPBLOCKS_COMPONENTS_OUT || join(repoRoot, 'apps', 'reference', 'components.md');
 
 // The canonical repo path, cited in the page front-matter + the drift-guard.
 const CANONICAL_REPO_PATH = 'packages/civitai-components/MARKUP.md';

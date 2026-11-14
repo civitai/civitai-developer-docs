@@ -58,13 +58,14 @@
  * THE SCHEMA COMES FROM THE GENERATOR'S OWN RESOLVER
  * -------------------------------------------------
  * `resolveSchema()` is imported from `gen-appblocks-manifest.mjs` rather than
- * reimplemented. It prefers the pinned, hermetic SDK-bundled copy and falls back
- * to the committed snapshot — and a second copy of that fallback would be free to
- * disagree with the generator about which schema is authoritative, producing a
- * verdict about a schema the page was never built from. No network: this is a
- * PR-blocking gate, and the 404-vs-network contract exists because guards that
- * reach out go red on infra. The snapshot's own agreement with live is a
- * different question, already owned by `check:manifest-parity`.
+ * reimplemented. It reads the pinned, hermetic SDK-bundled copy (it no longer
+ * falls back to a committed snapshot — see that file's header) — and a second
+ * copy of the resolution would be free to disagree with the generator about
+ * which schema is authoritative, producing a verdict about a schema the page was
+ * never built from. No network: this is a PR-blocking gate, and the
+ * 404-vs-network contract exists because guards that reach out go red on infra.
+ * The pinned schema's agreement with the live endpoint is a different question,
+ * already owned by `check:manifest-parity`.
  *
  * THREE POSITIVE CONTROLS, BECAUSE A CLEAN VERDICT IS A ZERO
  * ---------------------------------------------------------
