@@ -319,16 +319,23 @@ carries NUL bytes, or came from a binary whose version disagrees with the target
 tag **fails the job instead of opening a PR** — a short capture otherwise looks
 like an ordinary refresh whose diff has quietly deleted whole command subtrees.
 
-PR creation needs the org Actions policy to allow GitHub Actions to create pull
-requests (currently allowed; no `permissions:` block can grant it). If it is
-turned off again, the job pushes the branch and then exits RED with a compare
-URL, because `gh pr create` fails with `GitHub Actions is not permitted to create
-or approve pull requests`.
-
-A PR opened with the default `GITHUB_TOKEN` gets no `pull_request` runs (#148),
-so after each update the workflow's `dispatch-checks` job dispatches `main`'s six
-required workflows on the bot branch (`scripts/lib/required-checks.mjs`); they
-report under the required names. No secret is involved.
+Both bots push and open their PR with a GitHub App installation token, minted in
+a `publish` job and scoped to this repository (repo variable
+`AGENT_APP_CLIENT_ID`, secret `AGENT_APP_PRIVATE_KEY`). A push made with the
+default `GITHUB_TOKEN` starts no `pull_request` runs (#148), and branch protection
+only counts `main`'s required checks from `pull_request` runs: dispatching the
+workflows on the branch instead did not satisfy it (docs#339). With the app
+token, the ordinary `pull_request` runs start on every push. If the app is
+uninstalled or the variable or secret is removed, the token step fails and the
+run goes red before anything is pushed. `scripts/lib/app-token-step.mjs` holds
+the shape both bots' tests assert. In both bots the job that runs `npm ci` (and,
+for the snapshot, the upstream binary) holds no secret and no write credential: it
+hands its commits to `publish` as a git bundle, and `publish` installs nothing,
+refuses a bundle that changes any path the bot does not own
+(`scripts/lib/bot-push-guard.mjs`), and pushes. Because those pushes start `pull_request`
+runs, `test-samples.yml` runs a `bot/*` PR's doc samples in a job that holds no
+secret (authenticated samples skip there; the daily schedule runs them on
+`main`).
 
 ### The pin-bump bot
 
@@ -337,8 +344,8 @@ type `appblocks-sdk-published`) is the remedy for `check:pins` / `check:ds-pins`
 going red. `scripts/bump-appblocks-pins.mjs` moves the six `@civitai/*` devDep
 pins to npm `latest`, rewrites the hand-written `@civitai/<pkg>@x.y.z` literals
 that quote the pin, verifies the lockfile with `npm ci`, regenerates the
-reference pages, and opens or updates one PR on `bot/appblocks-pin-bump`. It
-dispatches the required checks the same way, and turns on auto-merge (squash)
+reference pages, and opens or updates one PR on `bot/appblocks-pin-bump` with the
+same app token, and turns on auto-merge (squash)
 only when the diff is version strings alone and every pin lands exactly at npm
 latest; otherwise the PR is labelled `content-change` and waits for a human.
 `npm run bump:appblocks-pins -- --dry-run` prints the plan without writing

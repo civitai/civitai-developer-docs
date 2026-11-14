@@ -3,8 +3,8 @@
  * test-bump-appblocks-pins.mjs
  * ----------------------------
  * Offline tests for scripts/bump-appblocks-pins.mjs and the workflow that runs
- * it (.github/workflows/appblocks-pin-bump.yml), plus the required-checks
- * dispatch list both bots share (scripts/lib/required-checks.mjs).
+ * it (.github/workflows/appblocks-pin-bump.yml), including how both bots mint
+ * the GitHub App token they push with (scripts/lib/app-token-step.mjs).
  *
  * Every npm answer here is a FIXTURE: the CLI cases point the script at a
  * loopback registry (APPBLOCKS_NPM_REGISTRY) that serves canned documents, so
@@ -13,9 +13,10 @@
  *   npm run test:bump-appblocks-pins
  */
 
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -23,10 +24,12 @@ import {
   BOT_BRANCH,
   CONTENT_LABEL,
   TRACKED_PACKAGES,
+  assertPackageJsonPinsOnly,
   autoMergeDecision,
   bumpsBetween,
   classifyChanges,
   lockfileMovesOnlyCivitai,
+  openPrFor,
   parsePorcelainZ,
   parseRehearse,
   planBump,
@@ -35,14 +38,9 @@ import {
   resolveLatest,
   rewriteLiterals,
 } from './bump-appblocks-pins.mjs';
-import {
-  EXTRA_CHECKS,
-  REQUIRED_CHECKS,
-  dispatchCommands,
-  dispatchRequiredChecks,
-  openPrFor,
-  unmappedContexts,
-} from './lib/required-checks.mjs';
+import { appTokenProblems, jobsMintingAppToken } from './lib/app-token-step.mjs';
+import { assertOnlyOwnedChanges } from './lib/bot-push-guard.mjs';
+import { DEFAULT_BRANCH as REFRESH_BRANCH } from './refresh-cli-snapshot.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -429,6 +427,25 @@ check('a content-change body says auto-merge is off and lists the pages', () => 
   assert(!/did NOT run/.test(b), 'the body still carries the old zero-checks warning');
 });
 
+check('the Checks section says the PR is pushed as the app, so its pull_request checks run (#148)', () => {
+  // The section is a claim about the mechanism, so the WHOLE normalised section
+  // is pinned: a reword back to "dispatched" checks (which did not satisfy
+  // branch protection, docs#339) cannot pass by keeping the right keywords.
+  const b = prBody({ bumps: bumpSdk, classification: versionOnly, decision: { enable: true, reasons: [] } });
+  const at = b.indexOf('## Checks');
+  assert(at >= 0, 'the body has no Checks section');
+  const sec = b.slice(at, b.indexOf('This is `', at));
+  assertEqual(
+    sec.replace(/\s+/g, ' ').trim(),
+    '## Checks The bot pushes this branch and opens this PR with a GitHub App token, not the default `GITHUB_TOKEN`, ' +
+      "so the ordinary `pull_request` runs start on every push and `main`'s required checks report here under " +
+      'their usual names. Auto-merge waits for those. `showcase-e2e` (the render test of the design-system ' +
+      'packages) runs when its paths change but does not gate auto-merge, so read it on a design-system bump.',
+    'the Checks section changed',
+  );
+  assert(!/dispatch/i.test(b), 'the body still describes dispatched checks');
+});
+
 check('a version-only body says it will auto-merge', () => {
   const b = prBody({ bumps: bumpSdk, classification: versionOnly, decision: { enable: true, reasons: [] } });
   assert(/auto-merge/i.test(b) && !/auto-merge is OFF/i.test(b), 'the body does not describe auto-merge as on');
@@ -546,7 +563,7 @@ check('--prepare refuses to run outside CI (it commits)', async () => {
 
 // ---------------------------------------------------------------------------
 console.log('');
-console.log('REQUIRED CHECKS — the dispatch list both bots share');
+console.log('THE BOT PR — opened as the app, never by dispatching workflows');
 
 const WF_DIR = join(repoRoot, '.github', 'workflows');
 const runnable = (yml) => yml.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
@@ -572,58 +589,6 @@ function jobsOf(yml) {
   return out;
 }
 
-check('every required context maps to a dispatchable workflow with a job of that name', () => {
-  assertEqual(REQUIRED_CHECKS.length, 6, 'main requires six contexts');
-  for (const { context, workflow } of REQUIRED_CHECKS) {
-    const p = join(WF_DIR, workflow);
-    assert(existsSync(p), `${workflow} does not exist`);
-    const yml = readFileSync(p, 'utf8');
-    assert(/^ {2}workflow_dispatch:/m.test(triggersOf(yml)), `${workflow} cannot be dispatched`);
-    const jobs = jobsOf(yml);
-    assert(context in jobs, `${workflow} has no job named ${context}`);
-    assert(!/^ {4}name:/m.test(jobs[context]), `${workflow}'s ${context} job sets a name: — its check would not be "${context}"`);
-  }
-});
-
-check('the dispatch commands are exactly `gh workflow run <file> --ref <branch>` per workflow', () => {
-  assertEqual(
-    dispatchCommands(BOT_BRANCH),
-    [...REQUIRED_CHECKS, ...EXTRA_CHECKS].map(({ workflow }) => ['workflow', 'run', workflow, '--ref', BOT_BRANCH]),
-    'the dispatch commands drifted',
-  );
-  assert(EXTRA_CHECKS.some((c) => c.workflow === 'showcase-e2e.yml'), 'the design-system render test is not dispatched');
-  for (const { workflow } of EXTRA_CHECKS) {
-    const yml = readFileSync(join(WF_DIR, workflow), 'utf8');
-    assert(/^ {2}workflow_dispatch:/m.test(triggersOf(yml)), `${workflow} cannot be dispatched`);
-  }
-});
-
-check('a required context on main with no mapping is reported, never ignored', () => {
-  assertEqual(unmappedContexts(REQUIRED_CHECKS.map((c) => c.context)), [], 'the mapped set reads as unmapped');
-  assertEqual(unmappedContexts(['test-cli', 'test-new-thing']), ['test-new-thing'], 'an unmapped context was missed');
-});
-
-check('an unmapped required context fails the dispatch AFTER every workflow was started', () => {
-  const ran = [];
-  let threw = null;
-  const { log, error } = console;
-  console.log = console.error = () => {};
-  try {
-    dispatchRequiredChecks(BOT_BRANCH, (args) => {
-      if (args[0] === 'api') return JSON.stringify([...REQUIRED_CHECKS.map((c) => c.context), 'test-new-thing']);
-      ran.push(args[2]);
-      return '';
-    });
-  } catch (err) {
-    threw = err;
-  } finally {
-    console.log = log;
-    console.error = error;
-  }
-  assertEqual(ran.length, REQUIRED_CHECKS.length + EXTRA_CHECKS.length, 'not every workflow was dispatched first');
-  assert(threw && /test-new-thing/.test(threw.message), `the unmapped context was not named: ${threw && threw.message}`);
-});
-
 check('a FORK PR named like the bot branch is never treated as the bot PR', () => {
   const fake = () => JSON.stringify([{ number: 9, headRefOid: 'f', isCrossRepository: true }]);
   assertEqual(openPrFor({ head: BOT_BRANCH, base: 'main' }, fake), null, 'a cross-repository PR was picked');
@@ -635,53 +600,130 @@ check('a FORK PR named like the bot branch is never treated as the bot PR', () =
   assertEqual(openPrFor({ head: BOT_BRANCH, base: 'main' }, both)?.number, 10, 'the same-repo PR was not picked');
 });
 
+check('the push guard refuses a path the bot does not own, and passes what main merged in', () => {
+  // publish pushes a branch an npm-install job built, with the app token, so
+  // the PR's pull_request workflows will run it. A foreign path must stop it.
+  const dir = mkdtempSync(join(tmpdir(), 'pin-bump-guard-'));
+  try {
+    const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' };
+    const gx = (args) => execFileSync('git', ['-C', dir, ...args], { env, encoding: 'utf8' }).trim();
+    const put = (p, t) => {
+      mkdirSync(dirname(join(dir, p)), { recursive: true });
+      writeFileSync(join(dir, p), t);
+    };
+    gx(['init', '-q', '-b', 'main']);
+    put('package.json', '{"v":1}\n');
+    put('scripts/run.mjs', 'ok\n');
+    gx(['add', '-A']);
+    gx(['commit', '-q', '-m', 'base']);
+    const base0 = gx(['rev-parse', 'HEAD']);
+    gx(['checkout', '-q', '-b', 'bot']);
+    put('package.json', '{"v":2}\n');
+    gx(['commit', '-q', '-am', 'bump']);
+    const tip = gx(['rev-parse', 'HEAD']);
+    // main moves a script; the bot branch merges main in — that file is main's.
+    gx(['checkout', '-q', 'main']);
+    put('scripts/run.mjs', 'main changed this\n');
+    gx(['commit', '-q', '-am', 'main moves']);
+    gx(['checkout', '-q', 'bot']);
+    gx(['merge', '-q', '--no-edit', 'main']);
+    const allowed = (p) => p === 'package.json';
+    const ok = assertOnlyOwnedChanges({ cwd: dir, from: tip, head: 'HEAD', bases: ['main', base0], allowed });
+    assertEqual(ok, ['scripts/run.mjs'], 'positive control: the merged-in path was not even in the diff');
+    put('scripts/run.mjs', 'injected\n');
+    gx(['commit', '-q', '-am', 'injected']);
+    let threw = null;
+    try {
+      assertOnlyOwnedChanges({ cwd: dir, from: tip, head: 'HEAD', bases: ['main', base0], allowed });
+    } catch (err) {
+      threw = err;
+    }
+    assert(threw && /does not own, so nothing was pushed: scripts\/run\.mjs\./.test(threw.message), `not refused: ${threw && threw.message}`);
+
+    // A ROLLBACK: a fresh bot branch built on an OLD main commit carries an old
+    // script. Measured against main as it is now (from = main), the old version
+    // matches neither main nor the checkout, so it is refused.
+    gx(['checkout', '-q', '-b', 'stale', base0]);
+    put('package.json', '{"v":3}\n');
+    gx(['commit', '-q', '-am', 'bump on an old base']);
+    let rolled = null;
+    try {
+      assertOnlyOwnedChanges({ cwd: dir, from: 'main', head: 'HEAD', bases: ['main'], allowed });
+    } catch (err) {
+      rolled = err;
+    }
+    assert(rolled && /scripts\/run\.mjs/.test(rolled.message), `a rollback to an old script passed: ${rolled && rolled.message}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+check('publish runs the push guard and the package.json refusal BEFORE its one push, against trusted bases', () => {
+  const src = readFileSync(join(repoRoot, 'scripts', 'bump-appblocks-pins.mjs'), 'utf8');
+  const body = src.slice(src.indexOf('async function publish('), src.indexOf('async function main('));
+  const guard = body.indexOf('assertOnlyOwnedChanges(');
+  const pkg = body.indexOf('assertPackageJsonPinsOnly(classification)');
+  const push = body.indexOf("git(['push'");
+  assert(guard > 0 && push > 0 && guard < push, 'publish pushes without (or before) the owned-path guard');
+  assert(pkg > 0 && pkg < push, 'publish pushes a package.json that moved beyond the pins');
+  // The bases must not come from the bundle (`mb` is derived from its history).
+  const call = body.slice(guard, body.indexOf('});', guard));
+  assert(/bases: \[BASE_REF, git\(\['rev-parse', 'HEAD'\]\)\]/.test(call), `the guard's bases are not main + the checkout:\n${call}`);
+  assert(/from: remote \|\| BASE_REF,/.test(call), `a fresh branch is not measured against main:\n${call}`);
+});
+
+check('a package.json that moved beyond the pins is refused; a pin-only one passes', () => {
+  // Behavioural, through the real classifier: a postinstall added next to the
+  // pin is the shape that would run in every pull_request job's npm ci.
+  const before = JSON.stringify({ name: 'x', devDependencies: { '@civitai/app-sdk': '0.86.0' } }, null, 2);
+  const pinOnly = before.replace('0.86.0', '0.87.1');
+  const withScript = JSON.stringify(
+    { name: 'x', scripts: { postinstall: 'node evil.js' }, devDependencies: { '@civitai/app-sdk': '0.87.1' } },
+    null,
+    2,
+  );
+  const bumps = [{ pkg: '@civitai/app-sdk', from: '0.86.0', to: '0.87.1' }];
+  assertPackageJsonPinsOnly(classifyChanges([{ path: 'package.json', before, after: pinOnly }], bumps));
+  let threw = null;
+  try {
+    assertPackageJsonPinsOnly(classifyChanges([{ path: 'package.json', before, after: withScript }], bumps));
+  } catch (err) {
+    threw = err;
+  }
+  assert(threw && /package\.json changed beyond the pinned versions; nothing pushed/.test(threw.message), `not refused: ${threw && threw.message}`);
+});
+
+check('test-samples never hands CIVITAI_TOKEN to a bot branch PR, and still runs its samples', () => {
+  // Bot PRs now start pull_request runs, and their pages were built by a job
+  // that ran npm install / an upstream binary; a page can aim an authenticated
+  // sample at any host. The secret-holding job must skip bot/* PRs and the
+  // bot job must reference no secret at all.
+  const yml = readFileSync(join(WF_DIR, 'test-samples.yml'), 'utf8');
+  const jobs = jobsOf(runnable(yml));
+  const withSecret = Object.entries(jobs).filter(([, b]) => /secrets\.CIVITAI_TOKEN/.test(b));
+  assertEqual(withSecret.map(([n]) => n), ['test-samples'], 'the secret is referenced by an unexpected job');
+  assert(
+    /^ {4}if: \$\{\{ !\(github\.event_name == 'pull_request' && startsWith\(github\.head_ref, 'bot\/'\)\) \}\}$/m.test(jobs['test-samples']),
+    'the secret-holding job runs on bot/* PRs',
+  );
+  const bot = jobs['test-samples-bot'];
+  assert(bot && /^ {4}if: \$\{\{ github\.event_name == 'pull_request' && startsWith\(github\.head_ref, 'bot\/'\) \}\}$/m.test(bot), 'no unauthenticated job for bot/* PRs');
+  assert(!/secrets\./.test(bot), 'the bot job references a secret');
+  assert(/node scripts\/test-doc-samples\.mjs --\$\{\{ matrix\.section \}\}/.test(bot), 'the bot job does not run the samples');
+  // Both bot branches are covered by the prefix.
+  for (const b of [BOT_BRANCH, REFRESH_BRANCH]) assert(b.startsWith('bot/'), `${b} is not under bot/`);
+});
+
 check('publish clears auto-merge BEFORE the push and enables it only LAST, failing loudly', () => {
   const src = readFileSync(join(repoRoot, 'scripts', 'bump-appblocks-pins.mjs'), 'utf8');
   const body = src.slice(src.indexOf('async function publish('), src.indexOf('async function main('));
   const disable = body.indexOf("'--disable-auto'");
   const push = body.indexOf("git(['push'");
-  const dispatch = body.indexOf('dispatchRequiredChecks(');
   const enable = body.indexOf("'--auto'");
-  assert(disable > 0 && push > 0 && dispatch > 0 && enable > 0, 'publish no longer has all four steps');
-  assert(disable < push && push < dispatch && dispatch < enable, 'publish steps are out of order');
+  assert(disable > 0 && push > 0 && enable > 0, 'publish no longer has all three steps');
+  assert(disable < push && push < enable, 'publish steps are out of order');
   assert(!/spawnSync\('gh', \['pr', 'merge'/.test(body), 'a gh pr merge call has its failure swallowed');
   assert((body.match(/'--disable-auto'/g) || []).length === 1, 'auto-merge is cleared in more than one place');
-});
-
-check('dispatching on main, or on nothing, is refused', () => {
-  for (const ref of ['main', '', undefined, '--ref']) {
-    let threw = false;
-    try {
-      dispatchCommands(ref);
-    } catch {
-      threw = true;
-    }
-    assert(threw, `dispatchCommands accepted ${JSON.stringify(ref)}`);
-  }
-});
-
-check('one failed dispatch does not stop the rest, and the call still fails', () => {
-  const ran = [];
-  let threw = null;
-  // The function logs each result; the planted failure's log line would read
-  // as a real one in the CI output, so it is muted for this case only.
-  const { log, error } = console;
-  console.log = console.error = () => {};
-  try {
-    dispatchRequiredChecks(BOT_BRANCH, (args) => {
-      if (args[0] === 'api') return JSON.stringify(REQUIRED_CHECKS.map((c) => c.context));
-      ran.push(args[2]);
-      if (args[2] === 'appblocks-bridge.yml') throw new Error('HTTP 500');
-      return '';
-    });
-  } catch (err) {
-    threw = err;
-  } finally {
-    console.log = log;
-    console.error = error;
-  }
-  assertEqual(ran.length, REQUIRED_CHECKS.length + EXTRA_CHECKS.length, 'a failure stopped the remaining dispatches');
-  assert(threw && /appblocks-bridge\.yml/.test(threw.message), 'the failure was swallowed or not named');
 });
 
 // ---------------------------------------------------------------------------
@@ -700,26 +742,35 @@ check('it runs daily, on dispatch (with dry_run), and on repository_dispatch —
   assert(!/pull_request|push:/.test(on), 'the bot triggers on pull_request/push');
 });
 
-check('least privilege: read by default, write only in the job that runs no npm install', () => {
+check('least privilege: read by default, and the only write is the app token in the job that runs no npm install', () => {
   const r = runnable(botYml);
   const preamble = r.slice(0, r.indexOf('\njobs:'));
   assert(/^permissions:\n {2}contents: read\n/m.test(preamble), 'the workflow default is not contents: read');
   const jobs = jobsOf(runnable(botYml));
-  const writers = Object.entries(jobs).filter(([, b]) => /^\s+[a-z-]+: write$/m.test(b));
-  assertEqual(writers.length, 1, `expected exactly one job with write scopes, got ${writers.map(([n]) => n)}`);
-  const [, w] = writers[0];
-  const scopes = [...w.matchAll(/^ {6}([a-z-]+): (read|write)$/gm)].map((m) => `${m[1]}:${m[2]}`).sort();
-  assertEqual(
-    scopes,
-    ['actions:write', 'contents:write', 'pull-requests:write'],
-    'the writer job holds the wrong scopes',
-  );
-  assert(!/npm (ci|install)/.test(w), 'the write-scoped job installs npm packages');
+  // Every job's own GITHUB_TOKEN is read-only: the writes are the app token's.
+  for (const [name, body] of Object.entries(jobs)) {
+    const scopes = [...body.matchAll(/^ {6}([a-z-]+): (read|write)$/gm)].map((m) => `${m[1]}:${m[2]}`);
+    assert(!scopes.some((x) => x.endsWith(':write')), `job ${name} requests a write GITHUB_TOKEN scope: ${scopes}`);
+  }
+  assertEqual(jobsMintingAppToken(jobs), ['publish'], 'the app token is minted somewhere other than (or besides) publish');
+  assert(!/npm (ci|install)/.test(jobs.publish), 'the job holding the app token installs npm packages');
   for (const [name, body] of Object.entries(jobs)) {
     if (/npm (ci|install)/.test(body)) {
       assert(/persist-credentials: false/.test(body), `job ${name} installs npm packages with a persisted credential`);
     }
   }
+});
+
+check('publish pushes, opens, labels and auto-merges as the app, so the PR gets its pull_request runs (#148)', () => {
+  // A push made with GITHUB_TOKEN starts no pull_request runs, and dispatched
+  // runs did not satisfy branch protection (docs#339). issues: write is for
+  // `gh label create` (labels are an issues resource).
+  const jobs = jobsOf(botYml);
+  assertEqual(
+    appTokenProblems(jobs.publish, { contents: 'write', 'pull-requests': 'write', issues: 'write' }),
+    [],
+    'publish uses the app token wrongly',
+  );
 });
 
 check('every `uses:` is a first-party actions/* tag like the rest of the repo, or a full SHA', () => {
@@ -763,16 +814,16 @@ check('the bot never pushes to main: its push target is the bot branch constant'
   assertEqual(BOT_BRANCH, 'bot/appblocks-pin-bump', 'the bot branch changed');
 });
 
-check('both bots dispatch the required checks', () => {
+check('neither bot dispatches workflows any more', () => {
+  // Dispatched runs did not satisfy branch protection (docs#339). Their
+  // replacement is the app token, asserted per bot above and in
+  // test-refresh-cli-snapshot.mjs.
   for (const f of ['appblocks-pin-bump.yml', 'cli-snapshot-refresh.yml']) {
     const r = runnable(readFileSync(join(WF_DIR, f), 'utf8'));
-    const viaLib = /scripts\/lib\/required-checks\.mjs/.test(r);
-    const viaScript = f === 'appblocks-pin-bump.yml' && /bump-appblocks-pins\.mjs --publish/.test(r);
-    assert(viaLib || viaScript, `${f} never dispatches the required checks`);
-    assert(/actions: write/.test(r), `${f} holds no actions: write, so it cannot dispatch`);
+    assert(!/required-checks|gh workflow run|^\s+actions: write$/m.test(r), `${f} still dispatches workflows`);
   }
   const src = readFileSync(join(repoRoot, 'scripts', 'bump-appblocks-pins.mjs'), 'utf8');
-  assert(/dispatchRequiredChecks\(/.test(src), 'the pin bot never calls dispatchRequiredChecks');
+  assert(!/required-checks|'workflow', 'run'/.test(src), 'the pin bot still dispatches workflows');
 });
 
 check('this suite is wired into a pull_request workflow', () => {

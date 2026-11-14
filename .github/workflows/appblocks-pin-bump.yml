@@ -15,18 +15,25 @@ name: appblocks-pin-bump
 # tests live in the script (scripts/test-bump-appblocks-pins.mjs); this file is
 # a thin caller.
 #
-# CHECKS. A PR opened with GITHUB_TOKEN starts no `pull_request` runs (#148), so
-# the publish job dispatches the six required workflows on the bot branch with
-# `gh workflow run` (scripts/lib/required-checks.mjs). That needs `actions: write`
-# and no secret.
+# CHECKS (#148). A PR pushed or opened with the default GITHUB_TOKEN gets no
+# `pull_request` runs (GitHub holds them at `action_required`), and `main`'s
+# branch protection counts only the required contexts from `pull_request` runs:
+# dispatching the workflows instead was tried and did not satisfy it (docs#339).
+# So `publish` pushes, opens the PR, labels it and enables auto-merge with a
+# GitHub App installation token (repo variable AGENT_APP_CLIENT_ID, secret
+# AGENT_APP_PRIVATE_KEY), minted in that job and scoped to this repository.
+# Its pushes start the ordinary `pull_request` runs.
 #
-# PRIVILEGE. Two jobs. `prepare` holds read scopes only, runs `npm ci` /
-# `npm install` and the generators, and hands a git bundle to `publish`, which
-# holds the write scopes, installs nothing, and recomputes the diff and the
-# auto-merge decision itself before pushing.
+# PRIVILEGE. Two jobs. `prepare` holds read scopes only and no app token, runs
+# `npm ci` / `npm install` and the generators, and hands a git bundle to
+# `publish`, which mints the app token, installs nothing, recomputes the diff
+# and the auto-merge decision itself, and refuses to push a bundle that changes
+# any path the bot does not own (scripts/lib/bot-push-guard.mjs): its push
+# starts the PR's pull_request workflows, which run the branch's own scripts.
 #
-# A merge made by GITHUB_TOKEN starts no `push` workflows on `main`. Nothing
-# deploys from one: the site is deployed from `main` by the build pipeline.
+# Auto-merge is enabled by the app, so the merge is made as the app and DOES
+# start `push` workflows on `main`, like a human merge. Nothing deploys from
+# GitHub Actions: the site is deployed from `main` by the build pipeline.
 on:
   schedule:
     # 07:17 UTC daily, after the appblocks-drift sweep (06:37) and the CLI
@@ -112,16 +119,32 @@ jobs:
     if: ${{ needs.prepare.outputs.action == 'publish' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # contents: push the bot branch. pull-requests: open/update the PR, label it,
-    # enable auto-merge. actions: dispatch the required workflows.
+    # The writes are the app token's, not GITHUB_TOKEN's, so this job's own
+    # GITHUB_TOKEN stays read-only. The token gets exactly:
+    #   contents: write       push bot/appblocks-pin-bump; enable auto-merge
+    #   pull-requests: write  open/update the PR, enable auto-merge
+    #   issues: write         create the `content-change` label (labels are an
+    #                         issues resource)
     permissions:
-      actions: write
-      contents: write
-      pull-requests: write
+      contents: read
     steps:
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: app-token
+        with:
+          client-id: ${{ vars.AGENT_APP_CLIENT_ID }}
+          private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
+          owner: civitai
+          repositories: civitai-developer-docs
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+
+      # The persisted credential is the app token, so the script's `git push`
+      # is made as the app and starts the PR's `pull_request` runs.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
 
       - uses: actions/setup-node@v4
         with:
@@ -132,8 +155,8 @@ jobs:
           name: pin-bump
           path: ${{ runner.temp }}/pin-bump
 
-      - name: Push, open or update the PR, start the checks, set auto-merge
+      - name: Push, open or update the PR, set auto-merge
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           IN: ${{ runner.temp }}/pin-bump
         run: node scripts/bump-appblocks-pins.mjs --publish --in "$IN"

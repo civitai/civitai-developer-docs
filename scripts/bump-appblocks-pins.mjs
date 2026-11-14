@@ -28,9 +28,14 @@
  * human. A release that adds a hook, a manifest field or a message changes the
  * generated pages beyond their version stamps, and that diff is worth reading.
  *
- * CHECKS. The PR is opened with the default GITHUB_TOKEN, which starts no
- * `pull_request` runs (issue #148). The publish step dispatches `main`'s six
- * required workflows on the bot branch instead (scripts/lib/required-checks.mjs).
+ * CHECKS. The publish job pushes and opens the PR with a GitHub App
+ * installation token, not the default GITHUB_TOKEN: a push made with
+ * GITHUB_TOKEN starts no `pull_request` runs (issue #148), and `main`'s branch
+ * protection only counts the required contexts from `pull_request` runs
+ * (dispatching the workflows instead did not satisfy it, docs#339). The token
+ * is minted in the workflow (scripts/lib/app-token-step.mjs describes its
+ * shape); this script only sees it as `gh`'s GH_TOKEN and the checkout's
+ * credential.
  *
  * TWO JOBS, SPLIT BY PRIVILEGE.
  *   --prepare  (read-only job) runs `npm install` / `npm ci` and the generators,
@@ -39,10 +44,12 @@
  *   --publish  (write job) runs NO npm install. It fetches the bundle, works out
  *              the PR's diff and the auto-merge decision from git and the
  *              registry itself (result.json is only used for the title), pushes
- *              the branch, opens or updates the PR, dispatches the checks, and
- *              turns auto-merge on or off.
- * Third-party install code therefore never runs next to a write token, and
- * the write job does not take the read job's word for what the diff is.
+ *              the branch, opens or updates the PR, and turns auto-merge on
+ *              or off.
+ * Third-party install code therefore never runs next to a write token or the
+ * app's private key, the write job does not take the read job's word for what
+ * the diff is, and it refuses to push any path the bot does not own
+ * (scripts/lib/bot-push-guard.mjs).
  *
  * ONE BRANCH, NEVER `main`. An open bot PR is extended: `main` is merged into it
  * and the next bump is committed on top, never force-pushed. A bot branch with
@@ -53,8 +60,8 @@
  * `rehearse_from`) first commits a pin DOWN to `<lower>` on the bot branch, and
  * the normal bump then moves it back to npm latest. The PR's net diff is empty,
  * so `main` ends at npm latest whatever happens, but the whole path runs:
- * install, literal rewrite, regeneration, commit, push, PR, dispatched checks
- * and auto-merge. It is how the path is exercised while every pin is current.
+ * install, literal rewrite, regeneration, commit, push, PR, its `pull_request`
+ * checks and auto-merge. It is how the path is exercised while every pin is current.
  *
  * USAGE
  *   npm run bump:appblocks-pins -- --dry-run      # plan only; reads npm, writes nothing
@@ -79,7 +86,7 @@ import {
   SDK_PACKAGES,
   UPSTREAM_OWNED_PAGES,
 } from './check-design-system-pins.mjs';
-import { dispatchRequiredChecks, openPrFor } from './lib/required-checks.mjs';
+import { assertOnlyOwnedChanges } from './lib/bot-push-guard.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -88,6 +95,31 @@ export const BOT_BRANCH = 'bot/appblocks-pin-bump';
 export const BASE = 'main';
 export const CONTENT_LABEL = 'content-change';
 export const TRACKED_PACKAGES = Object.freeze([...SDK_PACKAGES, ...DESIGN_SYSTEM_PACKAGES]);
+
+/**
+ * The open PR from `head` IN THIS REPOSITORY into `base`, or null.
+ *
+ * `gh pr list --head <name>` also returns PRs from FORKS whose branch has that
+ * name (measured: `--head ghost-agent/issue-237` returned fork PR #244), so
+ * anyone could open a fork PR named like the bot branch and have the bot edit
+ * it. Cross-repository PRs are dropped.
+ */
+export function openPrFor({ head, base }, run) {
+  const out = run(['pr', 'list', '--head', head, '--base', base, '--state', 'open', '--json', 'number,headRefOid,isCrossRepository']);
+  const list = JSON.parse(out || '[]').filter((p) => p.isCrossRepository === false);
+  return list[0] ?? null;
+}
+
+/**
+ * package.json may move only the pins: anything else there (a lifecycle
+ * script, a new dependency) would run in every pull_request job's `npm ci`
+ * once the app-token push starts them. Throws; publish calls it before pushing.
+ */
+export function assertPackageJsonPinsOnly(classification) {
+  if (classification.contentPaths.includes(PKG_JSON)) {
+    throw new Error(`${PKG_JSON} changed beyond the pinned versions; nothing pushed. Bump it by hand.`);
+  }
+}
 
 /** Files whose change is the version bump itself, not regenerated output. */
 const LOCKFILE = 'package-lock.json';
@@ -302,7 +334,7 @@ export function prBody({ bumps, classification, decision, runUrl = null, rehears
       '',
       `This run first pinned \`${rehearsal.pkg}\` down to ${rehearsal.version} on this branch, then bumped it back`,
       'to npm latest, so the net diff against `main` is empty. It exists to exercise the whole path',
-      '(install, literal rewrite, regeneration, PR, dispatched checks, auto-merge) while every pin is current.',
+      "(install, literal rewrite, regeneration, PR, the PR's checks, auto-merge) while every pin is current.",
       '',
     );
   }
@@ -319,11 +351,11 @@ export function prBody({ bumps, classification, decision, runUrl = null, rehears
     '',
     '## Checks',
     '',
-    'A PR opened by the default `GITHUB_TOKEN` gets no `pull_request` runs, so the bot dispatches',
-    "`main`'s required workflows on this branch (`workflow_dispatch`). They report under the usual names.",
-    '`showcase-e2e` (the render test of the design-system packages) and `checks` are dispatched too; they',
-    'do not gate auto-merge, so read them on a design-system bump.',
-    'A human push to this branch starts the ordinary `pull_request` runs as well.',
+    'The bot pushes this branch and opens this PR with a GitHub App token, not the default `GITHUB_TOKEN`,',
+    "so the ordinary `pull_request` runs start on every push and `main`'s required checks report here",
+    'under their usual names. Auto-merge waits for those. `showcase-e2e` (the render test of the',
+    'design-system packages) runs when its paths change but does not gate auto-merge, so read it on a',
+    'design-system bump.',
     '',
     `This is \`${BOT_BRANCH}\`: one PR, extended by later runs and never force-pushed.`,
     '',
@@ -659,11 +691,31 @@ async function publish(inDir) {
 
   // Recompute the PR's diff from git, against the merge base (what GitHub shows).
   const mb = git(['merge-base', BASE_REF, HEAD_REF]);
+
+  // 🔴 REFUSE A PATH THE BOT DOES NOT OWN BEFORE ANYTHING IS PUSHED. `prepare`
+  // ran npm install code; the push below is made with the app token and starts
+  // the PR's pull_request workflows, which run the branch's own scripts. The
+  // allowlist is read from THIS checkout (the workflow's ref), not the bundle.
+  // Compared against `main` as fetched now and the commit this job checked out
+  // (the workflow's ref), never against a sha derived from the bundle: an
+  // ancestor of `main` would let a bundle roll a trusted file back to an old
+  // version that still "matches main".
+  const { owned, dirs } = await ownedPages();
+  const inOwnedDir = (p) => dirs.some((d) => p.startsWith(`${d}/`) && p.endsWith('.md') && !p.slice(d.length + 1).includes('/'));
+  const isAuthoredDoc = (p) => p.endsWith('.md') && (DOC_FILES.includes(p) || DOC_ROOTS.some((d) => p.startsWith(`${d}/`)));
+  assertOnlyOwnedChanges({
+    cwd: repoRoot,
+    from: remote || BASE_REF,
+    head: HEAD_REF,
+    bases: [BASE_REF, git(['rev-parse', 'HEAD'])],
+    allowed: (p) => p === PKG_JSON || p === LOCKFILE || isAuthoredDoc(p) || owned.has(p) || inOwnedDir(p),
+  });
   const paths = git(['diff', '--name-only', '-z', mb, HEAD_REF]).split('\0').filter(Boolean);
   const changes = paths.map((p) => ({ path: p, before: showOrNull(mb, p), after: showOrNull(HEAD_REF, p) }));
   const headPkg = showOrNull(HEAD_REF, PKG_JSON);
   const bumps = bumpsBetween(showOrNull(mb, PKG_JSON), headPkg);
   const classification = classifyChanges(changes, bumps);
+  assertPackageJsonPinsOnly(classification);
   const r = await resolveLatest(TRACKED_PACKAGES);
   const decision = autoMergeDecision({ bumps, headPins: pinsOf(headPkg), latest: r.latest, classification });
   console.log(`  diff vs ${BASE}: ${paths.length} file(s); ${classification.versionOnly ? 'version-only' : `CONTENT CHANGE in ${classification.contentPaths.join(', ')}`}`);
@@ -712,8 +764,6 @@ async function publish(inDir) {
       const labels = JSON.parse(gh(['pr', 'view', n, '--json', 'labels'])).labels.map((l) => l.name);
       if (labels.includes(CONTENT_LABEL)) gh(['pr', 'edit', n, '--remove-label', CONTENT_LABEL]);
     }
-
-    dispatchRequiredChecks(BOT_BRANCH, gh);
 
     if (decision.enable) {
       gh(['pr', 'merge', n, '--auto', '--squash', '--match-head-commit', head]);

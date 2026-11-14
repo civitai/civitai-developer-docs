@@ -109,8 +109,8 @@
  * cron tick, and a force-push reports success. The commit most certain to be
  * destroyed was the one this tool's own generated PR body USED to tell the
  * reviewer to push: `git commit --allow-empty -m "chore: trigger checks"`, the
- * remedy for the zero-checks trap below before the workflow dispatched the
- * checks itself. So the run now FETCHES the remote
+ * remedy for the zero-checks trap below before the workflow switched to an app
+ * token. So the run now FETCHES the remote
  * branch and builds on top of it when it exists, and the push is an ordinary
  * fast-forward. Never reintroduce `--force` here; if a run cannot fast-forward,
  * that is a concurrent writer and the correct answer is to fail loudly, not to
@@ -158,11 +158,12 @@
  *      claims a version the bytes did not come from, and the next freshness
  *      check reads that claim rather than reality.
  *
- * 🔴 PREREQUISITE: "ALLOW GITHUB ACTIONS TO CREATE AND APPROVE PULL REQUESTS"
+ * "ALLOW GITHUB ACTIONS TO CREATE AND APPROVE PULL REQUESTS" (GITHUB_TOKEN ONLY)
  * ---------------------------------------------------------------------------
- * The org Actions policy must allow it (currently allowed); no `permissions:`
- * block can grant it, because it is a policy rather than a token scope. If it
- * is turned off again, the branch still pushes and `gh pr create` fails with
+ * The org Actions policy governs PRs created with GITHUB_TOKEN. The workflow
+ * now creates the PR with a GitHub App token (below), which this policy does
+ * not govern; the advice stays for a run pointed back at GITHUB_TOKEN. With
+ * GITHUB_TOKEN and the policy off, the branch still pushes and `gh pr create` fails with
  * `GitHub Actions is not permitted to create or approve pull requests
  * (createPullRequest)`.
  * `prCreationBlockedAdvice` turns that failure into instructions plus a
@@ -170,12 +171,12 @@
  * but nobody has been told, which is the state this whole workflow exists to
  * end, so a green run would be a lie.
  *
- * 🔴 GITHUB_TOKEN AND THE ZERO-CHECKS TRAP (closed by dispatch, #148)
- * ------------------------------------------------------------------
- * A pull request opened by GITHUB_TOKEN does not get its `pull_request` runs —
- * GitHub suppresses them to prevent recursive runs. MEASURED, with a
- * discriminating control, on two PRs carrying the same kind of diff into the
- * same repo and differing only in who opened them:
+ * 🔴 GITHUB_TOKEN AND THE ZERO-CHECKS TRAP (closed by an app token, #148)
+ * ----------------------------------------------------------------------
+ * A pull request pushed or opened by GITHUB_TOKEN does not get its
+ * `pull_request` runs — GitHub suppresses them to prevent recursive runs.
+ * MEASURED, with a discriminating control, on two PRs carrying the same kind of
+ * diff into the same repo and differing only in who opened them:
  *
  *   bot PR   (GITHUB_TOKEN) -> statusCheckRollup = 0 entries, `gh pr checks`
  *                              prints "no checks reported"; the seven
@@ -183,25 +184,30 @@
  *                              `conclusion=action_required` and never start.
  *   human PR (same diff)    -> statusCheckRollup = 7 entries, all in_progress.
  *
- * So state the OBSERVABLE — the PR shows zero checks — rather than "no runs are
- * created", which the measurement does not support. Zero checks reads as
- * "nothing to worry about" on exactly the PR whose content nobody has verified,
- * and `main`'s six required contexts never report, so the PR also cannot reach
- * a mergeable state on its own.
- *
- * The fix needs no secret: `workflow_dispatch` IS an event GITHUB_TOKEN may
- * trigger, and every required workflow accepts it. After this script opens or
- * updates the PR, the workflow's `dispatch-checks` job runs
- * scripts/lib/required-checks.mjs, which dispatches each required workflow on
- * the bot branch; their jobs report the required contexts on the branch head.
- * The PR body says where the checks come from instead of warning that none
- * ran. (It used to: no PAT existed, and the operator chose not to add one.)
+ * So `main`'s six required contexts never report, and the PR cannot reach a
+ * mergeable state on its own. Dispatching the required workflows on the branch
+ * (`workflow_dispatch`) was tried and does NOT fix it: branch protection did not
+ * count those check runs (docs#339). So the workflow's `publish` job mints a
+ * GitHub App installation token and passes it to this script as GH_TOKEN and as
+ * the checkout's credential; the push and the PR are made as the app, and the
+ * ordinary `pull_request` runs start.
  *
  * USAGE
  *   node scripts/refresh-cli-snapshot.mjs                # the CI path
  *   node scripts/refresh-cli-snapshot.mjs --decide       # print/emit the verdict ONLY; no capture, no git, no gh
  *   node scripts/refresh-cli-snapshot.mjs --dry-run      # capture + validate + print; no git, no gh
  *   node scripts/refresh-cli-snapshot.mjs --no-pr        # branch/commit/push; print the PR instead of opening it
+ *   node scripts/refresh-cli-snapshot.mjs --handoff <dir> # CI build job: branch/commit, then write a bundle +
+ *                                                        # title + body to <dir> instead of pushing (no credential)
+ *   node scripts/refresh-cli-snapshot.mjs --publish --in <dir>   # CI publish job: vet the bundle, push, open/update the PR
+ *
+ * 🔴 THE CI PATH IS SPLIT IN TWO JOBS (--handoff, then --publish). The build job
+ * runs `npm ci` and EXECUTES the upstream `civitai` binary, so it holds no write
+ * credential and no app private key: a secret referenced anywhere in a job is
+ * delivered to that job's runner, where code in any later step can read it. The
+ * publish job mints the app token, installs nothing, runs only this repo's own
+ * scripts from the workflow's ref, refuses a bundle that changes a path the bot
+ * does not own (scripts/lib/bot-push-guard.mjs), and pushes.
  *
  * `--decide` exists so the WORKFLOW can ask the question once, cheaply, before
  * paying for a ~20 MB release download — and so the answer the
@@ -224,18 +230,21 @@
  *   CLI_SNAPSHOT_REFRESH_BRANCH       override the stable branch name (default bot/cli-snapshot-refresh)
  *   CLI_SNAPSHOT_REFRESH_BASE         override the PR base branch (default main)
  *   APPBLOCKS_CLI_RELEASES_URL        release-endpoint override (shared with check-appblocks-cli-snapshot)
- *   GITHUB_TOKEN / GH_TOKEN           lifts the 60/hr unauthenticated rate limit on the releases GET, and
- *                                     is the `gh` credential. Absent, the GET may 403 and the run SKIPs.
+ *   GITHUB_TOKEN / GH_TOKEN           lifts the 60/hr unauthenticated rate limit on the releases GET
+ *                                     (GITHUB_TOKEN first). GH_TOKEN is the `gh` credential: in CI the
+ *                                     app token, so the PR gets its `pull_request` runs. Absent, the GET
+ *                                     may 403 and the run SKIPs.
  *   GITHUB_SERVER_URL / GITHUB_REPOSITORY / GITHUB_RUN_ID   used to link the run from the PR body
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { appendFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { bare, classifySnapshot, parseSnapshotVersion } from './check-appblocks-cli-snapshot.mjs';
 import { CLI_PAGE_REL, introCommandDrift } from './lib/cli-intro-commands.mjs';
+import { assertOnlyOwnedChanges } from './lib/bot-push-guard.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -525,9 +534,10 @@ export function prTitle(targetTag) {
  * The PR body.
  *
  * It no longer opens with a "checks did NOT run" warning: the workflow now
- * dispatches the required checks on the branch (#148), and a stale warning
- * teaches reviewers to skim the body. The "Checks" section says where they come
- * from, so an absent check is still legible as a failure to dispatch.
+ * opens the PR with a GitHub App token, so the ordinary `pull_request` runs
+ * start (#148), and a stale warning teaches reviewers to skim the body. The
+ * "Checks" section says where they come from, so an absent check is still
+ * legible as the token having fallen back to GITHUB_TOKEN.
  */
 export function prBody({ fromVersion, targetTag, stats, reason, runUrl, branch, regen = null }) {
   const run = runUrl ? `[this workflow run](${runUrl})` : 'the scheduled `cli-snapshot-refresh` run';
@@ -557,11 +567,11 @@ as a normal-looking diff with whole command subtrees quietly deleted.
 
 ${regenSection(regen)}## Checks
 
-A PR opened with the default \`GITHUB_TOKEN\` gets no \`pull_request\` runs, so this
-workflow dispatches \`main\`'s required workflows on \`${branch}\` after every
-update (\`workflow_dispatch\`); they report under the usual names. If one is
-missing, the dispatch failed: see the run's \`dispatch-checks\` job. A push of
-your own to this branch starts the ordinary \`pull_request\` runs.
+This workflow pushes \`${branch}\` and opens this PR with a GitHub App token, not
+the default \`GITHUB_TOKEN\` (a push made with that starts no \`pull_request\`
+runs). So the ordinary \`pull_request\` checks run on every push, and \`main\`'s
+required checks report here under their usual names. If this PR shows no
+checks at all, the push was not made as the app: see the run's \`publish\` job.
 
 ## Review this diff by hand
 
@@ -584,8 +594,8 @@ sides named rather than opening a conflicted PR.
 }
 
 /**
- * 🔴 THE ONE PREREQUISITE THIS FEATURE CANNOT SATISFY ITSELF (currently
- * satisfied). `gh pr create` with GITHUB_TOKEN fails outright when the Actions
+ * 🔴 A PREREQUISITE OF THE GITHUB_TOKEN PATH (the workflow now uses an app
+ * token, which it does not govern). `gh pr create` with GITHUB_TOKEN fails outright when the Actions
  * policy does not allow GitHub Actions to create pull requests — `GitHub
  * Actions is not permitted to create or approve pull requests
  * (createPullRequest)`, with the branch already pushed. NO `permissions:` block
@@ -1100,6 +1110,12 @@ async function main() {
   const dryRun = argv.includes('--dry-run');
   const noPr = argv.includes('--no-pr');
   const allowLocalPush = argv.includes('--allow-local-push');
+  const flagVal = (flag) => {
+    const i = argv.indexOf(flag);
+    return i >= 0 ? argv[i + 1] : undefined;
+  };
+  const handoffDir = flagVal('--handoff');
+  const publishing = argv.includes('--publish');
   const branch = process.env.CLI_SNAPSHOT_REFRESH_BRANCH || DEFAULT_BRANCH;
   const base = process.env.CLI_SNAPSHOT_REFRESH_BASE || DEFAULT_BASE;
   const snapshotPath = join(repoRoot, SNAPSHOT_REL);
@@ -1129,6 +1145,8 @@ async function main() {
     );
     process.exit(1);
   }
+
+  if (publishing) return publishHandoff(flagVal('--in'), { branch, base });
 
   if (!existsSync(snapshotPath)) {
     console.error(`  ✗ committed snapshot MISSING at ${SNAPSHOT_REL} — repo-local breakage, not drift.`);
@@ -1291,6 +1309,7 @@ async function main() {
   // currently holds the CAPTURE, and `git checkout` refuses to move a branch
   // when that would overwrite a locally modified file. Restore -> checkout ->
   // re-write the capture.
+  const startSha = git(['rev-parse', 'HEAD']);
   const remoteSha = remoteBranchSha(branch);
   writeFileSync(snapshotPath, prev);
   if (remoteSha) {
@@ -1380,6 +1399,11 @@ async function main() {
         `Opened automatically by .github/workflows/cli-snapshot-refresh.yml.`,
     ]);
   }
+  if (handoffDir) {
+    writeHandoff(handoffDir, { branch, base, head: git(['rev-parse', 'HEAD']), remoteSha, baseSha: startSha, title, body });
+    return;
+  }
+
   // 🔴 NO `--force`. The push is a fast-forward of a branch we just built on
   // top of. If it is rejected, another writer moved the ref between the
   // ls-remote and here — the correct answer is to fail loudly (the workflow's
@@ -1394,6 +1418,22 @@ async function main() {
     return;
   }
 
+  openOrUpdatePr({ branch, base, title, body });
+}
+
+/**
+ * The open PR from `branch` IN THIS REPOSITORY into `base`, or null.
+ * `gh pr list --head <name>` also returns FORK PRs whose branch has that name,
+ * so without the filter anyone could open a fork PR named like the bot branch
+ * and have the bot retitle it.
+ */
+export function openSameRepoPr({ branch, base }, run = gh) {
+  const out = run(['pr', 'list', '--head', branch, '--base', base, '--state', 'open', '--json', 'number,isCrossRepository']);
+  return JSON.parse(out || '[]').filter((p) => p.isCrossRepository === false)[0] ?? null;
+}
+
+/** Open or update the PR for an already-pushed `branch`. Exits non-zero on any failure. */
+function openOrUpdatePr({ branch, base, title, body }) {
   // Written OUTSIDE the repo: an untracked file in the checkout is one blind
   // `git add` away from riding along in the PR it describes.
   const bodyDir = mkdtempSync(join(tmpdir(), 'cli-snapshot-pr-'));
@@ -1405,11 +1445,10 @@ async function main() {
   // already pushed: the "nobody has been told" state, reached by the one path
   // with no advice attached to it.
   try {
-    const existing = gh(['pr', 'list', '--head', branch, '--base', base, '--state', 'open', '--json', 'number']);
-    const open = JSON.parse(existing || '[]');
-    if (open.length) {
-      gh(['pr', 'edit', String(open[0].number), '--title', title, '--body-file', bodyFile]);
-      console.log(`  ✓ updated PR #${open[0].number}`);
+    const open = openSameRepoPr({ branch, base });
+    if (open) {
+      gh(['pr', 'edit', String(open.number), '--title', title, '--body-file', bodyFile]);
+      console.log(`  ✓ updated PR #${open.number}`);
     } else {
       const url = gh(['pr', 'create', '--base', base, '--head', branch, '--title', title, '--body-file', bodyFile]);
       console.log(`  ✓ opened ${url}`);
@@ -1435,6 +1474,76 @@ async function main() {
     // would claim the PR was opened.
     process.exit(1);
   }
+}
+
+/**
+ * The build job's half: hand the committed branch to the publish job instead of
+ * pushing it. Writes `meta.json`, `title.txt`, `body.md` and (when this run made
+ * new commits) `branch.bundle`, and emits `action=publish` for the workflow.
+ */
+function writeHandoff(dir, { branch, base, head, remoteSha, baseSha, title, body }) {
+  mkdirSync(dir, { recursive: true });
+  const from = remoteSha || baseSha;
+  const bundled = head !== from;
+  if (bundled) git(['bundle', 'create', join(dir, 'branch.bundle'), `${from}..refs/heads/${branch}`]);
+  writeFileSync(join(dir, 'meta.json'), `${JSON.stringify({ branch, base, head, remoteSha, baseSha, bundled }, null, 2)}\n`);
+  writeFileSync(join(dir, 'title.txt'), title);
+  writeFileSync(join(dir, 'body.md'), body);
+  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, 'action=publish\n');
+  console.log(`\n  ✓ ${branch} at ${head.slice(0, 8)} handed to the publish job (${bundled ? 'bundle' : 'no new commits'})`);
+}
+
+/**
+ * The publish job's half. Runs from the workflow's own checkout with the app
+ * token, installs nothing and executes nothing from the bundle. It re-checks
+ * what it is told: the bundle's head, that the remote branch has not moved,
+ * that the base sha the build job used is really on `base`, and that the new
+ * commits change only paths this bot owns (or `base`'s own versions of them).
+ */
+async function publishHandoff(dir, { branch, base }) {
+  if (!dir) throw new Error('--publish needs --in <dir>');
+  const meta = JSON.parse(readFileSync(join(dir, 'meta.json'), 'utf8'));
+  if (meta.branch !== branch || meta.base !== base) {
+    throw new Error(`the handoff is for ${meta.branch} -> ${meta.base}, not ${branch} -> ${base}; refusing`);
+  }
+  const title = readFileSync(join(dir, 'title.txt'), 'utf8');
+  const body = readFileSync(join(dir, 'body.md'), 'utf8');
+  const remote = remoteBranchSha(branch);
+  if (remote !== (meta.remoteSha || null)) {
+    throw new Error(`${branch} moved since the build job read it (expected ${meta.remoteSha}, found ${remote}); nothing pushed`);
+  }
+  git(['fetch', '-q', 'origin', `+refs/heads/${base}:refs/cli-snapshot/base`]);
+  const baseOk = spawnSync('git', ['merge-base', '--is-ancestor', meta.baseSha, 'refs/cli-snapshot/base'], { cwd: repoRoot });
+  if (baseOk.status !== 0) throw new Error(`the handoff's base ${meta.baseSha} is not on ${base}; refusing`);
+
+  if (meta.bundled) {
+    git(['fetch', '-q', join(dir, 'branch.bundle'), `+refs/heads/${branch}:refs/cli-snapshot/head`]);
+    const head = git(['rev-parse', 'refs/cli-snapshot/head']);
+    if (head !== meta.head) throw new Error(`the bundle holds ${head}, but the build job reported ${meta.head}`);
+    const pages = await ownedPages();
+    // Bases are `base` as fetched now and the commit this job checked out
+    // (the workflow's ref) — never the handoff's own baseSha: any ancestor of
+    // `base` passes the check above, so trusting it would let a bundle roll a
+    // file back to an old version that still "matches base".
+    assertOnlyOwnedChanges({
+      cwd: repoRoot,
+      from: meta.remoteSha || 'refs/cli-snapshot/base',
+      head,
+      bases: ['refs/cli-snapshot/base', git(['rev-parse', 'HEAD'])],
+      allowed: (p) => p === SNAPSHOT_REL || partitionRegenChanges([p], pages).stage.length === 1,
+    });
+    // 🔴 NO `--force`: a fast-forward of the ref checked above, or a loud failure.
+    git(['push', 'origin', `refs/cli-snapshot/head:refs/heads/${branch}`]);
+    console.log(`  ✓ pushed ${branch} at ${head.slice(0, 8)}`);
+  } else {
+    if (!meta.remoteSha || meta.head !== meta.remoteSha) throw new Error('the handoff carries no bundle but names a new head');
+    console.log(`  ↳ ${branch} already carries these bytes — nothing to push`);
+  }
+  if (process.argv.includes('--no-pr')) {
+    console.log('\n--- --no-pr: branch published, PR not opened ---');
+    return;
+  }
+  openOrUpdatePr({ branch, base, title, body });
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
