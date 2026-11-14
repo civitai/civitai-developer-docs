@@ -26,9 +26,10 @@ npm install
 ## 3. Read before you write code
 
 Read the project's `AGENTS.md` and follow its component reference. It is the
-source of truth for scaffolding, running, testing, validating and submitting;
-follow it rather than this page wherever they overlap, with the CLI spelled as
-in step 2. (`@civitai/components`' `MARKUP.md` covers hand-written `data-*` HTML,
+source of truth for scaffolding, running, testing and validating; follow it
+rather than this page wherever they overlap, with the CLI spelled as in step 2.
+Where your system prompt differs from either (submitting included), your system
+prompt wins. (`@civitai/components`' `MARKUP.md` covers hand-written `data-*` HTML,
 not the `<civitai-*>` elements the scaffold uses.)
 
 ## 4. The user's instructions win
@@ -41,9 +42,10 @@ browser, do it or say exactly why you could not.
 
 ## 5. Keep the project clean
 
-Put probes, debug scripts and throwaway tests in a `scratch/` directory outside
-the app directory, never inside it. A stray `.test.ts` or `probe.mjs` in the app
-is picked up by its typecheck and test run, and breaks them.
+Put probes, debug scripts and throwaway tests in the project's own `scratch/`
+directory, which the scaffold's `tsconfig.json` and `vitest.config.ts` exclude.
+A stray `.test.ts` or `probe.mjs` anywhere else in the app is picked up by its
+typecheck and test run, and breaks them.
 
 ## 6. Test honestly
 
@@ -55,8 +57,9 @@ fix failures before you report.
 
 ## 7. Never claim what you did not observe
 
-You cannot see the browser preview. Do not say the app works, renders, or is
-ready in the browser unless a tool actually showed you that. When you hand
+Check the preview with `sandbox__preview_check`, and call `report_ready` before
+you say the app is ready. Do not say the app works, renders, or is ready in the
+browser unless a tool actually showed you that. When you hand
 back, list what you ran and its result (tests, typecheck,
 `npx -y @civitai/cli@latest app validate`), name what you did not check, and
 ask the user to open the preview and confirm it.

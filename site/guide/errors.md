@@ -7,25 +7,25 @@ description: Error response shape and HTTP status codes used by the Civitai site
 
 ## Response shape
 
-Most errors come back as a single-field JSON object:
+Errors that go through the API's shared error envelope carry three fields:
 
 ```json
-{ "error": "descriptive message" }
+{ "code": "NOT_FOUND", "message": "Not found", "error": "Not found" }
 ```
 
-Some errors originate inside the internal tRPC layer and get forwarded with a
-richer shape:
+- **`code`** — a stable, machine-readable value: `BAD_REQUEST`, `NOT_FOUND`,
+  `CONFLICT`, `TIMEOUT`, `TOO_MANY_REQUESTS` or `INTERNAL_SERVER_ERROR`.
+  **Branch on `code`**, never on the text.
+- **`message`** — a human-readable summary, always a string.
+- **`error`** — the older field, kept for existing clients. Usually the same
+  string as `message`; on some `400`s it is a validation object.
+- **`rateLimit`** — on a rate-limited `429` only:
+  `{ "retryAfterSeconds": …, "retryAt": … }`, sent with a `Retry-After` header.
 
-```json
-{
-  "code": "UNAUTHORIZED",
-  "message": "descriptive message",
-  "issues": [ /* optional Zod validation details */ ]
-}
-```
-
-Either way, inspect the HTTP status code first and use the body for a
-human-readable explanation.
+Not every error carries `code` yet. A `401` is still `{ "error": "Unauthorized" }`,
+a missing-scope `403` is `{ "error": "<message>" }`, and some `4xx` forwarded
+from the internal tRPC layer are `{ "message": "…" }` or a list of Zod issues.
+When `code` is absent, branch on the HTTP status.
 
 ::: tip Hit this through the `civitai` CLI rather than the REST API?
 The CLI turns these statuses into **exit codes** and its own messages, and the
@@ -50,9 +50,9 @@ binary prints.
 
 ## Retries
 
-The API does not expose a `Retry-After` header for most failures. For 5xx and
-429 responses, apply exponential backoff starting at ~1 second and cap at
-~30 seconds. Don't retry 4xx responses other than 429 — the request shape
+A rate-limited `429` sends `Retry-After` (and `rateLimit` in the body); wait
+that long. Without one, for 5xx and 429 responses apply exponential backoff
+starting at ~1 second and cap at ~30 seconds. Don't retry 4xx responses other than 429 — the request shape
 itself is the problem.
 
 ## Rate limits

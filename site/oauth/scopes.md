@@ -48,13 +48,16 @@ scope = UserRead | AIServicesRead | AIServicesWrite | BuzzRead
 | 26 | 67 108 864 | `AppBlocksDevTunnel` | Open on-site dev tunnels _(opt-in)_ |
 | 27 | 134 217 728 | `LinkConnect` | Connect the Civitai Link app to your account _(opt-in)_ |
 | 28 | 268 435 456 | `AppStoreCatalogWrite` | Publish items to the app's App Store listing — see [catalog sync](/apps/guide/catalog-sync) _(opt-in; `client_credentials` grant only)_ |
+| 29 | 536 870 912 | `WorkerRegister` | _Internal_ — orchestrator worker registration; not available to third-party clients |
+| 30 | 1 073 741 824 | `DownloadLink` | Create short, single-file download links for a named user (`POST /api/v1/download-links`) _(opt-in; `client_credentials` grant only)_ |
 | — | 33 554 431 | `Full` | Bits 0–24 |
 
-Bits 25–28 are **opt-in** scopes. They are not part of `Full`, and a client can
+Bits 25–28 and 30 are **opt-in** scopes. They are not part of `Full`, and a client can
 obtain one only if it is registered with it in its allowed scopes (the
 first-party `civitai` CLI requests bits 25 and 26 by default).
-`AppStoreCatalogWrite` is issued only through the `client_credentials` grant:
-`/authorize` refuses any request carrying it with `invalid_scope`. What it is
+`AppStoreCatalogWrite` and `DownloadLink` are issued only through the
+`client_credentials` grant: `/authorize` refuses any request carrying one with
+`invalid_scope`. What `AppStoreCatalogWrite` is
 for, and how to mint and use it, is on
 [App Store catalog sync](/apps/guide/catalog-sync).
 
@@ -125,13 +128,16 @@ token-endpoint response — it's authoritative.
 ## Checking scopes at the API boundary
 
 Pass the access token as `Authorization: Bearer <token>` on any Civitai
-endpoint. The endpoint returns `403 insufficient_scope` if the token's
-scope is missing the bit it requires:
+endpoint. A REST route under `/api/v1` refuses a token missing the bit it
+requires with `403` and an `error` string whose wording varies by route, so
+branch on the status, not the text (see [Errors](/site/guide/errors)). Only
+[`/userinfo`](./endpoints#get-api-auth-oauth-userinfo) answers with the OAuth
+`insufficient_scope` body:
 
 ```json
 {
   "error": "insufficient_scope",
-  "error_description": "Token does not have ModelsWrite scope"
+  "error_description": "Token does not have UserRead scope"
 }
 ```
 
