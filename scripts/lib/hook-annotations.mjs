@@ -44,9 +44,6 @@ export function returnInterfaceText(fn) {
   return { type: name, text: `interface ${name} {\n${members.map((m) => `  ${m}`).join('\n')}\n}` };
 }
 
-/** Where the notices point. A site path; the .md channel turns it into a `.md` URL. */
-const STORAGE_GUIDE = '/apps/guide/storage';
-
 /**
  * Hooks the platform is retiring, with what replaces them. Every key must name a hook
  * in the published package (`assertAnnotatedHooksExist`), so a rename upstream is a red
@@ -61,24 +58,10 @@ const STORAGE_GUIDE = '/apps/guide/storage';
  * move the pin across it without a hand edit landing first.
  */
 export const SUPERSEDED_HOOKS = {
-  useAppStorage: {
-    text:
-      'Deprecated: new apps keep per-viewer data in a private collection of the document store. ' +
-      'This hook is shut down on 2026-11-10; from then on its calls fail with an error.',
-    linkText: 'Storing data',
-    href: `${STORAGE_GUIDE}#moving-from-the-legacy-stores`,
-    // civitai-app-starters#831 (the next minor, per its `changeset status`).
-    removedIn: '0.81.0',
-  },
-  useSharedStorage: {
-    text:
-      'Deprecated: new apps keep data every viewer reads in a shared collection of the document store, ' +
-      'which has authorship, counters and marks built in. This hook is shut down on ' +
-      '2026-11-10; from then on its calls fail with an error.',
-    linkText: 'Storing data',
-    href: `${STORAGE_GUIDE}#moving-from-the-legacy-stores`,
-    removedIn: '0.81.0',
-  },
+  // Shape: useX: { text: 'Deprecated: …', linkText: 'Guide', href: '/apps/guide/…', removedIn?: 'x.y.z' }
+  // The last two entries (useAppStorage, useSharedStorage, both `removedIn: '0.81.0'`)
+  // were deleted when the pin reached @civitai/blocks-react@0.81.0, which no longer
+  // exports either hook.
 };
 
 /**

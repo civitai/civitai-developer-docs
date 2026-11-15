@@ -128,14 +128,8 @@ const HOOKS = {
       slug: 'storage-and-media',
       title: 'Storage, picker and media hooks',
       description:
-        'Per-app and shared storage, wildcard packs and workflow files, checkpoint, resource and image pickers, uploading images and other media, saving images, and creating posts.',
+        'Wildcard packs and workflow files, checkpoint, resource and image pickers, uploading images and other media, saving images, and creating posts.',
       members: [
-        // Removed in @civitai/blocks-react 0.81.0 (`removedIn` in
-        // scripts/lib/hook-annotations.mjs). Kept while the pin is below it, so the
-        // two hooks do not move pages; a member the artifact lacks places nothing.
-        // Delete these two with the hook-annotations entries.
-        'useAppStorage',
-        'useSharedStorage',
         'useWildcardPack',
         'useResourceFile',
         'useCheckpointPicker',

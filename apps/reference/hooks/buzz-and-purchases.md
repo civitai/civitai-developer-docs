@@ -9,7 +9,7 @@ description: "Buzz balance and transactions, Buzz and goods purchases, entitleme
 
 Buzz balance and transactions, Buzz and goods purchases, entitlements, compensation and tips.
 
-This page documents 9 of the 49 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.80.1` package's type definitions and README.
+This page documents 9 of the 48 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.81.0` package's type definitions and README.
 
 Other pages: [Context, frame and analytics hooks](./context) · [Generation hooks](./generation) · [Batch, confirmed-step and training hooks](./batches-and-training) · [Viewer, consent and navigation hooks](./viewer-and-navigation) · [Storage, picker and media hooks](./storage-and-media)
 
@@ -135,8 +135,14 @@ if (!loading && balance) console.log(`Yellow: ${balance.yellow}`);
 
 ```md
 > Per-account Buzz: `useBuzzWorkflow().submit(body)` also takes an optional
-> `body.accountType` (`'blue' | 'green' | 'yellow'`) — a *preference* for which
-> pool funds the generation; the host clamps it server-side.
+> `body.accountType` (`'blue' | 'green' | 'yellow'`) — the pool tried *first*,
+> with the app's other allowed pools as fallback. It rides top-level on a
+> `textToImage` body, on both `kind: 'step'` arms and once per `kind: 'workflow'`
+> body (under `params` on a `customComfy` recipe). A pool the app may not spend
+> is refused on the estimate and the submit. A pick does not guarantee an
+> unrestricted output: a fallback to `blue` can still restrict a mature one.
+> On a step or workflow body, send it only once the host accepts it
+> (civitai/civitai#8985): an older host refuses the whole body.
 ```
 
 **`useBuzzTransactions`**
