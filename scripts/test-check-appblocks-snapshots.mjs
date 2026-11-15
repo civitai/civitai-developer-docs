@@ -63,11 +63,17 @@ const env = {
   APPBLOCKS_STARTERS_RAW_BASE: `${origin}/civitai/civitai-app-starters/main`,
   APPBLOCKS_CLI_RAW_BASE: `${origin}/civitai/cli/main`,
   APPBLOCKS_MCP_RAW_BASE: `${origin}/civitai/civitai-mcp-server/main`,
+  // The PRIVATE orchestration registry: no token here, so it SKIPs as UNVERIFIED
+  // before any request, whatever the runner's own env holds; the base points at
+  // the stand-in anyway so nothing here can reach the real API.
+  APPBLOCKS_ORCH_API_BASE: `${origin}/civitai/civitai-orchestration/contents`,
+  ORCHESTRATION_APP_TOKEN: '',
 };
 // The routes above are keyed by the DEFAULT bases baked into SOURCES at import;
 // the guard in the child reads the overridden bases. They must name the same repos.
 for (const e of SOURCES) {
-  if (e.base) assert(Object.values(env).some((v) => v === `${origin}/${e.base.replace(RAW, '')}`), `no env override reaches ${e.base}`);
+  const tail = e.base?.replace(RAW, '').replace('https://api.github.com/repos/', '');
+  if (e.base) assert(Object.values(env).some((v) => v === `${origin}/${tail}`), `no env override reaches ${e.base}`);
 }
 
 async function guard(o) {
@@ -92,7 +98,12 @@ async function check(name, o, expect) {
 }
 
 const summary = (out) => out.match(/^Snapshots: .*$/m)?.[0] ?? '(no Snapshots: line)';
-const n = SOURCES.length;
+// The render contract covers the generator-read snapshots. The two DERIVED MCP
+// registries (check-doc-claims.mjs's inputs, compared as derived text, not rendered)
+// SKIP here: the stand-in answers 503 for the upstream files they derive from, and
+// the private one has no token. They are counted so a silent extra skip still fails.
+const n = SOURCES.filter((e) => !e.derive).length;
+const derivedCount = SOURCES.length - n;
 
 // Seeds. Each is a LITERAL edit of a committed file; the `includes` asserts below
 // refuse to run a seed that no longer applies, so a seed cannot silently become a no-op.
@@ -108,7 +119,8 @@ console.log('check-appblocks-snapshots contract (offline, local stand-in for raw
 await check('clean: every upstream file equals its snapshot → green, all graded', {}, (rc, out) => {
   assert(rc === 0, `rc ${rc}`);
   assert(summary(out).startsWith(`Snapshots: ${n} up-to-date · 0 byte-drifted`), summary(out));
-  assert(/0 drifted · 0 skipped/.test(summary(out)), summary(out));
+  assert(new RegExp(`0 drifted · ${derivedCount} skipped`).test(summary(out)), summary(out));
+  assert(out.includes('⊘ orchestration-mcp-tools.txt — UNVERIFIED'), 'the tokenless private source did not report UNVERIFIED');
 });
 
 await check(
@@ -172,6 +184,7 @@ try {
   const bad = checkLedger([{ snapshot: 'doc-store-api.ts', gen: 'gen-appblocks-scopes.mjs', out: 'scopes.json' }]);
   assert(bad.length === 1 && bad[0].includes('does not read this snapshot'), `mis-mapped entry accepted: ${JSON.stringify(bad)}`);
   assert(checkLedger([{ snapshot: 'x.ts' }])[0]?.includes('no `gen`/`out`'), 'entry without gen accepted');
+  assert(checkLedger([{ snapshot: 'x.txt', derive: () => {}, gen: 'gen-appblocks-scopes.mjs', out: 'scopes.json' }])[0]?.includes('drop its'), 'derived entry with a generator accepted');
   console.log('  ok   the SOURCES ledger holds, and refuses a snapshot mapped to a generator that does not read it');
 } catch (err) {
   failures++;

@@ -54,9 +54,19 @@
  *     source path.
  *   - network unreachable / DNS / timeout / 5xx / 403 -> SKIP with a clear note
  *     (exit 0 — a genuine connectivity failure must never false-fail).
+ *   - DERIVED sources (an entry with `derive`, the two MCP registries): no
+ *     generator; the derived text IS what check-doc-claims.mjs consumes, so it
+ *     is compared directly — identical -> PASS, different -> FAIL (naming the
+ *     lines to apply), the same fetch SKIP/FAIL rules, and a source that no
+ *     longer has the shape the derivation reads -> FAIL.
+ *   - a PRIVATE source (an entry with `token`) whose token env var is unset
+ *     -> SKIP, printed as UNVERIFIED.
  *
  * It needs `npm ci` first (the generators read the pinned SDK packages and
- * ts-morph). The offline contract test is scripts/test-check-appblocks-snapshots.mjs.
+ * ts-morph), EXCEPT `--only` on a derived source: that runs no generator, and
+ * this file imports only node: built-ins and ./lib/mcp-registries.mjs.
+ * appblocks-drift.yml's `orch-snapshot` job depends on that (no `npm ci` there).
+ * The offline contract test is scripts/test-check-appblocks-snapshots.mjs.
  *
  * The manifest schema has no snapshot: the page renders from the pinned
  * @civitai/app-sdk, whose freshness check:pins owns (and whose agreement with
@@ -69,6 +79,14 @@
  *
  * USAGE
  *   npm run check:snapshots
+ *   node scripts/check-appblocks-snapshots.mjs --only <snapshot>   # that ONE source, no pinned constants
+ *   node scripts/check-appblocks-snapshots.mjs --skip <snapshot>   # every source but that one
+ *
+ * `--only` / `--skip` exist for appblocks-drift.yml's token split: the PRIVATE
+ * orchestration source runs `--only` in its own job (the only job holding the
+ * agent GitHub App token, which runs no `npm ci`), and the `drift` job runs
+ * `--skip` it. A name that matches no SOURCES entry exits 2, so a typo can never
+ * turn into a run that checked nothing.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -76,6 +94,13 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } 
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import {
+  MCP_SERVER_SNAPSHOT,
+  ORCHESTRATION_SNAPSHOT,
+  deriveMcpServerRegistry,
+  deriveOrchestrationRegistry,
+  registryDelta,
+} from './lib/mcp-registries.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -93,6 +118,9 @@ const APP_STARTERS_BASE =
 const CLI_BASE = process.env.APPBLOCKS_CLI_RAW_BASE || 'https://raw.githubusercontent.com/civitai/cli/main';
 const MCP_BASE =
   process.env.APPBLOCKS_MCP_RAW_BASE || 'https://raw.githubusercontent.com/civitai/civitai-mcp-server/main';
+// PRIVATE repo: read through the contents API with a token (see its SOURCES entry).
+const ORCH_BASE =
+  process.env.APPBLOCKS_ORCH_API_BASE || 'https://api.github.com/repos/civitai/civitai-orchestration/contents';
 
 // Each committed snapshot ↔ its canonical upstream source path. Entries default
 // to civitai@main (RAW_BASE); an explicit `base` overrides it for sources that
@@ -100,7 +128,9 @@ const MCP_BASE =
 // `out` what it writes: a JSON artifact name, or `PAGE` for the components
 // generator, whose output is a committed page. checkLedger() refuses to run
 // when a `gen` does not name its snapshot, so a wrong mapping cannot grade a
-// generator that never reads the file. There is no manifest-schema snapshot
+// generator that never reads the file. A DERIVED entry (`derive`, the two MCP
+// registries at the end) has no `gen`/`out`: no generator reads it, and its
+// derived text is compared as-is. There is no manifest-schema snapshot
 // any more (see gen-appblocks-manifest.mjs).
 //
 // civitai-cli-help.txt is NOT here either, and NOT because anything else already
@@ -188,6 +218,35 @@ export const SOURCES = [
     gen: 'gen-appblocks-platform-feedback.mjs',
     out: 'platform-feedback.json',
     base: MCP_BASE,
+  },
+  // The two MCP REGISTRIES → the `mcp-tool` / `mcp-url` claims check-doc-claims.mjs
+  // resolves on site/mcp/**, orchestration/mcp/** and public/agent-setup/prompt.md.
+  // DERIVED, not byte copies: `derive` reads several upstream files and renders the
+  // endpoint paths + tool names, and THAT text is what is compared. Why derived, and
+  // why these files: the header of scripts/lib/mcp-registries.mjs.
+  {
+    path: 'src/server.ts (+ src/index.ts, src/tools/*.ts)',
+    snapshot: MCP_SERVER_SNAPSHOT,
+    base: MCP_BASE,
+    derive: deriveMcpServerRegistry,
+  },
+  // 🔴 civitai-orchestration is PRIVATE. raw.githubusercontent answers 404 for a
+  // private file without credentials, which this guard would read as "removed
+  // upstream", a permanent false red. So this entry reads through the contents API
+  // with ORCHESTRATION_APP_TOKEN: a read-only installation token of the agent
+  // GitHub App, minted by appblocks-drift.yml's `orch-snapshot` job (no `npm ci`
+  // there, which is why nothing this script imports may need node_modules) scoped
+  // to civitai-orchestration (this repo's GITHUB_TOKEN cannot read another private
+  // repo). The `drift` job runs `--skip` this entry. It SKIPS, loudly,
+  // when the token is absent, i.e. the mint failed because the App is not
+  // installed on that repo; the snapshot's freshness is then UNVERIFIED and the
+  // skip line says so.
+  {
+    path: 'src/Civitai.Orchestration.McpServer/Infrastructure/McpEndpoints.cs (+ Tools/<V2Tools type>.cs)',
+    snapshot: ORCHESTRATION_SNAPSHOT,
+    base: ORCH_BASE,
+    token: 'ORCHESTRATION_APP_TOKEN',
+    derive: deriveOrchestrationRegistry,
   },
 ];
 
@@ -475,10 +534,12 @@ function firstDivergence(a, b) {
   return null;
 }
 
-async function fetchUpstream(path, base = RAW_BASE) {
-  const url = `${base}/${path}`;
+async function fetchUpstream(path, base = RAW_BASE, token = null) {
+  // A token means the contents API (private repo): `?ref=main` + the raw media type.
+  const url = token ? `${base}/${path}?ref=main` : `${base}/${path}`;
+  const headers = token ? { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github.raw' } : {};
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
+    const res = await fetch(url, { headers, signal: AbortSignal.timeout(20000) });
     if (!res.ok) {
       // 404/410 on a KNOWN tracked path is not "transient" — it means the file
       // was renamed or removed upstream, which is REAL drift. Any other non-2xx
@@ -496,14 +557,44 @@ async function fetchUpstream(path, base = RAW_BASE) {
 }
 
 /**
+ * `--only <snapshot>` / `--skip <snapshot>` → the SOURCES entries to check and
+ * whether to run the pinned constants. Throws on an unknown name or a bad argv.
+ */
+function selectSources(argv, sources = SOURCES) {
+  const known = new Set(sources.map((s) => s.snapshot));
+  let only = null;
+  let skip = null;
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a !== '--only' && a !== '--skip') throw new Error(`unknown argument ${JSON.stringify(a)}`);
+    const v = argv[++i];
+    if (!v) throw new Error(`${a} needs a snapshot name`);
+    if (!known.has(v)) throw new Error(`${a} ${JSON.stringify(v)} names no source (known: ${[...known].join(', ')})`);
+    if (a === '--only') only = v;
+    else skip = v;
+  }
+  if (only && skip) throw new Error('--only and --skip are mutually exclusive');
+  if (only) return { sources: sources.filter((s) => s.snapshot === only), pins: false, skip: null };
+  return { sources: sources.filter((s) => s.snapshot !== skip), pins: true, skip };
+}
+
+/**
  * Every SOURCES entry's `gen` must exist and must name its snapshot, or the
  * render comparison below grades a generator that never reads the file and
  * reports "rendered output identical" for every byte of upstream drift.
  * Returns a list of problems (empty = the ledger holds).
+ *
+ * A DERIVED entry is the exception, and must be exactly that: a `derive`
+ * function and NO `gen`/`out` (it is compared as derived text, never rendered).
  */
 export function checkLedger(sources = SOURCES) {
   const problems = [];
-  for (const { snapshot, gen, out } of sources) {
+  for (const { snapshot, gen, out, derive } of sources) {
+    if (derive !== undefined) {
+      if (typeof derive !== 'function') problems.push(`${snapshot}: \`derive\` is not a function`);
+      else if (gen || out) problems.push(`${snapshot}: a derived entry has no generator; drop its \`gen\`/\`out\``);
+      continue;
+    }
     if (!gen || !out) {
       problems.push(`${snapshot}: no \`gen\`/\`out\` — every snapshot must name the generator that reads it`);
       continue;
@@ -556,7 +647,15 @@ function render(gen, out, snapDir, workDir) {
 }
 
 async function main() {
+  let sel;
+  try {
+    sel = selectSources(process.argv.slice(2));
+  } catch (err) {
+    console.error(`check-appblocks-snapshots: ${err.message}`);
+    process.exit(2);
+  }
   console.log('App Blocks snapshot drift-guard — diffing appblocks-snapshots/ vs civitai@origin/main\n');
+  if (sel.skip) console.log(`  · ${sel.skip} — not checked by this invocation (--skip; appblocks-drift.yml checks it in its own job)`);
 
   const ledger = checkLedger();
   if (ledger.length) {
@@ -573,8 +672,8 @@ async function main() {
   // rendered output below, never on bytes alone.
   const byteDrifted = [];
 
-  for (const entry of SOURCES) {
-    const { path, snapshot, base } = entry;
+  for (const entry of sel.sources) {
+    const { path, snapshot, base, derive, token: tokenEnv } = entry;
     const snapPath = join(snapshotsDir, snapshot);
     if (!existsSync(snapPath)) {
       console.log(`  ✗ ${snapshot} — committed snapshot MISSING at appblocks-snapshots/${snapshot}`);
@@ -582,13 +681,25 @@ async function main() {
       continue;
     }
     const local = normalize(readFileSync(snapPath, 'utf8'));
-    const remote = await fetchUpstream(path, base);
+    const token = tokenEnv ? process.env[tokenEnv] || null : null;
+    if (tokenEnv && !token) {
+      console.log(`  ⊘ ${snapshot} — UNVERIFIED: ${base} is a private repo and ${tokenEnv} is not set (in CI: the agent GitHub App token mint failed; is the App installed on that repo?)`);
+      skipped.push({ snapshot, path, note: `${tokenEnv} not set` });
+      continue;
+    }
+    const remote = derive ? await derive((p) => fetchUpstream(p, base, token)) : await fetchUpstream(path, base, token);
 
+    if (!remote.ok && remote.unmatched) {
+      // A derived source no longer has the shape the derivation reads: drift, never a skip.
+      console.log(`  ✗ ${snapshot} — ${remote.reason}; update scripts/lib/mcp-registries.mjs`);
+      drifted.push({ snapshot, path, unmatched: remote.reason });
+      continue;
+    }
     if (!remote.ok) {
       if (remote.gone) {
         // Tracked path moved/removed upstream → REAL drift (RED), not a skip.
         console.log(`  ✗ ${snapshot} — source path returned ${remote.reason}: moved/removed upstream`);
-        console.log(`      civitai no longer serves ${path}, but the generator still reads`);
+        console.log(`      upstream no longer serves ${remote.url ?? path}, but the generator still reads`);
         console.log(`      appblocks-snapshots/${snapshot} — the generated docs are stale.`);
         console.log(`      update the source path in the gen-appblocks-*.mjs generator + re-snapshot from the new path.`);
         drifted.push({ snapshot, path, gone: true, status: remote.status });
@@ -600,12 +711,24 @@ async function main() {
     }
 
     const up = normalize(remote.text);
+    // Name the repo the file came from: most of these sources are not civitai.
+    const upstream = base ? `${base.replace('https://raw.githubusercontent.com/', '')}` : 'civitai@origin/main';
     if (up === local) {
-      // Name the repo the file came from: three of these sources are not civitai.
-      const upstream = base ? `${base.replace('https://raw.githubusercontent.com/', '')}` : 'civitai@origin/main';
       console.log(`  ✓ ${snapshot} — matches ${upstream}`);
       ok++;
     } else {
+      if (derive) {
+        // A DERIVED registry is not graded by rendering: no generator reads it, and the
+        // derived text IS what check-doc-claims.mjs consumes. Any difference is drift,
+        // and a derived snapshot has no single URL to curl, so name the lines to apply.
+        console.log(`  ✗ ${snapshot} — DRIFTED from ${upstream}`);
+        const { added, removed } = registryDelta(local, up);
+        for (const l of added) console.log(`      + ${l}`);
+        for (const l of removed) console.log(`      - ${l}`);
+        console.log(`      apply those lines to appblocks-snapshots/${snapshot} (sorted), then re-run npm run check:doc-claims`);
+        drifted.push({ snapshot, path, derived: { added, removed } });
+        continue;
+      }
       byteDrifted.push({ ...entry, local, up, url: remote.url });
     }
   }
@@ -661,11 +784,16 @@ async function main() {
     `\nSnapshots: ${ok} up-to-date · ${equivalent} byte-drifted with identical rendered output · ${drifted.length} drifted · ${skipped.length} skipped (unreachable)`,
   );
 
-  console.log(`\nPinned constants — the generation-limits table in ${LIMITS_DOC} vs civitai@origin/main\n`);
-  const pins = await checkPinnedConstants();
-  console.log(
-    `\nPinned constants: ${pins.ok} of ${PINNED_CONSTANTS.length} match · ${pins.drifted.length} drifted · ${pins.skipped.length} skipped (unreachable)`,
-  );
+  let pins = { ok: 0, drifted: [], skipped: [] };
+  if (sel.pins) {
+    console.log(`\nPinned constants — the generation-limits table in ${LIMITS_DOC} vs civitai@origin/main\n`);
+    pins = await checkPinnedConstants();
+    console.log(
+      `\nPinned constants: ${pins.ok} of ${PINNED_CONSTANTS.length} match · ${pins.drifted.length} drifted · ${pins.skipped.length} skipped (unreachable)`,
+    );
+  } else {
+    console.log('\nPinned constants: not checked by this invocation (--only)');
+  }
 
   if (skipped.length && !drifted.length && ok === 0 && equivalent === 0) {
     console.log('\nAll sources unreachable — treating as an environment/network issue, not drift. Exiting 0.');
@@ -687,7 +815,11 @@ async function main() {
     console.error('The generated reference is built from these snapshots in CI, so the published');
     console.error('docs are STALE until they are re-copied. Re-snapshot and commit:');
     for (const d of drifted) {
-      if (d.missing) {
+      if (d.unmatched) {
+        console.error(`  - ${d.snapshot}: ${d.unmatched} — the derivation in scripts/lib/mcp-registries.mjs no longer matches upstream`);
+      } else if (d.derived) {
+        console.error(`  - ${d.snapshot}: apply +${d.derived.added.length} / -${d.derived.removed.length} line(s) listed above`);
+      } else if (d.missing) {
         console.error(`  - ${d.snapshot}: MISSING — restore it from ${d.base ?? RAW_BASE}/${d.path}`);
       } else if (d.gone) {
         console.error(

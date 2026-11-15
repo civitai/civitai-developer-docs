@@ -1,0 +1,18 @@
+{
+  "civitai/cli": {
+    "README.md␟cli␟civitai completion --help": "Correct claim the snapshot cannot see: cobra's built-in completion command is not in the captured help tree (same entry as apps/reference/cli.md in the in-repo baseline).",
+    "README.md␟cli␟civitai git-credential": "Correct claim the snapshot cannot see: git-credential is a Hidden cobra command, and the help walk enumerates `__complete`, which omits hidden commands.",
+    "README.md␟cli␟civitai completion [shell]": "Correct claim the snapshot cannot see: cobra's built-in completion command is not in the captured help tree (same entry as apps/reference/cli.md in the in-repo baseline).",
+    "README.md␟cli␟civitai help": "Correct claim the snapshot cannot see: cobra's built-in `help` command is not in the captured help tree.",
+    "README.md␟cli␟civitai app search": "Negative statement, true as written: the README says \"there is no `civitai app search`\".",
+    "README.md␟cli␟civitai app validate --version": "Documented NEGATIVE example: the README says this invocation fails with `unknown flag: --version` and exits 2."
+  },
+  "civitai/civitai-app-starters": {
+    "packages/civitai-app-sdk/README.md␟hook␟usePersistGenerationSource": "UPSTREAM AHEAD OF RELEASE, real for a reader today: added on starters main by civitai-app-starters#829 (c767b99), exported by no published version (npm latest = this repo's pins: blocks-react 0.80.1, app-sdk 0.87.0). Goes stale once the release and the pin bump land; delete it then.",
+    "packages/civitai-blocks-react/README.md␟hook␟usePersistGenerationSource": "UPSTREAM AHEAD OF RELEASE, real for a reader today: added on starters main by civitai-app-starters#829 (c767b99), exported by no published version (npm latest = this repo's pins: blocks-react 0.80.1, app-sdk 0.87.0). Goes stale once the release and the pin bump land; delete it then.",
+    "packages/civitai-blocks-react/README.md␟hook␟usePrepareTrainingDataset": "Historical mention, true as written: the README says this hook is **removed** (civitai/civitai#6461).",
+    "packages/civitai-blocks-react/AGENTS.md␟hook␟useX": "Placeholder in a rule (`Exact<ReturnType<typeof useX>, UseX>`), not a hook name.",
+    "packages/civitai-blocks-react/AGENTS.md␟hook␟useRequestSequencer": "Internal hook, true as written: this contributor file says it is the one hook kept OFF src/index.ts (INTERNAL_HOOKS).",
+    "packages/civitai-blocks-react/AGENTS.md␟hook␟useTransportConnection": "Internal helper, true as written: this contributor file describes the call every public hook makes first; it is not exported."
+  }
+}
