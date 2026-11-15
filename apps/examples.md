@@ -42,8 +42,9 @@ read:
 - **Posting to a viewer's profile from an app is off for everyone**, moderators
   included ([generate-studio](#generate-studio)).
 
-This list summarises the READMEs at civitai-app-starters `ed7d69c`. The READMEs
-are the authority, and gates change.
+This list summarises the READMEs at civitai-app-starters `5132d2f` (the head of
+civitai-app-starters#831; update this to its merge commit once it merges). The
+READMEs are the authority, and gates change.
 :::
 
 ::: tip Six of the nine are slot apps
@@ -168,7 +169,7 @@ then retrying with guards. It separates the two limits: buying Buzz raises the
 wallet (`useBuzzBalance`), never the per-generation budget on the token.
 
 - **Scopes** — `models:read:self`, `ai:write:budgeted`, `buzz:read:self`
-- **Hooks** — `useBuzzPurchase`, `useBuzzBalance`, `useBuzzWorkflow`, `useBlockContext`, `useBlockResize`
+- **Hooks** — `useBuzzPurchase`, `useBuzzBalance`, `useBuzzWorkflow`, `useDomainMaturity`, `useRequestSignIn`, `useRequestConsent`, `useConsentUnavailable`, `useBlockContext`, `useBlockResize`
 - **Run** — `npm run dev:harness` → `localhost:5185`. The live host refuses the
   purchase modal, so test the purchase under the harness.
 
@@ -235,8 +236,9 @@ today. Read it with [How an app earns](./guide/earning).
 - **Run** — `npm run dev:harness` → `localhost:5190`. Under `dev:live` a tip moves
   your own real Buzz, and your own purchases are refused as `self_purchase`.
 
-**Hook lists verified by hand on 2026-10-07** against civitai-app-starters
-`ed7d69c`, from each example's `@civitai/blocks-react` imports. The scope lists
+**Hook lists verified by hand on 2026-11-14** against civitai-app-starters
+`5132d2f` (the head of civitai-app-starters#831; update this to its merge commit
+once it merges), from each example's `@civitai/blocks-react` imports. The scope lists
 are checked daily (see [Keeping this list honest](#keeping-this-list-honest)).
 
 ## More real-world apps
