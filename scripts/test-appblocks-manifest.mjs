@@ -13,8 +13,12 @@
 //
 // What is pinned, with LITERAL expected values (never re-derived from the code
 // under test):
-//   1. the ROWS — `manifestRows()` over the committed schema snapshot, the single
-//      function both channels call (.vitepress/theme/components/manifestSchema.shared.mjs);
+//   1. the ROWS — `manifestRows()` over the schema the page is generated from
+//      (`resolveSchema()` in gen-appblocks-manifest.mjs, i.e. the pinned
+//      @civitai/app-sdk), the single function both channels call
+//      (.vitepress/theme/components/manifestSchema.shared.mjs). This used to read
+//      a committed snapshot that nothing refreshed, so it graded a schema two
+//      revisions older than the one the page rendered;
 //   2. the .md CHANNEL — the committed region in apps/reference/manifest.md;
 //   3. the SEAM — JsonSchemaTable.vue takes its rows from that same function, so
 //      the HTML cannot quietly go back to a private top-level-only copy (the
@@ -22,7 +26,8 @@
 //   4. the SCOPE — only `storage` is expanded (iframe/page/goods/analytics are not).
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { repoRoot, snapshotsDir } from './appblocks-util.mjs';
+import { repoRoot } from './appblocks-util.mjs';
+import { resolveSchema } from './gen-appblocks-manifest.mjs';
 import { manifestRows, EXPANDED_FIELDS } from '../.vitepress/theme/components/manifestSchema.shared.mjs';
 
 let failures = 0;
@@ -42,7 +47,7 @@ function assertEqual(got, want, msg) {
   if (got !== want) throw new Error(`${msg} — expected ${JSON.stringify(want)}, got ${JSON.stringify(got)}`);
 }
 
-const schema = JSON.parse(readFileSync(join(snapshotsDir, 'manifest-schema.json'), 'utf8'));
+const { schema } = resolveSchema();
 const rows = manifestRows(schema);
 const row = (field) => rows.find((r) => r.field === field);
 

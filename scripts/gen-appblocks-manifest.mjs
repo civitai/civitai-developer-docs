@@ -10,23 +10,31 @@
 // the static URL). We generate from the SDK-BUNDLED copy of it, which ships in
 // the pinned @civitai/app-sdk devDep — hermetic + version-pinned, no network.
 //
-// We deliberately do NOT fetch https://civitai.com/api/blocks/manifest-schema:
-// that endpoint is the LAGGING copy — it understates blockId/version and OMITS
-// the enforced `category` + `assetBundleUrl` fields, so generating from it
-// under-documents the real author-time constraints. (check-manifest-parity.mjs
-// keeps flagging that endpoint's divergence until a sibling civitai PR makes it
-// serve this canonical file verbatim.)
+// We do not fetch https://civitai.com/api/blocks/manifest-schema, because the
+// build makes no network request (build-site is a required, hermetic check).
+// Whether that endpoint serves the same schema is a separate question, owned by
+// check-manifest-parity.mjs on the scheduled drift sweep. That guard reported
+// the two substantively EQUAL when this comment was last checked (2026-11-14);
+// an earlier version of this comment said the endpoint lagged (understated
+// blockId/version, omitted `category` + `assetBundleUrl`), which stopped being
+// true by 2026-09-13. Read the guard's output rather than this sentence.
 //
-// Resolution (prefer the pinned hermetic dep, snapshot fallback for CI):
-//   1. SDK-bundled @civitai/app-sdk/schemas/app-block/v1.json  (pinned devDep)
-//   2. committed snapshot appblocks-snapshots/manifest-schema.json  (kept in
-//      lockstep with the canonical)
+// Resolution: the SDK-bundled @civitai/app-sdk/schemas/app-block/v1.json, and
+// nothing else. There used to be a second step, a committed snapshot at
+// appblocks-snapshots/manifest-schema.json "kept in lockstep with the
+// canonical". Nothing kept it in lockstep: no drift guard compared it and the
+// pin-bump bot never refreshed it, so it sat two schema revisions behind the
+// pin while scripts/test-appblocks-manifest.mjs (a required check) graded the
+// snapshot instead of the schema the page renders from. Every workflow and the
+// Dockerfile run `npm ci` before generating, so the pinned package is always
+// there; when it is not, failing is the correct outcome — a fallback to an
+// unguarded copy publishes a stale reference with a green build.
 //
 // No zod-to-json-schema — the source is already JSON Schema.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { log, outDir, resolvePackageRoot, snapshotsDir } from './appblocks-util.mjs';
+import { log, outDir, resolvePackageRoot } from './appblocks-util.mjs';
 
 // The SDK declares only an `import` condition and does not expose the schema
 // subpath in its exports map, so a bare require.resolve of the JSON file fails.
@@ -39,14 +47,16 @@ export function fieldCount(schema) {
 }
 
 /**
- * Resolve the canonical manifest schema, preferring the pinned hermetic dep.
+ * Resolve the canonical manifest schema from the pinned @civitai/app-sdk.
  *
- * EXPORTED so a guard can ask the same question this generator asks, from the
- * same place. `scripts/check-goods-item-parity.mjs` compares a hand-maintained
- * table against `goods.items` and must read the schema the PAGE is generated
- * from — a second copy of this two-step fallback would be free to disagree with
- * the generator about which schema is authoritative, and the disagreement would
- * surface as a guard verdict about a schema the page was never built from.
+ * EXPORTED so every reader asks the same question this generator asks, from the
+ * same place: `scripts/check-goods-item-parity.mjs` and
+ * `scripts/test-appblocks-manifest.mjs` both grade the schema the PAGE is
+ * generated from, and a private copy of the resolution would be free to
+ * disagree with the generator about which schema is authoritative (the second
+ * of those once did, reading a stale snapshot).
+ *
+ * Throws when the pinned package does not ship a schema with properties.
  *
  * 🔴 Module side effects are gated behind the entrypoint check at the bottom of
  * this file precisely so this export is importable. `gen-appblocks.mjs` runs
@@ -55,23 +65,18 @@ export function fieldCount(schema) {
  * generation back to module top level.
  */
 export function resolveSchema() {
-  // 1. SDK-bundled canonical schema (pinned devDep — hermetic, versioned).
+  let p;
   try {
-    const p = join(resolvePackageRoot('@civitai/app-sdk'), SDK_SCHEMA_REL);
-    if (existsSync(p)) {
-      const schema = JSON.parse(readFileSync(p, 'utf8'));
-      if (fieldCount(schema) > 0) return { schema, source: `sdk-bundled: ${p}` };
-      log(`WARNING: ${p} has no properties`);
-    }
+    p = join(resolvePackageRoot('@civitai/app-sdk'), SDK_SCHEMA_REL);
   } catch (err) {
-    log(`WARNING: could not read SDK-bundled schema: ${err.message}`);
+    throw new Error(`gen-appblocks-manifest: @civitai/app-sdk is not installed (run \`npm ci\`): ${err.message}`);
   }
-  // 2. committed snapshot (kept in lockstep with the canonical).
-  const snap = join(snapshotsDir, 'manifest-schema.json');
-  if (existsSync(snap)) {
-    return { schema: JSON.parse(readFileSync(snap, 'utf8')), source: `snapshot: ${snap}` };
+  if (!existsSync(p)) {
+    throw new Error(`gen-appblocks-manifest: the pinned @civitai/app-sdk ships no ${SDK_SCHEMA_REL} (looked at ${p})`);
   }
-  throw new Error('gen-appblocks-manifest: no canonical manifest schema available (SDK-bundled + snapshot both missing)');
+  const schema = JSON.parse(readFileSync(p, 'utf8'));
+  if (fieldCount(schema) === 0) throw new Error(`gen-appblocks-manifest: ${p} has no top-level properties`);
+  return { schema, source: `sdk-bundled: ${p}` };
 }
 
 function main() {
