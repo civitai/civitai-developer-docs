@@ -121,7 +121,8 @@ if (ordered.length === 0) {
 }
 
 // Deprecation notices and corrections to stale README sentences (lib/hook-annotations.mjs).
-assertAnnotatedHooksExist(ordered.map((h) => h.name));
+// Returns the hooks this pin no longer exports that are declared `removedIn` it.
+const removedHooks = assertAnnotatedHooksExist(ordered.map((h) => h.name), version);
 for (const h of ordered) {
   h.superseded = SUPERSEDED_HOOKS[h.name] ?? null;
   h.corrections = correctionsFor(h);
@@ -141,8 +142,9 @@ if (problems.length) {
 // 🔴 FAIL LOUD on a stale annotation: a retired README correction, or a hook with no
 // example that nobody decided to accept. Both used to be a NOTE / WARNING in a green
 // build log, which is how two retired corrections and an unlisted example-less hook
-// survived every build. See `staleAnnotations`.
-const stale = staleAnnotations(ordered);
+// survived every build. See `staleAnnotations`. Entries for a hook declared `removedIn`
+// this pin (`removedHooks`, proven absent above) are the one exemption; see the NOTE below.
+const stale = staleAnnotations(ordered, undefined, undefined, removedHooks);
 if (stale.length) {
   throw new Error(
     `gen-appblocks-hooks: ${stale.length} annotation(s) in scripts/lib/hook-annotations.mjs no longer match ` +
@@ -161,6 +163,14 @@ const dest = writeArtifact('hooks.json', artifact);
 const withNotes = ordered.filter((h) => h.notes.length).length;
 const withReturns = ordered.filter((h) => h.returns).length;
 log(`hooks: wrote ${ordered.length} hooks (${withNotes} with notes after the example, ${withReturns} with a return interface) -> ${dest}`);
+// The one annotation state that stays a NOTE, not a failure: entries for a hook declared
+// `removedIn` this pin. It is the bounded straddle `removedIn` exists for (the pin-bump
+// bot moves the pin across the removal without a hand edit landing first), and
+// `assertAnnotatedHooksExist` has already proven the hook is gone. Every OTHER stale
+// annotation threw above. Delete the entries once the pin is at or past `removedIn`.
+for (const name of removedHooks) {
+  log(`  NOTE: ${name} is removed in @civitai/blocks-react@${version} (its \`removedIn\`), so its SUPERSEDED_HOOKS and README_CORRECTIONS entries no longer apply — delete them from scripts/lib/hook-annotations.mjs`);
+}
 // README sections that sit inside the hook list but are not a hook (`### SfwGate`,
 // …). They are deliberately NOT attached to the hook above them; name them so
 // what this page does not carry is visible, not silent.
