@@ -164,8 +164,7 @@ jobs:
         run: node scripts/bump-appblocks-pins.mjs --publish --in "$IN"
 
   # File a report when `prepare` or `publish` fails, and close it when a later run
-  # is green. Same shape as civitai-app-starters' revendor-canonical-schema.yml
-  # `signal` job: it calls civitai/cli's reusable `failure-issue.yml` directly
+  # is green. It calls civitai/cli's reusable `failure-issue.yml` directly
   # (pinned to a commit sha; both repos are public), which owns WHEN to open, edit,
   # comment or close. To take a later fix to that mechanism, bump the sha.
   #
