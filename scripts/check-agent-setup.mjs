@@ -15,7 +15,7 @@
  * direction: the page keeps serving 200 while the command it names no longer
  * exists, and the agent reports a broken install as the user's problem.
  *
- * SEVEN INDEPENDENT CHECKS. All are REPO-LOCAL — they read committed files only,
+ * EIGHT INDEPENDENT CHECKS. All are REPO-LOCAL — they read committed files only,
  * make no network request, and cannot false-fail on someone else's publish,
  * which is the property this repo requires of anything that blocks a PR.
  * (The count is written from the list below; it read "FOUR" over five for a
@@ -80,6 +80,16 @@
  *      whole) and a floor. Check 1 grades the leaf's commands with the same
  *      allowlist as the prompt's. See the banner above `ROUTING_TEXT` for what
  *      it cannot claim.
+ *
+ *   8. MCP URLS MATCH WHAT THE CLI REGISTERS. Every orchestration/platform MCP
+ *      server URL `public/agent-setup/prompt.md` names must also appear in the
+ *      `agent-setup` section of the CLI help snapshot. The prompt tells an agent
+ *      which servers `civitai agent-setup` registered; a URL the CLI does not
+ *      name is a server the agent is told about and was never given. This
+ *      replaced a human-enforced merge order (the prompt moving to `/mcp/v2`
+ *      before a CLI release that registers it): the prompt cannot now get ahead
+ *      of the snapshot. It compares URLs, not behaviour: it cannot see a CLI
+ *      whose help text and writer disagree.
  *
  * WHAT CHECK 1 ACTUALLY COVERS
  * ----------------------------
@@ -1555,7 +1565,7 @@ for (const u of PROMPT_DOC_TWIN_URLS) {
 const ALLOWED_PAGE_URLS = new Map([
   ['https://github.com/civitai/cli', 'the CLI source, linked from the intro'],
   ['https://mcp.civitai.com/mcp', 'the platform MCP server the setup registers'],
-  ['https://orchestration.civitai.com/mcp', 'the orchestration MCP server the setup registers'],
+  ['https://orchestration.civitai.com/mcp/v2', 'the orchestration MCP server the setup registers'],
   // 🔴 DERIVED, NOT TYPED. Spelling the alias out here would let the constant and
   // this allowlist drift apart — and the drift would present as a stray-URL
   // failure naming a URL the page is supposed to carry, which sends the reader to
@@ -2241,6 +2251,46 @@ function checkPromptHead() {
   return failures;
 }
 
+/** Hosts whose `/mcp…` URLs are Civitai MCP servers `civitai agent-setup` registers. */
+const MCP_HOSTS = new Set(['mcp.civitai.com', 'orchestration.civitai.com']);
+
+/** Every Civitai MCP server URL in `text`, as `https://host/path` with no trailing slash. */
+export function mcpServerUrls(text) {
+  const out = new Set();
+  for (const raw of absoluteUrls(text)) {
+    const u = parseUrl(raw);
+    if (!u || !MCP_HOSTS.has(u.hostname.toLowerCase())) continue;
+    const path = u.pathname.replace(/\/+$/, '');
+    if (!/^\/mcp(?:\/|$)/.test(path)) continue;
+    out.add(`https://${u.hostname.toLowerCase()}${path}`);
+  }
+  return [...out];
+}
+
+function checkMcpUrlsMatchCli() {
+  const failures = [];
+  const snapshotRel = 'appblocks-snapshots/civitai-cli-help.txt';
+  const body = helpBody(readFileSync(SNAPSHOT, 'utf8'), ['agent-setup']);
+  if (body === null) return [`${snapshotRel} has no \`===CMD agent-setup===\` section, so the MCP URLs cannot be graded`];
+  const named = mcpServerUrls(readFileSync(join(repoRoot, PROMPT_SOURCE), 'utf8'));
+  const cli = new Set(mcpServerUrls(body));
+  // Positive controls: a parser that finds nothing on either side would pass vacuously.
+  if (!named.length) failures.push(`${PROMPT_SOURCE} names no MCP server URL; the extractor or the prompt is broken`);
+  if (!cli.size) failures.push(`${snapshotRel}'s agent-setup section names no MCP server URL; the extractor or the snapshot is broken`);
+  for (const url of named) {
+    if (!cli.has(url)) {
+      failures.push(
+        `${PROMPT_SOURCE} names the MCP server ${url}, but the CLI help snapshot's agent-setup\n` +
+          `    section names only: ${[...cli].join(', ') || '(none)'}.\n` +
+          `    The prompt would tell an agent about a server \`civitai agent-setup\` did not register.\n` +
+          `    Land the CLI release that registers it and the snapshot refresh first.`,
+      );
+    }
+  }
+  if (!failures.length) console.log(`  ✓ ${named.length} MCP server URL(s) in ${PROMPT_SOURCE}, each in the CLI's agent-setup help: ${named.join(', ')}`);
+  return failures;
+}
+
 function main() {
   console.log('agent-setup surface — prompt.md vs the CLI help snapshot, and the page vs its constants\n');
   // FIRST, and not folded into checkSingleSource: both halves READ this file, so
@@ -2269,6 +2319,7 @@ function main() {
     ['5. prompt size', checkPromptSize],
     ['6. alias is fetched with redirects', checkAliasIsFetchedWithRedirects],
     ['7. prompt head routes App Assistant', checkPromptHead],
+    ['8. MCP URLs match what the CLI registers', checkMcpUrlsMatchCli],
   ];
   const failures = [];
   for (const [label, fn] of checks) {

@@ -6,11 +6,15 @@ const props = withDefaults(
   defineProps<{
     kind: 'json' | 'vscode' | 'cli' | 'header';
     serverName?: string;
-    url?: string;
+    // Required, no default: each page names the server it documents (the site
+    // MCP and orchestration live at different URLs). A default silently gave
+    // any caller that forgot `url` the orchestration endpoint; without one Vue
+    // warns "Missing required prop" and the snippet shows `undefined`. Nothing
+    // type-checks the .md templates, so this is not a build failure.
+    url: string;
   }>(),
   {
     serverName: 'civitai-orchestration',
-    url: 'https://orchestration.civitai.com/mcp',
   }
 );
 
