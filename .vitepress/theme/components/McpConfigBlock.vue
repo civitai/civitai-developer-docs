@@ -4,7 +4,7 @@ import { useAuthToken } from '../composables/useAuthToken';
 
 const props = withDefaults(
   defineProps<{
-    kind: 'json' | 'cli' | 'header';
+    kind: 'json' | 'vscode' | 'cli' | 'header';
     serverName?: string;
     url?: string;
   }>(),
@@ -34,6 +34,23 @@ const code = computed(() => {
       '}',
     ].join('\n');
   }
+  if (props.kind === 'vscode') {
+    // VS Code's mcp.json spells the key `servers` (not `mcpServers`) and wants
+    // `"type": "http"` — the shape `civitai agent-setup` writes for VS Code.
+    return [
+      '{',
+      '  "servers": {',
+      `    "${props.serverName}": {`,
+      '      "type": "http",',
+      `      "url": "${props.url}",`,
+      '      "headers": {',
+      `        "Authorization": "Bearer ${tokenValue.value}"`,
+      '      }',
+      '    }',
+      '  }',
+      '}',
+    ].join('\n');
+  }
   if (props.kind === 'cli') {
     return [
       `claude mcp add ${props.serverName} ${props.url} \\`,
@@ -45,7 +62,7 @@ const code = computed(() => {
 });
 
 const lang = computed(() =>
-  props.kind === 'json' ? 'json' : props.kind === 'cli' ? 'bash' : 'http'
+  props.kind === 'json' || props.kind === 'vscode' ? 'json' : props.kind === 'cli' ? 'bash' : 'http'
 );
 
 const copied = ref(false);

@@ -129,7 +129,6 @@ minted that way looks fine and then refuses to generate with
 
 ```bash
 civitai app dev-token my-block --spend               # request ai:write:budgeted (real Buzz)
-civitai app dev-token my-block --budget 250 --spend  # …with the maximum per-generation budget
 ```
 
 `--spend` does two things to the request: it adds `ai:write:budgeted` to the
@@ -140,27 +139,22 @@ unchanged.
 
 ### `--budget` is a per-generation ceiling
 
-`--budget <n>` (1–250 Buzz) sets the token's **per-generation** Buzz budget. Omit
-it and the server picks one — **50** for a slug with no submitted app. Your local
-`block.manifest.json`'s `page.buzzBudgetPerGen` does **not** raise it: until the
-app is submitted there is no server-side manifest to read, so the 50 is a flat
-default rather than a clamp of your file. `--budget` is the only way to move it.
+`--budget <n>` sets the token's **per-generation** Buzz budget; its range and the
+server's default are in
+[`civitai app dev-token`](../reference/cli/app#cli-app-dev-token). Your local
+`block.manifest.json`'s `page.buzzBudgetPerGen` does **not** set it: until the
+app is submitted there is no server-side manifest to read, so the default is
+flat rather than a clamp of your file. `--budget` is the only way to move it.
 
-A generation is **refused outright** when the recipe's Buzz ceiling exceeds that
-budget, so a shipped recipe with a ceiling of 90 dead-ends on the default:
-
-```
-insufficient buzz budget: recipe ceiling 90 exceeds budget 50
-```
-
-Raise the budget rather than editing the recipe.
+A generation is **refused outright** (`insufficient buzz budget`) when the
+recipe's Buzz ceiling exceeds that budget. Raise the budget rather than editing
+the recipe.
 
 ::: warning For an inline `customComfy` graph, `maxBuzz` is also a timeout
 It is **both** the Buzz ceiling **and** the step timeout **in seconds**. An
 over-thrifty budget therefore does not fail as a billing error — the step runs
 out of wall clock and comes back `expired`, which reads like a broken graph.
-Budget for the seconds the graph needs. `--budget 250` buys 250 s of wall clock
-as well as 250 Buzz.
+Budget for the seconds the graph needs.
 :::
 
 ## Which credential can spend?
