@@ -45,6 +45,14 @@
  *
  * USAGE
  *   npm run check:snapshots
+ *   node scripts/check-appblocks-snapshots.mjs --only <snapshot>   # that ONE source, no pinned constants
+ *   node scripts/check-appblocks-snapshots.mjs --skip <snapshot>   # every source but that one
+ *
+ * `--only` / `--skip` exist for appblocks-drift.yml's token split: the PRIVATE
+ * orchestration source runs `--only` in its own job (the only job holding the
+ * agent GitHub App token, which runs no `npm ci`), and the `drift` job runs
+ * `--skip` it. A name that matches no SOURCES entry exits 2, so a typo can never
+ * turn into a run that checked nothing.
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -161,8 +169,10 @@ const SOURCES = [
   // private file without credentials, which this guard would read as "removed
   // upstream", a permanent false red. So this entry reads through the contents API
   // with ORCHESTRATION_APP_TOKEN: a read-only installation token of the agent
-  // GitHub App, minted by appblocks-drift.yml scoped to civitai-orchestration
-  // (this repo's GITHUB_TOKEN cannot read another private repo). It SKIPS, loudly,
+  // GitHub App, minted by appblocks-drift.yml's `orch-snapshot` job (no `npm ci`
+  // there, which is why nothing this script imports may need node_modules) scoped
+  // to civitai-orchestration (this repo's GITHUB_TOKEN cannot read another private
+  // repo). The `drift` job runs `--skip` this entry. It SKIPS, loudly,
   // when the token is absent, i.e. the mint failed because the App is not
   // installed on that repo; the snapshot's freshness is then UNVERIFIED and the
   // skip line says so.
@@ -481,14 +491,44 @@ async function fetchUpstream(path, base = RAW_BASE, token = null) {
   }
 }
 
+/**
+ * `--only <snapshot>` / `--skip <snapshot>` → the SOURCES entries to check and
+ * whether to run the pinned constants. Throws on an unknown name or a bad argv.
+ */
+function selectSources(argv, sources = SOURCES) {
+  const known = new Set(sources.map((s) => s.snapshot));
+  let only = null;
+  let skip = null;
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a !== '--only' && a !== '--skip') throw new Error(`unknown argument ${JSON.stringify(a)}`);
+    const v = argv[++i];
+    if (!v) throw new Error(`${a} needs a snapshot name`);
+    if (!known.has(v)) throw new Error(`${a} ${JSON.stringify(v)} names no source (known: ${[...known].join(', ')})`);
+    if (a === '--only') only = v;
+    else skip = v;
+  }
+  if (only && skip) throw new Error('--only and --skip are mutually exclusive');
+  if (only) return { sources: sources.filter((s) => s.snapshot === only), pins: false, skip: null };
+  return { sources: sources.filter((s) => s.snapshot !== skip), pins: true, skip };
+}
+
 async function main() {
+  let sel;
+  try {
+    sel = selectSources(process.argv.slice(2));
+  } catch (err) {
+    console.error(`check-appblocks-snapshots: ${err.message}`);
+    process.exit(2);
+  }
   console.log('App Blocks snapshot drift-guard — diffing appblocks-snapshots/ vs civitai@origin/main\n');
+  if (sel.skip) console.log(`  · ${sel.skip} — not checked by this invocation (--skip; appblocks-drift.yml checks it in its own job)`);
 
   const drifted = [];
   const skipped = [];
   let ok = 0;
 
-  for (const { path, snapshot, base, derive, token: tokenEnv } of SOURCES) {
+  for (const { path, snapshot, base, derive, token: tokenEnv } of sel.sources) {
     const snapPath = join(snapshotsDir, snapshot);
     if (!existsSync(snapPath)) {
       console.log(`  ✗ ${snapshot} — committed snapshot MISSING at appblocks-snapshots/${snapshot}`);
@@ -558,11 +598,16 @@ async function main() {
     `\nSnapshots: ${ok} up-to-date · ${drifted.length} drifted · ${skipped.length} skipped (unreachable)`,
   );
 
-  console.log(`\nPinned constants — the generation-limits table in ${LIMITS_DOC} vs civitai@origin/main\n`);
-  const pins = await checkPinnedConstants();
-  console.log(
-    `\nPinned constants: ${pins.ok} of ${PINNED_CONSTANTS.length} match · ${pins.drifted.length} drifted · ${pins.skipped.length} skipped (unreachable)`,
-  );
+  let pins = { ok: 0, drifted: [], skipped: [] };
+  if (sel.pins) {
+    console.log(`\nPinned constants — the generation-limits table in ${LIMITS_DOC} vs civitai@origin/main\n`);
+    pins = await checkPinnedConstants();
+    console.log(
+      `\nPinned constants: ${pins.ok} of ${PINNED_CONSTANTS.length} match · ${pins.drifted.length} drifted · ${pins.skipped.length} skipped (unreachable)`,
+    );
+  } else {
+    console.log('\nPinned constants: not checked by this invocation (--only)');
+  }
 
   if (skipped.length && !drifted.length && ok === 0) {
     console.log('\nAll sources unreachable — treating as an environment/network issue, not drift. Exiting 0.');

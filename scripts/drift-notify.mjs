@@ -58,9 +58,9 @@
  *   node scripts/drift-notify.mjs               # decide + deliver
  *
  *   DRIFT_NOTIFY_JOB_RESULT=<success|failure|cancelled|skipped>
- *   DRIFT_NOTIFY_JOB_NAME=<the drift job's NAME as the API reports it — equal to the
- *                          workflow job id only while that job declares no `name:`.
- *                          Unset disables the enrichment>
+ *   DRIFT_NOTIFY_JOB_NAME=<the FAILED job NAME(s) as the API reports them, comma-
+ *                          separated — equal to the workflow job id only while that
+ *                          job declares no `name:`. Unset disables the enrichment>
  *                               the drift job's own result, from `needs.*.result`
  *   DRIFT_NOTIFY_REPORT=<path>  the JSON check-example-apps wrote with --report.
  *                               ABSENT OR UNREADABLE IS A SIGNAL, NOT AN ERROR.
@@ -900,6 +900,26 @@ export async function fetchFailedSteps(ctx, jobName, fetchImpl = fetch) {
   return { failedSteps: failed, stepsProblem: null };
 }
 
+// DRIFT_NOTIFY_JOB_NAME may name SEVERAL jobs, comma-separated: appblocks-drift.yml
+// folds `drift` and `orch-snapshot` into one result, and names whichever failed.
+// One name behaves exactly as fetchFailedSteps does; with several, each step is
+// prefixed with its job, and a failed job whose steps could not be named still
+// gets ONE line saying so (it is at least one red check), never a silent omission.
+export async function fetchFailedStepsOfJobs(ctx, names, fetchImpl = fetch) {
+  const jobs = names.split(',').map((n) => n.trim()).filter(Boolean);
+  if (jobs.length <= 1) return fetchFailedSteps(ctx, jobs[0] || '', fetchImpl);
+  const steps = [];
+  const problems = [];
+  for (const job of jobs) {
+    const r = await fetchFailedSteps(ctx, job, fetchImpl);
+    if (r.failedSteps) steps.push(...r.failedSteps.map((st) => `${job}: ${st}`));
+    else problems.push({ job, problem: r.stepsProblem });
+  }
+  if (!steps.length) return { failedSteps: null, stepsProblem: problems.map((p) => p.problem).join('; ') };
+  for (const p of problems) steps.push(`${p.job}: (its failing step(s) could not be named — ${p.problem})`);
+  return { failedSteps: steps, stepsProblem: null };
+}
+
 /**
  * One API call. THROWS on failure, on purpose — see the banner: the guard skips
  * loudly on an unreachable network because a false-fail would poison a gate; a
@@ -1000,7 +1020,7 @@ async function main(argv = process.argv.slice(2)) {
   // API call on either would be a call that can only fail.
   const { failedSteps, stepsProblem } =
     jobResult !== 'success' && jobResult !== 'skipped' && jobResult !== 'cancelled'
-      ? await fetchFailedSteps(ctx, process.env.DRIFT_NOTIFY_JOB_NAME || '')
+      ? await fetchFailedStepsOfJobs(ctx, process.env.DRIFT_NOTIFY_JOB_NAME || '')
       : { failedSteps: null, stepsProblem: null };
   const decision = decideNotification({ jobResult, report, problem, failedSteps, stepsProblem });
 

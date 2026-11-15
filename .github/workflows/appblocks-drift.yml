@@ -58,8 +58,9 @@ on:
 #                             token of the agent GitHub App (vars.AGENT_APP_CLIENT_ID
 #                             + secrets.AGENT_APP_PRIVATE_KEY, the same App the
 #                             pin-bump and cli-snapshot bots use), minted in the
-#                             `drift` job scoped to civitai-orchestration ONLY with
-#                             `contents: read` ONLY, and handed to that one step as
+#                             `orch-snapshot` job — NOT `drift` — scoped to
+#                             civitai-orchestration ONLY with `contents: read` ONLY,
+#                             and handed to that job's one check step as
 #                             ORCHESTRATION_APP_TOKEN. If the mint fails (the App
 #                             is not installed on that repo), the step SKIPS that
 #                             source and prints UNVERIFIED naming the missing install.
@@ -110,10 +111,17 @@ on:
 # than inheriting it; and `issues: write` is held only by `notify`, which runs
 # ONE node script with no `npm ci` and no third-party code at all. That is the
 # same boundary cli-snapshot-refresh.yml draws for the same reason: the
-# privileged job should be the one holding nothing worth stealing. The one
-# exception is the read-only civitai-orchestration App token above: `drift`
-# holds it because that is where the check runs, so it is minted after `npm ci`
-# and handed to exactly one step (see that step).
+# privileged job should be the one holding nothing worth stealing.
+#
+# 🔴 THE APP PRIVATE KEY NEVER REACHES `drift`. Referencing
+# secrets.AGENT_APP_PRIVATE_KEY in a job delivers it to that job's runner, and
+# `drift` executes dependency code (`npm ci`, then scripts that import
+# node_modules), so a compromised dependency there could read the key the
+# pin-bump and cli-snapshot bots mint WRITE tokens from. Minting "after
+# `npm ci`" does not help: the installed code still runs in later steps of the
+# same job. So the read-only civitai-orchestration token is minted in its own
+# `orch-snapshot` job, which runs no `npm ci` and has no node_modules — the
+# rule every App workflow in this repo follows.
 permissions:
   contents: read
 
@@ -136,40 +144,11 @@ jobs:
       - name: Install (pinned SDK devDeps for the SDK-bundled manifest schema)
         run: npm ci
 
-      # Read access to the PRIVATE civitai-orchestration repo, for the derived
-      # orchestration MCP registry snapshot only; every other source is public.
-      #
-      # Minted AFTER `npm ci`, so no dependency install script runs while the
-      # token exists. It is handed only to the next step, whose script imports
-      # node builtins and ./lib/mcp-registries.mjs and nothing from node_modules.
-      # The action revokes the token in its post step at job end.
-      #
-      # `continue-on-error` on THIS STEP ONLY: until the App is installed on
-      # civitai-orchestration the mint fails, and that must degrade to the
-      # UNVERIFIED skip below rather than turn the nightly sweep red.
-      - name: Mint a read-only civitai-orchestration token (agent GitHub App)
-        id: orch-token
-        continue-on-error: true
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        with:
-          client-id: ${{ vars.AGENT_APP_CLIENT_ID }}
-          private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
-          owner: civitai
-          repositories: civitai-orchestration
-          permission-contents: read
-
-      - name: Report a failed orchestration token mint as UNVERIFIED
-        if: steps.orch-token.outcome != 'success'
-        run: |
-          echo "::warning title=orchestration-mcp-tools.txt UNVERIFIED::could not mint an agent GitHub App token for civitai/civitai-orchestration (mint step outcome: ${{ steps.orch-token.outcome }}). The mint step log names the exact error. If the App (vars.AGENT_APP_CLIENT_ID) is not installed on civitai-orchestration, an org owner grants it at https://github.com/organizations/civitai/settings/installations/174974426 (Repository access -> add civitai-orchestration). The snapshot check below SKIPS that one source."
-          echo "UNVERIFIED: orchestration-mcp-tools.txt — agent GitHub App token mint failed for civitai/civitai-orchestration (App not installed on that repo?)" >> "$GITHUB_STEP_SUMMARY"
-
       - name: Snapshot drift — appblocks-snapshots/ vs civitai@origin/main
-        env:
-          # Empty when the mint above failed; that one source then SKIPS and
-          # prints UNVERIFIED.
-          ORCHESTRATION_APP_TOKEN: ${{ steps.orch-token.outputs.token }}
-        run: npm run check:snapshots
+        # Every source EXCEPT the private civitai-orchestration one, which the
+        # `orch-snapshot` job below checks with the App token this job must
+        # never hold (see the header). No token here, on purpose.
+        run: npm run check:snapshots -- --skip orchestration-mcp-tools.txt
 
       - name: CLI snapshot freshness — civitai-cli-help.txt vs the latest civitai/cli release
         # NOT covered by check:snapshots, and not for lack of trying: that guard
@@ -283,6 +262,58 @@ jobs:
           retention-days: 7
 
   # ---------------------------------------------------------------------------
+  # The PRIVATE civitai-orchestration snapshot source, split out of `drift` so
+  # the agent GitHub App private key is delivered only to a runner that executes
+  # no third-party code (see the header's token-reach list).
+  #
+  # 🔴 NO `npm ci` IN THIS JOB, AND IT IS A CONSTRAINT ON THE SCRIPT.
+  # scripts/check-appblocks-snapshots.mjs imports node:fs, node:path, node:url
+  # and ./lib/mcp-registries.mjs, which imports nothing; adding a node_modules
+  # import breaks this job with MODULE_NOT_FOUND rather than quietly widening
+  # what runs next to the key.
+  orch-snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # `continue-on-error` on THIS STEP ONLY: until the App is installed on
+      # civitai-orchestration the mint fails, and that must degrade to the
+      # UNVERIFIED skip below rather than turn the nightly sweep red. The
+      # action revokes the token in its post step at job end.
+      - name: Mint a read-only civitai-orchestration token (agent GitHub App)
+        id: orch-token
+        continue-on-error: true
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.AGENT_APP_CLIENT_ID }}
+          private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
+          owner: civitai
+          repositories: civitai-orchestration
+          permission-contents: read
+
+      - name: Report a failed orchestration token mint as UNVERIFIED
+        if: steps.orch-token.outcome != 'success'
+        run: |
+          echo "::warning title=orchestration-mcp-tools.txt UNVERIFIED::could not mint an agent GitHub App token for civitai/civitai-orchestration (mint step outcome: ${{ steps.orch-token.outcome }}). The mint step log names the exact error. If the App (vars.AGENT_APP_CLIENT_ID) is not installed on civitai-orchestration, an org owner grants it at https://github.com/organizations/civitai/settings/installations/174974426 (Repository access -> add civitai-orchestration). The snapshot check below SKIPS that one source."
+          echo "UNVERIFIED: orchestration-mcp-tools.txt — agent GitHub App token mint failed for civitai/civitai-orchestration (App not installed on that repo?)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Snapshot drift — orchestration-mcp-tools.txt vs civitai-orchestration@main
+        env:
+          # Empty when the mint above failed; the source then SKIPS and prints
+          # UNVERIFIED (exit 0 — a missing install is a warning, never a red).
+          ORCHESTRATION_APP_TOKEN: ${{ steps.orch-token.outputs.token }}
+        run: node scripts/check-appblocks-snapshots.mjs --only orchestration-mcp-tools.txt
+
+  # ---------------------------------------------------------------------------
   # DELIVERY. Every check above DETECTS upstream movement; until this job
   # existed, none of them DELIVERED it. A red run on a scheduled workflow is
   # indistinguishable from nobody looking — cli-snapshot-refresh.yml's header
@@ -303,7 +334,7 @@ jobs:
   # outage must not be what stops an alert going out, and the one job here
   # holding a write scope should execute no third-party code at all.
   notify:
-    needs: drift
+    needs: [drift, orch-snapshot]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -334,11 +365,23 @@ jobs:
 
       - name: Open, refresh or close the drift issue
         env:
-          DRIFT_NOTIFY_JOB_RESULT: ${{ needs.drift.result }}
-          # The job's NAME, for the API lookup that names its failed steps. It
-          # sits here rather than defaulted in the script so that this line and
-          # the `needs.drift` above it are renamed together.
-          DRIFT_NOTIFY_JOB_NAME: drift
+          # BOTH checking jobs fold into the one result the notifier decides on:
+          # failure if EITHER failed, else cancelled, else skipped, else success.
+          # `orch-snapshot` red therefore opens the same issue `drift` red does.
+          DRIFT_NOTIFY_JOB_RESULT: >-
+            ${{ (needs.drift.result == 'failure' || needs.orch-snapshot.result == 'failure') && 'failure'
+            || (needs.drift.result == 'cancelled' || needs.orch-snapshot.result == 'cancelled') && 'cancelled'
+            || (needs.drift.result == 'skipped' || needs.orch-snapshot.result == 'skipped') && 'skipped'
+            || needs.drift.result }}
+          # The FAILED job's NAME(s), comma-separated, for the API lookup that
+          # names their failed steps. It sits here rather than defaulted in the
+          # script so that these ids and the `needs:` list above are renamed
+          # together.
+          DRIFT_NOTIFY_JOB_NAME: >-
+            ${{ needs.drift.result == 'failure' && needs.orch-snapshot.result == 'failure' && 'drift,orch-snapshot'
+            || needs.drift.result == 'failure' && 'drift'
+            || needs.orch-snapshot.result == 'failure' && 'orch-snapshot'
+            || '' }}
           DRIFT_NOTIFY_REPORT: ${{ runner.temp }}/report/example-apps-report.json
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run notify:drift
