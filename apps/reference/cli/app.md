@@ -140,7 +140,6 @@ the AI Services scopes: `civitai login --scopes generate` (a browser login that 
 | Flag | Description | Default |
 |---|---|---|
 | `--dir string` | output directory (default ./\<slug>) | — |
-| `--from string` | fork from an existing published app slug (NOT AVAILABLE YET — the CLI cannot fetch app source) | — |
 | `--name string` | display name (default derived from the name argument) | — |
 | `--slug string` | explicit blockId (bypasses derivation from the name; 3-40 chars, starts with a letter, lowercase a-z/0-9/hyphens) | — |
 | `-t, --template string` | project template: page-elements \| page-money \| page-vite \| static | `page-elements` |
@@ -210,7 +209,6 @@ the directory is a refusal — nothing is overwritten and there is no --force.
 | Flag | Description | Default |
 |---|---|---|
 | `--dir string` | output directory (default ./\<slug>) | — |
-| `--from string` | fork from an existing published app slug (NOT AVAILABLE YET — the CLI cannot fetch app source) | — |
 | `--name string` | display name (default derived from the name argument) | — |
 | `--slug string` | explicit blockId (bypasses derivation from the name; 3-40 chars, starts with a letter, lowercase a-z/0-9/hyphens) | — |
 | `-t, --template string` | project template: page-elements \| page-money \| page-vite \| static | `page-elements` |
