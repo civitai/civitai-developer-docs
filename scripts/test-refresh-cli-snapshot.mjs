@@ -1918,7 +1918,11 @@ check('THE RESIDUAL IS CLOSED: the privileged job never EXECUTES the upstream bi
   const [, writerBody] = writers[0];
   const runnable = writerBody.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
   assert(!/name: civitai-cli-bin|chmod \+x|CIVITAI_CLI_BIN/.test(runnable), 'the privileged job obtains or runs the upstream binary');
-  assert(!/npm (ci|install)/.test(runnable), 'the privileged job installs npm packages');
+  // "The privileged job installs no npm packages" is not re-checked here. The one
+  // writer is `publish`, which mints the App token (pinned above), so it can read
+  // AGENT_APP_PRIVATE_KEY; appKeyJobProblems (scripts/lib/app-token-step.mjs)
+  // checks every such job, and test-check-appblocks-snapshots.mjs pins
+  // cli-snapshot-refresh.yml:publish as one of them.
 });
 
 check('the binary comes from the PUBLISHED RELEASE ASSET, verified before it is made executable', () => {

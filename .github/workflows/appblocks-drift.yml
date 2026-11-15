@@ -121,7 +121,9 @@ on:
 # `npm ci`" does not help: the installed code still runs in later steps of the
 # same job. So the read-only civitai-orchestration token is minted in its own
 # `orch-snapshot` job, which runs no `npm ci` and has no node_modules — the
-# rule every App workflow in this repo follows.
+# rule every App workflow in this repo follows. appKeyJobProblems in
+# scripts/lib/app-token-step.mjs enforces it for every workflow (run by the
+# checks workflow's contract test).
 permissions:
   contents: read
 
