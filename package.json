@@ -59,6 +59,7 @@
     "check:showcase-coverage": "node scripts/check-showcase-coverage.mjs",
     "check:doc-claims": "node scripts/check-doc-claims.mjs",
     "test:doc-claims": "node scripts/test-doc-claims.mjs",
+    "check:doc-claims:external": "node scripts/check-external-doc-claims.mjs",
     "check:built-site": "node scripts/check-built-site.mjs",
     "check:agent-md": "node scripts/check-agent-md.mjs",
     "check:twin-links": "node scripts/check-twin-links.mjs",

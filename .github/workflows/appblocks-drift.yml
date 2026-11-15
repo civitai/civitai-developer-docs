@@ -49,6 +49,14 @@ on:
 # job below started needing `issues: write`, which is the same mistake in the
 # other direction. This is the only place the reach is stated in one piece:
 #
+#   READ-ONLY, CROSS-REPO, A DIFFERENT SECRET (not GITHUB_TOKEN)
+#   - check:snapshots      -> api.github.com/repos/civitai/civitai-orchestration/
+#                             contents/<path>?ref=main, with ORCHESTRATION_READ_TOKEN,
+#                             for the orchestration MCP registry snapshot
+#                             (scripts/check-appblocks-snapshots.mjs). That repo is
+#                             PRIVATE, so this is the one read that needs a grant;
+#                             unset, the step SKIPS that source and says so.
+#
 #   READ-ONLY (`contents: read`), token buys rate-limit headroom and nothing else
 #   - check:cli-snapshot   -> api.github.com/repos/civitai/cli/releases/latest
 #                             (scripts/check-appblocks-cli-snapshot.mjs)
@@ -119,6 +127,11 @@ jobs:
         run: npm ci
 
       - name: Snapshot drift — appblocks-snapshots/ vs civitai@origin/main
+        env:
+          # Read access to the PRIVATE civitai-orchestration repo, for the derived
+          # orchestration MCP registry snapshot only. Absent, that one source
+          # SKIPS (printed as UNVERIFIED); every other source is public.
+          ORCHESTRATION_READ_TOKEN: ${{ secrets.ORCHESTRATION_READ_TOKEN }}
         run: npm run check:snapshots
 
       - name: CLI snapshot freshness — civitai-cli-help.txt vs the latest civitai/cli release
@@ -203,6 +216,20 @@ jobs:
           # buys headroom and nothing else.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run check:example-apps -- --report "$RUNNER_TEMP/example-apps-report.json"
+
+      - name: Doc claims in other repos — cli + civitai-app-starters docs vs this repo's pins
+        # ADVISORY: this workflow is schedule-only and required nowhere. The
+        # check-doc-claims claim kinds, run over the CLI README + its AGENTS.md
+        # template and the civitai-app-starters package READMEs / BREAKING.md /
+        # PORTING.md / package AGENTS.md, FETCHED at each repo's `main` from
+        # raw.githubusercontent.com (no checker code lives in those repos).
+        # Red = a NEW unresolved claim, a STALE baseline entry
+        # (scripts/doc-claims-external-baseline.json, per corpus), a listed file
+        # gone (404/410), or a corpus that yielded zero claims. Network/5xx skip.
+        # The findings go to the job summary; the `notify` job below delivers a
+        # red as the drift issue, which the next clean run closes.
+        if: always()
+        run: npm run check:doc-claims:external
 
       # The report is the only thing that crosses the job boundary. `warn`, not
       # `error`: a drift job that died before the guard ran produces no report,

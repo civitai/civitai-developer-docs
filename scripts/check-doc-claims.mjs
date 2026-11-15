@@ -14,7 +14,7 @@
  * green forever. `check-agent-setup.mjs` check 1 already resolves `civitai …`
  * invocations against the help snapshot — for two files. This generalises that
  * resolver (it IMPORTS the same extractor; one parser, not two) to the whole
- * hand-written corpus and adds three more claim kinds.
+ * hand-written corpus and adds five more claim kinds.
  *
  * CLAIM KINDS (each resolved against the PINNED source, never the network)
  *   cli     a `civitai …` / `npx @civitai/cli … ` invocation in a code block or a
@@ -32,6 +32,21 @@
  *           generated from.
  *   field   a top-level key of a ```json fence that is a manifest (has a
  *           top-level "blockId"). It must be a schema `properties` key.
+ *   mcp-url a Civitai MCP server URL (host in MCP_HOSTS, path under /mcp) on
+ *           an MCP page (mcpSurface). On site/mcp/** and orchestration/mcp/**
+ *           its path must be an endpoint the host's server maps; on
+ *           public/agent-setup/prompt.md it must be a URL the CLI's
+ *           `agent-setup --help` says it registers.
+ *   mcp-tool a code span in the first cell of a `| Tool | … |` table on an MCP
+ *           page. It must be registered by that page's server: civitai-mcp-
+ *           server for site/mcp/**, orchestration's /mcp/v2 set for
+ *           orchestration/mcp/**, either for the prompt.
+ *           Source for both: appblocks-snapshots/mcp-server-tools.txt and
+ *           orchestration-mcp-tools.txt (derived, kept fresh by
+ *           check:snapshots; see scripts/lib/mcp-registries.mjs).
+ *
+ * The same kinds run NIGHTLY over docs in other repos (cli, civitai-app-
+ * starters): scripts/check-external-doc-claims.mjs.
  *
  * CORPUS: every tracked *.md outside node_modules/, claudedocs/,
  * appblocks-snapshots/ and the repo-meta files (README.md, CLAUDE.md), minus
@@ -41,7 +56,7 @@
  *
  * WHAT IT CANNOT SEE (stated so a green is read at its real scope)
  *   - Prose. "The CLI retries three times" is not a code span; nothing here
- *     parses it. Only the four claim SHAPES above are resolved.
+ *     parses it. Only the six claim SHAPES above are resolved.
  *   - A flag's MEANING or a hook's SIGNATURE — only existence. A doc that calls
  *     `--dry-run` "free" when it costs Buzz is green.
  *   - Positional arguments and flag VALUES (`--track bogus`).
@@ -50,6 +65,12 @@
  *   - OAuth scopes on site/ pages — a DIFFERENT scope set; the scope check runs
  *     only on namespaces the App Blocks enum owns, so a typo in a NEW namespace
  *     is invisible.
+ *   - Flags written in a bracketed synopsis (`[--yes]`): the shared extractor
+ *     drops them (measured: 59 such flags in civitai/cli's README).
+ *   - MCP tools named in PROSE, MCP prompts and resources, tool PARAMETERS, and
+ *     which endpoint a page SHOULD name (/mcp vs /mcp/v2): a URL that exists
+ *     is green wherever it appears. The host→server map (MCP_HOSTS) is a
+ *     deployment fact neither server's source states.
  *   - Upstream movement: it grades against the PINNED snapshot/devDeps. A CLI
  *     release that drops a flag is only seen after the snapshot refresh lands.
  *     (A release mode that graded a release artifact was removed: no pipeline
@@ -73,7 +94,8 @@ import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
-import { extractInvocations, helpBody, mentionsFlag } from './check-agent-setup.mjs';
+import { absoluteUrls, extractInvocations, helpBody, mentionsFlag } from './check-agent-setup.mjs';
+import { MCP_HOSTS, MCP_SERVER_SNAPSHOT, ORCHESTRATION_SNAPSHOT, parseRegistry } from './lib/mcp-registries.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const BASELINE_PATH = join(repoRoot, 'scripts', 'doc-claims-baseline.json');
@@ -93,6 +115,22 @@ const EXCLUDE_DIRS = /^(node_modules|claudedocs|appblocks-snapshots|\.github|\.c
 /** Hook claims are App Blocks claims; orchestration recipes use `usePrime`-style JSON params. */
 export const HOOK_SCOPE = /^(apps|agent-setup|public\/agent-setup)\//;
 const EXCLUDE_FILES = new Set(['README.md', 'CLAUDE.md']);
+
+/**
+ * The MCP surface of a page, which decides what its `mcp-*` claims mean:
+ *   site          site/mcp/**: the platform server (civitai-mcp-server)
+ *   orchestration orchestration/mcp/**: the orchestration server's /mcp/v2 set
+ *   prompt        public/agent-setup/prompt.md: tells an agent which servers
+ *                 `civitai agent-setup` REGISTERED, so its URLs are graded
+ *                 against the CLI, not against what the servers serve.
+ * Null for every other page: no `mcp-*` claims are extracted there.
+ */
+export function mcpSurface(file) {
+  if (/^site\/mcp\//.test(file)) return 'site';
+  if (/^orchestration\/mcp\//.test(file)) return 'orchestration';
+  if (file === 'public/agent-setup/prompt.md') return 'prompt';
+  return null;
+}
 
 // ---------------------------------------------------------------------------
 // Corpus
@@ -178,11 +216,66 @@ function lineOf(md, needle) {
 }
 
 /**
+ * Every Civitai MCP server URL in `text`, as `https://host/path` with no
+ * trailing slash.
+ *
+ * 🔴 DUPLICATE, ON PURPOSE AND TEMPORARILY. civitai-developer-docs#349 adds this
+ * same function (same name, same body) to check-agent-setup.mjs as part of its
+ * check 8, which is not on `main` yet, and this PR is based on `main` (no stacked
+ * PRs). Whichever of the two merges second deletes this copy and imports
+ * `mcpServerUrls` from check-agent-setup.mjs, as `extractInvocations` is.
+ */
+export function mcpServerUrls(text) {
+  const out = new Set();
+  for (const raw of absoluteUrls(text)) {
+    let u;
+    try {
+      u = new URL(raw.startsWith('//') ? `https:${raw}` : raw);
+    } catch {
+      continue;
+    }
+    if (!Object.hasOwn(MCP_HOSTS, u.hostname.toLowerCase())) continue;
+    const path = u.pathname.replace(/\/+$/, '');
+    if (!/^\/mcp(?:\/|$)/.test(path)) continue;
+    out.add(`https://${u.hostname.toLowerCase()}${path}`);
+  }
+  return [...out];
+}
+
+/**
+ * Tool names a page LISTS: the code spans in the first cell of each row of a
+ * table whose header's first cell is `Tool`. That is the shape every MCP page
+ * uses for its catalog. Prose mentions are NOT claims here: snake_case spans in
+ * prose are as often a prompt, a `get_guide` topic or a status value
+ * (`not_planned`), and a registry lookup cannot tell those apart.
+ */
+function toolTableSpans(proseLines) {
+  const out = [];
+  let inTable = false;
+  proseLines.forEach((line, i) => {
+    const cells = /^\s*\|(.*)\|\s*$/.exec(line)?.[1].split('|');
+    if (!cells) {
+      inTable = false;
+      return;
+    }
+    const first = cells[0].trim();
+    if (/^tool$/i.test(first)) {
+      inTable = true;
+      return;
+    }
+    if (!inTable || /^:?-{3,}:?$/.test(first)) return;
+    for (const m of first.matchAll(/`([^`]+)`/g)) out.push({ text: m[1].trim(), line: i + 1 });
+  });
+  return out;
+}
+
+/**
  * Every checkable claim on one (already generated-stripped) page.
  * @param {string} md
  * @param {Set<string>} scopeNamespaces namespaces the scope enum uses
+ * @param {{hooks?: boolean, mcp?: string|null}} opts `mcp` is the page's mcpSurface()
  */
-export function extractClaims(md, scopeNamespaces, { hooks = true } = {}) {
+export function extractClaims(md, scopeNamespaces, { hooks = true, mcp = null } = {}) {
   const claims = [];
   const { prose, fences } = splitFences(md);
 
@@ -221,6 +314,17 @@ export function extractClaims(md, scopeNamespaces, { hooks = true } = {}) {
     }
     if (!obj || typeof obj !== 'object' || Array.isArray(obj) || !('blockId' in obj)) continue;
     for (const key of Object.keys(obj)) claims.push({ kind: 'field', claim: key, line: f.line });
+  }
+
+  if (mcp) {
+    // URLs anywhere on the page, fences included: a client-config block is where
+    // most of them are.
+    md.split('\n').forEach((line, i) => {
+      for (const url of mcpServerUrls(line)) claims.push({ kind: 'mcp-url', claim: url, surface: mcp, line: i + 1 });
+    });
+    for (const { text, line } of toolTableSpans(prose)) {
+      if (/^[a-z][a-z0-9_]*$/.test(text)) claims.push({ kind: 'mcp-tool', claim: text, surface: mcp, line });
+    }
   }
   return claims;
 }
@@ -273,8 +377,37 @@ export function loadSources() {
   const scopes = new Set(schema?.properties?.scopes?.items?.enum ?? []);
   const fields = new Set(Object.keys(schema?.properties ?? {}));
   const exportsInfo = packageExports(nodeModules);
-  return { help, helpPath, schemaPath, scopes, fields, exportsInfo, scopeNamespaces: new Set([...scopes].map((s) => s.split(':')[0])) };
+  return {
+    help,
+    helpPath,
+    schemaPath,
+    scopes,
+    fields,
+    exportsInfo,
+    scopeNamespaces: new Set([...scopes].map((s) => s.split(':')[0])),
+    ...loadMcpSources(help),
+  };
 }
+
+/**
+ * The MCP truth sets: each registry snapshot (endpoints + tools), and the URLs
+ * the CLI's `agent-setup --help` says it registers. Node builtins only.
+ */
+export function loadMcpSources(help) {
+  const registries = {};
+  for (const snapshot of [MCP_SERVER_SNAPSHOT, ORCHESTRATION_SNAPSHOT]) {
+    registries[snapshot] = parseRegistry(readFileSync(join(repoRoot, 'appblocks-snapshots', snapshot), 'utf8'));
+  }
+  const agentSetup = helpBody(help, ['agent-setup']);
+  return { registries, cliMcpUrls: new Set(agentSetup === null ? [] : mcpServerUrls(agentSetup)) };
+}
+
+/** The registry an `mcp-tool` claim on this surface is graded against. */
+const TOOL_REGISTRIES = {
+  site: [MCP_SERVER_SNAPSHOT],
+  orchestration: [ORCHESTRATION_SNAPSHOT],
+  prompt: [MCP_SERVER_SNAPSHOT, ORCHESTRATION_SNAPSHOT],
+};
 
 // ---------------------------------------------------------------------------
 // Resolution
@@ -319,6 +452,8 @@ export function resolveCommand(help, words) {
   return { path, body };
 }
 
+const FLAG_SHAPE = /^--?[A-Za-z0-9]/;
+
 /** @returns {string|null} why the claim does not resolve, or null if it does. */
 export function resolveClaim(c, src) {
   switch (c.kind) {
@@ -327,7 +462,10 @@ export function resolveClaim(c, src) {
       if (r.unknown) return `command \`civitai ${[...r.path, r.unknown].join(' ')}\` is not in the CLI help (\`civitai ${r.path.join(' ') || '(root)'}\` takes no positional argument)`;
       // A placeholder in a node that takes no positional stands for a command.
       if (c.templated && !takesArgs(r.body, r.path)) return null;
-      const missing = c.flags.filter((f) => !mentionsFlag(r.body, f));
+      // Only tokens SHAPED like a flag are flag claims. The shared extractor
+      // keeps the `-]` of a synopsis like `[--error-file <path>\|--error -]`
+      // (measured on civitai/cli's README), which no reader takes for a flag.
+      const missing = c.flags.filter((f) => FLAG_SHAPE.test(f) && !mentionsFlag(r.body, f));
       return missing.length ? `\`civitai ${r.path.join(' ') || '(root)'}\` has no ${missing.join(', ')}` : null;
     }
     case 'hook':
@@ -338,6 +476,24 @@ export function resolveClaim(c, src) {
       return src.scopes.has(c.claim) ? null : `\`${c.claim}\` is not in the manifest schema's scope enum`;
     case 'field':
       return src.fields.has(c.claim) ? null : `\`${c.claim}\` is not a manifest schema property`;
+    case 'mcp-url': {
+      if (c.surface === 'prompt') {
+        return src.cliMcpUrls.has(c.claim)
+          ? null
+          : `${c.claim} is not an MCP server the CLI's \`agent-setup\` registers (its help names: ${[...src.cliMcpUrls].join(', ') || 'none'})`;
+      }
+      const u = new URL(c.claim);
+      const snapshot = MCP_HOSTS[u.hostname];
+      return src.registries[snapshot].endpoints.has(u.pathname)
+        ? null
+        : `${c.claim}: the server on ${u.hostname} maps no \`${u.pathname}\` endpoint (appblocks-snapshots/${snapshot}: ${[...src.registries[snapshot].endpoints].join(', ')})`;
+    }
+    case 'mcp-tool': {
+      const snaps = TOOL_REGISTRIES[c.surface];
+      return snaps.some((s) => src.registries[s].tools.has(c.claim))
+        ? null
+        : `tool \`${c.claim}\` is not registered by ${snaps.map((s) => `appblocks-snapshots/${s}`).join(' or ')}`;
+    }
     default:
       throw new Error(`unknown claim kind ${c.kind}`);
   }
@@ -345,16 +501,22 @@ export function resolveClaim(c, src) {
 
 export const findingKey = (file, c) => [file, c.kind, c.claim].join(SEP);
 
-/** Grade a set of pages. `pages` is [{file, md}] with md un-stripped. */
-export function gradePages(pages, src) {
+export const CLAIM_KINDS = ['cli', 'hook', 'scope', 'field', 'mcp-url', 'mcp-tool'];
+
+/**
+ * Grade a set of pages. `pages` is [{file, md}] with md un-stripped.
+ * `hooks(file)` / `mcp(file)` decide which page gets which claim kinds; the
+ * defaults are this repo's paths. The external-corpus run passes its own.
+ */
+export function gradePages(pages, src, { hooks = (f) => HOOK_SCOPE.test(f), mcp = mcpSurface } = {}) {
   const findings = [];
-  const counts = { pages: 0, cli: 0, hook: 0, scope: 0, field: 0 };
+  const counts = { pages: 0, ...Object.fromEntries(CLAIM_KINDS.map((k) => [k, 0])) };
   for (const { file, md } of pages) {
     const stripped = stripGenerated(md);
     if (stripped === null) continue;
     counts.pages++;
     const seen = new Set();
-    for (const c of extractClaims(stripped, src.scopeNamespaces, { hooks: HOOK_SCOPE.test(file) })) {
+    for (const c of extractClaims(stripped, src.scopeNamespaces, { hooks: hooks(file), mcp: mcp(file) })) {
       counts[c.kind]++;
       const why = resolveClaim(c, src);
       if (!why) continue;
@@ -389,23 +551,35 @@ function parseArgs(argv) {
   return opts;
 }
 
-function main() {
-  const opts = parseArgs(process.argv.slice(2));
-  const src = loadSources();
+/**
+ * Positive controls on the SOURCES: an empty source set makes every claim
+ * unresolvable (loud) or, worse, a filter that skips everything (silent).
+ * Shared with the external-corpus run, which grades against the same pins.
+ */
+export function sourceProblems(src) {
   const problems = [];
-
-  // Positive controls on the SOURCES: an empty source set makes every claim
-  // unresolvable (loud) or, worse, a filter that skips everything (silent).
   if (src.exportsInfo.unresolved.length) problems.push(`package subpaths did not resolve: ${src.exportsInfo.unresolved.join(', ')}`);
   if (src.exportsInfo.names.size < 20) problems.push(`only ${src.exportsInfo.names.size} package exports loaded — the export probe is broken`);
   if (src.scopes.size === 0) problems.push(`${src.schemaPath} has no scope enum — wrong schema file?`);
   if (helpBody(src.help, ['app']) === null) problems.push(`${src.helpPath} has no \`civitai app\` node — not a help capture?`);
+  if (src.cliMcpUrls.size === 0) problems.push(`${src.helpPath}'s agent-setup section names no MCP server URL — the extractor or the snapshot is broken`);
+  for (const [snapshot, r] of Object.entries(src.registries)) {
+    if (!r.tools.size || !r.endpoints.size) problems.push(`appblocks-snapshots/${snapshot} has ${r.endpoints.size} endpoint(s) and ${r.tools.size} tool(s) — not a registry snapshot?`);
+  }
+  return problems;
+}
+
+function main() {
+  const opts = parseArgs(process.argv.slice(2));
+  const src = loadSources();
+  const problems = sourceProblems(src);
 
   const pages = corpusFiles().map((file) => ({ file, md: readFileSync(join(repoRoot, file), 'utf8') }));
   const { findings, counts } = gradePages(pages, src);
   // Positive control on EXTRACTION: the corpus has always carried hundreds of
-  // CLI invocations and dozens of hook/scope spans. A zero is a broken parser.
-  for (const k of ['cli', 'hook', 'scope']) if (counts[k] === 0) problems.push(`extracted 0 \`${k}\` claims — the extractor is broken`);
+  // CLI invocations, dozens of hook/scope spans and manifest keys, and the MCP
+  // pages list dozens of tools and name both servers. A zero is a broken parser.
+  for (const k of CLAIM_KINDS) if (counts[k] === 0) problems.push(`extracted 0 \`${k}\` claims — the extractor is broken`);
 
   const baseline = opts.baseline && existsSync(BASELINE_PATH) ? JSON.parse(readFileSync(BASELINE_PATH, 'utf8')) : {};
   const { fresh, stale } = compareBaseline(findings, baseline);
@@ -415,10 +589,11 @@ function main() {
   } else {
     console.log(
       `doc claims — ${counts.pages} hand-written page(s): ${counts.cli} cli, ${counts.hook} hook, ` +
-        `${counts.scope} scope, ${counts.field} manifest-field claim(s) resolved against\n` +
+        `${counts.scope} scope, ${counts.field} manifest-field, ${counts['mcp-url']} mcp-url, ${counts['mcp-tool']} mcp-tool claim(s) resolved against\n` +
         `  cli:   ${src.helpPath.replace(repoRoot + '/', '')}\n` +
         `  hooks: ${src.exportsInfo.specifiers.length} subpath(s) of ${HOOK_PACKAGES.join(', ')} (${src.exportsInfo.names.size} exports)\n` +
-        `  scope/field: ${src.schemaPath.replace(repoRoot + '/', '')}\n`,
+        `  scope/field: ${src.schemaPath.replace(repoRoot + '/', '')}\n` +
+        `  mcp:   appblocks-snapshots/${MCP_SERVER_SNAPSHOT}, appblocks-snapshots/${ORCHESTRATION_SNAPSHOT}, and the help snapshot's agent-setup section (${src.cliMcpUrls.size} URL(s))\n`,
     );
     console.log(`${findings.length} unresolved claim(s), ${findings.length - fresh.length} baselined, ${fresh.length} new, ${stale.length} stale baseline entr${stale.length === 1 ? 'y' : 'ies'}`);
     for (const f of fresh) console.log(`  ✗ NEW   ${f.file}:${f.line} [${f.kind}] ${f.why}`);

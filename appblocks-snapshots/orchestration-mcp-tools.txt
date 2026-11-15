@@ -1,0 +1,17 @@
+# civitai-orchestration MCP registry. DERIVED by scripts/lib/mcp-registries.mjs from
+# civitai/civitai-orchestration@main (a PRIVATE repo; only names and paths are kept):
+# McpEndpoints.cs V1Path/V2Path (endpoints) and the V2Tools types' Tools/<Type>.cs
+# [McpServerTool(Name = "<name>")] (tools: the /mcp/v2 set). Edit only to apply the
+# lines `npm run check:snapshots` reports as added/removed.
+endpoint /mcp
+endpoint /mcp/v2
+tool cancel_workflow
+tool fetch_page
+tool find_services
+tool get_guide
+tool get_input_schema
+tool get_workflow
+tool list_workflows
+tool run_step
+tool run_workflow
+tool web_search
