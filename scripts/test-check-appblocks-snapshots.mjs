@@ -42,7 +42,7 @@ import { promisify } from 'node:util';
 import { repoRoot } from './appblocks-util.mjs';
 import { checkLedger, SOURCES } from './check-appblocks-snapshots.mjs';
 import { MCP_SERVER_SNAPSHOT, ORCHESTRATION_SNAPSHOT, parseRegistry } from './lib/mcp-registries.mjs';
-import { appKeyJobProblems } from './lib/app-key-jobs.mjs';
+import { appKeyJobProblems } from './lib/app-token-step.mjs';
 
 const run = promisify(execFile);
 const GUARD = join(repoRoot, 'scripts', 'check-appblocks-snapshots.mjs');
@@ -392,47 +392,59 @@ await check(
   { args: ['--only', ORCHESTRATION_SNAPSHOT, '--skip', MCP_SERVER_SNAPSHOT] },
 );
 
+// The production invocation: appblocks-drift.yml's `orch-snapshot` job runs
+// `node scripts/check-appblocks-snapshots.mjs --only orchestration-mcp-tools.txt`
+// in a job with no `npm ci`, holding the token (the dummy one here).
 await check(
-  '--only <a derived source> checks just that source and never invokes a generator',
+  `--only ${ORCHESTRATION_SNAPSHOT} (orch-snapshot's invocation) compares just that source and never invokes a generator`,
   // A generator input that WOULD make its generator run (and refuse) if it were selected.
   { 'hostHandlerParity.ts': '// emptied upstream\n' },
   (rc, out) => {
     const gens = generatorsRun();
-    assert(gens.length === 0, `--only ${MCP_SERVER_SNAPSHOT} spawned generator(s): ${gens.join(', ')}`);
+    assert(gens.length === 0, `--only ${ORCHESTRATION_SNAPSHOT} spawned generator(s): ${gens.join(', ')}`);
     assert(rc === 0, `rc ${rc}`);
     assert(summary(out) === 'Snapshots: 1 up-to-date · 0 byte-drifted with identical rendered output · 0 drifted · 0 skipped (unreachable)', summary(out));
-    assert(out.includes(`✓ ${MCP_SERVER_SNAPSHOT} — matches`), 'the selected source was not compared');
+    assert(out.includes(`✓ ${ORCHESTRATION_SNAPSHOT} — matches`), 'the selected source was not compared');
+    assert([...hits.orchAuth].join() === `Bearer ${ORCH_TOKEN}` && hits.orch >= 3, `orchestration fetches: ${hits.orch}, auth ${[...hits.orchAuth]}`);
+    assert(hits.mcp === 0, `--only ${ORCHESTRATION_SNAPSHOT} fetched the other registry ${hits.mcp} time(s)`);
     assert(out.includes('Pinned constants: not checked by this invocation (--only)'), 'pinned constants ran under --only');
   },
-  { args: ['--only', MCP_SERVER_SNAPSHOT] },
+  { args: ['--only', ORCHESTRATION_SNAPSHOT] },
 );
 
 // ── The ledger check inside main() ──────────────────────────────────────────
 // The seam: main(argv, sources) is exported, and a wrapper script run as a child
 // process calls the REAL main() with SOURCES plus one mis-mapped entry. Nothing in
 // the guard reads an alternate ledger from env or argv. The positive control runs
-// the same wrapper over the shipped SOURCES (rc 0), so a wrapper that never reaches
-// the sweep cannot pass the bad-entry case by exiting non-zero for its own reasons.
+// the same wrapper over the shipped SOURCES (rc 0) and must print a verdict line,
+// which main() reaches only AFTER the ledger check passes, so a wrapper that never
+// gets past the ledger cannot pass the bad-entry case by exiting non-zero for its
+// own reasons. main() checks the ledger over ALL sources before it applies
+// --only, so the control selects one derived registry: the ledger still runs in
+// full, and the sweep after it is one comparison with no generator.
 const wrapper = join(work, 'run-guard-with-sources.mjs');
 writeFileSync(
   wrapper,
   [
     `import { main, SOURCES } from ${JSON.stringify(pathToFileURL(GUARD).href)};`,
     "const extra = process.env.TEST_EXTRA_SOURCE ? [JSON.parse(process.env.TEST_EXTRA_SOURCE)] : [];",
-    'main([], [...SOURCES, ...extra]).catch((err) => { console.error(`wrapper: ${err.stack}`); process.exit(3); });',
+    'main(process.argv.slice(2), [...SOURCES, ...extra]).catch((err) => { console.error(`wrapper: ${err.stack}`); process.exit(3); });',
     '',
   ].join('\n'),
 );
 const BAD_ENTRY = { path: 'src/contract-test/never-fetched.ts', snapshot: 'doc-store-api.ts', gen: 'gen-appblocks-scopes.mjs', out: 'scopes.json' };
 
 await check(
-  'wrapper positive control: main() over the shipped SOURCES → green, full sweep',
+  `wrapper positive control: main() over the shipped SOURCES passes the ledger and grades (--only ${ORCHESTRATION_SNAPSHOT})`,
   {},
   (rc, out) => {
     assert(rc === 0, `rc ${rc}`);
-    assert(summary(out).startsWith(`Snapshots: ${SOURCES.length} up-to-date`), summary(out));
+    assert(!out.includes('the SOURCES ledger is wrong'), 'the shipped ledger was refused');
+    assert(out.includes(`✓ ${ORCHESTRATION_SNAPSHOT} — matches`), 'the wrapper never reached a verdict after the ledger check');
+    assert(summary(out) === 'Snapshots: 1 up-to-date · 0 byte-drifted with identical rendered output · 0 drifted · 0 skipped (unreachable)', summary(out));
+    assert(generatorsRun().length === 0, `the control spawned generator(s): ${generatorsRun().join(', ')}`);
   },
-  { script: wrapper },
+  { script: wrapper, args: ['--only', ORCHESTRATION_SNAPSHOT] },
 );
 
 await check(
@@ -460,9 +472,14 @@ sync('the SOURCES ledger holds, and refuses a snapshot mapped to a generator tha
 });
 
 // ── No dependency install in a job that can read the App private key ────────
-// See scripts/lib/app-key-jobs.mjs. The ledger of key-holding jobs fails when it
-// GROWS (a new job got the key: confirm it installs nothing, then add it here) or
-// SHRINKS (the scanner went blind, or a job dropped the key).
+// See appKeyJobProblems in scripts/lib/app-token-step.mjs. This is the one check
+// of the rule: the two bot tests (test-bump-appblocks-pins.mjs,
+// test-refresh-cli-snapshot.mjs) no longer repeat it for their `publish` jobs, which
+// is safe because both are pinned in KEY_JOBS. (test-refresh-cli-snapshot.mjs keeps
+// a broader rule of its own: no job holding ANY secret runs npm or the upstream
+// binary.) The ledger of key-holding jobs fails
+// when it GROWS (a new job got the key: confirm it installs nothing, then add it
+// here) or SHRINKS (the scanner went blind, or a job dropped the key).
 const KEY_JOBS = ['appblocks-drift.yml:orch-snapshot', 'appblocks-pin-bump.yml:publish', 'cli-snapshot-refresh.yml:publish'];
 const WF_DIR = join(repoRoot, '.github', 'workflows');
 

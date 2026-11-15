@@ -742,7 +742,7 @@ check('it runs daily, on dispatch (with dry_run), and on repository_dispatch —
   assert(!/pull_request|push:/.test(on), 'the bot triggers on pull_request/push');
 });
 
-check('least privilege: read by default, and the only writes are the app token in the job that runs no npm install, plus `signal`', () => {
+check('least privilege: read by default, and the only writes are the app token (minted in publish) plus `signal`', () => {
   const r = runnable(botYml);
   const preamble = r.slice(0, r.indexOf('\njobs:'));
   assert(/^permissions:\n {2}contents: read\n/m.test(preamble), 'the workflow default is not contents: read');
@@ -764,7 +764,11 @@ check('least privilege: read by default, and the only writes are the app token i
   );
   assert(!/^ {4}steps:/m.test(jobs.signal), 'signal holds issues: write and runs steps of its own');
   assertEqual(jobsMintingAppToken(jobs), ['publish'], 'the app token is minted somewhere other than (or besides) publish');
-  assert(!/npm (ci|install)/.test(jobs.publish), 'the job holding the app token installs npm packages');
+  // "publish installs nothing" is not re-checked here: appKeyJobProblems
+  // (scripts/lib/app-token-step.mjs) checks every job that can read the App key,
+  // and test-check-appblocks-snapshots.mjs pins appblocks-pin-bump.yml:publish as
+  // one of them. publish holds the key because it mints the token (pinned above)
+  // with `private-key: secrets.AGENT_APP_PRIVATE_KEY` (appTokenProblems, below).
   for (const [name, body] of Object.entries(jobs)) {
     if (/npm (ci|install)/.test(body)) {
       assert(/persist-credentials: false/.test(body), `job ${name} installs npm packages with a persisted credential`);
