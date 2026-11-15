@@ -20,6 +20,7 @@
 // table, and its delimiter row is `|---|---|---|`. Every narrowing that still
 // matches three columns is invisible to the real artifact. The fixtures below
 // are deliberately shapes the live corpus does NOT contain.
+import { readFileSync } from 'node:fs';
 import { descriptionHasTable } from './lib/description-has-table.mjs';
 import { parseReadme, scanSections, splitSection, verifyPublished } from './lib/readme-hook-sections.mjs';
 import { rewriteHookAnchors } from './appblocks-md.mjs';
@@ -28,6 +29,7 @@ import {
   compareVersions,
   correctionsFor,
   README_CORRECTIONS,
+  removedAt,
   retiredCorrections,
   staleAnnotations,
   SUPERSEDED_HOOKS,
@@ -739,18 +741,17 @@ check('compareVersions is numeric per part', () => {
   assert(refuses(() => compareVersions('latest', '1.0.0')), 'a non-version was accepted');
 });
 
-// The shipped entries, on BOTH sides of their removal: the pin before it (0.80.1, the
-// hooks still exported) and the release that drops them (0.81.0, civitai-app-starters#831).
-check('every shipped annotation holds at 0.80.1 and retires at 0.81.0', () => {
-  assert(Object.keys(SUPERSEDED_HOOKS).join(',') === 'useAppStorage,useSharedStorage', `superseded: ${Object.keys(SUPERSEDED_HOOKS)}`);
-  assert(
-    Object.values(SUPERSEDED_HOOKS).map((h) => h.removedIn).join(',') === '0.81.0,0.81.0',
-    `removedIn: ${Object.values(SUPERSEDED_HOOKS).map((h) => h.removedIn)}`,
-  );
-  const before = assertAnnotatedHooksExist(['useAppStorage', 'useSharedStorage', 'useViewer'], '0.80.1', SUPERSEDED_HOOKS, README_CORRECTIONS);
-  assert(JSON.stringify(before) === '[]', `retired at 0.80.1: ${JSON.stringify(before)}`);
-  const after = assertAnnotatedHooksExist(['useViewer'], '0.81.0', SUPERSEDED_HOOKS, README_CORRECTIONS);
-  assert(JSON.stringify(after) === '["useAppStorage","useSharedStorage"]', `retired at 0.81.0: ${JSON.stringify(after)}`);
+// The shipped list against the PINNED @civitai/blocks-react (package.json): no entry may
+// already be retired at the pin. A retired entry is dead weight the generator only
+// NOTEs, and the porting-table guard (`removedAt`) would keep tolerating a row for a hook
+// that no longer exists. The last two (useAppStorage, useSharedStorage, removedIn 0.81.0)
+// were deleted when the pin reached 0.81.0; the `removedIn` mechanism itself is pinned
+// by the synthetic `useGone` cases above.
+check('no shipped SUPERSEDED_HOOKS entry is already retired at the pinned blocks-react', () => {
+  const pin = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).devDependencies['@civitai/blocks-react'];
+  assert(/^\d+\.\d+\.\d+$/.test(pin), `blocks-react pin is not an exact x.y.z: ${pin}`);
+  const retired = removedAt(pin, SUPERSEDED_HOOKS);
+  assert(retired.length === 0, `retired at the pin ${pin} — delete from scripts/lib/hook-annotations.mjs: ${JSON.stringify(retired)}`);
 });
 
 console.log('');

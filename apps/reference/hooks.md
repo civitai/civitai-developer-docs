@@ -141,7 +141,7 @@ cannot find in this index is not in the pinned package.
 - [`useDomainMaturity`](./hooks/viewer-and-navigation#hook-useDomainMaturity)
 - [`useGatedImages`](./hooks/viewer-and-navigation#hook-useGatedImages)
 
-**[Storage, picker and media hooks](./hooks/storage-and-media)** — Per-app and shared storage, wildcard packs and workflow files, checkpoint, resource and image pickers, uploading images and other media, saving images, and creating posts.
+**[Storage, picker and media hooks](./hooks/storage-and-media)** — Wildcard packs and workflow files, checkpoint, resource and image pickers, uploading images and other media, saving images, and creating posts.
 
 - [`useWildcardPack`](./hooks/storage-and-media#hook-useWildcardPack)
 - [`useResourceFile`](./hooks/storage-and-media#hook-useResourceFile)

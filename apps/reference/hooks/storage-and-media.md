@@ -1,13 +1,13 @@
 ---
 title: "Storage, picker and media hooks"
-description: "Per-app and shared storage, wildcard packs and workflow files, checkpoint, resource and image pickers, uploading images and other media, saving images, and creating posts. Part of the Hooks reference."
+description: "Wildcard packs and workflow files, checkpoint, resource and image pickers, uploading images and other media, saving images, and creating posts. Part of the Hooks reference."
 ---
 
 <!-- GENERATED PAGE — do not edit by hand. Written by `npm run gen:appblocks:md` (scripts/appblocks-md.mjs); which entry lives on which page is decided in .vitepress/theme/components/referenceSplit.shared.mjs. -->
 
 # Storage, picker and media hooks
 
-Per-app and shared storage, wildcard packs and workflow files, checkpoint, resource and image pickers, uploading images and other media, saving images, and creating posts.
+Wildcard packs and workflow files, checkpoint, resource and image pickers, uploading images and other media, saving images, and creating posts.
 
 This page documents 10 of the 48 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.81.0` package's type definitions and README.
 
