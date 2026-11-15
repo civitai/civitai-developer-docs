@@ -4,7 +4,7 @@ title: MCP Server
 
 # Civitai Orchestration MCP Server
 
-The orchestrator is also a remote [Model Context Protocol](https://modelcontextprotocol.io) server. Any MCP client, such as Claude Desktop, claude.ai, Claude Code, Cursor or VS Code, can run the same workflows as the [REST API](/orchestration/guide/getting-started): images, video, audio, music, upscaling, conversion, tagging and every other step.
+The orchestrator is also a remote [Model Context Protocol](https://modelcontextprotocol.io) server. Any MCP client that can send a bearer header, such as Claude Code, Cursor or VS Code, can run the same workflows as the [REST API](/orchestration/guide/getting-started): images, video, audio, music, upscaling, conversion, tagging and every other step.
 
 Instead of one tool per task, a few generic tools let the agent find a service, get its exact input, and run it, so new engines, models and steps appear without any change to the MCP server.
 
@@ -18,6 +18,8 @@ https://orchestration.civitai.com/mcp/v2
 
 Transport is **Streamable HTTP**, the MCP transport for remote servers. There is nothing to install; clients connect directly over HTTPS.
 
+`/mcp/v2` is the current server and the one this page documents. The older `https://orchestration.civitai.com/mcp` serves a frozen v1 tool set: it keeps working but gets no new tools.
+
 ## Authentication
 
 The MCP server uses the **same Civitai API key** as the [REST API](/orchestration/guide/authentication). Send it as a Bearer token in the `Authorization` header on every request:
@@ -28,18 +30,9 @@ The snippets on this page are pre-filled with the token you set in the navbar, o
 
 ## Connecting
 
-### Claude Desktop
+### Claude Desktop and claude.ai
 
-Claude Desktop connects to a remote server as a **custom connector**, the same way as [claude.ai](#claude-ai) below. Its `claude_desktop_config.json` is for local (command-based) servers, not a remote URL.
-
-### claude.ai
-
-Add a custom remote MCP server under **Settings → Connectors → Add custom connector**:
-
-- **URL:** `https://orchestration.civitai.com/mcp/v2`
-- **Authentication:** custom header `Authorization` with the Bearer value below
-
-<McpConfigBlock kind="header" url="https://orchestration.civitai.com/mcp/v2" />
+Their custom-connector UI is OAuth-only: it has no field for an API key or a custom header. This server takes only an API key, so a custom connector cannot connect to it. Use Claude Code, Cursor, VS Code, or another client that sends a bearer header.
 
 ### Claude Code, Cursor, VS Code
 
@@ -47,9 +40,15 @@ For Claude Code, run:
 
 <McpConfigBlock kind="cli" url="https://orchestration.civitai.com/mcp/v2" />
 
-For Cursor or VS Code, add the same shape to your `mcp.json`:
+These snippets hold your API key as plain text. Never put them in a project file such as `.cursor/mcp.json` or `.vscode/mcp.json` in a repo, and never commit a token.
+
+For Cursor, add this to your user-level `~/.cursor/mcp.json`:
 
 <McpConfigBlock kind="json" url="https://orchestration.civitai.com/mcp/v2" />
+
+For VS Code, add this to your user `mcp.json`, which the **MCP: Open User Configuration** command opens (VS Code uses `servers` and `"type": "http"`):
+
+<McpConfigBlock kind="vscode" url="https://orchestration.civitai.com/mcp/v2" />
 
 ### Other clients
 
@@ -64,7 +63,7 @@ Any client that speaks Streamable HTTP can connect: point it at `/mcp/v2` and se
 
 1. **Pick a service.** `find_services` ranks services by speed, cost and success rate from a query like "fast cheap anime image", and prints each one's service id.
 2. **Get its input.** `get_input_schema(service)` returns the JSON Schema for that service's input and an example to start from.
-3. **Run it.** `run_step(stepType, input)`. Everything the service needs, the prompt included, goes inside `input`. To chain several steps, use `run_workflow(steps)`.
+3. **Run it.** `run_step(stepType, input)` only prices it by default; call it again with `whatif: false` to run it. Everything the service needs, the prompt included, goes inside `input`. To chain several steps, use `run_workflow(steps)`.
 
 ```jsonc
 // get_input_schema({ "service": "image/flux2/klein/createImage/9b" })
@@ -87,11 +86,11 @@ See the [tools reference](/orchestration/mcp/tools) for every tool, prompt and r
 
 ## Pricing, async submission, and tagging
 
-`run_step`, `run_workflow`, `caption_media` and `transcribe_audio` accept four optional parameters:
+`run_step` and `run_workflow` accept four optional parameters:
 
 | Parameter | Type | Behavior |
 |---|---|---|
-| `whatif` | boolean | Price the request without running it. Nothing is executed and no Buzz is spent, the same as `?whatif=true` on [`POST /v2/consumer/workflows`](/orchestration/reference/operations/SubmitWorkflow). |
+| `whatif` | boolean | Default `true`: price the request without running it. Nothing is executed and no Buzz is spent, the same as `?whatif=true` on [`POST /v2/consumer/workflows`](/orchestration/reference/operations/SubmitWorkflow). Pass `false` to run it, once the user has agreed to the price. |
 | `waitForCompletion` | boolean | Default `true` (training steps default to `false`): the call returns when the workflow finishes. Set `false` to get the workflow ID back immediately and poll with `get_workflow`. |
 | `tags` | string[] | Up to 10 tags, 1–200 characters each, stored on the workflow. Filter by them later with `list_workflows`. |
 | `metadataJson` | string | A JSON object (as a string) stored as the workflow's `metadata`. |
@@ -105,7 +104,7 @@ Results carry `structuredContent` alongside the text, so clients don't have to p
 // waitForCompletion: false
 { "workflowId": "…", "status": "submitted" }
 
-// default (waits)
+// whatif: false (waits)
 { "workflowId": "…" }
 ```
 

@@ -25,8 +25,10 @@ Which transport for what: [Concepts → Transport models](./concepts#transport-m
 ::: warning `@civitai/sdk` runs in a block now — and nothing is asking you to move
 `@civitai/app-sdk` + `@civitai/blocks-react` continue; **no app has to move.**
 
-**On the default block token,** `@civitai/sdk`'s `initialize()` succeeds (since
-`0.5.0`; `0.4.0` threw). `app.storage`, `app.site` on `blocks/*` paths,
+The `@civitai/sdk` calls on this page need `0.14.0` at minimum.
+
+**On the default block token,** `@civitai/sdk`'s `initialize()` succeeds.
+`app.storage`, `app.site` on `blocks/*` paths,
 `app.requestGrants` and all of `app.host` (bridge messages underneath) work.
 `app.orchestration` rejects **before it sends** for a signed-in viewer, and
 `app.site` outside `blocks/*` returns the API's own 401/403 — with the
@@ -204,10 +206,10 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 
 | Bridge hook | Replacement |
 |---|---|
-| `useAppStorage` | **Removed** from `@civitai/blocks-react` in 0.81.0. Use the [document store](./storage): a `private` collection through `app.storage.collection(name)` (`@civitai/sdk` 0.14.0 or later) or `/api/v1/blocks/storage/*`. The legacy `/api/v1/blocks/app-storage/{get,set,delete,list,quota}` routes (block-token only) are deprecated and shut down on 2026-11-10, after which they answer `410`; see [Moving from the legacy stores](./storage#moving-from-the-legacy-stores) |
-| `useAppWorkflows` | `POST /api/v1/blocks/workflows/query`. In `@civitai/sdk` (0.12.0 or later): `app.workflows.list({ cursor?, limit? })`, which resolves `{ workflows, cursor }` |
+| `useAppStorage` | **Removed** from `@civitai/blocks-react` in 0.81.0. Use the [document store](./storage): a `private` collection through `app.storage.collection(name)` or `/api/v1/blocks/storage/*`. The legacy `/api/v1/blocks/app-storage/{get,set,delete,list,quota}` routes (block-token only) are deprecated and shut down on 2026-11-10, after which they answer `410`; see [Moving from the legacy stores](./storage#moving-from-the-legacy-stores) |
+| `useAppWorkflows` | `POST /api/v1/blocks/workflows/query`. In `@civitai/sdk`: `app.workflows.list({ cursor?, limit? })`, which resolves `{ workflows, cursor }` |
 | `useBatchEstimate` | **No route yet** — `ESTIMATE_WORKFLOW_BATCH` is a bridge message, and no `/api/v1/blocks/*` route prices a batch. Over REST, price each body with `POST /api/v1/blocks/workflows/estimate`; in `@civitai/sdk` that is one `app.workflows.estimate(body)` per body |
-| `useBlockAnalytics` | **Keep** — a bridge message with no route. Its events are recorded once your manifest declares them; `@civitai/sdk`'s `app.host.track()` sends the same message (from 0.11.0). See the note below |
+| `useBlockAnalytics` | **Keep** — a bridge message with no route. Its events are recorded once your manifest declares them; `@civitai/sdk`'s `app.host.track()` sends the same message. See the note below |
 | `useBlockBreakpoint` | Local — element measurement, keep as is |
 | `useBlockContext` | **Keep** — the handshake payload arrives over the bridge and has no route |
 | `useBlockResize` | **Keep** — host UI; only the host can size your frame |
@@ -219,7 +221,7 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 | `useBuzzBalance` | `GET /api/v1/blocks/buzz` |
 | `useBuzzPurchase` | **Keep** — host UI |
 | `useBuzzTransactions` | **No route yet** |
-| `useBuzzWorkflow` | `/api/v1/blocks/workflows/{estimate,submit,poll,cancel}`. In `@civitai/sdk` (0.12.0 or later): `app.workflows.estimate`, `submit`, `get` (the `poll` route), `watch`, `wait` and `cancel` — see [Money calls](./sdk#money-calls) for what changes in the port |
+| `useBuzzWorkflow` | `/api/v1/blocks/workflows/{estimate,submit,poll,cancel}`. In `@civitai/sdk`: `app.workflows.estimate`, `submit`, `get` (the `poll` route), `watch`, `wait` and `cancel` — see [Money calls](./sdk#money-calls) for what changes in the port |
 | `useCheckpointPicker` | **Keep** the picker (host UI); `.persist` → `POST /api/v1/blocks/user-checkpoint/set` |
 | `useCivitaiNavigate` | **Keep** — host UI |
 | `useCivitaiRoute` | **Keep** — reads the host-owned sub-path from the handshake and `ROUTE_CHANGED`; off the bridge your own router owns the URL, so there is nothing to replace |
@@ -235,7 +237,7 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 | `useGoodPurchase` | `POST /api/v1/blocks/goods/purchase` — scope `goods:purchase:self` **and** a `goods` entry in your manifest; without both the endpoint answers 404. Same direct-fetch-on-the-validated-origin shape as `useTip`, and the buyer is always the token subject (the block never supplies a user id). The platform renders **no** confirmation for the purchase itself, so the confirm UI is yours. Its optional top-up on insufficient funds opens `useBuzzPurchase` — host UI, and the opposite money direction |
 | `useHostOrigin` | **Keep** — it is the validated base URL every direct fetch needs |
 | `useImagePicker` | **Keep** — host UI; Civitai opens the picker over the viewer's own posted and generated images in its own chrome, and the block receives only the pick. Page apps only. `@civitai/sdk` has no equivalent yet |
-| `useImageUpload` | **Keep** — host UI. (`@civitai/sdk` has covered it since 0.3.0 as `host.openImageUpload`, usable on either credential — but that is still a bridge message, not a route.) |
+| `useImageUpload` | **Keep** — host UI. (`@civitai/sdk` covers it as `host.openImageUpload`, usable on either credential — but that is still a bridge message, not a route.) |
 | `useMediaUpload` | **Keep** — a bridge message with no route. It sends `OPEN_MEDIA_UPLOAD` (the host's picker, or your own `bytes` with no picker), and the host stores the file as a private generation input; no `/api/v1/blocks/*` route accepts a media upload. Page apps only |
 | `useNestedDocument` | Local — fetches one of your own bundled documents into a `srcdoc` string; it never talks to the platform |
 | `usePublishGenerationOutputs` | **Stays on the bridge, by design** |
@@ -268,7 +270,7 @@ Two things to do when you port:
   an undeclared event is counted as a drop and its name is not stored.
 - **Move the calls, don't drop them.** `TRACK_EVENT` has no REST route. If you
   are moving to `@civitai/sdk`, `app.host.track(eventName, properties)` sends
-  the same message (`@civitai/sdk` 0.11.0 or later).
+  the same message.
 
 See [Custom events](./custom-events) for the declaration, the limits and where
 the numbers show up.
@@ -363,7 +365,7 @@ and has **none** of them.
 On the **default** credential `app.orchestration` rejects before it sends
 (since `@civitai/sdk@0.5.0`). On an `auth: "oauth"` block the substitution
 **type-checks, passes tests and reaches the orchestrator**. Submit through
-`/api/v1/blocks/workflows/*`, which in `@civitai/sdk` (0.12.0 or later) is
+`/api/v1/blocks/workflows/*`, which in `@civitai/sdk` is
 [`app.workflows`](./sdk#money-calls). Those routes take the block token only,
 so an `auth: "oauth"` block cannot use them; see
 [choosing your credential](#auth-field).
@@ -403,14 +405,18 @@ Document these as gaps; do not design around them yet.
 
 | Gap | State |
 |---|---|
-| `useImageUpload` / `OPEN_IMAGE_UPLOAD` | No REST twin, and deliberately so — it raises host UI. `@civitai/sdk` exposes it as `host.openImageUpload` (since 0.3.0, either credential), which is the same bridge message behind a different package. |
-| `usePublishGenerationOutputs` | Same shape, and staying on the bridge by design — host chrome is the consent control. `@civitai/sdk`'s `host.publishGenerationOutputs` (also 0.3.0) is the same message. |
-| `useBlockAnalytics` / `TRACK_EVENT` | No REST twin — a fire-and-forget bridge message, recorded only when the manifest declares the event. `@civitai/sdk` carries it as `host.track` from 0.11.0. See [Custom events](./custom-events). |
+| `useImageUpload` / `OPEN_IMAGE_UPLOAD` | No REST twin, and deliberately so — it raises host UI. `@civitai/sdk` exposes it as `host.openImageUpload` (either credential), which is the same bridge message behind a different package. |
+| `usePublishGenerationOutputs` | Same shape, and staying on the bridge by design — host chrome is the consent control. `@civitai/sdk`'s `host.publishGenerationOutputs` is the same message. |
+| `useBlockAnalytics` / `TRACK_EVENT` | No REST twin — a fire-and-forget bridge message, recorded only when the manifest declares the event. `@civitai/sdk` carries it as `host.track`. See [Custom events](./custom-events). |
 | Anonymous app-storage reads | REST returns 403 where the bridge resolved a read to `null`; handle both. |
 | `useBuzzAccounts`, `useBuzzTransactions`, `useDailyCompensation`, `useWildcardPack` | Not carried. |
 
 Because of the first two, a block that uploads images or publishes generation
 outputs **cannot reach zero bridge messages** — by design.
+
+## Troubleshooting
+
+- **`initialize()` throws on the default block token:** `@civitai/sdk` 0.4.0 refused that token; 0.5.0 and later accept it, and this page needs 0.14.0. Upgrade it.
 
 ## Next
 

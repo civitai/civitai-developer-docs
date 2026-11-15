@@ -83,6 +83,7 @@ lists the harness origin for you.
 | `app.workflows` | generation for a block, through the host's block workflow routes — see [money calls](#money-calls) |
 | `app.storage` | the [document store](./storage): `collection(name)` and `info()` (0.14.0 or later); its `get`/`set`/`delete`/`list`/`getQuota` are the deprecated per-viewer key/value store, shut down on 2026-11-10 (its calls fail with an error from then) |
 | `app.sharedStorage` | the deprecated cross-viewer key/value store, shut down on 2026-11-10 (its calls fail with an error from then); new apps use a shared collection |
+| `app.subListings` | the viewer's own App Store items for this app: `upsert`, `withdraw`, `mine` — see [Sub-listings](./sub-listings) |
 | `app.requestGrants(scopes, opts?)` | asks the viewer for more scopes |
 | `app.getToken(opts?)` | the token, for a call this client does not make itself |
 | `app.orchestration` | the raw orchestrator — **not** for a block; see [money calls](#money-calls) |
@@ -295,7 +296,10 @@ holding an OAuth token, where the substitution type-checks and works. See
 [Transport models](./concepts#transport-models).
 :::
 
+This sample needs `@civitai/sdk` 0.20.0 or later, the first release with `estimatedCost`.
+
 ```ts
+import { estimatedCost } from '@civitai/sdk';
 import type { BlockAppClient, BlockWorkflowSnapshot, WorkflowBody } from '@civitai/sdk';
 
 /**
@@ -312,12 +316,8 @@ async function generate(
 
   // 1. Price it. Nothing is charged or reserved.
   const estimate = await app.workflows.estimate(body);
-  // Priced = not 'failed' AND a numeric cost.total. A priced estimate is NOT
-  // 'succeeded' ('pending' in practice), so never require 'succeeded'.
-  const price =
-    estimate.status !== 'failed' && typeof estimate.cost?.total === 'number'
-      ? estimate.cost.total
-      : null;
+  // Priced = not 'failed' AND a numeric cost.total; never require 'succeeded'.
+  const price = estimatedCost(estimate);
   if (price === null) {
     // A refusal RESOLVES. Log `error`; don't render it.
     console.warn('estimate refused:', estimate.errorCode, estimate.error);
@@ -351,9 +351,8 @@ is a price. 🔴 **Do not require `'succeeded'`.** Nothing runs on an estimate, 
 a priced one comes back with a status that has not finished (`'pending'` in
 practice), and a check for `'succeeded'` shows "no price" for every estimate. A
 `'failed'` snapshot is never a price, even one carrying a `cost.total`: a budget
-refusal carries the total it would not charge. Newer `@civitai/sdk` releases
-export this check as `estimatedCost(snapshot)`, which returns the price or
-`null`.
+refusal carries the total it would not charge. `@civitai/sdk` exports this
+check as `estimatedCost(snapshot)`, which returns the price or `null`.
 
 ### The idempotency key
 

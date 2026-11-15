@@ -23,6 +23,11 @@ name: checks
 # that collision for the refresher's own workflow, and the same reasoning holds
 # here: a job silently promoted into a gate).
 #
+# 🔴 THAT LAST PARAGRAPH IS NO LONGER TRUE OF BRANCH PROTECTION. Read from the
+# branch-protection API on 2026-11-14 (not from this file), this job's context
+# IS one of `main`'s required checks, so a red step here blocks every docs merge. A step that is
+# still soaking must therefore be `continue-on-error: true` (see doc-claims below).
+#
 # RUNS ON EVERY PR, DELIBERATELY UNFILTERED. Same reasoning as build-site.yml
 # and appblocks-cli.yml: GitHub does not synthesise a passing status for a
 # workflow that never triggers, so a path-filtered workflow that later becomes
@@ -136,6 +141,38 @@ jobs:
       - name: 'pin-bump-test: plan, literal rewrite, version-only classification, auto-merge gate, workflow shape'
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run test:bump-appblocks-pins
+
+      # doc-claims: hand-written pages' `civitai` commands + flags, `useXxx` hook
+      # spans, App Blocks scope spans, manifest-fence keys, and the MCP pages'
+      # server URLs and tool tables must resolve against the PINNED help
+      # snapshot / devDeps / bundled schema / MCP registry snapshots.
+      # Pre-existing findings live in scripts/doc-claims-baseline.json, which
+      # only shrinks.
+      #
+      # 🔴 ADVISORY: `continue-on-error`, because this job is REQUIRED (header).
+      # A red here shows as a failed step on a green job, and cannot block a
+      # merge, while it soaks. Promotion = deleting the two `continue-on-error`
+      # lines, an operator decision once the soak condition in the PR that added
+      # this (civitai-developer-docs#346) holds. The test step is advisory too:
+      # its end-to-end block reads the pinned devDeps, so a pin-bump bot PR
+      # could turn it red.
+      - name: 'doc-claims-test: seeded good/bad claims per kind (unit + e2e on pinned sources)'
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        continue-on-error: true
+        run: npm run test:doc-claims
+      - name: 'doc-claims: hand-written pages name only CLI flags, hooks, scopes, manifest fields and MCP URLs/tools that exist'
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        continue-on-error: true
+        run: npm run check:doc-claims
+
+      # The contract of appblocks-drift.yml's snapshot guard, which only runs on
+      # that schedule. Offline: a loopback server stands in for
+      # raw.githubusercontent.com. Pins both halves — comment churn upstream is
+      # GREEN (the guard used to byte-diff, and most of its daily reds were that
+      # churn), and a change to what a generator renders is RED.
+      - name: 'snapshot-guard-test: upstream churn that renders the same is green, a rendered change is red'
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run test:check-snapshots
 
       # nginx-negotiation: serve the BUILT site with the real nginx.conf under
       # `nginx:alpine` (what the Dockerfile ships) and assert the agent-facing

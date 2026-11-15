@@ -13,8 +13,11 @@
 //      section. The README is published verbatim by design (`verifyPublished`), so a
 //      stale sentence cannot be cut here; a correction is shown beside it instead, and
 //      ONLY while the sentence it corrects is still in the published README. When
-//      upstream fixes the sentence the correction stops rendering on its own and the
-//      generator names it as retired, so it cannot outlive the thing it corrects.
+//      upstream fixes the sentence the correction stops rendering on its own, and the
+//      generator FAILS until the entry is deleted (`staleAnnotations`), so it cannot
+//      outlive the thing it corrects. It used to print a NOTE and carry on; the two
+//      entries this list held then sat retired through every build until 2026-11-14,
+//      because a NOTE in a green build log is read by nobody.
 import { Node } from 'ts-morph';
 
 /**
@@ -84,24 +87,25 @@ export const SUPERSEDED_HOOKS = {
  * would read a wrapped sentence as absent). A correction renders only while it matches.
  */
 export const README_CORRECTIONS = [
-  {
-    hook: 'useSharedStorage',
-    // The sentence sits in a blockquote and wraps, so the `>` of the next line is between
-    // "civitai.com" and "release" once the section is collapsed.
-    match: /goes live with the next civitai\.com[\s>]+release/,
-    text:
-      'The `append`/`update` budget in the table below is live on civitai.com. The note saying it ' +
-      'goes live with the next release predates that release.',
-  },
-  {
-    hook: 'useAppStorage',
-    match: /up to ~1\.5x/,
-    text:
-      'Stored size can be far more than ~1.5x the wire size: the `@civitai/sdk` README records a ' +
-      'numeric-heavy value storing at up to 44.4x its wire size. Read `getQuota()` rather than ' +
-      'estimating from what you sent.',
-  },
+  // Shape: { hook: 'useX', match: /a stale sentence/, text: 'What is true instead.' }
+  // The last two entries (useSharedStorage's "goes live with the next civitai.com
+  // release", useAppStorage's "up to ~1.5x") were deleted on 2026-11-14 when
+  // @civitai/blocks-react@0.80.1's README no longer carried either sentence (the
+  // storage one now states the measured 44.4x itself, which is what the correction said).
 ];
+
+/**
+ * Hooks the published package documents with NO example (neither a README `### useX()`
+ * section with a ```tsx fence nor an `@example` JSDoc tag), with why. Exact: a hook
+ * missing from here with no example fails the generator, and so does a hook listed
+ * here that has gained one — so this cannot drift into a list nobody reads either.
+ */
+export const HOOKS_WITHOUT_EXAMPLE = {
+  // Its example sits under the README's `## Direct-load fallback ("Open on Civitai")`,
+  // a `##` section outside the hook list, so no `### useDirectLoad()` section exists to
+  // attach it from, and its JSDoc has no @example (blocks-react@0.80.1).
+  useDirectLoad: 'documented under the README `## Direct-load fallback` section, outside the hook list',
+};
 
 /** Whitespace-collapsed text of a hook's README section (description + notes). */
 export function sectionText(hook) {
@@ -124,8 +128,7 @@ export function correctionsFor(hook, corrections = README_CORRECTIONS) {
 
 /**
  * Corrections that matched nothing in the published README — retired upstream, so the
- * entry can be deleted. Reported, not fatal: the README getting FIXED must never turn
- * a build red.
+ * entry must be deleted. `staleAnnotations` turns each into a generator failure.
  */
 export function retiredCorrections(hooks, corrections = README_CORRECTIONS) {
   const byName = new Map(hooks.map((h) => [h.name, h]));
@@ -200,4 +203,46 @@ export function assertAnnotatedHooksExist(
     );
   }
   return named.filter(removed);
+}
+
+/**
+ * Every annotation that no longer describes the published package, as a list of
+ * messages (empty = all current). The generator throws on a non-empty list:
+ *   - a README correction whose sentence is gone (retired upstream: delete it);
+ *   - a hook with no example that is not in HOOKS_WITHOUT_EXAMPLE (new gap: add an
+ *     example upstream, or list it here with why);
+ *   - a HOOKS_WITHOUT_EXAMPLE entry whose hook now has an example, or no longer exists.
+ *
+ * `removed` is what `assertAnnotatedHooksExist` returned: hooks declared `removedIn` at
+ * this pin and proven absent. An entry naming one of them is NOT reported here, because
+ * the generator reports the whole hook's entries as deletable instead; this is the one
+ * exemption, and it covers only hooks whose `removedIn` the pin has reached.
+ *
+ * @param {Array<{ name: string, example?: string, description?: string, notes?: Array<object> }>} hooks
+ * @param {string[]} [removed]
+ */
+export function staleAnnotations(
+  hooks,
+  corrections = README_CORRECTIONS,
+  withoutExample = HOOKS_WITHOUT_EXAMPLE,
+  removed = [],
+) {
+  const problems = [];
+  const gone = new Set(removed);
+  for (const c of retiredCorrections(hooks, corrections).filter((c) => !gone.has(c.hook))) {
+    problems.push(`README_CORRECTIONS { hook: '${c.hook}', match: ${c.match} } no longer matches the published README — upstream fixed the sentence; delete the entry`);
+  }
+  const byName = new Map(hooks.map((h) => [h.name, h]));
+  for (const h of hooks) {
+    if (!h.example && !(h.name in withoutExample)) {
+      problems.push(`${h.name} has no example (no README \`### ${h.name}()\` fence, no @example) — add one upstream, or list it in HOOKS_WITHOUT_EXAMPLE with why`);
+    }
+  }
+  for (const name of Object.keys(withoutExample)) {
+    if (gone.has(name)) continue;
+    const h = byName.get(name);
+    if (!h) problems.push(`HOOKS_WITHOUT_EXAMPLE names ${name}, which the published package does not export — delete the entry`);
+    else if (h.example) problems.push(`HOOKS_WITHOUT_EXAMPLE names ${name}, which now has an example — delete the entry`);
+  }
+  return problems;
 }
