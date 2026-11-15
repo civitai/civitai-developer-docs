@@ -121,7 +121,8 @@ if (ordered.length === 0) {
 }
 
 // Deprecation notices and corrections to stale README sentences (lib/hook-annotations.mjs).
-assertAnnotatedHooksExist(ordered.map((h) => h.name));
+// Returns the hooks this pin no longer exports that are declared `removedIn` it.
+const removedHooks = assertAnnotatedHooksExist(ordered.map((h) => h.name), version);
 for (const h of ordered) {
   h.superseded = SUPERSEDED_HOOKS[h.name] ?? null;
   h.corrections = correctionsFor(h);
@@ -149,7 +150,10 @@ const noEx = ordered.filter((h) => !h.example).map((h) => h.name);
 const withNotes = ordered.filter((h) => h.notes.length).length;
 const withReturns = ordered.filter((h) => h.returns).length;
 log(`hooks: wrote ${ordered.length} hooks (${withNotes} with notes after the example, ${withReturns} with a return interface) -> ${dest}`);
-for (const c of retiredCorrections(ordered)) {
+for (const name of removedHooks) {
+  log(`  NOTE: ${name} is removed in @civitai/blocks-react@${version} (its \`removedIn\`), so its SUPERSEDED_HOOKS and README_CORRECTIONS entries no longer apply — delete them from scripts/lib/hook-annotations.mjs`);
+}
+for (const c of retiredCorrections(ordered).filter((c) => !removedHooks.includes(c.hook))) {
   log(`  NOTE: the README_CORRECTIONS entry { hook: '${c.hook}', match: ${c.match} } no longer matches the published README — upstream fixed the sentence, so delete that entry from scripts/lib/hook-annotations.mjs`);
 }
 if (noEx.length) log(`  WARNING: no example for: ${noEx.join(', ')}`);
