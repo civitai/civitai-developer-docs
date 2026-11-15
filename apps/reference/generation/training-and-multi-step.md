@@ -9,7 +9,7 @@ description: "The training body and its ai-toolkit parameter types, and the mult
 
 The `training` body and its ai-toolkit parameter types, and the multi-step `workflow` body.
 
-This page documents 11 of the 27 types in the [Generation bridge reference](../generation), which indexes every type by name. Generated from `@civitai/app-sdk@0.87.0` and `@civitai/blocks-react@0.80.1`.
+This page documents 11 of the 27 types in the [Generation bridge reference](../generation), which indexes every type by name. Generated from `@civitai/app-sdk@0.88.0` and `@civitai/blocks-react@0.81.0`.
 
 Other pages: [useBuzzWorkflow lifecycle and snapshot types](./lifecycle) · [Workflow body types](./bodies)
 
@@ -165,6 +165,7 @@ The `workflow` member of {@link WorkflowBody} — SEVERAL orchestrator steps sub
 | `kind` | `'workflow'` |  |
 | `steps` | `WorkflowBodyWorkflowStep[]` | The steps, in order. 1…{@link BLOCK_WORKFLOW_MAX_STEPS}. |
 | `arguments?` | `Record<string, unknown>` | Values the steps can read through `{ $ref: '$arguments', path }` — one place to put a prompt or a seed that several steps share. |
+| `accountType?` | `BuzzAccountType` | Optional Buzz pool to try FIRST for this job. The host puts it at the front of the pools this app may spend and keeps the others as fallback, so a job the picked pool cannot cover alone still runs (an SFW app may spend `blue` and `green`; a mature app `blue` and `yellow`). Omit it for the host's default order, blue first. A pick outside the app's allowed pools is REFUSED, with an error naming the pool, on the estimate and the submit alike, before anything is priced or reserved. Estimate with the same pick you submit with: the estimate prices that order. 🔴 It does NOT guarantee an unrestricted output. When the picked pool runs out the fallback pays, and a fallback to `blue` can still leave a mature output restricted. ONE pick for the whole workflow, not per step: the orchestrator takes a single list of pools per workflow, so a step cannot name its own (a step carrying `accountType` is refused). A host predating this field refuses it as an unknown key. |
 
 **`WorkflowBodyWorkflowStep`** — object
 

@@ -9,7 +9,7 @@ description: "Per-app and shared storage, wildcard packs and workflow files, che
 
 Per-app and shared storage, wildcard packs and workflow files, checkpoint, resource and image pickers, uploading images and other media, saving images, and creating posts.
 
-This page documents 12 of the 49 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.80.1` package's type definitions and README.
+This page documents 10 of the 48 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.81.0` package's type definitions and README.
 
 Other pages: [Context, frame and analytics hooks](./context) · [Generation hooks](./generation) · [Batch, confirmed-step and training hooks](./batches-and-training) · [Buzz, purchase and tip hooks](./buzz-and-purchases) · [Viewer, consent and navigation hooks](./viewer-and-navigation)
 
@@ -90,7 +90,7 @@ On failure `error` is a `ResourceFileError` whose `code` is one of a closed set:
 
 🔴 **Full-page app hosts only — not the model-page slot, not `dev:live`.** The
 model-page slot does not answer it (the request times out), and `dev:live`
-replies `parse-failed`. Develop against `dev:mock`: `createMockHost` takes a
+replies `parse-failed`. Develop against the mock host (`npm run dev:harness`): `createMockHost` takes a
 `resourceFile` (the canned reply) and a `resourceFileError` (force a code);
 `setScenario({ resourceFileError: undefined })` clears the forced error.
 
@@ -216,299 +216,6 @@ it has no civitai chrome to render the server-resolved confirm in, and driving
 the write without it would let dev prove out a flow production does not have.
 ```
 
-**`useAppStorage`**
-
-```ts
-useAppStorage(): UseAppStorage
-```
-
-> Deprecated: new apps keep per-viewer data in a private collection of the document store. This hook is shut down on 2026-11-10; from then on its calls fail with an error. See [Storing data](/apps/guide/storage#moving-from-the-legacy-stores).
-
-```ts
-interface UseAppStorage {
-  get<T = unknown>(key: string): Promise<T | null>;
-  set<T = unknown>(key: string, value: T): Promise<{ ok: true; sizeBytes?: number; }>;
-  delete(key: string): Promise<{ ok: true; deleted: boolean; }>;
-  list(opts?: { prefix?: string; limit?: number; cursor?: string; }): Promise<AppStorageListResult>;
-  getQuota(): Promise<AppStorageQuota>;
-}
-```
-
-KV datastore, host-mediated. Keys are **namespaced** per (block instance, viewer); the byte and row **budgets** are enforced per (**app**, viewer), so every instance of one app shares one budget for that viewer.
-
-```tsx
-import {
-  APP_STORAGE_MAX_VALUE_BYTES, // largest single value, in wire bytes
-  APP_STORAGE_MAX_BYTES,       // total stored bytes per (app, viewer)
-  APP_STORAGE_MAX_ROWS,        // total rows per (app, viewer)
-} from '@civitai/app-sdk/blocks';
-
-const storage = useAppStorage();
-await storage.set('key', { any: 'json' });   // rejects over ANY of the three — and on a >200-char key
-const v = await storage.get<MyShape>('key'); // null if unset / anon
-await storage.delete('key');                  // idempotent
-const { keys } = await storage.list({ prefix: 'note-' });
-const quota = await storage.getQuota();       // { usedBytes, rowCount, limitBytes, limitRows }
-```
-
-````md
-🔴 **For the byte/row budget, `getQuota()` is the authority for those two
-numbers and the constants are a snapshot.** All three above are compiled-in
-figures **as of the version of `@civitai/app-sdk` you installed** — which is the
-same frozen-number failure mode this page used to demonstrate, just with one
-copy instead of nine. The host can move any of them without your lockfile
-changing. So:
-
-- **Render `getQuota()`'s reply**, never a constant, anywhere a viewer sees a
-  number or a code path decides whether a write will fit.
-- **Reach for the constants only where no quota reply is available** — a
-  build-time sanity check, a test fixture, a rough design-time estimate — and
-  treat the answer as "roughly, at install time".
-- **Re-check after any SDK bump**, and expect movement: the per-viewer clamp
-  was sized against a measured distribution and the host says to expect a
-  re-measure. `appStorageLimits.ts` in `@civitai/app-sdk` carries the
-  provenance and a one-liner that re-derives the current values from the host.
-
-Never hard-code a figure of your own: the docs here used to quote the app-wide
-umbrella instead of the per-viewer clamp and were **25x** out on bytes and
-**1000x** out on rows.
-
-🔴 **That authority stops at the budget, and so does the list above.**
-`getQuota()` answers `{ usedBytes, rowCount, limitBytes, limitRows }` and
-nothing more, so it reports neither of the other two ceilings: the host's
-**200-character cap on `key`**, nor `APP_STORAGE_MAX_VALUE_BYTES`, which is a
-per-**write** cap rather than part of the per-(app, viewer) budget. A write that
-fits the quota reply is still refused if its key is too long or its value is
-over the per-value cap — and for the key, nothing local catches it
-([#370](https://github.com/civitai/civitai-app-starters/issues/370), detailed
-below). Cap or hash long keys in your block.
-
-🔴 **The ROW ceiling is usually the binding one, and a byte-based "x of y used"
-readout will not see it coming.** A block caching one modest record per item a
-viewer touches exhausts `limitRows` while still holding a small fraction of
-`limitBytes`. Show rows too.
-
-`createMockHost()` defaults to these same ceilings and enforces the per-value
-cap, the byte budget and — since it was added — the **row** budget on write, so
-a row-limit overrun now fails under `dev:mock` where it previously passed and
-failed only in production. Pass `storage: { quotaBytes, limitRows }` to
-simulate something smaller.
-
-⚠️ The mock is **not** gate-for-gate identical to the host. Five known
-divergences:
-
-- the byte gate refusing a shrinking overwrite that the host admits
-  ([#345](https://github.com/civitai/civitai-app-starters/issues/345));
-- 🔴 the byte gate counting **wire** bytes where the host counts **stored**
-  bytes — `octet_length(value::jsonb::text)`, larger for every container: ~1.5x
-  for a long array of small integers, and measured up to 44.4x for a
-  numeric-heavy one (an array of `1e308`)
-  ([#347](https://github.com/civitai/civitai-app-starters/issues/347));
-- nothing models the **app-wide** umbrella, so `app quota exceeded` and `app row
-  limit exceeded` cannot be produced here at all
-  ([#368](https://github.com/civitai/civitai-app-starters/issues/368));
-- lowering `valueCapBytes` moves the **gate** but not the **message**, which
-  keeps naming the host's real cap
-  ([#369](https://github.com/civitai/civitai-app-starters/issues/369));
-- 🔴 no key-length cap: the host refuses a `key` over **200 characters**
-  zod-side, and neither the mock nor `useAppStorage` does
-  ([#370](https://github.com/civitai/civitai-app-starters/issues/370)).
-
-Passing under `dev:mock` is evidence, not proof — and note that the second, the
-third and the fifth are **permissive**: each lets a write pass locally that
-production will reject. (#347 under-counts the bytes; #368 models no app-wide
-ceiling at all, so a write the host would refuse with `app quota exceeded`
-succeeds here; #370 admits an over-length key the host refuses outright.)
-Size your fixtures against `getQuota()`, not against what the mock accepted.
-
-🔴 **A rejection carries a host-authored MESSAGE, not a code.** There is no
-`PAYLOAD_TOO_LARGE` on the wire — that is the TRPC *code*, and the host's
-bridge forwards `err.message`. Six **ceiling** strings are measured and
-single-sourced in the app-sdk's `blocks/appStorageErrors.ts` — one per
-`PAYLOAD_TOO_LARGE` site in the host's router, plus the bridge's `storage
-request failed` fallback — and `createMockHost` draws its rejections from that
-same module, so for the ceilings the mock HAS it answers the message production
-would send, and `classifyAppStorageError(err)` picks the same branch in both.
-
-🔴 **Those six are not every string a block can receive — and nothing here
-enumerates the rest.** The bridge catches every rejection out of
-`apps.storage.*` with a *blanket* `catch` and puts its message on the same
-`error` field, so the host's authorization, approval and feature-flag prose —
-**plus tRPC's own zod input-validation messages, which never reach a handler at
-all** — travel the identical path. **Every one of them classifies `null`.**
-
-🔴 **One of those zod bounds is a ceiling a real block hits with no local
-warning: `key` is capped at 200 characters** (`z.string().min(1).max(200)` on
-the host's `get`/`set`/`delete` input schema; `list` also caps `prefix` at 200
-and `cursor` at 400). Neither `useAppStorage` nor `createMockHost` caps the key
-— both forward it verbatim and the mock has no length gate
-([#370](https://github.com/civitai/civitai-app-starters/issues/370)) — so a key
-built from a URL or a model name can save fine under `dev:mock` and fail
-forever in production, classified `null`. **The reload the `null` arm below
-recommends does not fix it.** Cap or hash long keys in your block.
-
-That is the whole rule, and it is stated structurally on purpose: the SDK owns
-a chosen slice of the ceiling vocabulary, not the host's error surface, so the
-honest claim is "**these six** classify, everything else is `null`" — which
-needs no list and stays true when the host adds or rewords a message. Note it
-is deliberately *not* "every ceiling classifies": the zod key cap above is a
-ceiling that lands on `null` like everything else. Two earlier drafts of this
-section tried instead to enumerate the non-ceiling strings, and **both lists
-were short**; see the header of `blocks/appStorageErrors.ts` for what they
-missed and why no third list replaced them. `invalid block token` (an expired
-token mid-session) and `block instance revoked` are *illustrations* of what
-lands on `null`, never a bound on it. The practical consequence: `null` is a
-busy bucket, so see the `default` arm note below before writing copy for it.
-
-⚠️ **The mock reaches four of the six.** It models no app-wide umbrella
-([#368](https://github.com/civitai/civitai-app-starters/issues/368)), so
-`app quota exceeded` and `app row limit exceeded` are production-only: a block
-must still handle them, and no local run will ever exercise that branch. The
-other four are covered — the three ceilings, plus `storage request failed` via
-`storage: { failNext }`.
-
-Branch on the classifier's **reason**, never on the string. The reason is this
-SDK's and cannot move; the message is the host's and can. (That is also why the
-SDK exports `classifyAppStorageError` and the reason type, but deliberately does
-*not* export the array of messages: `MESSAGES.includes(err.message)` is equality
-against a snapshot, and the per-value message is a template over a cap the host
-is free to change.)
-
-```ts
-import { classifyAppStorageError } from '@civitai/app-sdk/blocks';
-
-let status = 'Saved.';
-try {
-  await storage.set(key, note);
-} catch (err) {
-  console.warn('[my-block] save failed:', err);  // log the host's words
-  switch (classifyAppStorageError(err)) {        // never render them
-    case 'value-too-large':
-      status = 'That note is too long to save. Try shortening it.';
-      break;
-    case 'user-row-limit':
-      status = 'You have no note slots left. Delete one to make room.';
-      break;
-    case 'request-failed':
-      // The bridge's fallback — a transport fault. Genuinely retryable.
-      status = 'Could not save that note. Please try again.';
-      break;
-    default:
-      // `null`: an unknown ceiling, or (more often) an expired/revoked token.
-      status =
-        'Could not save that note. Try reloading the page — if that does not ' +
-        'help, storage may be unavailable for this app right now.';
-  }
-}
-```
-
-🔴 **Keep the `default` arm, and do not put "please try again" in it.**
-`classifyAppStorageError` answers `null` both for a ceiling message this SDK
-version does not know (the host can reword one in any deploy) *and* for the
-whole authorization family listed above — an expired block token, a revoked
-instance, an unapproved block, a missing storage scope. Retrying fixes none of
-the second group, so the generic arm should offer a **reload** (which re-mints
-the token, and covers a transport blip too) and concede that storage may be
-unavailable. Split `'request-failed'` out if you want honest retry copy: that
-reason really is the transport one.
-
-The mock emitted the *code* until
-[#343](https://github.com/civitai/civitai-app-starters/issues/343), which is
-how a block's error branch could pass every local run and never fire in
-production.
-````
-
-**`useSharedStorage`**
-
-```ts
-useSharedStorage(): UseSharedStorage
-```
-
-> Deprecated: new apps keep data every viewer reads in a shared collection of the document store, which has authorship, counters and marks built in. This hook is shut down on 2026-11-10; from then on its calls fail with an error. See [Storing data](/apps/guide/storage#moving-from-the-legacy-stores).
-
-```ts
-interface UseSharedStorage {
-  list(opts?: { prefix?: string; limit?: number; cursor?: string; }): Promise<SharedListResult>;
-  get(key: string): Promise<SharedListItem | null>;
-  report(key: string, reason?: string): Promise<void>;
-  getCount(key: string): Promise<number>;
-  getCounts(keys: string[]): Promise<Record<string, number>>;
-  append(value: SharedAppendValue): Promise<{ key: string; }>;
-  update(key: string, value: SharedAppendValue): Promise<void>;
-  vote(key: string): Promise<number>;
-  unvote(key: string): Promise<number>;
-  withdraw(key: string): Promise<{ ok: boolean; deleted: boolean; }>;
-}
-```
-
-App-scoped, append-only, community-votable SHARED datastore (every viewer sees the same list). Sibling of `useAppStorage`; anonymous viewers get the read path and a hard reject on mutations.
-
-```tsx
-const shared = useSharedStorage();
-const { key } = await shared.append({ title: 'Add dark mode', body: 'please' });
-const { items } = await shared.list({ limit: 20 });   // newest-first
-const count = await shared.vote(key);                 // idempotent up-vote
-await shared.unvote(key);
-await shared.withdraw(key);                            // remove my own entry
-```
-
-````md
-#### Shared-storage write limits
-
-Every write is budgeted per **(viewer, app)** on the server. One viewer
-exhausting their budget in your app costs them nothing in another app, and
-re-minting the block token does not reset it.
-
-| Writes | Budget |
-|---|---|
-| `append` + `update` (one shared budget) | a **burst of 10**, refilling **1 every 6 minutes**, and a **daily bucket of 50**, refilling continuously (one every ~29 minutes). A write needs a token from both. |
-| — writes the server **refused** (moderation block, the 50-entry cap, quota, not found, …) | also charged to a **rejection bucket of 10**, refilling **1 every 30 minutes**. No `append`/`update` is accepted while it is empty. Concurrent refused writes can drive it into debt, down to −10, which has to refill first. |
-| `vote` + `unvote` | 30 a minute, shared |
-| `withdraw` | 30 a minute |
-| `report` | 20 a day |
-
-Only writes that **land** spend the `append`/`update` budget: a write that fails
-without landing gets its token back. The few failures the platform marks as its
-own fault are refunded without a rejection charge too.
-
-A write refused for budget arrives with retry metadata, and the hook rejects with
-**`SharedStorageRateLimitError`**. It extends the plain `Error` every other
-refusal is thrown as, so existing `catch` code keeps working, and `.message` is
-still the server's text (`Too many submissions — retry in 312s`, or `votes`,
-`withdrawals`, `reports`). Branch on the class to render the wait instead of
-parsing the message:
-
-```tsx
-import { SharedStorageRateLimitError, useSharedStorage } from '@civitai/blocks-react';
-
-const shared = useSharedStorage();
-try {
-  await shared.append({ title: 'Add dark mode' });
-} catch (err) {
-  if (err instanceof SharedStorageRateLimitError) {
-    // err.retryAt: ISO-8601 instant a retry can succeed; err.retryAfterSeconds: whole seconds, ≥ 1.
-    const at = new Date(err.retryAt).toLocaleTimeString();
-    showNotice(`You're posting fast. Try again at ${at}.`);
-  } else {
-    throw err;
-  }
-}
-```
-
-- **Don't retry before `retryAt`.** A refused retry gets nothing, and once the
-  budget is empty every attempt is refused until it refills.
-- **Absent metadata is not "retry now".** A host that predates it, or a refusal
-  that is not a rate limit, throws the plain `Error`. The hook also ignores a
-  malformed `rateLimit` and throws the plain `Error`, rather than hand you
-  something you would render.
-- On the wire the refusal reply is `{ requestId, error, rateLimit?: { retryAfterSeconds, retryAt } }`
-  (type `SharedStorageRateLimit` in `@civitai/app-sdk/blocks`) on the six write
-  replies.
-- `createMockHost({ shared: { rateLimitNext: 1, rateLimit: { retryAfterSeconds: 312 } } })`
-  refuses the next write this way, so you can test the branch locally
-  (`setScenario({ shared: { rateLimitNext } })` arms it mid-session).
-````
-
 **`useCheckpointPicker`**
 
 ```ts
@@ -560,7 +267,7 @@ full-page app (`app.page`) is bound to no model, so the host has nowhere to writ
 the override: it answers every `persist()`, including `persist(null)`, with
 `ok: false`, and the promise rejects with `page blocks cannot persist a
 checkpoint override (no model binding)`. A page app keeps the checkpoint `open()`
-returned in its own state (or in `useAppStorage()`).
+returned in its own state (or in the document store).
 
 Both dev hosts (`createMockHost` / `Harness` and `dev:live`) refuse it the same
 way, and both default to a page context. Pass a complete `ModelSlotContext` as
@@ -896,10 +603,11 @@ useMediaUpload(): UseMediaUpload
 interface UseMediaUpload {
   open: (options: MediaUploadOpenOptions) => Promise<BlockMediaUploadInfo | null>;
   upload: (options: MediaUploadBytesOptions) => Promise<BlockMediaUploadInfo>;
+  uploadBatch: (items: readonly MediaUploadBatchItem[], options?: MediaUploadBatchOptions) => Promise<MediaUploadBatchResult | null>;
 }
 ```
 
-\**The way to pass any media (image, video or audio) into a workflow step.** The host refuses data URIs and inline base64 in step inputs, so upload the file with this hook and pass the `url` it returns into the step input. Returns `{ open, upload }`. - **`open({ kind })`** opens the host's own file picker for that kind. The viewer picks a file, the host uploads it, and `open` resolves with the upload, or `null` if nothing was uploaded. - **`upload({ kind, bytes, mimeType? })`** uploads media your app already holds in the tab, with no picker: a canvas export, a crop, a `MediaRecorder` recording. It resolves with the upload, and never resolves without one.
+\**The way to pass any media (image, video or audio) into a workflow step.** The host refuses data URIs and inline base64 in step inputs, so upload the file with this hook and pass the `url` it returns into the step input. Returns `{ open, upload, uploadBatch }`. - **`open({ kind })`** opens the host's own file picker for that kind. The viewer picks a file, the host uploads it, and `open` resolves with the upload, or `null` if nothing was uploaded. - **`upload({ kind, bytes, mimeType? })`** uploads media your app already holds in the tab, with no picker: a canvas export, a crop, a `MediaRecorder` recording. It resolves with the upload, and never resolves without one. - **`uploadBatch(items, { timeoutMs? })`** uploads up to 1200 files your app holds behind **one** confirm the host shows the viewer, and resolves with one answer per file. See [Uploading many files at once](#uploading-many-files-at-once).
 
 ```tsx
 import { useMediaUpload } from '@civitai/blocks-react';
@@ -1007,6 +715,146 @@ bytes upload is refused before the cap and the window, and is not counted. A mod
 `context` answers `unsupported on this host`. `dev:live` cannot upload
 generation inputs, so there both calls reject with a message saying to use the
 mock host.
+
+#### Uploading many files at once
+
+`uploadBatch(items, options?)` sends 1 to 1200 files in one request. Each item
+is `{ kind, bytes, mimeType? }`, the same fields as `upload`.
+
+```tsx
+import { useMediaUpload } from '@civitai/blocks-react';
+
+function UploadFrames({ frames }: { frames: Blob[] }) {
+  const { uploadBatch } = useMediaUpload();
+
+  async function onClick() {
+    const items = await Promise.all(
+      frames.map(async (frame) => ({
+        kind: 'image' as const,
+        bytes: await frame.arrayBuffer(),
+        // An untyped Blob has type '', which would fail every frame with a mismatch; omit it instead.
+        mimeType: frame.type || undefined,
+      })),
+    );
+    const batch = await uploadBatch(items);
+    if (!batch) return; // the viewer declined; nothing was uploaded
+    for (const { index, selected, error } of batch.results) {
+      if (selected) setFrameUrl(index, selected.url);
+      else showFrameError(index, error);
+    }
+    // batch.expiresAt: the uploads are kept at least until then (at least 30 days)
+  }
+
+  return <button onClick={onClick}>Upload {frames.length} frames</button>;
+}
+```
+
+What the host does:
+
+1. **It checks every item first,** with the same rules as `upload`: 24 MB per
+   image and 64 MB per video or audio file, the content type, and a
+   `mimeType` that must match the content.
+2. **It asks the viewer once,** in Civitai's own UI ("Upload N images (X MB)
+   for your app?"). If no item passed the checks it skips the question and
+   answers with the per-item errors.
+3. **Only after the viewer confirms,** it uploads the valid items, at most 3 at
+   a time, and replies once when all are done.
+
+What `uploadBatch` resolves and rejects with:
+
+- **`{ results, expiresAt }` when the batch ran.** `results` has exactly one
+  entry per item, in the same order, and `results[i].index === i`. Each entry
+  has exactly one of `selected` (the same `{ url, kind, mimeType, sizeBytes,
+  width?, height?, durationMs? }` that `upload` resolves with) and `error`. A
+  per-item `error` is one of `upload`'s own strings (too large, wrong type,
+  `mimeType does not match the file's content`,
+  `invalid media-upload request`, `kind must be 'image', 'video' or 'audio'`)
+  or an upload-time one: `this image was refused by the upload service`,
+  `this video was refused by the upload service` or
+  `this audio was refused by the upload service` for a file the content scan
+  blocked, and `media upload failed — please try again`. An entry the host
+  sent malformed is answered as that item's `media upload failed`, rather than
+  the whole reply being dropped. One refused item does not stop the others. `expiresAt` is an ISO timestamp: the uploaded files are
+  kept at least until then, which is at least 30 days (the upload service's
+  default retention). It is not a promise that they are deleted at that time,
+  so do not rely on a URL going away; pass the URLs into your steps before it.
+  `expiresAt` is absent when no item was valid, since nothing was uploaded.
+- **`null` when nothing was uploaded** because the viewer declined the confirm,
+  or the host declined at once (review mode, or your app is not ready). Like
+  closing `open`'s picker, this is the viewer's choice, not an error.
+- **It rejects when the host refused the whole batch,** with the host's
+  message. Nothing was uploaded. That covers `no block token`, `busy` (a batch
+  is already running on this page; one runs at a time), the viewer's daily
+  quota (below), the feature not being available, a failure starting the
+  batch, and `unsupported on this host` on a surface other than a page app.
+- **It refuses before sending,** with the host's own strings, what the host
+  would refuse for the whole batch: `invalid media-upload batch request` (not
+  an array, or an entry that is `null` or not an object; an array entry is
+  sent, and answered with that item's kind error),
+  `a batch holds 1 to 1200 files`, and `the batch exceeds the 10 GB limit` (the
+  items' raw bytes added up). A problem with one item is **not** refused
+  before sending: it comes back in that item's `error`.
+- It rejects with
+  `the host answered the batch with results that do not match its items` if
+  the results do not line up one-to-one with the items, rather than pair a URL
+  with the wrong file.
+
+Limits:
+
+| Limit | Value |
+|---|---|
+| Files per batch | 1 to 1200 |
+| Raw bytes per batch | 10 GB |
+| Per file | 24 MB per image, 64 MB per video or audio file |
+| Batches at a time | one per page (`busy` otherwise) |
+| Per viewer, per UTC day, across all apps | 1,200 files and 10 GB (checked on the server; past it the batch rejects with `You've reached today's batch upload limit (1,200 files or 10 GB). It resets at midnight UTC.`) |
+| Per-minute window | none (the 8 uploads / 128 MB per 60 s window applies to `upload` only, and a batch does not count against it) |
+| Batch window | 6 hours from the start (after the viewer confirms); an item not uploaded by then fails |
+| Uploads kept | at least 30 days, the upload service's default retention (`expiresAt`) |
+
+🔴 **The daily quota is charged when the batch starts, in full.** Once the
+viewer confirms, the server charges every valid item, at its size as sent,
+before any file uploads. It is **not** refunded when an item then fails (a
+scan refusal, an upload failure, the 6 hour window running out), so
+re-submitting the failed items spends quota again. Items refused before the
+confirm (the per-item checks above) are not charged.
+
+**Timeout:** by default `uploadBatch` waits 10 minutes for the viewer, plus 60
+seconds per item, plus 1 second per MiB of the items' bytes (rounded up), and
+never more than 6 hours 10 minutes (the batch window plus the 10 minutes to
+confirm: past it the host cannot deliver the remaining items anyway). Three
+small images wait 13 minutes 1 second; two 64 MiB videos 14 minutes 8
+seconds. Then it rejects with a `RequestTimeoutError`.
+`uploadBatch(items, { timeoutMs })` replaces that whole bound, and is not
+capped.
+
+🔴 **A timeout ends only your app's wait.** It does not cancel the host's
+batch, which keeps uploading, and does not refund the quota it charged. A retry
+straight away may reject with `busy` (the first batch is still running on the
+page) and then with the daily quota refusal.
+
+🔴 **Needs a host that answers `OPEN_MEDIA_UPLOAD_BATCH`.** On a civitai.com
+that predates it, the request gets no answer and `uploadBatch` rejects with a
+`RequestTimeoutError` when its timeout runs out.
+
+With the mock host there is no confirm: the batch answers at once. It runs the
+whole-batch checks, then each item with `upload`'s checks (without the rate
+window), and answers each valid item with that kind's `cannedMediaUploads`
+entry, the way `upload` does; `expiresAt` is 30 days from now, and absent
+when no item was valid. Set
+`mediaUploadBatchDeclined: true` for a viewer who declines the confirm
+(`uploadBatch` resolves `null`; a batch with no valid item still answers its
+per-item errors). The mock answers at once and has no server, so it never
+produces `busy`, `no block token`, the daily quota or the upload-time scan
+refusals on its own: set `mediaUploadBatchError` to refuse the whole batch,
+placed where the host decides it. `'busy'` and `'no block token'` refuse
+before the items and the confirm; any other message (the daily quota, the
+feature not available, a failure starting the batch) refuses only a confirmed
+batch with at least one valid item, so a batch with no valid item still
+answers its per-item errors and a decline still resolves `null`. Both are
+live-tunable through
+`setScenario`. A model-slot `context` answers `unsupported on this host`, and
+`dev:live` rejects with the same message as `upload`.
 ````
 
 **`useSaveImage`**

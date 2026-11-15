@@ -5,7 +5,7 @@ sources:
   - civitai-app-starters:packages/civitai-components/MARKUP.md
   - npm:@civitai/theme@0.5.2
   - npm:@civitai/components@0.13.0
-  - npm:@civitai/components-react@0.10.2
+  - npm:@civitai/components-react@0.10.3
 ---
 
 # Theming & the design system
@@ -52,7 +52,7 @@ browser). Neither defines every element — see
 
 ::: tip Pin each package's version separately in CDN URLs
 The packages version **independently** — this page uses `@civitai/theme@0.5.2`,
-`@civitai/components@0.13.0` and `@civitai/components-react@0.10.2` — so copy each
+`@civitai/components@0.13.0` and `@civitai/components-react@0.10.3` — so copy each
 URL as written. A version a package never published 404s, which shows only as
 an unstyled page. An **older** pin returns a healthy `200` with old CSS: a stale
 `@civitai/components` leaves newer components bare (`tooltip`, `toast`,
