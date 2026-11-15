@@ -155,8 +155,22 @@ export function jobsMintingAppToken(jobs) {
  */
 export const APP_KEY_SECRET = 'AGENT_APP_PRIVATE_KEY';
 
-/** Substrings that mean "this job runs package-manager code". */
-export const INSTALL_MARKERS = ['npm ci', 'npm install', 'npm run', 'pnpm', 'yarn'];
+/**
+ * `[label, pattern]` pairs that mean "this job runs package-manager code". Word
+ * boundaries, not substrings: `bun` is inside `ubuntu`, `npm i` inside `pnpm i`.
+ */
+export const INSTALL_MARKERS = [
+  ['npm ci', /\bnpm\s+ci\b/],
+  ['npm install', /\bnpm\s+install\b/],
+  ['npm i', /\bnpm\s+i\b/],
+  ['npm run', /\bnpm\s+run\b/],
+  ['npm exec', /\bnpm\s+exec\b/],
+  ['npm test', /\bnpm\s+(?:test|t)\b/],
+  ['npx', /\bnpx\b/],
+  ['pnpm', /\bpnpm\b/],
+  ['yarn', /\byarn\b/],
+  ['bun', /\bbunx?\b/],
+];
 
 /** Every string scalar under `node` (keys included), depth first. */
 function strings(node, out = []) {
@@ -173,8 +187,13 @@ function strings(node, out = []) {
 
 // The secrets-context reference (`secrets.X` or `secrets['X']`), which is what
 // delivers the value. Prose naming the secret (an issue body that says "secret
-// `AGENT_APP_PRIVATE_KEY`") delivers nothing, so it does not count.
-const KEY_REF = new RegExp(String.raw`\bsecrets\s*(?:\.\s*${APP_KEY_SECRET}\b|\[\s*['"]${APP_KEY_SECRET}['"]\s*\])`);
+// `AGENT_APP_PRIVATE_KEY`") delivers nothing, so it does not count. Case-insensitive,
+// because expression property names are; and `toJSON(secrets)` or `secrets[<expr>]`
+// with a non-literal key can deliver it too, so those count as well.
+const KEY_REF = new RegExp(
+  String.raw`\bsecrets\s*(?:\.\s*${APP_KEY_SECRET}\b|\[\s*['"]${APP_KEY_SECRET}['"]\s*\]|\[\s*[^'"\s])|\btoJSON\s*\(\s*secrets\s*\)`,
+  'i',
+);
 const references = (node) => strings(node).some((s) => KEY_REF.test(s));
 
 /** `with: { cache: npm }` on any step (setup-node's dependency cache restores node_modules inputs). */
@@ -199,8 +218,8 @@ export function appKeyJobProblems(text, file = '<workflow>') {
     if (!workflowWide && !references(job)) continue;
     keyJobs.push(name);
     const values = strings(job);
-    for (const marker of INSTALL_MARKERS) {
-      if (values.some((s) => s.includes(marker))) {
+    for (const [marker, pattern] of INSTALL_MARKERS) {
+      if (values.some((s) => pattern.test(s))) {
         problems.push(`${file}: job \`${name}\` can read ${APP_KEY_SECRET} and runs \`${marker}\``);
       }
     }

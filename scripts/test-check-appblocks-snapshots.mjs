@@ -515,12 +515,25 @@ sync('the key-job check parses jobs: judges each job by its own values, never co
     ['      - run: npm ci\n', 'npm ci'],
     ['      - run: npm install --ignore-scripts\n', 'npm install'],
     ['      - run: npm run build\n', 'npm run'],
+    ['      - run: npm i\n', 'npm i'],
+    ['      - run: npm exec tsc\n', 'npm exec'],
+    ['      - run: npm t\n', 'npm test'],
+    ['      - run: npx some-pkg\n', 'npx'],
     ['      - run: pnpm i\n', 'pnpm'],
     ['      - run: yarn\n', 'yarn'],
+    ['      - run: bunx some-pkg\n', 'bun'],
     ["      - uses: actions/setup-node@v4\n        with:\n          cache: 'npm'\n", 'cache: npm'],
   ]) {
     r = probe(wf(`  a:\n    steps:\n${keyStep}${step}`));
     assert(r.problems.length === 1 && r.problems[0].includes(marker), `${marker} not caught: ${JSON.stringify(r.problems)}`);
+  }
+  // Word boundaries: `runs-on: ubuntu-latest` is not `bun`.
+  r = probe(wf(`  a:\n    runs-on: ubuntu-latest\n    steps:\n${keyStep}`));
+  assert(r.keyJobs.join() === 'a' && r.problems.length === 0, `ubuntu counted as bun: ${JSON.stringify(r.problems)}`);
+  // Other spellings that deliver the key make a job key-holding.
+  for (const ref of ['${{ secrets.agent_app_private_key }}', '${{ toJSON(secrets) }}', '${{ secrets[matrix.k] }}']) {
+    r = probe(wf(`  a:\n    steps:\n      - run: echo "$K"; npm ci\n        env:\n          K: ${ref}\n`));
+    assert(r.keyJobs.join() === 'a' && r.problems.length === 1, `${ref} not counted as key-holding: ${JSON.stringify(r)}`);
   }
   // A key in the workflow-level env reaches every job.
   r = probe(wf('  b:\n    steps:\n      - run: npm ci\n', 'env:\n  K: ${{ secrets.AGENT_APP_PRIVATE_KEY }}\n'));
