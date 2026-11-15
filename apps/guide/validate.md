@@ -234,12 +234,12 @@ unless you pass `--strict`.
 | --- | --- | --- |
 | `storage.collection('<name>')` with a string-literal name `storage.collections` does not declare — every call on it is refused `collection_not_declared` | `storage.collections.<name>` (`storage.collections` when the name is not a valid collection name) | Declare the collection, or correct the name. |
 | The document store called while the manifest has neither `apps:storage` nor a `storage` declaration — every call is refused `insufficient_scope` | `scopes` | Add `apps:storage` and declare each collection. |
-| A call to `useAppStorage()` with neither `apps:storage:read` nor `apps:storage:write` in `scopes`, or to `useSharedStorage()` with neither `apps:storage:shared:read` nor `apps:storage:shared:write` — every call 403s in production | `scopes` | Add the scopes it uses, each with a `scopeJustifications` entry, or [move off the legacy stores](./storage#moving-from-the-legacy-stores). |
+| Any call to `useAppStorage()` or `useSharedStorage()`, whatever `scopes` declares — the legacy stores are removed, and civitai.com refuses every call `legacy_store_removed` | `scopes` | [Move the data to the document store](./storage#moving-from-the-legacy-stores): declare a collection under `storage`, add `apps:storage`, and call `app.storage.collection(name)`. Adding a legacy scope does not help. |
 
 When `storage` is declared but `apps:storage` is missing, the second advisory
-stays quiet: the manifest error above already says so. One scope for a legacy
-store silences that store's advisory, and the two stores are checked
-separately.
+stays quiet: the manifest error above already says so. The legacy-store
+advisory has no such exception: no scope silences it, and each hook called is
+reported once.
 
 What counts as a call:
 

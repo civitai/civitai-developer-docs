@@ -2,7 +2,7 @@
 title: Message bridge reference
 description: The full postMessage protocol between a Civitai App and its host — payloads, directions, request/reply pairing, and page-only messages.
 sources:
-  - npm:@civitai/app-sdk@0.87.0/blocks#messages.d.ts
+  - npm:@civitai/app-sdk@0.88.0/blocks#messages.d.ts
   - civitai:src/components/AppBlocks/hostHandlerParity.ts#INVENTORY
 ---
 
@@ -671,348 +671,6 @@ reply `USER_CHECKPOINT_SET`:
 }
 ```
 
-**Per-app storage**
-
-**`APP_STORAGE_DELETE`** — block → host · request → reply
-
-payload:
-
-```ts
-{
-    requestId: string;
-    key: string;
-}
-```
-
-reply `APP_STORAGE_DELETE_RESULT`:
-
-```ts
-{
-    requestId: string;
-    ok?: boolean;
-    deleted?: boolean;
-    error?: string;
-}
-```
-
-**`APP_STORAGE_GET`** — block → host · request → reply
-
-payload:
-
-```ts
-{
-    requestId: string;
-    key: string;
-}
-```
-
-reply `APP_STORAGE_GET_RESULT`:
-
-```ts
-{
-    requestId: string;
-    value: unknown;
-    error?: string;
-}
-```
-
-**`APP_STORAGE_LIST`** — block → host · request → reply
-
-payload:
-
-```ts
-{
-    requestId: string;
-    prefix?: string;
-    limit?: number;
-    cursor?: string;
-}
-```
-
-reply `APP_STORAGE_LIST_RESULT`:
-
-```ts
-{
-    requestId: string;
-    keys: Array<{
-        key: string;
-        updatedAt: string;
-    }>;
-    nextCursor?: string;
-    error?: string;
-}
-```
-
-**`APP_STORAGE_QUOTA`** — block → host · request → reply
-
-payload:
-
-```ts
-{
-    requestId: string;
-}
-```
-
-reply `APP_STORAGE_QUOTA_RESULT`:
-
-```ts
-{
-    requestId: string;
-    usedBytes: number;
-    rowCount: number;
-    limitBytes: number;
-    limitRows: number;
-    error?: string;
-}
-```
-
-**`APP_STORAGE_SET`** — block → host · request → reply
-
-payload:
-
-```ts
-{
-    requestId: string;
-    key: string;
-    value: unknown;
-}
-```
-
-reply `APP_STORAGE_SET_RESULT`:
-
-```ts
-{
-    requestId: string;
-    ok?: boolean;
-    error?: string;
-    sizeBytes?: number;
-}
-```
-
-**Shared storage**
-
-**`SHARED_APPEND`** — block → host · request → reply
-
-payload:
-
-```ts
-{
-    requestId: string;
-    value: SharedStorageValue;
-}
-```
-
-reply `SHARED_APPEND_RESULT`:
-
-```ts
-{
-    requestId: string;
-    key: string;
-    error?: string;
-    rateLimit?: SharedStorageRateLimit;
-}
-```
-
-**`SHARED_GET`** — block → host · request → reply
-
-payload:
-
-```ts
-{
-    requestId: string;
-    key: string;
-}
-```
-
-reply `SHARED_GET_RESULT`:
-
-```ts
-{
-    requestId: string;
-    item: SharedStorageItemWire | null;
-    error?: string;
-}
-```
-
-**`SHARED_GET_COUNT`** — block → host · request → reply
-
-payload:
-
-```ts
-{
-    requestId: string;
-    key: string;
-}
-```
-
-reply `SHARED_GET_COUNT_RESULT`:
-
-```ts
-{
-    requestId: string;
-    count: number;
-    error?: string;
-}
-```
-
-**`SHARED_GET_COUNTS`** — block → host · request → reply
-
-payload:
-
-```ts
-{
-    requestId: string;
-    keys: string[];
-}
-```
-
-reply `SHARED_GET_COUNTS_RESULT`:
-
-```ts
-{
-    requestId: string;
-    counts: Record<string, number>;
-    error?: string;
-}
-```
-
-**`SHARED_LIST`** — block → host · request → reply
-
-payload:
-
-```ts
-{
-    requestId: string;
-    prefix?: string;
-    limit?: number;
-    cursor?: string;
-}
-```
-
-reply `SHARED_LIST_RESULT`:
-
-```ts
-{
-    requestId: string;
-    items: SharedStorageItemWire[];
-    nextCursor?: string;
-    error?: string;
-}
-```
-
-**`SHARED_REPORT`** — block → host · request → reply
-
-payload:
-
-```ts
-{
-    requestId: string;
-    key: string;
-    reason?: string;
-}
-```
-
-reply `SHARED_REPORT_RESULT`:
-
-```ts
-{
-    requestId: string;
-    ok?: boolean;
-    error?: string;
-    rateLimit?: SharedStorageRateLimit;
-}
-```
-
-**`SHARED_UNVOTE`** — block → host · request → reply
-
-payload:
-
-```ts
-{
-    requestId: string;
-    key: string;
-}
-```
-
-reply `SHARED_UNVOTE_RESULT`:
-
-```ts
-{
-    requestId: string;
-    count: number;
-    error?: string;
-    rateLimit?: SharedStorageRateLimit;
-}
-```
-
-**`SHARED_UPDATE`** — block → host · request → reply
-
-payload:
-
-```ts
-{
-    requestId: string;
-    key: string;
-    value: SharedStorageValue;
-}
-```
-
-reply `SHARED_UPDATE_RESULT`:
-
-```ts
-{
-    requestId: string;
-    ok?: boolean;
-    error?: string;
-    rateLimit?: SharedStorageRateLimit;
-}
-```
-
-**`SHARED_VOTE`** — block → host · request → reply
-
-payload:
-
-```ts
-{
-    requestId: string;
-    key: string;
-}
-```
-
-reply `SHARED_VOTE_RESULT`:
-
-```ts
-{
-    requestId: string;
-    count: number;
-    error?: string;
-    rateLimit?: SharedStorageRateLimit;
-}
-```
-
-**`SHARED_WITHDRAW`** — block → host · request → reply
-
-payload:
-
-```ts
-{
-    requestId: string;
-    key: string;
-}
-```
-
-reply `SHARED_WITHDRAW_RESULT`:
-
-```ts
-{
-    requestId: string;
-    ok?: boolean;
-    deleted?: boolean;
-    error?: string;
-    rateLimit?: SharedStorageRateLimit;
-}
-```
-
 **Wildcard packs & resource files**
 
 **`GET_RESOURCE_FILE`** — block → host · request → reply · page-only
@@ -1187,6 +845,64 @@ reply `MEDIA_UPLOAD_RESULT`:
 ```
 
 Model slot: media upload is a page-only affordance today; the shared dispatcher NACKs it with a MEDIA_UPLOAD_RESULT error
+
+**`OPEN_MEDIA_UPLOAD_BATCH`** — block → host · request → reply · page-only
+
+payload:
+
+```ts
+{
+    requestId: string;
+    /** Required. The only accepted value today. */
+    purpose: 'generationSource';
+    /** 1 to 1200 files, answered in this order. */
+    items: Array<{
+        /** What the bytes are. An unknown value is refused for that item. */
+        kind: BlockMediaKind;
+        /** The file. A typed-array view or an empty buffer is refused for that item. */
+        bytes: ArrayBuffer;
+        /** Optional: the type the app believes it is sending; must match the content. */
+        mimeType?: string;
+    }>;
+}
+```
+
+reply `MEDIA_UPLOAD_BATCH_RESULT`:
+
+```ts
+{
+    requestId: string;
+    error?: string;
+    results?: BlockMediaUploadBatchItemResult[];
+    expiresAt?: string;
+}
+```
+
+Model slot: batch media upload is a page-only affordance today; the shared dispatcher NACKs it with a MEDIA_UPLOAD_BATCH_RESULT error
+
+**`PERSIST_GENERATION_SOURCE`** — block → host · request → reply · page-only
+
+payload:
+
+```ts
+{
+    requestId: string;
+    workflowId: string;
+    imageIndex: number;
+}
+```
+
+reply `GENERATION_SOURCE_PERSISTED`:
+
+```ts
+{
+    requestId: string;
+    result?: BlockPersistedGenerationSource;
+    error?: string;
+}
+```
+
+Model slot: private generation sources are a page-only affordance today, as OPEN_IMAGE_UPLOAD generationSource is; the shared dispatcher NACKs it with a GENERATION_SOURCE_PERSISTED error
 
 **`PUBLISH_GENERATION_OUTPUTS`** — block → host · request → reply · page-only
 

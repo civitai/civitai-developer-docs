@@ -44,30 +44,24 @@ export function returnInterfaceText(fn) {
   return { type: name, text: `interface ${name} {\n${members.map((m) => `  ${m}`).join('\n')}\n}` };
 }
 
-/** Where the notices point. A site path; the .md channel turns it into a `.md` URL. */
-const STORAGE_GUIDE = '/apps/guide/storage';
-
 /**
  * Hooks the platform is retiring, with what replaces them. Every key must name a hook
  * in the published package (`assertAnnotatedHooksExist`), so a rename upstream is a red
  * run rather than a notice that silently stops rendering.
+ *
+ * `removedIn` is the first `@civitai/blocks-react` version that no longer exports the
+ * hook. From that pin on, the requirement INVERTS rather than lapses: the hook must be
+ * ABSENT (a hook still exported at its `removedIn` is a red run, because the date was
+ * wrong), and the entry, with any README_CORRECTIONS entries for the same hook, is
+ * reported for deletion. Below that pin it must exist, exactly as before. This is what
+ * lets one tree generate green on both sides of the removal, so the pin-bump bot can
+ * move the pin across it without a hand edit landing first.
  */
 export const SUPERSEDED_HOOKS = {
-  useAppStorage: {
-    text:
-      'Deprecated: new apps keep per-viewer data in a private collection of the document store. ' +
-      'This hook is shut down on 2026-11-10; from then on its calls fail with an error.',
-    linkText: 'Storing data',
-    href: `${STORAGE_GUIDE}#moving-from-the-legacy-stores`,
-  },
-  useSharedStorage: {
-    text:
-      'Deprecated: new apps keep data every viewer reads in a shared collection of the document store, ' +
-      'which has authorship, counters and marks built in. This hook is shut down on ' +
-      '2026-11-10; from then on its calls fail with an error.',
-    linkText: 'Storing data',
-    href: `${STORAGE_GUIDE}#moving-from-the-legacy-stores`,
-  },
+  // Shape: useX: { text: 'Deprecated: …', linkText: 'Guide', href: '/apps/guide/…', removedIn?: 'x.y.z' }
+  // The last two entries (useAppStorage, useSharedStorage, both `removedIn: '0.81.0'`)
+  // were deleted when the pin reached @civitai/blocks-react@0.81.0, which no longer
+  // exports either hook.
 };
 
 /**
@@ -127,16 +121,71 @@ export function retiredCorrections(hooks, corrections = README_CORRECTIONS) {
   });
 }
 
-/** Throw when a notice or correction names a hook the published package does not export. */
-export function assertAnnotatedHooksExist(hookNames, superseded = SUPERSEDED_HOOKS, corrections = README_CORRECTIONS) {
+/** `a` compared with `b` as `x.y.z` (a prerelease or build suffix is ignored). */
+export function compareVersions(a, b) {
+  const parse = (v) => {
+    const m = /^(\d+)\.(\d+)\.(\d+)/.exec(String(v ?? ''));
+    if (!m) throw new Error(`hook-annotations: ${JSON.stringify(v)} is not an x.y.z version`);
+    return m.slice(1).map(Number);
+  };
+  const [x, y] = [parse(a), parse(b)];
+  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] < y[i] ? -1 : 1;
+  return 0;
+}
+
+/**
+ * The hooks SUPERSEDED_HOOKS declares removed at `version` (`removedIn` <= `version`).
+ * The one place that decides it: the generator's guard below and the porting-table
+ * guard (scripts/check-porting-hook-coverage.mjs) both read it.
+ *
+ * @param {string} version
+ * @returns {string[]}
+ */
+export function removedAt(version, superseded = SUPERSEDED_HOOKS) {
+  return Object.keys(superseded).filter((n) => {
+    const r = superseded[n].removedIn;
+    return r != null && compareVersions(version, r) >= 0;
+  });
+}
+
+/**
+ * Throw when a notice or correction names a hook the published package does not
+ * export, or when a hook declared removed (`removedIn` <= `version`) is still
+ * exported. Returns the hooks whose annotations are retired at `version` — every
+ * entry naming them can be deleted — so the caller can say so.
+ *
+ * @param {string[]} hookNames hooks exported by the pinned package
+ * @param {string} version the pinned package version
+ * @returns {string[]}
+ */
+export function assertAnnotatedHooksExist(
+  hookNames,
+  version,
+  superseded = SUPERSEDED_HOOKS,
+  corrections = README_CORRECTIONS,
+) {
   const have = new Set(hookNames);
-  const missing = [...Object.keys(superseded), ...corrections.map((c) => c.hook)].filter((n) => !have.has(n));
+  const named = [...new Set([...Object.keys(superseded), ...corrections.map((c) => c.hook)])];
+  const gone = new Set(removedAt(version, superseded));
+  const removed = (n) => gone.has(n);
+  const missing = named.filter((n) => !removed(n) && !have.has(n));
   if (missing.length) {
     throw new Error(
-      `hook-annotations: ${[...new Set(missing)].join(', ')} is annotated in scripts/lib/hook-annotations.mjs ` +
-        `but is not a hook in the published @civitai/blocks-react — rename or remove the entry`,
+      `hook-annotations: ${missing.join(', ')} is annotated in scripts/lib/hook-annotations.mjs ` +
+        `but is not a hook in the published @civitai/blocks-react@${version} — rename or remove the entry, ` +
+        `or set its \`removedIn\` if upstream removed it`,
     );
   }
+  const stillThere = named.filter((n) => removed(n) && have.has(n));
+  if (stillThere.length) {
+    throw new Error(
+      `hook-annotations: ${stillThere
+        .map((n) => `${n} (removedIn ${superseded[n].removedIn})`)
+        .join(', ')} is still exported by @civitai/blocks-react@${version} — the \`removedIn\` ` +
+        `in scripts/lib/hook-annotations.mjs is wrong`,
+    );
+  }
+  return named.filter(removed);
 }
 
 /**
@@ -147,11 +196,23 @@ export function assertAnnotatedHooksExist(hookNames, superseded = SUPERSEDED_HOO
  *     example upstream, or list it here with why);
  *   - a HOOKS_WITHOUT_EXAMPLE entry whose hook now has an example, or no longer exists.
  *
+ * `removed` is what `assertAnnotatedHooksExist` returned: hooks declared `removedIn` at
+ * this pin and proven absent. An entry naming one of them is NOT reported here, because
+ * the generator reports the whole hook's entries as deletable instead; this is the one
+ * exemption, and it covers only hooks whose `removedIn` the pin has reached.
+ *
  * @param {Array<{ name: string, example?: string, description?: string, notes?: Array<object> }>} hooks
+ * @param {string[]} [removed]
  */
-export function staleAnnotations(hooks, corrections = README_CORRECTIONS, withoutExample = HOOKS_WITHOUT_EXAMPLE) {
+export function staleAnnotations(
+  hooks,
+  corrections = README_CORRECTIONS,
+  withoutExample = HOOKS_WITHOUT_EXAMPLE,
+  removed = [],
+) {
   const problems = [];
-  for (const c of retiredCorrections(hooks, corrections)) {
+  const gone = new Set(removed);
+  for (const c of retiredCorrections(hooks, corrections).filter((c) => !gone.has(c.hook))) {
     problems.push(`README_CORRECTIONS { hook: '${c.hook}', match: ${c.match} } no longer matches the published README — upstream fixed the sentence; delete the entry`);
   }
   const byName = new Map(hooks.map((h) => [h.name, h]));
@@ -161,6 +222,7 @@ export function staleAnnotations(hooks, corrections = README_CORRECTIONS, withou
     }
   }
   for (const name of Object.keys(withoutExample)) {
+    if (gone.has(name)) continue;
     const h = byName.get(name);
     if (!h) problems.push(`HOOKS_WITHOUT_EXAMPLE names ${name}, which the published package does not export — delete the entry`);
     else if (h.example) problems.push(`HOOKS_WITHOUT_EXAMPLE names ${name}, which now has an example — delete the entry`);

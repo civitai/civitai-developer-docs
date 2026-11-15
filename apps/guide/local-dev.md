@@ -75,21 +75,19 @@ success; use mock mode for those.
 - The [document store](./storage#local-development) is not reached at all. It
   is called over HTTP by `@civitai/sdk`, not over the bridge this harness
   forwards, and the `page-money` template does not use `@civitai/sdk`.
-- Legacy App Storage (`useAppStorage`) is forwarded, and the server refuses it:
-  those calls need a civitai.com browser session, which a local harness never
-  has, so every developer gets `401` `Apps access is not enabled for this
-  browser session`. It says nothing about your account or your app.
-- Legacy shared storage (`useSharedStorage`) is refused too. Approval is
-  checked first, so before your app is approved the refusal is about approval
-  (`app block not found` while the app has no record yet, as for a first
-  version still in review, or `app block is not approved`). Once it is
-  approved, the refusal is about scope: the shared scopes are never minted on a
-  dev token.
+- The legacy stores (`useAppStorage`, `useSharedStorage`) are removed, and
+  every call to them is refused. The refusal you see under `dev:live` is not
+  always `legacy_store_removed`: a legacy App Storage call is refused first
+  with `401` `Apps access is not enabled for this browser session`, because
+  that check runs before the removal check and a local harness never has a
+  civitai.com browser session. It says nothing about your account or your app.
 
-Exercise the legacy stores under `dev:harness` (they are
-[shut down on 2026-11-10](./storage#moving-from-the-legacy-stores), after which
-their calls fail), and the document store with
-[`createFakeStorage`](./storage#testing).
+The legacy stores are [removed](./storage#moving-from-the-legacy-stores):
+since 2026-11-10 civitai.com refuses every call to them, and the `dev:harness`
+mock host no longer answers their `APP_STORAGE_*` / `SHARED_*` messages either.
+There is nowhere left to exercise them. Move the data to the document store and
+test it with [`createFakeStorage`](./storage#testing) from
+`@civitai/sdk/testing`.
 
 ## Minting a dev block token
 

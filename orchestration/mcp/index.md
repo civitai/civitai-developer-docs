@@ -30,6 +30,10 @@ The snippets on this page are pre-filled with the token you set in the navbar, o
 
 ## Connecting
 
+### `civitai agent-setup`
+
+The supported setup is [`civitai agent-setup`](/apps/reference/cli/account-and-setup#cli-agent-setup): it registers both Civitai MCP servers in your coding agent's config (Claude Code, Cursor, VS Code, Codex and others), this one at `/mcp/v2`. It writes no token into the file; the header refers to `CIVITAI_TOKEN`, so export it.
+
 ### Claude Desktop and claude.ai
 
 Their custom-connector UI is OAuth-only: it has no field for an API key or a custom header. This server takes only an API key, so a custom connector cannot connect to it. Use Claude Code, Cursor, VS Code, or another client that sends a bearer header.

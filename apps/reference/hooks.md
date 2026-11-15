@@ -2,9 +2,9 @@
 title: Hooks reference
 description: Every @civitai/blocks-react hook, indexed by name and linked to the topic page that documents it — signature, example and README notes, generated from the published package.
 sources:
-  - npm:@civitai/blocks-react@0.80.1/dist/index.d.ts
-  - npm:@civitai/blocks-react@0.80.1#README
-  - npm:@civitai/app-sdk@0.87.0/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.81.0/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.81.0#README
+  - npm:@civitai/app-sdk@0.88.0/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
 
@@ -86,7 +86,7 @@ cannot find in this index is not in the pinned package.
 <ReferenceIndex kind="hooks">
 <!-- BEGIN GENERATED: hooks-index — markdown fallback for the .md/LLM channel. Do not edit by hand; run `npm run gen:appblocks:md`. -->
 
-49 hooks across 6 pages. Each link goes to the page that documents the hook; fetch that page's `.md` for the full entry.
+48 hooks across 6 pages. Each link goes to the page that documents the hook; fetch that page's `.md` for the full entry.
 
 **[Context, frame and analytics hooks](./hooks/context)** — The host handshake, theme, sizing, the block token and settings, direct-load and nested documents, and analytics.
 
@@ -105,6 +105,7 @@ cannot find in this index is not in the pinned package.
 
 - [`useBuzzWorkflow`](./hooks/generation#hook-useBuzzWorkflow)
 - [`useAppWorkflows`](./hooks/generation#hook-useAppWorkflows)
+- [`usePersistGenerationSource`](./hooks/generation#hook-usePersistGenerationSource)
 - [`useGenerationResources`](./hooks/generation#hook-useGenerationResources)
 - [`usePublishGenerationOutputs`](./hooks/generation#hook-usePublishGenerationOutputs)
 
@@ -140,13 +141,11 @@ cannot find in this index is not in the pinned package.
 - [`useDomainMaturity`](./hooks/viewer-and-navigation#hook-useDomainMaturity)
 - [`useGatedImages`](./hooks/viewer-and-navigation#hook-useGatedImages)
 
-**[Storage, picker and media hooks](./hooks/storage-and-media)** — Per-app and shared storage, wildcard packs and workflow files, checkpoint, resource and image pickers, uploading images and other media, saving images, and creating posts.
+**[Storage, picker and media hooks](./hooks/storage-and-media)** — Wildcard packs and workflow files, checkpoint, resource and image pickers, uploading images and other media, saving images, and creating posts.
 
 - [`useWildcardPack`](./hooks/storage-and-media#hook-useWildcardPack)
 - [`useResourceFile`](./hooks/storage-and-media#hook-useResourceFile)
 - [`useCreatePostFromApp`](./hooks/storage-and-media#hook-useCreatePostFromApp)
-- [`useAppStorage`](./hooks/storage-and-media#hook-useAppStorage)
-- [`useSharedStorage`](./hooks/storage-and-media#hook-useSharedStorage)
 - [`useCheckpointPicker`](./hooks/storage-and-media#hook-useCheckpointPicker)
 - [`useResourcePicker`](./hooks/storage-and-media#hook-useResourcePicker)
 - [`useImageUpload`](./hooks/storage-and-media#hook-useImageUpload)
@@ -167,7 +166,7 @@ same `estimate → submit → watch` lifecycle
 [`useBuzzWorkflow`](./hooks/generation#hook-useBuzzWorkflow) documents. `training` is quoted with
 `estimate()` but run with `useRunTraining()`, and `submit()` refuses it.
 
-As of the pinned `@civitai/app-sdk@0.87.0` the union has five `kind` values, and
+As of the pinned `@civitai/app-sdk@0.88.0` the union has five `kind` values, and
 `kind: 'step'` is itself two arms — six members in all:
 
 | `kind` | what it runs | what your block sends |

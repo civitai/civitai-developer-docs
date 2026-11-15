@@ -1,6 +1,6 @@
 civitai CLI help snapshot (the WHOLE command tree)
 Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
-Binary version: civitai 0.1.140
+Binary version: civitai 0.1.141
 Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
 else parses this committed snapshot. To refresh: run
 node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).
@@ -13,8 +13,9 @@ It does three things from one static binary:
 
   • Browse & download the public catalog — search models, list images and
     articles, and fetch model files. Reading the PUBLIC catalog is anonymous;
-    downloading a model file needs a token (civitai login). --layout routes
-    each file into the right folder for ComfyUI / A1111.
+    most model-file downloads need a token (civitai login), though some
+    public files download without one. --layout routes each file into the
+    right folder for ComfyUI / A1111.
   • Build & submit Apps — small, sandboxed web apps that run inside Civitai
     surfaces. Scaffold a correct project, validate it against the platform
     contract, and package it for submission. EVERY civitai app command needs a
@@ -295,7 +296,6 @@ Examples:
 
 Flags:
       --dir string        output directory (default ./<slug>)
-      --from string       fork from an existing published app slug (NOT AVAILABLE YET — the CLI cannot fetch app source)
   -h, --help              help for create
       --name string       display name (default derived from the name argument)
       --slug string       explicit blockId (bypasses derivation from the name; 3-40 chars, starts with a letter, lowercase a-z/0-9/hyphens)
@@ -368,7 +368,6 @@ Examples:
 
 Flags:
       --dir string        output directory (default ./<slug>)
-      --from string       fork from an existing published app slug (NOT AVAILABLE YET — the CLI cannot fetch app source)
   -h, --help              help for init
       --name string       display name (default derived from the name argument)
       --slug string       explicit blockId (bypasses derivation from the name; 3-40 chars, starts with a letter, lowercase a-z/0-9/hyphens)
@@ -1912,7 +1911,7 @@ and the output names the exact header to add yourself.
 
 THE TWO SERVERS DIFFER ON ANONYMOUS ACCESS. https://mcp.civitai.com/mcp answers
 without a credential, so a header-less config browses models, images and
-articles as it stands. https://orchestration.civitai.com/mcp returns 401 until
+articles as it stands. https://orchestration.civitai.com/mcp/v2 returns 401 until
 an Authorization header is present, so generation tools need one either way.
 
 AUTHENTICATION IS YOURS TO RUN. The servers are registered before login on
@@ -1923,7 +1922,10 @@ WHAT --check REPORTS. It writes nothing and probes no credential. Seven rows:
 cli-version, agents-md, claude-md, mcp-site, mcp-orch, authenticated,
 agent-token. EVERY FILESYSTEM ROW REPORTS PRESENCE, NEVER ACCEPTANCE: an
 mcp-site row is 'ok' because the entry is in your config, not because any
-server accepted it. An ABSENT Authorization header gets no row of its own —
+server accepted it. mcp-orch checks the entry's NAME, not its URL, so an entry
+an older release registered at the frozen v1 /mcp URL still reports 'ok':
+existing installs stay on v1 until you re-run 'civitai agent-setup', which moves
+the entry to /mcp/v2. An ABSENT Authorization header gets no row of its own —
 that is by design, since a header-less setup still reaches the site server. A
 config file that will not parse maps to the mcp-site/mcp-orch rows, carrying
 the parse failure in 'detail'.
