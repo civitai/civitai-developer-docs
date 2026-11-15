@@ -646,10 +646,17 @@ function render(gen, out, snapDir, workDir) {
   return JSON.stringify(artifact, null, 2);
 }
 
-async function main() {
+/**
+ * The sweep. The CLI gate at the bottom calls it with no arguments (argv and the
+ * shipped SOURCES). `sources` is a parameter only so the contract test can run
+ * the real main() in a child process over a deliberately broken ledger; nothing
+ * reads it from the environment or argv, so no run of this file as a script can
+ * swap the ledger out.
+ */
+export async function main(argv = process.argv.slice(2), sources = SOURCES) {
   let sel;
   try {
-    sel = selectSources(process.argv.slice(2));
+    sel = selectSources(argv, sources);
   } catch (err) {
     console.error(`check-appblocks-snapshots: ${err.message}`);
     process.exit(2);
@@ -657,7 +664,7 @@ async function main() {
   console.log('App Blocks snapshot drift-guard — diffing appblocks-snapshots/ vs civitai@origin/main\n');
   if (sel.skip) console.log(`  · ${sel.skip} — not checked by this invocation (--skip; appblocks-drift.yml checks it in its own job)`);
 
-  const ledger = checkLedger();
+  const ledger = checkLedger(sources);
   if (ledger.length) {
     console.error('check-appblocks-snapshots: the SOURCES ledger is wrong, so no verdict is reported:');
     for (const p of ledger) console.error(`  - ${p}`);
@@ -839,7 +846,7 @@ async function main() {
   if (drifted.length || pins.drifted.length) process.exit(1);
 }
 
-// Gated so the contract test can import SOURCES / checkLedger without running the sweep.
+// Gated so the contract test can import SOURCES / checkLedger / main without running the sweep.
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   main().catch((err) => {
     // An unexpected error in the guard itself shouldn't wedge the pipeline as a
