@@ -93,7 +93,7 @@ The reference artifacts are produced by `scripts/gen-appblocks-*.mjs` into a git
 
 | Page(s) | Source in CI | Refresh action |
 |---------|--------------|----------------|
-| Manifest | the SDK-bundled canonical schema `@civitai/app-sdk/schemas/app-block/v1.json` (pinned devDep); committed `appblocks-snapshots/manifest-schema.json` is the CI-hermetic fallback, kept in lockstep with the pin | Bump the `@civitai/app-sdk` pin — no live fetch. |
+| Manifest | the SDK-bundled canonical schema `@civitai/app-sdk/schemas/app-block/v1.json` (pinned devDep) and nothing else — there is no snapshot fallback (`scripts/gen-appblocks-manifest.mjs` header says why) | Bump the `@civitai/app-sdk` pin — no live fetch. |
 | Messages payload shapes, Hooks | the pinned `@civitai/*` devDeps in `package.json` | Bump the pins (`@civitai/app-sdk`, `@civitai/blocks-react`). |
 | CLI | the committed `civitai app --help` snapshot (`appblocks-snapshots/civitai-cli-help.txt`) | Re-capture — see README "CLI snapshot" (`cli-snapshot-refresh.yml` opens the PR). |
 | Components | the committed `appblocks-snapshots/MARKUP.md` (CI has no `civitai-app-starters` checkout) | Re-snapshot `MARKUP.md` from `civitai-app-starters@main`, then re-run `node scripts/gen-appblocks-components.mjs` and commit the regenerated page. |
