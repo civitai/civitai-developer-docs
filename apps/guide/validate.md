@@ -128,7 +128,7 @@ What else to know:
 
 ## Storage checks {#storage}
 
-From `civitai` CLI **0.1.131**, `validate` checks your
+The storage checks need `civitai` CLI **v0.1.137** at minimum. `validate` checks your
 [document store](./storage) declaration beyond its JSON Schema, and reads your
 source for calls to the store. The schema already covers the declaration's
 shape (names, enums, bounds, the shared-only keys, `ownedModelVersions`); these
@@ -147,9 +147,9 @@ hard **error**:
 | A shared collection that viewers write (`write: "own"`) without `apps:storage:publish` | `scopes` | Add the scope, with a `scopeJustifications` entry. |
 | `apps:storage` with no collection or import declared | `storage` | Declare the collections under `storage.collections`, or remove the scope. |
 | `apps:storage:publish` with no shared `write: "own"` collection | `storage` | Remove the scope, or declare the collection it is for. |
-| Imports declared without `apps:storage:import`, or (with no collections of the app's own) without `apps:storage` (0.1.135 or later) | `scopes` | Add the scope, with a `scopeJustifications` entry for `apps:storage:import`. |
-| `apps:storage:import` with no import declared (0.1.135 or later) | `storage` | Declare the imports under `storage.imports`, or remove the scope. |
-| An import `from` this app itself, or a second import from the same app (0.1.135 or later) | `storage.imports[<i>].from` / `storage.imports[<i>]` | Declare the app's own collections instead; merge the two imports into one. |
+| Imports declared without `apps:storage:import`, or (with no collections of the app's own) without `apps:storage` | `scopes` | Add the scope, with a `scopeJustifications` entry for `apps:storage:import`. |
+| `apps:storage:import` with no import declared | `storage` | Declare the imports under `storage.imports`, or remove the scope. |
+| An import `from` this app itself, or a second import from the same app | `storage.imports[<i>].from` / `storage.imports[<i>]` | Declare the app's own collections instead; merge the two imports into one. |
 
 The scope rules run only once the declaration itself has no errors: an
 invalid declaration declares nothing, as on the server. Where a message lists
@@ -157,13 +157,8 @@ collection names, they are sorted, not in declaration order.
 
 ### Collection schemas {#storage-schema}
 
-These checks ship in `civitai` CLI **0.1.135**. 0.1.134 and older report
-`schema` as an unknown property, so `validate` fails and `civitai app submit`
-refuses the manifest: upgrade the CLI. The server enforces the schema and
-validates it at submit either way.
-
-From 0.1.135, a collection's [`schema`](./storage#collection-schemas) is
-checked in two layers.
+The server enforces the schema and validates it at submit either way. A
+collection's [`schema`](./storage#collection-schemas) is checked in two layers.
 
 - **The JSON Schema** checks the keyword subset (any other keyword is an
   unknown property at its location), each keyword's shape, a `pattern` of at
@@ -222,10 +217,6 @@ Each message is the server's refusal plus why the CLI only warns about it.
 
 - A `hook` gets the warning only once its shape is valid. A malformed hook gets
   the schema's **error** instead, as on the server.
-- `registry` and `hook` need CLI v0.1.137 or later. An older CLI does not know
-  them and rejects either one as an unknown property: an **error**, not this
-  warning.
-
 - An out-of-range value (`ttlSeconds: 59`) gets the schema's range **error**
   instead, as on the server.
 - These warnings do not hold back the scope rules: `write: "anyone"` without
@@ -243,12 +234,12 @@ unless you pass `--strict`.
 | --- | --- | --- |
 | `storage.collection('<name>')` with a string-literal name `storage.collections` does not declare — every call on it is refused `collection_not_declared` | `storage.collections.<name>` (`storage.collections` when the name is not a valid collection name) | Declare the collection, or correct the name. |
 | The document store called while the manifest has neither `apps:storage` nor a `storage` declaration — every call is refused `insufficient_scope` | `scopes` | Add `apps:storage` and declare each collection. |
-| A call to `useAppStorage()` with neither `apps:storage:read` nor `apps:storage:write` in `scopes`, or to `useSharedStorage()` with neither `apps:storage:shared:read` nor `apps:storage:shared:write` — every call 403s in production | `scopes` | Add the scopes it uses, each with a `scopeJustifications` entry, or [move off the legacy stores](./storage#moving-from-the-legacy-stores). |
+| Any call to `useAppStorage()` or `useSharedStorage()`, whatever `scopes` declares — the legacy stores are removed, and civitai.com refuses every call `legacy_store_removed` | `scopes` | [Move the data to the document store](./storage#moving-from-the-legacy-stores): declare a collection under `storage`, add `apps:storage`, and call `app.storage.collection(name)`. Adding a legacy scope does not help. |
 
 When `storage` is declared but `apps:storage` is missing, the second advisory
-stays quiet: the manifest error above already says so. One scope for a legacy
-store silences that store's advisory, and the two stores are checked
-separately.
+stays quiet: the manifest error above already says so. The legacy-store
+advisory has no such exception: no scope silences it, and each hook called is
+reported once.
 
 What counts as a call:
 
@@ -352,6 +343,10 @@ case $rc in
     ;;
 esac
 ```
+
+## Troubleshooting
+
+- **`validate` reports `schema`, `storage.imports`, `exportable`, `apps:storage:import`, `registry` or `hook` as an unknown property (an error, so `submit` refuses the manifest too):** the CLI is older than the key (v0.1.135; v0.1.137 for `registry` and `hook`). Upgrade the CLI.
 
 ## Where to go next
 

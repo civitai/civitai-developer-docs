@@ -37,23 +37,19 @@ per-viewer **marks** (a vote, a like, a report) without any code of yours on the
 server.
 
 The client is `app.storage.collection(name)` in
-[`@civitai/sdk`](./sdk) **0.14.0 or later**. Underneath it is a plain REST API
+[`@civitai/sdk`](./sdk). Underneath it is a plain REST API
 under `/api/v1/blocks/storage`, called with the block token, so an app that does
 not use the SDK can call it directly ([REST reference](#rest-reference)).
 
+Minimum versions for this page: `@civitai/sdk` **0.25.0**, `@civitai/app-sdk`
+**0.82.0**, `@civitai/blocks-react` **0.79.0**, `civitai` CLI **v0.1.136**.
 A scaffolded app may pin an older SDK, and a caret range on a `0.x` version
-never moves to the next minor, so `npm install` alone does not get you there.
-On an older version `app.storage.collection` does not exist. Check, and raise
-it if needed:
+never moves to the next minor, so check, and raise it if needed:
 
 ```bash
 npm ls @civitai/sdk
-npm install @civitai/sdk@^0.14.0
+npm install @civitai/sdk@latest
 ```
-
-To use the store in a `civitai app dev-tunnel` preview, you need 0.18.0 or later
-(see [Local development](#local-development)), and
-[`update`](#counters-and-marks) 0.25.0 or later.
 
 This store replaces two older ones, `useAppStorage` and `useSharedStorage`
 (and their `app-storage` / `shared-storage` routes). Those are **shut down on
@@ -164,12 +160,11 @@ The server's own manifest validation, which applies the reserved-feature
 refusal and the [scope rules](#scopes-and-consent), runs when a moderator
 approves the version (and on a direct git push), not when `civitai app submit`
 uploads it. A declaration it refuses therefore waits in review until approval
-fails, so check it before you submit. From `civitai` CLI **0.1.131**,
+fails, so check it before you submit.
 `civitai app validate` mirrors those rules locally: the scope rules and a
 counter/mark name clash are errors, the reserved features are warnings, and it
 warns when your source calls an undeclared collection or the store without its
-scope ([Storage checks](./validate#storage)). Older CLIs check only the JSON
-schema, which admits the reserved fields.
+scope ([Storage checks](./validate#storage)).
 
 ### Fields that must name the author's own model version {#owned-model-versions}
 
@@ -252,15 +247,6 @@ a declared field that failed (when several fail, only one is reported):
   "details": { "pointer": "/workflow/modelVersionId" }
 }
 ```
-
-Tooling versions that know the field:
-
-- `civitai` CLI **0.1.128** or later validates it in `civitai app validate`;
-  older CLIs reject it as an unknown property.
-- `@civitai/sdk` **0.16.0** or later names `resource_not_owned` in
-  `StorageErrorCode`, and its [`createFakeStorage`](#testing) enforces the rule.
-- `@civitai/app-sdk` **0.73.0** or later types `ownedModelVersions` on a shared
-  collection.
 
 ### A schema for each document {#collection-schemas}
 
@@ -379,19 +365,7 @@ A refusal is `400` with code `schema_violation`:
 }
 ```
 
-The server enforces the schema whatever tooling you use. Tooling versions that
-know the field:
-
-- `@civitai/sdk` **0.23.0** or later names `schema_violation` in
-  `StorageErrorCode`, and its [`createFakeStorage`](#testing) and the local
-  preview enforce the schema. 0.22.0 and older do not check it.
-- `@civitai/app-sdk` **0.81.0** or later types `schema` on a collection and
-  bundles a manifest schema that knows the key.
-- `civitai` CLI **0.1.135** or later checks it in `civitai app validate`.
-  0.1.134 and older refuse a manifest with `schema` as an unknown property, in
-  both `civitai app validate` and `civitai app submit`, so upgrade the CLI.
-
-Checking offline, with those versions:
+The server enforces the schema whatever tooling you use. Checking offline:
 
 - **`createFakeStorage`** in `@civitai/sdk`, and the dev-tunnel
   [local preview](#local-development) built on it, enforce the schema the way
@@ -532,14 +506,10 @@ whose migrations run on it, or one that declares its `schema`, `migrations`,
 collection alone can be approved, and the run carries on. A version that is
 rejected or withdrawn has its run closed, so the run blocks nothing.
 
-The server applies all of this whatever tooling you use. `@civitai/app-sdk`
-**0.82.0** or later types `migrations` and bundles a manifest schema that knows
-the key. `civitai app validate`
-and `civitai app submit` accept `migrations` from CLI **v0.1.136**
-([releases](https://github.com/civitai/cli/releases)); v0.1.135 and older refuse
-it as an unknown property. The CLI checks only the shape of the ops. Whether an
+The server applies all of this whatever tooling you use. The CLI checks only
+the shape of the ops. Whether an
 op covers a change depends on the previous approved version, which only the
-server has, so that is decided at submit. From v0.1.136, an accepted
+server has, so that is decided at submit. An accepted
 `civitai app submit` prints the server's `storageMigrationWarnings` under the
 success line; a refused one prints the server's message, which lists each
 uncovered change.
@@ -733,8 +703,7 @@ date. Their responses carry `Deprecation: @1794182400` (2026-11-09) and a
 `Link` with `rel="deprecation"` to this page. `increment(key, counter, by?)`
 becomes `update(key, { $inc: { [counter]: by } })` (`by` required),
 `mark(key, name)` becomes `update(key, { $mark: name })`, and `unmark`
-likewise `$unmark`; over REST, `PATCH` the document with that operator. In
-0.25.0 the deprecated methods still call the old routes.
+likewise `$unmark`; over REST, `PATCH` the document with that operator.
 
 ## Who can do what {#who-can-do-what}
 
@@ -854,8 +823,6 @@ Ask with [`app.requestGrants(['apps:storage:import'])`](./sdk#consent-app-reques
 and pass a `signal` to bound the wait: without `from` it has no timeout of its
 own, and a viewer who presses "Not now" sends nothing. A token minted before the viewer's grant stopped covering the import can still
 carry the scope, so fetch a fresh token first (`app.getToken({ fresh: true })`).
-`@civitai/sdk` 0.23.0 or later lists `apps:storage:import` in its `Scope`
-type.
 
 **`apps:storage:publish`, in the source app.** A create, put, counter or mark
 in one of the source's **shared** collections changes what other viewers
@@ -915,27 +882,12 @@ The same call without `from` reaches your app's own `notes` collection, a
 separate key space that starts empty. A worked example, with each reply, is in
 [Forking an app](./forking#worked-example).
 
-Tooling versions that know imports:
-
-- `@civitai/sdk` **0.23.0** or later takes
-  `app.storage.collection(name, { from })` and sends `from` on every call it
-  makes. When a write through it is refused for want of publish consent in the
-  source, `app.storage` asks the host once and retries once on the next
-  host-pushed `TOKEN_REFRESH`, within 60 seconds. `storageImportRefusal(error)`
-  types the refusals, `app.requestGrants(['apps:storage:publish'], { from })`
-  asks directly, and [`createFakeStorage`](#testing) serves imports. 0.22.0 and
-  older have no `from` option: use REST.
-- `@civitai/app-sdk` **0.81.0** or later types
-  `storage.imports`, `exportable` and the `apps:storage:import` scope, and
-  bundles a manifest schema that knows them.
-- `@civitai/blocks-react` **0.79.0** or later lets
-  `useRequestConsent()` pass `from`.
-- `civitai` CLI **0.1.135** or later checks `storage.imports` in
-  `civitai app validate`, as the server does. 0.1.134 and older refuse a
-  manifest with `storage.imports`, `exportable` or `apps:storage:import`, in
-  both `civitai app validate` and `civitai app submit`, so upgrade the CLI.
-
-With `@civitai/sdk` 0.23.0 or later:
+`app.storage.collection(name, { from })` sends `from` on every call it
+makes. When a write through it is refused for want of publish consent in the
+source, `app.storage` asks the host once and retries once on the next
+host-pushed `TOKEN_REFRESH`, within 60 seconds. `storageImportRefusal(error)`
+types the refusals, `app.requestGrants(['apps:storage:publish'], { from })`
+asks directly, and `useRequestConsent()` passes `from` too.
 
 ```ts
 import { initialize, storageImportRefusal } from '@civitai/sdk';
@@ -1175,7 +1127,7 @@ key as normal states, not errors.
   `@civitai/sdk`. (The `page-elements` template, which does, has no `dev:live`
   script.)
 - **The dev tunnel** (`civitai app dev-tunnel`) mints a token without either
-  storage scope. With `@civitai/sdk` **0.18.0 or later** the preview's document
+  storage scope. The preview's document
   store is local to the tab: the host marks the frame
   `storageMode: 'local-preview'`, and the SDK serves `app.storage.collection(name)`
   and `app.storage.info()` from an in-memory store that enforces your local
@@ -1183,9 +1135,8 @@ key as normal states, not errors.
   (`app.storage.mode` reads `'local-preview'`). The manifest reaches the SDK only
   through `blockManifestPlugin()` on the Vite dev server; without it every call
   is refused `local_preview_no_manifest`. `ownedModelVersions` is not checked
-  locally. From 0.19.1, `requestGrants` in a preview treats `apps:storage` and
+  locally. `requestGrants` in a preview treats `apps:storage` and
   `apps:storage:publish` as held instead of asking the host, which refuses them.
-  On an SDK older than 0.18.0 every call is refused `insufficient_scope`.
 - **A `civitai app dev-token` token** carries `apps:storage` and
   `apps:storage:publish` when your app's manifest declares them (the approved
   version's, once there is one), without a consent prompt, and the store serves
@@ -1260,25 +1211,25 @@ await codeOf(requestsIn(fake.storage).create({ title: FAKE_STORAGE_MODERATION.bl
   `rate_limited`.
 - A declaration using a reserved feature makes `createFakeStorage` throw,
   naming it, instead of failing per request. So does a misplaced or malformed
-  `ownedModelVersions` (0.16.0 or later).
-- From 0.16.0 it enforces a collection's
+  `ownedModelVersions`.
+- It enforces a collection's
   [`ownedModelVersions`](#owned-model-versions) rule. The fake has no model
   versions of its own, so it checks writes against the viewer's
   `modelVersions`, the ids that viewer owns; the default is none, so every id is
   refused, as the server refuses a version that is not the writer's:
   `fake.as({ viewer: { username: 'bob', modelVersions: [4317] } })`.
-- From 0.23.0, it enforces a collection's
+- It enforces a collection's
   [`schema`](#collection-schemas) as the server does
   (`schema_violation`, the same pointers and messages), and throws when it is
   created on a schema the server would refuse, except for the server's check for
   catastrophic backtracking, which it does not run.
-- From 0.23.0, it serves [imports](#imports): pass
+- It serves [imports](#imports): pass
   `blockId` and `sources` (the other apps, each with its own manifest, `status`
   and `consent`) and `importGrants`, and act as a source with `as({ app })`.
   Its `requestGrants` option stands in for the host's prompt for publish
   consent in a source. A `token: 'dev'` caller is refused every import, as on
   the server.
-- From 0.25.0, it serves `update` with the server's checks and refusal reasons.
+- It serves `update` with the server's checks and refusal reasons.
 - It does not model moderator hides, the review namespace, or a failed
   ownership lookup (the server's retryable `503 service_unavailable`).
 
@@ -1427,6 +1378,12 @@ shared store is no longer read, even for old keys. A `write: "none"` collection
 declares no such collection still resolves keys from the legacy shared store,
 which shuts down on 2026-11-10, so move listable items into a shared collection
 before then.
+
+## Troubleshooting {#troubleshooting}
+
+- **`civitai app validate` or `submit` refuses `ownedModelVersions`, `schema`, `storage.imports`, `exportable`, `apps:storage:import` or `migrations` as an unknown property:** the CLI is older than the key (v0.1.128 for `ownedModelVersions`, v0.1.135 for `schema` and imports, v0.1.136 for `migrations`). Upgrade the CLI.
+- **Every store call in a `civitai app dev-tunnel` preview is refused `insufficient_scope`:** `@civitai/sdk` is older than 0.18.0. Upgrade it.
+- **A write passes in [`createFakeStorage`](#testing) but civitai.com refuses it `schema_violation` or `resource_not_owned`:** `@civitai/sdk` is older than 0.23.0 (schemas) or 0.16.0 (`ownedModelVersions`), and its fake does not check that rule. Upgrade it.
 
 ## Related
 

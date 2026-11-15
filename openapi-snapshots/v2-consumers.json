@@ -16483,7 +16483,7 @@
                 "format": "int64"
               },
               "quantity": {
-                "maximum": 4,
+                "maximum": 100,
                 "minimum": 1,
                 "type": "integer",
                 "format": "int32",
@@ -22021,7 +22021,7 @@
                 "format": "int32"
               },
               "quantity": {
-                "maximum": 4,
+                "maximum": 100,
                 "minimum": 1,
                 "type": "integer",
                 "format": "int32",

@@ -5,7 +5,7 @@ description: The maintained Civitai App examples in civitai-app-starters — wha
 
 # Example apps
 
-The eleven examples in
+The nine examples in
 [`civitai/civitai-app-starters`](https://github.com/civitai/civitai-app-starters/tree/main/starters/examples)
 are the maintained example set: one small, runnable app per feature area, each
 with its own `block.manifest.json`, `src/` and README. They depend on the
@@ -30,16 +30,9 @@ read:
 - **The App Blocks runtime is an invite-only, closed beta.** Every spend and
   bridge call checks the per-user `app-blocks-enabled` flag
   ([generation-kinds](#generation-kinds), [generate-studio](#generate-studio)).
-  During the pre-GA preview the host API is enabled per *account*, so an
-  approved app can still be refused for an account that was never enrolled
-  ([kv-storage](#kv-storage)).
 - **Page apps are behind a moderator-only flag.** `/apps/run/<slug>` needs both
   `appBlocks` and `appBlocksPages`, and `appBlocksPages` is currently limited to
   moderators ([page-app](#page-app)).
-- **The legacy shared storage is flag- and approval-gated.** Every call, reads included,
-  needs the `app-blocks-shared-storage` flag (off by default, on for a limited
-  cohort), the app must be approved, and the shared scopes are refused under
-  `dev:live` ([shared-board](#shared-board)).
 - **`kind: 'training'` is not available to apps.** The host refuses it unless
   the `app-blocks-training-kind` flag is on, and that flag is false when unset
   ([generation-kinds](#generation-kinds)).
@@ -49,13 +42,14 @@ read:
 - **Posting to a viewer's profile from an app is off for everyone**, moderators
   included ([generate-studio](#generate-studio)).
 
-This list summarises the READMEs at civitai-app-starters `ed7d69c`. The READMEs
-are the authority, and gates change.
+This list summarises the READMEs at civitai-app-starters `5132d2f` (the head of
+civitai-app-starters#831; update this to its merge commit once it merges). The
+READMEs are the authority, and gates change.
 :::
 
-::: tip Eight of the eleven are slot apps
-`hello-world`, `settings`, `buzz-workflow`, `kv-storage`, `scopes-api`,
-`buzz-purchase`, `shared-board` and `monetize` render in the
+::: tip Six of the nine are slot apps
+`hello-world`, `settings`, `buzz-workflow`, `scopes-api`, `buzz-purchase` and
+`monetize` render in the
 `model.sidebar_top` slot. [Concepts](./guide/concepts) explains that slot apps
 are deferred for third-party builders, so ship a **page app**:
 [page-app](#page-app) shows the shape, and [generate-studio](#generate-studio)
@@ -104,8 +98,6 @@ matter for that example.
 | `customComfy` recipes and chat completions through the same money flow | [generation-kinds](#generation-kinds) |
 | topping up a viewer's Buzz mid-flow, and when not to | [buzz-purchase](#buzz-purchase) |
 | storing per-viewer or shared data in a new app: the [document store](./guide/storage) | [App Requests](#app-requests), a shared collection with votes |
-| the **legacy** per-viewer store (`useAppStorage`, shut down on 2026-11-10) | [kv-storage](#kv-storage) |
-| the **legacy** shared store (`useSharedStorage`, shut down on 2026-11-10) | [shared-board](#shared-board) |
 | declared vs granted scopes, and calling REST with the block token | [scopes-api](#scopes-api) |
 | selling digital goods, gating on entitlements, taking tips | [monetize](#monetize) |
 | many generations in flight at once, with per-cell retry | [Gen Matrix](#gen-matrix) |
@@ -155,22 +147,6 @@ cancel. Copy it for any generation UI.
 - **Run** — `npm run dev:harness` → `localhost:5182`, with no Buzz spent.
   `dev:live` spends your own Buzz.
 
-### kv-storage
-
-**[starters/examples/kv-storage](https://github.com/civitai/civitai-app-starters/tree/main/starters/examples/kv-storage)** — slot app.
-
-**Shows** `useAppStorage`, a key-value store per block instance and viewer:
-get / set / delete / list / `getQuota`, the byte and row ceilings, classifying a
-rejection with `classifyAppStorageError`, and the anonymous-viewer case.
-
-- **Scopes** — `models:read:self`, `apps:storage:read`, `apps:storage:write`
-- **Hooks** — `useAppStorage`, `useBlockContext`, `useBlockResize`
-- **Run** — `npm run dev:harness` → `localhost:5183`. App Storage refuses under
-  `dev:live`; the README explains why.
-- **Deprecated store** — `useAppStorage` is superseded by a private collection
-  of the [document store](./guide/storage); it is shut down on 2026-11-10, after
-  which its calls fail with an error.
-
 ### scopes-api
 
 **[starters/examples/scopes-api](https://github.com/civitai/civitai-app-starters/tree/main/starters/examples/scopes-api)** — slot app.
@@ -193,26 +169,9 @@ then retrying with guards. It separates the two limits: buying Buzz raises the
 wallet (`useBuzzBalance`), never the per-generation budget on the token.
 
 - **Scopes** — `models:read:self`, `ai:write:budgeted`, `buzz:read:self`
-- **Hooks** — `useBuzzPurchase`, `useBuzzBalance`, `useBuzzWorkflow`, `useBlockContext`, `useBlockResize`
+- **Hooks** — `useBuzzPurchase`, `useBuzzBalance`, `useBuzzWorkflow`, `useDomainMaturity`, `useRequestSignIn`, `useRequestConsent`, `useConsentUnavailable`, `useBlockContext`, `useBlockResize`
 - **Run** — `npm run dev:harness` → `localhost:5185`. The live host refuses the
   purchase modal, so test the purchase under the harness.
-
-### shared-board
-
-**[starters/examples/shared-board](https://github.com/civitai/civitai-app-starters/tree/main/starters/examples/shared-board)** — slot app.
-
-**Shows** `useSharedStorage`, one app-wide store every viewer reads: append,
-vote, author-only edit and withdraw, report. A private draft in `useAppStorage`
-sits beside it, so the two stores' differences are on screen. Shared storage is
-flag- and approval-gated (see the box above).
-
-- **Scopes** — `user:read:self`, `apps:storage:shared:read`, `apps:storage:shared:write`, `apps:storage:read`, `apps:storage:write`
-- **Hooks** — `useSharedStorage`, `useAppStorage`, `useViewer`, `useRequestSignIn`, `useRequestConsent`, `useBlockToken`, `useBlockContext`, `useBlockResize`
-- **Run** — `npm run dev:harness` → `localhost:5187`. This is the only local
-  way to run it: the shared scopes are refused under `dev:live`.
-- **Deprecated store** — `useSharedStorage` is superseded by a shared collection
-  of the [document store](./guide/storage); it is shut down on 2026-11-10, after
-  which its calls fail with an error.
 
 ### page-app
 
@@ -226,16 +185,11 @@ mod-only today (see the box above). It also declares its six
 `useBlockAnalytics` events under `analytics.events` in its manifest, the
 declaration the platform records [custom events](./guide/custom-events) against.
 
-- **Scopes** — `user:read:self`, `apps:storage:read`, `apps:storage:write`
-- **Hooks** — `useBlockBreakpoint`, `useCivitaiRoute`, `useCivitaiNavigate`, `useHostOrigin`, `useRequestSignIn`, `useRequestConsent`, `useConsentUnavailable`, `useBlockToken`, `useViewer`, `useAppStorage`, `useBlockAnalytics`, `useBlockContext`
-- **Run** — `npm run dev:harness` → `localhost:5186`. Under `dev:live` its
-  storage calls are refused, as for every app
-  ([why](./guide/local-dev#dev-live-works-on-a-pending-app)), so exercise
-  storage under `dev:harness`.
-- **Deprecated store** — its storage uses `useAppStorage`, which is shut down
-  on 2026-11-10; after that date its storage calls fail. Copy the page shape,
-  not the storage: keep per-viewer data in a private collection of the
-  [document store](./guide/storage) instead.
+- **Scopes** — `user:read:self`
+- **Hooks** — `useBlockBreakpoint`, `useCivitaiRoute`, `useCivitaiNavigate`, `useHostOrigin`, `useRequestSignIn`, `useRequestConsent`, `useConsentUnavailable`, `useBlockToken`, `useViewer`, `useBlockAnalytics`, `useBlockContext`
+- **Run** — `npm run dev:harness` → `localhost:5186`.
+- **Storage** — the board lives in memory for the session. To persist data,
+  keep it in a collection of the [document store](./guide/storage).
 
 ### generate-studio
 
@@ -282,8 +236,9 @@ today. Read it with [How an app earns](./guide/earning).
 - **Run** — `npm run dev:harness` → `localhost:5190`. Under `dev:live` a tip moves
   your own real Buzz, and your own purchases are refused as `self_purchase`.
 
-**Hook lists verified by hand on 2026-10-07** against civitai-app-starters
-`ed7d69c`, from each example's `@civitai/blocks-react` imports. The scope lists
+**Hook lists verified by hand on 2026-11-14** against civitai-app-starters
+`5132d2f` (the head of civitai-app-starters#831; update this to its merge commit
+once it merges), from each example's `@civitai/blocks-react` imports. The scope lists
 are checked daily (see [Keeping this list honest](#keeping-this-list-honest)).
 
 ## More real-world apps

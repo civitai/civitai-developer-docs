@@ -181,8 +181,8 @@ messages.
 [which import defines which](./elements#register-the-elements). Next, add UI
 from the [elements guide](./elements) and data from
 [`app.site`](./sdk#app-site-the-rest-api). Generating goes through
-`app.workflows`, which needs `@civitai/sdk` 0.12.0 or later (run
-`npm ls @civitai/sdk`; if it is older, `npm install @civitai/sdk@^0.12.0`).
+`app.workflows`, which needs `@civitai/sdk` 0.12.0 at minimum (run
+`npm ls @civitai/sdk`; if it is older, `npm install @civitai/sdk@latest`).
 Spending Buzz needs a consent call and an idempotency key —
 [Money calls](./sdk#money-calls) shows both.
 
@@ -262,18 +262,16 @@ and no Buzz. To iterate against the **real** Civitai backend instead, mint a dev
 token and run `npm run dev:live`:
 
 ```bash
-civitai app dev-token my-app --spend --budget 250 --env >> .env.development.local
+civitai app dev-token my-app --spend --env >> .env.development.local
 npm run dev:live
 ```
 
 This needs closed-beta author access, but not a reviewed or even submitted app.
 Spending also needs a credential with the **AI Services** scopes
-(`civitai login --scopes generate`); a default login mints read-only. Both flags
-matter: `--env` writes the token, and `--budget` lifts the flat **50** Buzz
-per-generation budget an unsubmitted app gets, which the scaffold's own sample
-exceeds — so don't use the setup notice's **Set up automatically** button for
-it, which cannot pass a budget. Details, and why `dev-tunnel` is narrower for
-spending: [Local dev loop](./local-dev).
+(`civitai login --scopes generate`); a default login mints read-only. `--env`
+writes the token; `--budget` and its default are in
+[`civitai app dev-token`](../reference/cli/app#cli-app-dev-token). Details, and
+why `dev-tunnel` is narrower for spending: [Local dev loop](./local-dev).
 
 ::: warning Match the harness origin
 The harness's parent origin (`http://localhost:5186` in `page-money`) and

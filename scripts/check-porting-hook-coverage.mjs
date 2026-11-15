@@ -75,6 +75,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { log, resolvePackageRoot } from './appblocks-util.mjs';
+import { removedAt } from './lib/hook-annotations.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -205,7 +206,14 @@ function main() {
 
   // ── THE INVARIANT ─────────────────────────────────────────────────────────
   const missing = sorted(expected).filter((n) => !documented.has(n));
-  const extra = sorted(documented).filter((n) => !expected.has(n));
+  // A row for a hook declared removed at this pin (`removedIn` in
+  // lib/hook-annotations.mjs) is not "a row nobody can act on": the removal is
+  // declared and reviewed there, and that file's generator guard fails if the hook
+  // is in fact still exported. Tolerated and named, so the pin bump that crosses
+  // the removal is not red; delete the row together with the annotation entry.
+  const declaredRemoved = new Set(removedAt(version));
+  const extra = sorted(documented).filter((n) => !expected.has(n) && !declaredRemoved.has(n));
+  const tolerated = sorted(documented).filter((n) => !expected.has(n) && declaredRemoved.has(n));
 
   if (missing.length > 0 || extra.length > 0) {
     log(`FAIL: ${PAGE}'s hook table does not match @civitai/blocks-react@${version}.`);
@@ -228,6 +236,9 @@ function main() {
     process.exit(1);
   }
 
+  for (const n of tolerated) {
+    log(`  NOTE: ${PAGE} still has a row for ${n}, removed in @civitai/blocks-react@${version} (its \`removedIn\`) — delete the row`);
+  }
   log(
     `ok: ${PAGE} documents all ${expected.size} hooks of @civitai/blocks-react@${version} ` +
       `(${rootHooks.size} root + ${uiHooks.size} on /ui), and no others ` +

@@ -25,9 +25,11 @@ import { parseReadme, scanSections, splitSection, verifyPublished } from './lib/
 import { rewriteHookAnchors } from './appblocks-md.mjs';
 import {
   assertAnnotatedHooksExist,
+  compareVersions,
   correctionsFor,
   README_CORRECTIONS,
   retiredCorrections,
+  staleAnnotations,
   SUPERSEDED_HOOKS,
 } from './lib/hook-annotations.mjs';
 import {
@@ -614,6 +616,45 @@ check('a correction retires once the README no longer carries the sentence', () 
   assert(retired.length === 1 && retired[0].hook === 'useX', `retired: ${JSON.stringify(retired)}`);
 });
 
+// staleAnnotations is what the generator throws on. Each arm is driven on its own,
+// and the clean fixture is the control that the function can return nothing.
+check('staleAnnotations: a retired correction is a problem naming the hook and the fix', () => {
+  const fixed = hookWith([{ kind: 'text', text: 'The budget is live.' }]);
+  const got = staleAnnotations([{ ...fixed, example: 'x' }], CORR, {});
+  assert(got.length === 1 && got[0].startsWith("README_CORRECTIONS { hook: 'useX'") && got[0].endsWith('delete the entry'), JSON.stringify(got));
+});
+
+check('staleAnnotations: a hook with no example must be listed, and a listed one must still lack one', () => {
+  const bare = { name: 'useBare', description: 'd', notes: [] };
+  const got = staleAnnotations([bare], [], {});
+  assert(got.length === 1 && got[0].startsWith('useBare has no example'), `unlisted: ${JSON.stringify(got)}`);
+  assert(staleAnnotations([bare], [], { useBare: 'why' }).length === 0, 'a listed example-less hook was flagged');
+  const grew = staleAnnotations([{ ...bare, example: 'useBare()' }], [], { useBare: 'why' });
+  assert(grew.length === 1 && grew[0].includes('now has an example'), `gained an example: ${JSON.stringify(grew)}`);
+  const gone = staleAnnotations([], [], { useBare: 'why' });
+  assert(gone.length === 1 && gone[0].includes('does not export'), `removed hook: ${JSON.stringify(gone)}`);
+});
+
+check('staleAnnotations: current annotations report nothing (control)', () => {
+  const live = hookWith([{ kind: 'text', text: '> The budget goes live with the next civitai.com\n> release.' }]);
+  assert(staleAnnotations([{ ...live, example: 'x' }], CORR, {}).length === 0, 'flagged a correction that still applies');
+});
+
+// README_CORRECTIONS ships EMPTY between stale READMEs (every entry retires once
+// upstream fixes its sentence). The mechanism stays for the next wrong README, so the
+// empty list must be a quiet no-op everywhere it is read, not an error or a blank note.
+// Invariant guard: no shipped bug violated this; it pins the empty state staying valid.
+check('an empty README_CORRECTIONS applies nothing, retires nothing and flags nothing', () => {
+  assert(Array.isArray(README_CORRECTIONS), `README_CORRECTIONS must stay an array, got ${typeof README_CORRECTIONS}`);
+  const h = { ...hookWith([{ kind: 'text', text: '> The budget goes live with the next civitai.com\n> release.' }]), example: 'x' };
+  assert(correctionsFor(h, []).length === 0, 'an empty list produced a correction');
+  assert(retiredCorrections([h], []).length === 0, 'an empty list reported a retired entry');
+  assert(staleAnnotations([h], [], {}).length === 0, 'an empty list made the generator fail');
+  assertAnnotatedHooksExist(['useX'], '0.0.0', {}, []);
+  // The shipped list (whatever it holds) applies only to hooks it names.
+  assert(correctionsFor({ name: 'useNotAHookAnyCorrectionNames', description: '' }).length === 0, 'shipped list leaked onto an unnamed hook');
+});
+
 check('a correction never applies to a different hook carrying the same sentence', () => {
   const other = { name: 'useY', description: 'goes live with the next civitai.com release' };
   assert(correctionsFor(other, CORR).length === 0, 'applied across hooks');
@@ -622,21 +663,94 @@ check('a correction never applies to a different hook carrying the same sentence
 check('an annotation naming a hook the package does not export is refused', () => {
   let threw = null;
   try {
-    assertAnnotatedHooksExist(['useA'], { useGone: { text: 't', linkText: 'l', href: '/x' } }, []);
+    assertAnnotatedHooksExist(['useA'], '1.0.0', { useGone: { text: 't', linkText: 'l', href: '/x' } }, []);
   } catch (err) {
     threw = err;
   }
   assert(threw && /useGone/.test(threw.message), `did not refuse: ${threw?.message}`);
-  assertAnnotatedHooksExist(['useGone'], { useGone: { text: 't', linkText: 'l', href: '/x' } }, []);
+  assertAnnotatedHooksExist(['useGone'], '1.0.0', { useGone: { text: 't', linkText: 'l', href: '/x' } }, []);
 });
 
-check('every shipped annotation names a hook in the published package', () => {
-  assertAnnotatedHooksExist(
-    ['useAppStorage', 'useSharedStorage'],
-    SUPERSEDED_HOOKS,
-    README_CORRECTIONS,
+// `removedIn` lets one tree generate green on both sides of an upstream removal. The
+// fixture versions straddle it by a PATCH (0.9.9 vs 0.10.0 also tests that the
+// comparison is numeric, not lexical: '0.9.9' > '0.10.0' as strings) and the fixture
+// hook names are distinct from the shipped ones.
+const GONE = { useGone: { text: 't', linkText: 'l', href: '/x', removedIn: '0.10.0' } };
+const GONE_CORR = [{ hook: 'useGone', match: /x/, text: 'c' }];
+const refuses = (fn) => {
+  try {
+    fn();
+  } catch (err) {
+    return err.message;
+  }
+  return null;
+};
+
+check('below its removedIn, an annotated hook must still be exported', () => {
+  assert(
+    JSON.stringify(assertAnnotatedHooksExist(['useA', 'useGone'], '0.9.9', GONE, GONE_CORR)) === '[]',
+    'reported retired before its removedIn',
   );
+  const msg = refuses(() => assertAnnotatedHooksExist(['useA'], '0.9.9', GONE, GONE_CORR));
+  assert(msg && /useGone is annotated/.test(msg), `missing hook below removedIn not refused: ${msg}`);
+});
+
+check('at and after its removedIn, the hook must be absent and is reported retired', () => {
+  for (const v of ['0.10.0', '0.10.1', '1.0.0']) {
+    const got = assertAnnotatedHooksExist(['useA'], v, GONE, GONE_CORR);
+    assert(JSON.stringify(got) === '["useGone"]', `at ${v}: ${JSON.stringify(got)}`);
+  }
+  const msg = refuses(() => assertAnnotatedHooksExist(['useA', 'useGone'], '0.10.0', GONE, GONE_CORR));
+  assert(msg && /useGone \(removedIn 0\.10\.0\) is still exported/.test(msg), `wrong removedIn not refused: ${msg}`);
+});
+
+// The generator's one stale-annotation exemption: entries for a hook the pin has
+// reached the `removedIn` of (the list `assertAnnotatedHooksExist` returned). Only
+// those: the same entries with an empty `removed` list must still fail, so the
+// exemption cannot widen into silencing a real retired correction.
+check('staleAnnotations exempts only hooks passed as removed', () => {
+  const corr = [
+    { hook: 'useGone', match: /x/, text: 'c' },
+    { hook: 'useKept', match: /never-in-the-readme/, text: 'k' },
+  ];
+  const kept = { name: 'useKept', description: 'd', notes: [], example: 'useKept()' };
+  const withRemoved = staleAnnotations([kept], corr, { useGone: 'why' }, ['useGone']);
+  assert(
+    withRemoved.length === 1 && withRemoved[0].startsWith("README_CORRECTIONS { hook: 'useKept'"),
+    `removed hook exempted, real stale one kept: ${JSON.stringify(withRemoved)}`,
+  );
+  const without = staleAnnotations([kept], corr, { useGone: 'why' });
+  assert(
+    without.length === 3 &&
+      without.some((m) => m.startsWith("README_CORRECTIONS { hook: 'useGone'")) &&
+      without.some((m) => m.includes('names useGone, which the published package does not export')),
+    `not passed as removed, so still reported: ${JSON.stringify(without)}`,
+  );
+});
+
+check('compareVersions is numeric per part', () => {
+  const got = [
+    compareVersions('0.9.9', '0.10.0'),
+    compareVersions('0.81.0', '0.81.0'),
+    compareVersions('0.81.0-rc.1', '0.81.0'),
+    compareVersions('1.0.0', '0.99.99'),
+  ];
+  assert(JSON.stringify(got) === '[-1,0,0,1]', `got ${JSON.stringify(got)}`);
+  assert(refuses(() => compareVersions('latest', '1.0.0')), 'a non-version was accepted');
+});
+
+// The shipped entries, on BOTH sides of their removal: the pin before it (0.80.1, the
+// hooks still exported) and the release that drops them (0.81.0, civitai-app-starters#831).
+check('every shipped annotation holds at 0.80.1 and retires at 0.81.0', () => {
   assert(Object.keys(SUPERSEDED_HOOKS).join(',') === 'useAppStorage,useSharedStorage', `superseded: ${Object.keys(SUPERSEDED_HOOKS)}`);
+  assert(
+    Object.values(SUPERSEDED_HOOKS).map((h) => h.removedIn).join(',') === '0.81.0,0.81.0',
+    `removedIn: ${Object.values(SUPERSEDED_HOOKS).map((h) => h.removedIn)}`,
+  );
+  const before = assertAnnotatedHooksExist(['useAppStorage', 'useSharedStorage', 'useViewer'], '0.80.1', SUPERSEDED_HOOKS, README_CORRECTIONS);
+  assert(JSON.stringify(before) === '[]', `retired at 0.80.1: ${JSON.stringify(before)}`);
+  const after = assertAnnotatedHooksExist(['useViewer'], '0.81.0', SUPERSEDED_HOOKS, README_CORRECTIONS);
+  assert(JSON.stringify(after) === '["useAppStorage","useSharedStorage"]', `retired at 0.81.0: ${JSON.stringify(after)}`);
 });
 
 console.log('');

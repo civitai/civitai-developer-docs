@@ -75,21 +75,19 @@ success; use mock mode for those.
 - The [document store](./storage#local-development) is not reached at all. It
   is called over HTTP by `@civitai/sdk`, not over the bridge this harness
   forwards, and the `page-money` template does not use `@civitai/sdk`.
-- Legacy App Storage (`useAppStorage`) is forwarded, and the server refuses it:
-  those calls need a civitai.com browser session, which a local harness never
-  has, so every developer gets `401` `Apps access is not enabled for this
-  browser session`. It says nothing about your account or your app.
-- Legacy shared storage (`useSharedStorage`) is refused too. Approval is
-  checked first, so before your app is approved the refusal is about approval
-  (`app block not found` while the app has no record yet, as for a first
-  version still in review, or `app block is not approved`). Once it is
-  approved, the refusal is about scope: the shared scopes are never minted on a
-  dev token.
+- The legacy stores (`useAppStorage`, `useSharedStorage`) are removed, and
+  every call to them is refused. The refusal you see under `dev:live` is not
+  always `legacy_store_removed`: a legacy App Storage call is refused first
+  with `401` `Apps access is not enabled for this browser session`, because
+  that check runs before the removal check and a local harness never has a
+  civitai.com browser session. It says nothing about your account or your app.
 
-Exercise the legacy stores under `dev:harness` (they are
-[shut down on 2026-11-10](./storage#moving-from-the-legacy-stores), after which
-their calls fail), and the document store with
-[`createFakeStorage`](./storage#testing).
+The legacy stores are [removed](./storage#moving-from-the-legacy-stores):
+since 2026-11-10 civitai.com refuses every call to them, and the `dev:harness`
+mock host no longer answers their `APP_STORAGE_*` / `SHARED_*` messages either.
+There is nowhere left to exercise them. Move the data to the document store and
+test it with [`createFakeStorage`](./storage#testing) from
+`@civitai/sdk/testing`.
 
 ## Minting a dev block token
 
@@ -129,7 +127,6 @@ minted that way looks fine and then refuses to generate with
 
 ```bash
 civitai app dev-token my-block --spend               # request ai:write:budgeted (real Buzz)
-civitai app dev-token my-block --budget 250 --spend  # …with the maximum per-generation budget
 ```
 
 `--spend` does two things to the request: it adds `ai:write:budgeted` to the
@@ -140,27 +137,22 @@ unchanged.
 
 ### `--budget` is a per-generation ceiling
 
-`--budget <n>` (1–250 Buzz) sets the token's **per-generation** Buzz budget. Omit
-it and the server picks one — **50** for a slug with no submitted app. Your local
-`block.manifest.json`'s `page.buzzBudgetPerGen` does **not** raise it: until the
-app is submitted there is no server-side manifest to read, so the 50 is a flat
-default rather than a clamp of your file. `--budget` is the only way to move it.
+`--budget <n>` sets the token's **per-generation** Buzz budget; its range and the
+server's default are in
+[`civitai app dev-token`](../reference/cli/app#cli-app-dev-token). Your local
+`block.manifest.json`'s `page.buzzBudgetPerGen` does **not** set it: until the
+app is submitted there is no server-side manifest to read, so the default is
+flat rather than a clamp of your file. `--budget` is the only way to move it.
 
-A generation is **refused outright** when the recipe's Buzz ceiling exceeds that
-budget, so a shipped recipe with a ceiling of 90 dead-ends on the default:
-
-```
-insufficient buzz budget: recipe ceiling 90 exceeds budget 50
-```
-
-Raise the budget rather than editing the recipe.
+A generation is **refused outright** (`insufficient buzz budget`) when the
+recipe's Buzz ceiling exceeds that budget. Raise the budget rather than editing
+the recipe.
 
 ::: warning For an inline `customComfy` graph, `maxBuzz` is also a timeout
 It is **both** the Buzz ceiling **and** the step timeout **in seconds**. An
 over-thrifty budget therefore does not fail as a billing error — the step runs
 out of wall clock and comes back `expired`, which reads like a broken graph.
-Budget for the seconds the graph needs. `--budget 250` buys 250 s of wall clock
-as well as 250 Buzz.
+Budget for the seconds the graph needs.
 :::
 
 ## Which credential can spend?
