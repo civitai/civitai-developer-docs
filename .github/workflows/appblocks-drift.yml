@@ -145,6 +145,13 @@ jobs:
         run: npm ci
 
       - name: Snapshot drift — appblocks-snapshots/ vs civitai@origin/main
+        # Grades what the generators RENDER from each snapshot, not its bytes:
+        # an upstream comment rewrite is reported (≈) but green. It byte-diffed
+        # until 2026-11-14; this workflow was red on 29 of its last 30 runs,
+        # mostly on comment-only upstream churn (not all: the 2026-11-12 run also
+        # caught real drift, BLOCK_BUZZ_CAP_PER_DAY behind the text-to-image
+        # limits table). Needs the `npm ci` above (it runs the generators).
+        #
         # Every source EXCEPT the private civitai-orchestration one, which the
         # `orch-snapshot` job below checks with the App token this job must
         # never hold (see the header). No token here, on purpose.
@@ -267,10 +274,13 @@ jobs:
   # no third-party code (see the header's token-reach list).
   #
   # 🔴 NO `npm ci` IN THIS JOB, AND IT IS A CONSTRAINT ON THE SCRIPT.
-  # scripts/check-appblocks-snapshots.mjs imports node:fs, node:path, node:url
-  # and ./lib/mcp-registries.mjs, which imports nothing; adding a node_modules
+  # scripts/check-appblocks-snapshots.mjs imports only node: built-ins and
+  # ./lib/mcp-registries.mjs, which imports nothing; adding a node_modules
   # import breaks this job with MODULE_NOT_FOUND rather than quietly widening
-  # what runs next to the key.
+  # what runs next to the key. The generators the `drift` job's render
+  # comparison runs (which DO need node_modules) are never reached here:
+  # `--only` selects one DERIVED source, and derived sources are compared as
+  # text, never rendered.
   orch-snapshot:
     runs-on: ubuntu-latest
     timeout-minutes: 10

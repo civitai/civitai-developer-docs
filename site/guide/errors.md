@@ -7,25 +7,25 @@ description: Error response shape and HTTP status codes used by the Civitai site
 
 ## Response shape
 
-Most errors come back as a single-field JSON object:
+Errors that go through the API's shared error envelope carry three fields:
 
 ```json
-{ "error": "descriptive message" }
+{ "code": "NOT_FOUND", "message": "Not found", "error": "Not found" }
 ```
 
-Some errors originate inside the internal tRPC layer and get forwarded with a
-richer shape:
+- **`code`** — a stable, machine-readable value: `BAD_REQUEST`, `NOT_FOUND`,
+  `CONFLICT`, `TIMEOUT`, `TOO_MANY_REQUESTS` or `INTERNAL_SERVER_ERROR`.
+  **Branch on `code`**, never on the text.
+- **`message`** — a human-readable summary, always a string.
+- **`error`** — the older field, kept for existing clients. Usually the same
+  string as `message`; on some `400`s it is a validation object.
+- **`rateLimit`** — on a rate-limited `429` only:
+  `{ "retryAfterSeconds": …, "retryAt": … }`, sent with a `Retry-After` header.
 
-```json
-{
-  "code": "UNAUTHORIZED",
-  "message": "descriptive message",
-  "issues": [ /* optional Zod validation details */ ]
-}
-```
-
-Either way, inspect the HTTP status code first and use the body for a
-human-readable explanation.
+Not every error carries `code` yet. A `401` is still `{ "error": "Unauthorized" }`,
+a missing-scope `403` is `{ "error": "<message>" }`, and some `4xx` forwarded
+from the internal tRPC layer are `{ "message": "…" }` or a list of Zod issues.
+When `code` is absent, branch on the HTTP status.
 
 ::: tip Hit this through the `civitai` CLI rather than the REST API?
 The CLI turns these statuses into **exit codes** and its own messages, and the
@@ -43,16 +43,16 @@ binary prints.
 | **400** | Bad Request | Invalid query parameters. For list endpoints, response body includes Zod-style validation issues. Combining `?query=` with `?page=` also returns 400. |
 | **401** | Unauthorized | Missing or invalid token on an `Authenticated` endpoint, or an auth-only filter (e.g. `?favorites=true`) on a `Mixed` endpoint without a session. |
 | **403** | Forbidden | Valid token, but the user is not permitted to access the resource. |
-| **404** | Not Found | Unknown model, version, or hash. Body shape: `{"error": "No model with id 0"}`. |
+| **404** | Not Found | Unknown model, version, or hash. The body has only `error` (no `code`), and its text varies by endpoint: `{"error": "No model with id 123"}` from `/api/v1/models/{id}`, `{"error": "Model not found"}` from the model-version and by-hash endpoints. An id that is not a positive integer (`0`, `abc`) is a `400`, not a `404`. |
 | **405** | Method Not Allowed | Wrong HTTP verb for the endpoint. |
 | **429** | Too Many Requests | Either edge rate limiting (Cloudflare) or the `page * limit > 1000` pagination cap — see [Pagination](./pagination). |
 | **500** | Internal Server Error | Unexpected failure. Safe to retry with backoff. |
 
 ## Retries
 
-The API does not expose a `Retry-After` header for most failures. For 5xx and
-429 responses, apply exponential backoff starting at ~1 second and cap at
-~30 seconds. Don't retry 4xx responses other than 429 — the request shape
+A rate-limited `429` sends `Retry-After` (and `rateLimit` in the body); wait
+that long. Without one, for 5xx and 429 responses apply exponential backoff
+starting at ~1 second and cap at ~30 seconds. Don't retry 4xx responses other than 429 — the request shape
 itself is the problem.
 
 ## Rate limits

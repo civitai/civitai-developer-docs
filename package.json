@@ -41,6 +41,7 @@
     "notify:drift": "node scripts/drift-notify.mjs",
     "check:ai-catalog": "node scripts/check-ai-catalog.mjs",
     "check:snapshots": "node scripts/check-appblocks-snapshots.mjs",
+    "test:check-snapshots": "node scripts/test-check-appblocks-snapshots.mjs",
     "check:cli-snapshot": "node scripts/check-appblocks-cli-snapshot.mjs",
     "refresh:cli-snapshot": "node scripts/refresh-cli-snapshot.mjs",
     "check:manifest-parity": "node scripts/check-manifest-parity.mjs",

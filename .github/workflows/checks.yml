@@ -165,6 +165,15 @@ jobs:
         continue-on-error: true
         run: npm run check:doc-claims
 
+      # The contract of appblocks-drift.yml's snapshot guard, which only runs on
+      # that schedule. Offline: a loopback server stands in for
+      # raw.githubusercontent.com. Pins both halves — comment churn upstream is
+      # GREEN (the guard used to byte-diff, and most of its daily reds were that
+      # churn), and a change to what a generator renders is RED.
+      - name: 'snapshot-guard-test: upstream churn that renders the same is green, a rendered change is red'
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run test:check-snapshots
+
       # nginx-negotiation: serve the BUILT site with the real nginx.conf under
       # `nginx:alpine` (what the Dockerfile ships) and assert the agent-facing
       # HTTP contract. Not folded into the required build-site job, which stays

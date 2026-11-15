@@ -153,10 +153,10 @@ Returns the same shape as a single item from the list endpoint — same
 top-level keys (`id`, `name`, `type`, `modelVersions`, `creator`, `tags`,
 `stats`, ...).
 
-Returns `404` if the model doesn't exist:
+Returns `404` if the model doesn't exist (an `id` that is not a positive integer, such as `0`, is a `400` instead):
 
 ```json
-{ "error": "No model with id 0" }
+{ "error": "No model with id 123" }
 ```
 
 ### Example

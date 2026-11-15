@@ -742,16 +742,27 @@ check('it runs daily, on dispatch (with dry_run), and on repository_dispatch —
   assert(!/pull_request|push:/.test(on), 'the bot triggers on pull_request/push');
 });
 
-check('least privilege: read by default, and the only write is the app token in the job that runs no npm install', () => {
+check('least privilege: read by default, and the only writes are the app token in the job that runs no npm install, plus `signal`', () => {
   const r = runnable(botYml);
   const preamble = r.slice(0, r.indexOf('\njobs:'));
   assert(/^permissions:\n {2}contents: read\n/m.test(preamble), 'the workflow default is not contents: read');
   const jobs = jobsOf(runnable(botYml));
-  // Every job's own GITHUB_TOKEN is read-only: the writes are the app token's.
+  // Every write GITHUB_TOKEN scope in the file, as a ledger: the bump's writes
+  // are the app token's, and the ONE GITHUB_TOKEN write is `signal`'s
+  // `issues: write`, which runs no code of this repo's (a reusable-workflow call,
+  // no steps). Fails when the set grows OR shrinks.
+  const writes = {};
   for (const [name, body] of Object.entries(jobs)) {
     const scopes = [...body.matchAll(/^ {6}([a-z-]+): (read|write)$/gm)].map((m) => `${m[1]}:${m[2]}`);
-    assert(!scopes.some((x) => x.endsWith(':write')), `job ${name} requests a write GITHUB_TOKEN scope: ${scopes}`);
+    const w = scopes.filter((x) => x.endsWith(':write'));
+    if (w.length) writes[name] = w;
   }
+  assertEqual(writes, { signal: ['issues:write'] }, 'a job other than signal requests a write GITHUB_TOKEN scope, or signal requests more');
+  assert(
+    /^ {4}uses: civitai\/cli\/\.github\/workflows\/failure-issue\.yml@[0-9a-f]{40}\b/m.test(jobs.signal),
+    'signal is not a sha-pinned call of civitai/cli failure-issue.yml',
+  );
+  assert(!/^ {4}steps:/m.test(jobs.signal), 'signal holds issues: write and runs steps of its own');
   assertEqual(jobsMintingAppToken(jobs), ['publish'], 'the app token is minted somewhere other than (or besides) publish');
   assert(!/npm (ci|install)/.test(jobs.publish), 'the job holding the app token installs npm packages');
   for (const [name, body] of Object.entries(jobs)) {
@@ -759,6 +770,24 @@ check('least privilege: read by default, and the only write is the app token in 
       assert(/persist-credentials: false/.test(body), `job ${name} installs npm packages with a persisted credential`);
     }
   }
+});
+
+check('signal files a report for a failed prepare or publish, never for a dry run, a cancel or a nothing-to-bump skip', () => {
+  // A workflow body is untestable by construction, so these lines are pinned
+  // whole: `publish` is SKIPPED by design when prepare finds nothing to bump, so
+  // `failing` must read it as failing only on `failure`; and a dry run's green
+  // must not close a report about the path it never exercised.
+  const s = jobsOf(runnable(botYml)).signal;
+  assert(s, 'no signal job');
+  const line = (k) => (new RegExp(`^ {4,6}${k}: (.*)$`, 'm').exec(s) || [])[1];
+  assertEqual(line('needs'), '[prepare, publish]', 'signal needs');
+  assertEqual(
+    line('if'),
+    "always() && !inputs.dry_run && needs.prepare.result != 'cancelled' && needs.publish.result != 'cancelled'",
+    'signal if',
+  );
+  assertEqual(line('failing'), "${{ needs.prepare.result != 'success' || needs.publish.result == 'failure' }}", 'signal failing');
+  assert(/\*\*Closing condition:\*\*/.test(s), 'the issue body does not name its closing condition');
 });
 
 check('publish pushes, opens, labels and auto-merges as the app, so the PR gets its pull_request runs (#148)', () => {

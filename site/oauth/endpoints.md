@@ -13,6 +13,13 @@ Civitai's OAuth/OIDC provider runs on its own host. The legacy
 integrations should call `auth.civitai.com` directly. The OIDC issuer (`iss`)
 is `https://auth.civitai.com`; if you validate `iss`, expect that value.
 
+OIDC discovery is at `GET /.well-known/openid-configuration`, and the
+`id_token` signing keys at the `jwks_uri` it lists
+(`/.well-known/jwks.json`). Discovery also lists a
+`device_authorization_endpoint`, but a client you register starts with only
+the `authorization_code` and `refresh_token` grants, so the device flow is not
+open to it.
+
 ::: warning Following the legacy redirect on `/userinfo`
 If you keep calling the `civitai.com` base, your HTTP client has to follow the
 `308` to `auth.civitai.com`. `/token` and `/revoke` survive this transparently

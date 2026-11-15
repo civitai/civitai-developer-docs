@@ -24,7 +24,9 @@ name: appblocks-pin-bump
 # AGENT_APP_PRIVATE_KEY), minted in that job and scoped to this repository.
 # Its pushes start the ordinary `pull_request` runs.
 #
-# PRIVILEGE. Two jobs. `prepare` holds read scopes only and no app token, runs
+# PRIVILEGE. Two jobs do the work, plus `signal` (bottom of the file), which only
+# files or closes a failure report and holds `issues: write` and nothing else.
+# `prepare` holds read scopes only and no app token, runs
 # `npm ci` / `npm install` and the generators, and hands a git bundle to
 # `publish`, which mints the app token, installs nothing, recomputes the diff
 # and the auto-merge decision itself, and refuses to push a bundle that changes
@@ -160,3 +162,53 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           IN: ${{ runner.temp }}/pin-bump
         run: node scripts/bump-appblocks-pins.mjs --publish --in "$IN"
+
+  # File a report when `prepare` or `publish` fails, and close it when a later run
+  # is green. It calls civitai/cli's reusable `failure-issue.yml` directly
+  # (pinned to a commit sha; both repos are public), which owns WHEN to open, edit,
+  # comment or close. To take a later fix to that mechanism, bump the sha.
+  #
+  # Why it exists: a red scheduled run notifies almost nobody (only whoever last
+  # edited the `cron` line, through their own Actions setting), and a failed
+  # `prepare` stalls EVERY pin in the bump, since nothing else moves them.
+  #
+  # `always()` so a red job still reports; a cancelled job is not filed as a
+  # defect. A dry run is skipped too: it never bumps, installs or publishes, so its
+  # green would close a report about a path it did not exercise.
+  #
+  # `failing` reads `publish` as failing only on `failure`: it is SKIPPED, by
+  # design, whenever `prepare` decides there is nothing to bump (action != publish).
+  signal:
+    needs: [prepare, publish]
+    if: always() && !inputs.dry_run && needs.prepare.result != 'cancelled' && needs.publish.result != 'cancelled'
+    uses: civitai/cli/.github/workflows/failure-issue.yml@50b6355fa092d5b0efb888dbabf8692fcd2004bd # v0.1.140
+    permissions:
+      contents: read
+      issues: write
+    with:
+      marker: "[appblocks-pin-bump-bot]"
+      failing: ${{ needs.prepare.result != 'success' || needs.publish.result == 'failure' }}
+      # A change of state (which job is red) posts the one notifying comment.
+      state: "prepare=${{ needs.prepare.result }},publish=${{ needs.publish.result }}"
+      title: "[appblocks-pin-bump-bot] the pin-bump workflow failed (prepare: ${{ needs.prepare.result }}, publish: ${{ needs.publish.result }})"
+      body: |
+        The `appblocks-pin-bump` workflow failed, so the `@civitai/*` devDependency pins were **not** moved
+        to npm latest and no bump PR was opened or updated on `bot/appblocks-pin-bump`. Every pin in that
+        bump stalls until a run goes green; `appblocks-drift`'s `check:pins` / `check:ds-pins` stay red
+        meanwhile.
+
+        | Job | Result |
+        |---|---|
+        | `prepare` (bump pins, install the new versions, regenerate, commit to a git bundle) | `${{ needs.prepare.result }}` |
+        | `publish` (push the bundle, open or update the PR, set auto-merge, with the app token) | `${{ needs.publish.result }}` |
+
+        `publish` reads `skipped` when `prepare` failed, or when it found nothing to bump.
+
+        **Reproduce.** `node scripts/bump-appblocks-pins.mjs --dry-run` prints the plan without touching git;
+        the run log names the failing step. The script's tests are `npm run test:bump-appblocks-pins`. A
+        `publish` failure is usually the app token (repo variable `AGENT_APP_CLIENT_ID`, secret
+        `AGENT_APP_PRIVATE_KEY`) or the bot push guard (`scripts/lib/bot-push-guard.mjs`) refusing a path.
+
+        **Closing condition:** this issue closes itself on the first later non-dry-run run in which neither
+        job failed (checked by this `signal` job in that run). Nothing else closes it; closing it by hand
+        while the workflow is still red only means the next failing run opens a new one.

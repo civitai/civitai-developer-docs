@@ -16,8 +16,8 @@ import { parseReadme, scanSections, verifyPublished } from './lib/readme-hook-se
 import {
   assertAnnotatedHooksExist,
   correctionsFor,
-  retiredCorrections,
   returnInterfaceText,
+  staleAnnotations,
   SUPERSEDED_HOOKS,
 } from './lib/hook-annotations.mjs';
 
@@ -138,6 +138,19 @@ if (problems.length) {
   );
 }
 
+// 🔴 FAIL LOUD on a stale annotation: a retired README correction, or a hook with no
+// example that nobody decided to accept. Both used to be a NOTE / WARNING in a green
+// build log, which is how two retired corrections and an unlisted example-less hook
+// survived every build. See `staleAnnotations`.
+const stale = staleAnnotations(ordered);
+if (stale.length) {
+  throw new Error(
+    `gen-appblocks-hooks: ${stale.length} annotation(s) in scripts/lib/hook-annotations.mjs no longer match ` +
+      `@civitai/blocks-react@${version} — refusing to write hooks.json:\n` +
+      stale.map((p) => `  - ${p}`).join('\n'),
+  );
+}
+
 const artifact = {
   generatedAt: new Date().toISOString(),
   reactPackage: `@civitai/blocks-react@${version}`,
@@ -145,14 +158,9 @@ const artifact = {
   hooks: ordered,
 };
 const dest = writeArtifact('hooks.json', artifact);
-const noEx = ordered.filter((h) => !h.example).map((h) => h.name);
 const withNotes = ordered.filter((h) => h.notes.length).length;
 const withReturns = ordered.filter((h) => h.returns).length;
 log(`hooks: wrote ${ordered.length} hooks (${withNotes} with notes after the example, ${withReturns} with a return interface) -> ${dest}`);
-for (const c of retiredCorrections(ordered)) {
-  log(`  NOTE: the README_CORRECTIONS entry { hook: '${c.hook}', match: ${c.match} } no longer matches the published README — upstream fixed the sentence, so delete that entry from scripts/lib/hook-annotations.mjs`);
-}
-if (noEx.length) log(`  WARNING: no example for: ${noEx.join(', ')}`);
 // README sections that sit inside the hook list but are not a hook (`### SfwGate`,
 // …). They are deliberately NOT attached to the hook above them; name them so
 // what this page does not carry is visible, not silent.
