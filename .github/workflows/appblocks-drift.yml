@@ -49,13 +49,20 @@ on:
 # job below started needing `issues: write`, which is the same mistake in the
 # other direction. This is the only place the reach is stated in one piece:
 #
-#   READ-ONLY, CROSS-REPO, A DIFFERENT SECRET (not GITHUB_TOKEN)
+#   READ-ONLY, CROSS-REPO, A GITHUB APP TOKEN (not GITHUB_TOKEN)
 #   - check:snapshots      -> api.github.com/repos/civitai/civitai-orchestration/
-#                             contents/<path>?ref=main, with ORCHESTRATION_READ_TOKEN,
-#                             for the orchestration MCP registry snapshot
-#                             (scripts/check-appblocks-snapshots.mjs). That repo is
-#                             PRIVATE, so this is the one read that needs a grant;
-#                             unset, the step SKIPS that source and says so.
+#                             contents/<path>?ref=main, for the orchestration MCP
+#                             registry snapshot (scripts/check-appblocks-snapshots.mjs).
+#                             That repo is PRIVATE, so this is the one read that
+#                             needs a grant. The credential is an installation
+#                             token of the agent GitHub App (vars.AGENT_APP_CLIENT_ID
+#                             + secrets.AGENT_APP_PRIVATE_KEY, the same App the
+#                             pin-bump and cli-snapshot bots use), minted in the
+#                             `drift` job scoped to civitai-orchestration ONLY with
+#                             `contents: read` ONLY, and handed to that one step as
+#                             ORCHESTRATION_APP_TOKEN. If the mint fails (the App
+#                             is not installed on that repo), the step SKIPS that
+#                             source and prints UNVERIFIED naming the missing install.
 #
 #   READ-ONLY (`contents: read`), token buys rate-limit headroom and nothing else
 #   - check:cli-snapshot   -> api.github.com/repos/civitai/cli/releases/latest
@@ -103,7 +110,10 @@ on:
 # than inheriting it; and `issues: write` is held only by `notify`, which runs
 # ONE node script with no `npm ci` and no third-party code at all. That is the
 # same boundary cli-snapshot-refresh.yml draws for the same reason: the
-# privileged job should be the one holding nothing worth stealing.
+# privileged job should be the one holding nothing worth stealing. The one
+# exception is the read-only civitai-orchestration App token above: `drift`
+# holds it because that is where the check runs, so it is minted after `npm ci`
+# and handed to exactly one step (see that step).
 permissions:
   contents: read
 
@@ -126,12 +136,39 @@ jobs:
       - name: Install (pinned SDK devDeps for the SDK-bundled manifest schema)
         run: npm ci
 
+      # Read access to the PRIVATE civitai-orchestration repo, for the derived
+      # orchestration MCP registry snapshot only; every other source is public.
+      #
+      # Minted AFTER `npm ci`, so no dependency install script runs while the
+      # token exists. It is handed only to the next step, whose script imports
+      # node builtins and ./lib/mcp-registries.mjs and nothing from node_modules.
+      # The action revokes the token in its post step at job end.
+      #
+      # `continue-on-error` on THIS STEP ONLY: until the App is installed on
+      # civitai-orchestration the mint fails, and that must degrade to the
+      # UNVERIFIED skip below rather than turn the nightly sweep red.
+      - name: Mint a read-only civitai-orchestration token (agent GitHub App)
+        id: orch-token
+        continue-on-error: true
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.AGENT_APP_CLIENT_ID }}
+          private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
+          owner: civitai
+          repositories: civitai-orchestration
+          permission-contents: read
+
+      - name: Report a failed orchestration token mint as UNVERIFIED
+        if: steps.orch-token.outcome != 'success'
+        run: |
+          echo "::warning title=orchestration-mcp-tools.txt UNVERIFIED::could not mint an agent GitHub App token for civitai/civitai-orchestration (mint step outcome: ${{ steps.orch-token.outcome }}). The mint step log names the exact error. If the App (vars.AGENT_APP_CLIENT_ID) is not installed on civitai-orchestration, an org owner grants it at https://github.com/organizations/civitai/settings/installations/174974426 (Repository access -> add civitai-orchestration). The snapshot check below SKIPS that one source."
+          echo "UNVERIFIED: orchestration-mcp-tools.txt — agent GitHub App token mint failed for civitai/civitai-orchestration (App not installed on that repo?)" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Snapshot drift — appblocks-snapshots/ vs civitai@origin/main
         env:
-          # Read access to the PRIVATE civitai-orchestration repo, for the derived
-          # orchestration MCP registry snapshot only. Absent, that one source
-          # SKIPS (printed as UNVERIFIED); every other source is public.
-          ORCHESTRATION_READ_TOKEN: ${{ secrets.ORCHESTRATION_READ_TOKEN }}
+          # Empty when the mint above failed; that one source then SKIPS and
+          # prints UNVERIFIED.
+          ORCHESTRATION_APP_TOKEN: ${{ steps.orch-token.outputs.token }}
         run: npm run check:snapshots
 
       - name: CLI snapshot freshness — civitai-cli-help.txt vs the latest civitai/cli release

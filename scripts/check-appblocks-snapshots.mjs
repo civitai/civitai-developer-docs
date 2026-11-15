@@ -160,15 +160,17 @@ const SOURCES = [
   // 🔴 civitai-orchestration is PRIVATE. raw.githubusercontent answers 404 for a
   // private file without credentials, which this guard would read as "removed
   // upstream", a permanent false red. So this entry reads through the contents API
-  // with ORCHESTRATION_READ_TOKEN (read access to that repo; this repo's
-  // GITHUB_TOKEN cannot read another private repo) and SKIPS, loudly, when the
-  // token is absent. Until it is provisioned the snapshot's freshness is UNVERIFIED
-  // in CI, and the skip line says so.
+  // with ORCHESTRATION_APP_TOKEN: a read-only installation token of the agent
+  // GitHub App, minted by appblocks-drift.yml scoped to civitai-orchestration
+  // (this repo's GITHUB_TOKEN cannot read another private repo). It SKIPS, loudly,
+  // when the token is absent, i.e. the mint failed because the App is not
+  // installed on that repo; the snapshot's freshness is then UNVERIFIED and the
+  // skip line says so.
   {
     path: 'src/Civitai.Orchestration.McpServer/Infrastructure/McpEndpoints.cs (+ Tools/<V2Tools type>.cs)',
     snapshot: ORCHESTRATION_SNAPSHOT,
     base: ORCH_BASE,
-    token: 'ORCHESTRATION_READ_TOKEN',
+    token: 'ORCHESTRATION_APP_TOKEN',
     derive: deriveOrchestrationRegistry,
   },
 ];
@@ -496,7 +498,7 @@ async function main() {
     const local = normalize(readFileSync(snapPath, 'utf8'));
     const token = tokenEnv ? process.env[tokenEnv] || null : null;
     if (tokenEnv && !token) {
-      console.log(`  ⊘ ${snapshot} — UNVERIFIED: ${base} is a private repo and ${tokenEnv} is not set`);
+      console.log(`  ⊘ ${snapshot} — UNVERIFIED: ${base} is a private repo and ${tokenEnv} is not set (in CI: the agent GitHub App token mint failed; is the App installed on that repo?)`);
       skipped.push({ snapshot, path, note: `${tokenEnv} not set` });
       continue;
     }
