@@ -101,6 +101,5 @@ human-readable only.
 ## When you don't need buzz scopes
 
 If your app doesn't spend buzz on the user's behalf — e.g. a read-only
-analytics dashboard, or one that submits work using **your own**
-`client_credentials` token — don't request `AIServicesWrite`. Users won't
+analytics dashboard — don't request `AIServicesWrite`. Users won't
 see the buzz-cap UI, and you skip a whole category of failure modes.

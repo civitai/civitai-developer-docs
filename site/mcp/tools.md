@@ -71,7 +71,7 @@ Supported comment entity types include `article`, `image`, `post`, `model`, `rev
 | Tool | Purpose |
 |---|---|
 | `react` | Toggle a reaction (`Like`, `Dislike`, `Laugh`, `Cry`, `Heart`) on an entity. Fire-and-forget — re-read the entity to confirm. |
-| `upsert_resource_review` | Create / update a model-version review: rating 1–5, `recommend` flag, Markdown details. |
+| `upsert_resource_review` | Create / update a model-version review: rating 1–5, `recommended` flag (default `true`), Markdown details. |
 | `get_my_resource_review` | Fetch your existing review for a version (or null). |
 | `toggle_follow_user` | Follow / unfollow a user by ID or username. |
 | `toggle_favorite_model` | Bookmark a model with an explicit `setTo` flag. Distinct from notifications. |

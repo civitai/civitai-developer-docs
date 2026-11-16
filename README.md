@@ -208,9 +208,9 @@ entry in that format is a `tar.gz` or `SKILL.md` with a `sha256:` digest, and
 this project publishes no skill bundles — `llms.txt` is already the flat index,
 and a measured comparison put a flat index at 0.462 against 0.267 for a
 hierarchy. An index with zero or invented entries would read as coverage while
-providing none. The two MCP endpoints are absent for a different reason: a `GET`
-to `mcp.civitai.com/mcp` is a 405 and `orchestration.civitai.com/mcp` a 401, so
-they are transports rather than fetchable documents. The entry that would
+providing none. The two MCP endpoints are absent for a different reason: an
+anonymous `GET` to `mcp.civitai.com/mcp` or `orchestration.civitai.com/mcp`
+returns no document: they are transports rather than fetchable documents. The entry that would
 represent them is a `.well-known/mcp/server-card.json`, which this site does not
 serve yet.
 

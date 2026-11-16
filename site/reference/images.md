@@ -43,12 +43,12 @@ still see the previous behaviour for a while.
 | `imageId` | integer | — | Single-image lookup. |
 | `username` | string | — | Filter by uploader username. Auto-slugified. |
 | `userId` | integer | — | Filter by uploader user ID. |
-| `period` | `AllTime` \| `Year` \| `Month` \| `Week` \| `Day` | `AllTime` | Time window for sort metrics. |
-| `sort` | `Most Reactions` \| `Most Comments` \| `Most Collected` \| `Newest` \| `Oldest` \| `Random` | `Most Reactions` | |
-| `nsfw` | `None` \| `Soft` \| `Mature` \| `X` \| boolean | — | Legacy NSFW filter; prefer `browsingLevel`. |
+| `period` | `AllTime`, `Year`, `Month`, `Week`, `Day` | `AllTime` | Time window for sort metrics. |
+| `sort` | `Most Reactions`, `Most Comments`, `Most Collected`, `Newest`, `Oldest`, `Random` | `Most Reactions` | |
+| `nsfw` | `None`, `Soft`, `Mature`, `X`, or a boolean | — | Legacy NSFW filter; prefer `browsingLevel`. |
 | `browsingLevel` | integer (bitmask) | — | Raw browsing-level bitmask. Takes precedence over `nsfw`. |
 | `tags` | comma-separated integers | — | Tag IDs to require on each image. With several IDs, an image must carry **all** of them (not any one). |
-| `type` | `image` \| `video` \| `audio` | — | Media type. |
+| `type` | `image`, `video`, `audio` | — | Media type. |
 | `baseModels` | comma-separated strings | — | Filter to outputs from specific base models. |
 | `withMeta` | boolean | `false` | If `true`, include the full `meta` object (prompt, resources, etc.). |
 

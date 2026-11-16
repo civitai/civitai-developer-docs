@@ -167,8 +167,10 @@ civitai users get some-username
 ```
 
 `users get <username-or-id>` resolves a user through the public user search
-(`GET /api/v1/users`) — the public route is a fuzzy search, so a lookup returns
-the closest match. See [Users](../reference/users).
+(`GET /api/v1/users`). A numeric argument is an exact id lookup. A name goes to
+the public route's fuzzy search, so the CLI prints a user only on an exact
+(case-insensitive) username match; otherwise it lists the closest matches and
+fails as not-found (exit `4`). See [Users](../reference/users).
 
 ### Articles
 

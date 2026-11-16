@@ -43,8 +43,10 @@ sequenceDiagram
 ```
 
 `client_credentials` is also supported for confidential clients that need
-to act on **their own owner account** (no end-user involved) — useful for
-server-side maintenance jobs.
+to act on **their own owner account** (no end-user involved). It carries only a
+narrow, fixed set of scopes — e.g. [App Store catalog sync](/apps/guide/catalog-sync) —
+and never `AIServicesWrite`, so it cannot generate or spend Buzz; see
+[`client_credentials`](./endpoints#grant-client-credentials).
 
 ## Endpoint roster
 

@@ -32,8 +32,11 @@ that it **fits**, and `Resources ready` reports availability, not coherence
 ::: warning Which ecosystem a checkpoint belongs to is server knowledge
 The CLI does not hold it and will not guess — a vendored copy would go stale
 and start refusing valid *new* inputs — so there is no list of valid
-`--ecosystem` values here. `--ecosystem` is sent **verbatim**; an unknown value
-comes back as the server's own `unknown ecosystem` error.
+`--ecosystem` values here. `--ecosystem` is sent **verbatim**, and an unknown
+value is **not reliably refused**: a `--dry-run` with an unrecognised
+`--ecosystem` exits `0` with an estimate identical to omitting `--ecosystem`
+entirely, so a misspelt key looks like a working one. Do not treat the absence
+of an error as proof the server used the ecosystem you named.
 
 **If you name a checkpoint, name the `--ecosystem` it belongs to as well.**
 :::

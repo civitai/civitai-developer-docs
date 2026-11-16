@@ -194,8 +194,8 @@ GET /api/v1/users
 
 **Auth:** Public.
 
-Resolve user IDs or do a username prefix search. Returns just `{id, username}`
-per result — this endpoint is intentionally lean. Use it to map IDs to
+Resolve user IDs or do a fuzzy username search. Each result carries `id`, `username`,
+`avatarUrl`, `avatarNsfw` and `meta` — this endpoint is intentionally lean. Use it to map IDs to
 usernames (e.g. when post-processing `/images` results) or to power a
 "find user" autocomplete.
 
@@ -204,7 +204,7 @@ usernames (e.g. when post-processing `/images` results) or to power a
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `ids` | comma-separated integers | — | Look up specific user IDs. When set, the response limit is `ids.length`. |
-| `query` | string | — | Username prefix match (`username LIKE 'query%'`). Returns the shortest matches first. |
+| `query` | string | — | Fuzzy username search, not a prefix match: it tolerates typos and can return usernames that do not start with `query`. Returns up to 5 closest matches — pass `ids` when you need one exact user. |
 
 When neither `ids` nor `query` is supplied, the endpoint returns the first 5
 users in the database. That's almost never what you want — always pass one
