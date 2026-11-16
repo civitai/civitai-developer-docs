@@ -103,8 +103,3 @@ human-readable only.
 If your app doesn't spend buzz on the user's behalf — e.g. a read-only
 analytics dashboard — don't request `AIServicesWrite`. Users won't
 see the buzz-cap UI, and you skip a whole category of failure modes.
-
-A `client_credentials` token is **not** a way to submit generation work
-without that scope: the grant can never carry `AIServicesWrite` (see
-[`client_credentials`](./endpoints#grant-client-credentials) for the scopes it
-can carry), so it cannot spend Buzz at all.

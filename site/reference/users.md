@@ -194,8 +194,8 @@ GET /api/v1/users
 
 **Auth:** Public.
 
-Resolve user IDs or do a fuzzy username search. Returns just `{id, username}`
-per result — this endpoint is intentionally lean. Use it to map IDs to
+Resolve user IDs or do a fuzzy username search. Each result carries `id`, `username`,
+`avatarUrl`, `avatarNsfw` and `meta` — this endpoint is intentionally lean. Use it to map IDs to
 usernames (e.g. when post-processing `/images` results) or to power a
 "find user" autocomplete.
 
