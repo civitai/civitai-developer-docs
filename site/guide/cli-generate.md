@@ -267,7 +267,7 @@ re-attach with `civitai workflows get <workflow-id>` instead of re-submitting.
 | Generation disabled server-side | `1` |
 | Prompt refused by content moderation — **never retry**, repeated blocked prompts get the account muted | `1` |
 | The server priced the job but reports `ready: false` (a selected resource is not currently available) | `2` |
-| Estimate above `--max-cost`, an unknown ecosystem, or a resource that resolved fine but is "not enabled for generation" (the ids exist; the *combination* is not runnable — distinct from exit `4`, which means "no such id") | `2` |
+| Estimate above `--max-cost`, an `unknown ecosystem` error from the server (not guaranteed — an unrecognised `--ecosystem` can be priced as the default family instead; see [Choosing a model](./cli-generate-models#a-checkpoint-does-not-carry-its-ecosystem)), or a resource that resolved fine but is "not enabled for generation" (the ids exist; the *combination* is not runnable — distinct from exit `4`, which means "no such id") | `2` |
 | `--fail-on-substitution` and the **estimate** reported a substituted checkpoint — nothing submitted (see [Silent model substitution](./cli-generate-models#silent-model-substitution)) | `1` |
 | `--input` that is malformed, declares a non-`txt2img` workflow, carries an envelope key, or is combined with a content flag | `2` |
 | A `--out-name` template that is invalid, escapes `--out-dir`, or collides | `2` |
