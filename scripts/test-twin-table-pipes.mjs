@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { dropPipeEscapes, restoreTablePipes, restoreTwinTablePipes } from './lib/twin-table-pipes.mjs';
+import { hasPipeEscape, restoreTablePipes, restoreTwinTablePipes, serializeRow } from './lib/twin-table-pipes.mjs';
 
 let n = 0;
 function eq(actual, expected, name) {
@@ -43,9 +43,12 @@ eq(cells(BROKEN_ROW), 6, 'broken twin row has 6 cells (the bug)');
 eq(cells(CODE_ROW), 4, 'inline-code row has 4 cells');
 
 // The serializer model: `\|` dropped outside code spans, kept inside them.
-eq(dropPipeEscapes(SRC_ROW), BROKEN_ROW, 'drops escapes outside code');
-eq(dropPipeEscapes(CODE_ROW), CODE_ROW, 'keeps the escape inside a code span');
-eq(dropPipeEscapes('a ``x \\| `y` `` \\| b'), 'a ``x \\| `y` `` | b', 'double-backtick span kept');
+// (literal expectations, measured from remark 15 + remark-frontmatter 2026-11-17).
+eq(serializeRow(SRC_ROW), BROKEN_ROW, 'drops escapes outside code');
+eq(serializeRow(CODE_ROW), CODE_ROW, 'keeps the escape inside a code span');
+eq(serializeRow('a ``x \\| `y` `` \\| b'), 'a ``x \\| `y` `` | b', 'double-backtick span kept');
+eq(hasPipeEscape(SRC_ROW), true, 'escape outside code is detected');
+eq(hasPipeEscape(CODE_ROW), false, 'escape inside a code span is not');
 
 // ── one twin against its source ──────────────────────────────────────────────
 const source = [

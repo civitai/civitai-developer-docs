@@ -19,20 +19,30 @@
 // after which a twin row no longer equals its source row).
 //
 // HOW. For each source row outside a fenced block that carries a `\|` outside a
-// code span, the twin holds exactly that row with those backslashes removed
-// (what the serializer does). Every twin line outside a fence that equals that
-// form is replaced by the source row. Only rows the source escaped are touched,
+// code span, the twin holds exactly what the plugin's serializer makes of that
+// row. That is computed by running the row through the same processor the
+// plugin builds (`remark().use(remarkFrontmatter)`, default stringify options),
+// not modelled as "drop the `\|` backslashes": on the same line the serializer
+// also escapes `_` and `[`, decodes entities and drops trailing spaces, and a
+// row carrying one of those would match no hand-written model. `remark` and
+// `remark-frontmatter` are imported undeclared on purpose: the plugin is their
+// only dependent, so the hoisted copy IS the plugin's and tracks its version.
+// Every twin line outside a fence that equals that form is replaced by the
+// source row. Only rows the source escaped are touched,
 // so a fenced block or a code span in the twin can never be rewritten: neither
 // the match nor the replacement looks inside one.
 //
 // 🔴 FAIL-LOUD. A source row with an escape that appears in its twin neither
-// broken nor intact means the plugin changed the row some other way, and the
-// row would ship broken without anyone seeing it: `restoreTwinTablePipes`
+// broken nor intact means the twin's row did not come from serializing that
+// line alone (an `<llm-exclude>`, an include, or a plugin change), and the row
+// would ship broken without anyone seeing it: `restoreTwinTablePipes`
 // throws and fails the build. `check:twin-tables` independently asserts every
 // table in the built twins has a constant column count.
 
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
+import { remark } from 'remark';
+import remarkFrontmatter from 'remark-frontmatter';
 import { frontmatterUrl, mapProseSegments, sourceFileOf, splitBundle } from './twin-links.mjs';
 
 const FENCE = /^\s*(`{3,}|~{3,})/;
@@ -56,9 +66,16 @@ function eachProseLine(lines, fn) {
   }
 }
 
-/** What the plugin's serializer makes of a line: `\|` -> `|`, outside code spans only. */
-export function dropPipeEscapes(line) {
-  return mapProseSegments(line, (seg) => seg.replaceAll('\\|', '|'));
+/** True when `line` has a `\|` outside its code spans: the escape the serializer drops. */
+export function hasPipeEscape(line) {
+  return mapProseSegments(line, (seg) => seg.replaceAll('\\|', '|')) !== line;
+}
+
+const serializer = remark().use(remarkFrontmatter);
+
+/** What the plugin's serializer makes of one table row (no trailing newline). */
+export function serializeRow(line) {
+  return String(serializer.processSync(line)).replace(/\n$/, '');
 }
 
 /**
@@ -69,8 +86,8 @@ export function escapedRows(sourceText) {
   const rows = new Map();
   eachProseLine(sourceText.split('\n'), (line) => {
     if (!line.trimStart().startsWith('|')) return;
-    const broken = dropPipeEscapes(line);
-    if (broken === line) return;
+    if (!hasPipeEscape(line)) return;
+    const broken = serializeRow(line);
     const prev = rows.get(broken);
     if (prev !== undefined && prev !== line) {
       throw new Error(`two different source rows serialize to the same twin row: ${JSON.stringify(broken)}`);
@@ -172,7 +189,9 @@ export function restoreTwinTablePipes(outDir, srcDir) {
   if (missed.length > 0) {
     throw new Error(
       `twin-table-pipes: ${missed.length} escaped source table row(s) appear in no twin, broken or intact ` +
-        `(the plugin changed them some other way):\n  ${missed.join('\n  ')}`,
+        `(the plugin's serializer emitted them as something other than serializing that line alone; ` +
+        `check for an <llm-exclude> or include around the row, or reword the cell so it needs no \\| ` +
+        `outside a code span):\n  ${missed.join('\n  ')}`,
     );
   }
   return { twins, sections, rowsRestored, filesChanged };
