@@ -116,6 +116,13 @@ jobs:
       - name: Assert the .md twin link rewriter's contract
         run: npm run test:twin-links
 
+      # Unit contract of the post-build pass that puts the `\|` escapes back into
+      # twin table rows (scripts/lib/twin-table-pipes.mjs, run from `buildEnd`).
+      # Before the build for the same reason: it names the pass, and it is the
+      # only check that sees a fenced block or a code span left untouched.
+      - name: Assert the .md twin table-pipe restorer's contract
+        run: npm run test:twin-table-pipes
+
       # Same reasoning: unit contract of the agent-surface passes the build runs
       # from `buildEnd` (absolute .md links, index note, section indexes) and of
       # the operation twins — including their FAIL-LOUD count, which the corpus
@@ -157,6 +164,14 @@ jobs:
       # every root link must reach a page in this build. Also: every page is in an allowlisted section.
       - name: Assert every .md twin's and llms-full.txt's links resolve from the URL they are served at
         run: npm run check:twin-links
+
+      # The plugin re-serializes pages without GFM and dropped the `\|` escapes,
+      # so an escaped pipe in a cell became a column separator in the twin: 10
+      # rows across 7 pages on the live site, 2026-11-17, every HTML page correct.
+      # Asserts every table row in every twin and llms-full.txt has its header's
+      # cell count, counted the way GFM does (independent of the fix).
+      - name: Assert every table in every .md twin and llms-full.txt keeps its column count
+        run: npm run check:twin-tables
 
       # The agent surface on the BUILT site, each assertion a relationship: spec
       # operations == operation twins == operation HTML pages == llms.txt's

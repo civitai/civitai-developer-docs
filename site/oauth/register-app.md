@@ -53,7 +53,7 @@ Drop-down with four bundles for the common cases:
 |---|---|
 | **Read Only** | Browsers, dashboards, anything that doesn't write or spend buzz. |
 | **Creator** | Apps that upload models / media / articles on the user's behalf. |
-| **AI Services** | Generation-focused clients — `AIServicesRead | AIServicesWrite | BuzzRead`. Pair with `UserRead` for "who is this user?" calls. |
+| **AI Services** | Generation-focused clients — `AIServicesRead \| AIServicesWrite \| BuzzRead`. Pair with `UserRead` for "who is this user?" calls. |
 | **Full Access** | Power-user tooling. Avoid for general distribution — users will balk. |
 
 Pick **Custom** to mix and match from the permissions grid below the preset.
