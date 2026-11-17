@@ -124,6 +124,30 @@ const mangled = restoreTablePipes(twin.replace(BROKEN_ROW, BROKEN_ROW.replace('�
 eq(mangled.missed.length, 1, 'mangled row is missed');
 eq(mangled.missed[0], SRC_ROW, 'missed names the source row');
 
+// The serializer rewrites more than `\|` on the same line: `_` -> `\_`,
+// `[` -> `\[`, `&amp;` -> `&`, trailing spaces dropped. A row carrying one of
+// those beside an escaped pipe must still be found and restored, not reported
+// missed (which fails the build). Each twin row is what remark 15 +
+// remark-frontmatter emit for the source row, measured 2026-11-17;
+// `apps/reference/cli/app.md` already has `wont_fix` in a generated cell.
+const AMP = '&amp;';
+for (const [name, srcRow, twinRow] of [
+  [
+    'underscore beside an escaped pipe',
+    '| `--status` | new \\| acknowledged \\| resolved \\| wont_fix \\| all |',
+    '| `--status` | new | acknowledged | resolved | wont\\_fix | all |',
+  ],
+  ['bracket and entity beside an escaped pipe', `| a \\| b | see [x] and *y* ${AMP} z |`, '| a | b | see \\[x] and *y* & z |'],
+  ['trailing spaces after an escaped row', '| `x` | a \\| b |  ', '| `x` | a | b |'],
+]) {
+  const s = `| H1 | H2 |\n|---|---|\n${srcRow}\n`;
+  const t = `---\nurl: /x.md\n---\n| H1 | H2 |\n|---|---|\n${twinRow}\n`;
+  const got = restoreTablePipes(t, s);
+  eq(got.missed.length, 0, `${name}: not missed`);
+  eq(got.restored, 1, `${name}: restored`);
+  eq(got.text, `---\nurl: /x.md\n---\n| H1 | H2 |\n|---|---|\n${srcRow}\n`, `${name}: source row put back`);
+}
+
 // ── the post-build pass over a fixture dist ───────────────────────────────────
 const root = mkdtempSync(join(tmpdir(), 'twin-table-pipes-'));
 try {
