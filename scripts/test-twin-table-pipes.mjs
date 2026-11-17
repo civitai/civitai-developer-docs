@@ -130,7 +130,7 @@ try {
   const src = join(root, 'src');
   const out = join(root, 'dist');
   for (const d of ['site/reference', 'apps/guide']) mkdirSync(join(src, d), { recursive: true });
-  for (const d of ['site/reference', 'agent-setup']) mkdirSync(join(out, d), { recursive: true });
+  for (const d of ['site/reference', 'agent-setup', 'apps']) mkdirSync(join(out, d), { recursive: true });
   writeFileSync(join(src, 'site/reference/models.md'), source);
   // An index page: twin /apps/guide.md, source apps/guide/index.md.
   const guideSrc = '| Opt | Values |\n|---|---|\n| `t` | a \\| b |\n';
