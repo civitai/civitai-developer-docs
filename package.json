@@ -65,6 +65,8 @@
     "check:agent-md": "node scripts/check-agent-md.mjs",
     "check:twin-links": "node scripts/check-twin-links.mjs",
     "test:twin-links": "node scripts/test-twin-links.mjs",
+    "test:twin-table-pipes": "node scripts/test-twin-table-pipes.mjs",
+    "check:twin-tables": "node scripts/check-twin-tables.mjs",
     "check:agent-surface": "node scripts/check-agent-surface.mjs",
     "test:agent-surface": "node scripts/test-agent-surface.mjs",
     "test:nginx-negotiation": "node scripts/test-nginx-negotiation.mjs",
