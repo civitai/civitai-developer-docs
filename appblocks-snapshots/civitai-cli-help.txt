@@ -1,6 +1,6 @@
 civitai CLI help snapshot (the WHOLE command tree)
 Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
-Binary version: civitai 0.1.141
+Binary version: civitai 0.1.142
 Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
 else parses this committed snapshot. To refresh: run
 node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).
@@ -18,10 +18,11 @@ It does three things from one static binary:
     right folder for ComfyUI / A1111.
   • Build & submit Apps — small, sandboxed web apps that run inside Civitai
     surfaces. Scaffold a correct project, validate it against the platform
-    contract, and package it for submission. EVERY civitai app command needs a
-    token, including the App-store browse commands app list / app view: that
-    endpoint keys the visible catalog off your identity, so it has no
-    anonymous view.
+    contract, and package it for submission. Local authoring (app create,
+    app validate) runs without a token; every app command that talks to the
+    platform needs one, including the App-store browse commands app list /
+    app view: that endpoint keys the visible catalog off your identity, so it
+    has no anonymous view.
   • Generate images — civitai generate "<prompt>". This SPENDS REAL BUZZ and
     needs the AI Services scopes (civitai login --scopes generate, or a
     full-scope personal API key); price a job with --dry-run first.
@@ -461,12 +462,12 @@ It also emits non-fatal WARNINGS the schema can't catch as hard errors:
     not checked; a .collection( call on anything but a storage client (a name
     ending in storage, or an awaited call such as (await docs())) is not the
     document store.
-  - source that calls useAppStorage() or useSharedStorage() while the manifest
-    declares NO scope for that store (apps:storage:read / apps:storage:write,
-    or apps:storage:shared:read / apps:storage:shared:write). The server gates
-    storage by PRESENCE in the approved scope set, so every call 403s in
-    production while working locally against the mock host. One scope for the
-    store is enough to silence it; the two stores are asked independently.
+  - source that calls useAppStorage() or useSharedStorage(), whatever scopes
+    the manifest declares. Both legacy stores are removed: civitai.com refuses
+    every call with legacy_store_removed, and @civitai/blocks-react 0.81.0 no
+    longer exports the hooks, so adding apps:storage:read / :write or
+    apps:storage:shared:read / :write does not help. Move the data to the
+    document store.
     Advisory ONLY: these read source statically. Same corpus rules as the
     ready-ack check — source only, comments stripped, node_modules and build
     output skipped — and test code is not read: *.test.*, *.spec.*, a file
@@ -601,6 +602,14 @@ Listing-completeness gate:
 
   Your FIRST submit is what creates the store listing, so there is nothing to
   check yet and nothing is refused; the gate applies from the second one on.
+
+GitHub Actions:
+  When CIVITAI_GITHUB_OIDC_TOKEN is set (the civitai/app-submit-action Action
+  sets it on a tag push), the token is sent with the submit. The server checks
+  it with GitHub and records the workflow run's repository, tag and commit
+  with the submission; a token that fails that check refuses the submit, and
+  the error says why. It is read from the environment only (there is no flag,
+  so it never appears on the command line) and is never printed.
 
 Storage migration notes:
   An app that declares App Storage collections is checked by the SERVER
@@ -1405,15 +1414,14 @@ STORAGE DOES NOT WORK UNDER dev:live, whatever credential you mint with:
   - The document store (@civitai/sdk app.storage.collection) is not reached at
     all: @civitai/sdk calls it over HTTP, not over the block→host bridge the
     page-money harness forwards, and that template does not use @civitai/sdk.
-  - Legacy App Storage (useAppStorage) is forwarded, and the server refuses it
-    with 401: those calls need a civitai.com browser session, which a local
-    harness never has. It says nothing about your account or your app.
-  - Legacy shared storage (useSharedStorage) is refused too. Until the app has
-    an approved version the refusal is "app block not found" or "app block is
-    not approved"; once it has one, it is for scope, because the
-    apps:storage:shared:* scopes are never minted on a dev token.
-Exercise the legacy stores under "npm run dev:harness", and the document store
-with createFakeStorage from @civitai/sdk/testing.
+  - The legacy stores (useAppStorage, useSharedStorage) are removed: civitai.com
+    refuses every call to them, in production too (legacy_store_removed, since
+    2026-11-10), and @civitai/blocks-react 0.81.0 no longer exports the hooks.
+    Under dev:live the refusal you see may not be legacy_store_removed: a
+    useAppStorage call is refused first with 401 "Apps access is not enabled
+    for this browser session", because that check runs before the removal
+    check and a local harness never has a civitai.com browser session.
+Exercise the document store with createFakeStorage from @civitai/sdk/testing.
 
 --spend is the explicit affirmation that this token may spend real Buzz. It does
 two things to the request: it adds ai:write:budgeted to the scopes REQUESTED from
@@ -2412,9 +2420,13 @@ Identify the version deterministically by its numeric version id:
 
   civitai download 691639
 
-…or resolve a model's default (first published) version with --model:
+…or resolve a model's default version with --model. The default is the FIRST
+version the API lists for the model — the top of the creator's version order,
+usually but not always the newest, and NOT the first published:
 
   civitai download --model 4384
+
+To get any other version of the model, name it by its version id.
 
 The positional id is normally a model-VERSION id, but 'civitai models search'
 and 'civitai models get' list MODEL ids — so handing a model id as the positional
@@ -2425,7 +2437,10 @@ numbers), the CLI STOPS and asks you to disambiguate rather than silently
 downloading an unrelated model's version — re-run with --model <id> (the model's
 default version) or --version <id> (that version as-is). Use --version to name a
 version id explicitly and skip that stop; --yes proceeds on the version
-interpretation and echoes exactly which version it is downloading.
+interpretation and echoes exactly which version it is downloading. If the
+model-id check itself fails (rate limited, server or network error), the
+download stops; with --yes it proceeds with the version and says the check
+failed and why.
 
 Use --dry-run to print the resolved plan (files, sizes, SHA256, target paths,
 and whether auth is required) without transferring anything. It creates no
@@ -2559,7 +2574,7 @@ Flags:
       --force             re-download even if the target file already exists
   -h, --help              help for download
       --layout string     route each file into its type's subfolder for an app (a1111|comfyui); mutually exclusive with --out/--out-dir
-      --model string      resolve+download a MODEL's default (first published) version instead of a version id
+      --model string      resolve+download a MODEL's default version (the first the API lists: the creator's top version, not the first published) instead of a version id
       --no-verify         skip SHA256 verification of the downloaded bytes
       --out string        target file path (single-file only; mutually exclusive with --all/--out-dir)
       --out-dir string    directory to write server-named file(s) into (created if needed)
@@ -3099,7 +3114,7 @@ Flags:
       --meta                   include generation metadata (prompt, sampler, seed, etc.)
       --model-id int           filter by model id
       --model-version-id int   filter by model version id
-      --nsfw                   include NSFW results
+      --nsfw                   FILTER to NSFW (mature-rated) images only — it does not add them to the default mix; --nsfw=false filters to safe-for-work only
       --page int               page number (shallow paging; prefer --cursor)
       --period string          time period (AllTime, Year, Month, Week, Day)
       --post-id int            filter by post id
@@ -3125,7 +3140,9 @@ Alternatively, pass --token to store a personal API key created at
 https://civitai.com/user/account (API Keys). Passing --token with NO value prints
 where to create that key and how to re-run (it does not log in). Either way the
 credential is saved
-to your config file (~/.config/civitai/config.yaml, owner-readable only). The
+to config.yaml in your per-OS config directory, owner-readable only:
+~/.config/civitai/ on Linux ($XDG_CONFIG_HOME/civitai/ when set),
+~/Library/Application Support/civitai/ on macOS, %AppData%\civitai\ on Windows. The
 CIVITAI_TOKEN environment variable still overrides the stored credential.
 
 SCOPES. By DEFAULT `civitai login` grants identity + Apps submit +
@@ -3205,7 +3222,7 @@ Aliases:
 Examples:
   civitai model-versions get 128713
   civitai mv get 128713 --json
-  civitai model-versions by-hash 5D8D26E2A6
+  civitai model-versions by-hash 879DB523C3
 
 Available Commands:
   by-hash     Get a model version by file hash (GET /api/v1/model-versions/by-hash/{hash})
@@ -3248,8 +3265,8 @@ Usage:
   civitai model-versions by-hash <hash> [flags]
 
 Examples:
-  civitai model-versions by-hash 5D8D26E2A6
-  civitai mv by-hash 5D8D26E2A6 --json
+  civitai model-versions by-hash 879DB523C3
+  civitai mv by-hash 879DB523C3 --json
 
 Flags:
       --anon   force an anonymous request (ignore any stored login token)

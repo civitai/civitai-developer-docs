@@ -299,12 +299,12 @@ It also emits non-fatal WARNINGS the schema can't catch as hard errors:
     not checked; a .collection( call on anything but a storage client (a name
     ending in storage, or an awaited call such as (await docs())) is not the
     document store.
-  - source that calls useAppStorage() or useSharedStorage() while the manifest
-    declares NO scope for that store (apps:storage:read / apps:storage:write,
-    or apps:storage:shared:read / apps:storage:shared:write). The server gates
-    storage by PRESENCE in the approved scope set, so every call 403s in
-    production while working locally against the mock host. One scope for the
-    store is enough to silence it; the two stores are asked independently.
+  - source that calls useAppStorage() or useSharedStorage(), whatever scopes
+    the manifest declares. Both legacy stores are removed: civitai.com refuses
+    every call with legacy_store_removed, and @civitai/blocks-react 0.81.0 no
+    longer exports the hooks, so adding apps:storage:read / :write or
+    apps:storage:shared:read / :write does not help. Move the data to the
+    document store.
     Advisory ONLY: these read source statically. Same corpus rules as the
     ready-ack check — source only, comments stripped, node_modules and build
     output skipped — and test code is not read: *.test.*, *.spec.*, a file
@@ -436,6 +436,14 @@ Listing-completeness gate:
 
   Your FIRST submit is what creates the store listing, so there is nothing to
   check yet and nothing is refused; the gate applies from the second one on.
+
+GitHub Actions:
+  When CIVITAI_GITHUB_OIDC_TOKEN is set (the civitai/app-submit-action Action
+  sets it on a tag push), the token is sent with the submit. The server checks
+  it with GitHub and records the workflow run's repository, tag and commit
+  with the submission; a token that fails that check refuses the submit, and
+  the error says why. It is read from the environment only (there is no flag,
+  so it never appears on the command line) and is never printed.
 
 Storage migration notes:
   An app that declares App Storage collections is checked by the SERVER
@@ -730,15 +738,14 @@ STORAGE DOES NOT WORK UNDER dev:live, whatever credential you mint with:
   - The document store (@civitai/sdk app.storage.collection) is not reached at
     all: @civitai/sdk calls it over HTTP, not over the block→host bridge the
     page-money harness forwards, and that template does not use @civitai/sdk.
-  - Legacy App Storage (useAppStorage) is forwarded, and the server refuses it
-    with 401: those calls need a civitai.com browser session, which a local
-    harness never has. It says nothing about your account or your app.
-  - Legacy shared storage (useSharedStorage) is refused too. Until the app has
-    an approved version the refusal is "app block not found" or "app block is
-    not approved"; once it has one, it is for scope, because the
-    apps:storage:shared:* scopes are never minted on a dev token.
-Exercise the legacy stores under "npm run dev:harness", and the document store
-with createFakeStorage from @civitai/sdk/testing.
+  - The legacy stores (useAppStorage, useSharedStorage) are removed: civitai.com
+    refuses every call to them, in production too (legacy_store_removed, since
+    2026-11-10), and @civitai/blocks-react 0.81.0 no longer exports the hooks.
+    Under dev:live the refusal you see may not be legacy_store_removed: a
+    useAppStorage call is refused first with 401 "Apps access is not enabled
+    for this browser session", because that check runs before the removal
+    check and a local harness never has a civitai.com browser session.
+Exercise the document store with createFakeStorage from @civitai/sdk/testing.
 
 --spend is the explicit affirmation that this token may spend real Buzz. It does
 two things to the request: it adds ai:write:budgeted to the scopes REQUESTED from
