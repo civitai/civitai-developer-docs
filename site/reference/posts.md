@@ -58,7 +58,8 @@ Key fields shown; each entry in `images` carries every field of an
       "thumbnail": null,
       "meta": null
     }
-  ]
+  ],
+  "hasMoreImages": false
 }
 ```
 
@@ -73,8 +74,9 @@ Key fields shown; each entry in `images` carries every field of an
   shape as an item from [`GET /images`](./images), including `thumbnail` for
   videos, with `meta` always `null`; use `/images?postId=` with
   `withMeta=true` for generation data.
-- `images` holds the first 100 entries in post order, with no cursor. Use
-  `/images?postId=` to page through a larger post.
+- `images` holds the first 100 entries in post order, with no cursor.
+  `hasMoreImages` is `true` when the post has more images than that; use
+  `/images?postId=` to page through them.
 - An image above the browsing level served to your region, or one not yet
   scanned, is left out of `images` rather than returned, so `images` can be
   empty.
@@ -90,7 +92,7 @@ Key fields shown; each entry in `images` carries every field of an
 | `400` | `id` is not a positive integer. |
 | `404` | The post doesn't exist, isn't published yet, is private or in early access, or hasn't finished moderation scanning (or was blocked). In a restricted region, a post with any mature content is also a `404`. These cases are indistinguishable: `{ "error": "Post not found" }`. |
 | `429` | Rate limit exceeded. Retry after the `Retry-After` header. |
-| `503` | The server is busy. Retry after the `Retry-After` header. |
+| `503` | The server is busy, or the post's image query timed out. Not cached; retry after the `Retry-After` header (`2`). `{ "error": "Server busy, please retry shortly." }` |
 
 ### Example
 
