@@ -2,9 +2,9 @@
 title: Moving a block off the bridge
 description: Replace a block's postMessage data calls with /api/v1/blocks/* REST calls — what each credential reaches, what auth oauth gives up, and a hook-by-hook replacement table.
 sources:
-  - npm:@civitai/blocks-react@0.81.0/dist/index.d.ts
-  - npm:@civitai/sdk@0.26.0/dist/index.d.ts
-  - npm:@civitai/sdk@0.26.0/dist/workflows/index.d.ts
+  - npm:@civitai/blocks-react@0.83.0/dist/index.d.ts
+  - npm:@civitai/sdk@0.28.0/dist/index.d.ts
+  - npm:@civitai/sdk@0.28.0/dist/workflows/index.d.ts
   - civitai-app-starters:packages/civitai-sdk/BREAKING.md
   - civitai:public/schemas/app-block/v1.json#auth
   - civitai:src/pages/api/v1/blocks
@@ -222,6 +222,7 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 | `useBuzzTransactions` | **No route yet** |
 | `useBuzzWorkflow` | `/api/v1/blocks/workflows/{estimate,submit,poll,cancel}`. In `@civitai/sdk`: `app.workflows.estimate`, `submit`, `get` (the `poll` route), `watch`, `wait` and `cancel` — see [Money calls](./sdk#money-calls) for what changes in the port |
 | `useCheckpointPicker` | **Keep** the picker (host UI); `.persist` → `POST /api/v1/blocks/user-checkpoint/set` |
+| `useCivitaiLocation` | **Keep** — like `useCivitaiRoute`, it reads the host-owned view (sub-path, query string and fragment) from the handshake and `ROUTE_CHANGED`; off the bridge your own router owns the URL, so there is nothing to replace |
 | `useCivitaiNavigate` | **Keep** — host UI |
 | `useCivitaiRoute` | **Keep** — reads the host-owned sub-path from the handshake and `ROUTE_CHANGED`; off the bridge your own router owns the URL, so there is nothing to replace |
 | `useCollectionFollow` | `POST /api/v1/blocks/collections/{id}/follow` |
@@ -239,6 +240,7 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 | `useImageUpload` | **Keep** — host UI. (`@civitai/sdk` covers it as `host.openImageUpload`, usable on either credential — but that is still a bridge message, not a route.) |
 | `useMediaUpload` | **Keep** — a bridge message with no route. It sends `OPEN_MEDIA_UPLOAD` (the host's picker, or your own `bytes` with no picker), and the host stores the file as a private generation input; no `/api/v1/blocks/*` route accepts a media upload. Page apps only |
 | `useNestedDocument` | Local — fetches one of your own bundled documents into a `srcdoc` string; it never talks to the platform |
+| `useOutputUnlock` | **Keep** — host UI. It sends `REQUEST_OUTPUT_UNLOCK`, and the host reads the live workflow, decides what to offer and draws the unlock dialog in its own chrome; no `/api/v1/blocks/*` route unlocks an output |
 | `usePersistGenerationSource` | **Keep** — a bridge message with no route. It sends `PERSIST_GENERATION_SOURCE`, and the page host stores one of the app's own finished outputs as a private, scanned generation source as the signed-in viewer; no `/api/v1/blocks/*` route does this. Page apps only. `@civitai/sdk` has no typed wrapper, but `BlockTransport.request('PERSIST_GENERATION_SOURCE', …)` sends the same message |
 | `usePublishGenerationOutputs` | **Stays on the bridge, by design** |
 | `useReactions` | **No route yet** — `GET_ENTITY_REACTIONS` and `SET_ENTITY_REACTION` are bridge messages, and no `/api/v1/blocks/*` route reads or sets a reaction. The tickets it needs do come from REST: each image `/api/v1/blocks/images`, `/api/v1/blocks/gated-images` or `/api/v1/blocks/collections/{id}` serves to a signed-in viewer carries a `reactTicket` |
@@ -249,6 +251,7 @@ node -e "import('@civitai/blocks-react').then(m => console.log(Object.keys(m).fi
 | `useRunConfirmedStep` | **Keep** — host UI; the job runs only after the viewer confirms its price in a dialog Civitai shows in its own chrome |
 | `useRunTraining` | **Keep** — host UI; the run starts only from the consent dialog Civitai shows in its own chrome |
 | `useSaveImage` | **Keep** — host UI; the host fetches from origins it allowlists |
+| `useShareLink` | **Keep** — host UI. It sends `SHARE_LINK`; the host builds the canonical link from its own origin and your app's slug, and copies it or opens the share sheet from the viewer's click; no `/api/v1/blocks/*` route makes a share link. Page apps only |
 | `useTip` | `POST /api/v1/blocks/tip` |
 | `useTipAllowance` | `GET /api/v1/blocks/tip-allowance` |
 | `useUploadImageBytes` | **Keep** — a bridge message with no route. It sends `OPEN_IMAGE_UPLOAD` with `bytes`, and the host stores, persists and scans the image; no `/api/v1/blocks/*` route accepts an image upload. Page apps only, and the token needs `posts:write:self`. See [Posting from an app](./posting#upload-then-post) |

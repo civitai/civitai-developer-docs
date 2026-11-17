@@ -9,7 +9,7 @@ description: "Wildcard packs and workflow files, checkpoint, resource and image 
 
 Wildcard packs and workflow files, checkpoint, resource and image pickers, uploading images and other media, saving images, and creating posts.
 
-This page documents 10 of the 48 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.81.0` package's type definitions and README.
+This page documents 10 of the 51 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.83.0` package's type definitions and README.
 
 Other pages: [Context, frame and analytics hooks](./context) · [Generation hooks](./generation) · [Batch, confirmed-step and training hooks](./batches-and-training) · [Buzz, purchase and tip hooks](./buzz-and-purchases) · [Viewer, consent and navigation hooks](./viewer-and-navigation)
 
@@ -366,11 +366,11 @@ useImageUpload(options: {
 
 ```ts
 interface UseImageUploadGenerationSource {
-  open: () => Promise<BlockGenerationSourceImageInfo | null>;
+  open: () => Promise<BlockUploadedGenerationSource | null>;
 }
 ```
 
-Host-mediated image upload — the host opens its native upload modal and the iframe never handles the bytes. Resolves with a moderated image (or `null` on dismiss); pass `{ purpose: 'generationSource' }` for an unscanned img2img source, `{ purpose: 'trainingData' }` for several private training images in one call (`[{ url, air }] | null` — see the LoRA training section), or `{ asyncScan: true }` for the early-resolve + `scanStatus()` flow.
+Host-mediated image upload — the host opens its native upload modal and the iframe never handles the bytes. Resolves with a moderated image (or `null` on dismiss); pass `{ purpose: 'generationSource' }` for a private img2img source, `{ purpose: 'trainingData' }` for several private training images in one call (`[{ air }] | null`, an AIR reference each — see the LoRA training section), or `{ asyncScan: true }` for the early-resolve + `scanStatus()` flow.
 
 ```tsx
 const { open } = useImageUpload();
@@ -384,6 +384,11 @@ if (img) {
     params: { prompt },
   });
 }
+```
+
+```md
+**`{ purpose: 'generationSource' }`** resolves with a `BlockUploadedGenerationSource`
+(`@civitai/app-sdk/blocks`; see its docs for `imageId` and `ready`).
 ```
 
 **`useUploadImageBytes`**

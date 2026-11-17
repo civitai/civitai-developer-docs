@@ -9,7 +9,7 @@ description: "useBuzzWorkflow and the hooks that list, publish and resource a ge
 
 `useBuzzWorkflow` and the hooks that list, publish and resource a generation.
 
-This page documents 5 of the 48 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.81.0` package's type definitions and README.
+This page documents 5 of the 51 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.83.0` package's type definitions and README.
 
 Other pages: [Context, frame and analytics hooks](./context) · [Batch, confirmed-step and training hooks](./batches-and-training) · [Buzz, purchase and tip hooks](./buzz-and-purchases) · [Viewer, consent and navigation hooks](./viewer-and-navigation) · [Storage, picker and media hooks](./storage-and-media)
 
@@ -331,6 +331,132 @@ Nothing is charged.
 | `'not-api-format'` | an inline `customComfy` graph is not ComfyUI API format (`checkComfyGraph` reports the same code) | starts with `inline workflow is not a ComfyUI API-format graph` | no — export the graph with "Export (API)" and keep only `class_type` and `inputs` on each node |
 | `'model-filenames'` | an inline `customComfy` graph's loader names a model by filename instead of an AIR (`checkComfyGraph` reports the same code) | starts with `inline workflow loads models by filename, which the worker cannot load: ` | no — reference each model by its AIR (`urn:air:…`) and declare it in `resources` |
 
+#### Restricted outputs: `snapshot.outputs`
+
+A finished snapshot can hold an output the host will **not** hand your app. This
+happens in two cases. The Buzz that paid for the generation does not include mature
+content for this viewer, or the output is above the viewer's own browsing level,
+capped by your app's maturity ceiling (an SFW app on an SFW host caps every viewer at
+PG-13). Such an output is **restricted**: the host withholds its url.
+
+`snapshot.outputs` lists every available output in order, restricted ones **in
+position**. Render your result grid from it:
+
+```tsx
+import type { BlockWorkflowOutput, BlockWorkflowSnapshot } from '@civitai/app-sdk/blocks';
+
+function Results({ snapshot }: { snapshot: BlockWorkflowSnapshot }) {
+  // An older host sends no `outputs`; fall back to the urls.
+  const outputs: BlockWorkflowOutput[] =
+    snapshot.outputs ?? (snapshot.imageUrls ?? []).map((url) => ({ url }));
+  return (
+    <div className="grid">
+      {outputs.map((out, i) =>
+        out.restricted === true ? (
+          // No url to load. Do not try to fetch anything for this tile.
+          <div key={i} className="locked">
+            {out.reason === 'pool' ? 'Mature content is not included with this Buzz' : 'Not available here'}
+          </div>
+        ) : out.pending === true ? (
+          // Not rated yet: `snapshot.ratingPending` is set and `watch` keeps polling.
+          <div key={i} className="processing">Still processing</div>
+        ) : out.blocked === true ? (
+          <div key={i} className="locked">Not available</div>
+        ) : (
+          <img key={i} src={out.url} alt="" />
+        ),
+      )}
+    </div>
+  );
+}
+```
+
+- `{ url, nsfwLevel? }`: load and show it. `nsfwLevel` is `'pg'`, `'pg13'`,
+  `'r'`, `'x'` or `'xxx'`, and is absent when there is no rating to report and
+  none could restrict the output (an output whose rating could is `{ pending }`).
+- `{ restricted: true, reason }`: **show a locked state; there is no url, and do
+  not try to fetch one.** `'pool'` means the paying Buzz does not include mature
+  content for this viewer and the output is above PG-13. `'ceiling'` means the
+  output is above the viewer's own browsing level, capped by your app's maturity
+  ceiling, or above a cap the host put on the request.
+  `'unrated'` means no rating will ever arrive for it (a training sample, a 3D
+  model on a finished step with no rating source) and one could restrict it; it
+  never becomes available. A video from an engine the orchestrator does not rate is
+  delivered with its url while unrated, as on Civitai. Treat an unknown `reason`
+  like `'ceiling'`.
+- **A restricted output is not in `imageUrls`**, nor in a step's `imageUrls`,
+  `AppWorkflow.images` or `model3dOutputs`. Those lists are convenience views,
+  can be shorter than `outputs`, and are **not for indexing**.
+- `{ pending: true }`: **not rated yet**, and its rating could still restrict it, so
+  the host holds the url. The snapshot carries `ratingPending: true`; `watch` keeps
+  polling for up to two minutes after the final status and resolves once the rating
+  lands (or with the last snapshot, still pending). Publishing, posting or persisting
+  it is refused with `output N is still being rated, try again shortly`, and so is
+  publishing with `imageIndexes` omitted while any output is pending.
+- `{ blocked: true }`: blocked by moderation. It keeps its slot and never becomes
+  available; naming it is refused.
+- ⚠️ **Migration:** an app that built `imageIndexes` from `images` / `imageUrls`
+  positions (`images.map((_, i) => i)`) now names a different output whenever an
+  earlier one is restricted, pending or blocked. Build them from `outputs` positions,
+  or omit `imageIndexes`.
+- `steps[].outputs` follows the same rules for one step of a `kind: 'workflow'`
+  run, and `useAppWorkflows()` rows carry `outputs` too.
+- 🔴 **An index is a position in `outputs`.** `imageIndexes` on
+  `publishGenerationOutputs` and on a `createPostFromApp` workflow source, and
+  `imageIndex` on `persistGenerationSource`, name the output at that position. A
+  restricted output keeps its slot, so an index never moves when a rating lands
+  late. Naming a restricted position is **refused** with `output N is restricted`;
+  the host never picks another output. An omitted `imageIndexes` means every
+  available output that is not restricted.
+
+A malformed `outputs` entry is **replaced in place** by this package's transport with
+`{ restricted: true, reason: 'ceiling' }`, so the reply is kept, the slot shows
+as locked, and no position moves. In the mock host,
+`generation: { restrictedOutputs: { 1: 'pool' } }` restricts the output at
+position 1 of a succeeded snapshot, and publish / post / persist naming position
+1 reply `output 1 is restricted`, so you can exercise both locally.
+
+#### Unlocking a restricted output: `useOutputUnlock()`
+
+`unlockOutput(workflowId, position)` asks the host to unlock the output at that
+position of a workflow your app ran. The host reads the live workflow, decides what
+it may offer, and draws its own dialog; your app supplies only the position, never
+a price. It resolves with a `BlockOutputUnlockResult` once the viewer is done:
+
+```tsx
+const { unlockOutput } = useOutputUnlock();
+const result = await unlockOutput(snapshot.workflowId, 1);
+if (result.outcome === 'unlocked') setSnapshot(result.snapshot!); // outputs[1] has its url
+```
+
+- **`reason: 'pool'`** (the Buzz that paid does not cover mature content): the viewer
+  can unlock it with yellow Buzz at the price the host shows, the same unlock as on
+  civitai.com. It adds no author share and counts against no spend limit: the
+  original generation's spend already did. `'refused'` means the viewer does not
+  have enough yellow Buzz.
+- **`'ceiling'` / `'unrated'`**: never charged. When the site your app runs on is
+  what keeps it out, the host offers your app on civitai.red at the same page
+  (`'linked-out'`); when the viewer's own settings hide it, `'unavailable'` with a
+  message.
+- `'not-restricted'` (it already had a url; a retry lands here), `'not-released'`
+  (still above the viewer's level after the unlock; `message` says why) and
+  `'dismissed'` (the viewer closed the dialog without a completed unlock) complete the
+  set. `'unavailable'` also covers a position that does not exist, a second request
+  for a position whose dialog is already open, and an unlock whose orchestrator write
+  got no answer (`message` says to check back). Treat an unknown outcome like
+  `'unavailable'`.
+
+The reply waits for the viewer, so it uses the human-interaction timeout (10 minutes):
+`unlockOutput` rejects when it runs out, which is also what an older host without an
+unlock handler produces, and when the host replies with an `error`.
+
+In the mock host, `generation.outputUnlock` decides a `'pool'` position: `'unlock'`
+(default), `'dismiss'`, `'insufficient'` (`'refused'`) or `'not-released'`.
+`generation.outputUnlockRestricted` decides a `'ceiling'` / `'unrated'` one:
+`'dismiss'` (default), `'link-out'` (`'linked-out'`) or `'settings'` (`'unavailable'`).
+As on the host, a missing position and a second open request for one position answer
+`'unavailable'`.
+
 #### Queue position, ETA and progress
 
 A snapshot from `watch()` / `poll()` carries where the run is right now, for a
@@ -562,8 +688,9 @@ showImages(done.imageUrls ?? []);
 **The result**
 
 `snapshot.steps` lists every step in order, as `{ name, $type, status,
-imageUrls?, output?, error?, queue?, progress?, startedAt?, completedAt? }` (the
-last four: [Queue position, ETA and progress](#queue-position-eta-and-progress)).
+imageUrls?, outputs?, output?, error?, queue?, progress?, startedAt?, completedAt? }`
+(`outputs`: [Restricted outputs](#restricted-outputs-snapshotoutputs); the last four:
+[Queue position, ETA and progress](#queue-position-eta-and-progress)).
 Read it from `poll()`, `watch()` and
 `cancel()`; do not rely on it being on the `submit()` reply. The steps a
 `repeat` step generates follow it, named `<repeat name>.<n>`. The top-level
@@ -691,7 +818,7 @@ interface UsePersistGenerationSource {
 }
 ```
 
-Turn one of the app's **own** finished outputs into a **private, scanned generation source**, to feed into the next generation (an img2img chain, a "refine this one" button). Returns `{ persist, isPending, error }`. `persist({ workflowId, imageIndex })` names the output the way `usePublishGenerationOutputs()` does — a workflow from this app's own subqueue and an index into its `images` (as `useAppWorkflows()` shows them), never a url — and resolves with `{ url, width, height, imageId, ready }`. `url` / `width` / `height` are a `BlockGenerationSourceImageInfo`, usable as a `sourceImages` entry wherever a generation source is accepted. - **Private, no confirm.** The image is stored for the viewer with no post and is **not** on the app's shared grid; `useGatedImages()` and a `useCreatePostFromApp()` `published` source do not accept it. No dialog opens. Use `usePublishGenerationOutputs()` to put an output on the grid. - **Same gates as publishing.** It needs `ai:write:budgeted`, a signed-in viewer who is the token's subject, and a FINISHED workflow from this app's own subqueue. An `imageIndex` out of range, or an output that is not available, is refused. - **Size.** The output is re-stored on Civitai, downscaled to fit 2048 px if it is larger. An output under 64 px is refused. - **Scanned.** The host waits up to about 30 s for the scan (the whole request, fetch and store included, runs under one server deadline, so `persist()` waits up to 120 s). `ready: true` means a generation accepts `url` now. **`ready: false`** means the scan has not finished: a generation that uses the source — a `textToImage` `sourceImages` entry included — is refused with the `source-scan-pending` error code. An output the scan blocks, or holds for review, is answered with an error. - **Idempotent.** One image per (viewer, app, `workflowId`, `imageIndex`): calling `persist()` again with the same pair returns the same image, without storing another, with its current `ready`. That is how to wait for a pending scan. - **Where it works.** The full-page app host only. It rejects with the host's error on the model-page slot (iframe) host, in review mode, before the block is ready, and on App Assistant dev-tunnel previews (they have no workflow record for the app). The host allows 60 per hour per viewer. - `dev:live` refuses it (it needs the viewer's signed-in session). Test it against the mock host: `createMockHost` / `Harness` from `@civitai/blocks-react/testing`, with `persistedGenerationSource` (the canned reply, `ready: true` by default; pass one with `ready: false` to simulate a pending scan) and `persistGenerationSourceError`. The mock does not enforce `source-scan-pending`.
+Turn one of the app's **own** finished outputs into a **private, scanned generation source**, to feed into the next generation (an img2img chain, a "refine this one" button). Returns `{ persist, isPending, error }`. `persist({ workflowId, imageIndex })` names the output the way `usePublishGenerationOutputs()` does — a workflow from this app's own subqueue and the output's **position in its `outputs`** (as `useAppWorkflows()` or a snapshot shows them; see [Restricted outputs](#restricted-outputs-snapshotoutputs)), never a url — and resolves with `{ url, width, height, imageId, ready }`. `url` / `width` / `height` are a `BlockGenerationSourceImageInfo`, usable as a `sourceImages` entry wherever a generation source is accepted. - **Private, no confirm.** The image is stored for the viewer with no post and is **not** on the app's shared grid; `useGatedImages()` and a `useCreatePostFromApp()` `published` source do not accept it. No dialog opens. Use `usePublishGenerationOutputs()` to put an output on the grid. - **Same gates as publishing.** It needs `ai:write:budgeted`, a signed-in viewer who is the token's subject, and a FINISHED workflow from this app's own subqueue. An `imageIndex` out of range, an output that is not available, or a restricted position (`output N is restricted`) is refused. - **Size.** The output is re-stored on Civitai, downscaled to fit 2048 px if it is larger. An output under 64 px is refused. - **Scanned.** The host waits up to about 30 s for the scan (the whole request, fetch and store included, runs under one server deadline, so `persist()` waits up to 120 s). `ready: true` means a generation accepts `url` now. **`ready: false`** means the scan has not finished: a generation that uses the source — a `textToImage` `sourceImages` entry included — is refused with the `source-scan-pending` error code. An output the scan blocks, or holds for review, is answered with an error. - **Idempotent.** One image per (viewer, app, `workflowId`, `imageIndex`): calling `persist()` again with the same pair returns the same image, without storing another, with its current `ready`. That is how to wait for a pending scan. - **Where it works.** The full-page app host only. It rejects with the host's error on the model-page slot (iframe) host, in review mode, before the block is ready, and on App Assistant dev-tunnel previews (they have no workflow record for the app). The host allows 60 per hour per viewer. - `dev:live` refuses it (it needs the viewer's signed-in session). Test it against the mock host: `createMockHost` / `Harness` from `@civitai/blocks-react/testing`, with `persistedGenerationSource` (the canned reply, `ready: true` by default; pass one with `ready: false` to simulate a pending scan) and `persistGenerationSourceError`. The mock does not enforce `source-scan-pending`.
 
 ```tsx
 import type { BlockPersistedGenerationSource, WorkflowBody } from '@civitai/app-sdk/blocks';

@@ -2,9 +2,9 @@
 title: Hooks reference
 description: Every @civitai/blocks-react hook, indexed by name and linked to the topic page that documents it — signature, example and README notes, generated from the published package.
 sources:
-  - npm:@civitai/blocks-react@0.81.0/dist/index.d.ts
-  - npm:@civitai/blocks-react@0.81.0#README
-  - npm:@civitai/app-sdk@0.88.0/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.83.0/dist/index.d.ts
+  - npm:@civitai/blocks-react@0.83.0#README
+  - npm:@civitai/app-sdk@0.90.0/blocks#WorkflowBody
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockInlineComfyBodySchema
 ---
 
@@ -86,7 +86,7 @@ cannot find in this index is not in the pinned package.
 <ReferenceIndex kind="hooks">
 <!-- BEGIN GENERATED: hooks-index — markdown fallback for the .md/LLM channel. Do not edit by hand; run `npm run gen:appblocks:md`. -->
 
-48 hooks across 6 pages. Each link goes to the page that documents the hook; fetch that page's `.md` for the full entry.
+51 hooks across 6 pages. Each link goes to the page that documents the hook; fetch that page's `.md` for the full entry.
 
 **[Context, frame and analytics hooks](./hooks/context)** — The host handshake, theme, sizing, the block token and settings, direct-load and nested documents, and analytics.
 
@@ -127,6 +127,7 @@ cannot find in this index is not in the pinned package.
 - [`useDailyCompensation`](./hooks/buzz-and-purchases#hook-useDailyCompensation)
 - [`useTip`](./hooks/buzz-and-purchases#hook-useTip)
 - [`useTipAllowance`](./hooks/buzz-and-purchases#hook-useTipAllowance)
+- [`useOutputUnlock`](./hooks/buzz-and-purchases#hook-useOutputUnlock)
 
 **[Viewer, consent and navigation hooks](./hooks/viewer-and-navigation)** — The viewer, sign-in and consent prompts, maturity and gated images, following collections, reacting to images, and navigating the host.
 
@@ -135,6 +136,8 @@ cannot find in this index is not in the pinned package.
 - [`useReactions`](./hooks/viewer-and-navigation#hook-useReactions)
 - [`useCivitaiNavigate`](./hooks/viewer-and-navigation#hook-useCivitaiNavigate)
 - [`useCivitaiRoute`](./hooks/viewer-and-navigation#hook-useCivitaiRoute)
+- [`useCivitaiLocation`](./hooks/viewer-and-navigation#hook-useCivitaiLocation)
+- [`useShareLink`](./hooks/viewer-and-navigation#hook-useShareLink)
 - [`useRequestSignIn`](./hooks/viewer-and-navigation#hook-useRequestSignIn)
 - [`useRequestConsent`](./hooks/viewer-and-navigation#hook-useRequestConsent)
 - [`useConsentUnavailable`](./hooks/viewer-and-navigation#hook-useConsentUnavailable)
@@ -166,7 +169,7 @@ same `estimate → submit → watch` lifecycle
 [`useBuzzWorkflow`](./hooks/generation#hook-useBuzzWorkflow) documents. `training` is quoted with
 `estimate()` but run with `useRunTraining()`, and `submit()` refuses it.
 
-As of the pinned `@civitai/app-sdk@0.88.0` the union has five `kind` values, and
+As of the pinned `@civitai/app-sdk@0.90.0` the union has five `kind` values, and
 `kind: 'step'` is itself two arms — six members in all:
 
 | `kind` | what it runs | what your block sends |

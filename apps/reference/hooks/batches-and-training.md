@@ -9,7 +9,7 @@ description: "Estimating and running batches, running one job above the per-call
 
 Estimating and running batches, running one job above the per-call budget, and LoRA training.
 
-This page documents 4 of the 48 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.81.0` package's type definitions and README.
+This page documents 4 of the 51 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.83.0` package's type definitions and README.
 
 Other pages: [Context, frame and analytics hooks](./context) · [Generation hooks](./generation) · [Buzz, purchase and tip hooks](./buzz-and-purchases) · [Viewer, consent and navigation hooks](./viewer-and-navigation) · [Storage, picker and media hooks](./storage-and-media)
 
@@ -312,8 +312,8 @@ steps, three hooks:
    (`OPEN_IMAGE_UPLOAD { purpose: 'trainingData' }`). Civitai opens an upload
    modal in **its own chrome**; the viewer picks up to 50 PNG, JPEG or WebP
    images, and each is uploaded as a private blob (not published). `open()`
-   resolves with every image that uploaded, `[{ url, air }]`, or `null` when
-   the viewer cancels. Pair each `air` with your caption — captions up to 8,192
+   resolves with every image that uploaded, `[{ air }]` (an AIR reference
+   each), or `null` when the viewer cancels. Pair each `air` with your caption — captions up to 8,192
    characters, one blob at most once. The host answers only when its modal
    closes, after every original has uploaded, so `open()` waits up to an hour,
    not the ten minutes the other pickers use.
