@@ -2,7 +2,7 @@
 title: Message bridge reference
 description: The full postMessage protocol between a Civitai App and its host — payloads, directions, request/reply pairing, and page-only messages.
 sources:
-  - npm:@civitai/app-sdk@0.89.0/blocks#messages.d.ts
+  - npm:@civitai/app-sdk@0.90.0/blocks#messages.d.ts
   - civitai:src/components/AppBlocks/hostHandlerParity.ts#INVENTORY
 ---
 
@@ -88,6 +88,7 @@ payload:
     path: string;
     scope?: BlockNavigateScope;
     target: 'current' | 'new_tab';
+    replace?: boolean;
 }
 ```
 
@@ -606,7 +607,7 @@ reply `IMAGE_UPLOAD_RESULT`:
 ```ts
 {
     requestId: string;
-    selected?: BlockUploadedImageInfo | BlockGenerationSourceImageInfo | BlockPendingImageInfo | BlockTrainingDataUploadResult;
+    selected?: BlockUploadedImageInfo | BlockUploadedGenerationSource | BlockPendingImageInfo | BlockTrainingDataUploadResult;
     /** A `bytes` upload's refusal or failure: a host string or a forwarded server message. */
     error?: string;
 }
@@ -931,6 +932,28 @@ reply `PUBLISH_RESULT`:
 
 Model slot: shared-grid publish is a page-only affordance today; the model slot has no such surface
 
+**`REQUEST_OUTPUT_UNLOCK`** — block → host · request → reply
+
+payload:
+
+```ts
+{
+    requestId: string;
+    workflowId: string;
+    position: number;
+}
+```
+
+reply `OUTPUT_UNLOCK_RESULT`:
+
+```ts
+{
+    requestId: string;
+    result?: BlockOutputUnlockResult;
+    error?: string;
+}
+```
+
 **`ROUTE_CHANGED`** — host → block
 
 payload:
@@ -938,6 +961,8 @@ payload:
 ```ts
 {
     subPath: string;
+    search?: string;
+    hash?: string;
 }
 ```
 
@@ -1076,6 +1101,31 @@ reply `ENTITY_REACTION_RESULT`:
     error?: BlockEntityReactionErrorCode | string;
 }
 ```
+
+**`SHARE_LINK`** — block → host · request → reply · page-only
+
+payload:
+
+```ts
+{
+    requestId: string;
+    subPath: string;
+    search?: string;
+    hash?: string;
+}
+```
+
+reply `SHARE_LINK_RESULT`:
+
+```ts
+{
+    requestId: string;
+    result?: BlockShareLinkResult;
+    error?: string;
+}
+```
+
+Model slot: model slot has no app route to link to (no deep-link base); page-only
 
 **`THEME_CHANGE`** — host → block
 

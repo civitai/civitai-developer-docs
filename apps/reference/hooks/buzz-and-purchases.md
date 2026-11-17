@@ -9,7 +9,7 @@ description: "Buzz balance and transactions, Buzz and goods purchases, entitleme
 
 Buzz balance and transactions, Buzz and goods purchases, entitlements, compensation and tips.
 
-This page documents 9 of the 48 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.82.0` package's type definitions and README.
+This page documents 10 of the 51 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.83.0` package's type definitions and README.
 
 Other pages: [Context, frame and analytics hooks](./context) · [Generation hooks](./generation) · [Batch, confirmed-step and training hooks](./batches-and-training) · [Viewer, consent and navigation hooks](./viewer-and-navigation) · [Storage, picker and media hooks](./storage-and-media)
 
@@ -258,6 +258,26 @@ Read the viewer's REAL remaining daily tip allowance `{ cap, spent, remaining }`
 ```tsx
 const { allowance, refetch } = useTipAllowance();
 // allowance?.remaining — Buzz the viewer may still tip today
+```
+
+**`useOutputUnlock`**
+
+```ts
+useOutputUnlock(): UseOutputUnlock
+```
+
+```ts
+interface UseOutputUnlock {
+  unlockOutput: (workflowId: string, position: number) => Promise<BlockOutputUnlockResult>;
+}
+```
+
+Unlock ONE restricted output in place, through a dialog the HOST draws. Offer it on an output whose entry is `{ restricted: true }`. The host reads the live workflow and decides what to offer; your app supplies only the position: - `reason: 'pool'` (the paying Buzz pool does not cover mature content): the viewer can unlock it with yellow Buzz at the price the host shows. It adds no author share and counts against no spend limit (the original generation already did); `'refused'` means the viewer's yellow Buzz is short. On `'unlocked'`, `result.snapshot.outputs[position]` carries the url. - `'ceiling'` / `'unrated'`: never charged. The host links the viewer to your app on civitai.red, at the same page, when that site could show it (`'linked-out'`), or explains why not (`'unavailable'`). 🔴 HUMAN-GATED: the reply waits for the viewer, so this uses {@link HUMAN_INTERACTION_TIMEOUT_MS}, not the 30s default.
+
+```tsx
+const { unlockOutput } = useOutputUnlock();
+const result = await unlockOutput(snapshot.workflowId, 1);
+if (result.outcome === 'unlocked') setSnapshot(result.snapshot!);
 ```
 
 <!-- END GENERATED: hooks/buzz-and-purchases -->
