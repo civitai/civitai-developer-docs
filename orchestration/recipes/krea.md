@@ -206,7 +206,7 @@ Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Flux 2](./flux2) / [Flux 1](./flux1) image generation — alternative open-weights families with LoRA support
 - [Qwen](./qwen) image generation — when you need editing or LoRAs
-- [MAI Image 2.5](./mai-image) image generation — sibling FAL-hosted text-to-image (no editing, seeds, or style refs)
+- [MAI Image](./mai-image) image generation — sibling FAL-hosted family (2.7 adds editing; no seeds or style refs)
 - [Image upscaling](./image-upscaler) — chain after `imageGen` for higher-res output
 - [Prompt enhancement](./prompt-enhancement) — LLM-rewrite a prompt before feeding it in via `$ref`
 - Full parameter catalog: `Krea2CreateFalImageGenInput` in the [API reference](/orchestration/reference/)

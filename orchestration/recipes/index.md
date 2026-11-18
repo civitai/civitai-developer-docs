@@ -35,7 +35,7 @@ These are **Orchestration REST API** recipes — you hold a Bearer token and POS
 - [Flux 1 image generation](./flux1) — Flux.1 through sdcpp (default, minimal required input) or Comfy, plus the BFL-hosted `flux1-kontext` editing tier
 - [Z-Image generation](./zimage) — lightweight text-to-image on sdcpp; `turbo` (default, distilled, extremely fast + cheap) or `base` when you need more fidelity
 - [Qwen image generation](./qwen) — Qwen-Image 20B on sdcpp (default), the Alibaba-hosted catalog (`engine: "qwen"`), or Qwen2 under a FAL-shaped request with a Pro tier; supports createImage + createVariant + editImage
-- [MAI Image 2.5 image generation](./mai-image) — Microsoft MAI Image 2.5 via FAL; text-to-image only, eleven aspect ratios (incl. `auto`), flat per-image pricing
+- [MAI Image image generation](./mai-image) — Microsoft MAI Image 2.7 (standard and Flash, text-to-image and editing with up to five images, token-based pricing) and 2.5 (eleven aspect ratios, flat per-image pricing) via FAL
 - [Anima image generation](./anima) — anime-tuned sdcpp ecosystem with built-in diffuser, LoRA support, createImage only
 - [ERNIE image generation](./ernie) — Baidu ERNIE Image on Comfy; `ernie` standard + `turbo` distilled variant, built-in diffuser, LoRA support, createImage only
 - [SDXL image generation](./sdxl) — Stable Diffusion XL at 1024² native via sdcpp (default) or Comfy, with createImage + createVariant
