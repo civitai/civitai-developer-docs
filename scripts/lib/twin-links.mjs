@@ -80,13 +80,18 @@ function relativeMapper(siteDir) {
   return (t) => (isRelativeTarget(t) ? resolveTarget(t, siteDir) : t);
 }
 
-/** Rewrite one prose line, leaving inline code spans untouched. */
-function rewriteProse(line, map) {
+/**
+ * Apply `fn(segment) -> segment` to every stretch of one line that lies OUTSIDE
+ * an inline code span; code spans (with their backtick delimiters) are copied
+ * through untouched. The one place that knows where a code span starts and ends
+ * — the link rewriter below and `scripts/lib/twin-table-pipes.mjs` both use it.
+ */
+export function mapProseSegments(line, fn) {
   let out = '';
   let i = 0;
   let seg = '';
   const flush = () => {
-    out += seg.replace(INLINE_LINK, (_m, target, title = '') => `](${mapRaw(target, map)}${title})`);
+    out += fn(seg);
     seg = '';
   };
   while (i < line.length) {
@@ -124,6 +129,13 @@ function rewriteProse(line, map) {
   }
   flush();
   return out;
+}
+
+/** Rewrite one prose line, leaving inline code spans untouched. */
+function rewriteProse(line, map) {
+  return mapProseSegments(line, (seg) =>
+    seg.replace(INLINE_LINK, (_m, target, title = '') => `](${mapRaw(target, map)}${title})`),
+  );
 }
 
 /**
@@ -189,14 +201,23 @@ function walk(dir, want = (name) => name.endsWith('.md')) {
  * resolve a page's links against the wrong directory, the very defect.
  */
 export function sourceDirOf(twinRel, srcDir) {
+  const file = sourceFileOf(twinRel, srcDir);
+  return file.endsWith('/index.md') ? file.slice(0, -'/index.md'.length) : posix.dirname(file) === '.' ? '' : posix.dirname(file);
+}
+
+/**
+ * The SOURCE page (site-relative, posix) a twin was generated from:
+ * `<stem>.md` or `<stem>/index.md`. Throws when it is missing or ambiguous.
+ */
+export function sourceFileOf(twinRel, srcDir) {
   const stem = twinRel.slice(0, -'.md'.length);
   const asPage = existsSync(join(srcDir, `${stem}.md`));
   const asIndex = existsSync(join(srcDir, stem, 'index.md'));
   if (asPage && asIndex) {
     throw new Error(`twin /${twinRel} is ambiguous: both ${stem}.md and ${stem}/index.md exist in the source`);
   }
-  if (asIndex) return stem;
-  if (asPage) return posix.dirname(stem) === '.' ? '' : posix.dirname(stem);
+  if (asIndex) return `${stem}/index.md`;
+  if (asPage) return `${stem}.md`;
   throw new Error(`twin /${twinRel} has no source page (${stem}.md or ${stem}/index.md)`);
 }
 

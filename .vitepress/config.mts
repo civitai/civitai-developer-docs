@@ -10,6 +10,7 @@ import { pathToFileURL } from 'node:url';
 import { applyAgentSurface, insertIndexGroup } from '../scripts/lib/agent-surface.mjs';
 import { buildOperationTwins, OPERATIONS_ROUTE } from '../scripts/lib/operation-twins.mjs';
 import { rewriteLlmsFull, rewriteTwinLinks } from '../scripts/lib/twin-links.mjs';
+import { restoreTwinTablePipes } from '../scripts/lib/twin-table-pipes.mjs';
 
 const base = '/';
 
@@ -479,6 +480,15 @@ export default withMermaid({
   // `llms-full.txt`. `check:agent-surface` asserts the result on the built site.
   async buildEnd(siteConfig) {
     const { outDir, srcDir } = siteConfig;
+    // FIRST, while every twin row still equals its source row bar the escapes:
+    // the plugin re-serializes without GFM and drops the `\|` escapes, which
+    // splits table cells (scripts/lib/twin-table-pipes.mjs; `check:twin-tables`
+    // asserts the result). The link passes below then rewrite the restored rows.
+    const pipes = restoreTwinTablePipes(outDir, srcDir);
+    console.log(
+      `twin-table-pipes: restored ${pipes.rowsRestored} escaped table row(s) in ${pipes.filesChanged} file(s) ` +
+        `(${pipes.twins} twin(s), ${pipes.sections} llms-full section(s))`,
+    );
     const { twins, changed } = rewriteTwinLinks(outDir, srcDir);
     console.log(`twin-links: absolutized relative links in ${changed} of ${twins} .md twin(s)`);
     const full = rewriteLlmsFull(outDir, srcDir);
