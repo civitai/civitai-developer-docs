@@ -52,14 +52,17 @@ signing and invisible watermark go live.
 
 ### Errors
 
-| Status | Body | Cause |
-|--------|------|-------|
-| `400` | `{"error":"The file is empty"}` | `Content-Length: 0`. |
-| `400` | `{"error":"Upload body was incomplete"}` | Fewer bytes arrived than `Content-Length` declared. |
-| `411` | `{"error":"Send the file with a Content-Length header"}` | No `Content-Length` (for example, a chunked upload). |
-| `413` | `{"error":"File too large"}` | Over 10 MiB. |
-| `415` | `{"error":"Send a JPEG, PNG, WebP, AVIF or HEIC image"}` | Not a supported image type. |
-| `429` | `{"error":"Rate limit exceeded, please retry shortly."}` | Over the rate limit; see `Retry-After`. |
+Error bodies use the shared envelope: `{"error": "<message>", "message": "<message>", "code": "<code>"}`.
+
+| Status | `code` | `message` | Cause |
+|--------|--------|-----------|-------|
+| `400` | `BAD_REQUEST` | `The file is empty` | `Content-Length: 0`. |
+| `400` | `BAD_REQUEST` | `Upload body was incomplete` | Fewer bytes arrived than `Content-Length` declared. |
+| `411` | `BAD_REQUEST` | `Send the file with a Content-Length header` | No `Content-Length` (for example, a chunked upload). |
+| `413` | `BAD_REQUEST` | `File too large` | Over 10 MiB. |
+| `415` | `BAD_REQUEST` | `Send a JPEG, PNG, WebP, AVIF or HEIC image` | Not a supported image type. |
+| `429` | `TOO_MANY_REQUESTS` | `Rate limit exceeded, please retry shortly.` | Over the rate limit; see `Retry-After`. |
+| `503` | `TOO_MANY_REQUESTS` | `Busy, please retry shortly.` | Too many checks in progress on the server; see `Retry-After`. |
 
 ### Example
 
