@@ -9,7 +9,7 @@ description: "Wildcard packs and workflow files, checkpoint, resource and image 
 
 Wildcard packs and workflow files, checkpoint, resource and image pickers, uploading images and other media, saving images, and creating posts.
 
-This page documents 10 of the 51 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.84.0` package's type definitions and README.
+This page documents 10 of the 51 hooks in the [Hooks reference](../hooks), which indexes every hook by name. Generated from the published `@civitai/blocks-react@0.85.0` package's type definitions and README.
 
 Other pages: [Context, frame and analytics hooks](./context) · [Generation hooks](./generation) · [Batch, confirmed-step and training hooks](./batches-and-training) · [Buzz, purchase and tip hooks](./buzz-and-purchases) · [Viewer, consent and navigation hooks](./viewer-and-navigation)
 
