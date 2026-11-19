@@ -82,6 +82,8 @@ Key fields shown; each entry in `images` carries every field of an
   [Models](./models)), `images` holds only the images within that model's
   safe-for-work gallery level, whatever your region allows. The post itself is
   still returned, and `images` can be empty.
+- Some images are left out of public API responses for safety reasons, including images flagged as possibly depicting a minor. The post is still
+  returned; when all of its images are left out, `images` is an empty array.
 
 ### Errors
 

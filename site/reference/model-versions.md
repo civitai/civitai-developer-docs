@@ -92,8 +92,9 @@ bypass the published check).
 
 - The `air` field is the canonical [AIR identifier](../guide/air). Forward it directly to the Orchestration API when you need to reference this resource in a workflow.
 - `images[]` respects the caller's browsing level — SFW-gated callers never see mature previews. On Civitai's "green" domain or from restricted regions, images are filtered to SFW regardless of session.
+- Some images are left out of public API responses for safety reasons, including images flagged as possibly depicting a minor. When all of them are left out, `images` is an empty array, never missing or `null`. This applies to the by-hash lookups below too.
 - `files[]` only contains public files. Private / archived files are omitted.
-- `model.mode` appears as `Archived` or `TakenDown` when the parent model has been moderated. When archived, `files[]` and `downloadUrl` are dropped; when taken down, `images[]` is dropped as well. The field is omitted entirely on healthy models.
+- `model.mode` appears as `Archived` or `TakenDown` when the parent model has been moderated. When archived, `files[]` and `downloadUrl` are dropped; when taken down, `images` is empty. The field is omitted entirely on healthy models.
 - `stats` has only `downloadCount` and `thumbsUpCount` here — model-version-level metrics. Use [`GET /models/{id}`](./models#get-a-model) if you need the full set including comments and tipping.
 
 ### Example

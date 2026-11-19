@@ -123,7 +123,8 @@ When using `page` pagination, `metadata` additionally includes `currentPage` and
 - `page * limit` above 1000 returns `429`; use `cursor` for deep paging. See [Pagination](../guide/pagination).
 - Including `query` without `cursor` is fine; combining `query` with `page` returns `400`.
 - Only `Published` versions are returned to non-moderator callers. Files marked non-public by the uploader are hidden from `files[]`. Training Data files may also be omitted, and carry no `metadata`.
-- `mode` is non-null when the parent model has been moderated. Values: `Archived` (drops `files[]` and `downloadUrl`) and `TakenDown` (also drops `images[]`). Omitted entirely on healthy models.
+- `mode` is non-null when the parent model has been moderated. Values: `Archived` (drops `files[]` and `downloadUrl`) and `TakenDown` (also empties `images`). Omitted entirely on healthy models.
+- Some images are left out of public API responses for safety reasons, including images flagged as possibly depicting a minor. When all of a version's images are left out, `images` is an empty array, never missing or `null`.
 
 ### Example
 
@@ -151,7 +152,8 @@ GET /api/v1/models/{id}
 
 Returns the same shape as a single item from the list endpoint — same
 top-level keys (`id`, `name`, `type`, `modelVersions`, `creator`, `tags`,
-`stats`, ...).
+`stats`, ...). As in the list, a version whose images are all left out has
+`images: []`.
 
 Returns `404` if the model doesn't exist (an `id` that is not a positive integer, such as `0`, is a `400` instead):
 
