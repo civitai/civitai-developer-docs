@@ -63,6 +63,7 @@ Error bodies use the shared envelope: `{"error": "<message>", "message": "<messa
 | `415` | `BAD_REQUEST` | `Send a JPEG, PNG, WebP, AVIF or HEIC image` | Not a supported image type. |
 | `429` | `TOO_MANY_REQUESTS` | `Rate limit exceeded, please retry shortly.` | Over the rate limit; see `Retry-After`. |
 | `503` | `TOO_MANY_REQUESTS` | `Busy, please retry shortly.` | Too many checks in progress on the server; see `Retry-After`. |
+| `503` | `INTERNAL_SERVER_ERROR` | `The check is unavailable, please retry shortly.` | The reader failed or timed out; nothing is known about the file. See `Retry-After`. |
 
 ### Example
 
