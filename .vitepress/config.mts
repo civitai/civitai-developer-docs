@@ -357,6 +357,7 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Permissions', link: '/site/reference/permissions' },
         { text: 'Vault', link: '/site/reference/vault' },
         { text: 'Enums', link: '/site/reference/enums' },
+        { text: 'Verify', link: '/site/reference/verify' },
       ],
     },
   ],
