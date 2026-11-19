@@ -433,6 +433,7 @@ Timeouts, moderation blocks and expired blob URLs: see [Common troubleshooting](
 - [`SubmitWorkflow`](/orchestration/reference/operations/SubmitWorkflow) · [`GetWorkflow`](/orchestration/reference/operations/GetWorkflow)
 - [Google image generation](./google) — alternative commercial tier with Imagen 4 and Nano Banana
 - [Gemini image generation](./gemini) — Google's Gemini 2.5 Flash Image direct-API route
+- [Ideogram image generation](./ideogram) — Ideogram 4.6 via FAL, also strong at text in images, with transparent backgrounds
 - [Flux 2](./flux2) / [Flux 1](./flux1) / [Qwen](./qwen) — open-weights alternatives on Civitai-hosted workers
 - [Image upscaling](./image-upscaler) — chain after `imageGen` for higher-res output
 - [Prompt enhancement](./prompt-enhancement) — LLM-rewrite a prompt before feeding it in via `$ref`
