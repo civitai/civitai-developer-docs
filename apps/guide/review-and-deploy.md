@@ -193,6 +193,20 @@ and `Source-Dirty` trailers of its commit in the build repository, and each
 [feedback report](./feedback) written against that version carries them too.
 See [What an approval writes](./repositories#approval-commit).
 
+### Submitting from GitHub Actions
+
+A submit made by the
+[`civitai/app-submit-action`](https://github.com/civitai/app-submit-action)
+Action on a tag push also carries a GitHub Actions OIDC token for the run. The
+server checks that token with GitHub, including that the tag equals the
+manifest version and that its commit is the `sourceCommit` the CLI sent, and
+records the run's repository, tag and commit with the submission. That record
+is separate from the claim above. Moderators see both, on two labelled lines,
+and the store page of an app whose run was from a public repository shows a
+`Submitted by` row naming the run. A token that fails the check refuses the
+submit. Review is unchanged. See
+[Submitting from GitHub Actions](./github-actions).
+
 ## Is your repo behind what you shipped?
 
 A checkout can fall **behind its own live deployment** — someone released 0.5.2
@@ -286,6 +300,8 @@ So attach listing media **after** the submission you intend to keep.
   submission, and how to confirm the live build after approval.
 - [Your store listing](./store-listing) — the icon, cover and screenshots your
   app needs before it can publish, and what changes when the listing is live.
+- [Submitting from GitHub Actions](./github-actions) — submitting on a tag
+  push, and what the server checks in the run's token.
 - [Your app's git repositories](./repositories) — cloning with `civitai app
   pull`, pushing, and what an approval commits and tags.
 - [Your app's feedback inbox](./feedback) — what your users' reports carry.

@@ -59,6 +59,7 @@ const appsGuideSidebar: DefaultTheme.SidebarItem[] = [
       { text: 'What goes in the bundle', link: '/apps/guide/packaging' },
       { text: 'First review checklist', link: '/apps/guide/first-review' },
       { text: 'Review, approval and deploy', link: '/apps/guide/review-and-deploy' },
+      { text: 'Submitting from GitHub Actions', link: '/apps/guide/github-actions' },
       { text: "Your app's git repositories", link: '/apps/guide/repositories' },
       { text: "Your app's feedback inbox", link: '/apps/guide/feedback' },
       { text: 'Your store listing', link: '/apps/guide/store-listing' },
