@@ -59,6 +59,22 @@ CONFIRMATION: an interactive run prints the estimate and your balance and asks
 before spending. A non-interactive shell (pipe/CI) without --yes is REFUSED
 rather than charged silently.
 
+WHICH BUZZ PAYS: --buzz-type blue|yellow|green picks the account, the same
+choice as the "Pay with" menu in the site's generator, and is sent with the
+submit. Without it the server decides: blue first, then the site's own Buzz.
+The account matters beyond the balance — on civitai.red the site states that
+Blue Buzz is limited to safe-for-work results, so a mature result paid in blue
+can come back locked, and unlocking it on the site is a second charge. To pay
+for a mature result up front, point the CLI at that site
+(CIVITAI_BASE_URL=https://civitai.red) and choose yellow. On the default
+civitai.com the server offers blue and green only. With the flag, the balance
+check and the confirmation use that account's balance alone. Two limits: the
+estimate does not take the choice (--dry-run shows it, but prices the job
+without it), and a type the site does not offer is NOT refused by the server —
+it silently pays from its default account instead. That includes yellow on
+civitai.com, even though the site's menu there lists a yellow balance (as a
+pointer to civitai.red).
+
 WHAT THE SERVER DOES NOT TELL YOU: the generator is permissive, not a validator.
 An out-of-range --quantity is clamped with no error, and a checkpoint id that
 does not exist is accepted with the ecosystem default silently substituted and
@@ -149,7 +165,8 @@ exits without submitting or even pricing anything.
 flags (--negative-prompt, --quantity, --aspect-ratio, --checkpoint, --lora) or
 with a prompt argument; the execution flags all still apply. Keys that belong to
 the request ENVELOPE rather than the graph — civitaiTip, creatorTip, buzzType,
-tags, externalId — are REFUSED in an input file: they are this CLI's to set, and
+tags, externalId — are REFUSED in an input file: they are this CLI's to set (use
+--buzz-type for the Buzz account), and
 a tip in particular is real Buzz that --dry-run structurally cannot see. Keys
 this CLI does not model are passed through exactly as written, with a warning
 that says so and nothing more: what the server does with such a key, including
@@ -209,6 +226,10 @@ path that resolves model ids before anything is submitted.
   # Non-interactive (CI): --yes is required, or the run is refused
   civitai generate "a cat" --yes --max-cost 20
 
+  # Pay with Yellow Buzz instead of the server's default (blue first)
+  civitai generate "a cat" --buzz-type yellow --dry-run
+  civitai generate "a cat" --buzz-type yellow --yes
+
   # Graduate from flags to a raw graph: print, edit, send back
   civitai generate "a cat" --quantity 2 --print-input > graph.json
   civitai generate --input graph.json --dry-run
@@ -225,6 +246,7 @@ path that resolves model ids before anything is submitted.
 | Flag | Description | Default |
 |---|---|---|
 | `--aspect-ratio string` | aspect ratio bucket, e.g. 1:1 (width/height derive from it) | — |
+| `--buzz-type string` | which Buzz account pays: blue, yellow or green — the same choice as the site generator's 'Pay with' menu. Unset, the server picks (blue first, then the site's own Buzz). A type the site does not offer is NOT refused by the server: it falls back to that default. Applied at submit only; --dry-run's estimate does not take it | — |
 | `--checkpoint int` | checkpoint model-VERSION id (not a model id) — resolved before submitting | — |
 | `--dry-run` | print the cost estimate and exit without submitting (spends nothing) | — |
 | `--ecosystem string` | model family to generate with, e.g. Qwen or Flux1Kontext. Sent to the server verbatim and NOT checked locally; required with --image because the server only promotes a job to image-to-image when the ecosystem is stated | — |

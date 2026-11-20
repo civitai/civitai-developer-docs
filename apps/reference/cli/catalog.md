@@ -308,9 +308,13 @@ Identify the version deterministically by its numeric version id:
 
   civitai download 691639
 
-…or resolve a model's default (first published) version with --model:
+…or resolve a model's default version with --model. The default is the FIRST
+version the API lists for the model — the top of the creator's version order,
+usually but not always the newest, and NOT the first published:
 
   civitai download --model 4384
+
+To get any other version of the model, name it by its version id.
 
 The positional id is normally a model-VERSION id, but 'civitai models search'
 and 'civitai models get' list MODEL ids — so handing a model id as the positional
@@ -321,11 +325,17 @@ numbers), the CLI STOPS and asks you to disambiguate rather than silently
 downloading an unrelated model's version — re-run with --model <id> (the model's
 default version) or --version <id> (that version as-is). Use --version to name a
 version id explicitly and skip that stop; --yes proceeds on the version
-interpretation and echoes exactly which version it is downloading.
+interpretation and echoes exactly which version it is downloading. If the
+model-id check itself fails (rate limited, server or network error), the
+download stops; with --yes it proceeds with the version and says the check
+failed and why.
 
-Use --dry-run to print the resolved plan (files, sizes, SHA256, target paths,
-and whether auth is required) without transferring anything. It creates no
-file at all — not even a ".part".
+Use --dry-run to print the resolved plan (files, file ids, sizes, SHA256,
+target paths, and whether a token will be sent) without transferring anything.
+It creates no file at all — not even a ".part". Whether a file actually needs a
+token is decided by the server, so the plan does not claim it. A dry run whose
+target cannot be resolved fails with the same error and exit code the real run
+would.
 
 When a positional model id is resolved to a version, the note reads:
 
@@ -454,7 +464,7 @@ the CLI notes this on stderr. Only download models from creators you trust.
 | `--for-base string` | warn if the version's base model is a confidently different family than this target (e.g. "SDXL 1.0") | — |
 | `--force` | re-download even if the target file already exists | — |
 | `--layout string` | route each file into its type's subfolder for an app (a1111\|comfyui); mutually exclusive with --out/--out-dir | — |
-| `--model string` | resolve+download a MODEL's default (first published) version instead of a version id | — |
+| `--model string` | resolve+download a MODEL's default version (the first the API lists: the creator's top version, not the first published) instead of a version id | — |
 | `--no-verify` | skip SHA256 verification of the downloaded bytes | — |
 | `--out string` | target file path (single-file only; mutually exclusive with --all/--out-dir) | — |
 | `--out-dir string` | directory to write server-named file(s) into (created if needed) | — |
@@ -554,9 +564,9 @@ says so on stderr.
 The CLI does not check those value sets — it passes the value through and the
 server rejects an unknown one with HTTP 400, reported as a usage mistake.
 
---sort is IGNORED when --model-id is set — the API returns that model's images
-in its own order whatever you ask, so the CLI notes it on stderr rather than
-let you believe the sort took. --model-version-id does honour --sort.
+--sort is IGNORED when --model-id is set alone: the API returns that model's
+images in its own order, so the CLI notes it on stderr rather than let you
+believe the sort took. With --model-version-id also set, --sort is honoured.
 
 --meta adds each image's prompt, sampler, cfg, steps, seed, model and resource
 list, rendered as a per-image block instead of the table (a table cannot hold a
@@ -591,7 +601,7 @@ when you are logged in.
 | `--meta` | include generation metadata (prompt, sampler, seed, etc.) | — |
 | `--model-id int` | filter by model id | — |
 | `--model-version-id int` | filter by model version id | — |
-| `--nsfw` | include NSFW results | — |
+| `--nsfw` | FILTER to NSFW (mature-rated) images only — it does not add them to the default mix; --nsfw=false filters to safe-for-work only | — |
 | `--page int` | page number (shallow paging; prefer --cursor) | — |
 | `--period string` | time period (AllTime, Year, Month, Week, Day) | — |
 | `--post-id int` | filter by post id | — |
@@ -631,7 +641,7 @@ against the wire.
 ```bash
   civitai model-versions get 128713
   civitai mv get 128713 --json
-  civitai model-versions by-hash 5D8D26E2A6
+  civitai model-versions by-hash 879DB523C3
 ```
 
 **`civitai model-versions by-hash <hash>`**
@@ -660,8 +670,8 @@ when you are logged in.
 ```
 
 ```bash
-  civitai model-versions by-hash 5D8D26E2A6
-  civitai mv by-hash 5D8D26E2A6 --json
+  civitai model-versions by-hash 879DB523C3
+  civitai mv by-hash 879DB523C3 --json
 ```
 
 | Flag | Description | Default |

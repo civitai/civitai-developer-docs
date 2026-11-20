@@ -263,9 +263,10 @@ is still required before it can publish (an icon and a cover are mandatory).
 Your store listing exists as a DRAFT from the moment you run
 `civitai app submit`, so this works while your app is still pending review.
 
-Note: on a LIVE (approved) listing this opens an in-progress revision draft and
-reports ITS media (idempotent — it reuses any existing draft, and nothing is
-submitted for moderator review until you run a set-/add- command and confirm).
+On a LIVE (approved) listing that has an in-progress revision draft, this
+reports THAT draft's media; with no draft it reports the live listing's media.
+Nothing is submitted for moderator review until you run a set-/add- command and
+confirm.
 
 --json emits the same read as one object: parentId, shadowId (null when there
 is no revision draft), status, hasPendingRevision, the attached media with
@@ -275,12 +276,10 @@ has to decide which needs both ids. The server's own editTargetId is NOT in
 there: this CLI does not decode that field, and reporting an id it never read
 would be a guess.
 
-🔴 This is not a pure read — with or without --json — so do not poll it in a
-loop: on a LIVE listing it opens the shadow revision described above, so a
-script calling it repeatedly keeps a revision draft open on your listing. That
-holds for an OFFSITE app too, and they are approved in practice.
-civitai/cli#389 settled that a FAILED call writes nothing; a successful one
-still does.
+This is a read, with or without --json: it asks for the read-only view, so on
+a LIVE listing it reports an existing shadow revision but never opens one.
+Older servers ignore that and open the shadow revision on a successful call
+(civitai/cli#389: a FAILED call writes nothing), so do not poll those.
 ```
 
 ```bash
@@ -293,7 +292,7 @@ still does.
 | Flag | Description | Default |
 |---|---|---|
 | `--dir string` | app directory holding block.manifest.json (when --slug is not given) | `.` |
-| `--json` | emit the listing as JSON (scriptable) — includes the parent and shadow listing ids; NOT a pure read (see the note in --help) | — |
+| `--json` | emit the listing as JSON (scriptable) — includes the parent and shadow listing ids (see the note in --help) | — |
 | `--slug string` | app slug (defaults to block.manifest.json's blockId) | — |
 
 **`civitai app listing clear-red <icon|cover>`**
