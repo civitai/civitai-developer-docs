@@ -351,6 +351,7 @@ const sidebar: DefaultTheme.Sidebar = {
         { text: 'Posts', link: '/site/reference/posts' },
         { text: 'Articles', link: '/site/reference/articles' },
         { text: 'Collections', link: '/site/reference/collections' },
+        { text: 'Comics', link: '/site/reference/comics' },
         { text: 'Creators', link: '/site/reference/creators' },
         { text: 'Creator engagement', link: '/site/reference/creator-engagement' },
         { text: 'Tags', link: '/site/reference/tags' },
