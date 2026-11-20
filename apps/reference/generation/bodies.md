@@ -9,7 +9,7 @@ description: "The WorkflowBody union and its text-to-image, ComfyUI and orchestr
 
 The `WorkflowBody` union and its text-to-image, ComfyUI and orchestrator-step members, with their parameter types.
 
-This page documents 9 of the 27 types in the [Generation bridge reference](../generation), which indexes every type by name. Generated from `@civitai/app-sdk@0.90.1` and `@civitai/blocks-react@0.83.0`.
+This page documents 9 of the 27 types in the [Generation bridge reference](../generation), which indexes every type by name. Generated from `@civitai/app-sdk@0.92.0` and `@civitai/blocks-react@0.85.0`.
 
 Other pages: [useBuzzWorkflow lifecycle and snapshot types](./lifecycle) · [Training and multi-step workflow types](./training-and-multi-step)
 
@@ -45,14 +45,14 @@ The text-to-image member of the {@link WorkflowBody} discriminated union (`kind:
 
 **`BlockTextToImageParams`** — object
 
-Generation parameters a block can override. All optional — the host fills sensible defaults (sampler='Euler', steps=25, dimensions from the base-model family) when omitted, so the simplest block can submit `{ kind: 'textToImage', modelId, modelVersionId, params: { prompt } }`. Bounds mirror civitai/civitai's `blockWorkflowBodySchema` zod gate; over- limit values are rejected server-side before reaching the orchestrator.
+Generation parameters a block can override. All optional — the host fills sensible defaults (the family's default sampler, steps=25, dimensions from the base-model family) when omitted, so the simplest block can submit `{ kind: 'textToImage', modelId, modelVersionId, params: { prompt } }`. Bounds mirror civitai/civitai's `blockWorkflowBodySchema` zod gate; over- limit values are rejected server-side before reaching the orchestrator.
 
 | Field | Type | Notes |
 |---|---|---|
 | `prompt` | `string` |  |
 | `negativePrompt?` | `string` |  |
 | `cfgScale?` | `number` | Range 1–30. |
-| `sampler?` | `string` | Sampler name (e.g. 'Euler', 'DPM++ 2M Karras'). Defaults to 'Euler'. |
+| `sampler?` | `string` | Sampler name. Valid names depend on the model family: read them with `fetchGenerationSamplers` from `@civitai/app-sdk/blocks`. A name the family does not offer is replaced by the family's default, with no error. Omitted, the host uses the family's default, and sends none for a family with no sampler control. |
 | `steps?` | `number` | Range 1–50. |
 | `seed?` | `number \| null` | `null` lets the orchestrator pick. |
 | `width?` | `number` | Range 64–2048. Defaults to 1024 for SDXL/Flux, 512 for SD1/SD2. |

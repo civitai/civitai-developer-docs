@@ -256,6 +256,18 @@ jobs:
         if: always()
         run: npm run check:doc-claims:external
 
+      - name: Homebrew platforms — HOMEBREW_PLATFORMS vs the published cask + CLI README
+        # ADVISORY, like every step here. The PR gate (appblocks-snippets.yml)
+        # checks every Homebrew banner against HOMEBREW_PLATFORMS offline; this
+        # re-derives that constant from civitai/homebrew-tap's Casks/civitai.rb
+        # (its on_macos / on_linux blocks) and civitai/cli's README Homebrew
+        # heading. Until 2026-11 the constant said macOS-only and nothing
+        # compared it upstream, so the docs kept that claim after the cask
+        # gained on_linux. Red = either source disagrees, or a source is 404.
+        # Network/5xx skip.
+        if: always()
+        run: npm run check:cli-install-parity -- --upstream
+
       # The report is the only thing that crosses the job boundary. `warn`, not
       # `error`: a drift job that died before the guard ran produces no report,
       # and that ABSENCE is a signal the notifier acts on — turning it into a

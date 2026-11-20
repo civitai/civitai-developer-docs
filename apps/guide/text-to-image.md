@@ -2,9 +2,11 @@
 title: Generating images (text-to-image)
 description: The primary App Blocks generation path — submit a text-to-image WorkflowBody, add LoRAs, do img2img (page apps only), handle refusals and limits, and read the result.
 sources:
-  - npm:@civitai/app-sdk@0.90.1/blocks#WorkflowBodyTextToImage
-  - npm:@civitai/blocks-react@0.83.0#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.92.0/blocks#WorkflowBodyTextToImage
+  - npm:@civitai/blocks-react@0.85.0#useBuzzWorkflow
   - civitai:src/server/schema/blocks/workflow.schema.ts#blockTextToImageBodySchema
+  - civitai:src/pages/api/v1/blocks/generation-samplers.ts
+  - civitai:src/shared/generation/sampler-options.ts#resolveDefaultSampler
 ---
 
 # Generating images (text-to-image)
@@ -149,8 +151,9 @@ from `useBlockContext().context`; on a page app you obtain them from a
 ## Generation parameters
 
 `params` is a `BlockTextToImageParams` object. Everything except `prompt` is
-optional — the host fills sensible defaults (sampler `Euler`, 25 steps,
-family-appropriate dimensions), so the simplest block sends only a prompt. Each
+optional — the host fills sensible defaults (the family's own
+[sampler](#sampler), 25 steps, family-appropriate dimensions), so the simplest
+block sends only a prompt. Each
 bound below is **server-enforced** (over-limit values are rejected before any
 Buzz is spent); the authoritative list is the
 [reference table](../reference/generation/bodies#bridge-BlockTextToImageParams).
@@ -161,11 +164,148 @@ Buzz is spent); the authoritative list is the
 | `negativePrompt` | optional | — |
 | `cfgScale` | 1–30 | model-dependent |
 | `steps` | 1–50 | 25 |
-| `sampler` | name | `Euler` |
+| `sampler` | a name the family lists ([Choosing a sampler](#sampler)) | the family's default |
 | `seed` | int / `null` | orchestrator picks |
 | `width` / `height` | 64–2048 | 1024 (SDXL/Flux), 512 (SD1/SD2) |
 | `clipSkip` | 0–12 | model-dependent (Flux ignores) |
 | `quantity` | 1–4 | 1 |
+
+## Choosing a sampler {#sampler}
+
+`params.sampler` is a free string, and which names are valid depends on the
+model family. **A name the family does not offer is not refused**: the host
+replaces it with the family's default sampler, so a guessed name generates with
+a different sampler and reports no error. Offer the names the platform lists
+instead.
+
+**Omit `sampler` and the host uses the family's default**: the sampler the
+on-site generator preselects for that family (for the SD families, `Euler a`),
+or a model version's own default where that version has one. For a family whose
+generator shows no sampler control, nothing is sent. A `sampler` you pass is
+sent unchanged.
+
+### `GET /api/v1/blocks/generation-samplers`
+
+The generator's sampler drop-down per model family, read from the same source
+the on-site generator renders:
+
+- **Auth:** any valid block token as a Bearer. No scope is needed. Without a
+  token the route answers `401` with `{ "error": "Block token required" }`; any
+  method but `GET` answers `405`.
+- **Caching:** the platform builds the catalog once per server process and
+  serves it from memory. Like every block-token response it is sent
+  `Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0`, so
+  keep your own copy for the session rather than fetching per render.
+
+```json
+{
+  "ecosystems": {
+    "SDXL": {
+      "sampler": {
+        "options": [{ "value": "Euler a", "label": "Euler a" }, { "value": "Euler", "label": "Euler" }],
+        "default": "Euler a"
+      },
+      "byModelVersion": {}
+    },
+    "Flux1": { "sampler": null, "byModelVersion": {} },
+    "HiDream": {
+      "sampler": null,
+      "byModelVersion": {
+        "1772448": { "options": [{ "value": "UniPC", "label": "UniPC" }], "default": "UniPC" }
+      }
+    }
+  },
+  "baseModels": { "SDXL 1.0": "SDXL", "Flux.1 D": "Flux1" }
+}
+```
+
+(The options lists are shortened here.) `ecosystems` is keyed by family;
+`baseModels` maps a checkpoint's `baseModel` onto that key, so look a
+checkpoint up as `ecosystems[baseModels[checkpoint.baseModel]]`. For each
+family, and each entry in its `byModelVersion`, there are three answers:
+
+| Value | Meaning |
+| --- | --- |
+| `{ options, default }` | The family (or that model version) has a sampler control. Send one of the `options[].value` strings; show `label`. `default` is what the generator preselects. |
+| `null` | The generator shows no sampler control. Send no `sampler`. |
+| absent | The platform could not determine the family. Treat it as **unknown**, never as `null`. |
+
+A model version listed in `byModelVersion` takes precedence over its family's
+`sampler`, including when the override is `null`.
+
+### In `@civitai/app-sdk`: `fetchGenerationSamplers` {#fetch-generation-samplers}
+
+`@civitai/app-sdk/blocks` (0.87.0 or later) wraps the route:
+
+```text
+fetchGenerationSamplers(opts: {
+  hostOrigin: string;        // e.g. useHostOrigin()
+  token: string;             // the raw block token, e.g. useBlockToken().raw
+  signal?: AbortSignal;
+  fetch?: typeof fetch;
+}): Promise<GenerationSamplerCatalog>
+
+parseGenerationSamplers(body: unknown): GenerationSamplerCatalog
+
+resolveGenerationSampler(
+  catalog: GenerationSamplerCatalog,
+  input: { baseModel?: string | null; modelVersionId?: number | null },
+): GenerationSamplerLookup
+```
+
+- **`fetchGenerationSamplers`** throws a `GenerationSamplersError` whose `code`
+  is `unsupported-platform` (the host answered `404`: it predates the route, or
+  `hostOrigin` is not the Civitai host), `unauthorized` (`401`/`403`),
+  `http-error` (any other non-2xx; `status` carries it), `invalid-response` (a
+  2xx that is not JSON or not the catalog shape) or `network-error`. It never
+  resolves to an empty catalog. An aborted `signal` rejects with the
+  `AbortError` itself.
+- **`parseGenerationSamplers`** validates a body you fetched yourself. A family
+  it cannot read is dropped, so it reads as unknown.
+- **`resolveGenerationSampler`** returns
+  `{ known: true, sampler, ecosystem, source }`, where `sampler` is
+  `{ options, default }` or `null` and `source` is `'modelVersion'` or
+  `'family'`; or `{ known: false, reason }`, which has no `sampler` property at
+  all, so it cannot be mistaken for `null`. `reason` is
+  `base-model-not-in-catalog`, `family-not-in-catalog` or
+  `base-model-required` (only a `modelVersionId` was given and no family lists
+  it). With `baseModel`, the family comes from `baseModels`, then that family's
+  override for `modelVersionId` if it lists one. Pass the **checkpoint** you
+  generate against, never a LoRA.
+
+```tsx
+import { useEffect, useState } from 'react';
+import { useBlockToken, useHostOrigin } from '@civitai/blocks-react';
+import { fetchGenerationSamplers, resolveGenerationSampler } from '@civitai/app-sdk/blocks';
+import type { BlockCheckpointInfo, GenerationSamplerLookup } from '@civitai/app-sdk/blocks';
+
+export function useSamplerChoice(checkpoint: BlockCheckpointInfo): GenerationSamplerLookup | undefined {
+  const hostOrigin = useHostOrigin();
+  const { raw } = useBlockToken();
+  const [lookup, setLookup] = useState<GenerationSamplerLookup>();
+
+  useEffect(() => {
+    if (!hostOrigin) return; // wait for BLOCK_INIT
+    const ac = new AbortController();
+    fetchGenerationSamplers({ hostOrigin, token: raw, signal: ac.signal })
+      .then((catalog) =>
+        setLookup(
+          resolveGenerationSampler(catalog, {
+            baseModel: checkpoint.baseModel,
+            modelVersionId: checkpoint.versionId,
+          }),
+        ),
+      )
+      .catch(() => setLookup(undefined)); // unknown: omit `sampler`
+    return () => ac.abort();
+  }, [hostOrigin, raw, checkpoint.baseModel, checkpoint.versionId]);
+
+  // known && sampler: render sampler.options, preselect sampler.default.
+  // known && sampler === null: hide the control and send no `sampler`.
+  // not known, or still loading: omit `sampler` and let the host pick the default.
+  return lookup;
+}
+```
 
 ## Adding LoRAs (`additionalResources`)
 

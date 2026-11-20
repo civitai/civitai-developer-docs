@@ -75,11 +75,11 @@
     "test:reference:e2e": "node scripts/test-reference-forward-e2e.mjs"
   },
   "devDependencies": {
-    "@civitai/app-sdk": "0.90.1",
-    "@civitai/blocks-react": "0.83.0",
-    "@civitai/components": "0.13.0",
+    "@civitai/app-sdk": "0.92.0",
+    "@civitai/blocks-react": "0.85.0",
+    "@civitai/components": "0.13.1",
     "@civitai/components-react": "0.10.3",
-    "@civitai/sdk": "0.28.0",
+    "@civitai/sdk": "0.29.1",
     "@civitai/theme": "0.5.2",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.0",
