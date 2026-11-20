@@ -23,6 +23,7 @@ All endpoints below live under `https://civitai.com/api/v1/`.
 | [Permissions](./permissions) | `GET /permissions/check` |
 | [Vault](./vault) | `GET /vault/get`, `GET /vault/all`, `GET /vault/check-vault`, `POST /vault/toggle-version` |
 | [Enums](./enums) | `GET /enums` |
+| [Verify](./verify) | `POST /verify` |
 
 ## Conventions used on this page
 
