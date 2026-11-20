@@ -103,7 +103,9 @@
  *
  * RESIDUAL, declared rather than implied: the banner check covers the line a
  * reader's eye lands on next to the command they copy; `staleNoteErrors` covers
- * any OTHER line on those surfaces that restricts Homebrew/the cask to macOS.
+ * any OTHER line on those surfaces that names Homebrew/the cask/brew/the tap AND
+ * says "macOS … only" in either order. A restriction worded without "only"
+ * ("Homebrew does not install on Linux") passes it.
  * Neither asserts that the explanatory note (CLI pages) or the Linux paragraph
  * (agent-setup pages) EXISTS, so deleting one stays green. Files that name only
  * `brew upgrade` (the generated `civitai upgrade` help page) are not surfaces:
@@ -669,6 +671,17 @@ function runDetectorControl() {
   }
   fired++;
 
+  // A brew fence directly after another fence, no prose between: the walk must
+  // stop at the second fence, not borrow a qualifier from above the first one.
+  const adjacent = checkHomebrewPlatform(
+    ['or, on macOS or Linux, with npm:', '', '```bash', 'npm install -g @civitai/cli', '```', '', '```bash', 'brew install civitai/tap/civitai', '```'].join('\n'),
+  );
+  if (!adjacent.errors.some((e) => e[0].includes('carries NO platform banner'))) {
+    console.error('  ✗ detector control: a brew fence after another fence borrowed a qualifier from above it');
+    process.exit(1);
+  }
+  fired++;
+
   for (const n of NOTE_FIXTURES) {
     if ((staleNoteErrors(n.text).length > 0) !== n.fire) {
       console.error(`  ✗ detector control: stale-note fixture ${JSON.stringify(n.text)} fire=${!n.fire} want=${n.fire}`);
@@ -723,6 +736,7 @@ async function mainUpstream() {
     console.error('\n--- HOMEBREW PLATFORM DRIFT ---');
     for (const e of errors) console.error(`  ✗ ${e}`);
     console.error('\nUpdate HOMEBREW_PLATFORMS and every Homebrew banner and note to what the cask installs on.');
+    console.error('NARROWING_RE and MACOS_ONLY_RE assume more than one platform: revisit them too if the set shrinks.');
     process.exit(1);
   }
   console.log(`\n  ✓ the published cask and the CLI README both say Homebrew covers ${PLATFORM_LIST}, as HOMEBREW_PLATFORMS does`);
