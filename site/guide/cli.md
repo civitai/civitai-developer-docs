@@ -128,7 +128,7 @@ so filter them with e.g. `--base-model "Wan Video 2.2 T2V-A14B"`.
 
 ```bash
 civitai model-versions get 2514310
-civitai model-versions by-hash 5D8D26E2A6
+civitai model-versions by-hash 879DB523C3
 ```
 
 Aliases: `model-version`, `mv`. `by-hash` looks a version up by any of its file
@@ -208,7 +208,7 @@ Download the file(s) of a model **version** from Civitai.
 # by version id
 civitai download 691639
 
-# resolve a MODEL's default (first published) version instead
+# resolve a MODEL's default version instead (the first one the API lists)
 civitai download --model 4384 --out ./dreamshaper.safetensors
 
 # preview the plan (files, sizes, SHA256, target paths, auth) without transferring
@@ -236,8 +236,9 @@ like a `Workflows` model's Archive, training data, or other artifacts.
 
 The positional id is normally a model-**version** id, but `models search` and
 `models get` list **model** ids — so `civitai download 4384` works too: the CLI
-recognises a model id and downloads that model's default (first published)
-version, printing a note that it did.
+recognises a model id and downloads that model's default version — the first
+one the API lists, usually but not always the newest, and not the first
+published — printing a note that it did.
 
 ::: warning "is ambiguous — it's both model … and version …"
 That error means the id you passed is valid as **both** a model id and a version
