@@ -42,7 +42,7 @@ a minute per IP across all signed-in users on it.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `credentials` | `valid` \| `invalid` \| `none` \| `unreadable` | `valid`: unchanged since it was signed. `invalid`: changed after signing. `none`: no Content Credentials (most sites remove them when they resize or re-save a file). `unreadable`: credentials are present but damaged, stored remotely, or in a form the reader doesn't support. |
+| `credentials` | `valid` \| `invalid` \| `none` \| `unreadable` | `valid`: unchanged since it was signed. `invalid`: the credentials don't check out (changed after signing, or the signature itself isn't valid, such as an expired certificate). `none`: no Content Credentials (most sites remove them when they resize or re-save a file). `unreadable`: credentials are present but damaged, stored remotely, or in a form the reader doesn't support. |
 | `signer` | object | With `valid` and `invalid`. The certificate's `issuer`, `commonName` and signing time, as written in the file. A name is not proof of who signed: certificates aren't checked against a trust list. |
 | `generator` | string | The tool the manifest says created the file, when given. |
 | `aiGenerated` | boolean | `true` when the manifest declares an AI source type (IPTC `trainedAlgorithmicMedia` or `compositeWithTrainedAlgorithmicMedia`). `false` means not declared, not "not AI". |
