@@ -191,7 +191,7 @@ events (`TRACK_EVENT`) among them. The
 Data. The viewer, Buzz balance, the [document store](./storage), the legacy
 shared and per-viewer app storage, workflows
 (estimate / submit / poll / cancel / query), gated images, generation resources,
-collections, tips and digital-goods entitlements and purchases all have routes
+[sampler options](./text-to-image#sampler), collections, tips and digital-goods entitlements and purchases all have routes
 under `/api/v1/blocks/*`. That list is illustrative, not a route reference: the
 [hook replacement table](./porting#hook-replacements) gives the route for each
 `@civitai/blocks-react` hook, and these docs do not yet carry a full

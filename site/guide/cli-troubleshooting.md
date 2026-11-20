@@ -71,6 +71,7 @@ the [CLI README](https://github.com/civitai/cli#exit-codes).
 | `look like they hold credentials` | A **warning**; exit code unchanged. A kept file has a credential-shaped line, and a submitted bundle cannot be recalled. Prints `path:line` and the key name, never the value. | [What looks like a credential](/apps/guide/packaging#what-looks-like-a-credential) |
 | `HEAD is on no remote` | A **warning**. The tree is clean but its commit exists only locally, so the deployed version traces back to nothing fetchable. Push the branch. | [The dirty-work-tree guard](/apps/guide/packaging#the-dirty-work-tree-guard) |
 | `refusing to withdraw without --yes` | No TTY to confirm; nothing was withdrawn. Withdrawing a **first-version** submission deletes the app's store listing (icon, cover, every screenshot), so a scripted `civitai app withdraw <id>` needs `--yes`. | [Changing the bundle while a request is still pending](/apps/guide/review-and-deploy#changing-the-bundle-while-a-request-is-still-pending) |
+| `GitHub Actions OIDC token rejected:` | The server refused the GitHub Actions OIDC token `civitai/app-submit-action` sent with the submit (`CIVITAI_GITHUB_OIDC_TOKEN`), and nothing was uploaded. The rest of the message is the reason; a `503` one says to re-run the workflow. | [Troubleshooting a GitHub Actions submit](/apps/guide/github-actions#troubleshooting) |
 
 ### Generating
 

@@ -30,7 +30,7 @@ npm install -g @civitai/cli
 # or, without installing:
 npx @civitai/cli --help
 
-# Homebrew (macOS only — see the note below)
+# Homebrew (macOS and Linux)
 brew install civitai/tap/civitai
 
 # Go install (from source, Go 1.25+)
@@ -42,11 +42,12 @@ nix run github:civitai/cli -- --help
 nix profile install github:civitai/cli
 ```
 
-::: warning Homebrew is macOS-only
-The tap publishes a **cask**, not a formula — the CLI's release config carries
-`homebrew_casks:` and no `brews:` stanza — and a cask is a macOS-only concept.
-On Linux (Linuxbrew included) `brew install civitai/tap/civitai` has nothing to
-install; use npm, the Nix flake, `go install`, or a prebuilt binary instead.
+::: tip Homebrew covers macOS and Linux
+The tap publishes one Homebrew **cask**, rendered by the CLI's release config
+(`homebrew_casks:`), with both macOS and Linux archives (amd64 and arm64), so
+the same command installs on either. Installing a cask on Linux needs a current
+Homebrew; if yours refuses it, use npm, the Nix flake, `go install`, or a
+prebuilt binary instead.
 :::
 
 ::: tip The npm `install-scripts` warning is expected

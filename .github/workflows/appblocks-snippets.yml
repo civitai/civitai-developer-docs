@@ -96,8 +96,10 @@ jobs:
         run: npm run check:ds-pins -- --offline
 
       # Both pages document the SAME `civitai` binary. Offline + repo-local: it
-      # compares the two pages to each other, not to anything upstream. (Gates
-      # — see the note above.)
+      # compares the two pages to each other, and every Homebrew banner/note to
+      # the committed HOMEBREW_PLATFORMS constant, not to anything upstream (its
+      # `--upstream` half runs nightly in appblocks-drift.yml). (Gates — see the
+      # note above.)
       - name: CLI install-method parity — the two hosted CLI pages agree
         if: always()
         run: npm run check:cli-install-parity

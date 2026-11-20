@@ -169,6 +169,8 @@ Besides the validation errors common to all list endpoints (see
   `modelVersionId` or `postId` for such a model returns only those images, and
   a lookup by `imageId` leaves out an image above that level on a post of such
   a model. Either can return an empty `items`.
+- Some images are left out of public API responses for safety reasons, including images flagged as possibly depicting a minor. A request can
+  return an empty `items` when every match is left out.
 - `/images` defaults to `limit=50`. Lower it explicitly if you're only after
   a handful, or raise it up to `200` for fewer round-trips.
 
