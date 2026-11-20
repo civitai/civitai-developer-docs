@@ -77,7 +77,8 @@ which a personal key can't carry. The CLI prints a warning and the submit
 continues (see
 [The submit skipped the store-listing check](#the-submit-skipped-the-store-listing-check)).
 Check the listing yourself instead: run `civitai app doctor <slug>` locally
-after `civitai login`, or open the listing in your browser. Skipping the check
+after `civitai login`, with `CIVITAI_TOKEN` unset (it overrides the login), or
+open the listing in your browser. Skipping the check
 changes nothing on the server: a moderator still reviews the submission.
 
 **A Full Access key runs the listing check**, but it is a full-power credential
@@ -248,7 +249,7 @@ prints it to stderr:
 
 | Message | Fix |
 | --- | --- |
-| ``⚠ skipped the store-listing check for <slug>: this credential cannot read listing media (403, it lacks the Apps submit scope). A personal API key never carries that scope and passes only with Full Access, so with a scoped key this check is skipped on every unattended submit. Submitting without the listing-completeness gate. To check the listing, run `civitai app doctor <slug>` from a `civitai login` session, or open the listing in your browser.`` | Expected with a scoped key (see [Which API key](#which-api-key)). Run `civitai app doctor <slug>` locally after `civitai login`, or check the listing in your browser. |
+| ``⚠ skipped the store-listing check for <slug>: this credential cannot read listing media (403, it lacks the Apps submit scope). A personal API key never carries that scope and passes only with Full Access, so with a scoped key this check is skipped on every unattended submit. Submitting without the listing-completeness gate. To check the listing, run `civitai app doctor <slug>` from a `civitai login` session, or open the listing in your browser.`` | Expected with a scoped key (see [Which API key](#which-api-key)). Run `civitai app doctor <slug>` locally after `civitai login`, with `CIVITAI_TOKEN` unset, or check the listing in your browser. |
 
 Any other error the submit prints is the CLI's usual submit error; look it up in
 [CLI troubleshooting](/site/guide/cli-troubleshooting).
