@@ -44,15 +44,15 @@ Otherwise install it:
 npm install -g @civitai/cli
 ```
 
-or, **on macOS only**, with Homebrew:
+or, on macOS or Linux, with Homebrew:
 
 ```bash
 brew install civitai/tap/civitai
 ```
 
-The tap publishes a **cask**, which is macOS-only — on Linux (Linuxbrew
-included) it has nothing to install. On Linux, use the npm command above and
-do not report the Homebrew failure as a problem.
+The tap's cask covers macOS and Linux. A cask on Linux needs a current
+Homebrew; if brew refuses it, use the npm command above and do not report the
+Homebrew failure as a problem.
 
 ### If the install fails
 
