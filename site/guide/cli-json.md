@@ -79,10 +79,11 @@ Most `--json` output is a wire payload. Two `app` commands emit a shape the
 Both keep the two piping properties above; only the *provenance* of the fields
 differs.
 
-::: danger `app listing status --json` is a read with a server-side SIDE EFFECT
-On a **live** (approved) listing it opens a revision draft server-side. Unlike
-every read above, it must **not** be polled in a loop — a watch loop is a
-writer. Reading it once per change is fine.
+::: warning `app listing status --json` on older CLIs
+From v0.1.144 the CLI asks for a read-only view, so on a **live** (approved) listing
+it reports an existing revision draft but never opens one. Older CLIs (and
+servers that ignore the read-only view) open a revision draft server-side, so
+on those a watch loop is a writer: read it once per change instead.
 :::
 
 ## Generation `--json` {#generation-json}
