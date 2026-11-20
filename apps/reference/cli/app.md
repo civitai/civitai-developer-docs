@@ -530,6 +530,12 @@ reported (a submission from before the CLI sent it, or from a directory that is
 in no git repo), which is NOT the same as a clean build; "(dirty)" means the
 client said uncommitted changes went into that bundle.
 
+When the server recorded the GitHub Actions run that sent a submission (public
+repositories only), the detail view says "Submitted by a GitHub Actions run of
+<repository> @ <tag> (<sha7>)" and --json carries it as actionsRunSource. That
+names the run that SUBMITTED; it does not show the bundle was built from that
+commit.
+
 Note: a submission's <blockId>.civit.ai surface only serves AFTER it is approved
 and deployed (deployState 'live').
 ```
