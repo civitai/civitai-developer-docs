@@ -330,9 +330,12 @@ model-id check itself fails (rate limited, server or network error), the
 download stops; with --yes it proceeds with the version and says the check
 failed and why.
 
-Use --dry-run to print the resolved plan (files, sizes, SHA256, target paths,
-and whether auth is required) without transferring anything. It creates no
-file at all — not even a ".part".
+Use --dry-run to print the resolved plan (files, file ids, sizes, SHA256,
+target paths, and whether a token will be sent) without transferring anything.
+It creates no file at all — not even a ".part". Whether a file actually needs a
+token is decided by the server, so the plan does not claim it. A dry run whose
+target cannot be resolved fails with the same error and exit code the real run
+would.
 
 When a positional model id is resolved to a version, the note reads:
 
@@ -561,9 +564,9 @@ says so on stderr.
 The CLI does not check those value sets — it passes the value through and the
 server rejects an unknown one with HTTP 400, reported as a usage mistake.
 
---sort is IGNORED when --model-id is set — the API returns that model's images
-in its own order whatever you ask, so the CLI notes it on stderr rather than
-let you believe the sort took. --model-version-id does honour --sort.
+--sort is IGNORED when --model-id is set alone: the API returns that model's
+images in its own order, so the CLI notes it on stderr rather than let you
+believe the sort took. With --model-version-id also set, --sort is honoured.
 
 --meta adds each image's prompt, sampler, cfg, steps, seed, model and resource
 list, rendered as a per-image block instead of the table (a table cannot hold a

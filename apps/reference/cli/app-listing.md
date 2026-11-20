@@ -263,9 +263,10 @@ is still required before it can publish (an icon and a cover are mandatory).
 Your store listing exists as a DRAFT from the moment you run
 `civitai app submit`, so this works while your app is still pending review.
 
-Note: on a LIVE (approved) listing this opens an in-progress revision draft and
-reports ITS media (idempotent — it reuses any existing draft, and nothing is
-submitted for moderator review until you run a set-/add- command and confirm).
+On a LIVE (approved) listing that has an in-progress revision draft, this
+reports THAT draft's media; with no draft it reports the live listing's media.
+Nothing is submitted for moderator review until you run a set-/add- command and
+confirm.
 
 --json emits the same read as one object: parentId, shadowId (null when there
 is no revision draft), status, hasPendingRevision, the attached media with
