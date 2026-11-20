@@ -4,7 +4,7 @@ description: Making a block fit the slot the host gives it — the --civitai-bp-
 sources:
   - npm:@civitai/blocks-react@0.85.0#useBlockBreakpoint
   - npm:@civitai/theme@0.5.2#breakpoints
-  - npm:@civitai/components@0.13.0
+  - npm:@civitai/components@0.13.1
 ---
 
 # Responsive blocks

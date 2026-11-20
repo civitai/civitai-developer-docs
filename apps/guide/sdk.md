@@ -2,12 +2,12 @@
 title: The @civitai/sdk client
 description: What a block does with @civitai/sdk — initialize(), app.onChange, app.host, app.site, app.requestGrants, and app.workflows for generation, with the idempotency key every submit needs.
 sources:
-  - npm:@civitai/sdk@0.29.0/dist/index.d.ts
-  - npm:@civitai/sdk@0.29.0/dist/app/index.d.ts
-  - npm:@civitai/sdk@0.29.0/dist/host/index.d.ts
-  - npm:@civitai/sdk@0.29.0/dist/workflows/index.d.ts
-  - npm:@civitai/sdk@0.29.0#README
-  - npm:@civitai/app-sdk@0.91.0/blocks#isValidBlockIdempotencyKey
+  - npm:@civitai/sdk@0.29.1/dist/index.d.ts
+  - npm:@civitai/sdk@0.29.1/dist/app/index.d.ts
+  - npm:@civitai/sdk@0.29.1/dist/host/index.d.ts
+  - npm:@civitai/sdk@0.29.1/dist/workflows/index.d.ts
+  - npm:@civitai/sdk@0.29.1#README
+  - npm:@civitai/app-sdk@0.92.0/blocks#isValidBlockIdempotencyKey
   - civitai:src/pages/api/v1/blocks/workflows/submit.ts
 ---
 
