@@ -1,6 +1,6 @@
 civitai CLI help snapshot (the WHOLE command tree)
 Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
-Binary version: civitai 0.1.141
+Binary version: civitai 0.1.146
 Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
 else parses this committed snapshot. To refresh: run
 node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).
@@ -18,10 +18,11 @@ It does three things from one static binary:
     right folder for ComfyUI / A1111.
   • Build & submit Apps — small, sandboxed web apps that run inside Civitai
     surfaces. Scaffold a correct project, validate it against the platform
-    contract, and package it for submission. EVERY civitai app command needs a
-    token, including the App-store browse commands app list / app view: that
-    endpoint keys the visible catalog off your identity, so it has no
-    anonymous view.
+    contract, and package it for submission. Local authoring (app create,
+    app validate) runs without a token; every app command that talks to the
+    platform needs one, including the App-store browse commands app list /
+    app view: that endpoint keys the visible catalog off your identity, so it
+    has no anonymous view.
   • Generate images — civitai generate "<prompt>". This SPENDS REAL BUZZ and
     needs the AI Services scopes (civitai login --scopes generate, or a
     full-scope personal API key); price a job with --dry-run first.
@@ -461,12 +462,12 @@ It also emits non-fatal WARNINGS the schema can't catch as hard errors:
     not checked; a .collection( call on anything but a storage client (a name
     ending in storage, or an awaited call such as (await docs())) is not the
     document store.
-  - source that calls useAppStorage() or useSharedStorage() while the manifest
-    declares NO scope for that store (apps:storage:read / apps:storage:write,
-    or apps:storage:shared:read / apps:storage:shared:write). The server gates
-    storage by PRESENCE in the approved scope set, so every call 403s in
-    production while working locally against the mock host. One scope for the
-    store is enough to silence it; the two stores are asked independently.
+  - source that calls useAppStorage() or useSharedStorage(), whatever scopes
+    the manifest declares. Both legacy stores are removed: civitai.com refuses
+    every call with legacy_store_removed, and @civitai/blocks-react 0.81.0 no
+    longer exports the hooks, so adding apps:storage:read / :write or
+    apps:storage:shared:read / :write does not help. Move the data to the
+    document store.
     Advisory ONLY: these read source statically. Same corpus rules as the
     ready-ack check — source only, comments stripped, node_modules and build
     output skipped — and test code is not read: *.test.*, *.spec.*, a file
@@ -601,6 +602,14 @@ Listing-completeness gate:
 
   Your FIRST submit is what creates the store listing, so there is nothing to
   check yet and nothing is refused; the gate applies from the second one on.
+
+GitHub Actions:
+  When CIVITAI_GITHUB_OIDC_TOKEN is set (the civitai/app-submit-action Action
+  sets it on a tag push), the token is sent with the submit. The server checks
+  it with GitHub and records the workflow run's repository, tag and commit
+  with the submission; a token that fails that check refuses the submit, and
+  the error says why. It is read from the environment only (there is no flag,
+  so it never appears on the command line) and is never printed.
 
 Storage migration notes:
   An app that declares App Storage collections is checked by the SERVER
@@ -1060,9 +1069,10 @@ is still required before it can publish (an icon and a cover are mandatory).
 Your store listing exists as a DRAFT from the moment you run
 `civitai app submit`, so this works while your app is still pending review.
 
-Note: on a LIVE (approved) listing this opens an in-progress revision draft and
-reports ITS media (idempotent — it reuses any existing draft, and nothing is
-submitted for moderator review until you run a set-/add- command and confirm).
+On a LIVE (approved) listing that has an in-progress revision draft, this
+reports THAT draft's media; with no draft it reports the live listing's media.
+Nothing is submitted for moderator review until you run a set-/add- command and
+confirm.
 
 --json emits the same read as one object: parentId, shadowId (null when there
 is no revision draft), status, hasPendingRevision, the attached media with
@@ -1072,12 +1082,10 @@ has to decide which needs both ids. The server's own editTargetId is NOT in
 there: this CLI does not decode that field, and reporting an id it never read
 would be a guess.
 
-🔴 This is not a pure read — with or without --json — so do not poll it in a
-loop: on a LIVE listing it opens the shadow revision described above, so a
-script calling it repeatedly keeps a revision draft open on your listing. That
-holds for an OFFSITE app too, and they are approved in practice.
-civitai/cli#389 settled that a FAILED call writes nothing; a successful one
-still does.
+This is a read, with or without --json: it asks for the read-only view, so on
+a LIVE listing it reports an existing shadow revision but never opens one.
+Older servers ignore that and open the shadow revision on a successful call
+(civitai/cli#389: a FAILED call writes nothing), so do not poll those.
 
 Usage:
   civitai app listing status [flags]
@@ -1091,7 +1099,7 @@ Examples:
 Flags:
       --dir string    app directory holding block.manifest.json (when --slug is not given) (default ".")
   -h, --help          help for status
-      --json          emit the listing as JSON (scriptable) — includes the parent and shadow listing ids; NOT a pure read (see the note in --help)
+      --json          emit the listing as JSON (scriptable) — includes the parent and shadow listing ids (see the note in --help)
       --slug string   app slug (defaults to block.manifest.json's blockId)
 
 Global Flags:
@@ -1405,15 +1413,14 @@ STORAGE DOES NOT WORK UNDER dev:live, whatever credential you mint with:
   - The document store (@civitai/sdk app.storage.collection) is not reached at
     all: @civitai/sdk calls it over HTTP, not over the block→host bridge the
     page-money harness forwards, and that template does not use @civitai/sdk.
-  - Legacy App Storage (useAppStorage) is forwarded, and the server refuses it
-    with 401: those calls need a civitai.com browser session, which a local
-    harness never has. It says nothing about your account or your app.
-  - Legacy shared storage (useSharedStorage) is refused too. Until the app has
-    an approved version the refusal is "app block not found" or "app block is
-    not approved"; once it has one, it is for scope, because the
-    apps:storage:shared:* scopes are never minted on a dev token.
-Exercise the legacy stores under "npm run dev:harness", and the document store
-with createFakeStorage from @civitai/sdk/testing.
+  - The legacy stores (useAppStorage, useSharedStorage) are removed: civitai.com
+    refuses every call to them, in production too (legacy_store_removed, since
+    2026-11-10), and @civitai/blocks-react 0.81.0 no longer exports the hooks.
+    Under dev:live the refusal you see may not be legacy_store_removed: a
+    useAppStorage call is refused first with 401 "Apps access is not enabled
+    for this browser session", because that check runs before the removal
+    check and a local harness never has a civitai.com browser session.
+Exercise the document store with createFakeStorage from @civitai/sdk/testing.
 
 --spend is the explicit affirmation that this token may spend real Buzz. It does
 two things to the request: it adds ai:write:budgeted to the scopes REQUESTED from
@@ -1646,8 +1653,11 @@ Every other exit code keeps its usual meaning (3 not authorized, 4 no such app,
 5 transport). --json emits the same verdict as one object and uses the same exit
 codes, so a script must branch on the code before trusting the payload.
 
-Unlike `civitai app listing status`, this is a PURE READ — it opens no
-revision draft on a live listing, so it is safe to run in a loop.
+Like `civitai app listing status` against a current server, this is a
+PURE READ — it opens no revision draft on a live listing, so it is safe to run
+in a loop. Unlike status, it stays one against an OLDER server too: status's
+read-only request is ignored there, and a successful status call opens a
+revision draft.
 
 Usage:
   civitai app doctor [slug] [flags]
@@ -1949,8 +1959,11 @@ CLI, which is a real gap and not one this command can close on its own.
 because they are about different stores. 'authenticated' is THIS CLI's
 credential — 'civitai login''s config file or CIVITAI_TOKEN — which is what
 'civitai app dev-token', 'civitai app validate' and 'civitai app submit' read.
-'agent-token' is whether CIVITAI_TOKEN is set in the PROCESS environment, which
-is the only place your agent can resolve the reference in its MCP config from.
+'agent-token' is whether your agent's MCP entries CARRY a CIVITAI_TOKEN
+reference and whether CIVITAI_TOKEN is set in the PROCESS environment, which is
+the only place your agent can resolve that reference from. A run with no token
+configured writes the entries without one; exporting the variable alone does
+not add it — re-run 'civitai agent-setup' with a token configured.
 You do NOT need CIVITAI_TOKEN to scaffold, build, dev-run or submit an App; it
 is only for the MCP servers. Neither row can fail the verdict: an
 unauthenticated setup is a success.
@@ -2412,9 +2425,13 @@ Identify the version deterministically by its numeric version id:
 
   civitai download 691639
 
-…or resolve a model's default (first published) version with --model:
+…or resolve a model's default version with --model. The default is the FIRST
+version the API lists for the model — the top of the creator's version order,
+usually but not always the newest, and NOT the first published:
 
   civitai download --model 4384
+
+To get any other version of the model, name it by its version id.
 
 The positional id is normally a model-VERSION id, but 'civitai models search'
 and 'civitai models get' list MODEL ids — so handing a model id as the positional
@@ -2425,11 +2442,17 @@ numbers), the CLI STOPS and asks you to disambiguate rather than silently
 downloading an unrelated model's version — re-run with --model <id> (the model's
 default version) or --version <id> (that version as-is). Use --version to name a
 version id explicitly and skip that stop; --yes proceeds on the version
-interpretation and echoes exactly which version it is downloading.
+interpretation and echoes exactly which version it is downloading. If the
+model-id check itself fails (rate limited, server or network error), the
+download stops; with --yes it proceeds with the version and says the check
+failed and why.
 
-Use --dry-run to print the resolved plan (files, sizes, SHA256, target paths,
-and whether auth is required) without transferring anything. It creates no
-file at all — not even a ".part".
+Use --dry-run to print the resolved plan (files, file ids, sizes, SHA256,
+target paths, and whether a token will be sent) without transferring anything.
+It creates no file at all — not even a ".part". Whether a file actually needs a
+token is decided by the server, so the plan does not claim it. A dry run whose
+target cannot be resolved fails with the same error and exit code the real run
+would.
 
 When a positional model id is resolved to a version, the note reads:
 
@@ -2559,7 +2582,7 @@ Flags:
       --force             re-download even if the target file already exists
   -h, --help              help for download
       --layout string     route each file into its type's subfolder for an app (a1111|comfyui); mutually exclusive with --out/--out-dir
-      --model string      resolve+download a MODEL's default (first published) version instead of a version id
+      --model string      resolve+download a MODEL's default version (the first the API lists: the creator's top version, not the first published) instead of a version id
       --no-verify         skip SHA256 verification of the downloaded bytes
       --out string        target file path (single-file only; mutually exclusive with --all/--out-dir)
       --out-dir string    directory to write server-named file(s) into (created if needed)
@@ -2761,6 +2784,22 @@ CONFIRMATION: an interactive run prints the estimate and your balance and asks
 before spending. A non-interactive shell (pipe/CI) without --yes is REFUSED
 rather than charged silently.
 
+WHICH BUZZ PAYS: --buzz-type blue|yellow|green picks the account, the same
+choice as the "Pay with" menu in the site's generator, and is sent with the
+submit. Without it the server decides: blue first, then the site's own Buzz.
+The account matters beyond the balance — on civitai.red the site states that
+Blue Buzz is limited to safe-for-work results, so a mature result paid in blue
+can come back locked, and unlocking it on the site is a second charge. To pay
+for a mature result up front, point the CLI at that site
+(CIVITAI_BASE_URL=https://civitai.red) and choose yellow. On the default
+civitai.com the server offers blue and green only. With the flag, the balance
+check and the confirmation use that account's balance alone. Two limits: the
+estimate does not take the choice (--dry-run shows it, but prices the job
+without it), and a type the site does not offer is NOT refused by the server —
+it silently pays from its default account instead. That includes yellow on
+civitai.com, even though the site's menu there lists a yellow balance (as a
+pointer to civitai.red).
+
 WHAT THE SERVER DOES NOT TELL YOU: the generator is permissive, not a validator.
 An out-of-range --quantity is clamped with no error, and a checkpoint id that
 does not exist is accepted with the ecosystem default silently substituted and
@@ -2851,7 +2890,8 @@ exits without submitting or even pricing anything.
 flags (--negative-prompt, --quantity, --aspect-ratio, --checkpoint, --lora) or
 with a prompt argument; the execution flags all still apply. Keys that belong to
 the request ENVELOPE rather than the graph — civitaiTip, creatorTip, buzzType,
-tags, externalId — are REFUSED in an input file: they are this CLI's to set, and
+tags, externalId — are REFUSED in an input file: they are this CLI's to set (use
+--buzz-type for the Buzz account), and
 a tip in particular is real Buzz that --dry-run structurally cannot see. Keys
 this CLI does not model are passed through exactly as written, with a warning
 that says so and nothing more: what the server does with such a key, including
@@ -2913,6 +2953,10 @@ Examples:
   # Non-interactive (CI): --yes is required, or the run is refused
   civitai generate "a cat" --yes --max-cost 20
 
+  # Pay with Yellow Buzz instead of the server's default (blue first)
+  civitai generate "a cat" --buzz-type yellow --dry-run
+  civitai generate "a cat" --buzz-type yellow --yes
+
   # Graduate from flags to a raw graph: print, edit, send back
   civitai generate "a cat" --quantity 2 --print-input > graph.json
   civitai generate --input graph.json --dry-run
@@ -2927,6 +2971,7 @@ Examples:
 
 Flags:
       --aspect-ratio string      aspect ratio bucket, e.g. 1:1 (width/height derive from it)
+      --buzz-type string         which Buzz account pays: blue, yellow or green — the same choice as the site generator's 'Pay with' menu. Unset, the server picks (blue first, then the site's own Buzz). A type the site does not offer is NOT refused by the server: it falls back to that default. Applied at submit only; --dry-run's estimate does not take it
       --checkpoint int           checkpoint model-VERSION id (not a model id) — resolved before submitting
       --dry-run                  print the cost estimate and exit without submitting (spends nothing)
       --ecosystem string         model family to generate with, e.g. Qwen or Flux1Kontext. Sent to the server verbatim and NOT checked locally; required with --image because the server only promotes a job to image-to-image when the ecosystem is stated
@@ -3061,9 +3106,9 @@ says so on stderr.
 The CLI does not check those value sets — it passes the value through and the
 server rejects an unknown one with HTTP 400, reported as a usage mistake.
 
---sort is IGNORED when --model-id is set — the API returns that model's images
-in its own order whatever you ask, so the CLI notes it on stderr rather than
-let you believe the sort took. --model-version-id does honour --sort.
+--sort is IGNORED when --model-id is set alone: the API returns that model's
+images in its own order, so the CLI notes it on stderr rather than let you
+believe the sort took. With --model-version-id also set, --sort is honoured.
 
 --meta adds each image's prompt, sampler, cfg, steps, seed, model and resource
 list, rendered as a per-image block instead of the table (a table cannot hold a
@@ -3099,7 +3144,7 @@ Flags:
       --meta                   include generation metadata (prompt, sampler, seed, etc.)
       --model-id int           filter by model id
       --model-version-id int   filter by model version id
-      --nsfw                   include NSFW results
+      --nsfw                   FILTER to NSFW (mature-rated) images only — it does not add them to the default mix; --nsfw=false filters to safe-for-work only
       --page int               page number (shallow paging; prefer --cursor)
       --period string          time period (AllTime, Year, Month, Week, Day)
       --post-id int            filter by post id
@@ -3125,7 +3170,9 @@ Alternatively, pass --token to store a personal API key created at
 https://civitai.com/user/account (API Keys). Passing --token with NO value prints
 where to create that key and how to re-run (it does not log in). Either way the
 credential is saved
-to your config file (~/.config/civitai/config.yaml, owner-readable only). The
+to config.yaml in your per-OS config directory, owner-readable only:
+~/.config/civitai/ on Linux ($XDG_CONFIG_HOME/civitai/ when set),
+~/Library/Application Support/civitai/ on macOS, %AppData%\civitai\ on Windows. The
 CIVITAI_TOKEN environment variable still overrides the stored credential.
 
 SCOPES. By DEFAULT `civitai login` grants identity + Apps submit +
@@ -3205,7 +3252,7 @@ Aliases:
 Examples:
   civitai model-versions get 128713
   civitai mv get 128713 --json
-  civitai model-versions by-hash 5D8D26E2A6
+  civitai model-versions by-hash 879DB523C3
 
 Available Commands:
   by-hash     Get a model version by file hash (GET /api/v1/model-versions/by-hash/{hash})
@@ -3248,8 +3295,8 @@ Usage:
   civitai model-versions by-hash <hash> [flags]
 
 Examples:
-  civitai model-versions by-hash 5D8D26E2A6
-  civitai mv by-hash 5D8D26E2A6 --json
+  civitai model-versions by-hash 879DB523C3
+  civitai mv by-hash 879DB523C3 --json
 
 Flags:
       --anon   force an anonymous request (ignore any stored login token)
@@ -3529,17 +3576,19 @@ Global Flags:
 ===CMD complete tags search===
 :0
 ===CMD upgrade===
-Download and install the latest civitai release, replacing this binary.
+Download the latest civitai release and replace this binary with it — unless
+this binary was installed by Homebrew (see below).
 
 The latest release is resolved from the public GitHub releases API (no token is
 ever sent). The downloaded archive — a .zip on Windows, a .tar.gz everywhere
 else — is verified against its SHA-256 checksum before anything is replaced; a
 mismatch aborts the upgrade and leaves the current binary untouched.
 
-If this binary was installed via Homebrew, upgrade delegates to:
+If this binary was installed via Homebrew (on macOS or Linux), upgrade does not
+replace it and does not run Homebrew: it prints the command for you to run,
     brew upgrade civitai/tap/civitai
-(use --force to self-replace anyway). The release publishes a Homebrew CASK,
-which is macOS-only, so that delegation only leads anywhere on macOS.
+and exits without downloading anything, so Homebrew keeps owning the file.
+--force skips that check and self-replaces the binary anyway.
 
 Usage:
   civitai upgrade [flags]

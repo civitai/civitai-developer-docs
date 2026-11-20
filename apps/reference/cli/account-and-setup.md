@@ -106,8 +106,11 @@ CLI, which is a real gap and not one this command can close on its own.
 because they are about different stores. 'authenticated' is THIS CLI's
 credential — 'civitai login''s config file or CIVITAI_TOKEN — which is what
 'civitai app dev-token', 'civitai app validate' and 'civitai app submit' read.
-'agent-token' is whether CIVITAI_TOKEN is set in the PROCESS environment, which
-is the only place your agent can resolve the reference in its MCP config from.
+'agent-token' is whether your agent's MCP entries CARRY a CIVITAI_TOKEN
+reference and whether CIVITAI_TOKEN is set in the PROCESS environment, which is
+the only place your agent can resolve that reference from. A run with no token
+configured writes the entries without one; exporting the variable alone does
+not add it — re-run 'civitai agent-setup' with a token configured.
 You do NOT need CIVITAI_TOKEN to scaffold, build, dev-run or submit an App; it
 is only for the MCP servers. Neither row can fail the verdict: an
 unauthenticated setup is a success.
@@ -359,7 +362,9 @@ Alternatively, pass --token to store a personal API key created at
 https://civitai.com/user/account (API Keys). Passing --token with NO value prints
 where to create that key and how to re-run (it does not log in). Either way the
 credential is saved
-to your config file (~/.config/civitai/config.yaml, owner-readable only). The
+to config.yaml in your per-OS config directory, owner-readable only:
+~/.config/civitai/ on Linux ($XDG_CONFIG_HOME/civitai/ when set),
+~/Library/Application Support/civitai/ on macOS, %AppData%\civitai\ on Windows. The
 CIVITAI_TOKEN environment variable still overrides the stored credential.
 
 SCOPES. By DEFAULT `civitai login` grants identity + Apps submit +
@@ -403,17 +408,19 @@ account with `civitai whoami`.)
 Update the civitai CLI to the latest release
 
 ```text
-Download and install the latest civitai release, replacing this binary.
+Download the latest civitai release and replace this binary with it — unless
+this binary was installed by Homebrew (see below).
 
 The latest release is resolved from the public GitHub releases API (no token is
 ever sent). The downloaded archive — a .zip on Windows, a .tar.gz everywhere
 else — is verified against its SHA-256 checksum before anything is replaced; a
 mismatch aborts the upgrade and leaves the current binary untouched.
 
-If this binary was installed via Homebrew, upgrade delegates to:
+If this binary was installed via Homebrew (on macOS or Linux), upgrade does not
+replace it and does not run Homebrew: it prints the command for you to run,
     brew upgrade civitai/tap/civitai
-(use --force to self-replace anyway). The release publishes a Homebrew CASK,
-which is macOS-only, so that delegation only leads anywhere on macOS.
+and exits without downloading anything, so Homebrew keeps owning the file.
+--force skips that check and self-replaces the binary anyway.
 ```
 
 ```bash
