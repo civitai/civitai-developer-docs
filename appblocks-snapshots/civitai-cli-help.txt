@@ -1,6 +1,6 @@
 civitai CLI help snapshot (the WHOLE command tree)
 Captured from: civitai/cli (repo civitai/cli, origin/main) via the installed binary.
-Binary version: civitai 0.1.146
+Binary version: civitai 0.1.147
 Regenerate: scripts/gen-appblocks-cli.mjs auto-captures from a `civitai` binary when present,
 else parses this committed snapshot. To refresh: run
 node scripts/gen-appblocks-cli.mjs --write-snapshot (with a civitai binary on PATH).
@@ -698,6 +698,12 @@ records what the client reported and cannot check it. A "-" means nothing was
 reported (a submission from before the CLI sent it, or from a directory that is
 in no git repo), which is NOT the same as a clean build; "(dirty)" means the
 client said uncommitted changes went into that bundle.
+
+When the server recorded the GitHub Actions run that sent a submission (public
+repositories only), the detail view says "Submitted by a GitHub Actions run of
+<repository> @ <tag> (<sha7>)" and --json carries it as actionsRunSource. That
+names the run that SUBMITTED; it does not show the bundle was built from that
+commit.
 
 Note: a submission's <blockId>.civit.ai surface only serves AFTER it is approved
 and deployed (deployState 'live').
