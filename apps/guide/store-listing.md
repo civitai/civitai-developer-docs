@@ -45,12 +45,14 @@ Screenshots:     0
   Add one:  civitai app listing set-cover <file>
 ```
 
-::: danger `civitai app listing status` is not a pure read
-On a **live (approved)** listing — off-site apps included — the read behind it
-opens the revision draft server-side (idempotently, the same one each time), so
-a script polling it keeps a revision open on your listing. Read it once per
-change, with or without `--json`. For CI, use
-[`civitai app doctor`](#gating-a-release-with-app-doctor), which is a pure read.
+::: warning Older CLIs open a revision draft from `civitai app listing status`
+From v0.1.144 the CLI asks the server for a read-only view, so on a **live
+(approved)** listing `status` reports an existing revision draft but never opens
+one, with or without `--json`. Older CLIs (and servers that ignore
+the read-only view) open the revision draft server-side on a successful call, so
+do not poll `status` on those. For CI,
+[`civitai app doctor`](#gating-a-release-with-app-doctor) is a pure read on
+every version.
 :::
 
 ## Which app a listing command acts on
@@ -198,8 +200,8 @@ back, you get the error and exit `2`.
 
 ### `rm-screenshot` stages and does **not** submit
 
-On a live listing the ids `listing status` prints belong to the open revision,
-so a removal lands there — and it is **not** submitted. Your public gallery goes
+On a live listing a removal lands in the revision draft — and it is **not**
+submitted. Your public gallery goes
 on showing the screenshot until the revision is approved:
 
 ```
@@ -487,8 +489,8 @@ equivalent of the web editor — see
 
 ### Two properties worth knowing
 
-- **It is a PURE READ.** Unlike `civitai app listing status`, it opens no
-  revision draft, so it is safe in a loop or in CI.
+- **It is a PURE READ.** It opens no revision draft on any CLI version, so it
+  is safe in a loop or in CI.
 - **It sees apps `civitai app status` cannot** — listings you acquired by
   ownership transfer or hold a collaborator seat on. `app status` reads only
   what *you submitted*.
