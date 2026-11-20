@@ -26,9 +26,10 @@ way. See [Review, approval and deploy](./review-and-deploy).
 
 ## Set up the workflow
 
-Copy this into `.github/workflows/release.yml` in your app's repository (the
-same file is the Action's
-[`examples/release.yml`](https://github.com/civitai/app-submit-action/blob/main/examples/release.yml)):
+Copy this into `.github/workflows/release.yml` in your app's repository. It is
+the Action's
+[`examples/release.yml`](https://github.com/civitai/app-submit-action/blob/main/examples/release.yml)
+without its comments:
 
 ```yaml
 name: Submit to Civitai

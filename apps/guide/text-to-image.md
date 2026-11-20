@@ -157,6 +157,8 @@ block sends only a prompt. Each
 bound below is **server-enforced** (over-limit values are rejected before any
 Buzz is spent); the authoritative list is the
 [reference table](../reference/generation/bodies#bridge-BlockTextToImageParams).
+That table's `sampler` default (`'Euler'`) is out of date: an omitted sampler is
+the family's default, as [Choosing a sampler](#sampler) describes.
 
 | field | range | default |
 |---|---|---|

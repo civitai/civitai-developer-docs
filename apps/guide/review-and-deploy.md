@@ -198,13 +198,8 @@ See [What an approval writes](./repositories#approval-commit).
 A submit made by the
 [`civitai/app-submit-action`](https://github.com/civitai/app-submit-action)
 Action on a tag push also carries a GitHub Actions OIDC token for the run. The
-server checks that token with GitHub, including that the tag equals the
-manifest version and that its commit is the `sourceCommit` the CLI sent, and
-records the run's repository, tag and commit with the submission. That record
-is separate from the claim above. Moderators see both, on two labelled lines,
-and the store page of an app whose run was from a public repository shows a
-`Submitted by` row naming the run. A token that fails the check refuses the
-submit. Review is unchanged. See
+server checks it and records the run separately from the claim above. Review is
+unchanged. What is checked, and what moderators and store visitors see, is in
 [Submitting from GitHub Actions](./github-actions).
 
 ## Is your repo behind what you shipped?
