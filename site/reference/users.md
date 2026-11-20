@@ -106,7 +106,7 @@ Reading your limits never counts against them.
     {
       "id": "gifts.monthly",
       "area": "gifts",
-      "label": "Gift claims per month",
+      "label": "Gift claims of your links per month",
       "limit": 10,
       "used": 2,
       "remaining": 8,
@@ -136,7 +136,7 @@ A limit counts over one of two kinds of window, given in `window`:
 |----|--------|--------|
 | `posts.hourly`, `posts.daily` | Posts | `rolling` |
 | `comments.hourly`, `comments.daily` | Comments. One allowance covers every place you can comment on the site, including model discussions. | `rolling` |
-| `gifts.monthly` | Gift claims. Listed only for callers who can claim gifts. | `utc-month` |
+| `gifts.monthly` | Claims of the gift links you created, across all your links. Claiming a gift yourself is not limited. Listed only for callers who can use gift links. | `utc-month` |
 
 Limits that guard against abuse are never listed here.
 

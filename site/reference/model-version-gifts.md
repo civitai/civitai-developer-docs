@@ -39,7 +39,12 @@ gated), and the claim was not used up.
 | Status | When |
 |--------|------|
 | `400` | The code is unknown, expired, revoked or used up (one message for all four); the version is not published; or it is your own model. |
-| `429` | Too many claim attempts. Retry later. |
+| `429` | Too many claim attempts, or the creator's gift links have reached this month's limit. Retry after `Retry-After`. |
+
+A `429` for the monthly limit carries a `rateLimit` object with `"id": "gifts.monthly"` and `resetAt`,
+without counts. That limit is the creator's, not yours: it caps how many times one creator's gift links can be claimed per UTC month,
+across all their links, by the creator's membership. It frees up at `resetAt`, the start of the next
+UTC month. The creator sees their own count as `gifts.monthly` on [`GET /me/limits`](./users).
 
 ## Mint single-use codes
 
