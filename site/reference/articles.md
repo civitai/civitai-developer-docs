@@ -35,7 +35,7 @@ GET /api/v1/articles
 | `limit` | integer (1–100) | 100 | Number of items per page. |
 | `cursor` | string | — | Opaque keyset cursor (`"<v>\|<id>"`). Use `metadata.nextCursor` from the previous response. Articles use **cursor-based** pagination only (no `page`). |
 | `query` | string | — | Full-text search over the article title. |
-| `tags` | comma-separated integers | — | Filter by **tag IDs** (not names), e.g. `tags=5,12`. |
+| `tags` | comma-separated integers | — | Filter by **tag IDs** (not names), e.g. `tags=5,12`. Several IDs match an article carrying any of them. An article category ID matches the article's assigned category, which can differ from the categories in its `tags`. |
 | `username` | string | — | Filter by author username. |
 | `sort` | `Newest` \| `Recently Updated` \| `Most Reactions` \| `Most Comments` \| `Most Bookmarks` \| `Most Collected` | `Newest` | Sort order. |
 | `nsfw` | boolean | `false` | If `true`, include mature content. Ignored (clamped to SFW) in restricted regions. |
