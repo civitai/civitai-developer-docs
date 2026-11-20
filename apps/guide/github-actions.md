@@ -51,13 +51,37 @@ jobs:
           api-key: ${{ secrets.CIVITAI_API_KEY }}
 ```
 
-Then add your Civitai API key as a repository secret named `CIVITAI_API_KEY`
+Then add a Civitai API key as a repository secret named `CIVITAI_API_KEY`
 (Settings → Secrets and variables → Actions → New repository secret). Never put
-the key in the workflow file.
+the key in the workflow file. Give the key the narrowest scope you can; see
+[Which API key](#which-api-key).
 
 **`permissions: id-token: write` is required.** Without it the job has no way
 to request the token, and the Action stops before submitting with
 `this job cannot request a GitHub OIDC token. Add 'permissions: id-token: write' (and 'contents: read') to the job that uses this action.`
+
+### Which API key
+
+**Any personal API key submits**, whatever its scope: the submit checks a
+personal key's account, not its scope. Your account must still be one that can
+submit Apps. Create the key in your
+[account settings](https://civitai.com/user/account).
+
+**Prefer the narrowest scope.** The key sits in your repository's secrets and
+every workflow run can use it. A key whose only permission is **Read** on
+**Profile & Settings** submits.
+
+**With a key that isn't Full Access, the CLI skips its store-listing check.**
+That check reads your listing before the upload and needs the Apps submit scope,
+which a personal key can't carry. The CLI prints a warning and the submit
+continues (see
+[The submit skipped the store-listing check](#the-submit-skipped-the-store-listing-check)).
+Check the listing yourself instead: run `civitai app doctor <slug>` locally
+after `civitai login`, or open the listing in your browser. Skipping the check
+changes nothing on the server: a moderator still reviews the submission.
+
+**A Full Access key runs the listing check**, but it is a full-power credential
+for your account, stored in CI.
 
 ### Inputs
 
@@ -215,6 +239,16 @@ it. By `reason`:
 **A token is spent once it passes the checks**, even when a later step of the
 submit fails: the repository pin, the bundle upload, or creating the submission.
 Retrying always means re-running the workflow, which requests a new token.
+
+### The submit skipped the store-listing check
+
+This is a warning, not a refusal: the submit continues. From CLI v0.1.146
+(the Action's `pinned` CLI from v1.0.3), a run with a key that isn't Full Access
+prints it to stderr:
+
+| Message | Fix |
+| --- | --- |
+| ``⚠ skipped the store-listing check for <slug>: this credential cannot read listing media (403, it lacks the Apps submit scope). A personal API key never carries that scope and passes only with Full Access, so with a scoped key this check is skipped on every unattended submit. Submitting without the listing-completeness gate. To check the listing, run `civitai app doctor <slug>` from a `civitai login` session, or open the listing in your browser.`` | Expected with a scoped key (see [Which API key](#which-api-key)). Run `civitai app doctor <slug>` locally after `civitai login`, or check the listing in your browser. |
 
 Any other error the submit prints is the CLI's usual submit error; look it up in
 [CLI troubleshooting](/site/guide/cli-troubleshooting).
