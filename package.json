@@ -76,7 +76,7 @@
   },
   "devDependencies": {
     "@civitai/app-sdk": "0.92.0",
-    "@civitai/blocks-react": "0.85.0",
+    "@civitai/blocks-react": "0.85.1",
     "@civitai/components": "0.13.1",
     "@civitai/components-react": "0.10.3",
     "@civitai/sdk": "0.29.1",
