@@ -2,7 +2,8 @@
 title: Votes, likes and reports (viewer-keyed documents)
 description: Store a vote, a like, a rating or one entry per viewer in the document store with a viewer-keyed collection (keyedBy "viewer" or "parent+viewer", getMine / putMine / deleteMine / parentOf, the /@me routes), count by listing, report a document to moderators with app.moderation.report, and move off the deprecated counters, marks, write "none" and publish.
 sources:
-  - npm:@civitai/sdk@0.29.1/dist/doc-store/index.d.ts
+  - civitai-app-starters:packages/civitai-sdk/src/doc-store/index.ts
+  - civitai-app-starters:packages/civitai-sdk/src/doc-store/moderation.ts
   - civitai:public/schemas/app-block/v1.json#storage
   - civitai:src/shared/constants/block-storage.constants.ts
   - civitai:src/server/services/apps/doc-store-api.ts
@@ -252,10 +253,10 @@ curl -s -X POST "https://civitai.com/api/v1/blocks/moderation/reports" \
   `404 not_found`. Moderators see the report in their queue, as a `report`
   mark's.
 
-The report API is being enabled app by app. Until it reaches yours, the route
-answers as an unknown route and `app.moderation.report` rejects with the local
-code `report_unavailable` (404): hide the report action then, or keep the
-deprecated `report` mark for now.
+The report API is served for every app. Against an older civitai.com, or while
+the route is rolled back, it answers as an unknown route and
+`app.moderation.report` rejects with the local code `report_unavailable` (404):
+hide the report action then.
 
 ## Moving off counters, marks and publish {#moving-off}
 

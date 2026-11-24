@@ -94,9 +94,9 @@ new code:
 
 **What changes now.** A version you submit may not add a mark, a counter or
 `write: "none"` to a collection unless your app's **previous approved version**
-already declared it there. A collection may keep what it declares, or drop some
-or all of it, until its data is moved; the refusal names the field and points
-here. Responses from deprecated routes, and from a list using a deprecated
+already declared it there, so a new app (or a fork's first version) may declare
+none of them. A collection may keep what it declares, or drop some or all of
+it, until its data is moved; the refusal names the field and points here. Responses from deprecated routes, and from a list using a deprecated
 parameter, carry `Deprecation` and a `Link` with `rel="deprecation"` to this
 page. No removal date is set: removal waits for measured usage to reach zero.
 `@civitai/sdk` marks every deprecated method and field `@deprecated`. Each
@@ -980,8 +980,8 @@ not found to your app and to every viewer, and a write to its key is refused
 (`POST /api/v1/blocks/moderation/reports`) reports one document of a shared
 collection. It needs a signed-in viewer and `apps:storage`, answers
 `{ reported: true }` (never a count), spends the daily report limit and cannot
-be withdrawn. It is being enabled app by app: until it reaches yours, the SDK
-rejects `report_unavailable`. Details in
+be withdrawn. It is served for every app; the SDK rejects `report_unavailable`
+only against an older civitai.com, or while the route is rolled back. Details in
 [Reporting a document](./votes-and-reports#reporting).
 
 ## Errors {#errors}
@@ -1287,8 +1287,8 @@ await codeOf(requestsIn(fake.storage).create({ title: FAKE_STORAGE_MODERATION.bl
   `deleteMine`, with the server's refusals) from `@civitai/sdk` 0.30.0;
   `viewerKeyedClosed: ['votes']` closes a collection, to test
   `viewer_keyed_closed`. It serves the [report API](#reporting) only with
-  `reports: true`, as the route is off by default; otherwise
-  `app.moderation.report` rejects `report_unavailable`.
+  `reports: true`. The fake's default is off, so your default tests exercise
+  the `report_unavailable` path; civitai.com serves the route for every app.
 - It serves the deprecated `update` with the server's checks and refusal
   reasons.
 - It does not model moderator hides, the review namespace, or a failed
@@ -1355,7 +1355,8 @@ over, is in [Moving from the legacy stores](./storage-legacy).
 ## Troubleshooting {#troubleshooting}
 
 - **`civitai app validate` or `submit` refuses `ownedModelVersions`, `schema`, `storage.imports`, `exportable`, `apps:storage:import` or `migrations` as an unknown property:** the CLI is older than the key (v0.1.128 for `ownedModelVersions`, v0.1.135 for `schema` and imports, v0.1.136 for `migrations`). Upgrade the CLI.
-- **`civitai app submit` is refused with "… are deprecated — a collection may keep only the … it already declares":** the version adds a mark, a counter or `write: "none"` its previous approved version did not declare on that collection. Use a [viewer-keyed collection](#viewer-keyed) and the [report API](#reporting) instead ([Deprecated](#deprecated)).
+- **`civitai app submit` is refused with "storage.collections.‹name›.marks: … not declared on this collection by the previous approved version, and marks are deprecated — a collection may keep only the marks it already declares, until its data is migrated; …"** (or the same for `counters`), **or with "storage.collections.‹name›.write: "none" is not declared on this collection by the previous approved version, and write "none" is deprecated — a collection may keep it only if it already declares it, until its data is migrated; …":** the version adds a mark, a counter or `write: "none"` that its previous approved version did not declare on that collection. Remove it, and use a [viewer-keyed collection](#viewer-keyed) and the [report API](#reporting) instead ([Deprecated](#deprecated)).
+- **A first version (a new app, or a fork's first submit) is refused with "storage.collections.‹name›.marks: marks are deprecated and cannot be declared on a new app (declared: …); …"** (or `counters`), **or "storage.collections.‹name›.write: "none" is deprecated and cannot be declared on a new app; …":** an app with no approved version may declare none of them. Each message ends "declare a viewer-keyed collection instead (…), and report a document through the moderation report API — see https://developer.civitai.com/apps/guide/storage".
 - **`civitai app validate` refuses `keyedBy` as an unknown property:** the CLI predates viewer-keyed collections. Upgrade it once a release that knows `keyedBy` is out.
 - **`getMine`, `putMine` or `app.moderation` is not a function:** `@civitai/sdk` is older than 0.30.0. Upgrade it.
 - **Every store call in a `civitai app dev-tunnel` preview is refused `insufficient_scope`:** `@civitai/sdk` is older than 0.18.0. Upgrade it.

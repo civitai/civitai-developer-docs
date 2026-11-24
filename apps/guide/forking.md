@@ -81,7 +81,7 @@ cannot be forked.
 
 ### How the manifest is rewritten {#manifest}
 
-`block.manifest.json` in the copy is changed in four ways, and is otherwise the
+`block.manifest.json` in the copy is changed in five ways, and is otherwise the
 parent's:
 
 - **`blockId`** becomes the fork's, so the copy publishes as a new app rather
@@ -99,6 +99,16 @@ parent's:
   `apps:storage:import` unless one is set. An existing import from the parent
   is replaced. Nothing is added when the parent declares no collection other
   apps may reach, or when the manifest already holds the most imports allowed.
+- **The [deprecated](./storage#deprecated) storage primitives are removed**
+  from the fork's own collections, so its first version can be submitted as it
+  stands: `marks` and `counters` go from every collection, and a collection
+  with `write: "none"` is dropped whole (it held nothing but counters and
+  marks). Schemas, indexes and everything else stay. If that leaves no
+  collections, `storage.collections` goes too, and `storage` goes when it then
+  holds no imports either. The import from the parent still reaches every
+  exportable parent collection, those included. A fork that wants votes or
+  likes of its own declares a
+  [viewer-keyed collection](./votes-and-reports#viewer-keyed).
 
 The default justification reads:
 
