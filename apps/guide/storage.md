@@ -1,6 +1,6 @@
 ---
 title: Storing data (document store)
-description: Keep an app's data on Civitai with the document store — declare collections in the manifest, the apps:storage, apps:storage:publish and apps:storage:import scopes, documents, conditional writes, lists, counters and marks, reaching another app's data through storage.imports and ?from=, what viewers can do with their own data, moderation, error codes, limits, local development, createFakeStorage, the REST routes, and moving off the legacy useAppStorage / useSharedStorage stores.
+description: Keep an app's data on Civitai with the document store — declare collections in the manifest, the apps:storage, apps:storage:publish and apps:storage:import scopes, documents, conditional writes, lists, viewer-keyed documents for votes, likes and one entry per viewer, reporting a document to moderators, the deprecated counters, marks, write "none" and publish, reaching another app's data through storage.imports and ?from=, what viewers can do with their own data, moderation, error codes, limits, local development, createFakeStorage, the REST routes, and moving off the legacy useAppStorage / useSharedStorage stores.
 sources:
   - npm:@civitai/sdk@0.29.1/dist/doc-store/index.d.ts
   - npm:@civitai/sdk@0.29.1/dist/doc-store/fake.d.ts
@@ -9,6 +9,8 @@ sources:
   - civitai:public/schemas/app-block/storage-contract.v1.json
   - civitai:src/shared/constants/block-storage.constants.ts
   - civitai:src/server/services/apps/doc-store-api.ts
+  - civitai:src/server/services/apps/doc-store-viewer-keyed.ts
+  - civitai:src/server/services/apps/doc-store-report-api.ts
   - civitai:src/server/services/apps/doc-store-access.ts
   - civitai:src/server/services/apps/doc-store-ownership.ts
   - civitai:src/server/services/apps/doc-store-schema.ts
@@ -32,9 +34,12 @@ sources:
 An app keeps its data on Civitai in the **document store**: JSON documents in
 named **collections** that the app declares in its manifest. A collection is
 either **private**, one key space per viewer, or **shared**, one key space every
-viewer of the app reads. Shared collections carry authorship, **counters** and
-per-viewer **marks** (a vote, a like, a report) without any code of yours on the
-server.
+viewer of the app reads. Shared collections carry authorship without any code
+of yours on the server, and a shared collection can be
+[**viewer-keyed**](#viewer-keyed): the server gives each viewer at most one
+document of their own (per item, if you like), which is how a vote, a like, a
+rating or one entry per viewer is stored. A document is reported to moderators
+through the [report API](#reporting).
 
 The client is `app.storage.collection(name)` in
 [`@civitai/sdk`](./sdk). Underneath it is a plain REST API
@@ -51,6 +56,10 @@ npm ls @civitai/sdk
 npm install @civitai/sdk@latest
 ```
 
+[Viewer-keyed documents](#viewer-keyed) (`getMine`, `putMine`, `deleteMine`,
+`parentOf`) and [`app.moderation.report`](#reporting) need `@civitai/sdk`
+**0.30.0** or later.
+
 This store replaces two older ones, `useAppStorage` and `useSharedStorage`
 (and their `app-storage` / `shared-storage` routes). Those are **shut down on
 2026-11-10**, after which their routes answer `410 Gone`; see
@@ -62,6 +71,39 @@ Which client reaches which store:
 | Document store | `app.storage.collection(name)`, `app.storage.info()` | none | `/api/v1/blocks/storage/*` |
 | Legacy per-viewer store (deprecated; shut down 2026-11-10) | `app.storage.get` / `set` / `delete` / `list` / `getQuota` | `useAppStorage` | `/api/v1/blocks/app-storage/*` |
 | Legacy shared store (deprecated; shut down 2026-11-10) | `app.sharedStorage` | `useSharedStorage` | `/api/v1/blocks/shared-storage/*` |
+
+## Deprecated: counters, marks, `write: "none"` and publish {#deprecated}
+
+The document store is being reduced to plain collections plus
+[viewer-keyed documents](#viewer-keyed). These still work, but are
+**deprecated** and will be removed once no app uses them, so do not use them in
+new code:
+
+- **`marks`** and the `$mark` / `$unmark` operators (`update`, `mark`,
+  `unmark`): use a viewer-keyed collection, where each viewer's own document is
+  their vote or like.
+- **`counters`**, `$inc` (`update`, `increment`) and **`write: "none"`**: store
+  what each viewer did in a viewer-keyed collection and count by listing. There
+  is no server-side count, sum or sort by count.
+- **The `report` mark**: use the [report API](#reporting).
+- **The tally fields and list parameters**: `counters`, `marks` and `viewer` on
+  a document, `sort` by `counter:<name>` / `mark:<name>`, and `markedBy` /
+  `mark`.
+- **`publish` / `unpublish`**: write the shared copies one by one with `put` /
+  `delete`.
+
+**What changes now.** A version you submit may not add a mark, a counter or
+`write: "none"` to a collection unless your app's **previous approved version**
+already declared it there. A collection may keep what it declares, or drop some
+or all of it, until its data is moved; the refusal names the field and points
+here. Responses from deprecated routes, and from a list using a deprecated
+parameter, carry `Deprecation` and a `Link` with `rel="deprecation"` to this
+page. No removal date is set: removal waits for measured usage to reach zero.
+`@civitai/sdk` marks every deprecated method and field `@deprecated`. Each
+replacement, call by call, is in
+[Moving off counters, marks and publish](./votes-and-reports#moving-off). If
+your app holds marks or counters viewers care about, contact the Civitai team
+before you drop the declaration: they are not moved by themselves.
 
 ## Declare your collections {#declare}
 
@@ -79,13 +121,16 @@ collection you add in a new version exists once that version is approved.
   "storage": {
     "collections": {
       "prefs":    { "visibility": "private" },
-      "requests": { "visibility": "shared", "write": "own", "marks": ["vote"],
+      "requests": { "visibility": "shared", "write": "own",
                     "indexes": { "status": "string" }, "showAuthor": true },
-      "plays":    { "visibility": "shared", "write": "none", "counters": ["plays"] }
+      "votes":    { "visibility": "shared", "write": "own", "keyedBy": "parent+viewer" }
     }
   }
 }
 ```
+
+`votes` holds at most one document per viewer per request: a viewer's vote on
+request `r1` is their own document there ([Viewer-keyed documents](#viewer-keyed)).
 
 Each collection declares:
 
@@ -94,16 +139,24 @@ Each collection declares:
   read by every viewer, signed-out viewers included.
 - **`write`** — shared collections only, and required on them. `"own"`: signed-in
   viewers create documents, and only a document's author edits or deletes it.
-  `"none"`: nobody writes documents; viewers only increment the declared
-  counters and set the declared marks, and the first increment of a key that
-  does not exist creates an empty document. A `"none"` collection must declare at
-  least one counter or mark.
-- **`counters`** — shared only. Atomic tallies the app increments, such as
-  `plays`.
-- **`marks`** — shared only. A per-viewer flag on a document, at most one of each
-  per viewer per document, such as `vote`. A reader sees each mark's count and
-  whether **they** set it, never who else did. `report` is built in on every
-  shared collection and must not be declared.
+  `"none"` is [deprecated](#deprecated): nobody writes documents; viewers only
+  increment the declared counters and set the declared marks, and the first
+  increment of a key that does not exist creates an empty document. A `"none"`
+  collection must declare at least one counter or mark, and a new version may
+  declare `"none"` only on a collection its previous approved version already
+  declared it on.
+- **`keyedBy`** — shared `write: "own"` collections only, optional.
+  `"viewer"` or `"parent+viewer"`: the server derives each document's key from
+  the signed-in viewer (and an item key you name), so each viewer has at most one
+  document, or one per item. See [Viewer-keyed documents](#viewer-keyed).
+- **`counters`** — [deprecated](#deprecated); shared only. Atomic tallies the
+  app increments, such as `plays`.
+- **`marks`** — [deprecated](#deprecated); shared only. A per-viewer flag on a
+  document, at most one of each per viewer per document, such as `vote`. A
+  reader sees each mark's count and whether **they** set it, never who else did.
+  `report` is built in on every shared collection and must not be declared.
+  A new version may keep only the counters and marks its previous approved
+  version already declared on that collection.
 - **`indexes`** — the fields of a document's `data` you can filter and sort by,
   as a map of field path to type (`string`, `number`, `boolean` or `time`). A
   path such as `status` or `meta.round` names a field inside `data`.
@@ -138,8 +191,8 @@ because there is no app-wide delete:
 - In a shared **`"own"`** collection, each document's author can delete it,
   and no other viewer can. A document a moderator has hidden cannot be deleted
   this way.
-- In a shared **`"none"`** collection, no viewer can delete a document: a
-  delete is refused `write_policy`.
+- In a shared **`"none"`** collection ([deprecated](#deprecated)), no viewer
+  can delete a document: a delete is refused `write_policy`.
 - The app cannot delete documents on viewers' behalf: `write: "owner"`, which
   would make the app a writer, is reserved.
 
@@ -520,8 +573,8 @@ Three scopes:
 
 | Scope | Covers | Consent |
 |---|---|---|
-| `apps:storage` | everything except authoring shared documents: reads, the viewer's private collections, deleting documents the viewer wrote, marks and counters | consent-exempt |
-| `apps:storage:publish` | creating and editing documents in a shared collection whose `write` is `"own"` | consent-gated, and needs a `scopeJustifications` entry |
+| `apps:storage` | everything except authoring shared documents: reads, the viewer's private collections, deleting documents the viewer wrote (`deleteMine` included), [reports](#reporting), and the deprecated marks and counters | consent-exempt |
+| `apps:storage:publish` | creating and editing documents in a shared collection whose `write` is `"own"`, a viewer-keyed `putMine` (a vote) included | consent-gated, and needs a `scopeJustifications` entry |
 | `apps:storage:import` | the viewer's documents in another app, through `storage.imports` ([Another app's data](#imports)) | consent-gated, and needs a `scopeJustifications` entry |
 
 The rules the server's manifest validation enforces at approval (only the
@@ -529,8 +582,9 @@ The rules the server's manifest validation enforces at approval (only the
 uploads the version):
 
 - Declaring any collection requires `apps:storage`.
-- A shared collection with `write: "own"` requires `apps:storage:publish`.
-  `write: "none"` does not: no viewer authors a document there.
+- A shared collection with `write: "own"` requires `apps:storage:publish`,
+  viewer-keyed ones included. The deprecated `write: "none"` does not: no
+  viewer authors a document there.
 - Declaring any import requires `apps:storage:import`, and `apps:storage` too,
   even when the app declares no collections of its own.
 - Declaring any of the three scopes with nothing in `storage` for it to reach is
@@ -585,9 +639,9 @@ const created = await requests.create({ title: 'More lighting presets', status: 
 const doc = await requests.get(created.key); // null when there is none
 await requests.put(created.key, { title: 'More lighting presets', status: 'done' }, { ifVersion: doc?.version });
 
-const page = await requests.list({ where: { status: 'open' }, sort: '-mark:vote', limit: 20 });
+const page = await requests.list({ where: { status: 'open' }, sort: '-createdAt', limit: 20 });
 for (const item of page.items) {
-  console.log(item.data.title, item.marks.vote, item.author, item.viewer?.marks);
+  console.log(item.data.title, item.author);
 }
 ```
 
@@ -599,7 +653,10 @@ for (const item of page.items) {
 | `create(data)` | creates a document under a key the server chooses, a sortable id |
 | `delete(key, { ifVersion? })` | `{ deleted: false }` when there was nothing to delete; calling it twice is safe |
 | `list(query?)` | one page; see [Lists](#lists) |
-| `update(key, op)` | a counter or mark; see [Counters and marks](#counters-and-marks) |
+| `getMine(parent?)`, `putMine(data, { parent?, ifVersion? })`, `deleteMine({ parent?, ifVersion? })` | the viewer's own document in a [viewer-keyed](#viewer-keyed) collection |
+| `parentOf(key)` | the item key a `parent+viewer` document's key names, or `null` |
+| `update(key, op)` | [deprecated](#deprecated): a counter or mark; see [Counters and marks](#counters-and-marks) |
+| `publish`, `unpublish` | [deprecated](#deprecated): use `put` / `delete` |
 | `app.storage.info()` | the declared collections, the [limits](#limits) and the usage so far; signed-in viewers only |
 
 ### Documents
@@ -614,10 +671,13 @@ marks, viewer }`:
   (`username` only in a `showAuthor` collection), `{ kind: 'counter' }` for a
   document a counter's first increment created, or `{ kind: 'app' }`. It never
   carries a numeric user id.
-- `counters` and `marks` hold the declared counters and mark counts of a shared
-  document, and are `{}` on a private one. A `report` count is never exposed.
-- `viewer` is `{ marks }`, the marks the reading viewer set on this document,
-  or `null` for a signed-out viewer.
+- `counters`, `marks` and `viewer` are [deprecated](#deprecated) with counters
+  and marks, and leave the document when they are removed; do not read them in
+  new code. Until then, `counters` and `marks` hold the declared counters and
+  mark counts of a shared document (`{}` on a private one, and on a collection
+  that declares none; a `report` count is never exposed), and `viewer` is
+  `{ marks }`, the marks the reading viewer set on this document, or `null` for
+  a signed-out viewer. `{ kind: 'counter' }` authors go with counters.
 
 Reads and writes use the same database connection, so a read made after a write
 succeeded sees it; there is no replica delay to wait out.
@@ -646,10 +706,10 @@ the last page; pass it back as `cursor` **with the same query** for the next one
 | Query field | Meaning |
 |---|---|
 | `where` | equality on **one** declared index: `{ status: 'open' }`. A `time` index takes an ISO-8601 string, epoch milliseconds or a `Date` |
-| `sort` | `key` (the default), `createdAt`, `updatedAt`, a declared index, `counter:<name>` or `mark:<name>`; a leading `-` sorts descending |
+| `sort` | `key` (the default), `createdAt`, `updatedAt` or a declared index (and the [deprecated](#deprecated) `counter:<name>` / `mark:<name>`); a leading `-` sorts descending |
 | `author: 'me'` | only documents the viewer wrote |
-| `markedBy: 'me'` with `mark` | only documents the viewer marked with that mark |
-| `keyPrefix` | only keys starting with this prefix |
+| `markedBy: 'me'` with `mark` | [deprecated](#deprecated): only documents the viewer marked with that mark |
+| `keyPrefix` | only keys starting with this prefix; on a `parent+viewer` collection, `<parent>:` lists one item's documents |
 | `limit` | page size; the server applies its own default and maximum |
 
 The filters combine with AND. A filter or sort on an index lists only the
@@ -657,53 +717,31 @@ documents that **have** a value for that index; a counter or mark sort lists
 every document, counting a missing tally as 0. A `where` or `sort` on anything
 undeclared is refused `index_not_declared`.
 
-### Counters and marks {#counters-and-marks}
+## Viewer-keyed documents {#viewer-keyed}
 
-Both exist on shared collections only, and both need a signed-in viewer. A
-counter or mark is an **update operator**: `update(key, op)` sends exactly one,
-as `PATCH /{collection}/{key}` with the operator as the body.
+A shared `write: "own"` collection that declares **`keyedBy`** gives each
+signed-in viewer at most one document of their own (`"viewer"`), or one per
+item (`"parent+viewer"`), at a key the **server** derives from the verified
+viewer. A vote, a like, a rating or one entry per viewer is an ordinary document
+there, with a body, a `version`, a schema and moderation. The SDK calls are
+`getMine(parent?)`, `putMine(data, { parent? })`, `deleteMine({ parent? })` and
+`parentOf(key)`; over REST, `GET` / `PUT` / `DELETE /{collection}/@me[/{parent}]`.
 
-```ts
-import { initialize } from '@civitai/sdk';
+In short: shared `write: "own"` only, and not beside `counters` or `marks`; a
+viewer writes only their own document, and creates or writes by key are refused;
+`keyedBy` cannot change once approved; keys are `<parent>:<digest>`; there are no
+server-side aggregates, so count by listing with `keyPrefix: '<parent>:'`; and a
+vote is a shared write, so `putMine` needs `apps:storage:publish`.
+[Votes, likes and reports](./votes-and-reports) has the rules, every refusal
+and a worked "votes" example.
 
-const app = await initialize();
-const plays = app.storage.collection('plays'); // write: "none", counters: ["plays"]
+## Counters and marks (deprecated) {#counters-and-marks}
 
-const { value } = await plays.update('model-123', { $inc: { plays: 1 } }); // creates the document on first use
-await app.storage.collection('requests').update('r1', { $mark: 'vote' });
-```
-
-- `{ $inc: { <counter>: by } }` adds `by` to one declared counter and resolves
-  `{ value }`, the new total. `by` is required. In a `write: "none"` collection
-  the first `$inc` of a missing key creates the document.
-- `{ $mark: name }` and `{ $unmark: name }` are idempotent and resolve
-  `{ marked, count }`. Use a mark for anything one viewer does once per
-  document: a vote, a like, a bookmark. `viewer.marks` on each document tells
-  you which ones this viewer has set, so a toggle can render its state on load.
-- `report` is the built-in mark that sends a document to moderators. Its count
-  is never returned, and **a report cannot be withdrawn**: `{ $unmark: 'report' }`
-  is refused `invalid_request` for every caller. Reports have their own daily
-  limit on top of the marks-and-counters one.
-
-#### Refused bodies {#update-refusals}
-
-A body that is not exactly one operator is refused `invalid_request` with a
-`details.reason`: `empty_patch` (none, or `{}`), `unknown_operator`,
-`multiple_operators`, `merge_patch_unsupported` (plain fields only; to change
-`data`, `put` it) or `malformed_operator` (not an object, an operator beside
-another field, an `$inc` naming other than one counter, a non-string mark
-name). A bad value in a well-formed operator, such as an undeclared counter,
-is refused without a `details.reason`.
-
-#### Moving off `increment`, `mark` and `unmark` {#moving-off-increment-mark-unmark}
-
-They and their routes (`POST …/counters/{name}`, `PUT`/`DELETE …/marks/{name}`)
-are **deprecated**, keep working with the same replies, and have no removal
-date. Their responses carry `Deprecation: @1794182400` (2026-11-09) and a
-`Link` with `rel="deprecation"` to this page. `increment(key, counter, by?)`
-becomes `update(key, { $inc: { [counter]: by } })` (`by` required),
-`mark(key, name)` becomes `update(key, { $mark: name })`, and `unmark`
-likewise `$unmark`; over REST, `PATCH` the document with that operator.
+[Deprecated](#deprecated). `update(key, op)` with `$inc`, `$mark` or
+`$unmark` (`PATCH /{collection}/{key}`), and the older `increment`, `mark` and
+`unmark`, keep working for collections that still declare counters or marks.
+Their reference, refusals and replacements are in
+[Counters and marks](./votes-and-reports#counters-and-marks).
 
 ## Who can do what {#who-can-do-what}
 
@@ -714,8 +752,11 @@ likewise `$unmark`; over REST, `PATCH` the document with that operator.
 | Write or delete in a private collection | signed in | `apps:storage` | a write is checked against the collection's [`schema`](#collection-schemas) when declared |
 | Create or edit in a shared `"own"` collection | signed in | `apps:storage` + `apps:storage:publish` | the minimum-trust gate, moderation, the shared write budget, and the collection's [`schema`](#collection-schemas) and [`ownedModelVersions`](#owned-model-versions) checks when declared (in that order, before the trust gate, moderation and the budget); editing another viewer's document is refused `not_author`, or `schema_violation` / `resource_not_owned` first when its `data` fails those checks |
 | Delete in a shared `"own"` collection | signed in, the author | `apps:storage` | — |
-| Write a document in a `"none"` collection | — | — | refused `write_policy` for a signed-in viewer (a signed-out one gets `sign_in_required` first) |
-| Counters and marks (`update`) | signed in | `apps:storage` | the minimum-trust gate |
+| `putMine` in a [viewer-keyed](#viewer-keyed) collection | signed in | `apps:storage` + `apps:storage:publish` | as creating or editing in a shared `"own"` collection; refused `write_policy` (`viewer_keyed_closed`) while the collection is closed |
+| `getMine`, `deleteMine` in a viewer-keyed collection | signed in | `apps:storage` | `deleteMine` refused while the collection is closed, as `putMine` |
+| Report a document ([report API](#reporting)) | signed in | `apps:storage` | the minimum-trust gate, the daily report limit |
+| Write a document in a `"none"` collection (deprecated) | — | — | refused `write_policy` for a signed-in viewer (a signed-out one gets `sign_in_required` first) |
+| Counters and marks (`update`, deprecated) | signed in | `apps:storage` | the minimum-trust gate |
 
 Signed-out viewers get `sign_in_required` for everything but shared reads, so
 gate write affordances on `app.viewer`, and render shared reads regardless.
@@ -824,9 +865,9 @@ and pass a `signal` to bound the wait: without `from` it has no timeout of its
 own, and a viewer who presses "Not now" sends nothing. A token minted before the viewer's grant stopped covering the import can still
 carry the scope, so fetch a fresh token first (`app.getToken({ fresh: true })`).
 
-**`apps:storage:publish`, in the source app.** A create, put, counter or mark
-in one of the source's **shared** collections changes what other viewers
-of the source see, so it also needs the viewer's own `apps:storage:publish`
+**`apps:storage:publish`, in the source app.** A create, put, `putMine`,
+report, counter or mark in one of the source's **shared** collections acts on
+what other viewers of the source see, so it also needs the viewer's own `apps:storage:publish`
 grant **in the source app**. The import grant is not that consent, and your
 app's own publish grant is never consulted. Without it the write is refused
 `consent_required` with
@@ -914,9 +955,10 @@ try {
 ## Moderation {#moderation}
 
 Every create or edit in a shared collection is scanned before it is stored:
-every string value and object key in `data`, and on `put` the document key. In a
-`"none"` collection, every increment scans the document's key, whether or not the
-document already exists.
+every string value and object key in `data`, and on `put` the document key (on
+a viewer-keyed `putMine`, the parent instead: the derived digest is never
+scanned). In a `"none"` collection (deprecated), every increment scans the
+document's key, whether or not the document already exists.
 
 - A refusal is `content_rejected` (422). `details.category` is coarse (`link`,
   `unreviewable` or `blocked`) and never the matched text.
@@ -924,11 +966,23 @@ document already exists.
   with a `Retry-After`; retry after it. In a `"none"` collection that includes
   increments to documents that already exist.
 
-Viewers report documents with the built-in `report` mark. Moderators see
+Viewers report documents through the [report API](#reporting) (or the
+deprecated built-in `report` mark, which files the same report). Moderators see
 reported shared documents across apps and can **hide** one (it then reads as
 not found to your app and to every viewer, and a write to its key is refused
-`not_found`), **unhide** it, **delete** it, or **dismiss** its reports and keep
-it. Reports filed after a dismissal reopen it.
+`not_found`; a viewer whose own viewer-keyed document was hidden cannot
+`putMine` that item again while it is hidden), **unhide** it, **delete** it, or
+**dismiss** its reports and keep it. Reports filed after a dismissal reopen it.
+
+### Reporting a document {#reporting}
+
+`app.moderation.report({ collection, key, from? })`
+(`POST /api/v1/blocks/moderation/reports`) reports one document of a shared
+collection. It needs a signed-in viewer and `apps:storage`, answers
+`{ reported: true }` (never a count), spends the daily report limit and cannot
+be withdrawn. It is being enabled app by app: until it reaches yours, the SDK
+rejects `report_unavailable`. Details in
+[Reporting a document](./votes-and-reports#reporting).
 
 ## Errors {#errors}
 
@@ -1105,9 +1159,10 @@ Viewers can see and remove what apps keep for them, without your app's help:
 - On the app page, the host shows the viewer a notice when they are at 80% or
   more of either, checked once each time the app is opened.
 - **Empty** deletes the viewer's private documents in one app. A checkbox,
-  off by default, also deletes the shared documents they wrote there, which
-  disappear for every viewer along with the marks on them. Counter documents
-  their increments created, documents moderation hid, and the marks they set on
+  off by default, also deletes the shared documents they wrote there (their
+  votes in viewer-keyed collections included), which disappear for every
+  viewer along with the marks on them. Counter documents their increments
+  created, documents moderation hid, and the marks they set on
   other viewers' documents stay.
 - **Deleting a Civitai account** offers "Also delete my data in apps", off by
   default. Ticked, the account's private documents, the shared documents it
@@ -1177,7 +1232,7 @@ const codeOf = (p: Promise<unknown>) =>
 const fake = createFakeStorage({
   manifest: {
     scopes: ['apps:storage', 'apps:storage:publish'],
-    storage: { collections: { requests: { visibility: 'shared', write: 'own', marks: ['vote'] } } },
+    storage: { collections: { requests: { visibility: 'shared', write: 'own' } } },
   },
   viewer: { username: 'alice' },
 });
@@ -1186,7 +1241,6 @@ const created = await requestsIn(fake.storage).create({ title: 'Dark mode', stat
 
 // The same store, as other callers.
 const bob = requestsIn(fake.as({ viewer: { username: 'bob' } }).storage);
-await bob.update(created.key, { $mark: 'vote' }); // { marked: true, count: 1 }
 await codeOf(bob.put(created.key, { title: 'Light mode', status: 'open' })); // 'not_author'
 
 const newbie = requestsIn(fake.as({ viewer: { username: 'dan', trusted: false } }).storage);
@@ -1229,7 +1283,14 @@ await codeOf(requestsIn(fake.storage).create({ title: FAKE_STORAGE_MODERATION.bl
   Its `requestGrants` option stands in for the host's prompt for publish
   consent in a source. A `token: 'dev'` caller is refused every import, as on
   the server.
-- It serves `update` with the server's checks and refusal reasons.
+- It serves [viewer-keyed collections](#viewer-keyed) (`getMine`, `putMine`,
+  `deleteMine`, with the server's refusals) from `@civitai/sdk` 0.30.0;
+  `viewerKeyedClosed: ['votes']` closes a collection, to test
+  `viewer_keyed_closed`. It serves the [report API](#reporting) only with
+  `reports: true`, as the route is off by default; otherwise
+  `app.moderation.report` rejects `report_unavailable`.
+- It serves the deprecated `update` with the server's checks and refusal
+  reasons.
 - It does not model moderator hides, the review namespace, or a failed
   ownership lookup (the server's retryable `503 service_unavailable`).
 
@@ -1251,14 +1312,26 @@ sandboxed block, with `PUT`, `DELETE` and `PATCH` in the preflight and
 | `GET` | `/{collection}/{key}` | — | the document, or `404 not_found` |
 | `PUT` | `/{collection}/{key}` | `{ data, ifVersion? }` | the stored document |
 | `DELETE` | `/{collection}/{key}` | — (`?ifVersion=` in the query) | `{ deleted }` |
-| `PATCH` | `/{collection}/{key}` | one [update operator](#counters-and-marks) | `{ value }`, or `{ marked, count }` (no `count` for `report`) |
+| `GET` | `/{collection}/@me` | — | `keyedBy: "viewer"`: the viewer's document, or `404 not_found` |
+| `PUT` | `/{collection}/@me` | `{ data, ifVersion? }` | `keyedBy: "viewer"`: the stored document |
+| `DELETE` | `/{collection}/@me` | — (`?ifVersion=` in the query) | `keyedBy: "viewer"`: `{ deleted }` |
+| `GET` | `/{collection}/@me/{parent}` | — | `keyedBy: "parent+viewer"`: the viewer's document for `parent`, or `404 not_found` |
+| `PUT` | `/{collection}/@me/{parent}` | `{ data, ifVersion? }` | `keyedBy: "parent+viewer"`: the stored document |
+| `DELETE` | `/{collection}/@me/{parent}` | — (`?ifVersion=` in the query) | `keyedBy: "parent+viewer"`: `{ deleted }` |
+| `PATCH` | `/{collection}/{key}` | one [update operator](#counters-and-marks) | deprecated: `{ value }`, or `{ marked, count }` (no `count` for `report`) |
 | `POST` | `/{collection}/{key}/counters/{name}` | `{ by? }` | deprecated: `{ value }` |
 | `PUT` | `/{collection}/{key}/marks/{name}` | none, or `{}` | deprecated: `{ marked: true, count }` (no `count` for `report`) |
 | `DELETE` | `/{collection}/{key}/marks/{name}` | — | deprecated: `{ marked: false, count }` |
+| `POST` | `/_publish/{collection}`, `/_unpublish/{collection}` | `{ from, keys, prune? }`, `{ keys }` | deprecated, and served only where enabled for the app (otherwise an unknown route): use `put` / `delete` |
+
+The report API is a separate route,
+`POST https://civitai.com/api/v1/blocks/moderation/reports` with
+`{ collection, key, from? }`, answering `{ reported: true }`
+([Reporting a document](#reporting)).
 
 A list takes these query parameters, each at most once:
-`where[<index>]=<value>`, `sort`, `author=me`, `markedBy=me` with `mark`,
-`keyPrefix`, `limit` and `cursor`. Every route but `info` also takes `from`,
+`where[<index>]=<value>`, `sort`, `author=me`, `keyPrefix`, `limit` and
+`cursor` (and the deprecated `markedBy=me` with `mark`). Every route but `info` also takes `from`,
 to reach another app's collection through an [import](#imports). A `where` value is read by the index's
 declared type: a number for `number`, `true` or `false` for `boolean`, and an
 ISO-8601 string or epoch milliseconds for `time`. Any other query parameter, on
@@ -1267,126 +1340,31 @@ answers a method it does not take with `405 method_not_allowed` and an `Allow`
 header.
 
 ```bash
-curl -s "https://civitai.com/api/v1/blocks/storage/requests?where%5Bstatus%5D=open&sort=-mark:vote&limit=20" \
+curl -s "https://civitai.com/api/v1/blocks/storage/requests?where%5Bstatus%5D=open&sort=-createdAt&limit=20" \
   -H "Authorization: Bearer $BLOCK_TOKEN"
 ```
 
 ## Moving from the legacy stores {#moving-from-the-legacy-stores}
 
-`useAppStorage` and `useSharedStorage` in `@civitai/blocks-react`, the matching
-`app.storage.get/set/delete/list/getQuota` and `app.sharedStorage` methods in
-`@civitai/sdk`, and the routes under `/api/v1/blocks/app-storage/*` and
-`/api/v1/blocks/shared-storage/*` are **deprecated and shut down on
-2026-11-10**. Until then they keep working, with their scopes
-(`apps:storage:read`, `apps:storage:write`, `apps:storage:shared:read`,
-`apps:storage:shared:write`). From 2026-11-10 the legacy REST routes answer
-**HTTP `410 Gone`**, and the legacy hooks, bridge messages and SDK methods stop
-working: their calls fail with an error. Move your app to the document store
-before that date.
-
-**Nothing is copied automatically.** The document store starts empty; data in
-the legacy stores stays there. If your app has data viewers care about, you
-have two options:
-
-- **Copy it yourself before 2026-11-10**: read it from the legacy store and
-  write it into a collection, as described below. After 2026-11-10 the app can
-  no longer read the legacy store. A self-copy has two limits:
-  - **Per-viewer data** can be read only with that viewer's own token, so the
-    copy runs inside the app as each viewer opens it. Only viewers who open the
-    app before 2026-11-10 are moved; everyone else's data is left behind.
-  - **Shared data** copied by the app is authored by whoever runs the copy, so
-    that viewer becomes the author of every copied row (see
-    [Authorship](#shared-storage-usesharedstorage) below). The original
-    authors no longer own their rows, so they cannot edit or withdraw them or
-    publish them as [sub-listings](./sub-listings), which need an item the
-    viewer authored.
-- **Ask Civitai to copy it at cutover.** On request, Civitai can copy an app's
-  legacy data into its document store when the legacy stores shut down. The
-  cutover copy keeps each row's key, author and hidden state, and runs on
-  Civitai's side, so it does not wait for each viewer to open the app. This is not
-  automatic: contact the Civitai team (or your Civitai contact) before
-  2026-11-10. **For shared data, ask for the cutover copy.**
-
-### Per-viewer storage (`useAppStorage`)
-
-Declare a `private` collection and the `apps:storage` scope.
-
-| Legacy | Document store |
-|---|---|
-| `set(key, value)` | `put(key, data)` — `data` must be a JSON object, so wrap a scalar: `{ value }` |
-| `get(key)` | `get(key)` — the value is the document's `data` |
-| `delete(key)` | `delete(key)` |
-| `list({ prefix, cursor })` | `list({ keyPrefix, cursor })` — whole documents, not just keys |
-| `getQuota()` | `app.storage.info()` — `usage.viewer` and `limits` |
-| the legacy byte, row and key-length messages | [error codes](#errors) |
-
-**Keys may not carry over as they are.** A legacy key is any string of 1 to 200
-characters, while a document key is limited to the characters and length in the
-[limits table](#limits). A legacy key with a `/`, a space or any other character
-outside that set, or one longer than the limit, is refused `invalid_request`, so
-map such keys (hash them, for example) when you copy. A viewer's legacy data can
-be read only with that viewer's own token, so the copy runs per viewer, inside
-the app, as each viewer opens it — and only viewers who open the app before
-2026-11-10 are copied. The cutover copy has no such limit.
-
-### Shared storage (`useSharedStorage`)
-
-Declare a `shared` collection with `write: "own"`, a `vote` mark if you had
-voting, and both scopes; `apps:storage:publish` replaces
-`apps:storage:shared:write` and needs a `scopeJustifications` entry.
-
-| Legacy | Document store |
-|---|---|
-| `append({ title, body?, data? })` | `create(data)` — put what you stored in `title`, `body` and `data` into the document's `data`; every string in it is moderated |
-| `list({ limit, cursor })` (newest first) | `list({ sort: '-createdAt', limit, cursor })` |
-| `list({ mine: true })` (REST) | `list({ author: 'me' })` |
-| `get(key)` | `get(key)` |
-| `update(key, value)` | `put(key, data)`, by the author |
-| `withdraw(key)` | `delete(key)`, by the author |
-| `vote(key)` / `unvote(key)` | `update(key, { $mark: 'vote' })` / `update(key, { $unmark: 'vote' })` |
-| `count` on an item, `getCount(key)`, `getCounts(keys)` | `marks.vote` on the document; `getMany(keys)` for several |
-| `viewerVoted` on an item | `viewer.marks.includes('vote')` |
-| `authorUserId` on an item | `author` (`isViewer`, and `username` when the collection sets `showAuthor`); no user id |
-| `report(key, reason?)` | `update(key, { $mark: 'report' })` — no free-text reason, and it cannot be withdrawn |
-
-Two things do not carry over from a legacy board:
-
-- **Authorship.** A shared document is authored by the viewer whose token
-  created it, and there is no app-owned write yet (`write: "owner"` is
-  reserved). Copying a legacy board makes whoever runs the copy the author of
-  every copied document: each one counts toward that viewer's quota and spends
-  their shared write budget, and no other viewer can edit or delete it. To keep
-  the original authors, ask for the cutover copy before 2026-11-10; otherwise
-  read or copy the old rows before that date, or have each author post again.
-  The legacy store cannot be read after 2026-11-10.
-- **Votes.** A mark belongs to the viewer who set it, so legacy vote counts
-  cannot become `vote` marks. They start at zero.
-
-Two things resolve an item key the app supplies:
-
-- **[App Store sub-listings](./sub-listings)**: `itemKey` names the item being
-  listed.
-- **`sharedContentKey`** on a [`textToImage` body](../reference/generation/bodies):
-  it resolves the item's author.
-
-Which store answers is decided by the app's **approved** manifest. Once it
-declares a shared collection that viewers write (`write: "own"`), the key is
-looked up in the document store only: it must name one production document in
-such a collection, a key found in two of them names nothing, and the legacy
-shared store is no longer read, even for old keys. A `write: "none"` collection
-(counters and marks only) is never searched. An app whose approved manifest
-declares no such collection still resolves keys from the legacy shared store,
-which shuts down on 2026-11-10, so move listable items into a shared collection
-before then.
+`useAppStorage`, `useSharedStorage`, `app.storage.get/set/delete/list/getQuota`,
+`app.sharedStorage` and the routes under `/api/v1/blocks/app-storage/*` and
+`/api/v1/blocks/shared-storage/*` were **shut down on 2026-11-10** and answer
+`410 Gone`. How each call maps onto the document store, and what does not carry
+over, is in [Moving from the legacy stores](./storage-legacy).
 
 ## Troubleshooting {#troubleshooting}
 
 - **`civitai app validate` or `submit` refuses `ownedModelVersions`, `schema`, `storage.imports`, `exportable`, `apps:storage:import` or `migrations` as an unknown property:** the CLI is older than the key (v0.1.128 for `ownedModelVersions`, v0.1.135 for `schema` and imports, v0.1.136 for `migrations`). Upgrade the CLI.
+- **`civitai app submit` is refused with "… are deprecated — a collection may keep only the … it already declares":** the version adds a mark, a counter or `write: "none"` its previous approved version did not declare on that collection. Use a [viewer-keyed collection](#viewer-keyed) and the [report API](#reporting) instead ([Deprecated](#deprecated)).
+- **`civitai app validate` refuses `keyedBy` as an unknown property:** the CLI predates viewer-keyed collections. Upgrade it once a release that knows `keyedBy` is out.
+- **`getMine`, `putMine` or `app.moderation` is not a function:** `@civitai/sdk` is older than 0.30.0. Upgrade it.
 - **Every store call in a `civitai app dev-tunnel` preview is refused `insufficient_scope`:** `@civitai/sdk` is older than 0.18.0. Upgrade it.
 - **A write passes in [`createFakeStorage`](#testing) but civitai.com refuses it `schema_violation` or `resource_not_owned`:** `@civitai/sdk` is older than 0.23.0 (schemas) or 0.16.0 (`ownedModelVersions`), and its fake does not check that rule. Upgrade it.
 
 ## Related
 
+- [Votes, likes and reports](./votes-and-reports) — viewer-keyed collections, the report API, and moving off counters and marks.
+- [Moving from the legacy stores](./storage-legacy) — `useAppStorage` / `useSharedStorage` calls on the document store.
 - [The `@civitai/sdk` client](./sdk) — `initialize()`, consent and the rest of `app`.
 - [Forking an app](./forking) — what a fork starts with, and how it reaches its parent's data.
 - [Scopes reference](../reference/scopes) — `apps:storage`, `apps:storage:publish` and `apps:storage:import` beside every other scope.
