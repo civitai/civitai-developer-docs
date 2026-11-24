@@ -437,6 +437,17 @@ Listing-completeness gate:
   Your FIRST submit is what creates the store listing, so there is nothing to
   check yet and nothing is refused; the gate applies from the second one on.
 
+Source repository:
+  When block.manifest.json has no "repository" key, submit prints an advisory:
+  a public source link helps reviewers check the code. When the git remote
+  origin is an https or ssh remote on github.com, gitlab.com or codeberg.org,
+  the advisory names it as https://<host>/<owner>/<repo>. This CLI does not
+  check that the repository is public. An interactive submit that would upload
+  also asks "Add repository <url> to block.manifest.json? [y/N]" (default No);
+  it never asks under --yes, in CI or GitHub Actions, or without a TTY. On yes
+  it adds the key and STOPS without uploading: the manifest is then
+  uncommitted, so commit it and re-run submit.
+
 GitHub Actions:
   When CIVITAI_GITHUB_OIDC_TOKEN is set (the civitai/app-submit-action Action
   sets it on a tag push), the token is sent with the submit. The server checks
@@ -962,6 +973,13 @@ DELISTED LISTINGS: an app whose status is 'removed' is still reported, in its
 own section, but its blocking problems do NOT set the exit code. The publish
 floor is a statement about a listing that is trying to publish, and a delisted
 one is not — without this, one old removed app would fail every run forever.
+
+SOURCE REPOSITORY: run from an app project directory (with no slug, or that
+app's slug), it also reads block.manifest.json there and, when it has no
+"repository" key, prints an advisory on stderr: a public source link helps
+reviewers check the code, with the git remote origin's https URL when it is on
+github.com, gitlab.com or codeberg.org. It never edits the manifest and never
+changes the exit code; `civitai app submit` offers to add the key.
 
 EXIT CODES: 1 when a blocking problem was found on a listing that can still
 publish, 0 otherwise — including when only advisories were found, when the only
