@@ -175,5 +175,6 @@ an unknown command, run `civitai upgrade` (step 4).
 
 - Apps guide — https://developer.civitai.com/apps/guide.md
 - Apps reference — https://developer.civitai.com/apps/reference.md
+- Give your App its own look (recommended) — https://developer.civitai.com/apps/guide/theming.md
 - Doc index for agents — https://developer.civitai.com/llms.txt
 - CLI source — https://github.com/civitai/cli

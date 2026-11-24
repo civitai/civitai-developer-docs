@@ -360,28 +360,40 @@ const NGINX_CONF = 'nginx.conf';
  * The budget. Derived from a property of the file, not a round percentage, so
  * the next author can re-derive it instead of nudging it.
  *
- * RE-DERIVED 2026-09-18. The file is 7,187 bytes in 9 sections, the SMALLEST of
- * which is 333 bytes ("## Resources"). 7,437 leaves 250 bytes of headroom —
- * deliberately LESS than that smallest section, so **no new section fits without
- * a deliberate, reviewable edit to this constant.** Ordinary wording fixes (a
- * clause, a corrected sentence) still fit; a new step does not.
+ * RE-DERIVED 2026-11-24. The file is 7,516 bytes: a 618-byte head before the
+ * first `## ` plus 7 sections, the SMALLEST of which is 357 bytes
+ * ("## Resources"). 7,766 leaves 250 bytes of headroom — deliberately LESS than
+ * that smallest section, so **no new section fits without a deliberate,
+ * reviewable edit to this constant.** Ordinary wording fixes (a clause, a
+ * corrected sentence) still fit; a new step does not.
  *
- * Previously 7,200, derived the same way against 6,949 bytes / smallest 321.
+ * What moved: one Resources bullet (the theming guide's "Give your app its own
+ * look", +99 bytes). The file had drifted to 7,417 against this budget's 7,437
+ * — 20 bytes of headroom, and its Resources section to 258 bytes, not the 333
+ * the previous derivation recorded — so the ratchet no longer admitted even the
+ * wording fix it promises. Same condition as the 2026-09-18 note below.
+ *
+ * Previously 7,437 (2026-09-18: 7,187 bytes in 9 sections, smallest 333), and
+ * before that 7,200, derived the same way against 6,949 bytes / smallest 321.
  * The Linux-Homebrew correction added 238 bytes to "## 2. Install the CLI",
  * which left 13 bytes of headroom — the ratchet had stopped admitting the
  * ordinary wording fix its own derivation promises. That is the condition the
  * 🔴 note below names, so both constants move together here.
  */
-const PROMPT_MAX_BYTES = 7_437;
+const PROMPT_MAX_BYTES = 7_766;
 
 /**
  * Bounds PROMPT_MAX_BYTES itself, so the budget above cannot be turned into
  * unlimited slack by editing one number — the same failure one level up.
  *
- * Derived against the MEDIAN section (891 bytes) rather than the smallest:
- * raising PROMPT_MAX_BYTES all the way to this ceiling yields 850 bytes of
- * headroom over the 7,187 achieved, still under that median. So even a maximal
- * raise cannot quietly absorb a typical new section.
+ * Derived against the MEDIAN section rather than the smallest: raising
+ * PROMPT_MAX_BYTES all the way to this ceiling yields 850 bytes of headroom over
+ * the 7,516 achieved, still under that median (1,068 bytes counting the head
+ * as a section, 1,105 without it). So even a maximal raise cannot quietly
+ * absorb a typical new section.
+ *
+ * RE-DERIVED 2026-11-24 alongside PROMPT_MAX_BYTES: previously 8,037 against
+ * 7,187 achieved / median 891.
  *
  * RE-DERIVED 2026-09-18 alongside PROMPT_MAX_BYTES. Previously 7,800 against
  * 6,949 achieved / median 890. The median is unchanged by that edit (891 both
@@ -390,7 +402,7 @@ const PROMPT_MAX_BYTES = 7_437;
  * 🔴 IT MOVES WITH THE ACHIEVED SIZE, OR IT STOPS BOUNDING ANYTHING. Whoever
  * changes the shape of this file re-derives both numbers in the same commit.
  */
-const PROMPT_MAX_BYTES_CEILING = 8_037;
+const PROMPT_MAX_BYTES_CEILING = 8_366;
 
 /**
  * The POSITIVE CONTROL. A truncated, half-written or empty prompt is comfortably
@@ -1540,6 +1552,9 @@ export const PROMPT_DOC_TWIN_URLS = new Set([
   'https://developer.civitai.com/apps/reference.md',
   // Holds the npm 11 allowScripts note that used to be a whole section of step 2.
   'https://developer.civitai.com/apps/reference/cli.md',
+  // Its "Give your app its own look" section: the advisory accent/skin guidance
+  // both agent-setup pages point at.
+  'https://developer.civitai.com/apps/guide/theming.md',
 ]);
 for (const u of PROMPT_DOC_TWIN_URLS) {
   if (/agent-setup|prompt/i.test(u) || !u.startsWith('https://developer.civitai.com/') || !u.endsWith('.md')) {

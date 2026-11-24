@@ -880,6 +880,35 @@ check('every entry\'s OLD hub anchor still exists on its hub (external deep link
   console.log(`       ${n} old hub anchor(s) present, each forwarding to an existing sub-page id`);
 });
 
+// --- anchors OTHER repos deep-link to ------------------------------------------
+//
+// VitePress's dead-link check resolves pages, not fragments, and the fragment
+// check above covers only the split references, so renaming one of these
+// headings builds green while every link to it from another repo lands at the
+// top of the page. Each entry names who
+// links it; drop an entry only once nothing outside this repo uses it.
+const INBOUND_ANCHORS = [
+  // Linked from civitai/cli and civitai/civitai agent guidance (advisory theming).
+  ['/apps/guide/theming', 'give-your-app-its-own-look'],
+];
+
+check('every anchor another repo deep-links to exists on its built page', () => {
+  const missing = [];
+  for (const [route, id] of INBOUND_ANCHORS) {
+    const ids = idsOnRoute(route);
+    if (!ids) missing.push(`${route} — no built page`);
+    else if (!ids.has(id)) missing.push(`${route}#${id}`);
+  }
+  assert(INBOUND_ANCHORS.length > 0, 'INBOUND_ANCHORS is empty — the check is checking nothing');
+  assert(
+    missing.length === 0,
+    `${missing.length} inbound deep link(s) land nowhere:\n` +
+      missing.map((m) => `         - ${m}`).join('\n') +
+      `\n       Restore the heading id (an explicit {#id} survives a reworded heading).`,
+  );
+  console.log(`       ${INBOUND_ANCHORS.length} inbound anchor(s) present`);
+});
+
 check('the llms.txt duplicate detector still detects (fixture table)', () => {
   const wrong = LLMS_FIXTURES.filter((f) => duplicateGroups(tocGroups(f.text)).length !== f.expect);
   assert(
