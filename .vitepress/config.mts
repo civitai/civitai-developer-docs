@@ -79,6 +79,7 @@ const appsGuideSidebar: DefaultTheme.SidebarItem[] = [
       { text: 'Markup that holds up', link: '/apps/guide/markup' },
       { text: 'Responsive blocks', link: '/apps/guide/responsive' },
       { text: 'Theming & design system', link: '/apps/guide/theming' },
+      { text: 'Give your app its own look', link: '/apps/guide/theming#give-your-app-its-own-look' },
       // The heading pins an explicit `{#retrofit}` anchor, so the auto-slug
       // this link used to guess (`#theming-an-existing-app-…`) never existed.
       { text: 'Theming an existing app (retrofit)', link: '/apps/guide/theming#retrofit' },
