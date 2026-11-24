@@ -31,6 +31,90 @@ composable with, the block **runtime** SDK (`@civitai/blocks-react`, its hooks
 and `/ui` pack), which handles the host bridge, viewer, token and slots.
 :::
 
+## Give your app its own look {#give-your-app-its-own-look}
+
+**Recommended, not required.** Out of the box every app built on these packages
+wears Civitai's stock palette, so in the store, side by side, they look alike. A
+distinct accent colour is the cheapest way to make yours recognisable at a
+glance. Nothing in review asks for it; everything below is optional.
+
+### The minimum: an accent {#accent}
+
+Recolour the accent and leave everything else to the platform:
+
+- `--civitai-color-primary` — the accent itself (filled buttons and other
+  accent surfaces);
+- `--civitai-color-primary-hover` — its hover shade;
+- `--civitai-color-primary-fg` — text and icons drawn **on** the accent;
+- optionally `--civitai-color-primary-light`, the translucent tint behind an
+  active nav item and a few muted fills, so those do not stay blue.
+
+Declare them on an element **inside** your app — never at `:root`, where the
+override ties with the token sheet and usually loses without an error (see
+[Overriding styles](#overriding-styles)). Put it on an element *below* the one
+that carries `data-theme`, not on that element itself: there your class and the
+theme's `[data-theme='…']` block have equal specificity, and stylesheet order
+decides again.
+
+```css
+/* On an element inside your data-theme root: not :root, not the root itself. */
+.my-app {
+  --civitai-color-primary: #c2410c;
+  --civitai-color-primary-hover: #9a3412;
+  --civitai-color-primary-fg: #ffffff;
+  --civitai-color-primary-light: rgba(194, 65, 12, 0.15);
+}
+```
+
+```html
+<div data-theme="dark">        <!-- your theme root, set from the host's theme -->
+  <div class="my-app">…</div>  <!-- your accent -->
+</div>
+```
+
+Because you changed only the accent, the platform's
+[light and dark handling](#light-and-dark-themes) is untouched: backgrounds,
+surfaces, borders and text still follow `data-theme`. One accent value then
+serves both themes; if it reads badly in one, give that theme its own with
+`[data-theme='light'] .my-app { … }`, which outranks `.my-app`.
+
+### Going further: a skin {#skin}
+
+You can own the rest of the palette too — `--civitai-color-body`,
+`--civitai-color-surface`, `--civitai-color-surface-2`, `--civitai-color-border`,
+`--civitai-color-text`, `--civitai-color-text-dimmed` and the rest listed in
+[Design tokens](../tokens). But a token you override **no longer follows the
+viewer's theme**: a dark surface you set stays dark when they switch to light,
+under the platform's dark-on-light text. Once you take a surface, border or text
+token, you own it in **both** themes, so declare each one twice:
+
+```css
+.my-app {                      /* dark: the default with no data-theme */
+  --civitai-color-body: #17120f;
+  --civitai-color-surface: #221b17;
+  --civitai-color-border: #3d322b;
+  --civitai-color-text: #ede4dc;
+}
+[data-theme='light'] .my-app { /* light */
+  --civitai-color-body: #fbf7f3;
+  --civitai-color-surface: #ffffff;
+  --civitai-color-border: #e3d6cb;
+  --civitai-color-text: #2a1f18;
+}
+```
+
+### Check it in both themes {#check-your-look}
+
+- **Look at both.** Render your app with `data-theme="light"` and with
+  `data-theme="dark"` and screenshot each: a filled button at rest and hovered,
+  text on every surface you changed, and the parts you did not change.
+- **Contrast of `-fg` on the accent.** Aim for at least 4.5:1 (WCAG AA for
+  normal text), on the hover shade too. In the example above `#ffffff` on
+  `#c2410c` is 5.18:1, and on `#9a3412` 7.31:1.
+- **Where you use the accent as text or an outline**, check it against your
+  surfaces in both themes as well: an accent that suits a button fill can be too
+  dim as small text on a dark background.
+
 ## The three layers
 
 The system is three packages, each a layer you can adopt independently:
