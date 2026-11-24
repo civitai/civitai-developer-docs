@@ -113,9 +113,14 @@ first day).
   in one generation (`kind: 'workflow'`), a later step reading an earlier one's
   result; `repeat`, `merge`, the limits and how the price works.
 - **[Storing data (document store)](./storage)** — declare collections in the
-  manifest, read and write documents, counters and marks, the scopes and limits,
-  testing with `createFakeStorage`, reaching another app's data through
-  `storage.imports`, and moving off `useAppStorage` / `useSharedStorage`.
+  manifest, read and write documents, the scopes and limits, testing with
+  `createFakeStorage`, reaching another app's data through `storage.imports`,
+  and the deprecated counters, marks, `write: "none"` and publish.
+- **[Votes, likes and reports](./votes-and-reports)** — viewer-keyed
+  collections (`keyedBy`, `getMine` / `putMine` / `deleteMine`), counting by
+  listing, `app.moderation.report`, and moving off counters and marks.
+- **[Moving from the legacy stores](./storage-legacy)** — how
+  `useAppStorage` / `useSharedStorage` calls map onto the document store.
 - **[Forking an app](./forking)** — letting others fork your app, what a fork
   starts from and does not inherit, the "Forked from" credit, and how a fork
   reaches its parent's data.

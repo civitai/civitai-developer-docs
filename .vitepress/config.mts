@@ -72,6 +72,8 @@ const appsGuideSidebar: DefaultTheme.SidebarItem[] = [
       { text: 'Reading a workflow file', link: '/apps/guide/workflow-files' },
       { text: 'Multi-step workflows', link: '/apps/guide/workflows' },
       { text: 'Storing data (document store)', link: '/apps/guide/storage' },
+      { text: 'Votes, likes and reports', link: '/apps/guide/votes-and-reports' },
+      { text: 'Moving from the legacy stores', link: '/apps/guide/storage-legacy' },
       { text: 'Forking an app', link: '/apps/guide/forking' },
       { text: 'Posting from an app', link: '/apps/guide/posting' },
       { text: 'Custom events (analytics)', link: '/apps/guide/custom-events' },

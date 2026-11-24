@@ -166,8 +166,9 @@ hook beneath it, asks the host to follow, and the host confirms each follow with
 the viewer.
 
 If you only want a reaction-style button that stays inside your app, you can
-keep app-local "marks" in your app's own [storage](./storage), as the example
-above does. They are **not** Civitai reactions. They never reach civitai.com,
+keep app-local reactions in your app's own [storage](./storage), as the example
+above does (one document per viewer per item in a
+[viewer-keyed collection](./votes-and-reports)). They are **not** Civitai reactions. They never reach civitai.com,
 their counts do not match the counts on the site, and the creator never sees
 them. Your app's copy must not call them Civitai reactions, and must not suggest
 the creator is notified.
@@ -214,9 +215,9 @@ if (tag) {
 
 Apps **cannot vote on Civitai tags**. civitai.com records tag votes through
 its own signed-in session, and no block scope, hook, bridge message or
-`/api/v1/blocks` route exposes that to an app. A vote your app stores is an
-app-local mark, the same as the reaction marks above: it never reaches
-civitai.com and does not change the tag's score there.
+`/api/v1/blocks` route exposes that to an app. A vote your app stores is
+app-local, the same as the reactions above: it never reaches civitai.com and
+does not change the tag's score there.
 
 ## Next
 
