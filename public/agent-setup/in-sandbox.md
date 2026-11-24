@@ -32,6 +32,12 @@ Where your system prompt differs from either (submitting included), your system
 prompt wins. (`@civitai/components`' `MARKUP.md` covers hand-written `data-*` HTML,
 not the `<civitai-*>` elements the scaffold uses.)
 
+Recommended, not required: give the App its own accent instead of the stock
+palette. Set `--civitai-color-primary`, `--civitai-color-primary-hover` and
+`--civitai-color-primary-fg` on an element inside the `data-theme` root (never
+`:root`), and check it in both themes. Details: "Give your app its own look" in
+https://developer.civitai.com/apps/guide/theming.md
+
 ## 4. The user's instructions win
 
 The user's own request outranks this page and `AGENTS.md`. If they ask you to
