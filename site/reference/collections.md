@@ -54,10 +54,19 @@ Envelope: `{ items, metadata: { nextCursor, nextPage } }`.
       "name": "Favorite anime LoRAs",
       "description": "A running list of the best anime LoRAs.",
       "type": "Model",
+      "mode": null,
       "nsfwLevel": 1,
       "read": "Public",
       "isPublic": true,
       "itemCount": 42,
+      "coverImage": {
+        "id": 501,
+        "url": "https://image.civitai.com/.../cover.jpeg",
+        "type": "image",
+        "width": 1200,
+        "height": 800,
+        "nsfwLevel": 1
+      },
       "coverImageUrl": "https://image.civitai.com/.../cover.jpeg",
       "user": { "id": 4021, "username": "some-curator" }
     }
@@ -70,8 +79,15 @@ Envelope: `{ items, metadata: { nextCursor, nextPage } }`.
 ```
 
 - `itemCount` counts only **accepted** items in the collection.
-- `coverImageUrl` is a ready-to-use CDN URL (or `null` when there is no viewable
-  cover, e.g. a mature cover clamped out in a restricted region).
+- `mode` is `Contest`, `Bookmark`, or `null` for an ordinary collection.
+- `nsfwLevel` is the collection's rating, not the cover's: the cover's own rating
+  is `coverImage.nsfwLevel`.
+- `coverImage` is the cover's image `id`, a ready-to-use CDN `url`, its media
+  `type` (`image` or `video`), its original `width` and `height` (each `null` when
+  unknown) and its `nsfwLevel`. It is `null` when the collection has no cover or
+  the cover may not be shown publicly, for example because it is unrated, awaiting
+  review, or above the request's browsing ceiling (the `nsfw` param and region).
+- `coverImageUrl` is `coverImage.url`, or `null` when `coverImage` is `null`.
 - `metadata.nextCursor` / `metadata.nextPage` are omitted on the last page.
 
 ### Example
@@ -104,14 +120,27 @@ GET /api/v1/collections/{id}
   "name": "Favorite anime LoRAs",
   "description": "A running list of the best anime LoRAs.",
   "type": "Model",
+  "mode": null,
   "nsfwLevel": 1,
   "read": "Public",
   "isPublic": true,
+  "coverImage": {
+    "id": 501,
+    "url": "https://image.civitai.com/.../cover.jpeg",
+    "type": "image",
+    "width": 1200,
+    "height": 800,
+    "nsfwLevel": 1
+  },
   "coverImageUrl": "https://image.civitai.com/.../cover.jpeg",
   "user": { "id": 4021, "username": "some-curator" },
   "tags": [ { "id": 5, "name": "anime" } ]
 }
 ```
+
+`mode`, `coverImage` and `coverImageUrl` are as in [the list](#list-collections).
+Detail has no `nsfw` param: its cover ceiling is PG, or PG/PG-13 in a restricted
+region.
 
 Returns `404` if the collection doesn't exist **or** is private (the two cases
 are indistinguishable):
