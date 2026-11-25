@@ -124,6 +124,7 @@ When using `page` pagination, `metadata` additionally includes `currentPage` and
 - Including `query` without `cursor` is fine; combining `query` with `page` returns `400`.
 - Only `Published` versions are returned to non-moderator callers. Files marked non-public by the uploader are hidden from `files[]`. Training Data files may also be omitted, and carry no `metadata`.
 - `mode` is non-null when the parent model has been moderated. Values: `Archived` (drops `files[]` and `downloadUrl`) and `TakenDown` (also empties `images`). Omitted entirely on healthy models.
+- Taken-down models are left out of this list, except for their owner and moderators. [Get a model](#get-a-model) still returns one by id, with `mode: "TakenDown"` and empty `images`.
 - Some images are left out of public API responses for safety reasons, including images flagged as possibly depicting a minor. When all of a version's images are left out, `images` is an empty array, never missing or `null`.
 
 ### Example
