@@ -141,7 +141,6 @@ const bodyLimit = num(evalConst('STORAGE_BODY_LIMIT_BYTES'), 'STORAGE_BODY_LIMIT
 const buckets = evalConst('DOC_STORE_BUCKETS');
 const budget = evalConst('SHARED_WRITE_BUDGET');
 const features = evalConst('APP_STORAGE_ENABLED_FEATURES');
-const builtinMarks = evalConst('APP_STORAGE_BUILTIN_MARKS');
 const indexTypes = evalConst('APP_STORAGE_INDEX_TYPES');
 
 // ── formatting ─────────────────────────────────────────────────────────────────
@@ -185,6 +184,7 @@ const FEATURE_SPELLING = {
   perAuthorWriteBudget: '`dailyWritesPerAuthor`',
   hooks: '`hook`',
   registryExport: '`registry`',
+  viewerKeyedDocs: '`keyedBy`',
 };
 for (const f of Object.keys(features)) {
   if (!(f in FEATURE_SPELLING)) throw new Error(`gen-appblocks-storage: APP_STORAGE_ENABLED_FEATURES.${f} has no FEATURE_SPELLING entry`);
@@ -205,19 +205,16 @@ const limits = [
   ['Documents', 'Nesting depth of `data`', n(num(B.depth, 'DOC_STORE_BOUNDS.depth'))],
   ['Documents', 'Key', `\`${B.key}\`, and not made only of dots`],
   ['Documents', 'A string index value', bytes(num(B.stringIndexBytes, 'DOC_STORE_BOUNDS.stringIndexBytes'))],
-  ['Documents', 'Counter increment (`by`)', `1 to ${n(num(B.incrementMax, 'DOC_STORE_BOUNDS.incrementMax'))}`],
   ['Lists', 'Page size (`limit`)', `default ${n(num(B.listLimitDefault, 'listLimitDefault'))}, at most ${n(num(B.listLimitMax, 'listLimitMax'))}`],
   ['Lists', 'Equality filters (`where`)', `${n(num(B.equalityFilters, 'equalityFilters'))}, on a declared index`],
   ['Lists', 'Keys in one `getMany`', n(num(B.getManyMax, 'getManyMax'))],
   ['Lists', 'Cursor length', `${n(num(B.cursorChars, 'cursorChars'))} characters`],
   ['Declaration', 'Collections per app', n(num(evalConst('APP_STORAGE_MAX_COLLECTIONS'), 'APP_STORAGE_MAX_COLLECTIONS'))],
-  ['Declaration', 'Counters / marks per collection', `${n(num(evalConst('APP_STORAGE_MAX_COUNTERS'), 'APP_STORAGE_MAX_COUNTERS'))} / ${n(num(evalConst('APP_STORAGE_MAX_MARKS'), 'APP_STORAGE_MAX_MARKS'))}`],
   ['Declaration', 'Indexes per collection', `${n(num(evalConst('APP_STORAGE_MAX_INDEXES'), 'APP_STORAGE_MAX_INDEXES'))}, each a field path of up to ${n(num(evalConst('APP_STORAGE_INDEX_MAX_DEPTH'), 'APP_STORAGE_INDEX_MAX_DEPTH'))} segments, typed ${indexTypes.map((t) => `\`${t}\``).join(', ')}`],
   ['Declaration', 'Owned model-version fields (`ownedModelVersions`)', `1 to ${n(num(evalConst('APP_STORAGE_MAX_OWNED_MODEL_VERSIONS'), 'APP_STORAGE_MAX_OWNED_MODEL_VERSIONS'))} distinct pointers per collection, each matching \`${evalConst('APP_STORAGE_OWNED_POINTER_PATTERN')}\`; shared collections with \`write: "${evalConst('APP_STORAGE_OWNED_MODEL_VERSIONS_WRITE_POLICIES').join('" / "')}"\` only`],
-  ['Declaration', 'Collection document schema (`schema`)', `the keywords ${evalConst('APP_STORAGE_SCHEMA_KEYWORDS').map((k) => `\`${k}\``).join(', ')}; at most ${bytes(num(evalConst('APP_STORAGE_SCHEMA_MAX_BYTES'), 'APP_STORAGE_SCHEMA_MAX_BYTES'))} of JSON, ${n(num(evalConst('APP_STORAGE_SCHEMA_MAX_DEPTH'), 'APP_STORAGE_SCHEMA_MAX_DEPTH'))} nested schemas and ${n(num(evalConst('APP_STORAGE_SCHEMA_MAX_PATTERNS'), 'APP_STORAGE_SCHEMA_MAX_PATTERNS'))} patterns per collection, and ${n(num(evalConst('APP_STORAGE_MANIFEST_MAX_PATTERNS'), 'APP_STORAGE_MANIFEST_MAX_PATTERNS'))} patterns across all of the manifest's collection schemas; a \`pattern\` of at most ${n(num(evalConst('APP_STORAGE_SCHEMA_PATTERN_MAX_LENGTH'), 'APP_STORAGE_SCHEMA_PATTERN_MAX_LENGTH'))} characters, on a schema with a \`maxLength\` of at most ${n(num(evalConst('APP_STORAGE_SCHEMA_PATTERNED_MAX_LENGTH'), 'APP_STORAGE_SCHEMA_PATTERNED_MAX_LENGTH'))}; not on \`write: "none"\``],
+  ['Declaration', 'Collection document schema (`schema`)', `the keywords ${evalConst('APP_STORAGE_SCHEMA_KEYWORDS').map((k) => `\`${k}\``).join(', ')}; at most ${bytes(num(evalConst('APP_STORAGE_SCHEMA_MAX_BYTES'), 'APP_STORAGE_SCHEMA_MAX_BYTES'))} of JSON, ${n(num(evalConst('APP_STORAGE_SCHEMA_MAX_DEPTH'), 'APP_STORAGE_SCHEMA_MAX_DEPTH'))} nested schemas and ${n(num(evalConst('APP_STORAGE_SCHEMA_MAX_PATTERNS'), 'APP_STORAGE_SCHEMA_MAX_PATTERNS'))} patterns per collection, and ${n(num(evalConst('APP_STORAGE_MANIFEST_MAX_PATTERNS'), 'APP_STORAGE_MANIFEST_MAX_PATTERNS'))} patterns across all of the manifest's collection schemas; a \`pattern\` of at most ${n(num(evalConst('APP_STORAGE_SCHEMA_PATTERN_MAX_LENGTH'), 'APP_STORAGE_SCHEMA_PATTERN_MAX_LENGTH'))} characters, on a schema with a \`maxLength\` of at most ${n(num(evalConst('APP_STORAGE_SCHEMA_PATTERNED_MAX_LENGTH'), 'APP_STORAGE_SCHEMA_PATTERNED_MAX_LENGTH'))}`],
   ['Declaration', 'Imports (`storage.imports`)', `at most ${n(num(evalConst('APP_STORAGE_MAX_IMPORTS'), 'APP_STORAGE_MAX_IMPORTS'))}, one per source app and never the app itself, each naming 1 to ${n(num(evalConst('APP_STORAGE_MAX_IMPORT_COLLECTIONS'), 'APP_STORAGE_MAX_IMPORT_COLLECTIONS'))} distinct collections, with \`access\` ${evalConst('APP_STORAGE_IMPORT_ACCESS').map((a) => `\`"${a}"\``).join(' or ')}`],
   ['Declaration', 'An import\'s source (`from`)', `the source app's \`blockId\`, matching \`${evalConst('APP_STORAGE_IMPORT_FROM_RE')}\``],
-  ['Declaration', 'Built-in marks (never declared)', builtinMarks.map((m) => `\`${m}\``).join(', ')],
   ['Declaration', 'Refused by the server (not available yet)', notYet.length ? notYet.join(', ') : 'nothing'],
   ['Quota', 'Per app', `${bytes(num(Q.appBytes, 'appBytes'))} and ${n(num(Q.appDocs, 'appDocs'))} documents`],
   // DOC_STORE_LIMITS' user ceiling is the FREE account's. In production the per-viewer ceiling
@@ -226,18 +223,17 @@ const limits = [
   ['Quota', 'Per viewer, within one app', `${bytes(num(Q.userBytes, 'userBytes'))} and ${n(num(Q.userDocs, 'userDocs'))} documents on a free account; a paid membership raises both, and \`info().limits.viewerBytes\` / \`viewerDocs\` report the signed-in viewer's own`],
   ['Rate', 'Reads (`info`, `list`, `get`, `getMany`)', `${bucket('read')} per viewer, or per IP address for a signed-out viewer`],
   ['Rate', 'Writes to private collections, and every delete', `${bucket('write')} per viewer`],
-  ['Rate', 'Marks and counters', `${bucket('tally')} per viewer`],
-  ['Rate', 'Reports', `${bucket('report')} per viewer, on top of the marks-and-counters limit`],
+  ['Rate', 'Reports', `${bucket('report')} per viewer`],
   ['Rate', 'Creating and editing shared documents', `a burst of ${n(burst.capacity)} refilling 1 every ${minutes(burst.refillIntervalMs)}, and ${n(daily.capacity)} a day refilling 1 every ${minutes(daily.refillIntervalMs)}, per viewer; a write needs a token from both, and only a write that lands spends one`],
   ['Rate', 'Shared writes the server refused', `also charged to a bucket of ${n(rejections.capacity)} refilling 1 every ${minutes(rejections.refillIntervalMs)}; while it is empty, no shared create or edit is accepted`],
 ];
 
 // What each code means. Every code the route maps must have one, and nothing else may.
 const MEANING = {
-  invalid_request: 'The request is malformed: a bad key, body, query parameter (a `from` that is not a blockId included), value or cursor, a `PATCH` body that is not one update operator (`details.reason` says why), an increment or mark naming an undeclared counter or mark, a counter or mark on a private collection, or withdrawing a `report`.',
-  index_not_declared: 'A `where` or `sort` names a field, counter or mark the collection does not declare.',
+  invalid_request: 'The request is malformed: a bad key, body, query parameter (a `from` that is not a blockId included), value or cursor, or withdrawing a report.',
+  index_not_declared: 'A `where` or `sort` names a field the collection does not declare.',
   unauthenticated: 'No usable token.',
-  sign_in_required: 'The operation needs a signed-in viewer: writes, marks, counters, `info`, any read of a private collection, `author=me` / `markedBy=me` lists, and every call through an import (`?from=`), shared reads included.',
+  sign_in_required: 'The operation needs a signed-in viewer: writes, reports, `info`, any read of a private collection, `author=me` lists, and every call through an import (`?from=`), shared reads included.',
   insufficient_scope: 'The token does not carry `apps:storage`.',
   consent_required: 'The viewer has not granted a consent-gated scope the call needs, or withdrew it: `apps:storage:publish` for a shared write; through an import, `apps:storage:import` (or a grant that does not cover what this version imports), or `apps:storage:publish` in the source app. `details.scope`, when present, names the scope, and `details.from` the source app. Ask with `requestGrants`.',
   import_not_declared: 'A call through an import (`?from=`) names a source app or collection that the app\'s approved manifest does not import, or names the app itself.',
@@ -252,6 +248,7 @@ const MEANING = {
   version_conflict: 'An `ifVersion` write found another version. `details.currentVersion` is the one stored.',
   index_building: 'Declared for a later phase; not raised today.',
   cursor_expired: 'Declared for a later phase; not raised today.',
+  removed: 'Not raised today: the removed mark, counter and publish routes answer as unknown routes (`404`, or `405` for `PATCH`).',
   too_large: 'The document or the request body is over its limit.',
   quota_exceeded: 'A quota is full. `details.ceiling` names which one.',
   content_rejected: 'Moderation refused a shared write. `details.category` is coarse and never the matched text.',
@@ -262,6 +259,10 @@ const MEANING = {
   service_unavailable: 'A dependency could not be read. Retryable.',
   internal_error: 'A server fault.',
   method_not_allowed: 'The path exists, not for this method. The `Allow` header lists the methods it takes.',
+  hook_rejected: 'The collection\'s permission hook refused the write. `details.cause` is `denied` when the hook said no (the message is its reason), or why the hook failed (`error`, `timeout`, `oom`, `stack_overflow`, `invalid_result`).',
+  hook_unavailable: 'The collection\'s permission hook could not be run, so the write was refused. Retryable.',
+  not_supported_here: 'Through the data service: the call is one the service does not serve (an import). The SDK sends those to civitai.com.',
+  stale_major: 'Through the data service: the request named a schema major that is not the current one.',
 };
 const codes = Object.keys(STATUS);
 const unexplained = codes.filter((c) => !(c in MEANING));

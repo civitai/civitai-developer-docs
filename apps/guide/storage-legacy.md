@@ -2,7 +2,7 @@
 title: Moving from the legacy stores
 description: The legacy useAppStorage / useSharedStorage stores and their app-storage / shared-storage routes were shut down on 2026-11-10 (410 Gone, legacy_store_removed) — how each legacy call maps onto the document store, keys that do not carry over, what did not carry over from a legacy board, and how item keys resolve once an app declares a shared collection.
 sources:
-  - npm:@civitai/sdk@0.29.1#README
+  - npm:@civitai/sdk@0.32.0#README
   - civitai:src/server/services/apps/doc-store-api.ts
 ---
 
@@ -86,7 +86,7 @@ declares a shared collection that viewers write (`write: "own"`), the key is
 looked up in the document store only: it must name one production document in
 such a collection, a key found in two of them names nothing, and the legacy
 shared store is no longer read, even for old keys. A `write: "none"` collection
-(deprecated; counters and marks only) is never searched. An app whose approved
+(removed; read-only) is never searched. An app whose approved
 manifest declares no such collection resolves keys from the legacy shared store,
 which was shut down on 2026-11-10: declare a shared collection and keep listable
 items there.
