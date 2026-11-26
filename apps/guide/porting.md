@@ -3,13 +3,12 @@ title: Moving a block off the bridge
 description: Replace a block's postMessage data calls with /api/v1/blocks/* REST calls — what each credential reaches, what auth oauth gives up, and a hook-by-hook replacement table.
 sources:
   - npm:@civitai/blocks-react@0.85.0/dist/index.d.ts
-  - npm:@civitai/sdk@0.29.1/dist/index.d.ts
-  - npm:@civitai/sdk@0.29.1/dist/workflows/index.d.ts
+  - npm:@civitai/sdk@0.33.0/dist/index.d.ts
+  - npm:@civitai/sdk@0.33.0/dist/workflows/index.d.ts
+  - npm:@civitai/sdk@0.33.0/dist/doc-store/index.d.ts
   - civitai-app-starters:packages/civitai-sdk/BREAKING.md
   - civitai:public/schemas/app-block/v1.json#auth
   - civitai:src/pages/api/v1/blocks
-  - civitai:src/pages/api/v1/blocks/shared-storage/list.ts
-  - civitai:src/server/routers/apps-shared.router.ts#listSharedRows
   - civitai:src/server/middleware/block-scope.middleware.ts#verifyBlockToken
 ---
 
@@ -278,36 +277,66 @@ See [Custom events](./custom-events) for the declaration, the limits and where
 the numbers show up.
 :::
 
-### Reading and writing
+### Reading and writing {#reading-and-writing}
 
-Routes are addressed by path, so a route the API gains needs no package release:
+For the [document store](./storage), use `@civitai/sdk`'s
+`app.storage.collection(name)` rather than a fetch through `useApi`. Only the
+SDK gets the [data service](./storage-data-service), Civitai's faster storage
+path; a direct `fetch` to `/api/v1/blocks/storage` always goes to civitai.com.
+A React app on `@civitai/blocks-react` adds `@civitai/sdk` beside it
+(`npm install @civitai/sdk@latest`; 0.33.0 or later) and
+keeps its hooks for everything else.
+
+Start both bridge clients **in the same tick, before React renders**. Each
+answers the host's first `BLOCK_INIT`, and the host stops sending it once one
+of them has answered, so a client that starts later never receives it: an
+`initialize()` called from a component after the hooks have connected rejects
+with `unavailable`. Construct the hooks' client with `getTransport()` from
+`@civitai/blocks-react` (`getTransport` honours only its first call, so a
+dev harness that passes it options must still run first), and call
+`initialize()` with **no token** in the same module:
 
 ```tsx
-import { useApi } from './platform/useApi';
+// src/platform/civitai.ts: imported by main.tsx before it renders
+import { getTransport } from '@civitai/blocks-react';
+import { initialize } from '@civitai/sdk';
 
-declare const call: ReturnType<typeof useApi>;
-
-// Read a page of a document-store collection (`entries` is a collection your
-// manifest declares). Paging differs per route family — check the route.
-const page = await call<{ items: unknown[]; nextCursor?: string }>(
-  'storage/entries?limit=50',
-);
-
-// Write: create a document in the same collection
-await call('storage/entries', {
-  method: 'POST',
-  headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({
-    data: { title: 'My entry', body: 'optional', anything: true },
-  }),
-});
+getTransport(); // the hooks' bridge client, listening from now
+export const civitai = initialize(); // the SDK's, listening in the same tick
 ```
 
-The document store's routes are listed in its
-[REST reference](./storage#rest-reference). The legacy
-`/api/v1/blocks/app-storage/*` and `/api/v1/blocks/shared-storage/*` routes are
-deprecated and shut down on 2026-11-10, after which they answer `410`; do not
-port onto them.
+```tsx
+// src/platform/entries.ts: a capability, named the way your app thinks about it
+import { civitai } from './civitai';
+
+interface Entry {
+  title: string;
+  body?: string;
+}
+
+export async function listEntries(cursor?: string) {
+  const app = await civitai;
+  // `entries` is a collection your manifest declares.
+  return app.storage.collection<Entry>('entries').list({ limit: 50, cursor });
+}
+
+export async function addEntry(entry: Entry) {
+  const app = await civitai;
+  return app.storage.collection<Entry>('entries').create(entry);
+}
+```
+
+The SDK owns the token, the `401` retry and the error envelope: a refusal is a
+`StorageError` with a `code` ([error codes](./storage#errors)). Everything
+about collections, lists, conditional writes and limits is in
+[Storing data](./storage). Its [REST reference](./storage#rest-reference) is
+for clients other than a block.
+
+The legacy `/api/v1/blocks/app-storage/*` and `/api/v1/blocks/shared-storage/*`
+routes are shut down since 2026-11-10 and answer `410`; do not port onto them.
+
+For the other `/api/v1/blocks/*` routes, `useApi` above is the pattern. Routes
+are addressed by path, so a route the API gains needs no package release:
 
 - **Treat every refusal as a refusal.** No route has a success shape that means
   "could not read", so branch on the error, never on an empty result. A missing
@@ -318,26 +347,11 @@ port onto them.
 
 ### Listing only rows the viewer wrote
 
-`shared-storage/list` takes a `mine` filter that narrows the page to rows the
-**viewer** authored, so an app showing someone their own submissions need not
-page the whole board. There is no bridge-hook equivalent, and none is planned.
-
-```http
-GET /api/v1/blocks/shared-storage/list?limit=50&mine=true
-```
-
-- **Values:** `true` filters to the viewer's rows; `false` means the whole
-  board, the same as omitting the key. Anything else is a `400`, including **`?mine=` with an empty value** (how most
-  query-string helpers serialise an unset field or `undefined`), a bare `?mine`,
-  the key sent twice, and `1`/`yes`/`TRUE`. Drop the key when the filter is off.
-- **It composes** with `prefix`, `limit` and pagination; the envelope, cursor
-  and `apps:storage:shared:read` scope are unchanged.
-- **Anonymous callers get an empty page**, indistinguishable from "no rows yet".
-  Check whether the viewer is signed in (`useBlockContext().viewer` or
-  `GET /api/v1/blocks/me`) before rendering an empty state.
-- **It is not a privacy control.** It filters on the token subject (no
-  caller-supplied id), but every row already carries its `authorUserId` and is
-  world-readable either way.
+The legacy `shared-storage/list?mine=true` filter is gone with its route. In
+the document store, `list({ author: 'me' })` lists only the documents the
+signed-in viewer wrote ([Lists](./storage#lists)). It needs a signed-in viewer:
+a signed-out one is refused `sign_in_required`, so check
+`useBlockContext().viewer` before you call it.
 
 ### Host UI stays on the bridge
 
@@ -397,6 +411,9 @@ globalThis.fetch = (async (input: RequestInfo | URL) => {
 Then assert on `calls` — the **requests your app made**, not just the values it
 rendered. A fixture that fits on one page cannot see a dropped `cursor`
 parameter.
+
+For the document store, test against
+[`createFakeStorage`](./storage#testing) instead of a faked `fetch`.
 
 Keep your existing mock host for the calls that remain on the bridge — the
 resource picker, Buzz purchase, sign-in, publishing.

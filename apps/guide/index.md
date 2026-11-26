@@ -115,7 +115,7 @@ first day).
 - **[Storing data (document store)](./storage)** — declare collections in the
   manifest, read and write documents, the scopes and limits, testing with
   `createFakeStorage`, reaching another app's data through `storage.imports`,
-  and the deprecated counters, marks, `write: "none"` and publish.
+  and what replaced the removed counters, marks, `write: "none"` and publish.
 - **[Votes, likes and reports](./votes-and-reports)** — viewer-keyed
   collections (`keyedBy`, `getMine` / `putMine` / `deleteMine`), counting by
   listing, `app.moderation.report`, and moving off counters and marks.

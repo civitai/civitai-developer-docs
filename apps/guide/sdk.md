@@ -2,11 +2,11 @@
 title: The @civitai/sdk client
 description: What a block does with @civitai/sdk — initialize(), app.onChange, app.host, app.site, app.requestGrants, and app.workflows for generation, with the idempotency key every submit needs.
 sources:
-  - npm:@civitai/sdk@0.29.1/dist/index.d.ts
-  - npm:@civitai/sdk@0.29.1/dist/app/index.d.ts
-  - npm:@civitai/sdk@0.29.1/dist/host/index.d.ts
-  - npm:@civitai/sdk@0.29.1/dist/workflows/index.d.ts
-  - npm:@civitai/sdk@0.29.1#README
+  - npm:@civitai/sdk@0.33.0/dist/index.d.ts
+  - npm:@civitai/sdk@0.33.0/dist/app/index.d.ts
+  - npm:@civitai/sdk@0.33.0/dist/host/index.d.ts
+  - npm:@civitai/sdk@0.33.0/dist/workflows/index.d.ts
+  - npm:@civitai/sdk@0.33.0#README
   - npm:@civitai/app-sdk@0.92.0/blocks#isValidBlockIdempotencyKey
   - civitai:src/pages/api/v1/blocks/workflows/submit.ts
 ---
@@ -81,8 +81,7 @@ lists the harness origin for you.
 | `app.host` | the host's own UI: pickers, uploads, sign-in, navigation, sizing |
 | `app.site` | the Civitai REST API at `/api/v1`, with the app's token |
 | `app.workflows` | generation for a block, through the host's block workflow routes — see [money calls](#money-calls) |
-| `app.storage` | the [document store](./storage): `collection(name)` and `info()` (0.14.0 or later); its `get`/`set`/`delete`/`list`/`getQuota` are the deprecated per-viewer key/value store, shut down on 2026-11-10 (its calls fail with an error from then) |
-| `app.sharedStorage` | the deprecated cross-viewer key/value store, shut down on 2026-11-10 (its calls fail with an error from then); new apps use a shared collection |
+| `app.storage` | the [document store](./storage): `collection(name)`, `info()` and `mode`. The legacy key/value methods (`get`/`set`/`delete`/`list`/`getQuota`) were removed in 0.33.0 |
 | `app.subListings` | the viewer's own App Store items for this app: `upsert`, `withdraw`, `mine` — see [Sub-listings](./sub-listings) |
 | `app.requestGrants(scopes, opts?)` | asks the viewer for more scopes |
 | `app.getToken(opts?)` | the token, for a call this client does not make itself |

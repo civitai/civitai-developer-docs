@@ -1,6 +1,6 @@
 ---
 title: Votes, likes and reports (viewer-keyed documents)
-description: Store a vote, a like, a rating or one entry per viewer in the document store with a viewer-keyed collection (keyedBy "viewer" or "parent+viewer", getMine / putMine / deleteMine / parentOf, the /@me routes), count by listing, report a document to moderators with app.moderation.report, and move off the deprecated counters, marks, write "none" and publish.
+description: Store a vote, a like, a rating or one entry per viewer in the document store with a viewer-keyed collection (keyedBy "viewer" or "parent+viewer", getMine / putMine / deleteMine / parentOf, the /@me routes), count by listing, report a document to moderators with app.moderation.report, and replace the removed counters, marks, write "none" and publish.
 sources:
   - civitai-app-starters:packages/civitai-sdk/src/doc-store/index.ts
   - civitai-app-starters:packages/civitai-sdk/src/doc-store/moderation.ts
@@ -18,10 +18,11 @@ A vote, a like, a rating, a bookmark or one entry per viewer is stored in the
 [document store](./storage) as an ordinary document in a **viewer-keyed**
 collection: the server gives each viewer at most one document of their own,
 per item if you like, and nobody else can write it. A document is reported to
-moderators through the **report API**. Both replace the deprecated counters,
+moderators through the **report API**. Both replace the removed counters,
 marks and `report` mark ([Moving off](#moving-off)).
 
-Both need `@civitai/sdk` **0.30.0** or later:
+Use `@civitai/sdk` **0.33.0** or later (the calls arrived in 0.30.0, and
+[the data service](./storage-data-service) in 0.32.0):
 
 ```bash
 npm install @civitai/sdk@latest
@@ -68,8 +69,7 @@ The rules:
 
 - **Shared `write: "own"` only.** It is refused on a private collection (which
   already has one key space per viewer), with any other `write` policy, on a
-  `kind: "log"` collection, and beside `counters` or `marks` on the same
-  collection.
+  `kind: "log"` collection.
 - **Write your own, only.** The key is never taken from the request: every
   `@me` call resolves the viewer from the token, so a viewer can only ever reach
   their own document. A create (`POST /{collection}`) and a write or delete by
@@ -135,7 +135,6 @@ With the manifest above, a viewer votes on a record, changes their mind, and the
 app shows the total:
 
 ```ts
-// @ts-skip-snippet: getMine / putMine / deleteMine are in @civitai/sdk 0.30.0, newer than this site's pinned SDK
 import { initialize } from '@civitai/sdk';
 
 const app = await initialize();
@@ -167,7 +166,9 @@ const myVotes = await votes.list({ author: 'me', limit: 100 });
 const votedOn = new Set(myVotes.items.map((v) => votes.parentOf(v.key)));
 ```
 
-Over REST the same calls are:
+Over REST the same calls are below. From a block, use the SDK calls above:
+direct REST calls always go to civitai.com and never get
+[the data service](./storage-data-service).
 
 ```bash
 # The viewer's vote on record 01JD3Q8M5Z4X2V7K9C6B1N0RTA (404 not_found when they have none)
@@ -200,8 +201,8 @@ The `PUT` answers the stored document, at the derived key:
 }
 ```
 
-(`counters`, `marks` and `viewer` are the [deprecated](./storage#deprecated) tally
-fields: empty here, and gone once they are removed.)
+(`counters`, `marks` and `viewer` are always empty, kept only for older SDKs.
+Do not read them.)
 
 Deleting a record does not delete its votes: they stay, charged to their voters,
 until each voter deletes their own. Filter out votes whose record is gone.
@@ -213,7 +214,6 @@ collection to Civitai's moderators. In `@civitai/sdk` it is
 `app.moderation.report`:
 
 ```ts
-// @ts-skip-snippet: app.moderation is in @civitai/sdk 0.30.0, newer than this site's pinned SDK
 import { initialize, StorageError } from '@civitai/sdk';
 
 const app = await initialize();
@@ -247,11 +247,9 @@ curl -s -X POST "https://civitai.com/api/v1/blocks/moderation/reports" \
   app's own documents needs no publish scope; through an import it follows the
   import's rules, as a write does.
 - **Limit:** the daily report limit in the [limits table](./storage#limits)
-  (`rate_limited` past it). The deprecated `report` mark spends the same
-  budget.
+  (`rate_limited` past it).
 - **What it reaches:** a document that is not there or not visible is
-  `404 not_found`. Moderators see the report in their queue, as a `report`
-  mark's.
+  `404 not_found`. Moderators see the report in their queue.
 
 The report API is served for every app. Against an older civitai.com, or while
 the route is rolled back, it answers as an unknown route and
@@ -260,88 +258,24 @@ hide the report action then.
 
 ## Moving off counters, marks and publish {#moving-off}
 
-Marks, counters, `write: "none"`, the `report` mark, the tally fields and list
-parameters, and `publish` / `unpublish` are
-[deprecated](./storage#deprecated): they keep working, a new version may not
-add a mark, a counter or `write: "none"` its previous approved version did not
-already declare on that collection, and they will be removed once no app uses
-them. Call by call:
+Marks, counters, `write: "none"`, the tally fields and list parameters, and
+`publish` / `unpublish` were [removed](./storage#deprecated) from the document
+store, and from `@civitai/sdk` 0.33.0 the methods are gone too. A report goes
+only through `app.moderation.report`. Call by call:
 
-| Deprecated | Use instead |
+| Removed | Use instead |
 |---|---|
 | `marks: ["vote"]` + `update(key, { $mark: 'vote' })` / `{ $unmark: 'vote' }` | a `keyedBy: "parent+viewer"` collection + `putMine(data, { parent: key })` / `deleteMine({ parent: key })` ([worked example](#votes-example)) |
 | `marks.vote` on a document (the count) | list the votes collection with `keyPrefix: key + ':'` and count ([Counting](#viewer-keyed-counting)) |
 | `viewer.marks.includes('vote')` | `getMine(key)` is not `null`; for a page of items, `list({ author: 'me' })` once |
 | `sort: '-mark:vote'`, `sort: 'counter:<name>'` | none: sort in your app after counting |
 | `markedBy: 'me', mark: 'vote'` | `list({ author: 'me' })` on the votes collection |
-| `counters` + `update(key, { $inc })`, `write: "none"` | a viewer-keyed collection holding what each viewer did (for example `{ "count": 3 }`), summed by your app |
-| `update(key, { $mark: 'report' })` | [`app.moderation.report({ collection, key })`](#reporting) |
+| `counters` + `update(key, { $inc })` / `increment`, `write: "none"` | a viewer-keyed collection holding what each viewer did (for example `{ "count": 3 }`), summed by your app; there is no server-side counter |
+| `update(key, { $mark: 'report' })` / `mark(key, 'report')` | [`app.moderation.report({ collection, key })`](#reporting) |
 | `publish({ from, keys })` / `unpublish(keys)` | `get` each private document, then `put` / `delete` the shared copy |
 
-
-Existing marks and counters are not copied into a viewer-keyed collection by
-themselves. If your app holds marks or counters viewers care about, contact the
-Civitai team before you drop the declaration. Declare the viewer-keyed
-collection under a **new** name: `keyedBy` cannot be added to a collection an
-approved version already declared.
-
-### Counters and marks {#counters-and-marks}
-
-For apps that still declare them. New code uses
-[viewer-keyed documents](#viewer-keyed) and the [report API](#reporting).
-
-Both exist on shared collections only, and both need a signed-in viewer. A
-counter or mark is an **update operator**: `update(key, op)` sends exactly one,
-as `PATCH /{collection}/{key}` with the operator as the body.
-
-```ts
-import { initialize } from '@civitai/sdk';
-
-const app = await initialize();
-const plays = app.storage.collection('plays'); // write: "none", counters: ["plays"]
-
-const { value } = await plays.update('model-123', { $inc: { plays: 1 } }); // creates the document on first use
-await app.storage.collection('requests').update('r1', { $mark: 'vote' });
-```
-
-- `{ $inc: { <counter>: by } }` adds `by` to one declared counter and resolves
-  `{ value }`, the new total. `by` is required. In a `write: "none"` collection
-  the first `$inc` of a missing key creates the document.
-- `{ $mark: name }` and `{ $unmark: name }` are idempotent and resolve
-  `{ marked, count }`. `viewer.marks` on each document tells you which ones this
-  viewer has set. For a vote, a like or a bookmark in new code, use a
-  [viewer-keyed collection](#viewer-keyed) instead.
-- `report` is the built-in mark that sends a document to moderators. Its count
-  is never returned, and **a report cannot be withdrawn**: `{ $unmark: 'report' }`
-  is refused `invalid_request` for every caller. Reports have their own daily
-  limit on top of the marks-and-counters one. New code uses the
-  [report API](#reporting), which files the same report.
-
-#### Refused bodies {#update-refusals}
-
-A body that is not exactly one operator is refused `invalid_request` with a
-`details.reason`: `empty_patch` (none, or `{}`), `unknown_operator`,
-`multiple_operators`, `merge_patch_unsupported` (plain fields only; to change
-`data`, `put` it) or `malformed_operator` (not an object, an operator beside
-another field, an `$inc` naming other than one counter, a non-string mark
-name). A bad value in a well-formed operator, such as an undeclared counter,
-is refused without a `details.reason`.
-
-#### `increment`, `mark`, `unmark` and `update` {#moving-off-increment-mark-unmark}
-
-`increment`, `mark`, `unmark` and their routes (`POST …/counters/{name}`,
-`PUT`/`DELETE …/marks/{name}`), **and** `update` with its `PATCH` operators, are
-all [deprecated](./storage#deprecated): moving from the first three to `update` is no
-longer a way forward, since `update` is being removed too. They keep working
-with the same replies and have no removal date. Their responses carry
-`Deprecation: @1794182400` (2026-11-09) and a `Link` with `rel="deprecation"` to
-the [storage guide](./storage#deprecated). Move to:
-
-- a mark such as `vote`, `like` or `bookmark` → a `keyedBy: "parent+viewer"`
-  collection: `putMine(data, { parent: key })` to set it, `deleteMine({ parent:
-  key })` to clear it, `getMine(key)` to read it, and a `keyPrefix` list to count
-  ([worked example](#votes-example));
-- a counter → a viewer-keyed collection holding what each viewer did, summed by
-  your app ([Counting](#viewer-keyed-counting)); there is no server-side counter;
-- the `report` mark → [`app.moderation.report`](#reporting).
-
+A version you submit may not add `marks`, `counters` or `write: "none"`. One
+your previous approved version declared may stay, and does nothing; a
+`write: "none"` collection is read-only until a version drops it. Declare the
+viewer-keyed collection under a **new** name: `keyedBy` cannot be added to a
+collection an approved version already declared.
