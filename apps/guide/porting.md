@@ -355,9 +355,12 @@ a signed-out one is refused `sign_in_required`, so check
 
 ### Reading a collection's items {#collection-items}
 
-`GET /api/v1/blocks/collections/{id}` (scope `collections:read:self`) answers
-`{ collection, items, nextCursor }`, and returns only a collection's image and
-video items. Each item carries `mediaId`, `type` (`'image'` or `'video'`),
+`GET /api/v1/blocks/collections/{id}` (scope `collections:read:self`; a private
+collection also needs `collections:read:private`, and without it answers `404`)
+answers `{ collection, items, nextCursor }`, and returns only a collection's
+image and video items. Other items are dropped after the page is read, so a page
+can be short or empty while more remain: keep paging while `nextCursor` is
+present, never stop on a short page. Each item carries `mediaId`, `type` (`'image'` or `'video'`),
 `url`, `width`, `height`, `creator`, `nsfwLevel`, a `reactTicket` when one
 could be signed, and:
 
