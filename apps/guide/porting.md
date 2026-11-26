@@ -290,11 +290,13 @@ keeps its hooks for everything else.
 Start both bridge clients **in the same tick, before React renders**. Each
 answers the host's first `BLOCK_INIT`, and the host stops sending it once one
 of them has answered, so a client that starts later never receives it: an
-`initialize()` called from a component after the hooks have connected rejects
-with `unavailable`. Construct the hooks' client with `getTransport()` from
-`@civitai/blocks-react` (`getTransport` honours only its first call, so a
-dev harness that passes it options must still run first), and call
-`initialize()` with **no token** in the same module:
+`initialize()` called from a component after the hooks have connected waits
+out `timeoutMs` (10 s by default), then rejects with `unavailable`; if the
+hooks' client is the late one, the hooks never connect. Construct the hooks'
+client with `getTransport()` from `@civitai/blocks-react` (`getTransport`
+honours only its first call, so a dev harness that passes it options must
+still run first), and call `initialize()` with **no token** in the same
+module, the simplest way to keep both in one tick:
 
 ```tsx
 // src/platform/civitai.ts: imported by main.tsx before it renders
@@ -304,6 +306,13 @@ import { initialize } from '@civitai/sdk';
 getTransport(); // the hooks' bridge client, listening from now
 export const civitai = initialize(); // the SDK's, listening in the same tick
 ```
+
+The two packages keep separate bridge clients, so options a dev harness passes
+to the hooks' `getTransport()` do not reach the SDK's. Under `dev:harness`, allow
+the dev server's origin for `@civitai/sdk` too: set
+`VITE_BLOCK_ALLOWED_PARENT_ORIGINS` to it, or call `getTransport({
+allowedParentOrigins })` from `@civitai/sdk` before `initialize()`. Otherwise
+`initialize()` ignores the harness's `BLOCK_INIT` and rejects the same way.
 
 ```tsx
 // src/platform/entries.ts: a capability, named the way your app thinks about it
