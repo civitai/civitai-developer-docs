@@ -21,8 +21,8 @@ per item if you like, and nobody else can write it. A document is reported to
 moderators through the **report API**. Both replace the removed counters,
 marks and `report` mark ([Moving off](#moving-off)).
 
-Both need `@civitai/sdk` **0.30.0** or later, and 0.32.0 or later for
-[the data service](./storage-data-service):
+Use `@civitai/sdk` **0.33.0** or later (the calls arrived in 0.30.0, and
+[the data service](./storage-data-service) in 0.32.0):
 
 ```bash
 npm install @civitai/sdk@latest
@@ -247,8 +247,7 @@ curl -s -X POST "https://civitai.com/api/v1/blocks/moderation/reports" \
   app's own documents needs no publish scope; through an import it follows the
   import's rules, as a write does.
 - **Limit:** the daily report limit in the [limits table](./storage#limits)
-  (`rate_limited` past it). An SDK older than 0.30.0 files the same report
-  with `mark(key, 'report')`, on the same budget.
+  (`rate_limited` past it).
 - **What it reaches:** a document that is not there or not visible is
   `404 not_found`. Moderators see the report in their queue.
 
@@ -261,8 +260,8 @@ hide the report action then.
 
 Marks, counters, `write: "none"`, the tally fields and list parameters, and
 `publish` / `unpublish` were [removed](./storage#deprecated) from the document
-store: their calls now fail (an SDK older than 0.30.0 still files a report with
-`mark(key, 'report')`). Call by call:
+store, and from `@civitai/sdk` 0.33.0 the methods are gone too. A report goes
+only through `app.moderation.report`. Call by call:
 
 | Removed | Use instead |
 |---|---|

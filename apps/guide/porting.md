@@ -3,9 +3,9 @@ title: Moving a block off the bridge
 description: Replace a block's postMessage data calls with /api/v1/blocks/* REST calls — what each credential reaches, what auth oauth gives up, and a hook-by-hook replacement table.
 sources:
   - npm:@civitai/blocks-react@0.85.0/dist/index.d.ts
-  - npm:@civitai/sdk@0.32.0/dist/index.d.ts
-  - npm:@civitai/sdk@0.32.0/dist/workflows/index.d.ts
-  - npm:@civitai/sdk@0.32.0/dist/doc-store/index.d.ts
+  - npm:@civitai/sdk@0.33.0/dist/index.d.ts
+  - npm:@civitai/sdk@0.33.0/dist/workflows/index.d.ts
+  - npm:@civitai/sdk@0.33.0/dist/doc-store/index.d.ts
   - civitai-app-starters:packages/civitai-sdk/BREAKING.md
   - civitai:public/schemas/app-block/v1.json#auth
   - civitai:src/pages/api/v1/blocks
@@ -284,7 +284,7 @@ For the [document store](./storage), use `@civitai/sdk`'s
 SDK gets the [data service](./storage-data-service), Civitai's faster storage
 path; a direct `fetch` to `/api/v1/blocks/storage` always goes to civitai.com.
 A React app on `@civitai/blocks-react` adds `@civitai/sdk` beside it
-(`npm install @civitai/sdk@latest`; 0.32.0 or later for the data service) and
+(`npm install @civitai/sdk@latest`; 0.33.0 or later) and
 keeps its hooks for everything else.
 
 Start both bridge clients **in the same tick, before React renders**. Each

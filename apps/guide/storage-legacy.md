@@ -2,7 +2,7 @@
 title: Moving from the legacy stores
 description: The legacy useAppStorage / useSharedStorage stores and their app-storage / shared-storage routes were shut down on 2026-11-10 (410 Gone, legacy_store_removed) — how each legacy call maps onto the document store, keys that do not carry over, what did not carry over from a legacy board, and how item keys resolve once an app declares a shared collection.
 sources:
-  - npm:@civitai/sdk@0.32.0#README
+  - npm:@civitai/sdk@0.33.0#README
   - civitai:src/server/services/apps/doc-store-api.ts
 ---
 
@@ -10,7 +10,7 @@ sources:
 
 `useAppStorage` and `useSharedStorage` in `@civitai/blocks-react`, the matching
 `app.storage.get/set/delete/list/getQuota` and `app.sharedStorage` methods in
-`@civitai/sdk`, and the routes under `/api/v1/blocks/app-storage/*` and
+`@civitai/sdk` (removed from the SDK in 0.33.0), and the routes under `/api/v1/blocks/app-storage/*` and
 `/api/v1/blocks/shared-storage/*`, with their scopes (`apps:storage:read`,
 `apps:storage:write`, `apps:storage:shared:read`, `apps:storage:shared:write`),
 were **shut down on 2026-11-10**. The legacy REST routes answer

@@ -2,9 +2,9 @@
 title: Storing data (document store)
 description: Keep an app's data on Civitai with the document store — declare collections in the manifest, the apps:storage, apps:storage:publish and apps:storage:import scopes, documents, conditional writes, lists, viewer-keyed documents for votes, likes and one entry per viewer, reporting a document to moderators, the removed counters, marks, write "none" and publish, reaching another app's data through storage.imports and ?from=, what viewers can do with their own data, moderation, error codes, limits, local development, createFakeStorage, the REST routes, and moving off the legacy useAppStorage / useSharedStorage stores.
 sources:
-  - npm:@civitai/sdk@0.32.0/dist/doc-store/index.d.ts
-  - npm:@civitai/sdk@0.32.0/dist/doc-store/fake.d.ts
-  - npm:@civitai/sdk@0.32.0#README
+  - npm:@civitai/sdk@0.33.0/dist/doc-store/index.d.ts
+  - npm:@civitai/sdk@0.33.0/dist/doc-store/fake.d.ts
+  - npm:@civitai/sdk@0.33.0#README
   - civitai:public/schemas/app-block/v1.json#storage
   - civitai:public/schemas/app-block/storage-contract.v1.json
   - civitai:src/shared/constants/block-storage.constants.ts
@@ -48,7 +48,7 @@ From 0.32.0 it can use Civitai's faster [data service](./storage-data-service).
 The [REST API](#rest-reference) is for other clients and always goes to
 civitai.com.
 
-Minimum versions for this page: `@civitai/sdk` **0.32.0**, `@civitai/app-sdk`
+Minimum versions for this page: `@civitai/sdk` **0.33.0**, `@civitai/app-sdk`
 **0.82.0**, `@civitai/blocks-react` **0.79.0**, `civitai` CLI **v0.1.136**.
 A scaffolded app may pin an older SDK, and a caret range on a `0.x` version
 never moves to the next minor, so check, and raise it if needed:
@@ -76,8 +76,7 @@ their routes answer as unknown routes (`404`, or `405` for the `PATCH` of
   viewer-keyed collection.
 - **A count:** list the viewer-keyed documents (`keyPrefix`) and count them;
   there is no server-side count, sum or sort by count.
-- **A report:** the [report API](#reporting). An SDK older than 0.30.0 still
-  files one with `mark(key, 'report')`.
+- **A report:** [`app.moderation.report`](#reporting).
 - **Publish:** write the shared copies one by one with `put` / `delete`.
 
 A version you submit may not add `marks`, `counters` or `write: "none"` to a
@@ -631,8 +630,8 @@ A document is `{ key, data, version, createdAt, updatedAt, author }`:
 - `author` is `{ kind: 'user', isViewer, username? }` for a viewer's document
   (`username` only in a `showAuthor` collection), or `{ kind: 'app' }`. It
   never carries a numeric user id.
-- A reply from civitai.com also carries `counters: {}`, `marks: {}` and
-  `viewer`, always empty, only for older SDKs that expect them. Do not read them.
+- A reply from civitai.com also carries empty `counters`, `marks` and
+  `viewer` for older SDKs; `@civitai/sdk` 0.33.0 ignores them.
 
 Reads and writes use the same database connection, so a read made after a write
 succeeded sees it; there is no replica delay to wait out.
@@ -1224,8 +1223,9 @@ await codeOf(requestsIn(fake.storage).create({ title: FAKE_STORAGE_MODERATION.bl
   `viewer_keyed_closed`. It serves the [report API](#reporting) only with
   `reports: true`. The fake's default is off, so your default tests exercise
   the `report_unavailable` path; civitai.com serves the route for every app.
-- It still serves the removed `update` (and `publish` with `publish: true`),
-  which civitai.com no longer does: do not build on them.
+- It answers the removed routes as civitai.com does: the tally `PATCH` `405`;
+  counters, marks, `_publish` and `_unpublish` `404`; `markedBy` / `mark` and
+  tally sorts refused; a `write: "none"` collection read-only.
 - It does not model moderator hides, the review namespace, or a failed
   ownership lookup (the server's retryable `503 service_unavailable`).
 
@@ -1279,8 +1279,8 @@ curl -s "https://civitai.com/api/v1/blocks/storage/requests?where%5Bstatus%5D=op
 
 ## Moving from the legacy stores {#moving-from-the-legacy-stores}
 
-`useAppStorage`, `useSharedStorage`, `app.storage.get/set/delete/list/getQuota`,
-`app.sharedStorage` and the routes under `/api/v1/blocks/app-storage/*` and
+`useAppStorage`, `useSharedStorage`, `app.storage.get/set/delete/list/getQuota`
+and `app.sharedStorage` (removed from `@civitai/sdk` in 0.33.0) and the routes under `/api/v1/blocks/app-storage/*` and
 `/api/v1/blocks/shared-storage/*` were **shut down on 2026-11-10** and answer
 `410 Gone`. How each call maps onto the document store, and what does not carry
 over, is in [Moving from the legacy stores](./storage-legacy).
