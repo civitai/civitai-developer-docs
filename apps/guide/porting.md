@@ -353,6 +353,19 @@ signed-in viewer wrote ([Lists](./storage#lists)). It needs a signed-in viewer:
 a signed-out one is refused `sign_in_required`, so check
 `useBlockContext().viewer` before you call it.
 
+### Reading a collection's items {#collection-items}
+
+`GET /api/v1/blocks/collections/{id}` (scope `collections:read:self`) answers
+`{ collection, items, nextCursor }`, and returns only a collection's image and
+video items. Each item carries `mediaId`, `type` (`'image'` or `'video'`),
+`url`, `width`, `height`, `creator`, `nsfwLevel`, a `reactTicket` when one
+could be signed, and:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `addedAt` | `string \| null` | When the item was added to **this collection**, as an ISO 8601 string (`2026-03-04T05:06:07.000Z`). This is not when the image itself was uploaded. Always present; `null` when the time is unknown. |
+| `duration` | `number` | The video's length in seconds, always greater than zero. Only on a `'video'` item whose length is known. On an image, or a video of unknown length, the key is **absent**: never `null` or `0`. Test for it with `'duration' in item`. |
+
 ### Host UI stays on the bridge
 
 Only the host can draw this UI, so `@civitai/blocks-react`'s hooks remain the
