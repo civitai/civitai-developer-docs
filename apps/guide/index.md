@@ -112,6 +112,9 @@ first day).
 - **[Multi-step workflows](./workflows)** — chain up to eight orchestrator steps
   in one generation (`kind: 'workflow'`), a later step reading an earlier one's
   result; `repeat`, `merge`, the limits and how the price works.
+- **[Generate 3D models in an app](./3d-models)** — image to 3D with a
+  pass-through `polyGen` step: the body, the Buzz budget, picking the GLB out of
+  `model3dOutputs`, unrated models, showing it in a viewer and saving a `.glb`.
 - **[Storing data (document store)](./storage)** — declare collections in the
   manifest, read and write documents, the scopes and limits, testing with
   `createFakeStorage`, reaching another app's data through `storage.imports`,

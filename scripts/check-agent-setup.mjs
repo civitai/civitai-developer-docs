@@ -1555,6 +1555,9 @@ export const PROMPT_DOC_TWIN_URLS = new Set([
   // Its "Give your app its own look" section: the advisory accent/skin guidance
   // both agent-setup pages point at.
   'https://developer.civitai.com/apps/guide/theming.md',
+  // The in-sandbox leaf's pointer for 3D generation (polyGen, model3dOutputs,
+  // unrated meshes, viewer and .glb save).
+  'https://developer.civitai.com/apps/guide/3d-models.md',
 ]);
 for (const u of PROMPT_DOC_TWIN_URLS) {
   if (/agent-setup|prompt/i.test(u) || !u.startsWith('https://developer.civitai.com/') || !u.endsWith('.md')) {
