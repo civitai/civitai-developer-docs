@@ -139,40 +139,39 @@ opens the host's consent dialog and re-sends once the viewer grants it;
 On a pass-through body, the estimate's `cost.total` is what the submit would
 **reserve**, `max(maxBuzz, quote)`, or `maxBuzz` when unquoted. It is not a
 guaranteed ceiling: nothing on this arm stops a job billing above the
-reservation, so do not show it to the viewer as a maximum. Where your app
-charges an author fee, `cost.authorFee` itemises it.
+reservation, so do not show it to the viewer as a maximum. A pass-through
+`kind: 'step'` body charges **no author fee**, so its estimate carries no
+`cost.authorFee`. To charge your fee on a 3D run, submit it as a
+[multi-step workflow](./workflows) (`kind: 'workflow'`), which charges one fee
+for the whole workflow.
 
-When the price is **above your per-call budget**, the estimate can carry a
-`stepQuote` instead, and the job runs through
-[`useRunConfirmedStep()`](../reference/hooks/batches-and-training#hook-useRunConfirmedStep):
-Civitai shows the viewer `stepQuote.total` in its own dialog and submits on
-their click. It needs a fixed price of at most 5,000 Buzz, and it ships behind a
-host flag that is **off by default**, so an estimate with no `stepQuote` is
-normal. Without one, a job over the budget cannot run from your app.
+A job priced **above your per-call budget** cannot run from `submit`. The
+host's confirmed-step route
+([`useRunConfirmedStep()`](../reference/hooks/batches-and-training#hook-useRunConfirmedStep))
+covers fixed prices up to 5,000 Buzz only, which is already the per-call cap
+above, and it ships behind a host flag that is off by default. So set
+`buzzBudgetPerGen` high enough for your engine instead.
 
 ```tsx
-import { useBuzzWorkflow, useRunConfirmedStep } from '@civitai/blocks-react';
+import { useBuzzWorkflow } from '@civitai/blocks-react';
 import type { WorkflowBodyPassThroughStep } from '@civitai/app-sdk/blocks';
 
 declare const body: WorkflowBodyPassThroughStep;
 
 function useGenerate3d() {
   const { estimate, submit, watch } = useBuzzWorkflow();
-  const { runConfirmedStep } = useRunConfirmedStep();
 
   return async function generate() {
     const priced = await estimate(body); // rejects with WorkflowEstimateError when unpriced
-    const started = priced.stepQuote
-      ? await runConfirmedStep({ ...body, quoteId: priced.stepQuote.quoteId })
-      : await submit(body);
+    void priced.cost; // show the viewer the reservation before they confirm
+    const started = await submit(body);
     if (started.status === 'failed') return started; // e.g. 'insufficient buzz budget: …'
     return watch(started.workflowId, { timeoutMs: 25 * 60_000 });
   };
 }
 ```
 
-`runConfirmedStep` rejects when the viewer declines, and it never retries: see
-its reference for the error flags before you write the catch. `submit()`
+`submit()`
 **resolves** with `status: 'failed'` for a budget or spend-cap refusal rather
 than rejecting; the cases are listed under
 [`useBuzzWorkflow`](../reference/generation/lifecycle#bridge-useBuzzWorkflow).
@@ -181,8 +180,9 @@ On the default `page-elements` template, `@civitai/sdk` 0.33.0 sends the same
 body with `app.workflows.estimate(body)`,
 `app.workflows.submit(body, { idempotencyKey })` and
 `app.workflows.wait(workflowId)`, and its snapshot carries the same
-`model3dOutputs` field. The confirmed-step and save calls on this page are
-`@civitai/blocks-react` hooks.
+`model3dOutputs` field. It has no bytes save, though: `app.host.download({ url })`
+saves under an image extension ([section 8](#saving)), so saving a `.glb` needs
+`@civitai/blocks-react`'s `useSaveImage` (a React app).
 
 ## 4. Poll until it is done {#polling}
 
@@ -269,7 +269,7 @@ to the host. Not yet confirmed: we have not run a working `polyGen` plus
 `model3DPreview` workflow body end to end, so treat that route as unverified.
 
 For a restricted model,
-[`useOutputUnlock()`](../reference/hooks/generation#hook-useBuzzWorkflow)
+[`useOutputUnlock()`](../reference/hooks/buzz-and-purchases#hook-useOutputUnlock)
 (see "Unlocking a restricted output") opens the host's dialog; for `'unrated'`
 it is never charged and cannot hand you the URL. The full rules are under
 "Restricted outputs" on the same page.
@@ -316,6 +316,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 async function showModel(canvas: HTMLCanvasElement, url: string) {
   const renderer = new WebGLRenderer({ canvas, antialias: true });
+  renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
   const scene = new Scene();
   scene.add(new HemisphereLight(0xffffff, 0x444444, 3));
   const camera = new PerspectiveCamera(45, canvas.clientWidth / canvas.clientHeight, 0.01, 100);
@@ -349,7 +350,9 @@ declare const glbUrl: string;
 function SaveModelButton() {
   const { saveImage } = useSaveImage();
   async function onClick() {
-    const bytes = await (await fetch(glbUrl)).arrayBuffer();
+    const res = await fetch(glbUrl); // model urls expire: an expired one answers an error body
+    if (!res.ok) throw new Error(`model fetch failed: ${res.status}`);
+    const bytes = await res.arrayBuffer();
     await saveImage({ bytes, filename: 'model.glb' }); // rejects with the host's reason
   }
   return <button onClick={onClick}>Download .glb</button>;
