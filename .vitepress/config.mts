@@ -71,6 +71,7 @@ const appsGuideSidebar: DefaultTheme.SidebarItem[] = [
       { text: 'Comfy on Civitai (customComfy)', link: '/apps/guide/comfy-cloud' },
       { text: 'Reading a workflow file', link: '/apps/guide/workflow-files' },
       { text: 'Multi-step workflows', link: '/apps/guide/workflows' },
+      { text: 'Generate 3D models in an app', link: '/apps/guide/3d-models' },
       { text: 'Storing data (document store)', link: '/apps/guide/storage' },
       { text: 'Faster storage (the data service)', link: '/apps/guide/storage-data-service' },
       { text: 'Votes, likes and reports', link: '/apps/guide/votes-and-reports' },

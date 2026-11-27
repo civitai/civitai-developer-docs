@@ -100,7 +100,7 @@ check('nested rows sit directly after `storage`, in schema order', () => {
   const nested = rows.slice(at + 1, rows.findIndex((r, i) => i > at && !r.field.startsWith('storage.')));
   assertEqual(
     nested.map((r) => r.field.replace('storage.collections.<name>.', '')).join(','),
-    'storage.imports,storage.collections,kind,visibility,write,counters,marks,indexes,showAuthor,ttlSeconds,maxEntries,dailyWritesPerAuthor,exportable,registry,ownedModelVersions,schema,migrations,hook',
+    'storage.imports,storage.collections,kind,visibility,write,counters,marks,indexes,showAuthor,ttlSeconds,maxEntries,dailyWritesPerAuthor,exportable,registry,ownedModelVersions,schema,migrations,keyedBy,hook',
     'nested row order',
   );
 });

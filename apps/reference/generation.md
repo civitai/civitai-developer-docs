@@ -2,8 +2,8 @@
 title: Generation bridge reference
 description: The field-level generation contract — the WorkflowBody union, the useBuzzWorkflow lifecycle (incl. cancel), and the BlockWorkflowSnapshot result — with every type indexed and linked to the page that documents it, generated from the published SDK type JSDoc.
 sources:
-  - npm:@civitai/app-sdk@0.92.0/blocks#WorkflowBody
-  - npm:@civitai/blocks-react@0.85.0#useBuzzWorkflow
+  - npm:@civitai/app-sdk@0.95.1/blocks#WorkflowBody
+  - npm:@civitai/blocks-react@0.87.0#useBuzzWorkflow
 ---
 
 # Generation bridge reference
@@ -18,7 +18,9 @@ and `@civitai/blocks-react` type definitions — the same JSDoc your editor show
 — so they can't drift from the packages you install. For the narrative version
 (with worked img2img / LoRA examples and the page-vs-model rules) start with the
 [text-to-image generation guide](../guide/text-to-image); for the ComfyUI recipe
-path see [Comfy on Civitai](../guide/comfy-cloud).
+path see [Comfy on Civitai](../guide/comfy-cloud); for 3D models (a pass-through
+`polyGen` step and `model3dOutputs`) see
+[Generate 3D models in an app](../guide/3d-models).
 
 Before you design against the field tables, read
 [what the bridge can and cannot do](#what-the-bridge-can-and-cannot-do) — the

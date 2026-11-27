@@ -142,7 +142,7 @@ hard **error**:
 
 | Catches | `field` | Fix |
 | --- | --- | --- |
-| A shared collection that uses one name for both a counter and a mark | `storage.collections.<name>` | Rename one of them. |
+| `marks`, `counters` or `write: "none"` on a shared collection, all [removed](./storage#deprecated) (from v0.1.154; the same collection naming one name as both a counter and a mark is a further error) | `storage.collections.<name>.marks` / `.counters` / `.write` | Remove it, and use a [viewer-keyed collection](./votes-and-reports) and `app.moderation.report` instead. civitai.com accepts one only where your previous approved version already declares it, and there it does nothing; the CLI cannot see that version, so it reports every declaration. |
 | Collections declared without `apps:storage` in `scopes` | `scopes` | Add `apps:storage`, or remove `storage`. |
 | A shared collection that viewers write (`write: "own"`) without `apps:storage:publish` | `scopes` | Add the scope, with a `scopeJustifications` entry. |
 | `apps:storage` with no collection or import declared | `storage` | Declare the collections under `storage.collections`, or remove the scope. |
@@ -163,7 +163,7 @@ collection's [`schema`](./storage#collection-schemas) is checked in two layers.
 - **The JSON Schema** checks the keyword subset (any other keyword is an
   unknown property at its location), each keyword's shape, a `pattern` of at
   most 256 characters, a `pattern` with no `maxLength` of at most 1000 on the
-  same schema, and a schema on a `write: "none"` collection.
+  same schema, and a schema on a collection with the removed `write: "none"`.
 - **These errors** carry the server's message, for the bounds the JSON Schema
   cannot express:
 
@@ -175,7 +175,7 @@ collection's [`schema`](./storage#collection-schemas) is checked in two layers.
 | More than 32 patterns across all of the manifest's collection schemas, counting every place one appears, in the collections that are otherwise valid | `storage.collections` |
 | `minLength`, `minItems` or `minimum` above its maximum | the lower bound's location |
 | A count keyword above 2^53 − 1 | that keyword's location |
-| A schema on a `write: "none"` collection, with the server's message beside the JSON Schema's bare `false schema` | `storage.collections.<name>.schema` |
+| A schema on a collection with the removed `write: "none"`, with the server's message beside the JSON Schema's bare `false schema` | `storage.collections.<name>.schema` |
 
 **Patterns are a warning, never an error, and passing is not parity.** The
 server compiles a `pattern` as a JavaScript regular expression with the `u`
