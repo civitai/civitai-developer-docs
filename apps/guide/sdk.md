@@ -184,6 +184,29 @@ const me = await app.site.get('blocks/me'); // declare and grant user:read:self 
 const images = await app.site.get('blocks/gated-images', { query: { ids: '1,2,3' } });
 ```
 
+### The viewer's avatar {#viewer-avatar}
+
+`blocks/me` returns the viewer's avatar as `image`, under the same `user:read:self`
+scope. The same value arrives on `app.viewer.image` (and `useBlockContext().viewer.image`
+/ `useViewer().viewer.image` in React) when the token carries that scope. The platform
+judges it against your app's maturity ceiling, which is the same ceiling that restricts
+your workflow outputs:
+
+| `image` | Meaning |
+|---|---|
+| `{ url, nsfwLevel }` | A ready-to-render CDN image url, and the avatar's rating (`'pg'` … `'xxx'`, the vocabulary of a workflow output's `nsfwLevel`) |
+| `{ restricted: true }` | The viewer has an avatar your app may not show: it's rated above your ceiling (an X avatar in an SFW app), or it isn't rated yet. There's no url, and deliberately no reason |
+| `null` | The viewer has no avatar |
+| absent | The token lacks `user:read:self`, or the host predates the field |
+
+```ts
+const me = await app.site.get('blocks/me');
+const avatarUrl = me.image && 'url' in me.image ? me.image.url : null; // else show a placeholder
+```
+
+`app.viewer.image` is computed when the token is minted and isn't re-sent after a
+later consent grant. Read `blocks/me` for a fresh value.
+
 Paths are relative to `/api/v1`, so a route the API gains needs no SDK release.
 The client has `get(path, opts?)`, `post(path, body?, opts?)` and
 `request(method, path, opts?)`; options take a `query`, a `body` and a `signal`.
