@@ -38,6 +38,9 @@ palette. Set `--civitai-color-primary`, `--civitai-color-primary-hover` and
 `:root`), and check it in both themes. Details: "Give your app its own look" in
 https://developer.civitai.com/apps/guide/theming.md
 
+Generating 3D models: read https://developer.civitai.com/apps/guide/3d-models.md
+first.
+
 ## 4. The user's instructions win
 
 The user's own request outranks this page and `AGENTS.md`. If they ask you to
