@@ -35,7 +35,7 @@ the closed beta and needs a **page app**, the
 [`ai:write:budgeted`](../reference/scopes) scope and a **signed-in** viewer.
 The examples use `@civitai/blocks-react@0.87.0` and
 `@civitai/app-sdk@0.95.1`; `WorkflowBodyPassThroughStep` needs
-`@civitai/app-sdk@0.43.0` or later.
+`@civitai/app-sdk` 0.43.0 or later.
 :::
 
 ## 1. The manifest: scope and budget {#manifest}
