@@ -23,7 +23,7 @@ source the manifest validator and the token minter read.
 | Scope | What it authorizes | OAuth bit | Binding |
 |---|---|---|---|
 | `models:read:self` | Read the model on the page where the block is mounted | `ModelsRead` | Bound to the model on the page where the block is mounted (a model-slot install supplies the modelId context). |
-| `user:read:self` | Read the viewer's username and account status | `UserRead` | Self-bound to the token subject; rejected for an anonymous subject. |
+| `user:read:self` | Read the viewer's username, profile picture and account status | `UserRead` | Self-bound to the token subject; rejected for an anonymous subject. |
 | `ai:write:budgeted` | Run AI work that spends the viewer's Buzz, with a per-call cap | `AIServicesWrite` | Host-enforced per-call Buzz cap; the token carries a buzzBudget claim the host clamps against. |
 | `buzz:read:self` | Read the viewer's Buzz balance | `BuzzRead` | Self-bound to the token subject (the signed-in viewer). |
 | `social:tip:self` | Post tips on behalf of the viewer | `SocialTip` | Self-bound: tips are posted as the token subject. |
