@@ -473,8 +473,9 @@ Platform updates from Civitai staff:
   merged after a conflict) and merges each into
   this checkout with `git merge --no-ff <commit>` — the commit Civitai
   recorded, never whatever its branch now points at. Each is printed with who
-  made it and why; "(verified Civitai staff)" appears only when the server
-  confirms the commit, and an update that changes the manifest or a storage
+  made it and why (the server names a verified staff update "CivitaiOfficial
+  (App Assistant)"); one the server does not confirm says it could not be
+  verified, and an update that changes the manifest or a storage
   hook says it changes what the app is allowed to do. The bundle then includes
   it, and the merge is yours to push.
   Submit REFUSES while one is unmerged — it conflicts (the merge is aborted
@@ -967,9 +968,10 @@ for open ones (pending, or not yet merged after a conflict) and merges each
 into the checkout, oldest first, with
 `git merge --no-ff <commit>` — the exact commit Civitai recorded, fetched
 from the source repository by URL (no remote is added), never the branch tip.
-Each merge prints who made it and why: "<user> (verified Civitai staff)
-updated your app: <reason>" when the server confirms the commit, or the same
-line without the badge and a note that it could not be verified. It also lists
+Each merge prints who made it and why: "CivitaiOfficial (App Assistant)
+updated your app: <reason>" — the name the server gives a verified staff
+update — and, when the server does not confirm the commit, a note that it
+could not be verified. It also lists
 the files it changes, and says so when it changes the manifest or a storage
 hook, which decide what your app is allowed to do. A branch with extra commits
 on top has them left out, and you are told. An update that conflicts is not
