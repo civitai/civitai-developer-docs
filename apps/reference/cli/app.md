@@ -417,6 +417,16 @@ Build provenance:
   all rather than a guess — and --allow-dirty still stamps, marking the
   submission dirty, because that is the case worth being able to look up.
 
+Outdated-SDK guard:
+  A submit that would really upload also reads the platform's published SDK
+  minimum and REFUSES while the lockfile installs @civitai/sdk or
+  @civitai/blocks-react below it, naming the upgrade command. The version
+  judged is the INSTALLED one from the lockfile, not package.json's range; an
+  app that depends on neither is not checked. Pass --allow-outdated-sdk to
+  submit anyway: the override and the versions are recorded with the
+  submission and shown to the moderator who reviews it. A server that
+  publishes no minimum gets a one-line note and no refusal.
+
 Listing-completeness gate:
   A submit that would really upload also checks the app's STORE LISTING and
   REFUSES while it is missing something you can fix now: a missing icon or
@@ -456,6 +466,31 @@ GitHub Actions:
   the error says why. It is read from the environment only (there is no flag,
   so it never appears on the command line) and is never printed.
 
+Platform updates from Civitai staff:
+  Civitai staff can push an update to your app (a platform update: an SDK
+  bump, say) as one commit in the app's source repository. A submit that would
+  really upload first asks the server for open ones (pending, or not yet
+  merged after a conflict) and merges each into
+  this checkout with `git merge --no-ff <commit>` — the commit Civitai
+  recorded, never whatever its branch now points at. Each is printed with who
+  made it and why (the server names a verified staff update "CivitaiOfficial
+  (App Assistant)"); one the server does not confirm says it could not be
+  verified, and an update that changes the manifest or a storage
+  hook says it changes what the app is allowed to do. The bundle then includes
+  it, and the merge is yours to push.
+  Submit REFUSES while one is unmerged — it conflicts (the merge is aborted
+  and the hand-merge command is printed), the app directory has uncommitted
+  changes, the directory is not a git checkout, or the checkout shares no
+  history with the source repository (a build-repository checkout: the
+  cherry-pick that applies it is printed) — because a bundle built without it
+  would drop it. From a detached HEAD the update is merged into the bundle,
+  but the merge commit is on no branch, so push or branch it afterwards.
+  The SERVER checks the bundle too, and refuses one missing a staff update
+  that no approved version has shipped (the CLI lists what it names).
+  Pass --allow-unmerged-platform-update to submit without it: the override is
+  sent with the submission and recorded for the moderator who reviews it.
+  A server without platform updates prints nothing.
+
 Storage migration notes:
   An app that declares App Storage collections is checked by the SERVER
   against the previous approved version. An accepted submit prints the
@@ -475,6 +510,8 @@ Defaults to the current directory.
   civitai app submit --allow-dirty      # submit uncommitted working-tree changes on purpose
   civitai app submit --allow-oversize   # submit past the vendored body-size ceiling
   civitai app submit --allow-incomplete-listing  # submit before the store listing is finished
+  civitai app submit --allow-outdated-sdk        # submit on an SDK below the platform minimum
+  civitai app submit --allow-unmerged-platform-update  # submit without a pending staff update
   civitai app submit -o my-block.zip ./my-block
 ```
 
@@ -483,7 +520,9 @@ Defaults to the current directory.
 | `--allow-dirty` | submit even when the packaged directory has uncommitted git changes | — |
 | `--allow-downgrade` | submit even when the version is not above the highest approved one (deliberate rollback) | — |
 | `--allow-incomplete-listing` | submit even when the app's store listing is missing media or copy (--yes does NOT waive that gate) | — |
+| `--allow-outdated-sdk` | submit even when the lockfile installs @civitai/sdk or @civitai/blocks-react below the platform minimum (the override is shown to the moderator) | — |
 | `--allow-oversize` | submit even when the body exceeds the size the server is expected to accept | — |
+| `--allow-unmerged-platform-update` | submit without merging pending platform updates from Civitai staff (the bundle will not contain them; the override is recorded for the moderator) | — |
 | `-o, --out string` | output .zip path (default: \<blockId>-\<version>.zip) | — |
 | `--package-only` | only write the .zip; do not attempt submission | — |
 | `--skip-validate` | skip manifest validation before packaging | — |
@@ -922,6 +961,32 @@ rotated by this.
 An app with no source repository has a build repository only once its FIRST
 version has been submitted as a ZIP and approved; before then the command tells
 you so instead of failing obscurely.
+
+PLATFORM UPDATES: Civitai staff can push an update to your app (an SDK bump,
+say) as one commit in its source repository. After syncing, this command asks
+for open ones (pending, or not yet merged after a conflict) and merges each
+into the checkout, oldest first, with
+`git merge --no-ff <commit>` — the exact commit Civitai recorded, fetched
+from the source repository by URL (no remote is added), never the branch tip.
+Each merge prints who made it and why: "CivitaiOfficial (App Assistant)
+updated your app: <reason>" — the name the server gives a verified staff
+update — and, when the server does not confirm the commit, a note that it
+could not be verified. It also lists
+the files it changes, and says so when it changes the manifest or a storage
+hook, which decide what your app is allowed to do. A branch with extra commits
+on top has them left out, and you are told. An update that conflicts is not
+merged: the merge is aborted, the command prints how to merge that commit by
+hand, and it exits non-zero; every later pull retries it, and reports it merged
+once it applies or once you have merged that commit by hand and committed. A
+merge git stops without a conflict (a failing commit signer or hook) is aborted
+and reported as that. An app directory with uncommitted changes is never merged
+into; commit or discard them and pull again (changes elsewhere in a larger
+repository do not count unless the merge would touch them). A checkout of the
+build repository, or of any history the source repository does not share, is
+not merged into: the command prints the git fetch + cherry-pick that applies
+the commit there. On a detached HEAD the update is merged but not reported
+merged: the merge commit is on no branch until you push or branch it. A server
+without platform updates prints nothing.
 ```
 
 ```bash
